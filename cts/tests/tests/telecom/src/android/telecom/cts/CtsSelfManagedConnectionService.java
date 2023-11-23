@@ -24,15 +24,11 @@ import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
-import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-
-import static org.junit.Assert.assertTrue;
 
 /**
  * CTS test self-managed {@link ConnectionService} implementation.
@@ -99,7 +95,6 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
     @Override
     public Connection onCreateIncomingConnection(PhoneAccountHandle connectionManagerPhoneAccount,
             ConnectionRequest request) {
-
         return createSelfManagedConnection(request, true);
     }
 
@@ -175,9 +170,12 @@ public class CtsSelfManagedConnectionService extends ConnectionService {
         connection.putExtras(moreExtras);
         connection.setVideoState(request.getVideoState());
 
-        if (!isIncoming) {
-           connection.setInitializing();
+        if (isIncoming) {
+            connection.setRinging();
+        } else {
+            connection.setInitializing();
         }
+
         synchronized(mLock) {
             mConnections.add(connection);
         }

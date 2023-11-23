@@ -23,6 +23,7 @@ import (
 	"path"
 	"sync"
 
+	"android/soong/bazel"
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
@@ -125,6 +126,7 @@ func syspropJavaGenFactory() android.Module {
 type syspropLibrary struct {
 	android.ModuleBase
 	android.ApexModuleBase
+	android.BazelModuleBase
 
 	properties syspropLibraryProperties
 
@@ -334,8 +336,8 @@ func (m *syspropLibrary) AndroidMk() android.AndroidMkData {
 		Custom: func(w io.Writer, name, prefix, moduleDir string, data android.AndroidMkData) {
 			// sysprop_library module itself is defined as a FAKE module to perform API check.
 			// Actual implementation libraries are created on LoadHookMutator
-			fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)")
-			fmt.Fprintf(w, "LOCAL_MODULE := %s\n", m.Name())
+			fmt.Fprintln(w, "\ninclude $(CLEAR_VARS)", " # sysprop.syspropLibrary")
+			fmt.Fprintln(w, "LOCAL_MODULE :=", m.Name())
 			data.Entries.WriteLicenseVariables(w)
 			fmt.Fprintf(w, "LOCAL_MODULE_CLASS := FAKE\n")
 			fmt.Fprintf(w, "LOCAL_MODULE_TAGS := optional\n")
@@ -363,7 +365,10 @@ func (m *syspropLibrary) ShouldSupportSdkVersion(ctx android.BaseModuleContext,
 // sysprop_library creates schematized APIs from sysprop description files (.sysprop).
 // Both Java and C++ modules can link against sysprop_library, and API stability check
 // against latest APIs (see build/soong/scripts/freeze-sysprop-api-files.sh)
-// is performed.
+// is performed. Note that the generated C++ module has its name prefixed with
+// `lib`, and it is this module that should be depended on from other C++
+// modules; i.e., if the sysprop_library module is named `foo`, C++ modules
+// should depend on `libfoo`.
 func syspropLibraryFactory() android.Module {
 	m := &syspropLibrary{}
 
@@ -372,6 +377,7 @@ func syspropLibraryFactory() android.Module {
 	)
 	android.InitAndroidModule(m)
 	android.InitApexModule(m)
+	android.InitBazelModule(m)
 	android.AddLoadHook(m, func(ctx android.LoadHookContext) { syspropLibraryHook(ctx, m) })
 	return m
 }
@@ -403,6 +409,9 @@ type ccLibraryProperties struct {
 	Host_supported     *bool
 	Apex_available     []string
 	Min_sdk_version    *string
+	Bazel_module       struct {
+		Bp2build_available *bool
+	}
 }
 
 type javaLibraryProperties struct {
@@ -483,6 +492,11 @@ func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
 	ccProps.Host_supported = m.properties.Host_supported
 	ccProps.Apex_available = m.ApexProperties.Apex_available
 	ccProps.Min_sdk_version = m.properties.Cpp.Min_sdk_version
+	// A Bazel macro handles this, so this module does not need to be handled
+	// in bp2build
+	// TODO(b/237810289) perhaps do something different here so that we aren't
+	//                   also disabling these modules in mixed builds
+	ccProps.Bazel_module.Bp2build_available = proptools.BoolPtr(false)
 	ctx.CreateModule(cc.LibraryFactory, &ccProps)
 
 	scope := "internal"
@@ -556,4 +570,17 @@ func syspropLibraryHook(ctx android.LoadHookContext, m *syspropLibrary) {
 		libraries := syspropLibraries(ctx.Config())
 		*libraries = append(*libraries, "//"+ctx.ModuleDir()+":"+ctx.ModuleName())
 	}
+}
+
+// TODO(b/240463568): Additional properties will be added for API validation
+func (m *syspropLibrary) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
+	labels := cc.SyspropLibraryLabels{
+		SyspropLibraryLabel: m.BaseModuleName(),
+		SharedLibraryLabel:  m.CcImplementationModuleName(),
+		StaticLibraryLabel:  cc.BazelLabelNameForStaticModule(m.CcImplementationModuleName()),
+	}
+	cc.Bp2buildSysprop(ctx,
+		labels,
+		bazel.MakeLabelListAttribute(android.BazelLabelForModuleSrc(ctx, m.properties.Srcs)),
+		m.properties.Cpp.Min_sdk_version)
 }

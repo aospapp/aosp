@@ -18,6 +18,7 @@
 #define ART_COMPILER_OPTIMIZING_CODE_GENERATOR_ARM_VIXL_H_
 
 #include "base/enums.h"
+#include "base/macros.h"
 #include "class_root.h"
 #include "code_generator.h"
 #include "common_arm.h"
@@ -36,7 +37,7 @@
 #include "aarch32/macro-assembler-aarch32.h"
 #pragma GCC diagnostic pop
 
-namespace art {
+namespace art HIDDEN {
 
 namespace linker {
 class Thumb2RelativePatcherTest;
@@ -84,7 +85,7 @@ static const vixl::aarch32::RegisterList kCoreCalleeSaves = vixl::aarch32::Regis
                                 vixl::aarch32::r6,
                                 vixl::aarch32::r7),
     // Do not consider r8 as a callee-save register with Baker read barriers.
-    ((kEmitCompilerReadBarrier && kUseBakerReadBarrier)
+    (kReserveMarkingRegister
          ? vixl::aarch32::RegisterList()
          : vixl::aarch32::RegisterList(vixl::aarch32::r8)),
     vixl::aarch32::RegisterList(vixl::aarch32::r10,
@@ -117,6 +118,65 @@ class CodeGeneratorARMVIXL;
 
 using VIXLInt32Literal = vixl::aarch32::Literal<int32_t>;
 using VIXLUInt32Literal = vixl::aarch32::Literal<uint32_t>;
+
+#define UNIMPLEMENTED_INTRINSIC_LIST_ARM(V)                                \
+  V(MathRoundDouble) /* Could be done by changing rounding mode, maybe? */ \
+  V(UnsafeCASLong)   /* High register pressure */                          \
+  V(SystemArrayCopyChar)                                                   \
+  V(LongDivideUnsigned)                                                    \
+  V(CRC32Update)                                                           \
+  V(CRC32UpdateBytes)                                                      \
+  V(CRC32UpdateByteBuffer)                                                 \
+  V(FP16ToFloat)                                                           \
+  V(FP16ToHalf)                                                            \
+  V(FP16Floor)                                                             \
+  V(FP16Ceil)                                                              \
+  V(FP16Rint)                                                              \
+  V(FP16Greater)                                                           \
+  V(FP16GreaterEquals)                                                     \
+  V(FP16Less)                                                              \
+  V(FP16LessEquals)                                                        \
+  V(FP16Compare)                                                           \
+  V(FP16Min)                                                               \
+  V(FP16Max)                                                               \
+  V(MathMultiplyHigh)                                                      \
+  V(StringStringIndexOf)                                                   \
+  V(StringStringIndexOfAfter)                                              \
+  V(StringBufferAppend)                                                    \
+  V(StringBufferLength)                                                    \
+  V(StringBufferToString)                                                  \
+  V(StringBuilderAppendObject)                                             \
+  V(StringBuilderAppendString)                                             \
+  V(StringBuilderAppendCharSequence)                                       \
+  V(StringBuilderAppendCharArray)                                          \
+  V(StringBuilderAppendBoolean)                                            \
+  V(StringBuilderAppendChar)                                               \
+  V(StringBuilderAppendInt)                                                \
+  V(StringBuilderAppendLong)                                               \
+  V(StringBuilderAppendFloat)                                              \
+  V(StringBuilderAppendDouble)                                             \
+  V(StringBuilderLength)                                                   \
+  V(StringBuilderToString)                                                 \
+  V(SystemArrayCopyByte)                                                   \
+  V(SystemArrayCopyInt)                                                    \
+  /* 1.8 */                                                                \
+  V(MathFmaDouble)                                                         \
+  V(MathFmaFloat)                                                          \
+  V(UnsafeGetAndAddInt)                                                    \
+  V(UnsafeGetAndAddLong)                                                   \
+  V(UnsafeGetAndSetInt)                                                    \
+  V(UnsafeGetAndSetLong)                                                   \
+  V(UnsafeGetAndSetObject)                                                 \
+  V(MethodHandleInvokeExact)                                               \
+  V(MethodHandleInvoke)                                                    \
+  /* OpenJDK 11 */                                                         \
+  V(JdkUnsafeCASLong) /* High register pressure */                         \
+  V(JdkUnsafeGetAndAddInt)                                                 \
+  V(JdkUnsafeGetAndAddLong)                                                \
+  V(JdkUnsafeGetAndSetInt)                                                 \
+  V(JdkUnsafeGetAndSetLong)                                                \
+  V(JdkUnsafeGetAndSetObject)                                              \
+  V(JdkUnsafeCompareAndSetLong)
 
 class JumpTableARMVIXL : public DeletableArenaObject<kArenaAllocSwitchTable> {
  public:
@@ -309,7 +369,9 @@ class LocationsBuilderARMVIXL : public HGraphVisitor {
   void HandleIntegerRotate(LocationSummary* locations);
   void HandleLongRotate(LocationSummary* locations);
   void HandleShift(HBinaryOperation* operation);
-  void HandleFieldSet(HInstruction* instruction, const FieldInfo& field_info);
+  void HandleFieldSet(HInstruction* instruction,
+                      const FieldInfo& field_info,
+                      WriteBarrierKind write_barrier_kind);
   void HandleFieldGet(HInstruction* instruction, const FieldInfo& field_info);
 
   Location ArithmeticZeroOrFpuRegister(HInstruction* input);
@@ -378,7 +440,8 @@ class InstructionCodeGeneratorARMVIXL : public InstructionCodeGenerator {
 
   void HandleFieldSet(HInstruction* instruction,
                       const FieldInfo& field_info,
-                      bool value_can_be_null);
+                      bool value_can_be_null,
+                      WriteBarrierKind write_barrier_kind);
   void HandleFieldGet(HInstruction* instruction, const FieldInfo& field_info);
 
   void GenerateMinMaxInt(LocationSummary* locations, bool is_min);
@@ -542,7 +605,7 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
                   vixl::aarch32::Register card,
                   vixl::aarch32::Register object,
                   vixl::aarch32::Register value,
-                  bool value_can_be_null);
+                  bool emit_null_check);
 
   void GenerateMemoryBarrier(MemBarrierKind kind);
 
@@ -602,7 +665,6 @@ class CodeGeneratorARMVIXL : public CodeGenerator {
   struct PcRelativePatchInfo {
     PcRelativePatchInfo(const DexFile* dex_file, uint32_t off_or_idx)
         : target_dex_file(dex_file), offset_or_index(off_or_idx) { }
-    PcRelativePatchInfo(PcRelativePatchInfo&& other) = default;
 
     // Target dex file or null for .data.bmig.rel.ro patches.
     const DexFile* target_dex_file;

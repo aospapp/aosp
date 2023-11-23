@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/ec_key_factory.h>
 
+#include <utility>
+
 #include <openssl/curve25519.h>
 #include <openssl/evp.h>
 
@@ -178,14 +180,14 @@ keymaster_error_t EcKeyFactory::GenerateKey(const AuthorizationSet& key_descript
     } else if (is_x25519) {
         key.reset(new (std::nothrow) X25519Key(*hw_enforced, *sw_enforced, this, key_material));
     } else {
-        key.reset(new (std::nothrow) EcKey(*hw_enforced, *sw_enforced, this, move(ec_key)));
+        key.reset(new (std::nothrow) EcKey(*hw_enforced, *sw_enforced, this, std::move(ec_key)));
     }
     if (key == nullptr) {
         return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     }
 
     if (key_description.Contains(TAG_ATTESTATION_CHALLENGE)) {
-        *cert_chain = context_.GenerateAttestation(*key, key_description, move(attest_key),
+        *cert_chain = context_.GenerateAttestation(*key, key_description, std::move(attest_key),
                                                    issuer_subject, &error);
     } else if (attest_key.get() != nullptr) {
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
@@ -207,8 +209,8 @@ keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_descriptio
                                           AuthorizationSet* sw_enforced,
                                           CertificateChain* cert_chain) const {
     if (input_key_material_format == KM_KEY_FORMAT_RAW) {
-        return ImportRawKey(key_description, input_key_material, move(attest_key), issuer_subject,
-                            output_key_blob, hw_enforced, sw_enforced, cert_chain);
+        return ImportRawKey(key_description, input_key_material, std::move(attest_key),
+                            issuer_subject, output_key_blob, hw_enforced, sw_enforced, cert_chain);
     }
 
     if (!output_key_blob || !hw_enforced || !sw_enforced) return KM_ERROR_OUTPUT_PARAMETER_NULL;
@@ -231,7 +233,7 @@ keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_descriptio
     if (error != KM_ERROR_OK) return error;
 
     std::unique_ptr<AsymmetricKey> key;
-    switch (EVP_PKEY_type(pkey->type)) {
+    switch (EVP_PKEY_id(pkey.get())) {
     case EVP_PKEY_ED25519:
         key.reset(new (std::nothrow) Ed25519Key(*hw_enforced, *sw_enforced, this));
         if (key.get() == nullptr) {
@@ -254,7 +256,7 @@ keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_descriptio
         EC_KEY_Ptr ec_key(EVP_PKEY_get1_EC_KEY(pkey.get()));
         if (!ec_key.get()) return KM_ERROR_INVALID_ARGUMENT;
 
-        key.reset(new (std::nothrow) EcKey(*hw_enforced, *sw_enforced, this, move(ec_key)));
+        key.reset(new (std::nothrow) EcKey(*hw_enforced, *sw_enforced, this, std::move(ec_key)));
         if (key.get() == nullptr) {
             return KM_ERROR_MEMORY_ALLOCATION_FAILED;
         }
@@ -268,7 +270,7 @@ keymaster_error_t EcKeyFactory::ImportKey(const AuthorizationSet& key_descriptio
     }
 
     if (key_description.Contains(KM_TAG_ATTESTATION_CHALLENGE)) {
-        *cert_chain = context_.GenerateAttestation(*key, key_description, move(attest_key),
+        *cert_chain = context_.GenerateAttestation(*key, key_description, std::move(attest_key),
                                                    issuer_subject, &error);
     } else if (attest_key.get() != nullptr) {
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
@@ -359,7 +361,7 @@ keymaster_error_t EcKeyFactory::ImportRawKey(const AuthorizationSet& key_descrip
     }
 
     if (key_description.Contains(KM_TAG_ATTESTATION_CHALLENGE)) {
-        *cert_chain = context_.GenerateAttestation(*key, key_description, move(attest_key),
+        *cert_chain = context_.GenerateAttestation(*key, key_description, std::move(attest_key),
                                                    issuer_subject, &error);
     } else if (attest_key.get() != nullptr) {
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
@@ -392,7 +394,7 @@ keymaster_error_t EcKeyFactory::UpdateImportKeyDescription(const AuthorizationSe
         return KM_ERROR_IMPORT_PARAMETER_MISMATCH;
     }
 
-    switch (EVP_PKEY_type(pkey->type)) {
+    switch (EVP_PKEY_id(pkey.get())) {
     case EVP_PKEY_EC: {
         UniquePtr<EC_KEY, EC_KEY_Delete> ec_key(EVP_PKEY_get1_EC_KEY(pkey.get()));
         if (!ec_key.get()) return TranslateLastOpenSslError();
@@ -509,11 +511,13 @@ keymaster_error_t EcKeyFactory::CreateEmptyKey(AuthorizationSet&& hw_enforced,
         if (is_x25519) {
             return KM_ERROR_INCOMPATIBLE_PURPOSE;
         }
-        key->reset(new (std::nothrow) Ed25519Key(move(hw_enforced), move(sw_enforced), this));
+        key->reset(new (std::nothrow) Ed25519Key(std::move(hw_enforced), std::move(sw_enforced),
+                                                 this));
     } else if (is_x25519) {
-        key->reset(new (std::nothrow) X25519Key(move(hw_enforced), move(sw_enforced), this));
+        key->reset(new (std::nothrow) X25519Key(std::move(hw_enforced), std::move(sw_enforced),
+                                                this));
     } else {
-        key->reset(new (std::nothrow) EcKey(move(hw_enforced), move(sw_enforced), this));
+        key->reset(new (std::nothrow) EcKey(std::move(hw_enforced), std::move(sw_enforced), this));
     }
     if (!(*key)) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return KM_ERROR_OK;

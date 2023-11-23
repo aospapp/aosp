@@ -25,7 +25,7 @@ use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::config::{Config, PROFILE_OUTPUT_DIR, TRACE_OUTPUT_DIR};
+use crate::config::{Config, LOG_FILE, PROFILE_OUTPUT_DIR, TRACE_OUTPUT_DIR};
 use crate::trace_provider::{self, TraceProvider};
 use anyhow::{anyhow, ensure, Context, Result};
 
@@ -41,6 +41,7 @@ pub struct Scheduler {
 impl Scheduler {
     pub fn new() -> Result<Self> {
         let p = trace_provider::get_trace_provider()?;
+        p.lock().map_err(|e| anyhow!(e.to_string()))?.set_log_file(&LOG_FILE);
         Ok(Scheduler {
             termination_ch: None,
             trace_provider: p,
@@ -68,11 +69,12 @@ impl Scheduler {
                     Ok(_) => break,
                     Err(_) => {
                         // Did not receive a termination signal, initiate trace event.
-                        if check_space_limit(*TRACE_OUTPUT_DIR, &config).unwrap() {
+                        if check_space_limit(&TRACE_OUTPUT_DIR, &config).unwrap() {
                             trace_provider.lock().unwrap().trace(
                                 &TRACE_OUTPUT_DIR,
                                 "periodic",
                                 &config.sampling_period,
+                                &config.binary_filter,
                             );
                         }
                     }
@@ -94,8 +96,13 @@ impl Scheduler {
 
     pub fn one_shot(&self, config: &Config, tag: &str) -> Result<()> {
         let trace_provider = self.trace_provider.clone();
-        if check_space_limit(*TRACE_OUTPUT_DIR, config)? {
-            trace_provider.lock().unwrap().trace(&TRACE_OUTPUT_DIR, tag, &config.sampling_period);
+        if check_space_limit(&TRACE_OUTPUT_DIR, config)? {
+            trace_provider.lock().unwrap().trace(
+                &TRACE_OUTPUT_DIR,
+                tag,
+                &config.sampling_period,
+                &config.binary_filter,
+            );
         }
         Ok(())
     }
@@ -157,6 +164,17 @@ impl Scheduler {
                 cb();
             }
         });
+    }
+
+    pub fn clear_trace_log(&self) -> Result<()> {
+        let provider = self.trace_provider.lock().map_err(|e| anyhow!(e.to_string()))?;
+        provider.reset_log_file();
+        let mut result = Ok(());
+        if LOG_FILE.exists() {
+            result = fs::remove_file(*LOG_FILE).map_err(|e| anyhow!(e));
+        }
+        provider.set_log_file(&LOG_FILE);
+        result
     }
 }
 

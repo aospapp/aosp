@@ -42,11 +42,13 @@ import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequ
 import android.content.ComponentName;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.FlakyTest;
 import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.SaveInfo;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.autofill.AutofillId;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 
@@ -150,6 +152,7 @@ public class MultiScreenLoginTest
      * with the service setting the client state just in the first request (so its passed to both
      * the second fill request and the save request.
      */
+    @FlakyTest(bugId = 268463466)
     @Test
     public void testSaveBothFieldsAtOnceNoClientStateOnSecondRequest() throws Exception {
         // Set service

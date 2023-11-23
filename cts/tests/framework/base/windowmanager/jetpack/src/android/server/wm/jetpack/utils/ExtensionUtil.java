@@ -16,33 +16,30 @@
 
 package android.server.wm.jetpack.utils;
 
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.getActivityBounds;
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.getMaximumActivityBounds;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Rect;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.UiContext;
 import androidx.window.extensions.WindowExtensions;
 import androidx.window.extensions.WindowExtensionsProvider;
+import androidx.window.extensions.area.WindowAreaComponent;
 import androidx.window.extensions.layout.DisplayFeature;
 import androidx.window.extensions.layout.FoldingFeature;
 import androidx.window.extensions.layout.WindowLayoutComponent;
 import androidx.window.extensions.layout.WindowLayoutInfo;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 /**
@@ -54,7 +51,9 @@ public class ExtensionUtil {
 
     private static final String EXTENSION_TAG = "Extension";
 
-    public static final Version MINIMUM_EXTENSION_VERSION = new Version(1, 0, 0, "");
+    public static final Version EXTENSION_VERSION_1 = new Version(1, 0, 0, "");
+
+    public static final Version EXTENSION_VERSION_2 = new Version(1, 1, 0, "");
 
     @NonNull
     public static Version getExtensionVersion() {
@@ -72,10 +71,33 @@ public class ExtensionUtil {
         return Version.UNKNOWN;
     }
 
+    public static boolean isExtensionVersionAtLeast(Version targetVersion) {
+        final Version version = getExtensionVersion();
+        return version.compareTo(targetVersion) >= 0;
+    }
+
+    public static boolean isExtensionVersionLatest() {
+        return isExtensionVersionAtLeast(EXTENSION_VERSION_2);
+    }
+
+    /**
+     * If called on a device with the vendor api level less than the bound then the test will be
+     * ignored.
+     * @param vendorApiLevel minimum {@link WindowExtensions#getVendorApiLevel()} for a test to
+     *                       succeed
+     */
+    public static void assumeVendorApiLevelAtLeast(int vendorApiLevel) {
+        final Version version = getExtensionVersion();
+        assumeTrue(
+                "Needs vendorApiLevel " + vendorApiLevel + " but has " + version.getMajor(),
+                version.getMajor() >= vendorApiLevel
+        );
+    }
+
     public static boolean isExtensionVersionValid() {
         final Version version = getExtensionVersion();
         // Check that the extension version on the device is at least the minimum valid version.
-        return version.compareTo(MINIMUM_EXTENSION_VERSION) >= 0;
+        return version.compareTo(EXTENSION_VERSION_1) >= 0;
     }
 
     @Nullable
@@ -95,7 +117,7 @@ public class ExtensionUtil {
         assumeTrue("Device does not support extensions", extensionNotNull);
         // If extensions are on the device, make sure that the version is valid.
         assertTrue("Extension version is invalid, must be at least "
-                + MINIMUM_EXTENSION_VERSION.toString(), isExtensionVersionValid());
+                + EXTENSION_VERSION_1.toString(), isExtensionVersionValid());
     }
 
     @Nullable
@@ -107,9 +129,15 @@ public class ExtensionUtil {
         return extension.getWindowLayoutComponent();
     }
 
+    /**
+     * Publishes a WindowLayoutInfo update to a test consumer. In EXTENSION_VERSION_1, only type
+     * Activity can be the listener to WindowLayoutInfo changes. This method should be called at
+     * most once for each given Activity because addWindowLayoutInfoListener implementation
+     * assumes a 1-1 mapping between the activity and consumer.
+     */
     @Nullable
     public static WindowLayoutInfo getExtensionWindowLayoutInfo(Activity activity)
-            throws ExecutionException, InterruptedException, TimeoutException {
+            throws InterruptedException {
         WindowLayoutComponent windowLayoutComponent = getExtensionWindowLayoutComponent();
         if (windowLayoutComponent == null) {
             return null;
@@ -117,12 +145,46 @@ public class ExtensionUtil {
         TestValueCountConsumer<WindowLayoutInfo> windowLayoutInfoConsumer =
                 new TestValueCountConsumer<>();
         windowLayoutComponent.addWindowLayoutInfoListener(activity, windowLayoutInfoConsumer);
-        return windowLayoutInfoConsumer.waitAndGet();
+        WindowLayoutInfo info = windowLayoutInfoConsumer.waitAndGet();
+
+        // The default implementation only allows a single listener per activity. Since we are using
+        // a local windowLayoutInfoConsumer within this function, we must remember to clean up.
+        // Otherwise, subsequent calls to addWindowLayoutInfoListener with the same activity will
+        // fail to have its callback registered.
+        windowLayoutComponent.removeWindowLayoutInfoListener(windowLayoutInfoConsumer);
+        return info;
+    }
+
+    /**
+     * Publishes a WindowLayoutInfo update to a test consumer. In EXTENSION_VERSION_2 both type
+     * WindowContext and Activity can be listeners. This method should be called at most once for
+     * each given Context because addWindowLayoutInfoListener implementation assumes a 1-1
+     * mapping between the context and consumer.
+     */
+    @Nullable
+    public static WindowLayoutInfo getExtensionWindowLayoutInfo(@UiContext Context context)
+            throws InterruptedException {
+        assertTrue(isExtensionVersionAtLeast(EXTENSION_VERSION_2));
+        WindowLayoutComponent windowLayoutComponent = getExtensionWindowLayoutComponent();
+        if (windowLayoutComponent == null) {
+            return null;
+        }
+        TestValueCountConsumer<WindowLayoutInfo> windowLayoutInfoConsumer =
+                new TestValueCountConsumer<>();
+        windowLayoutComponent.addWindowLayoutInfoListener(context, windowLayoutInfoConsumer);
+        WindowLayoutInfo info = windowLayoutInfoConsumer.waitAndGet();
+
+        // The default implementation only allows a single listener per context. Since we are using
+        // a local windowLayoutInfoConsumer within this function, we must remember to clean up.
+        // Otherwise, subsequent calls to addWindowLayoutInfoListener with the same context will
+        // fail to have its callback registered.
+        windowLayoutComponent.removeWindowLayoutInfoListener(windowLayoutInfoConsumer);
+        return info;
     }
 
     @NonNull
     public static int[] getExtensionDisplayFeatureTypes(Activity activity)
-            throws ExecutionException, InterruptedException, TimeoutException {
+            throws InterruptedException {
         WindowLayoutInfo windowLayoutInfo = getExtensionWindowLayoutInfo(activity);
         if (windowLayoutInfo == null) {
             return new int[0];
@@ -146,6 +208,18 @@ public class ExtensionUtil {
         assertNotNull(windowLayoutInfo);
         assertNotNull(windowLayoutInfo.getDisplayFeatures());
         assumeFalse(windowLayoutInfo.getDisplayFeatures().isEmpty());
+    }
+
+    /**
+     * Asserts that the {@link WindowLayoutInfo} is not empty.
+     */
+    public static void assertHasDisplayFeatures(WindowLayoutInfo windowLayoutInfo) {
+        // If WindowLayoutComponent is implemented, then WindowLayoutInfo and the list of display
+        // features cannot be null. However the list can be empty if the device does not report
+        // any display features.
+        assertNotNull(windowLayoutInfo);
+        assertNotNull(windowLayoutInfo.getDisplayFeatures());
+        assertFalse(windowLayoutInfo.getDisplayFeatures().isEmpty());
     }
 
     /**
@@ -264,5 +338,18 @@ public class ExtensionUtil {
                 })
                 .filter(d -> otherOrientationBounds.contains(d.getBounds()))
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Returns the {@link WindowAreaComponent} available in {@link WindowExtensions} if available.
+     * If the component is not available, returns null.
+     */
+    @Nullable
+    public static WindowAreaComponent getExtensionWindowAreaComponent() {
+        WindowExtensions extension = getWindowExtensions();
+        if (extension == null || extension.getVendorApiLevel() < 2) {
+            return null;
+        }
+        return extension.getWindowAreaComponent();
     }
 }

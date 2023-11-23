@@ -207,7 +207,7 @@ class ProjectFileGenerator:
         """Remove the token _ENABLE_DEBUGGER_MODULE_TOKEN.
 
         Remove the token _ENABLE_DEBUGGER_MODULE_TOKEN in 2 cases:
-        1. Sub projects don't need to be filled in the enable debugger module
+        1. Sub-projects don't need to be filled in the enable debugger module
            so we remove the token here. For the main project, the enable
            debugger module will be appended if it exists at the time launching
            IDE.
@@ -226,10 +226,10 @@ class ProjectFileGenerator:
 
 
 def _merge_project_vcs_xmls(projects):
-    """Merge sub projects' git paths into main project's vcs.xml.
+    """Merge sub-projects' git paths into main project's vcs.xml.
 
     After all projects' vcs.xml are generated, collect the git path of each
-    projects and write them into main project's vcs.xml.
+    project and write them into main project's vcs.xml.
 
     Args:
         projects: A list of ProjectInfo instances.
@@ -243,6 +243,7 @@ def _merge_project_vcs_xmls(projects):
         ignore_gits = sorted(_get_all_git_path(main_project_absolute_path))
         xml_gen.write_ignore_git_dirs_file(main_project_absolute_path,
                                            ignore_gits)
+
 
 def _get_all_git_path(root_path):
     """Traverse all subdirectories to get all git folder's path.
@@ -333,7 +334,7 @@ def update_enable_debugger(module_path, enable_debugger_module_abspath=None):
 def gen_enable_debugger_module(module_abspath, android_sdk_version):
     """Generate the enable_debugger module under AIDEGen config folder.
 
-    Skip generating the enable_debugger module in IntelliJ once the attemption
+    Skip generating the enable_debugger module in IntelliJ once the attempt
     of getting the Android SDK version is failed.
 
     Args:

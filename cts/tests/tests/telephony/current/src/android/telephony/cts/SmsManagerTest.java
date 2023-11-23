@@ -34,8 +34,10 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNoException;
 import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
 import android.app.AppOpsManager;
 import android.app.PendingIntent;
 import android.app.UiAutomation;
@@ -58,12 +60,18 @@ import android.provider.Telephony;
 import android.telephony.SmsCbMessage;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.cdma.CdmaSmsCbProgramData;
+import android.telephony.cts.util.DefaultSmsAppHelper;
+import android.telephony.cts.util.TelephonyUtils;
 import android.text.TextUtils;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.ShellIdentityUtils;
 
 import org.junit.After;
 import org.junit.Before;
@@ -112,6 +120,7 @@ public class SmsManagerTest {
     private static final String FINANCIAL_SMS_APP = "android.telephony.cts.financialsms";
 
     private TelephonyManager mTelephonyManager;
+    private SubscriptionManager mSubscriptionManager;
     private String mDestAddr;
     private String mText;
     private SmsBroadcastReceiver mSendReceiver;
@@ -142,19 +151,21 @@ public class SmsManagerTest {
                 PackageManager.FEATURE_TELEPHONY_MESSAGING));
 
         mContext = getContext();
-        mTelephonyManager =
-            (TelephonyManager) getContext().getSystemService(
-                    Context.TELEPHONY_SERVICE);
-        mDestAddr = mTelephonyManager.getLine1Number();
+        mTelephonyManager = mContext.getSystemService(TelephonyManager.class);
+        mSubscriptionManager = mContext.getSystemService(SubscriptionManager.class);
         mText = "This is a test message";
+
+        executeWithShellPermissionIdentity(() -> {
+            mDestAddr = mSubscriptionManager.getPhoneNumber(mTelephonyManager.getSubscriptionId());
+        });
 
         // exclude the networks that don't support SMS delivery report
         String mccmnc = mTelephonyManager.getSimOperator();
         mDeliveryReportSupported = !(CarrierCapability.NO_DELIVERY_REPORTS.contains(mccmnc));
 
         // register receivers
-        mSendIntent = new Intent(SMS_SEND_ACTION);
-        mDeliveryIntent = new Intent(SMS_DELIVERY_ACTION);
+        mSendIntent = new Intent(SMS_SEND_ACTION).setPackage(mContext.getPackageName());
+        mDeliveryIntent = new Intent(SMS_DELIVERY_ACTION).setPackage(mContext.getPackageName());
 
         IntentFilter sendIntentFilter = new IntentFilter(SMS_SEND_ACTION);
         IntentFilter deliveryIntentFilter = new IntentFilter(SMS_DELIVERY_ACTION);
@@ -173,12 +184,19 @@ public class SmsManagerTest {
         mSmsReceivedReceiver = new SmsBroadcastReceiver(Telephony.Sms.Intents.SMS_RECEIVED_ACTION);
         mSmsRetrieverReceiver = new SmsBroadcastReceiver(SMS_RETRIEVER_ACTION);
 
-        mContext.registerReceiver(mSendReceiver, sendIntentFilter);
-        mContext.registerReceiver(mDeliveryReceiver, deliveryIntentFilter);
-        mContext.registerReceiver(mDataSmsReceiver, dataSmsReceivedIntentFilter);
-        mContext.registerReceiver(mSmsDeliverReceiver, smsDeliverIntentFilter);
+        mContext.registerReceiver(mSendReceiver, sendIntentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        mContext.registerReceiver(mDeliveryReceiver, deliveryIntentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        mContext.registerReceiver(mDataSmsReceiver, dataSmsReceivedIntentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+        mContext.registerReceiver(mSmsDeliverReceiver, smsDeliverIntentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         mContext.registerReceiver(mSmsReceivedReceiver, smsReceivedIntentFilter);
-        mContext.registerReceiver(mSmsRetrieverReceiver, smsRetrieverIntentFilter);
+        mContext.registerReceiver(mSmsRetrieverReceiver, smsRetrieverIntentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+
+        DefaultSmsAppHelper.stopBeingDefaultSmsApp();
     }
 
     @After
@@ -256,6 +274,11 @@ public class SmsManagerTest {
                 TextUtils.isEmpty(mDestAddr));
 
         String mccmnc = mTelephonyManager.getSimOperator();
+        int carrierId = mTelephonyManager.getSimCarrierId();
+        assertFalse("[RERUN] Carrier [carrier-id: " + carrierId + "] does not support "
+                        + "loop back messages. Use another carrier.",
+                CarrierCapability.UNSUPPORT_LOOP_BACK_MESSAGES.contains(carrierId));
+
         init();
 
         CompletableFuture<Bundle> callbackResult = new CompletableFuture<>();
@@ -279,7 +302,7 @@ public class SmsManagerTest {
                 mSmsRetrieverReceiver.waitForCalls(1, TIME_OUT));
     }
 
-    private void sendAndReceiveSms(boolean addMessageId) throws Exception {
+    private void sendAndReceiveSms(boolean addMessageId, boolean defaultSmsApp) throws Exception {
         // send single text sms
         init();
         if (addMessageId) {
@@ -297,14 +320,22 @@ public class SmsManagerTest {
             assertTrue("[RERUN] SMS message delivery notification not received. Check signal.",
                     mDeliveryReceiver.waitForCalls(1, TIME_OUT));
         }
-        // non-default app should receive only SMS_RECEIVED_ACTION
+
         assertTrue(mSmsReceivedReceiver.waitForCalls(1, TIME_OUT));
         // Received SMS should always contain a generated messageId
         assertNotEquals(0L, sMessageId);
-        assertTrue(mSmsDeliverReceiver.waitForCalls(0, 0));
+
+        if (defaultSmsApp) {
+            // default app should receive SMS_DELIVER_ACTION
+            assertTrue(mSmsDeliverReceiver.waitForCalls(1, TIME_OUT));
+        } else {
+            // non-default app should receive only SMS_RECEIVED_ACTION
+            assertTrue(mSmsDeliverReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
+        }
     }
 
-    private void sendAndReceiveMultipartSms(String mccmnc, boolean addMessageId) throws Exception {
+    private void sendAndReceiveMultipartSms(String mccmnc, boolean addMessageId,
+            boolean defaultSmsApp) throws Exception {
         sMessageId = 0L;
         int numPartsSent = sendMultipartTextMessageIfSupported(mccmnc, addMessageId);
         if (numPartsSent > 0) {
@@ -314,11 +345,18 @@ public class SmsManagerTest {
                 assertTrue("[RERUN] Multi part SMS message delivery notification not received. "
                         + "Check signal.", mDeliveryReceiver.waitForCalls(numPartsSent, TIME_OUT));
             }
-            // non-default app should receive only SMS_RECEIVED_ACTION
+
             assertTrue(mSmsReceivedReceiver.waitForCalls(1, TIME_OUT));
-            assertTrue(mSmsDeliverReceiver.waitForCalls(0, 0));
             // Received SMS should contain a generated messageId
             assertNotEquals(0L, sMessageId);
+
+            if (defaultSmsApp) {
+                // default app should receive SMS_DELIVER_ACTION
+                assertTrue(mSmsDeliverReceiver.waitForCalls(1, TIME_OUT));
+            } else {
+                // non-default app should receive only SMS_RECEIVED_ACTION
+                assertTrue(mSmsDeliverReceiver.verifyNoCalls(NO_CALLS_TIMEOUT_MILLIS));
+            }
         } else {
             // This GSM network doesn't support Multipart SMS message.
             // Skip the test.
@@ -343,18 +381,34 @@ public class SmsManagerTest {
     }
 
     @Test(timeout = 10 * 60 * 1000)
+    @ApiTest(apis = {
+            "android.telephony.SmsManager#sendTextMessage",
+            "android.telephony.SmsManager#sendDataMessage",
+            "android.telephony.SmsManager#sendMultipartTextMessage"})
     public void testSendAndReceiveMessages() throws Exception {
+        // Test non-default SMS app
+        testSendAndReceiveMessages(false);
+
+        // Test default SMS app
+        DefaultSmsAppHelper.ensureDefaultSmsApp();
+        testSendAndReceiveMessages(true);
+        DefaultSmsAppHelper.stopBeingDefaultSmsApp();
+    }
+
+    private void testSendAndReceiveMessages(boolean defaultSmsApp) throws Exception {
         assertFalse("[RERUN] SIM card does not provide phone number. Use a suitable SIM Card.",
                 TextUtils.isEmpty(mDestAddr));
 
         String mccmnc = mTelephonyManager.getSimOperator();
+        int carrierId = mTelephonyManager.getSimCarrierId();
+        assertFalse("[RERUN] Carrier [carrier-id: " + carrierId + "] does not support "
+                        + "loop back messages. Use another carrier.",
+                CarrierCapability.UNSUPPORT_LOOP_BACK_MESSAGES.contains(carrierId));
 
         // send/receive single text sms with and without messageId
-        sendAndReceiveSms(/* addMessageId= */ true);
-        sendAndReceiveSms(/* addMessageId= */ false);
+        sendAndReceiveSms(/* addMessageId= */ true, defaultSmsApp);
+        sendAndReceiveSms(/* addMessageId= */ false, defaultSmsApp);
 
-        // due to permission restrictions, currently there is no way to make this test app the
-        // default SMS app
 
         if (mTelephonyManager.getPhoneType() == TelephonyManager.PHONE_TYPE_CDMA) {
             // TODO: temp workaround, OCTET encoding for EMS not properly supported
@@ -365,8 +419,8 @@ public class SmsManagerTest {
         sendDataSms(mccmnc);
 
         // send/receive multi part text sms with and without messageId
-        sendAndReceiveMultipartSms(mccmnc, /* addMessageId= */ true);
-        sendAndReceiveMultipartSms(mccmnc, /* addMessageId= */ false);
+        sendAndReceiveMultipartSms(mccmnc, /* addMessageId= */ true, defaultSmsApp);
+        sendAndReceiveMultipartSms(mccmnc, /* addMessageId= */ false, defaultSmsApp);
     }
 
     @Test
@@ -821,6 +875,41 @@ public class SmsManagerTest {
                 smsManager.getSubscriptionId());
     }
 
+    /**
+     * Verify the API will not throw any exception when READ_PRIVILEGED_PHONE_STATE is granted.
+     */
+    @Test
+    public void testGetSmscIdentity() {
+        try {
+            mTelephonyManager.getHalVersion(TelephonyManager.HAL_SERVICE_RADIO);
+        } catch (IllegalStateException e) {
+            assumeNoException("Skipping test because Telephony service is null", e);
+        }
+        SmsManager smsManager = getSmsManager();
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(smsManager,
+                SmsManager::getSmscIdentity, Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
+    }
+
+    /**
+     * Verify the API will throw the SecurityException or not when no permissions are granted.
+     */
+    @Test
+    public void testGetSmscIdentity_Exception() {
+        try {
+            mTelephonyManager.getHalVersion(TelephonyManager.HAL_SERVICE_RADIO);
+        } catch (IllegalStateException e) {
+            assumeNoException("Skipping test because Telephony service is null", e);
+        }
+        dropShellIdentity();
+        try {
+            getSmsManager().getSmscIdentity();
+            fail();
+        } catch (SecurityException se) {
+            // API will throw SecurityException as no permission is granted to the caller
+        }
+        adoptShellIdentity();
+    }
+
     protected ArrayList<String> divideMessage(String text) {
         return getSmsManager().divideMessage(text);
     }
@@ -944,7 +1033,7 @@ public class SmsManagerTest {
             if (mAction.equals(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)) {
                 sMessageId = intent.getLongExtra("messageId", 0L);
             }
-            Log.i(TAG, "onReceive " + intent.getAction() + " mAction " + mAction);
+            Log.i(TAG, "onReceive " + intent.getAction() + ", mAction " + mAction);
             if (intent.getAction().equals(mAction)) {
                 synchronized (mLock) {
                     mCalls += 1;
@@ -953,7 +1042,7 @@ public class SmsManagerTest {
             }
         }
 
-        private boolean verifyNoCalls(long timeout) throws InterruptedException {
+        public boolean verifyNoCalls(long timeout) throws InterruptedException {
             synchronized(mLock) {
                 mLock.wait(timeout);
                 return mCalls == 0;
@@ -976,5 +1065,21 @@ public class SmsManagerTest {
                 return true;  // success
             }
         }
+    }
+
+    /**
+     * Adopts shell permission identity
+     */
+    private static void adoptShellIdentity() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity();
+    }
+
+    /**
+     * Drop shell permission identity
+     */
+    private static void dropShellIdentity() {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
     }
 }

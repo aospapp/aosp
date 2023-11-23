@@ -127,4 +127,7 @@ message UserConfig {
 
   // Storage options of created GCP instance, e.g. pd-standard, pd-ssd.
   optional string disk_type = 36;
+
+  // [CVD only] Ssh connect with hostname.
+  optional bool connect_hostname = 37;
 }

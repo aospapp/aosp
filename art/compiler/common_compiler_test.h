@@ -24,25 +24,25 @@
 
 #include "arch/instruction_set.h"
 #include "arch/instruction_set_features.h"
+#include "base/macros.h"
 #include "common_runtime_test.h"
 #include "compiler.h"
 #include "oat_file.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace mirror {
 class ClassLoader;
 }  // namespace mirror
 
-class CompiledMethod;
 class CompilerOptions;
 class CumulativeLogger;
 class DexFile;
 class TimingLogger;
-class VerificationResults;
 
 template<class T> class Handle;
 
-class CommonCompilerTestImpl {
+// Export all symbols in `CommonCompilerTestImpl` for dex2oat tests.
+class EXPORT CommonCompilerTestImpl {
  public:
   static std::unique_ptr<CompilerOptions> CreateCompilerOptions(InstructionSet instruction_set,
                                                                 const std::string& variant);
@@ -54,9 +54,6 @@ class CommonCompilerTestImpl {
   const void* MakeExecutable(ArrayRef<const uint8_t> code,
                              ArrayRef<const uint8_t> vmap_table,
                              InstructionSet instruction_set);
-
-  void MakeExecutable(ArtMethod* method, const CompiledMethod* compiled_method)
-      REQUIRES_SHARED(Locks::mutator_lock_);
 
  protected:
   void SetUp();
@@ -74,14 +71,6 @@ class CommonCompilerTestImpl {
 
   void CompileMethod(ArtMethod* method) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  void CompileDirectMethod(Handle<mirror::ClassLoader> class_loader, const char* class_name,
-                           const char* method_name, const char* signature)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
-  void CompileVirtualMethod(Handle<mirror::ClassLoader> class_loader, const char* class_name,
-                            const char* method_name, const char* signature)
-      REQUIRES_SHARED(Locks::mutator_lock_);
-
   void ApplyInstructionSet();
   void OverrideInstructionSetFeatures(InstructionSet instruction_set, const std::string& variant);
 
@@ -96,7 +85,6 @@ class CommonCompilerTestImpl {
       = InstructionSetFeatures::FromCppDefines();
 
   std::unique_ptr<CompilerOptions> compiler_options_;
-  std::unique_ptr<VerificationResults> verification_results_;
 
  protected:
   virtual ClassLinker* GetClassLinker() = 0;
@@ -104,6 +92,8 @@ class CommonCompilerTestImpl {
 
  private:
   class CodeAndMetadata;
+  class OneCompiledMethodStorage;
+
   std::vector<CodeAndMetadata> code_and_metadata_;
 };
 

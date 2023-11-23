@@ -12,11 +12,9 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import enum
-import logging
-import os
 import collections
-import itertools
+import logging
+from typing import FrozenSet
 
 from acts.controllers.ap_lib import hostapd_constants
 
@@ -71,6 +69,7 @@ class HostapdConfig(object):
 
     All the settings for a router that are not part of an ssid.
     """
+
     def _get_11ac_center_channel_from_channel(self, channel):
         """Returns the center channel of the selected channel band based
            on the channel and channel bandwidth provided.
@@ -132,11 +131,7 @@ class HostapdConfig(object):
     @property
     def _require_ht(self):
         """Returns: True iff clients should be required to support HT."""
-        # TODO(wiley) Why? (crbug.com/237370)
-        # DOES THIS APPLY TO US?
-        logging.warning('Not enforcing pure N mode because Snow does '
-                        'not seem to support it...')
-        return False
+        return self._mode == hostapd_constants.MODE_11N_PURE
 
     @property
     def _require_vht(self):
@@ -308,6 +303,14 @@ class HostapdConfig(object):
         """Returns: int, _min_streams value, or None."""
         return self._min_streams
 
+    @property
+    def wnm_features(self) -> FrozenSet[hostapd_constants.WnmFeature]:
+        return self._wnm_features
+
+    @wnm_features.setter
+    def wnm_features(self, value: FrozenSet[hostapd_constants.WnmFeature]):
+        self._wnm_features = value
+
     def __init__(self,
                  interface=None,
                  mode=None,
@@ -333,6 +336,8 @@ class HostapdConfig(object):
                  spectrum_mgmt_required=None,
                  scenario_name=None,
                  min_streams=None,
+                 wnm_features: FrozenSet[
+                     hostapd_constants.WnmFeature] = frozenset(),
                  bss_settings=[],
                  additional_parameters={},
                  set_ap_defaults_profile='whirlwind'):
@@ -375,6 +380,7 @@ class HostapdConfig(object):
             scenario_name: string to be included in file names, instead
                 of the interface name.
             min_streams: int, number of spatial streams required.
+            wnm_features: WNM features to enable on the AP.
             control_interface: The file name to use as the control interface.
             bss_settings: The settings for all bss.
             additional_parameters: A dictionary of additional parameters to add
@@ -445,12 +451,12 @@ class HostapdConfig(object):
                 self._wmm_enabled = 0
         # Default PMF Values
         if pmf_support is None:
-            if (self.security and self.security.security_mode_string
-                    == hostapd_constants.WPA3_STRING):
+            if (self.security and self.security.security_mode_string ==
+                    hostapd_constants.WPA3_STRING):
                 # Set PMF required for WP3
                 self._pmf_support = hostapd_constants.PMF_SUPPORT_REQUIRED
-            elif (self.security and self.security.security_mode_string
-                  in hostapd_constants.WPA3_MODE_STRINGS):
+            elif (self.security and self.security.security_mode_string in
+                  hostapd_constants.WPA3_MODE_STRINGS):
                 # Default PMF to enabled for WPA3 mixed modes (can be
                 # overwritten by explicitly provided value)
                 self._pmf_support = hostapd_constants.PMF_SUPPORT_ENABLED
@@ -461,8 +467,8 @@ class HostapdConfig(object):
         elif pmf_support not in hostapd_constants.PMF_SUPPORT_VALUES:
             raise ValueError('Invalid value for pmf_support: %r' % pmf_support)
         elif (pmf_support != hostapd_constants.PMF_SUPPORT_REQUIRED
-              and self.security and self.security.security_mode_string
-              == hostapd_constants.WPA3_STRING):
+              and self.security and self.security.security_mode_string ==
+              hostapd_constants.WPA3_STRING):
             raise ValueError('PMF support must be required with wpa3.')
         else:
             self._pmf_support = pmf_support
@@ -495,6 +501,7 @@ class HostapdConfig(object):
         self._spectrum_mgmt_required = spectrum_mgmt_required
         self._scenario_name = scenario_name
         self._min_streams = min_streams
+        self._wnm_features = wnm_features
         self._additional_parameters = additional_parameters
 
         self._bss_lookup = collections.OrderedDict()
@@ -645,6 +652,22 @@ class HostapdConfig(object):
             for k, v in (bss.generate_dict()).items():
                 bss_conf[k] = v
             all_conf.append(bss_conf)
+
+        for wnm_feature in self._wnm_features:
+            if wnm_feature == hostapd_constants.WnmFeature.TIME_ADVERTISEMENT:
+                conf.update(hostapd_constants.ENABLE_WNM_TIME_ADVERTISEMENT)
+            elif wnm_feature == hostapd_constants.WnmFeature.WNM_SLEEP_MODE:
+                conf.update(hostapd_constants.ENABLE_WNM_SLEEP_MODE)
+            elif wnm_feature == hostapd_constants.WnmFeature.BSS_TRANSITION_MANAGEMENT:
+                conf.update(
+                    hostapd_constants.ENABLE_WNM_BSS_TRANSITION_MANAGEMENT)
+            elif wnm_feature == hostapd_constants.WnmFeature.PROXY_ARP:
+                conf.update(hostapd_constants.ENABLE_WNM_PROXY_ARP)
+            elif wnm_feature == hostapd_constants.WnmFeature.IPV6_NEIGHBOR_ADVERTISEMENT_MULTICAST_TO_UNICAST:
+                conf.update(
+                    hostapd_constants.
+                    ENABLE_WNM_IPV6_NEIGHBOR_ADVERTISEMENT_MULTICAST_TO_UNICAST
+                )
 
         if self._additional_parameters:
             all_conf.append(self._additional_parameters)

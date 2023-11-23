@@ -25,11 +25,11 @@
 #include <cstdint>
 #include <cstring>
 
-#include <chre.h>
 #include <shared/nano_string.h>
 #include <shared/send_message.h>
 
 #include "chre/util/macros.h"
+#include "chre_api/chre.h"
 
 namespace chre {
 namespace {

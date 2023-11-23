@@ -30,12 +30,10 @@
 /*****************************************************************************
 **  Constants and data types
 *****************************************************************************/
-/* the number of tNFA_EE_ECBs (for NFCEEs and DH) + Empty aid ECB */
-#define NFA_EE_NUM_ECBS (NFA_EE_MAX_EE_SUPPORTED + 2)
+/* the number of tNFA_EE_ECBs (for NFCEEs and DH) */
+#define NFA_EE_NUM_ECBS (NFA_EE_MAX_EE_SUPPORTED + 1)
 /* The index for DH in nfa_ee_cb.ee_cb[] */
 #define NFA_EE_CB_4_DH NFA_EE_MAX_EE_SUPPORTED
-/* The index for Empty aid in nfa_ee_cb.ee_cb[] */
-#define NFA_EE_EMPTY_AID_ECB (NFA_EE_CB_4_DH + 1)
 #define NFA_EE_INVALID 0xFF
 /* only A, B, F, Bprime are supported by UICC now */
 #define NFA_EE_MAX_TECH_ROUTE 4
@@ -151,6 +149,8 @@ typedef uint8_t tNFA_EE_ECB_FLAGS;
 /* this bit is in ee_status for internal use only */
 #define NFA_EE_STATUS_INT_MASK 0x20
 
+#define NFA_EMPTY_AID_TLV_LEN 0x02
+
 /* NFA-EE information for a particular NFCEE Entity (including DH) */
 typedef struct {
   tNFA_TECHNOLOGY_MASK
@@ -224,6 +224,14 @@ typedef struct {
   uint8_t sys_code_cfg_entries;
   uint16_t size_sys_code; /* The size for system code routing */
 } tNFA_EE_ECB;
+
+/* data type for Empty AID Index and ECB */
+typedef struct {
+  tNFA_EE_ECB* p_cb;
+  uint16_t index;
+  bool addEmptyAidRoute;
+  int offset;
+} tNFA_EE_EMPTY_AID_ECB;
 
 /* data type for NFA_EE_API_DISCOVER_EVT */
 typedef struct {

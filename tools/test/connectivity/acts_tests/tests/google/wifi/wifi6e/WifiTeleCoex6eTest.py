@@ -16,7 +16,7 @@
 
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
-from WifiTeleCoexTest import WifiTeleCoexTest
+from ..WifiTeleCoexTest import WifiTeleCoexTest
 
 
 class WifiTeleCoex6eTest(WifiTeleCoexTest):

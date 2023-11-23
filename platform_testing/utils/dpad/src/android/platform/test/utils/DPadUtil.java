@@ -26,7 +26,9 @@ import android.view.KeyEvent;
 
 import java.io.IOException;
 
-
+/**
+ * @deprecated , Use {@link DPadUtil2}, which uses latest androidx automator classes.
+ */
 public class DPadUtil {
 
     private static final String TAG = DPadUtil.class.getSimpleName();

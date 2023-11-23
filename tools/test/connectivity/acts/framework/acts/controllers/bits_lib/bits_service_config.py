@@ -144,7 +144,11 @@ class _BitsKibblesConfig(object):
             if 'serial' not in kibble:
                 raise ValueError('An individual kibble config must have a '
                                  'serial')
-
+            if 'subkibble_params' in kibble:
+                user_defined_kibble_config = kibble['subkibble_params']
+                kibble_config = copy.deepcopy(user_defined_kibble_config)
+            else:
+                kibble_config = copy.deepcopy(DEFAULT_KIBBLE_CONFIG)
             board = kibble['board']
             connector = kibble['connector']
             serial = kibble['serial']
@@ -154,7 +158,6 @@ class _BitsKibblesConfig(object):
                 self.boards_configs[board][
                     'board_file'] = kibble_board_file
                 self.boards_configs[board]['kibble_py'] = kibble_bin
-            kibble_config = copy.deepcopy(DEFAULT_KIBBLE_CONFIG)
             kibble_config['connector'] = connector
             self.boards_configs[board]['attached_kibbles'][
                 serial] = kibble_config

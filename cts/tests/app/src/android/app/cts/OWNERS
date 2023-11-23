@@ -1,4 +1,2 @@
-# Bug component: 803062
-per-file Nearby*=file:platform/frameworks/base:/packages/SystemUI/OWNERS
-# Bug component: 803062
-per-file UpdateMediaTapToTransfer*.kt=file:platform/frameworks/base:/packages/SystemUI/OWNERS
+# Bug component: 803062 = per-file Nearby*, UpdateMediaTapToTransfer*.kt
+per-file Nearby*, UpdateMediaTapToTransfer*.kt = file:platform/frameworks/base:/packages/SystemUI/OWNERS

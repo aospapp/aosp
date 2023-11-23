@@ -27,17 +27,21 @@ import tempfile
 import unittest
 
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
-import atest_error
-import atest_utils
-import constants
-import unittest_utils
-import unittest_constants
+# pylint: disable=import-error
+from pyfakefs import fake_filesystem_unittest
 
-from test_finders import test_info
-from atest_enum import FilterType
+from atest import atest_arg_parser
+from atest import atest_error
+from atest import atest_utils
+from atest import constants
+from atest import unittest_utils
+from atest import unittest_constants
 
+from atest.test_finders import test_info
+from atest.atest_enum import FilterType
 
 TEST_MODULE_NAME_A = 'ModuleNameA'
 TEST_RUNNER_A = 'FakeTestRunnerA'
@@ -63,7 +67,8 @@ Manifest groups: all,-notdefault
 ----------------------------
 '''
 
-#pylint: disable=protected-access
+# pylint: disable=protected-access
+# pylint: disable=too-many-public-methods
 class AtestUtilsUnittests(unittest.TestCase):
     """Unit tests for atest_utils.py"""
 
@@ -83,49 +88,59 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertEqual(want_list,
                          atest_utils._capture_fail_section(test_list))
 
-    def test_is_test_mapping(self):
+    def test_is_test_mapping_none_test_mapping_args(self):
         """Test method is_test_mapping."""
-        tm_option_attributes = [
-            'test_mapping',
-            'include_subdirs'
-        ]
-        for attr_to_test in tm_option_attributes:
-            args = mock.Mock()
-            for attr in tm_option_attributes:
-                setattr(args, attr, attr == attr_to_test)
-            args.tests = []
-            args.host_unit_test_only = False
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        non_tm_args = ['--host-unit-test-only', '--smart-testing-local']
+
+        for argument in non_tm_args:
+            args = parser.parse_args([argument])
+            self.assertFalse(
+                atest_utils.is_test_mapping(args),
+                'Option %s indicates NOT a test_mapping!' % argument)
+
+    def test_is_test_mapping_test_mapping_args(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        tm_args = ['--test-mapping', '--include-subdirs']
+
+        for argument in tm_args:
+            args = parser.parse_args([argument])
             self.assertTrue(
                 atest_utils.is_test_mapping(args),
-                'Failed to validate option %s' % attr_to_test)
+                'Option %s indicates a test_mapping!' % argument)
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = []
-        args.host_unit_test_only = True
-        self.assertFalse(atest_utils.is_test_mapping(args))
+    def test_is_test_mapping_implicit_test_mapping(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = [':group_name']
-        args.host_unit_test_only = False
-        self.assertTrue(atest_utils.is_test_mapping(args))
+        args = parser.parse_args(['--test', '--build', ':postsubmit'])
+        self.assertTrue(
+            atest_utils.is_test_mapping(args),
+            'Option %s indicates a test_mapping!' % args)
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = [':test1', 'test2']
-        args.host_unit_test_only = False
-        self.assertFalse(atest_utils.is_test_mapping(args))
+    def test_is_test_mapping_with_testname(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        irrelevant_args = ['--test', ':postsubmit', 'testname']
 
-        args = mock.Mock()
-        for attr in tm_option_attributes:
-            setattr(args, attr, False)
-        args.tests = ['test2']
-        args.host_unit_test_only = False
-        self.assertFalse(atest_utils.is_test_mapping(args))
+        args = parser.parse_args(irrelevant_args)
+        self.assertFalse(
+            atest_utils.is_test_mapping(args),
+            'Option %s indicates a test_mapping!' % args)
+
+    def test_is_test_mapping_false(self):
+        """Test method is_test_mapping."""
+        parser = atest_arg_parser.AtestArgParser()
+        parser.add_atest_args()
+        args = parser.parse_args(['--test', '--build', 'hello_atest'])
+
+        self.assertFalse(
+            atest_utils.is_test_mapping(args))
 
     def test_has_colors(self):
         """Test method _has_colors."""
@@ -145,7 +160,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         self.assertTrue(atest_utils._has_colors(stream))
 
 
-    @mock.patch('atest_utils._has_colors')
+    @mock.patch('atest.atest_utils._has_colors')
     def test_colorize(self, mock_has_colors):
         """Test method colorize."""
         original_str = "test string"
@@ -154,25 +169,24 @@ class AtestUtilsUnittests(unittest.TestCase):
         # _has_colors() return False.
         mock_has_colors.return_value = False
         converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=True)
+                                             bp_color=constants.RED)
         self.assertEqual(original_str, converted_str)
 
-        # Green with highlight.
+        # Green text with red background.
         mock_has_colors.return_value = True
         converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=True)
-        green_highlight_string = '\x1b[1;42m%s\x1b[0m' % original_str
+                                             bp_color=constants.RED)
+        green_highlight_string = '\x1b[1;32;41m%s\x1b[0m' % original_str
         self.assertEqual(green_highlight_string, converted_str)
 
-        # Green, no highlight.
+        # Green text, no background.
         mock_has_colors.return_value = True
-        converted_str = atest_utils.colorize(original_str, green_no,
-                                             highlight=False)
+        converted_str = atest_utils.colorize(original_str, green_no)
         green_no_highlight_string = '\x1b[1;32m%s\x1b[0m' % original_str
         self.assertEqual(green_no_highlight_string, converted_str)
 
 
-    @mock.patch('atest_utils._has_colors')
+    @mock.patch('atest.atest_utils._has_colors')
     def test_colorful_print(self, mock_has_colors):
         """Test method colorful_print."""
         testing_str = "color_print_test"
@@ -182,129 +196,57 @@ class AtestUtilsUnittests(unittest.TestCase):
         mock_has_colors.return_value = False
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
         uncolored_string = testing_str
         self.assertEqual(capture_output.getvalue(), uncolored_string)
 
-        # Green with highlight, but no wrap.
+        # Green text with red background, but no wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
-        green_highlight_no_wrap_string = '\x1b[1;42m%s\x1b[0m' % testing_str
+        green_highlight_no_wrap_string = '\x1b[1;32;41m%s\x1b[0m' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_highlight_no_wrap_string)
 
-        # Green, no highlight, no wrap.
+        # Green text, no background, no wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=False,
+        atest_utils.colorful_print(testing_str, green_no,
                                    auto_wrap=False)
         sys.stdout = sys.__stdout__
         green_no_high_no_wrap_string = '\x1b[1;32m%s\x1b[0m' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_no_high_no_wrap_string)
 
-        # Green with highlight and wrap.
+        # Green text with red background and wrap.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=True,
+        atest_utils.colorful_print(testing_str, green_no,
+                                   bp_color=constants.RED,
                                    auto_wrap=True)
         sys.stdout = sys.__stdout__
-        green_highlight_wrap_string = '\x1b[1;42m%s\x1b[0m\n' % testing_str
+        green_highlight_wrap_string = '\x1b[1;32;41m%s\x1b[0m\n' % testing_str
         self.assertEqual(capture_output.getvalue(), green_highlight_wrap_string)
 
-        # Green with wrap, but no highlight.
+        # Green text with wrap, but no background.
         mock_has_colors.return_value = True
         capture_output = StringIO()
         sys.stdout = capture_output
-        atest_utils.colorful_print(testing_str, green_no, highlight=False,
+        atest_utils.colorful_print(testing_str, green_no,
                                    auto_wrap=True)
         sys.stdout = sys.__stdout__
         green_wrap_no_highlight_string = '\x1b[1;32m%s\x1b[0m\n' % testing_str
         self.assertEqual(capture_output.getvalue(),
                          green_wrap_no_highlight_string)
-
-    @mock.patch('socket.gethostname')
-    @mock.patch('subprocess.check_output')
-    def test_is_external_run(self, mock_output, mock_hostname):
-        """Test method is_external_run."""
-        mock_output.return_value = ''
-        mock_hostname.return_value = ''
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'abc.com'
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'abc.google.com'
-        self.assertFalse(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'abc.google.def.com'
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@google.com'
-        self.assertFalse(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'c.googlers.com'
-        self.assertFalse(atest_utils.is_external_run())
-
-        mock_output.return_value = 'test@other.com'
-        mock_hostname.return_value = 'a.googlers.com'
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.side_effect = OSError()
-        self.assertTrue(atest_utils.is_external_run())
-
-        mock_output.side_effect = subprocess.CalledProcessError(1, 'cmd')
-        self.assertTrue(atest_utils.is_external_run())
-
-    @mock.patch('metrics.metrics_base.get_user_type')
-    def test_print_data_collection_notice(self, mock_get_user_type):
-        """Test method print_data_collection_notice."""
-
-        # get_user_type return 1(external).
-        mock_get_user_type.return_value = 1
-        notice_str = ('\n==================\nNotice:\n'
-                      '  We collect anonymous usage statistics'
-                      ' in accordance with our'
-                      ' Content Licenses (https://source.android.com/setup/start/licenses),'
-                      ' Contributor License Agreement (https://opensource.google.com/docs/cla/),'
-                      ' Privacy Policy (https://policies.google.com/privacy) and'
-                      ' Terms of Service (https://policies.google.com/terms).'
-                      '\n==================\n\n')
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        atest_utils.print_data_collection_notice()
-        sys.stdout = sys.__stdout__
-        uncolored_string = notice_str
-        self.assertEqual(capture_output.getvalue(), uncolored_string)
-
-        # get_user_type return 0(internal).
-        mock_get_user_type.return_value = 0
-        notice_str = ('\n==================\nNotice:\n'
-                      '  We collect usage statistics'
-                      ' in accordance with our'
-                      ' Content Licenses (https://source.android.com/setup/start/licenses),'
-                      ' Contributor License Agreement (https://cla.developers.google.com/),'
-                      ' Privacy Policy (https://policies.google.com/privacy) and'
-                      ' Terms of Service (https://policies.google.com/terms).'
-                      '\n==================\n\n')
-        capture_output = StringIO()
-        sys.stdout = capture_output
-        atest_utils.print_data_collection_notice()
-        sys.stdout = sys.__stdout__
-        uncolored_string = notice_str
-        self.assertEqual(capture_output.getvalue(), uncolored_string)
 
     @mock.patch('builtins.input')
     @mock.patch('json.load')
@@ -401,6 +343,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         build_top = '/home/a/b/c'
         rel_path = 'd/e'
         mock_cwd.return_value = os.path.join(build_top, rel_path)
+        # TODO: (b/264015241) Stop mocking build variables.
         os_environ_mock = {constants.ANDROID_BUILD_TOP: build_top}
         with mock.patch.dict('os.environ', os_environ_mock, clear=True):
             expected_cmd = ['../../build/soong/soong_ui.bash', '--make-mode']
@@ -461,7 +404,7 @@ class AtestUtilsUnittests(unittest.TestCase):
 
     @mock.patch('os.chmod')
     @mock.patch('shutil.copy2')
-    @mock.patch('atest_utils.has_valid_cert')
+    @mock.patch('atest.atest_utils.has_valid_cert')
     @mock.patch('subprocess.check_output')
     @mock.patch('os.path.exists')
     def test_get_flakes(self, mock_path_exists, mock_output, mock_valid_cert,
@@ -490,9 +433,9 @@ class AtestUtilsUnittests(unittest.TestCase):
         # raise subprocess.CalledProcessError
         mock_call.raiseError.side_effect = subprocess.CalledProcessError
         self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("constants.CERT_STATUS_CMD", ''):
+        with mock.patch("atest.constants.CERT_STATUS_CMD", ''):
             self.assertFalse(atest_utils.has_valid_cert())
-        with mock.patch("constants.CERT_STATUS_CMD", 'CMD'):
+        with mock.patch("atest.constants.CERT_STATUS_CMD", 'CMD'):
             # has valid cert
             mock_call.return_value = 0
             self.assertTrue(atest_utils.has_valid_cert())
@@ -503,52 +446,84 @@ class AtestUtilsUnittests(unittest.TestCase):
     # pylint: disable=no-member
     def test_read_test_record_proto(self):
         """Test method read_test_record."""
-        test_record_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                             "test_record.proto.testonly")
+        test_record_file_path = os.path.join(
+            unittest_constants.TEST_DATA_DIR,
+            "test_record.proto.testonly")
         test_record = atest_utils.read_test_record(test_record_file_path)
-        self.assertEqual(test_record.children[0].inline_test_record.test_record_id,
-                         'x86 hello_world_test')
+        self.assertEqual(
+            test_record.children[0].inline_test_record.test_record_id,
+            'x86 hello_world_test')
 
-    def test_is_valid_json_file_file_not_exist(self):
-        """Test method is_valid_json_file if file not exist."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "not_exist.json")
-        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_file_inexistent(self):
+        """Test method load_json_safely if file does not exist."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("not_exist.json")
+        self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
-    def test_is_valid_json_file_content_valid(self):
-        """Test method is_valid_json_file if file exist and content is valid."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "module-info.json")
-        self.assertTrue(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_valid_json_format(self):
+        """Test method load_json_safely if file exists and format is valid."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("module-info.json")
+        content = atest_utils.load_json_safely(json_file_path)
+        self.assertEqual('MainModule1', content.get('MainModule1').get('module_name'))
+        self.assertEqual([], content.get('MainModule2').get('test_mainline_modules'))
 
-    def test_is_valid_json_file_content_not_valid(self):
-        """Test method is_valid_json_file if file exist but content is valid."""
-        json_file_path = os.path.join(unittest_constants.TEST_DATA_DIR,
-                                      "not-valid-module-info.json")
-        self.assertFalse(atest_utils.is_valid_json_file(json_file_path))
+    def test_load_json_safely_invalid_json_format(self):
+        """Test method load_json_safely if file exist but content is invalid."""
+        json_file_path = Path(
+            unittest_constants.TEST_DATA_DIR).joinpath("not-valid-module-info.json")
+        self.assertEqual({}, atest_utils.load_json_safely(json_file_path))
 
-    @mock.patch('subprocess.Popen')
     @mock.patch('os.getenv')
-    def test_get_manifest_branch(self, mock_env, mock_popen):
+    def test_get_manifest_branch(self, mock_env):
         """Test method get_manifest_branch"""
-        mock_env.return_value = 'any_path'
-        process = mock_popen.return_value
-        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
-        self.assertEqual('test_branch', atest_utils.get_manifest_branch())
+        build_top = tempfile.TemporaryDirectory()
+        mock_env.return_value = build_top.name
+        repo_dir = Path(build_top.name).joinpath('.repo')
+        portal_xml = repo_dir.joinpath('manifest.xml')
+        manifest_dir = repo_dir.joinpath('manifests')
+        target_xml = manifest_dir.joinpath('Default.xml')
+        repo_dir.mkdir()
+        manifest_dir.mkdir()
+        content_portal = '<manifest><include name="Default.xml" /></manifest>'
+        content_manifest = '''<manifest>
+            <remote name="aosp" fetch=".." review="https://android-review.googlesource.com/" />
+            <default revision="MONSTER-dev" remote="aosp" sync-j="4" />
+        </manifest>'''
 
-        mock_env.return_value = 'any_path'
-        process.communicate.return_value = ('not_matched_branch_pattern.', '')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 1. The manifest.xml(portal) contains 'include' directive: 'Default.xml'.
+        # Search revision in .repo/manifests/Default.xml.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_portal)
+        with open(target_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        self.assertEqual("aosp-MONSTER-dev", atest_utils.get_manifest_branch(True))
+        os.remove(target_xml)
+        os.remove(portal_xml)
 
-        mock_env.return_value = 'any_path'
-        process.communicate.side_effect = subprocess.TimeoutExpired(
-            1,
-            'repo info')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 2. The manifest.xml contains neither 'include' nor 'revision' directive,
+        # keep searching revision in .repo/manifests/default.xml by default.
+        with open(portal_xml, 'w') as cache:
+            cache.write('<manifest></manifest>')
+        default_xml = manifest_dir.joinpath('default.xml')
+        with open(default_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(default_xml)
+        os.remove(portal_xml)
 
-        mock_env.return_value = None
-        process.communicate.return_value = (REPO_INFO_OUTPUT, '')
-        self.assertEqual(None, atest_utils.get_manifest_branch())
+        # 3. revision was directly defined in 'manifest.xml'.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_manifest)
+        self.assertEqual("MONSTER-dev", atest_utils.get_manifest_branch())
+        os.remove(portal_xml)
+
+        # 4. Return None if the included xml does not exist.
+        with open(portal_xml, 'w') as cache:
+            cache.write(content_portal)
+        self.assertEqual('', atest_utils.get_manifest_branch())
+        os.remove(portal_xml)
 
     def test_has_wildcard(self):
         """Test method of has_wildcard"""
@@ -609,7 +584,7 @@ class AtestUtilsUnittests(unittest.TestCase):
         inexist_string = os.path.join(unittest_constants.TEST_DATA_DIR,
                                       unittest_constants.CLASS_NAME)
         self.assertEqual(
-            atest_utils.md5sum(exist_string), 'f02c1a648f16e5e9d7035bb11486ac2b')
+            atest_utils.md5sum(exist_string), '062160df00c20b1ee4d916b7baf71346')
         self.assertEqual(
             atest_utils.md5sum(inexist_string), '')
 
@@ -748,6 +723,132 @@ class AtestUtilsUnittests(unittest.TestCase):
         filters = set(['CLASS#METHOD?', 'CLASS#METHOD*'])
         expect_types = set([FilterType.WILDCARD_FILTER.value])
         self.assertEqual(atest_utils.get_filter_types(filters), expect_types)
+
+    def test_get_bp_content(self):
+        """Method get_bp_content."""
+        # 1. "manifest" and "instrumentation_for" are defined.
+        content = '''android_test    {
+                // comment
+                instrumentation_for: "AmSlam", // comment
+                manifest: "AndroidManifest-test.xml",
+                name: "AmSlamTests",
+        }'''
+        expected_result = {"AmSlamTests":
+                           {"target_module": "AmSlam", "manifest": "AndroidManifest-test.xml"}}
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.bp')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_test'),
+                         expected_result)
+        temp_dir.cleanup()
+
+        # 2. Only name is defined, will give default manifest and null target_module.
+        content = '''android_app    {
+                // comment
+                name: "AmSlam",
+                srcs: ["src1.java", "src2.java"]
+        }'''
+        expected_result = {"AmSlam":
+                           {"target_module": "", "manifest": "AndroidManifest.xml"}}
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.bp')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'),
+                         expected_result)
+        temp_dir.cleanup()
+
+        # 3. Not even an Android.bp.
+        content = '''LOCAL_PATH := $(call my-dir)
+                # comment
+                include $(call all-subdir-makefiles)
+                LOCAL_MODULE := atest_foo_test
+        }'''
+        temp_dir = tempfile.TemporaryDirectory()
+        tmpbp = Path(temp_dir.name).joinpath('Android.mk')
+        with open(tmpbp, 'w') as cache:
+            cache.write(content)
+        self.assertEqual(atest_utils.get_bp_content(tmpbp, 'android_app'), {})
+        temp_dir.cleanup()
+
+    def test_get_manifest_info(self):
+        """test get_manifest_info method."""
+        # An instrumentation test:
+        test_xml = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                'foo/bar/AmSlam/test/AndroidManifest.xml')
+        expected = {
+            'package': 'com.android.settings.tests.unit',
+            'target_package': 'c0m.andr0id.settingS',
+            'persistent': False
+        }
+        self.assertEqual(expected, atest_utils.get_manifest_info(test_xml))
+
+        # A target module:
+        target_xml = os.path.join(unittest_constants.TEST_DATA_DIR,
+                                  'foo/bar/AmSlam/AndroidManifest.xml')
+        expected = {
+            'package': 'c0m.andr0id.settingS',
+            'target_package': '',
+            'persistent': False
+        }
+        self.assertEqual(expected, atest_utils.get_manifest_info(target_xml))
+
+# pylint: disable=missing-function-docstring
+class AutoShardUnittests(fake_filesystem_unittest.TestCase):
+    """Tests for auto shard functions"""
+    def setUp(self):
+        self.setUpPyfakefs()
+
+    def test_get_local_auto_shardable_tests(self):
+        """test get local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+
+        self.fs.create_file(shardable_tests_file, contents='abc\ndef')
+
+        long_duration_tests = atest_utils.get_local_auto_shardable_tests()
+
+        expected_list = ['abc', 'def']
+        self.assertEqual(long_duration_tests , expected_list)
+
+    def test_update_shardable_tests_with_time_less_than_600(self):
+        """test update local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+
+        self.fs.create_file(shardable_tests_file, contents='')
+
+        atest_utils.update_shardable_tests('test1', 10)
+
+        with open(shardable_tests_file) as f:
+            self.assertEqual('', f.read())
+
+    def test_update_shardable_tests_with_time_larger_than_600(self):
+        """test update local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+
+        self.fs.create_file(shardable_tests_file, contents='')
+
+        atest_utils.update_shardable_tests('test2', 1000)
+
+        with open(shardable_tests_file) as f:
+            self.assertEqual('test2', f.read())
+
+    def test_update_shardable_tests_with_time_larger_than_600_twice(self):
+        """test update local auto shardable list"""
+        shardable_tests_file = Path(atest_utils.get_misc_dir()).joinpath(
+        '.atest/auto_shard/local_auto_shardable_tests')
+        # access the fake_filesystem object via fake_fs
+        self.fs.create_file(shardable_tests_file, contents='')
+
+        atest_utils.update_shardable_tests('test3', 1000)
+        atest_utils.update_shardable_tests('test3', 601)
+
+        with open(shardable_tests_file) as f:
+            self.assertEqual('test3', f.read())
+
 
 if __name__ == "__main__":
     unittest.main()

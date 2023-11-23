@@ -18,6 +18,7 @@
 //! optionally dispose of sensitive key material appropriately, and then delete
 //! the key entry from the database.
 
+use crate::ks_err;
 use crate::{
     async_task,
     database::{BlobMetaData, KeystoreDB, Uuid},
@@ -103,7 +104,7 @@ impl GcInternal {
             let blobs = self
                 .db
                 .handle_next_superseded_blobs(&self.deleted_blob_ids, 20)
-                .context("In process_one_key: Trying to handle superseded blob.")?;
+                .context(ks_err!("Trying to handle superseded blob."))?;
             self.deleted_blob_ids = vec![];
             self.superseded_blobs = blobs;
         }
@@ -124,9 +125,8 @@ impl GcInternal {
                     .read()
                     .unwrap()
                     .unwrap_key_if_required(&blob_metadata, &blob)
-                    .context("In process_one_key: Trying to unwrap to-be-deleted blob.")?;
-                (self.invalidate_key)(uuid, &*blob)
-                    .context("In process_one_key: Trying to invalidate key.")?;
+                    .context(ks_err!("Trying to unwrap to-be-deleted blob.",))?;
+                (self.invalidate_key)(uuid, &blob).context(ks_err!("Trying to invalidate key."))?;
             }
         }
         Ok(())

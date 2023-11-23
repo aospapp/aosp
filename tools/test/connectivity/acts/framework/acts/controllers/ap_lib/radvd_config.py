@@ -12,6 +12,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from acts.controllers.ap_lib import radvd_constants
+
 import collections
 
 
@@ -20,13 +22,14 @@ class RadvdConfig(object):
 
     All the settings for a router advertisement daemon.
     """
+
     def __init__(self,
-                 prefix,
+                 prefix=radvd_constants.DEFAULT_PREFIX,
                  clients=[],
                  route=None,
                  rdnss=[],
                  ignore_if_missing=None,
-                 adv_send_advert=None,
+                 adv_send_advert=radvd_constants.ADV_SEND_ADVERT_ON,
                  unicast_only=None,
                  max_rtr_adv_interval=None,
                  min_rtr_adv_interval=None,
@@ -46,8 +49,8 @@ class RadvdConfig(object):
                  home_agent_preference=None,
                  adv_mob_rtr_support_flag=None,
                  adv_interval_opt=None,
-                 adv_on_link=None,
-                 adv_autonomous=None,
+                 adv_on_link=radvd_constants.ADV_ON_LINK_ON,
+                 adv_autonomous=radvd_constants.ADV_AUTONOMOUS_ON,
                  adv_router_addr=None,
                  adv_valid_lifetime=None,
                  adv_preferred_lifetime=None,

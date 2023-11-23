@@ -27,7 +27,6 @@ import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
 import android.app.ActivityTaskManager;
-import android.autofillservice.cts.activities.LoginActivity;
 import android.autofillservice.cts.activities.MultiWindowEmptyActivity;
 import android.autofillservice.cts.activities.MultiWindowLoginActivity;
 import android.autofillservice.cts.commontests.AutoFillServiceTestCase;
@@ -38,6 +37,8 @@ import android.graphics.Rect;
 import android.platform.test.annotations.AppModeFull;
 import android.server.wm.TestTaskOrganizer;
 import android.view.View;
+
+import androidx.test.filters.FlakyTest;
 
 import com.android.compatibility.common.util.AdoptShellPermissionsRule;
 
@@ -53,7 +54,7 @@ import java.util.concurrent.TimeoutException;
 public class MultiWindowLoginActivityTest
         extends AutoFillServiceTestCase.AutoActivityLaunch<MultiWindowLoginActivity> {
 
-    private LoginActivity mActivity;
+    private MultiWindowLoginActivity mActivity;
     private TestTaskOrganizer mTaskOrganizer;
 
     @Override
@@ -112,6 +113,7 @@ public class MultiWindowLoginActivityTest
         runAmStartActivity(activity2.getName());
     }
 
+    @FlakyTest(bugId = 267196677) // TODO: find out why this test fails
     @Test
     public void testSplitWindow() throws Exception {
         enableService();
@@ -127,44 +129,42 @@ public class MultiWindowLoginActivityTest
         sReplier.getNextFillRequest();
         mUiBot.assertDatasets("The Dude");
 
-        // split window and launch EmptyActivity, note that LoginActivity will be recreated.
-        MultiWindowLoginActivity.expectNewInstance(false);
-        MultiWindowEmptyActivity.expectNewInstance(true);
+        amStartActivity(MultiWindowEmptyActivity.class);
+        mUiBot.waitForIdleSync();
+        MultiWindowEmptyActivity emptyActivity = MultiWindowEmptyActivity.getInstance();
 
         mTaskOrganizer.putTaskInSplitPrimary(mActivity.getTaskId());
         mUiBot.waitForIdleSync();
-        MultiWindowLoginActivity loginActivity = MultiWindowLoginActivity.waitNewInstance();
-
-        amStartActivity(MultiWindowEmptyActivity.class);
-        MultiWindowEmptyActivity emptyActivity = MultiWindowEmptyActivity.waitNewInstance();
         mTaskOrganizer.putTaskInSplitSecondary(emptyActivity.getTaskId());
+        mUiBot.waitForIdleSync();
 
         // Make sure both activities are showing
         mUiBot.assertShownByRelativeId(Helper.ID_USERNAME);  // MultiWindowLoginActivity
         mUiBot.assertShownByRelativeId(MultiWindowEmptyActivity.ID_EMPTY);
 
-        // No dataset as LoginActivity loses window focus
+        // No dataset as MultiWindowLoginActivity loses window focus
         mUiBot.assertNoDatasets();
-        // EmptyActivity will have window focus
+        // MultiWindowEmptyActivity will have window focus
         assertThat(emptyActivity.hasWindowFocus()).isTrue();
-        // LoginActivity username field is still focused but window has no focus
-        assertThat(loginActivity.getUsername().hasFocus()).isTrue();
-        assertThat(loginActivity.hasWindowFocus()).isFalse();
+        // MultiWindowLoginActivity username field is still focused but window has no focus
+        assertThat(mActivity.getUsername().hasFocus()).isTrue();
+        assertThat(mActivity.hasWindowFocus()).isFalse();
 
-        // Make LoginActivity to regain window focus and fill ui is expected to show
-        tapViewAndExpectWindowEvent(loginActivity.getUsername());
+        // Make MultiWindowLoginActivity to regain window focus and fill ui is expected to show
+        tapViewAndExpectWindowEvent(mActivity.getUsername());
         mUiBot.assertNoDatasetsEver();
         assertThat(emptyActivity.hasWindowFocus()).isFalse();
 
-        // Tap on EmptyActivity and fill ui is gone.
+        // Tap on MultiWindowEmptyActivity and fill ui is gone.
         Rect emptyActivityBounds = mTaskOrganizer.getSecondaryTaskBounds();
         // Because tap(View) will get wrong physical start position of view while in split screen
-        // and make bot cannot tap on emptyActivity, so use task bounds and tap its center.
+        // and make bot cannot tap on MultiWindowEmptyActivity, so use task bounds and tap its
+        // center.
         tapPointAndExpectWindowEvent(emptyActivityBounds.centerX(), emptyActivityBounds.centerY());
         mUiBot.assertNoDatasetsEver();
         assertThat(emptyActivity.hasWindowFocus()).isTrue();
-        // LoginActivity username field is still focused but window has no focus
-        assertThat(loginActivity.getUsername().hasFocus()).isTrue();
-        assertThat(loginActivity.hasWindowFocus()).isFalse();
+        // MultiWindowLoginActivity username field is still focused but window has no focus
+        assertThat(mActivity.getUsername().hasFocus()).isTrue();
+        assertThat(mActivity.hasWindowFocus()).isFalse();
     }
 }

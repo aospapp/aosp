@@ -18,18 +18,32 @@ package libcore.dalvik.system;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import dalvik.system.BaseDexClassLoader;
 import dalvik.system.DelegateLastClassLoader;
+import dalvik.system.DexFile;
 import dalvik.system.PathClassLoader;
-import java.lang.reflect.Method;
+
+import libcore.io.Streams;
+import libcore.junit.util.compat.CoreCompatChangeRule;
+import libcore.junit.util.compat.CoreCompatChangeRule.EnableCompatChanges;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -38,14 +52,6 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import libcore.io.Streams;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class BaseDexClassLoaderTest {
@@ -65,7 +71,11 @@ public final class BaseDexClassLoaderTest {
     private ClassLoader pcl;
     private File jar;
     private File jar2;
+    private File jar3;
     private Reporter reporter;
+
+    @Rule
+    public final TestRule compatChangeRule = new CoreCompatChangeRule();
 
     // For resources that we will load in this test. We're re-using parent.jar and child.jar
     // from DelegateLastClassLoaderTest for convenience.
@@ -96,6 +106,14 @@ public final class BaseDexClassLoaderTest {
              FileOutputStream out = new FileOutputStream(jar2)) {
           Streams.copy(in, out);
         }
+        jar3 = File.createTempFile("loading-test3", ".jar");
+        try (InputStream in = pcl.getResourceAsStream("dalvik/system/loading-test.jar");
+             FileOutputStream out = new FileOutputStream(jar3)) {
+            Streams.copy(in, out);
+        }
+        assertTrue(jar.setReadOnly());
+        assertTrue(jar2.setReadOnly());
+        assertTrue(jar3.setWritable(true));
     }
 
     @Before
@@ -113,6 +131,7 @@ public final class BaseDexClassLoaderTest {
     public void deleteTestJars() throws Exception {
         assertTrue(jar.delete());
         assertTrue(jar2.delete());
+        assertTrue(jar3.delete());
     }
 
     @Test
@@ -771,5 +790,17 @@ public final class BaseDexClassLoaderTest {
         Method frotzMethod = target2Class.getMethod("frotz", (Class[]) null);
         String frotzResult = (String) frotzMethod.invoke(null, (Object[]) null);
         assertEquals("frotz", frotzResult);
+    }
+
+    // Due to the fact that we cannot change the target SDK of the test module, we have to
+    // ensure this compat change is enabled for testing.
+    @EnableCompatChanges({DexFile.ENFORCE_READ_ONLY_JAVA_DCL})
+    @Test
+    public void testDclReadOnlyEnforcement() {
+        assumeTrue(DexFile.isReadOnlyJavaDclEnforced());
+        assertTrue(jar3.canWrite());
+        assertThrows("Writable jar files should not be allowed to load",
+                SecurityException.class,
+                () -> new PathClassLoader(jar3.getPath(), ClassLoader.getSystemClassLoader()));
     }
 }

@@ -21,17 +21,17 @@ import static com.android.wearable.uibench.janktests.UiBenchJankTestsHelper.PACK
 
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Direction;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.Until;
 import android.widget.ListView;
 
 import androidx.test.jank.GfxMonitor;
 import androidx.test.jank.JankTest;
 import androidx.test.jank.JankTestBase;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.Direction;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.Until;
 
 import junit.framework.Assert;
 

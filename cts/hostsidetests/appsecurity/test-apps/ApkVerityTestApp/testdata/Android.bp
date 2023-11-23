@@ -21,6 +21,7 @@ genrule {
     name: "CtsApkVerityTestDebugFiles",
     srcs: [
         ":CtsApkVerityTestApp",
+        ":CtsApkVerityTestAppApkIdSig",
         ":CtsApkVerityTestAppFsvSig",
         ":CtsApkVerityTestAppDm",
         ":CtsApkVerityTestAppDmFsvSig",
@@ -39,10 +40,10 @@ genrule {
     name: "CtsApkVerityTestAppApk",
     srcs: [":CtsApkVerityTestApp"],
     cmd: "for file in $(in); do " +
-         "   if [[ $$file == *.apk ]]; then " +
-         "     cp $$file $(out); " +
-         "   fi " +
-         " done",
+        "   if [[ $$file == *.apk ]]; then " +
+        "     cp $$file $(out); " +
+        "   fi " +
+        " done",
     out: ["CtsApkVerityTestApp.apk"],
 }
 

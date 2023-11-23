@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -59,11 +59,11 @@ public class AbstractListTest extends junit.framework.TestCase {
      */
     public void test_hashCode() {
         List list = new ArrayList();
-        list.add(new Integer(3));
-        list.add(new Integer(15));
-        list.add(new Integer(5));
-        list.add(new Integer(1));
-        list.add(new Integer(7));
+        list.add(Integer.valueOf(3));
+        list.add(Integer.valueOf(15));
+        list.add(Integer.valueOf(5));
+        list.add(Integer.valueOf(1));
+        list.add(Integer.valueOf(7));
         int hashCode = 1;
         Iterator i = list.iterator();
         while (i.hasNext()) {
@@ -93,11 +93,11 @@ public class AbstractListTest extends junit.framework.TestCase {
     public void test_listIterator() {
         Integer tempValue;
         List list = new ArrayList();
-        list.add(new Integer(3));
-        list.add(new Integer(15));
-        list.add(new Integer(5));
-        list.add(new Integer(1));
-        list.add(new Integer(7));
+        list.add(Integer.valueOf(3));
+        list.add(Integer.valueOf(15));
+        list.add(Integer.valueOf(5));
+        list.add(Integer.valueOf(1));
+        list.add(Integer.valueOf(7));
         ListIterator lit = list.listIterator();
         assertTrue("Should not have previous", !lit.hasPrevious());
         assertTrue("Should have next", lit.hasNext());
@@ -158,7 +158,7 @@ public class AbstractListTest extends junit.framework.TestCase {
         // test the type of sublist that is returned
         List al = new ArrayList();
         for (int i = 0; i < 10; i++) {
-            al.add(new Integer(i));
+            al.add(Integer.valueOf(i));
         }
         assertTrue(
                 "Sublist returned should have implemented Random Access interface",
@@ -166,7 +166,7 @@ public class AbstractListTest extends junit.framework.TestCase {
 
         List ll = new LinkedList();
         for (int i = 0; i < 10; i++) {
-            ll.add(new Integer(i));
+            ll.add(Integer.valueOf(i));
         }
         assertTrue(
                 "Sublist returned should not have implemented Random Access interface",
@@ -517,9 +517,9 @@ public class AbstractListTest extends junit.framework.TestCase {
         list.addAll(Arrays.asList(array));
 
         assertEquals("find 0 in the list do not contain 0", -1, list
-                .indexOf(new Integer(0)));
+                .indexOf(Integer.valueOf(0)));
         assertEquals("did not return the right location of element 3", 2, list
-                .indexOf(new Integer(3)));
+                .indexOf(Integer.valueOf(3)));
         assertEquals("find null in the list do not contain null element", -1,
                 list.indexOf(null));
         list.add(null);
@@ -533,9 +533,9 @@ public class AbstractListTest extends junit.framework.TestCase {
         list.addAll(Arrays.asList(array));
 
         assertEquals("find 6 in the list do not contain 6", -1, list
-                .lastIndexOf(new Integer(6)));
+                .lastIndexOf(Integer.valueOf(6)));
         assertEquals("did not return the right location of element 4", 6, list
-                .lastIndexOf(new Integer(4)));
+                .lastIndexOf(Integer.valueOf(4)));
         assertEquals("find null in the list do not contain null element", -1,
                 list.lastIndexOf(null));
         list.add(null);

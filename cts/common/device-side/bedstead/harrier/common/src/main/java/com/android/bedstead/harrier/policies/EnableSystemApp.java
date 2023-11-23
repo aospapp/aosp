@@ -19,6 +19,7 @@ package com.android.bedstead.harrier.policies;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_DEVICE_OWNER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_PROFILE_OWNER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_TO_OWN_USER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CANNOT_BE_APPLIED_BY_ROLE_HOLDER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CAN_BE_DELEGATED;
 import static com.android.bedstead.nene.devicepolicy.CommonDevicePolicy.DELEGATION_ENABLE_SYSTEM_APP;
 
@@ -32,7 +33,8 @@ import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
  */
 @EnterprisePolicy(dpc = {
         APPLIED_BY_PROFILE_OWNER | APPLIES_TO_OWN_USER
-                | APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER | CAN_BE_DELEGATED},
+                | APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER | CAN_BE_DELEGATED
+                | CANNOT_BE_APPLIED_BY_ROLE_HOLDER},
         delegatedScopes = DELEGATION_ENABLE_SYSTEM_APP)
 public final class EnableSystemApp {
 }

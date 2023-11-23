@@ -72,34 +72,21 @@ static jboolean nativeTestIfReadOnlyFdIsRejected(JNIEnv* env, jobject, jstring j
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestIfWriteOnlyFdIsRejected(JNIEnv* env, jobject, jstring jdstPath) {
-    const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
-    FILE* ofp = fopen(cdstPath, "wbe");
-    AMediaMuxer* muxer = AMediaMuxer_new(fileno(ofp), (OutputFormat)OUTPUT_FORMAT_WEBM);
-    bool isPass = true;
-    if (muxer != nullptr) {
-        AMediaMuxer_delete(muxer);
-        ALOGE("error: muxer constructor accepts write-only file descriptor");
-        isPass = false;
+static jboolean nativeTestIfNonSeekableFdIsRejected(JNIEnv*, jobject) {
+    int pipefd[2];
+    if (pipe(pipefd) == -1) {
+        ALOGE("unable to create pipe fd");
+        return false;
     }
-    fclose(ofp);
-    env->ReleaseStringUTFChars(jdstPath, cdstPath);
-    return static_cast<jboolean>(isPass);
-}
-
-static jboolean nativeTestIfNonSeekableFdIsRejected(JNIEnv* env, jobject, jstring jdstPath) {
-    const char* cdstPath = env->GetStringUTFChars(jdstPath, nullptr);
-    mkfifo(cdstPath, 0666);
-    int fd = open(cdstPath, O_WRONLY);
-    AMediaMuxer* muxer = AMediaMuxer_new(fd, (OutputFormat)OUTPUT_FORMAT_THREE_GPP);
+    AMediaMuxer* muxer = AMediaMuxer_new(pipefd[1], (OutputFormat)OUTPUT_FORMAT_THREE_GPP);
     bool isPass = true;
     if (muxer != nullptr) {
         AMediaMuxer_delete(muxer);
         ALOGE("error: muxer constructor accepts non-seekable file descriptor");
         isPass = false;
     }
-    close(fd);
-    env->ReleaseStringUTFChars(jdstPath, cdstPath);
+    close(pipefd[0]);
+    close(pipefd[1]);
     return static_cast<jboolean>(isPass);
 }
 
@@ -125,13 +112,13 @@ static jboolean nativeTestIfInvalidMediaFormatIsRejected(JNIEnv* env, jobject, j
     AMediaFormat* format = AMediaFormat_new();
     bool isPass = true;
     if (AMediaMuxer_addTrack(muxer, format) >= 0) {
-        ALOGE("error: muxer.addTrack succeeds with format that has no mime key");
+        ALOGE("error: muxer.addTrack succeeds with format that has no mediaType key");
         isPass = false;
     }
 
     AMediaFormat_setString(format, AMEDIAFORMAT_KEY_MIME, "text/cea-608");
     if (AMediaMuxer_addTrack(muxer, format) >= 0) {
-        ALOGE("error: muxer.addTrack succeeds with format whose mime is non-compliant");
+        ALOGE("error: muxer.addTrack succeeds with format whose mediaType is non-compliant");
         isPass = false;
     }
     AMediaFormat_delete(format);
@@ -463,9 +450,7 @@ int registerAndroidMediaV2CtsMuxerUnitTestApi(JNIEnv* env) {
             {"nativeTestIfInvalidFdIsRejected", "()Z", (void*)nativeTestIfInvalidFdIsRejected},
             {"nativeTestIfReadOnlyFdIsRejected", "(Ljava/lang/String;)Z",
              (void*)nativeTestIfReadOnlyFdIsRejected},
-            {"nativeTestIfWriteOnlyFdIsRejected", "(Ljava/lang/String;)Z",
-             (void*)nativeTestIfWriteOnlyFdIsRejected},
-            {"nativeTestIfNonSeekableFdIsRejected", "(Ljava/lang/String;)Z",
+            {"nativeTestIfNonSeekableFdIsRejected", "()Z",
              (void*)nativeTestIfNonSeekableFdIsRejected},
             {"nativeTestIfInvalidOutputFormatIsRejected", "(Ljava/lang/String;)Z",
              (void*)nativeTestIfInvalidOutputFormatIsRejected},

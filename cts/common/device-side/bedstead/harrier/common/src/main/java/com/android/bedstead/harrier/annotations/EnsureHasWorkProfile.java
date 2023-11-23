@@ -16,14 +16,17 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.OptionalBoolean.ANY;
-import static com.android.bedstead.harrier.UserType.PRIMARY_USER;
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
+import static com.android.bedstead.harrier.UserType.INITIAL_USER;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.REQUIRE_RUN_ON_PRECEDENCE;
+import static com.android.bedstead.nene.types.OptionalBoolean.ANY;
+import static com.android.bedstead.nene.types.OptionalBoolean.FALSE;
 
-import com.android.bedstead.harrier.OptionalBoolean;
 import com.android.bedstead.harrier.UserType;
+import com.android.bedstead.harrier.annotations.enterprise.AdditionalQueryParameters;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.meta.EnsureHasProfileAnnotation;
+import com.android.bedstead.nene.types.OptionalBoolean;
+import com.android.queryable.annotations.Query;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -46,11 +49,31 @@ import java.lang.annotation.Target;
 @RequireFeature("android.software.managed_users")
 @EnsureHasNoDeviceOwner // TODO: This should only apply on Android R+
 public @interface EnsureHasWorkProfile {
+
+    // Must be before RequireRunOn to ensure users exist
+    int ENSURE_HAS_WORK_PROFILE_WEIGHT = REQUIRE_RUN_ON_PRECEDENCE - 1;
+
     /** Which user type the work profile should be attached to. */
-    UserType forUser() default PRIMARY_USER; // Currently only the primary user is supported
+    UserType forUser() default INITIAL_USER;
 
     /** Whether the instrumented test app should be installed in the work profile. */
     OptionalBoolean installInstrumentedApp() default ANY;
+
+    String DEFAULT_KEY = "profileOwner";
+
+    /**
+     * The key used to identify the profile owner.
+     *
+     * <p>This can be used with {@link AdditionalQueryParameters} to modify the requirements for
+     * the DPC. */
+    String dpcKey() default DEFAULT_KEY;
+
+    /**
+     * Requirements for the Profile Owner.
+     *
+     * <p>Defaults to the default version of RemoteDPC.
+     */
+    Query dpc() default @Query();
 
     /**
      * Whether the profile owner's DPC should be returned by calls to {@code Devicestate#dpc()}.
@@ -58,6 +81,9 @@ public @interface EnsureHasWorkProfile {
      * <p>Only one device policy controller per test should be marked as primary.
      */
     boolean dpcIsPrimary() default false;
+
+    /** Whether the work profile device will be in COPE mode. */
+    boolean isOrganizationOwned() default false;
 
     /**
      * If true, uses the {@code DevicePolicyManager#getParentProfileInstance(ComponentName)}
@@ -73,6 +99,11 @@ public @interface EnsureHasWorkProfile {
     OptionalBoolean switchedToParentUser() default ANY;
 
     /**
+     * Is the profile in quiet mode?
+     */
+    OptionalBoolean isQuietModeEnabled() default FALSE;
+
+    /**
      * Weight sets the order that annotations will be resolved.
      *
      * <p>Annotations with a lower weight will be resolved before annotations with a higher weight.
@@ -82,5 +113,5 @@ public @interface EnsureHasWorkProfile {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default MIDDLE;
+    int weight() default ENSURE_HAS_WORK_PROFILE_WEIGHT;
 }

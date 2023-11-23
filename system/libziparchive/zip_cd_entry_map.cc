@@ -16,40 +16,27 @@
 
 #include "zip_cd_entry_map.h"
 
-#include <android-base/logging.h>
-#include <log/log.h>
-
-/*
- * Round up to the next highest power of 2.
- *
- * Found on http://graphics.stanford.edu/~seander/bithacks.html.
- */
-static uint32_t RoundUpPower2(uint32_t val) {
-  val--;
-  val |= val >> 1;
-  val |= val >> 2;
-  val |= val >> 4;
-  val |= val >> 8;
-  val |= val >> 16;
-  val++;
-
-  return val;
-}
-
 static uint32_t ComputeHash(std::string_view name) {
   return static_cast<uint32_t>(std::hash<std::string_view>{}(name));
 }
 
+template <typename ZipStringOffset>
+const std::string_view ToStringView(ZipStringOffset& entry, const uint8_t *start) {
+  auto name = reinterpret_cast<const char*>(start + entry.name_offset);
+  return std::string_view{name, entry.name_length};
+}
+
 // Convert a ZipEntry to a hash table index, verifying that it's in a valid range.
-std::pair<ZipError, uint64_t> CdEntryMapZip32::GetCdEntryOffset(std::string_view name,
-                                                                const uint8_t* start) const {
+template <typename ZipStringOffset>
+std::pair<ZipError, uint64_t> CdEntryMapZip32<ZipStringOffset>::GetCdEntryOffset(
+        std::string_view name, const uint8_t* start) const {
   const uint32_t hash = ComputeHash(name);
 
   // NOTE: (hash_table_size - 1) is guaranteed to be non-negative.
   uint32_t ent = hash & (hash_table_size_ - 1);
   while (hash_table_[ent].name_offset != 0) {
-    if (hash_table_[ent].ToStringView(start) == name) {
-      return {kSuccess, hash_table_[ent].name_offset};
+    if (ToStringView(hash_table_[ent], start) == name) {
+      return {kSuccess, static_cast<uint64_t>(hash_table_[ent].name_offset)};
     }
     ent = (ent + 1) & (hash_table_size_ - 1);
   }
@@ -58,7 +45,8 @@ std::pair<ZipError, uint64_t> CdEntryMapZip32::GetCdEntryOffset(std::string_view
   return {kEntryNotFound, 0};
 }
 
-ZipError CdEntryMapZip32::AddToMap(std::string_view name, const uint8_t* start) {
+template <typename ZipStringOffset>
+ZipError CdEntryMapZip32<ZipStringOffset>::AddToMap(std::string_view name, const uint8_t* start) {
   const uint64_t hash = ComputeHash(name);
   uint32_t ent = hash & (hash_table_size_ - 1);
 
@@ -67,7 +55,7 @@ ZipError CdEntryMapZip32::AddToMap(std::string_view name, const uint8_t* start) 
    * Further, we guarantee that the hashtable size is not 0.
    */
   while (hash_table_[ent].name_offset != 0) {
-    if (hash_table_[ent].ToStringView(start) == name) {
+    if (ToStringView(hash_table_[ent], start) == name) {
       // We've found a duplicate entry. We don't accept duplicates.
       ALOGW("Zip: Found duplicate entry %.*s", static_cast<int>(name.size()), name.data());
       return kDuplicateEntry;
@@ -82,44 +70,24 @@ ZipError CdEntryMapZip32::AddToMap(std::string_view name, const uint8_t* start) 
   return kSuccess;
 }
 
-void CdEntryMapZip32::ResetIteration() {
+template <typename ZipStringOffset>
+void CdEntryMapZip32<ZipStringOffset>::ResetIteration() {
   current_position_ = 0;
 }
 
-std::pair<std::string_view, uint64_t> CdEntryMapZip32::Next(const uint8_t* cd_start) {
+template <typename ZipStringOffset>
+std::pair<std::string_view, uint64_t> CdEntryMapZip32<ZipStringOffset>::Next(
+        const uint8_t* cd_start) {
   while (current_position_ < hash_table_size_) {
     const auto& entry = hash_table_[current_position_];
     current_position_ += 1;
 
     if (entry.name_offset != 0) {
-      return {entry.ToStringView(cd_start), entry.name_offset};
+      return {ToStringView(entry, cd_start), static_cast<uint64_t>(entry.name_offset)};
     }
   }
   // We have reached the end of the hash table.
   return {};
-}
-
-CdEntryMapZip32::CdEntryMapZip32(uint16_t num_entries) {
-  /*
-   * Create hash table.  We have a minimum 75% load factor, possibly as
-   * low as 50% after we round off to a power of 2.  There must be at
-   * least one unused entry to avoid an infinite loop during creation.
-   */
-  hash_table_size_ = RoundUpPower2(1 + (num_entries * 4) / 3);
-  hash_table_ = {
-      reinterpret_cast<ZipStringOffset*>(calloc(hash_table_size_, sizeof(ZipStringOffset))), free};
-}
-
-std::unique_ptr<CdEntryMapInterface> CdEntryMapZip32::Create(uint16_t num_entries) {
-  auto entry_map = new CdEntryMapZip32(num_entries);
-  CHECK(entry_map->hash_table_ != nullptr)
-      << "Zip: unable to allocate the " << entry_map->hash_table_size_
-      << " entry hash_table, entry size: " << sizeof(ZipStringOffset);
-  return std::unique_ptr<CdEntryMapInterface>(entry_map);
-}
-
-std::unique_ptr<CdEntryMapInterface> CdEntryMapZip64::Create() {
-  return std::unique_ptr<CdEntryMapInterface>(new CdEntryMapZip64());
 }
 
 ZipError CdEntryMapZip64::AddToMap(std::string_view name, const uint8_t* start) {
@@ -153,4 +121,18 @@ std::pair<std::string_view, uint64_t> CdEntryMapZip64::Next(const uint8_t* /*cd_
   }
 
   return *iterator_++;
+}
+
+std::unique_ptr<CdEntryMapInterface> CdEntryMapInterface::Create(uint64_t num_entries,
+        size_t cd_length, uint16_t max_file_name_length) {
+  using T = std::unique_ptr<CdEntryMapInterface>;
+  if (num_entries > UINT16_MAX)
+    return T(new CdEntryMapZip64());
+
+  uint16_t num_entries_ = static_cast<uint16_t>(num_entries);
+  if (cd_length > ZipStringOffset20::offset_max ||
+      max_file_name_length > ZipStringOffset20::length_max) {
+    return T(new CdEntryMapZip32<ZipStringOffset32>(num_entries_));
+  }
+  return T(new CdEntryMapZip32<ZipStringOffset20>(num_entries_));
 }

@@ -29,7 +29,6 @@ android_test_helper_app {
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
         "androidx.legacy_legacy-support-v4",
-        "testng", // for org.test.* support
     ],
     sdk_version: "test_current",
     // tag this module as a cts test artifact

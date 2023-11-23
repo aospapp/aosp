@@ -19,6 +19,16 @@ Typical usage: apexer input_dir output.apex
 
 """
 
+import sys
+
+if len(sys.path) >= 2 and "/execroot/__main__/" in sys.path[1] and "/execroot/__main__/" not in sys.path[0]:
+  # TODO(b/235287972): Remove this hack. Bazel currently has a bug where a path outside
+  # of the execroot is added to the beginning of sys.path, because the python interpreter
+  # will add the directory of the main file to the path, following symlinks as it does.
+  # This can be fixed with the -P option or the PYTHONSAFEPATH environment variable in
+  # python 3.11.0, which is not yet released.
+  del sys.path[0]
+
 import apex_build_info_pb2
 import argparse
 import hashlib
@@ -28,7 +38,6 @@ import re
 import shlex
 import shutil
 import subprocess
-import sys
 import tempfile
 import uuid
 import xml.etree.ElementTree as ET
@@ -36,6 +45,7 @@ import zipfile
 import glob
 from apex_manifest import ValidateApexManifest
 from apex_manifest import ApexManifestError
+from apex_manifest import ParseApexManifest
 from manifest import android_ns
 from manifest import find_child_with_attribute
 from manifest import get_children_with_tag
@@ -770,13 +780,10 @@ def CreateApex(args, work_dir):
     shutil.copyfile(src, dst)
 
   try:
-    manifest_apex = ValidateApexManifest(args.manifest)
+    manifest_apex = CreateApexManifest(args.manifest)
   except ApexManifestError as err:
     print("'" + args.manifest + "' is not a valid manifest file")
     print(err.errmessage)
-    return False
-  except IOError:
-    print("Cannot read manifest file: '" + args.manifest + "'")
     return False
 
   # Create content dir and manifests dir, the manifests dir is used to
@@ -861,6 +868,13 @@ def CreateApex(args, work_dir):
 
   return True
 
+def CreateApexManifest(manifest_path):
+  try:
+    manifest_apex = ParseApexManifest(manifest_path)
+    ValidateApexManifest(manifest_apex)
+    return manifest_apex
+  except IOError:
+    raise ApexManifestError("Cannot read manifest file: '" + manifest_path + "'")
 
 class TempDirectory(object):
 

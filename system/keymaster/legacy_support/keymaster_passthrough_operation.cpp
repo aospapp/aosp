@@ -17,6 +17,7 @@
 
 #include "keymaster_passthrough_operation.h"
 #include <keymaster/android_keymaster_utils.h>
+#include <utility>
 #include <vector>
 
 namespace keymaster {
@@ -85,7 +86,7 @@ keymaster_error_t KeymasterPassthroughOperation<keymaster1_device_t>::Finish(
     }
 
     accumulated_out_params.Deduplicate();
-    if (output_params) *output_params = move(accumulated_out_params);
+    if (output_params) *output_params = std::move(accumulated_out_params);
 
     return KM_ERROR_OK;
 }

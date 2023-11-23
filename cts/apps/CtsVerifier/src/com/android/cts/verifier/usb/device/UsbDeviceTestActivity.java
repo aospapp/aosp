@@ -152,7 +152,10 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
 
                             mUsbManager.requestPermission(device,
                                     PendingIntent.getBroadcast(UsbDeviceTestActivity.this, 0,
-                                            new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_MUTABLE_UNAUDITED));
+                                            new Intent(ACTION_USB_PERMISSION)
+                                                    .setPackage(UsbDeviceTestActivity.this
+                                                            .getPackageName()),
+                                            PendingIntent.FLAG_MUTABLE));
                             break;
                         case ACTION_USB_PERMISSION:
                             boolean granted = intent.getBooleanExtra(
@@ -194,7 +197,7 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
                 }
             }
         };
-        registerReceiver(mUsbDeviceConnectionReceiver, filter);
+        registerReceiver(mUsbDeviceConnectionReceiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     /**
@@ -1596,7 +1599,10 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
 
                             mUsbManager.requestPermission(device,
                                     PendingIntent.getBroadcast(UsbDeviceTestActivity.this, 0,
-                                         new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_MUTABLE_UNAUDITED));
+                                            new Intent(ACTION_USB_PERMISSION)
+                                                    .setPackage(UsbDeviceTestActivity.this
+                                                            .getPackageName()),
+                                            PendingIntent.FLAG_MUTABLE));
                             break;
                     }
                 }
@@ -1661,8 +1667,8 @@ public class UsbDeviceTestActivity extends PassFailButtons.Activity {
             }
         };
 
-        registerReceiver(mUsbDeviceAttachedReceiver, filter);
-        registerReceiver(mUsbDevicePermissionReceiver, filter);
+        registerReceiver(mUsbDeviceAttachedReceiver, filter, Context.RECEIVER_EXPORTED);
+        registerReceiver(mUsbDevicePermissionReceiver, filter, Context.RECEIVER_EXPORTED);
 
         try {
             mAttachedThreadFinished.get(mAttachedConfirmTime, TimeUnit.MILLISECONDS);

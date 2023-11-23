@@ -38,6 +38,8 @@ class PlatformBleBase : public PlatformPal {
   static void requestStateResync();
   static void scanStatusChangeCallback(bool enabled, uint8_t errorCode);
   static void advertisingEventCallback(struct chreBleAdvertisementEvent *event);
+  static void readRssiCallback(uint8_t errorCode, uint16_t connectionHandle,
+                               int8_t rssi);
 };
 
 }  // namespace chre

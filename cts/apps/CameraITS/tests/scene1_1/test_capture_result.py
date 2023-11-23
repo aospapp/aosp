@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os.path
 import matplotlib.pyplot
 from mobly import test_runner
@@ -22,45 +23,46 @@ from mobly import test_runner
 from mpl_toolkits import mplot3d  # pylint: disable=unused-import
 import numpy as np
 
-# required for 3D plots
 import its_base_test
 import camera_properties_utils
 import capture_request_utils
 import its_session_utils
 
-AWB_GAINS_NUM = 4
-AWB_XFORM_NUM = 9
-ISCLOSE_ATOL = 0.05  # not for absolute ==, but if something grossly wrong
-MANUAL_AWB_GAINS = [1, 1.5, 2.0, 3.0]
-MANUAL_AWB_XFORM = capture_request_utils.float_to_rational([-1.5, -1.0, -0.5,
-                                                            0.0, 0.5, 1.0,
-                                                            1.5, 2.0, 3.0])
+_AWB_GAINS_NUM = 4
+_AWB_XFORM_NUM = 9
+_ISCLOSE_ATOL = 0.05  # not for absolute ==, but if something grossly wrong
+_MANUAL_AWB_GAINS = [1, 1.5, 2.0, 3.0]
+_MANUAL_AWB_XFORM = capture_request_utils.float_to_rational([-1.5, -1.0, -0.5,
+                                                             0.0, 0.5, 1.0,
+                                                             1.5, 2.0, 3.0])
 # The camera HAL may not support different gains for two G channels.
-MANUAL_GAINS_OK = [[1, 1.5, 2.0, 3.0],
-                   [1, 1.5, 1.5, 3.0],
-                   [1, 2.0, 2.0, 3.0]]
-MANUAL_TONEMAP = [0, 0, 1, 1]  # Linear tonemap
-MANUAL_REGION = [{'x': 8, 'y': 8, 'width': 128, 'height': 128, 'weight': 1}]
-NAME = os.path.splitext(os.path.basename(__file__))[0]
+_MANUAL_GAINS_OK = [[1, 1.5, 2.0, 3.0],
+                    [1, 1.5, 1.5, 3.0],
+                    [1, 2.0, 2.0, 3.0]]
+_MANUAL_TONEMAP = [0, 0, 1, 1]  # Linear tonemap
+_MANUAL_REGION = [{'x': 8, 'y': 8, 'width': 128, 'height': 128, 'weight': 1}]
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
 
 
 def is_close_rational(n1, n2):
-  return np.isclose(capture_request_utils.rational_to_float(n1),
-                    capture_request_utils.rational_to_float(n2),
-                    atol=ISCLOSE_ATOL)
+  return math.isclose(capture_request_utils.rational_to_float(n1),
+                      capture_request_utils.rational_to_float(n2),
+                      abs_tol=_ISCLOSE_ATOL)
 
 
 def draw_lsc_plot(lsc_map_w, lsc_map_h, lsc_map, name, log_path):
+  """Creates Lens Shading Correction plot."""
   for ch in range(4):
     fig = matplotlib.pyplot.figure()
-    ax = fig.gca(projection='3d')
+    ax = fig.add_subplot(projection='3d')
     xs = np.array([range(lsc_map_w)] * lsc_map_h).reshape(lsc_map_h, lsc_map_w)
     ys = np.array([[i]*lsc_map_w for i in range(lsc_map_h)]).reshape(
         lsc_map_h, lsc_map_w)
     zs = np.array(lsc_map[ch::4]).reshape(lsc_map_h, lsc_map_w)
+    name_with_log_path = os.path.join(log_path, _NAME)
     ax.plot_wireframe(xs, ys, zs)
-    matplotlib.pyplot.savefig('%s_plot_lsc_%s_ch%d.png' % (
-        os.path.join(log_path, NAME), name, ch))
+    matplotlib.pyplot.savefig(
+        f'{name_with_log_path}_plot_lsc_{name}_ch{ch}.png')
 
 
 def metadata_checks(metadata, props):
@@ -83,9 +85,9 @@ def metadata_checks(metadata, props):
     logging.debug('AWB region: %s', str(metadata['android.control.awbRegions']))
 
   # Color correction gains and transform should be the same size
-  if len(awb_gains) != AWB_GAINS_NUM:
+  if len(awb_gains) != _AWB_GAINS_NUM:
     raise AssertionError(f'AWB gains wrong length! {awb_gains}')
-  if len(awb_xform) != AWB_XFORM_NUM:
+  if len(awb_xform) != _AWB_XFORM_NUM:
     raise AssertionError(f'AWB transform wrong length! {awb_xform}')
 
 
@@ -125,15 +127,15 @@ def test_auto(cam, props, log_path):
     raise AssertionError(f'AWB transform has 0 denominators: {awb_xform}')
 
   # Color correction should not match the manual settings.
-  if np.allclose(awb_gains, MANUAL_AWB_GAINS, atol=ISCLOSE_ATOL):
+  if np.allclose(awb_gains, _MANUAL_AWB_GAINS, atol=_ISCLOSE_ATOL):
     raise AssertionError('Manual and automatic AWB gains are same! '
-                         f'manual: {MANUAL_AWB_GAINS}, auto: {awb_gains}, '
-                         f'ATOL: {ISCLOSE_ATOL}')
-  if all([is_close_rational(awb_xform[i], MANUAL_AWB_XFORM[i])
-          for i in range(AWB_XFORM_NUM)]):
+                         f'manual: {_MANUAL_AWB_GAINS}, auto: {awb_gains}, '
+                         f'ATOL: {_ISCLOSE_ATOL}')
+  if all([is_close_rational(awb_xform[i], _MANUAL_AWB_XFORM[i])
+          for i in range(_AWB_XFORM_NUM)]):
     raise AssertionError('Manual and automatic AWB transforms are same! '
-                         f'manual: {MANUAL_AWB_XFORM}, auto: {awb_xform}, '
-                         f'ATOL: {ISCLOSE_ATOL}')
+                         f'manual: {_MANUAL_AWB_XFORM}, auto: {awb_xform}, '
+                         f'ATOL: {_ISCLOSE_ATOL}')
 
   # Exposure time must be valid.
   exp_time = metadata['android.sensor.exposureTime']
@@ -169,15 +171,15 @@ def test_manual(cam, props, log_path):
       'android.sensor.sensitivity': sens_min,
       'android.sensor.exposureTime': exp_min,
       'android.colorCorrection.mode': 0,
-      'android.colorCorrection.transform': MANUAL_AWB_XFORM,
-      'android.colorCorrection.gains': MANUAL_AWB_GAINS,
+      'android.colorCorrection.transform': _MANUAL_AWB_XFORM,
+      'android.colorCorrection.gains': _MANUAL_AWB_GAINS,
       'android.tonemap.mode': 0,
-      'android.tonemap.curve': {'red': MANUAL_TONEMAP,
-                                'green': MANUAL_TONEMAP,
-                                'blue': MANUAL_TONEMAP},
-      'android.control.aeRegions': MANUAL_REGION,
-      'android.control.afRegions': MANUAL_REGION,
-      'android.control.awbRegions': MANUAL_REGION,
+      'android.tonemap.curve': {'red': _MANUAL_TONEMAP,
+                                'green': _MANUAL_TONEMAP,
+                                'blue': _MANUAL_TONEMAP},
+      'android.control.aeRegions': _MANUAL_REGION,
+      'android.control.afRegions': _MANUAL_REGION,
+      'android.control.awbRegions': _MANUAL_REGION,
       'android.statistics.lensShadingMapMode': 1
       }
   cap = its_session_utils.do_capture_with_latency(cam, req, sync_latency)
@@ -193,20 +195,23 @@ def test_manual(cam, props, log_path):
   metadata_checks(metadata, props)
   awb_gains = metadata['android.colorCorrection.gains']
   awb_xform = metadata['android.colorCorrection.transform']
-  if not (all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[0][i],
-                          atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)]) or
-          all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[1][i],
-                          atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)]) or
-          all([np.isclose(awb_gains[i], MANUAL_GAINS_OK[2][i],
-                          atol=ISCLOSE_ATOL) for i in range(AWB_GAINS_NUM)])):
+  if not (all([math.isclose(awb_gains[i], _MANUAL_GAINS_OK[0][i],
+                            abs_tol=_ISCLOSE_ATOL)
+               for i in range(_AWB_GAINS_NUM)]) or
+          all([math.isclose(awb_gains[i], _MANUAL_GAINS_OK[1][i],
+                            abs_tol=_ISCLOSE_ATOL)
+               for i in range(_AWB_GAINS_NUM)]) or
+          all([math.isclose(awb_gains[i], _MANUAL_GAINS_OK[2][i],
+                            abs_tol=_ISCLOSE_ATOL)
+               for i in range(_AWB_GAINS_NUM)])):
     raise AssertionError('request/capture mismatch in AWB gains! '
-                         f'req: {MANUAL_GAINS_OK}, cap: {awb_gains}, '
-                         f'ATOL: {ISCLOSE_ATOL}')
-  if not (all([is_close_rational(awb_xform[i], MANUAL_AWB_XFORM[i])
-               for i in range(AWB_XFORM_NUM)])):
+                         f'req: {_MANUAL_GAINS_OK}, cap: {awb_gains}, '
+                         f'ATOL: {_ISCLOSE_ATOL}')
+  if not (all([is_close_rational(awb_xform[i], _MANUAL_AWB_XFORM[i])
+               for i in range(_AWB_XFORM_NUM)])):
     raise AssertionError('request/capture mismatch in AWB transforms! '
-                         f'req: {MANUAL_AWB_XFORM}, cap: {awb_xform}, '
-                         f'ATOL: {ISCLOSE_ATOL}')
+                         f'req: {_MANUAL_AWB_XFORM}, cap: {awb_xform}, '
+                         f'ATOL: {_ISCLOSE_ATOL}')
 
   # The returned tonemap must be linear.
   curves = [metadata['android.tonemap.curve']['red'],
@@ -216,16 +221,16 @@ def test_manual(cam, props, log_path):
   for _, c in enumerate(curves):
     if not c:
       raise AssertionError('c in curves is empty.')
-    if not all([np.isclose(c[i], c[i+1], atol=ISCLOSE_ATOL)
+    if not all([math.isclose(c[i], c[i+1], abs_tol=_ISCLOSE_ATOL)
                 for i in range(0, len(c), 2)]):
       raise AssertionError(f"tonemap 'RGB'[i] is not linear! {c}")
 
   # Exposure time must be close to the requested exposure time.
   exp_time = metadata['android.sensor.exposureTime']
-  if not np.isclose(exp_time, exp_min, atol=ISCLOSE_ATOL/1E-06):
+  if not math.isclose(exp_time, exp_min, abs_tol=_ISCLOSE_ATOL/1E-06):
     raise AssertionError('request/capture exposure time mismatch! '
                          f'req: {exp_min}, cap: {exp_time}, '
-                         f'ATOL: {ISCLOSE_ATOL/1E-6}')
+                         f'ATOL: {_ISCLOSE_ATOL/1E-6}')
 
   # Lens shading map must be valid
   lsc_obj = metadata['android.statistics.lensShadingCorrectionMap']
@@ -247,7 +252,7 @@ class CaptureResult(its_base_test.ItsBaseTest):
   """Test that valid data comes back in CaptureResult objects."""
 
   def test_capture_result(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,

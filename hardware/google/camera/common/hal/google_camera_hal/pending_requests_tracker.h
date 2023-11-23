@@ -63,6 +63,9 @@ class PendingRequestsTracker {
   // Notify the request tracker that the buffer cache manager has been flushed.
   void OnBufferCacheFlushed();
 
+  // Dump the buffer counting status
+  void DumpStatus();
+
   virtual ~PendingRequestsTracker() = default;
 
  protected:

@@ -21,12 +21,19 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.car.VehicleIgnitionState;
 import android.car.cts.utils.VehiclePropertyUtils;
+import android.car.test.ApiCheckerRule.Builder;
 
 import org.junit.Test;
 
 import java.util.List;
 
-public final class VehicleIgnitionStateTest {
+public final class VehicleIgnitionStateTest extends AbstractCarLessTestCase {
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        builder.disableAnnotationsCheck();
+    }
 
     @Test
     public void testToString() {
@@ -37,6 +44,8 @@ public final class VehicleIgnitionStateTest {
         assertThat(VehicleIgnitionState.toString(VehicleIgnitionState.ACC)).isEqualTo("ACC");
         assertThat(VehicleIgnitionState.toString(VehicleIgnitionState.ON)).isEqualTo("ON");
         assertThat(VehicleIgnitionState.toString(VehicleIgnitionState.START)).isEqualTo("START");
+        int unknownIgnitionState = 255;
+        assertThat(VehicleIgnitionState.toString(unknownIgnitionState)).isEqualTo("0xff");
     }
 
     @Test

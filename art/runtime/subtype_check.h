@@ -382,12 +382,12 @@ struct SubtypeCheck {
     if (UNLIKELY(!klass->HasSuperClass())) {
       // Object root always goes directly from Uninitialized -> Assigned.
 
-      const SubtypeCheckInfo root_sci = GetSubtypeCheckInfo(klass);
+      SubtypeCheckInfo root_sci = GetSubtypeCheckInfo(klass);
       if (root_sci.GetState() != SubtypeCheckInfo::kUninitialized) {
         return root_sci;  // No change needed.
       }
 
-      const SubtypeCheckInfo new_root_sci = root_sci.CreateRoot();
+      SubtypeCheckInfo new_root_sci = root_sci.CreateRoot();
       SetSubtypeCheckInfo(klass, new_root_sci);
 
       // The object root is always in the Uninitialized|Assigned state.
@@ -571,9 +571,7 @@ struct SubtypeCheck {
     DCHECK_EQ(depth, klass->Depth());
     SubtypeCheckBitsAndStatus current_bits_and_status = ReadField(klass);
 
-    const SubtypeCheckInfo current =
-        SubtypeCheckInfo::Create(current_bits_and_status.subtype_check_info_, depth);
-    return current;
+    return SubtypeCheckInfo::Create(current_bits_and_status.subtype_check_info_, depth);
   }
 
   static void SetSubtypeCheckInfo(ClassPtr klass, const SubtypeCheckInfo& new_sci)

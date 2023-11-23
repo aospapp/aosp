@@ -21,20 +21,15 @@ related to wlan scanning
 
 from datetime import datetime
 
-import pprint
-import time
-
-import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
-
 from acts import signals
 from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_bss_settings
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 
-class WlanScanTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanScanTest(WifiBaseTest):
     """WLAN scan test class.
 
     Test Bed Requirement:
@@ -42,6 +37,7 @@ class WlanScanTest(AbstractDeviceWlanDeviceBaseTest):
     * Several Wi-Fi networks visible to the device, including an open Wi-Fi
       network or a onHub/GoogleWifi
     """
+
     def setup_class(self):
         super().setup_class()
 
@@ -146,7 +142,7 @@ class WlanScanTest(AbstractDeviceWlanDeviceBaseTest):
 
     def teardown_test(self):
         for fd in self.fuchsia_devices:
-            fd.wlan_lib.wlanDisconnect()
+            fd.sl4f.wlan_lib.wlanDisconnect()
 
     def teardown_class(self):
         if self.start_access_point:
@@ -195,8 +191,8 @@ class WlanScanTest(AbstractDeviceWlanDeviceBaseTest):
         if 'password' in wlan_network_params:
             target_pwd = wlan_network_params['password']
 
-        bss_scan_response = fd.wlan_lib.wlanScanForBSSInfo().get('result')
-        connection_response = fd.wlan_lib.wlanConnectToNetwork(
+        bss_scan_response = fd.sl4f.wlan_lib.wlanScanForBSSInfo().get('result')
+        connection_response = fd.sl4f.wlan_lib.wlanConnectToNetwork(
             target_ssid,
             bss_scan_response[target_ssid][0],
             target_pwd=target_pwd)
@@ -210,7 +206,7 @@ class WlanScanTest(AbstractDeviceWlanDeviceBaseTest):
         """
         start_time = datetime.now()
 
-        scan_response = fd.wlan_lib.wlanStartScan()
+        scan_response = fd.sl4f.wlan_lib.wlanStartScan()
 
         # first check if we received an error
         if scan_response.get("error") is None:

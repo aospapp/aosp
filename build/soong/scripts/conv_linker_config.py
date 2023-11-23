@@ -19,6 +19,7 @@ import argparse
 import collections
 import json
 import os
+import sys
 
 import linker_config_pb2 #pylint: disable=import-error
 from google.protobuf.descriptor import FieldDescriptor
@@ -26,14 +27,41 @@ from google.protobuf.json_format import ParseDict
 from google.protobuf.text_format import MessageToString
 
 
-def Proto(args):
+def LoadJsonMessage(path):
+    """
+    Loads a message from a .json file with `//` comments strippedfor convenience.
+    """
     json_content = ''
-    with open(args.source) as f:
+    with open(path) as f:
         for line in f:
             if not line.lstrip().startswith('//'):
                 json_content += line
     obj = json.loads(json_content, object_pairs_hook=collections.OrderedDict)
-    pb = ParseDict(obj, linker_config_pb2.LinkerConfig())
+    return ParseDict(obj, linker_config_pb2.LinkerConfig())
+
+
+def Proto(args):
+    """
+    Merges input json files (--source) into a protobuf message (--output).
+    Fails if the output file exists. Set --force or --append to deal with the existing
+    output file.
+    --force to overwrite the output file with the input (.json files).
+    --append to append the input to the output file.
+    """
+    pb = linker_config_pb2.LinkerConfig()
+    if os.path.isfile(args.output):
+        if args.force:
+            pass
+        elif args.append:
+            with open(args.output, 'rb') as f:
+                pb.ParseFromString(f.read())
+        else:
+            sys.stderr.write(f'Error: {args.output} exists. Use --force or --append.\n')
+            sys.exit(1)
+
+    if args.source:
+        for input in args.source.split(':'):
+            pb.MergeFrom(LoadJsonMessage(input))
     with open(args.output, 'wb') as f:
         f.write(pb.SerializeToString())
 
@@ -102,15 +130,26 @@ def GetArgParser():
     parser_proto.add_argument(
         '-s',
         '--source',
-        required=True,
+        nargs='?',
         type=str,
-        help='Source linker configuration file in JSON.')
+        help='Colon-separated list of linker configuration files in JSON.')
     parser_proto.add_argument(
         '-o',
         '--output',
         required=True,
         type=str,
         help='Target path to create protobuf file.')
+    option_for_existing_output = parser_proto.add_mutually_exclusive_group()
+    option_for_existing_output.add_argument(
+        '-f',
+        '--force',
+        action='store_true',
+        help='Overwrite if the output file exists.')
+    option_for_existing_output.add_argument(
+        '-a',
+        '--append',
+        action='store_true',
+        help='Append the input to the output file if the output file exists.')
     parser_proto.set_defaults(func=Proto)
 
     print_proto = subparsers.add_parser(
@@ -192,8 +231,12 @@ def GetArgParser():
 
 
 def main():
-    args = GetArgParser().parse_args()
-    args.func(args)
+    parser = GetArgParser()
+    args = parser.parse_args()
+    if 'func' in args:
+        args.func(args)
+    else:
+        parser.print_help()
 
 
 if __name__ == '__main__':

@@ -1018,7 +1018,7 @@ def print_usage(cmd, _):
 def main():
     """Main entry point for mkdtboimg."""
 
-    parser = argparse.ArgumentParser(prog='mkdtboimg.py')
+    parser = argparse.ArgumentParser()
 
     subparser = parser.add_subparsers(title='subcommand',
                                       description='Valid subcommands')

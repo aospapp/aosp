@@ -37,7 +37,7 @@ class FileFetcher : public HttpFetcher {
   // Returns whether the passed url is supported.
   static bool SupportedUrl(const std::string& url);
 
-  FileFetcher() : HttpFetcher(nullptr) {}
+  FileFetcher() : HttpFetcher() {}
 
   // Cleans up all internal state. Does not notify delegate.
   ~FileFetcher() override;

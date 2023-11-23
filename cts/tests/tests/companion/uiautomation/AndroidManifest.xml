@@ -18,6 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.companion.cts.uiautomation">
 
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.DELIVER_COMPANION_MESSAGES" />
+    <uses-permission android:name="android.permission.READ_DEVICE_CONFIG" />
+
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"
         android:targetPackage="android.companion.cts.uiautomation"
@@ -27,6 +31,20 @@
             android:name="listener"
             android:value="com.android.cts.runner.CtsTestRunListener" />
     </instrumentation>
+
+    <application>
+        <uses-library android:name="android.test.runner" />
+
+        <service
+            android:name=".NotificationListener"
+            android:exported="true"
+            android:label="Notification Listener Service"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+    </application>
 
 </manifest>
 

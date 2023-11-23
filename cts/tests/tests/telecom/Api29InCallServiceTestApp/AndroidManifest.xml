@@ -38,6 +38,8 @@
             <intent-filter>
                 <action android:name="android.telecom.InCallService"/>
             </intent-filter>
+            <meta-data android:name="android.telecom.INCLUDE_SELF_MANAGED_CALLS"
+                       android:value="true" />
         </service>
         <service android:name=".CtsApi29InCallServiceControl"
              android:launchMode="singleInstance"

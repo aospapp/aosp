@@ -192,7 +192,7 @@ interface ModifierList {
      * in this modifier list
      */
     fun findAnnotation(qualifiedName: String): AnnotationItem? {
-        val mappedName = AnnotationItem.mapName(codebase, qualifiedName)
+        val mappedName = AnnotationItem.mapName(qualifiedName)
         return annotations().firstOrNull {
             mappedName == it.qualifiedName
         }

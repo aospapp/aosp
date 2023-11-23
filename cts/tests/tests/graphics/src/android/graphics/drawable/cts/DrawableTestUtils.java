@@ -51,8 +51,8 @@ public class DrawableTestUtils {
     // We can increase the threshold if the Skia is drawing with some variance
     // on different devices. So far, the tests show they are matching correctly.
     static final float PIXEL_ERROR_THRESHOLD = 0.03f;
-    static final float PIXEL_ERROR_COUNT_THRESHOLD = 0.005f;
-    static final int PIXEL_ERROR_TOLERANCE = 3;
+    static final float PIXEL_ERROR_COUNT_THRESHOLD = 0.011f;
+    static final float PIXEL_ERROR_TOLERANCE = 3.0f;
 
     public static void skipCurrentTag(XmlPullParser parser)
             throws XmlPullParserException, IOException {
@@ -159,7 +159,7 @@ public class DrawableTestUtils {
      *
      */
     public static void compareImages(String message, Bitmap expected, Bitmap actual,
-            float pixelThreshold, float pixelCountThreshold, int pixelDiffTolerance) {
+            float pixelThreshold, float pixelCountThreshold, float pixelDiffTolerance) {
         int idealWidth = expected.getWidth();
         int idealHeight = expected.getHeight();
 

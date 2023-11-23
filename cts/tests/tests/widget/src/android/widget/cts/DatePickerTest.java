@@ -67,6 +67,7 @@ public class DatePickerTest {
     private DatePicker mDatePickerSpinnerMode;
     private DatePicker mDatePickerCalendarMode;
     private Instrumentation mInstrumentation;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
 
     @Rule
     public ActivityTestRule<DatePickerCtsActivity> mActivityRule =
@@ -75,6 +76,7 @@ public class DatePickerTest {
     @Before
     public void setUp() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mDatePickerSpinnerMode = (DatePicker) mActivity.findViewById(R.id.date_picker_spinner_mode);
         mDatePickerCalendarMode =
@@ -363,29 +365,29 @@ public class DatePickerTest {
         mInstrumentation.waitForIdleSync();
 
         // Move focus to calendar and verify the requested date.
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_TAB);
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_TAB);
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_TAB);
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_ENTER);
         assertValues(mDatePickerCalendarMode, 2015, Calendar.DECEMBER, 15);
 
         // Move focus to previous week and select previous week by pressing ENTER
         // key.
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_DPAD_UP);
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_ENTER);
         assertValues(mDatePickerCalendarMode, 2015, Calendar.DECEMBER, 8);
 
         // Move focus to previous week and this time select the previous week by
         // pressing NUMPAD_ENTER key.
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_DPAD_UP);
-        CtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, mDatePickerCalendarMode,
                 KeyEvent.KEYCODE_NUMPAD_ENTER);
         assertValues(mDatePickerCalendarMode, 2015, Calendar.DECEMBER, 1);
     }

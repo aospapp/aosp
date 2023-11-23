@@ -30,6 +30,7 @@ import static android.view.WindowInsets.Type.systemBars;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.ComponentName;
@@ -121,11 +122,20 @@ public class ManifestLayoutTests extends ActivityManagerTestBase {
         // Use default density because ActivityInfo.WindowLayout is initialized by that.
         final int minWidth = dpToPx(MIN_WIDTH_DP, DisplayMetrics.DENSITY_DEVICE_STABLE);
         final int minHeight = dpToPx(MIN_HEIGHT_DP, DisplayMetrics.DENSITY_DEVICE_STABLE);
+
+        // The alternative size of the current display density.
+        final int alternativeMinWidth = dpToPx(MIN_WIDTH_DP, mDisplay.getDpi());
+        final int alternativeMinHeight = dpToPx(MIN_HEIGHT_DP, mDisplay.getDpi());
+
         final Rect parentFrame = mWindowState.getParentFrame();
         final int cutoutSize = getCutoutSizeByHorGravity(GRAVITY_HOR_LEFT);
+        final int actualWidth = parentFrame.width() + cutoutSize;
+        final int actualHeight = parentFrame.height();
 
-        assertEquals("Min width is incorrect", minWidth, parentFrame.width() + cutoutSize);
-        assertEquals("Min height is incorrect", minHeight, parentFrame.height());
+        assertTrue("Min width is incorrect",
+                (actualWidth == minWidth || actualWidth == alternativeMinWidth));
+        assertTrue("Min height is incorrect",
+                (actualHeight == minHeight || actualHeight == alternativeMinHeight));
     }
 
     private void testLayout(

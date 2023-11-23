@@ -42,3 +42,31 @@ cc_library {
         "libfstab",
     ],
 }
+
+
+cc_binary {
+    name: "android.hardware.fastboot-service.pixel_recovery",
+    init_rc: ["android.hardware.fastboot-service.pixel_recovery.rc"],
+    vintf_fragments: ["android.hardware.fastboot-service.pixel.xml"],
+    recovery: true,
+    srcs: [
+        "Fastboot_aidl.cpp",
+        "main.cpp",
+    ],
+    relative_install_path: "hw",
+    shared_libs: [
+        "android.hardware.fastboot-V1-ndk",
+        "libbinder_ndk",
+        "libbase",
+        "libcutils",
+        "libext4_utils",
+        "libfs_mgr",
+        "liblog",
+        "libutils",
+    ],
+    static_libs: [
+        "libnos_for_fastboot",
+        "libnos_citadel_for_fastboot",
+        "libfstab",
+    ],
+}

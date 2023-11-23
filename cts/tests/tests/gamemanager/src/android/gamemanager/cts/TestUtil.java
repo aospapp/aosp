@@ -18,6 +18,8 @@ package android.gamemanager.cts;
 
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
+import static org.junit.Assert.assertEquals;
+
 import androidx.annotation.NonNull;
 
 public final class TestUtil {
@@ -25,8 +27,8 @@ public final class TestUtil {
     // When an app is installed, some propagation work of the configuration will
     // be set up asynchronously, hence it is recommended to put the thread into sleep
     // to wait for the propagation finishes for a few hundred milliseconds.
-    public static boolean installPackage(@NonNull String apkPath) {
-        return runShellCommand("pm install --force-queryable -t " + apkPath).equals("Success");
+    public static void installPackage(@NonNull String apkPath) {
+        assertEquals("Success", runShellCommand("pm install --force-queryable -t " + apkPath));
     }
 
     public static void uninstallPackage(@NonNull String packageName) {

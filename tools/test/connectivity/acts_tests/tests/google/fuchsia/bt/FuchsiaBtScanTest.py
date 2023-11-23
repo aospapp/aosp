@@ -37,8 +37,8 @@ class FuchsiaBtScanTest(BaseTestClass):
         self.pri_dut = self.fuchsia_devices[0]
         self.sec_dut = self.fuchsia_devices[1]
 
-        self.pri_dut.bts_lib.initBluetoothSys()
-        self.sec_dut.bts_lib.initBluetoothSys()
+        self.pri_dut.sl4f.bts_lib.initBluetoothSys()
+        self.sec_dut.sl4f.bts_lib.initBluetoothSys()
 
     # TODO: add @test_tracker_info(uuid='')
     def test_scan_with_peer_set_non_discoverable(self):
@@ -62,13 +62,13 @@ class FuchsiaBtScanTest(BaseTestClass):
         Priority: 1
         """
         local_name = generate_id_by_size(10)
-        self.sec_dut.bts_lib.setName(local_name)
-        self.sec_dut.bts_lib.setDiscoverable(False)
+        self.sec_dut.sl4f.bts_lib.setName(local_name)
+        self.sec_dut.sl4f.bts_lib.setDiscoverable(False)
 
-        self.pri_dut.bts_lib.requestDiscovery(True)
+        self.pri_dut.sl4f.bts_lib.requestDiscovery(True)
         time.sleep(self.scan_timeout_seconds)
-        self.pri_dut.bts_lib.requestDiscovery(False)
-        discovered_devices = self.pri_dut.bts_lib.getKnownRemoteDevices()
+        self.pri_dut.sl4f.bts_lib.requestDiscovery(False)
+        discovered_devices = self.pri_dut.sl4f.bts_lib.getKnownRemoteDevices()
         for device in discovered_devices.get("result").values():
             discoverd_name = device.get("name")
             if discoverd_name is not None and discoverd_name is local_name:
@@ -99,20 +99,21 @@ class FuchsiaBtScanTest(BaseTestClass):
         """
         local_name = generate_id_by_size(10)
         self.log.info("Setting local peer name to: {}".format(local_name))
-        self.sec_dut.bts_lib.setName(local_name)
-        self.sec_dut.bts_lib.setDiscoverable(True)
+        self.sec_dut.sl4f.bts_lib.setName(local_name)
+        self.sec_dut.sl4f.bts_lib.setDiscoverable(True)
 
-        self.pri_dut.bts_lib.requestDiscovery(True)
+        self.pri_dut.sl4f.bts_lib.requestDiscovery(True)
         end_time = time.time() + self.scan_timeout_seconds
         poll_timeout = 10
         while time.time() < end_time:
-            discovered_devices = self.pri_dut.bts_lib.getKnownRemoteDevices()
+            discovered_devices = self.pri_dut.sl4f.bts_lib.getKnownRemoteDevices(
+            )
             for device in discovered_devices.get("result").values():
                 self.log.info(device)
                 discoverd_name = device.get("name")
                 if discoverd_name is not None and discoverd_name in local_name:
-                    self.pri_dut.bts_lib.requestDiscovery(False)
+                    self.pri_dut.sl4f.bts_lib.requestDiscovery(False)
                     raise signals.TestPass("Successfully found peer device.")
             time.sleep(poll_timeout)
-        self.pri_dut.bts_lib.requestDiscovery(False)
+        self.pri_dut.sl4f.bts_lib.requestDiscovery(False)
         raise signals.TestFailure("Unable to find peer device.")

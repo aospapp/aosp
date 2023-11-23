@@ -33,11 +33,17 @@ filegroup {
     srcs: ["src/android/server/wm/IgnoreOrientationRequestSession.java"],
 }
 
+filegroup {
+    name: "cts-wm-nested-shell-permission",
+    srcs: ["src/android/server/wm/NestedShellPermission.java"],
+}
+
 java_test_helper_library {
     name: "cts-wm-util",
 
     srcs: [
         "src/**/*.java",
+        "src/**/*.aidl",
         ":cts-wm-components",
         ":cts-wm-components-base",
     ],
@@ -47,6 +53,7 @@ java_test_helper_library {
         "compatibility-device-util-axt",
         "androidx.test.rules",
         "hamcrest-library",
+        "CtsMockInputMethodLib",
     ],
 
     sdk_version: "test_current",

@@ -225,7 +225,8 @@ abstract class NetworkSecurityPolicyTestBase extends AndroidTestCase {
             };
             getContext().registerReceiver(
                     downloadCompleteReceiver,
-                    new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+                    new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+                    Context.RECEIVER_EXPORTED);
 
             Intent downloadCompleteIntent;
 

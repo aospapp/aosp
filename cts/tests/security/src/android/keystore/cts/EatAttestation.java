@@ -29,6 +29,7 @@ import org.bouncycastle.asn1.ASN1Encodable;
 
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
 import java.util.List;
 
 public class EatAttestation extends Attestation {
@@ -95,7 +96,8 @@ public class EatAttestation extends Attestation {
                     attestationChallenge = CborUtils.getBytes(extension, key);
                     break;
                 case EatClaim.CTI:
-                    Log.i(TAG, "Got CTI claim: " + CborUtils.getBytes(extension, key));
+                    Log.i(TAG, "Got CTI claim: " +
+                            Arrays.toString(CborUtils.getBytes(extension, key)));
                     uniqueId = CborUtils.getBytes(extension, key);
                     break;
                 case EatClaim.VERIFIED_BOOT_HASH:

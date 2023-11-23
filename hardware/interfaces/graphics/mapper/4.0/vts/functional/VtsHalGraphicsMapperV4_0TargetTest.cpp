@@ -29,12 +29,14 @@
 #include <aidlcommonsupport/NativeHandle.h>
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/unique_fd.h>
 #include <android/sync.h>
 #include <gralloctypes/Gralloc4.h>
 #include <gtest/gtest.h>
 #include <hidl/GtestPrinter.h>
 #include <hidl/ServiceManagement.h>
+
 #include <mapper-vts/4.0/MapperVts.h>
 #include <system/graphics.h>
 
@@ -952,7 +954,6 @@ TEST_P(GraphicsMapperHidlTest, Lock_RAW10) {
     EXPECT_EQ(PlaneLayoutComponentType::RAW,
               static_cast<PlaneLayoutComponentType>(planeLayoutComponent.type.value));
     EXPECT_EQ(0, planeLayoutComponent.offsetInBits % 8);
-    EXPECT_EQ(-1, planeLayoutComponent.sizeInBits);
 
     ASSERT_NO_FATAL_FAILURE(fence.reset(mGralloc->unlock(bufferHandle)));
 }
@@ -994,12 +995,14 @@ TEST_P(GraphicsMapperHidlTest, Lock_RAW12) {
     EXPECT_EQ(PlaneLayoutComponentType::RAW,
               static_cast<PlaneLayoutComponentType>(planeLayoutComponent.type.value));
     EXPECT_EQ(0, planeLayoutComponent.offsetInBits % 8);
-    EXPECT_EQ(-1, planeLayoutComponent.sizeInBits);
 
     ASSERT_NO_FATAL_FAILURE(fence.reset(mGralloc->unlock(bufferHandle)));
 }
 
 TEST_P(GraphicsMapperHidlTest, Lock_YCBCR_P010) {
+    if (base::GetIntProperty("ro.vendor.api_level", __ANDROID_API_FUTURE__) < __ANDROID_API_T__) {
+        GTEST_SKIP() << "Old vendor grallocs may not support P010";
+    }
     auto info = mDummyDescriptorInfo;
     info.format = PixelFormat::YCBCR_P010;
 

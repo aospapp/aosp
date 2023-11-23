@@ -29,6 +29,8 @@ public class ActivityForNullCheckForInputLocales extends Activity {
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         callSetApplicationLocalesWithNullLocales();
+
+        finish();
     }
 
     public void callSetApplicationLocalesWithNullLocales() {

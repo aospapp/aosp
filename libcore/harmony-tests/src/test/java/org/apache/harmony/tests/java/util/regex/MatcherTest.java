@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util.regex;
@@ -81,7 +81,7 @@ public class MatcherTest extends TestCase {
         StringBuffer sb = new StringBuffer();
 
         for (int i = 0; m.find(); i++) {
-            m.appendReplacement(sb, new Integer(i * 10 + i).toString());
+            m.appendReplacement(sb, Integer.valueOf(i * 10 + i).toString());
         }
         m.appendTail(sb);
         assertEquals("Today is 0-11-22 ...", sb.toString());
@@ -92,7 +92,7 @@ public class MatcherTest extends TestCase {
         Matcher m = p.matcher("xx $ equals to xx rur.");
         StringBuffer sb = new StringBuffer();
         for (int i = 1; m.find(); i *= 30) {
-            String rep = new Integer(i).toString() + " $1";
+            String rep = Integer.valueOf(i).toString() + " $1";
             m.appendReplacement(sb, rep);
         }
         m.appendTail(sb);
@@ -146,7 +146,7 @@ public class MatcherTest extends TestCase {
     public void testReplaceFirst_null_match() {
         Matcher matcher = Pattern.compile("Hello").matcher("Hello, world!");
         try {
-            matcher.replaceFirst(null);
+            matcher.replaceFirst((String) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -155,7 +155,7 @@ public class MatcherTest extends TestCase {
     public void testReplaceFirst_null_nomatch() {
         Matcher matcher = Pattern.compile("not found").matcher("Hello, world!");
         try {
-            matcher.replaceFirst(null);
+            matcher.replaceFirst((String) null);
             fail();
         } catch (NullPointerException expected) {
         }

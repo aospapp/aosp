@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 
 #include "chre/util/macros.h"
+#include "chre_api/chre.h"
 #include "common.h"
 #include "generated/chre_power_test_generated.h"
 #include "include/request_manager.h"

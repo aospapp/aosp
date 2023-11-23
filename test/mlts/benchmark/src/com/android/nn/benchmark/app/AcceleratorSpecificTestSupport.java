@@ -166,6 +166,7 @@ public interface AcceleratorSpecificTestSupport {
             mProcessor.setNnApiAcceleratorName(acceleratorName);
             mProcessor.setUseNnApiSupportLibrary(NNTestBase.shouldUseNnApiSupportLibrary());
             mProcessor.setExtractNnApiSupportLibrary(NNTestBase.shouldExtractNnApiSupportLibrary());
+            mProcessor.setNnApiSupportLibraryVendor(NNTestBase.getNnApiSupportLibraryVendor());
             mTestModelEntry = testModelEntry;
         }
 

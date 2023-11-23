@@ -17,22 +17,32 @@
 package com.android.bedstead.harrier.policies;
 
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_DEVICE_OWNER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_DPM_ROLE_HOLDER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_PROFILE_OWNER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_TO_OWN_USER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CANNOT_BE_APPLIED_BY_ROLE_HOLDER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CAN_BE_DELEGATED;
 import static com.android.bedstead.nene.devicepolicy.CommonDevicePolicy.DELEGATION_CERT_INSTALL;
+import static com.android.bedstead.nene.permissions.CommonPermissions.MANAGE_DEVICE_POLICY_CERTIFICATES;
 
 import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
 
 /**
  * Policies around key management
  *
+ * The DPM role holder does not have an admin receiver. For tests that rely on the device admin
+ * receiver or delegated admin receiver, use the {@code KeyManagementWithAdminReceiver} policy.
+ *
  * <p>This is used by methods such as
  * {@code DevicePolicyManager#installKeyPair(ComponentName, PrivateKey, Certificate, String)} and
  * {@code DevicePolicyManager#removeKeyPair(ComponentName, String)}.
  */
-@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER,
-        APPLIED_BY_PROFILE_OWNER | APPLIES_TO_OWN_USER | CAN_BE_DELEGATED},
-        delegatedScopes = DELEGATION_CERT_INSTALL)
+@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIES_TO_OWN_USER, // APPLIED_BY_DPM_ROLE_HOLDER,
+        APPLIED_BY_PROFILE_OWNER | APPLIES_TO_OWN_USER | CAN_BE_DELEGATED
+                | CANNOT_BE_APPLIED_BY_ROLE_HOLDER},
+        delegatedScopes = DELEGATION_CERT_INSTALL,
+        permissions = @EnterprisePolicy.Permission(
+                appliedWith = MANAGE_DEVICE_POLICY_CERTIFICATES,
+                appliesTo = APPLIES_TO_OWN_USER))
 public final class KeyManagement {
 }

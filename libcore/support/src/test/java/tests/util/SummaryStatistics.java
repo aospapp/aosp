@@ -41,7 +41,7 @@ public class SummaryStatistics {
   /** Add a new value to the values seen. */
   public void add(double value) {
     if (firstValue == null) {
-      firstValue = new Double(value);
+      firstValue = Double.valueOf(value);
     }
     sum += value;
     shiftedSquaresSum += square(value - firstValue);

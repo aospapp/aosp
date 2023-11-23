@@ -230,7 +230,11 @@ AidlMQDescriptorShim<T, flavor>::~AidlMQDescriptorShim() {
 
 template <typename T, MQFlavor flavor>
 size_t AidlMQDescriptorShim<T, flavor>::getSize() const {
-    return mGrantors[hardware::details::DATAPTRPOS].extent;
+    if (mGrantors.size() > hardware::details::DATAPTRPOS) {
+        return mGrantors[hardware::details::DATAPTRPOS].extent;
+    } else {
+        return 0;
+    }
 }
 
 template <typename T, MQFlavor flavor>

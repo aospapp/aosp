@@ -29,6 +29,13 @@
     This can happen when the IME is unbound as a result of enabling
     the config_preventImeStartupUnlessTextEditor option. -->
     <uses-permission android:name="android.permission.BROADCAST_STICKY"/>
+    <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS"/>
+    <uses-permission android:name="android.permission.PROVIDE_OWN_AUTOFILL_SUGGESTIONS"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
+
+    <queries>
+        <package android:name="com.android.cts.mockime" />
+    </queries>
 
     <application>
 
@@ -48,8 +55,13 @@
              android:theme="@style/MyAutofilledHighlight"/>
         <activity android:name=".activities.LoginWithStringsActivity"/>
         <activity android:name=".activities.LoginNotImportantForAutofillActivity"/>
+        <activity android:name=".activities.LoginNotImportantUsernameImportantPasswordActivity"/>
+        <activity android:name=".activities.MultilineLoginActivity"/>
+        <activity android:name=".activities.ImeOptionActivity"/>
         <activity android:name=".activities.LoginNotImportantForAutofillWrappedActivityContextActivity"/>
         <activity android:name=".activities.LoginNotImportantForAutofillWrappedApplicationContextActivity"/>
+        <activity android:name=".activities.LoginImportantForCredentialManagerActivity"/>
+        <activity android:name=".activities.LoginMixedImportantForCredentialManagerActivity"/>
         <activity android:name=".activities.WelcomeActivity"
              android:taskAffinity=".WelcomeActivity"/>
         <activity android:name=".activities.ViewActionActivity"
@@ -116,8 +128,12 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity android:name=".activities.MultiWindowLoginActivity"/>
+        <activity android:name=".activities.MultiWindowLoginActivity"
+             android:resizeableActivity="true"
+             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"/>
         <activity android:name=".activities.MultiWindowEmptyActivity"
+             android:resizeableActivity="true"
+             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout"
              android:taskAffinity="nobody.but.EmptyActivity"
              android:exported="true"/>
 
@@ -150,6 +166,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".activities.FadeInActivity"/>
+        <activity android:name=".activities.MultipleStepsSignInActivity"/>
         <activity android:name=".activities.FieldsNoPasswordActivity"/>
         <activity android:name=".activities.AugmentedAuthActivity" />
         <activity android:name=".activities.SimpleAfterLoginActivity"/>
@@ -216,6 +234,14 @@
              android:exported="true">
             <intent-filter>
                 <action android:name="android.service.autofill.AutofillService"/>
+            </intent-filter>
+        </service>
+        <service android:name=".testcore.InstrumentedFieldClassificationService"
+            android:label="InstrumentedFieldClassificationService"
+            android:permission="android.permission.BIND_FIELD_CLASSIFICATION_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.assist.classification.FieldClassificationService"/>
             </intent-filter>
         </service>
 

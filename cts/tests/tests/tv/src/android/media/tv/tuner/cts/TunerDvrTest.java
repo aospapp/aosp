@@ -22,6 +22,7 @@ import static org.junit.Assert.assertNotNull;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.media.tv.tuner.Tuner;
+import android.media.tv.tuner.TunerVersionChecker;
 import android.media.tv.tuner.dvr.DvrPlayback;
 import android.media.tv.tuner.dvr.DvrRecorder;
 import android.media.tv.tuner.dvr.DvrSettings;
@@ -44,7 +45,6 @@ import com.android.compatibility.common.util.RequiredFeatureRule;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -57,6 +57,7 @@ import java.util.concurrent.Executor;
 @SmallTest
 public class TunerDvrTest {
     private static final String TAG = "MediaTunerDvrTest";
+    private static final long STATUS_CHECK_INTERVAL_MS = 100L;
 
     @Rule
     public RequiredFeatureRule featureRule = new RequiredFeatureRule(
@@ -117,6 +118,7 @@ public class TunerDvrTest {
             filter.configure(config);
             d.attachFilter(filter);
         }
+
         d.start();
         d.flush();
         if (filter != null) {
@@ -169,6 +171,87 @@ public class TunerDvrTest {
         assertEquals(0, d.read(3));
         d.stop();
         d.close();
+
+        tmpFile.delete();
+    }
+
+    @Test
+    public void testSetRecordBufferStatusCheckIntervalHint() throws Exception {
+        DvrRecorder d = mTuner.openDvrRecorder(1000, getExecutor(), getRecordListener());
+        assertNotNull(d);
+
+        if (!TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_3_0)) {
+            assertEquals(Tuner.RESULT_UNAVAILABLE,
+                    d.setRecordBufferStatusCheckIntervalHint(STATUS_CHECK_INTERVAL_MS));
+            return;
+        }
+
+        d.configure(getDvrSettings());
+
+        File tmpFile = File.createTempFile("cts_tuner", "dvr_test");
+        d.setFileDescriptor(
+                ParcelFileDescriptor.open(tmpFile, ParcelFileDescriptor.MODE_READ_WRITE));
+
+        assertEquals(Tuner.RESULT_INVALID_ARGUMENT, d.setRecordBufferStatusCheckIntervalHint(-1));
+        assertEquals(Tuner.RESULT_SUCCESS,
+                d.setRecordBufferStatusCheckIntervalHint(STATUS_CHECK_INTERVAL_MS));
+
+        d.start();
+        d.flush();
+        d.write(10);
+        d.write(new byte[3], 0, 3);
+        d.stop();
+        d.close();
+
+        assertEquals(Tuner.RESULT_NOT_INITIALIZED,
+                d.setRecordBufferStatusCheckIntervalHint(STATUS_CHECK_INTERVAL_MS));
+
+        tmpFile.delete();
+    }
+
+    @Test
+    public void testSetPlaybackBufferStatusCheckIntervalHint() throws Exception {
+        DvrPlayback d = mTuner.openDvrPlayback(1000, getExecutor(), getPlaybackListener());
+        assertNotNull(d);
+
+        if (!TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_3_0)) {
+            assertEquals(Tuner.RESULT_UNAVAILABLE,
+                    d.setPlaybackBufferStatusCheckIntervalHint(STATUS_CHECK_INTERVAL_MS));
+            return;
+        }
+
+        d.configure(getDvrSettings());
+
+        File tmpFile = File.createTempFile("cts_tuner", "dvr_test");
+        try (RandomAccessFile raf = new RandomAccessFile(tmpFile, "rw")) {
+            byte[] bytes = new byte[] {3, 5, 10, 22, 73, 33, 19};
+            raf.write(bytes);
+        }
+
+        d.setFileDescriptor(
+                ParcelFileDescriptor.open(tmpFile, ParcelFileDescriptor.MODE_READ_WRITE));
+
+        assertEquals(Tuner.RESULT_INVALID_ARGUMENT,
+                d.setPlaybackBufferStatusCheckIntervalHint(-1));
+        assertEquals(Tuner.RESULT_SUCCESS,
+                d.setPlaybackBufferStatusCheckIntervalHint(STATUS_CHECK_INTERVAL_MS));
+
+        d.start();
+        d.flush();
+        assertEquals(3, d.read(3));
+        assertEquals(3, d.read(new byte[3], 0, 3));
+        assertEquals(0, d.seek(0));
+        assertEquals(3, d.read(3));
+        assertEquals(3, d.read(new byte[3], 0, 3));
+        assertEquals(5, d.seek(5));
+        assertEquals(2, d.read(3));
+        assertEquals(10, d.seek(10));
+        assertEquals(0, d.read(3));
+        d.stop();
+        d.close();
+
+        assertEquals(Tuner.RESULT_NOT_INITIALIZED,
+                d.setPlaybackBufferStatusCheckIntervalHint(STATUS_CHECK_INTERVAL_MS));
 
         tmpFile.delete();
     }

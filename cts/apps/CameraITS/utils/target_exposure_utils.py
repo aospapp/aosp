@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import sys
-import unittest
 
 import capture_request_utils
 import image_processing_utils
@@ -56,85 +55,82 @@ def get_target_exposure_combos(output_path, its_session=None):
 
   if its_session is None:
     with its_session_utils.ItsSession() as cam:
-      exposure = get_target_exposure(target_config_filename, cam)
+      exp_sens_prod = get_target_exposure(target_config_filename, cam)
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
   else:
-    exposure = get_target_exposure(target_config_filename, its_session)
+    exp_sens_prod = get_target_exposure(target_config_filename, its_session)
     props = its_session.get_camera_properties()
     props = its_session.override_with_hidden_physical_camera_props(props)
 
-    sens_range = props['android.sensor.info.sensitivityRange']
-    exp_time_range = props['android.sensor.info.exposureTimeRange']
+  sens_range = props['android.sensor.info.sensitivityRange']
+  exp_time_range = props['android.sensor.info.exposureTimeRange']
+  logging.debug('Target exposure*sensitivity: %d', exp_sens_prod)
+  logging.debug('sensor exp time range: %s', str(exp_time_range))
+  logging.debug('sensor sensitivity range: %s', str(sens_range))
 
-    # Combo 1: smallest legal exposure time.
-    e1_expt = exp_time_range[0]
-    e1_sens = int(exposure / e1_expt)
-    if e1_sens > sens_range[1]:
-      e1_sens = sens_range[1]
-      e1_expt = int(exposure / e1_sens)
-    e1_logging = (f'MinExp exp: {e1_expt}, sens: {e1_sens}')
-    logging.debug('%s', e1_logging)
+  # Combo 1: smallest legal exposure time.
+  e1_expt = exp_time_range[0]
+  e1_sens = int(exp_sens_prod / e1_expt)
+  if e1_sens > sens_range[1]:
+    e1_sens = sens_range[1]
+    e1_expt = int(exp_sens_prod / e1_sens)
+  logging.debug('minExposureTime e: %d, s: %d', e1_expt, e1_sens)
 
-    # Combo 2: largest legal exposure time.
-    e2_expt = exp_time_range[1]
-    e2_sens = int(exposure / e2_expt)
-    if e2_sens < sens_range[0]:
-      e2_sens = sens_range[0]
-      e2_expt = int(exposure / e2_sens)
-    e2_logging = (f'MaxExp exp: {e2_expt}, sens: {e2_sens}')
-    logging.debug('%s', e2_logging)
+  # Combo 2: largest legal exposure time.
+  e2_expt = exp_time_range[1]
+  e2_sens = int(exp_sens_prod / e2_expt)
+  if e2_sens < sens_range[0]:
+    e2_sens = sens_range[0]
+    e2_expt = int(exp_sens_prod / e2_sens)
+  logging.debug('maxExposureTime e: %d, s: %d', e2_expt, e2_sens)
 
-    # Combo 3: smallest legal sensitivity.
-    e3_sens = sens_range[0]
-    e3_expt = int(exposure / e3_sens)
-    if e3_expt > exp_time_range[1]:
-      e3_expt = exp_time_range[1]
-      e3_sens = int(exposure / e3_expt)
-    e3_logging = (f'MinISO exp: {e3_expt}, sens: {e3_sens}')
-    logging.debug('%s', e3_logging)
+  # Combo 3: smallest legal sensitivity.
+  e3_sens = sens_range[0]
+  e3_expt = int(exp_sens_prod / e3_sens)
+  if e3_expt > exp_time_range[1]:
+    e3_expt = exp_time_range[1]
+    e3_sens = int(exp_sens_prod / e3_expt)
+  logging.debug('minSensitivity e: %d, s: %d', e3_expt, e3_sens)
 
-    # Combo 4: largest legal sensitivity.
-    e4_sens = sens_range[1]
-    e4_expt = int(exposure / e4_sens)
-    if e4_expt < exp_time_range[0]:
-      e4_expt = exp_time_range[0]
-      e4_sens = int(exposure / e4_expt)
-    e4_logging = (f'MaxISO exp: {e4_expt}, sens: {e4_sens}')
-    logging.debug('%s', e4_logging)
+  # Combo 4: largest legal sensitivity.
+  e4_sens = sens_range[1]
+  e4_expt = int(exp_sens_prod / e4_sens)
+  if e4_expt < exp_time_range[0]:
+    e4_expt = exp_time_range[0]
+    e4_sens = int(exp_sens_prod / e4_expt)
+  logging.debug('maxSensitivity e: %d, s: %d', e4_expt, e4_sens)
 
-    # Combo 5: middle exposure time.
-    e5_expt = int((exp_time_range[0] + exp_time_range[1]) / 2.0)
-    e5_sens = int(exposure / e5_expt)
-    if e5_sens > sens_range[1]:
-      e5_sens = sens_range[1]
-      e5_expt = int(exposure / e5_sens)
-    if e5_sens < sens_range[0]:
-      e5_sens = sens_range[0]
-      e5_expt = int(exposure / e5_sens)
-    e5_logging = (f'MidExp exp: {e5_expt}, sens: {e5_sens}')
-    logging.debug('%s', e5_logging)
+  # Combo 5: middle exposure time.
+  e5_expt = int((exp_time_range[0] + exp_time_range[1]) / 2.0)
+  e5_sens = int(exp_sens_prod / e5_expt)
+  if e5_sens > sens_range[1]:
+    e5_sens = sens_range[1]
+    e5_expt = int(exp_sens_prod / e5_sens)
+  if e5_sens < sens_range[0]:
+    e5_sens = sens_range[0]
+    e5_expt = int(exp_sens_prod / e5_sens)
+  logging.debug('midExposureTime e: %d, s: %d', e5_expt, e5_sens)
 
-    # Combo 6: middle sensitivity.
-    e6_sens = int((sens_range[0] + sens_range[1]) / 2.0)
-    e6_expt = int(exposure / e6_sens)
-    if e6_expt > exp_time_range[1]:
-      e6_expt = exp_time_range[1]
-      e6_sens = int(exposure / e6_expt)
-    if e6_expt < exp_time_range[0]:
-      e6_expt = exp_time_range[0]
-      e6_sens = int(exposure / e6_expt)
-    e6_logging = (f'MidISO exp: {e6_expt}, sens: {e6_sens}')
-    logging.debug('%s', e6_logging)
+  # Combo 6: middle sensitivity.
+  e6_sens = int((sens_range[0] + sens_range[1]) / 2.0)
+  e6_expt = int(exp_sens_prod / e6_sens)
+  if e6_expt > exp_time_range[1]:
+    e6_expt = exp_time_range[1]
+    e6_sens = int(exp_sens_prod / e6_expt)
+  if e6_expt < exp_time_range[0]:
+    e6_expt = exp_time_range[0]
+    e6_sens = int(exp_sens_prod / e6_expt)
+  logging.debug('midSensitivity e: %d, s: %d', e6_expt, e6_sens)
 
-    return {
-        'minExposureTime': (e1_expt, e1_sens),
-        'maxExposureTime': (e2_expt, e2_sens),
-        'minSensitivity': (e3_expt, e3_sens),
-        'maxSensitivity': (e4_expt, e4_sens),
-        'midExposureTime': (e5_expt, e5_sens),
-        'midSensitivity': (e6_expt, e6_sens)
-    }
+  return {
+      'minExposureTime': (e1_expt, e1_sens),
+      'maxExposureTime': (e2_expt, e2_sens),
+      'minSensitivity': (e3_expt, e3_sens),
+      'maxSensitivity': (e4_expt, e4_sens),
+      'midExposureTime': (e5_expt, e5_sens),
+      'midSensitivity': (e6_expt, e6_sens)
+  }
 
 
 def get_target_exposure(target_config_filename, its_session=None):
@@ -149,7 +145,7 @@ def get_target_exposure(target_config_filename, its_session=None):
     its_session: Optional, holding an open device session.
 
   Returns:
-    The target exposure value.
+    The target exposure*sensitivity value.
   """
   cached_exposure = None
   for s in sys.argv[1:]:
@@ -257,10 +253,8 @@ def do_target_exposure_measurement(its_session):
       cap)
   tile = image_processing_utils.get_image_patch(yimg, 0.45, 0.45, 0.1, 0.1)
   luma_mean = image_processing_utils.compute_image_means(tile)
+  logging.debug('Target exposure cap luma: %.4f', luma_mean[0])
 
   # Compute the exposure value that would result in a luma of 0.5.
   return sens * exp_time * 0.5 / luma_mean[0]
 
-
-if __name__ == '__main__':
-  unittest.main()

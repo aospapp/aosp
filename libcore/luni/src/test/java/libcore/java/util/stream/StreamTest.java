@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package libcore.java.util.stream;
@@ -65,6 +65,21 @@ public class StreamTest {
       assertNotSame(sourceArray, destArray);
       assertArrayEquals(sourceArray, destArray);
     }
+  }
+
+  @Test
+  public void ofNullable_ofNull_isEmpty() {
+    assertEquals(0, Stream.ofNullable(null).count());
+  }
+
+  @Test
+  public void ofNullable_ofNonNull() {
+    assertArrayEquals(new Integer[] {10}, Stream.ofNullable(10).toArray());
+  }
+
+  @Test
+  public void ofNullable_ofNonNullStream() {
+    assertEquals(1, Stream.ofNullable(Stream.of(10, 20, 30)).count());
   }
 
   private String[] stringTestArray(int size) {

@@ -20,7 +20,9 @@ package {
 
 java_library {
     name: "automotive-utility-helper",
-    libs: ["ub-uiautomator"],
+    libs: [
+        "spectatio-lib",
+    ],
     static_libs: [
         "androidx.test.runner",
     ],

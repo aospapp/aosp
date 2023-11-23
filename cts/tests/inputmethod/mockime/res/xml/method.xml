@@ -19,5 +19,6 @@
               android:supportsInlineSuggestions="true"
               android:supportsInlineSuggestionsWithTouchExploration="true"
               android:configChanges="fontScale"
-              android:supportsStylusHandwriting="true">
+              android:supportsStylusHandwriting="true"
+              android:stylusHandwritingSettingsActivity="handwriting_settings">
 </input-method>

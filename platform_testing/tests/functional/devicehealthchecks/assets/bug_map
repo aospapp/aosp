@@ -11,6 +11,7 @@ system_app_anr executing\sservice\scom.google.android.as/com.google.android.apps
 system_app_anr executing\sservice\scom.google.android.as/com.google.android.apps.miphone.aiai.echo.scheduler.EchoJobService 192300119
 system_app_anr executing\sservice\scom.google.android.as/com.google.android.apps.miphone.aiai.actions.service.ActionRankingDataTtlService 192300119
 system_app_anr executing\sservice\scom.android.se/.SecureElementService 199457346
+system_app_anr com.google.android.dialer[0-9\S\s]+72[0-9\S\s]+ 214941329
 system_app_crash -1\|android\|26\|null\|1000 155073214
 system_app_crash -1\|android\|32\|null\|1000 155073214
 system_app_crash android.database.sqlite.SQLiteCloseable.acquireReference 159658068

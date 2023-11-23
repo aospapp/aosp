@@ -17,6 +17,10 @@ Using unsafe to access obsolete values directly from memory.
 Using obsolete class object!
 
 
+Calling public java.lang.Class java.lang.Class.arrayType() with params: []
+public java.lang.Class java.lang.Class.arrayType() on (obsolete)class Main$Transform with [] = class [LMain$Transform;
+Calling public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.arrayType() with params: []
+public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.arrayType() on (obsolete)class Main$Transform with [] = class [LMain$Transform;
 Calling public java.lang.Class java.lang.Class.asSubclass(java.lang.Class) with params: [[null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
 public java.lang.Class java.lang.Class.asSubclass(java.lang.Class) with [null] throws java.lang.reflect.InvocationTargetException: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.Class.isAssignableFrom(java.lang.Class)' on a null object reference
 public java.lang.Class java.lang.Class.asSubclass(java.lang.Class) on (obsolete)class Main$Transform with [class java.lang.Object] = (obsolete)class Main$Transform
@@ -29,6 +33,12 @@ public java.lang.Object java.lang.Class.cast(java.lang.Object) on (obsolete)clas
 public java.lang.Object java.lang.Class.cast(java.lang.Object) with [foo] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Cannot cast java.lang.String to Main$Transform
 public java.lang.Object java.lang.Class.cast(java.lang.Object) with [NOT_USED_STRING] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Cannot cast java.lang.String to Main$Transform
 public java.lang.Object java.lang.Class.cast(java.lang.Object) with [class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Cannot cast java.lang.Class to Main$Transform
+Calling public java.lang.Class java.lang.Class.componentType() with params: []
+public java.lang.Class java.lang.Class.componentType() on (obsolete)class Main$Transform with [] = null
+Calling public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.componentType() with params: []
+public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.componentType() on (obsolete)class Main$Transform with [] = null
+Calling public java.lang.String java.lang.Class.descriptorString() with params: []
+public java.lang.String java.lang.Class.descriptorString() on (obsolete)class Main$Transform with [] = LMain$Transform;
 Calling public boolean java.lang.Class.desiredAssertionStatus() with params: []
 public boolean java.lang.Class.desiredAssertionStatus() on (obsolete)class Main$Transform with [] = false
 Calling public int java.lang.Class.getAccessFlags() with params: []
@@ -72,6 +82,13 @@ public native java.lang.annotation.Annotation java.lang.Class.getDeclaredAnnotat
 public native java.lang.annotation.Annotation java.lang.Class.getDeclaredAnnotation(java.lang.Class) with [class java.lang.Class] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public native java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotations() with params: []
 public native java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotations() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+Calling public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with params: [[null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [null] throws java.lang.reflect.InvocationTargetException: java.lang.NullPointerException
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [class java.lang.Object] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [(obsolete)class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [long] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [class java.lang.Class] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public native java.lang.Class[] java.lang.Class.getDeclaredClasses() with params: []
 public native java.lang.Class[] java.lang.Class.getDeclaredClasses() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public java.lang.reflect.Constructor java.lang.Class.getDeclaredConstructor(java.lang.Class[]) throws java.lang.NoSuchMethodException,java.lang.SecurityException with params: [[new java.lang.Object[0], new java.lang.Class[0], null]]
@@ -154,12 +171,39 @@ Calling public int java.lang.Class.getModifiers() with params: []
 public int java.lang.Class.getModifiers() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public java.lang.String java.lang.Class.getName() with params: []
 public java.lang.String java.lang.Class.getName() on (obsolete)class Main$Transform with [] = Main$Transform
+Calling public java.lang.Class java.lang.Class.getNestHost() with params: []
+public java.lang.Class java.lang.Class.getNestHost() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+Calling public java.lang.Class[] java.lang.Class.getNestMembers() with params: []
+public java.lang.Class[] java.lang.Class.getNestMembers() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public java.lang.Package java.lang.Class.getPackage() with params: []
 public java.lang.Package java.lang.Class.getPackage() on (obsolete)class Main$Transform with [] = null
 Calling public java.lang.String java.lang.Class.getPackageName() with params: []
 public java.lang.String java.lang.Class.getPackageName() on (obsolete)class Main$Transform with [] = 
+Calling public java.lang.Class[] java.lang.Class.getPermittedSubclasses() with params: []
+public java.lang.Class[] java.lang.Class.getPermittedSubclasses() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public java.security.ProtectionDomain java.lang.Class.getProtectionDomain() with params: []
 public java.security.ProtectionDomain java.lang.Class.getProtectionDomain() on (obsolete)class Main$Transform with [] = null
+Calling public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) with params: [[NOT_USED_STRING, foo, SECRET_ARRAY], [null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [NOT_USED_STRING, null] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [NOT_USED_STRING, class java.lang.Object] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [NOT_USED_STRING, (obsolete)class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [NOT_USED_STRING, class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [NOT_USED_STRING, long] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [NOT_USED_STRING, class java.lang.Class] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [foo, null] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [foo, class java.lang.Object] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [foo, (obsolete)class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [foo, class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [foo, long] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [foo, class java.lang.Class] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [SECRET_ARRAY, null] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [SECRET_ARRAY, class java.lang.Object] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [SECRET_ARRAY, (obsolete)class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [SECRET_ARRAY, class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [SECRET_ARRAY, long] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on (obsolete)class Main$Transform with [SECRET_ARRAY, class java.lang.Class] = null
+Calling public java.lang.reflect.RecordComponent[] java.lang.Class.getRecordComponents() with params: []
+public java.lang.reflect.RecordComponent[] java.lang.Class.getRecordComponents() on (obsolete)class Main$Transform with [] = null
 Calling public java.net.URL java.lang.Class.getResource(java.lang.String) with params: [[NOT_USED_STRING, foo, SECRET_ARRAY]]
 public java.net.URL java.lang.Class.getResource(java.lang.String) on (obsolete)class Main$Transform with [NOT_USED_STRING] = null
 public java.net.URL java.lang.Class.getResource(java.lang.String) on (obsolete)class Main$Transform with [foo] = null
@@ -213,10 +257,21 @@ Calling public boolean java.lang.Class.isLocalClass() with params: []
 public boolean java.lang.Class.isLocalClass() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public boolean java.lang.Class.isMemberClass() with params: []
 public boolean java.lang.Class.isMemberClass() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+Calling public boolean java.lang.Class.isNestmateOf(java.lang.Class) with params: [[null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) with [null] throws java.lang.reflect.InvocationTargetException: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.Class.isPrimitive()' on a null object reference
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) with [class java.lang.Object] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) on (obsolete)class Main$Transform with [(obsolete)class Main$Transform] = true
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) with [class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) on (obsolete)class Main$Transform with [long] = false
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) with [class java.lang.Class] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public boolean java.lang.Class.isPrimitive() with params: []
 public boolean java.lang.Class.isPrimitive() on (obsolete)class Main$Transform with [] = false
 Calling public boolean java.lang.Class.isProxy() with params: []
 public boolean java.lang.Class.isProxy() on (obsolete)class Main$Transform with [] = false
+Calling public boolean java.lang.Class.isRecord() with params: []
+public boolean java.lang.Class.isRecord() on (obsolete)class Main$Transform with [] = false
+Calling public boolean java.lang.Class.isSealed() with params: []
+public boolean java.lang.Class.isSealed() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public boolean java.lang.Class.isSynthetic() with params: []
 public boolean java.lang.Class.isSynthetic() with [] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
 Calling public native java.lang.Object java.lang.Class.newInstance() throws java.lang.InstantiationException,java.lang.IllegalAccessException with params: []
@@ -230,6 +285,10 @@ public java.lang.String java.lang.Class.toString() on (obsolete)class Main$Trans
 Using non-obsolete class object!
 
 
+Calling public java.lang.Class java.lang.Class.arrayType() with params: []
+public java.lang.Class java.lang.Class.arrayType() on class Main$Transform with [] = class [LMain$Transform;
+Calling public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.arrayType() with params: []
+public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.arrayType() on class Main$Transform with [] = class [LMain$Transform;
 Calling public java.lang.Class java.lang.Class.asSubclass(java.lang.Class) with params: [[null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
 public java.lang.Class java.lang.Class.asSubclass(java.lang.Class) with [null] throws java.lang.reflect.InvocationTargetException: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.Class.isAssignableFrom(java.lang.Class)' on a null object reference
 public java.lang.Class java.lang.Class.asSubclass(java.lang.Class) on class Main$Transform with [class java.lang.Object] = class Main$Transform
@@ -242,6 +301,12 @@ public java.lang.Object java.lang.Class.cast(java.lang.Object) on class Main$Tra
 public java.lang.Object java.lang.Class.cast(java.lang.Object) with [foo] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Cannot cast java.lang.String to Main$Transform
 public java.lang.Object java.lang.Class.cast(java.lang.Object) with [NOT_USED_STRING] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Cannot cast java.lang.String to Main$Transform
 public java.lang.Object java.lang.Class.cast(java.lang.Object) with [class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Cannot cast java.lang.Class to Main$Transform
+Calling public java.lang.Class java.lang.Class.componentType() with params: []
+public java.lang.Class java.lang.Class.componentType() on class Main$Transform with [] = null
+Calling public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.componentType() with params: []
+public java.lang.invoke.TypeDescriptor$OfField java.lang.Class.componentType() on class Main$Transform with [] = null
+Calling public java.lang.String java.lang.Class.descriptorString() with params: []
+public java.lang.String java.lang.Class.descriptorString() on class Main$Transform with [] = LMain$Transform;
 Calling public boolean java.lang.Class.desiredAssertionStatus() with params: []
 public boolean java.lang.Class.desiredAssertionStatus() on class Main$Transform with [] = false
 Calling public int java.lang.Class.getAccessFlags() with params: []
@@ -285,6 +350,13 @@ public native java.lang.annotation.Annotation java.lang.Class.getDeclaredAnnotat
 public native java.lang.annotation.Annotation java.lang.Class.getDeclaredAnnotation(java.lang.Class) on class Main$Transform with [class java.lang.Class] = null
 Calling public native java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotations() with params: []
 public native java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotations() on class Main$Transform with [] = []
+Calling public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with params: [[null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [null] throws java.lang.reflect.InvocationTargetException: java.lang.NullPointerException
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [class java.lang.Object] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: java.lang.Object[] cannot be cast to java.lang.annotation.Annotation[]
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [(obsolete)class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: Main$Transform[] cannot be cast to java.lang.annotation.Annotation[]
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [long] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: long[] cannot be cast to java.lang.annotation.Annotation[]
+public java.lang.annotation.Annotation[] java.lang.Class.getDeclaredAnnotationsByType(java.lang.Class) with [class java.lang.Class] throws java.lang.reflect.InvocationTargetException: java.lang.ClassCastException: java.lang.Class[] cannot be cast to java.lang.annotation.Annotation[]
 Calling public native java.lang.Class[] java.lang.Class.getDeclaredClasses() with params: []
 public native java.lang.Class[] java.lang.Class.getDeclaredClasses() on class Main$Transform with [] = []
 Calling public java.lang.reflect.Constructor java.lang.Class.getDeclaredConstructor(java.lang.Class[]) throws java.lang.NoSuchMethodException,java.lang.SecurityException with params: [[new java.lang.Object[0], new java.lang.Class[0], null]]
@@ -367,12 +439,39 @@ Calling public int java.lang.Class.getModifiers() with params: []
 public int java.lang.Class.getModifiers() on class Main$Transform with [] = 9
 Calling public java.lang.String java.lang.Class.getName() with params: []
 public java.lang.String java.lang.Class.getName() on class Main$Transform with [] = Main$Transform
+Calling public java.lang.Class java.lang.Class.getNestHost() with params: []
+public java.lang.Class java.lang.Class.getNestHost() on class Main$Transform with [] = class Main$Transform
+Calling public java.lang.Class[] java.lang.Class.getNestMembers() with params: []
+public java.lang.Class[] java.lang.Class.getNestMembers() on class Main$Transform with [] = [class Main$Transform]
 Calling public java.lang.Package java.lang.Class.getPackage() with params: []
 public java.lang.Package java.lang.Class.getPackage() on class Main$Transform with [] = null
 Calling public java.lang.String java.lang.Class.getPackageName() with params: []
 public java.lang.String java.lang.Class.getPackageName() on class Main$Transform with [] = 
+Calling public java.lang.Class[] java.lang.Class.getPermittedSubclasses() with params: []
+public java.lang.Class[] java.lang.Class.getPermittedSubclasses() on class Main$Transform with [] = null
 Calling public java.security.ProtectionDomain java.lang.Class.getProtectionDomain() with params: []
 public java.security.ProtectionDomain java.lang.Class.getProtectionDomain() on class Main$Transform with [] = null
+Calling public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) with params: [[NOT_USED_STRING, foo, SECRET_ARRAY], [null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [NOT_USED_STRING, null] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [NOT_USED_STRING, class java.lang.Object] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [NOT_USED_STRING, (obsolete)class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [NOT_USED_STRING, class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [NOT_USED_STRING, long] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [NOT_USED_STRING, class java.lang.Class] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [foo, null] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [foo, class java.lang.Object] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [foo, (obsolete)class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [foo, class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [foo, long] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [foo, class java.lang.Class] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [SECRET_ARRAY, null] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [SECRET_ARRAY, class java.lang.Object] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [SECRET_ARRAY, (obsolete)class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [SECRET_ARRAY, class Main$Transform] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [SECRET_ARRAY, long] = null
+public native java.lang.Object[] java.lang.Class.getRecordAnnotationElement(java.lang.String,java.lang.Class) on class Main$Transform with [SECRET_ARRAY, class java.lang.Class] = null
+Calling public java.lang.reflect.RecordComponent[] java.lang.Class.getRecordComponents() with params: []
+public java.lang.reflect.RecordComponent[] java.lang.Class.getRecordComponents() on class Main$Transform with [] = null
 Calling public java.net.URL java.lang.Class.getResource(java.lang.String) with params: [[NOT_USED_STRING, foo, SECRET_ARRAY]]
 public java.net.URL java.lang.Class.getResource(java.lang.String) on class Main$Transform with [NOT_USED_STRING] = null
 public java.net.URL java.lang.Class.getResource(java.lang.String) on class Main$Transform with [foo] = null
@@ -426,10 +525,21 @@ Calling public boolean java.lang.Class.isLocalClass() with params: []
 public boolean java.lang.Class.isLocalClass() on class Main$Transform with [] = false
 Calling public boolean java.lang.Class.isMemberClass() with params: []
 public boolean java.lang.Class.isMemberClass() on class Main$Transform with [] = true
+Calling public boolean java.lang.Class.isNestmateOf(java.lang.Class) with params: [[null, class java.lang.Object, (obsolete)class Main$Transform, class Main$Transform, long, class java.lang.Class]]
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) with [null] throws java.lang.reflect.InvocationTargetException: java.lang.NullPointerException: Attempt to invoke virtual method 'boolean java.lang.Class.isPrimitive()' on a null object reference
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) on class Main$Transform with [class java.lang.Object] = false
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) with [(obsolete)class Main$Transform] throws java.lang.reflect.InvocationTargetException: java.lang.RuntimeException: Obsolete Object!
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) on class Main$Transform with [class Main$Transform] = true
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) on class Main$Transform with [long] = false
+public boolean java.lang.Class.isNestmateOf(java.lang.Class) on class Main$Transform with [class java.lang.Class] = false
 Calling public boolean java.lang.Class.isPrimitive() with params: []
 public boolean java.lang.Class.isPrimitive() on class Main$Transform with [] = false
 Calling public boolean java.lang.Class.isProxy() with params: []
 public boolean java.lang.Class.isProxy() on class Main$Transform with [] = false
+Calling public boolean java.lang.Class.isRecord() with params: []
+public boolean java.lang.Class.isRecord() on class Main$Transform with [] = false
+Calling public boolean java.lang.Class.isSealed() with params: []
+public boolean java.lang.Class.isSealed() on class Main$Transform with [] = false
 Calling public boolean java.lang.Class.isSynthetic() with params: []
 public boolean java.lang.Class.isSynthetic() on class Main$Transform with [] = false
 Calling public native java.lang.Object java.lang.Class.newInstance() throws java.lang.InstantiationException,java.lang.IllegalAccessException with params: []

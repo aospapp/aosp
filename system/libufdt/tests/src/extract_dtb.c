@@ -22,8 +22,7 @@
 
 #include "util.h"
 
-
-int find_dtb_header_pos(const char *buf, size_t buf_size) {
+static int find_dtb_header_pos(const char *buf, size_t buf_size) {
   if (buf == NULL || buf_size == 0) {
     return -1;
   }
@@ -44,34 +43,44 @@ int find_dtb_header_pos(const char *buf, size_t buf_size) {
   return pos;
 }
 
-int find_and_write_dtb(const char *filename,
-                       const char *buf, size_t buf_size) {
+static int find_and_write_dtb(const char *filename, const char *buf,
+                              size_t buf_size) {
   int tag_pos = find_dtb_header_pos(buf, buf_size);
   if (tag_pos < 0) {
-    goto end;
+    return -1;
   }
 
+  buf_size -= tag_pos;
+
+  // Allocate and copy into new buffer to fix memory alignment
+  char *fdt_ptr = malloc(buf_size);
+  if (!fdt_ptr) {
+    fprintf(stderr, "malloc(%u) failed.\n", buf_size - tag_pos);
+    goto error;
+  }
+
+  memcpy(fdt_ptr, buf + tag_pos, buf_size);
+
   // Check FDT header
-  const char *fdt_ptr = buf + tag_pos;
-  if (fdt_check_header(fdt_ptr) != 0) {
-    fprintf(stderr, "Bad DTB header.\n");
-    goto end;
+  if (fdt_check_full(fdt_ptr, buf_size) != 0) {
+    fprintf(stderr, "Bad DTB.\n");
+    goto error;
   }
 
   // Check FDT size and actual size
   size_t fdt_size = fdt_totalsize(fdt_ptr);
-  size_t fdt_actual_size = buf_size - tag_pos;
-  int fdt_size_diff = (int)fdt_actual_size - (int)fdt_size;
-  if (fdt_size_diff) {
-    fprintf(stderr, "Wrong size: actual size = %d FDT size = %d(%d)\n",
-      fdt_actual_size, fdt_size, fdt_size_diff);
+  if (buf_size < fdt_size) {
+    fprintf(stderr,
+            "Wrong size: fdt truncated: buffer size = %zu < FDT size = %zu\n",
+            buf_size, fdt_size);
+    goto error;
   }
 
   // Print the DT basic information
   int root_node_off = fdt_path_offset(fdt_ptr, "/");
   if (root_node_off < 0) {
     fprintf(stderr, "Can not get the root node.\n");
-    goto end;
+    goto error;
   }
   printf("Output %s\n", filename);
   const char *model =
@@ -84,22 +93,26 @@ int find_and_write_dtb(const char *filename,
   // Output DTB file
   if (write_fdt_to_file(filename, fdt_ptr) != 0) {
     fprintf(stderr, "Write file error: %s\n", filename);
-    goto end;
+    goto error;
   }
 
-end:
+  free(fdt_ptr);
+
   return tag_pos;
+
+error:
+  if (fdt_ptr) free(fdt_ptr);
+  return -1;
 }
 
-int extract_dtbs(const char *in_filename,
-                 const char *out_dtb_filename,
-                 const char *out_image_filename) {
+static int extract_dtbs(const char *in_filename, const char *out_dtb_filename,
+                        const char *out_image_filename) {
   int ret = 1;
   char *buf = NULL;
 
   size_t buf_size;
   buf = load_file(in_filename, &buf_size);
-  if (!buf) {
+  if (!buf || fdt_check_full(buf, buf_size)) {
     fprintf(stderr, "Can not load file: %s\n", in_filename);
     goto end;
   }

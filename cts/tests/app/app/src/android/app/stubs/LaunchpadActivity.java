@@ -105,7 +105,6 @@ public class LaunchpadActivity extends Activity {
     public static final String BROADCAST_MULTI = "android.app.cts.activity.BROADCAST_MULTI";
     public static final String BROADCAST_ABORT = "android.app.cts.activity.BROADCAST_ABORT";
 
-    public static final String EXPANDLIST_SELECT = "EXPANDLIST_SELECT";
     public static final String EXPANDLIST_VIEW = "EXPANDLIST_VIEW";
     public static final String EXPANDLIST_CALLBACK = "EXPANDLIST_CALLBACK";
 
@@ -168,9 +167,6 @@ public class LaunchpadActivity extends Activity {
 
     public static void setCallingTest(CallingTest ct) {
         sCallingTest = ct;
-    }
-
-    public LaunchpadActivity() {
     }
 
     @Override
@@ -378,12 +374,6 @@ public class LaunchpadActivity extends Activity {
                 final Intent intent = getIntent();
                 intent.setFlags(0);
                 intent.setClass(this, AliasActivityStub.class);
-                startActivityForResult(intent, LAUNCHED_RESULT);
-            } else if (EXPANDLIST_SELECT.equals(action)) {
-                final Intent intent = getIntent();
-                intent.setFlags(0);
-                intent.setAction(action);
-                intent.setComponent((ComponentName) intent.getParcelableExtra("component"));
                 startActivityForResult(intent, LAUNCHED_RESULT);
             } else if (EXPANDLIST_VIEW.equals(action)) {
                 final Intent intent = getIntent();

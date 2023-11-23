@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 NXP
+ * Copyright 2010-2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -175,8 +175,8 @@ typedef struct phDnldNfc_DlContext {
   uint32_t nxp_nfc_fwp_len; /* Length of firmware image length */
   uint32_t nxp_nfc_fw_len;  /* Firmware image length */
   uint16_t nxp_i2c_fragment_len;
-  bool_t bResendLastFrame;  /* Flag to resend the last write frame after MEM_BSY
-                               status */
+  bool_t bResendLastFrame; /* Flag to resend the last write frame after MEM_BSY
+                              status */
   phDnldNfc_Transition_t
       tDnldInProgress; /* Flag to indicate if download request is ongoing */
   phDnldNfc_Event_t tCurrEvent; /* Current event being processed */

@@ -30,11 +30,9 @@ COMMAND_QUERY_IFACE = "wlan.query_iface"
 
 
 class FuchsiaWlanLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
-        self.log = logger.create_tagged_trace_logger(str(addr))
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "wlan")
 
     def wlanStartScan(self):
         """ Starts a wlan scan
@@ -43,10 +41,8 @@ class FuchsiaWlanLib(BaseLib):
             scan results
         """
         test_cmd = COMMAND_SCAN
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanScanForBSSInfo(self):
         """ Scans and returns BSS info
@@ -56,10 +52,8 @@ class FuchsiaWlanLib(BaseLib):
             blocks, one for each BSS observed in the network
         """
         test_cmd = COMMAND_SCAN_FOR_BSS_INFO
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanConnectToNetwork(self,
                              target_ssid,
@@ -79,18 +73,14 @@ class FuchsiaWlanLib(BaseLib):
             "target_pwd": target_pwd,
             "target_bss_desc": target_bss_desc
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanDisconnect(self):
         """ Disconnect any current wifi connections"""
         test_cmd = COMMAND_DISCONNECT
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanDestroyIface(self, iface_id):
         """ Destroy WLAN interface by ID.
@@ -102,10 +92,8 @@ class FuchsiaWlanLib(BaseLib):
         """
         test_cmd = COMMAND_DESTROY_IFACE
         test_args = {"identifier": iface_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanGetIfaceIdList(self):
         """ Get a list if wlan interface IDs.
@@ -114,10 +102,8 @@ class FuchsiaWlanLib(BaseLib):
             Dictionary, service id if success, error if error.
         """
         test_cmd = COMMAND_GET_IFACE_ID_LIST
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanPhyIdList(self):
         """ Get a list if wlan phy IDs.
@@ -126,10 +112,8 @@ class FuchsiaWlanLib(BaseLib):
             List of IDs if success, error if error.
         """
         test_cmd = COMMAND_GET_PHY_ID_LIST
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanStatus(self, iface_id=None):
         """ Request connection status
@@ -146,10 +130,8 @@ class FuchsiaWlanLib(BaseLib):
         test_args = {}
         if iface_id:
             test_args = {'iface_id': iface_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanGetCountry(self, phy_id):
         """ Reads the currently configured country for `phy_id`.
@@ -162,10 +144,8 @@ class FuchsiaWlanLib(BaseLib):
         """
         test_cmd = COMMAND_GET_COUNTRY
         test_args = {"phy_id": phy_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanGetDevPath(self, phy_id):
         """ Queries the device path for `phy_id`.
@@ -178,10 +158,8 @@ class FuchsiaWlanLib(BaseLib):
         """
         test_cmd = COMMAND_GET_DEV_PATH
         test_args = {"phy_id": phy_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanQueryInterface(self, iface_id):
         """ Retrieves interface info for given wlan iface id.
@@ -195,7 +173,5 @@ class FuchsiaWlanLib(BaseLib):
         """
         test_cmd = COMMAND_QUERY_IFACE
         test_args = {'iface_id': iface_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

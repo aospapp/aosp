@@ -13,7 +13,7 @@ namespace tests {
   }
   if (_aidl_parcelable_raw_size < 4) return ::android::BAD_VALUE;
   size_t _aidl_parcelable_size = static_cast<size_t>(_aidl_parcelable_raw_size);
-  if (_aidl_start_pos > SIZE_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
+  if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
   _aidl_parcel->setDataPosition(_aidl_start_pos + _aidl_parcelable_size);
   return _aidl_ret_status;
 }

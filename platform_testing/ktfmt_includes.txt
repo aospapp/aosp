@@ -1,0 +1,17 @@
++libraries/
++tests/
++utils/
+-libraries/flicker/test/src/android/tools/device/flicker/legacy/runner/TransitionExecutionRuleTest.kt
+-libraries/health/rules/src/android/platform/test/rule/EnsureKeepScreenAwakeSetRule.kt
+-libraries/screenshot/src/androidTest/java/platform/test/screenshot/GoldenImagePathManagerTest.kt
+-libraries/screenshot/src/androidTest/java/platform/test/screenshot/MSSIMMatcherTest.kt
+-libraries/screenshot/src/androidTest/java/platform/test/screenshot/PixelPerfectMatcherTest.kt
+-libraries/screenshot/src/androidTest/java/platform/test/screenshot/ScreenshotTestRuleTest.kt
+-libraries/screenshot/src/androidTest/java/platform/test/screenshot/matchers/AlmostPerfectMatcherTest.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/DeviceEmulationRule.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/GoldenImagePathManager.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/ScreenshotTestRule.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/matchers/AlmostPerfectMatcher.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/matchers/BitmapMatcher.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/matchers/MSSIMMatcher.kt
+-libraries/screenshot/src/main/java/platform/test/screenshot/matchers/PixelPerfectMatcher.kt

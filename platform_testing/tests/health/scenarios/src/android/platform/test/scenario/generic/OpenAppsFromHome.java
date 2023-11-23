@@ -54,6 +54,18 @@ public class OpenAppsFromHome {
 
     private static LauncherInstrumentation sLauncher;
     private static AppIcon sAppIcon;
+    private static int sCellX;
+    private static int sCellY;
+
+    // Starting from the left of the screen to set the column number for the target position
+    @ClassRule
+    public static IntegerOption sCellXOption =
+            new IntegerOption("column-number").setRequired(false).setDefault(2);
+
+    // Starting from the top of the screen to set the row number for target position
+    @ClassRule
+    public static IntegerOption sCellYOption =
+            new IntegerOption("row-number").setRequired(false).setDefault(2);
 
     @ClassRule
     public static StringOption sNameOption = new StringOption("app-name").setRequired(true);
@@ -67,8 +79,10 @@ public class OpenAppsFromHome {
     @BeforeClass
     public static void setup() throws IOException {
         sLauncher = new LauncherInstrumentation();
+        sCellX = sCellXOption.get();
+        sCellY = sCellYOption.get();
         final HomeAllApps allApps = sLauncher.goHome().switchToAllApps();
-        allApps.getAppIcon(sNameOption.get()).dragToWorkspace(false, false);
+        allApps.getAppIcon(sNameOption.get()).dragToWorkspace(sCellX, sCellY);
         sAppIcon = sLauncher.getWorkspace().getWorkspaceAppIcon(sNameOption.get());
     }
 

@@ -27,22 +27,27 @@
 package java.lang;
 
 import dalvik.annotation.optimization.FastNative;
+import dalvik.annotation.optimization.NeverInline;
 import java.io.ObjectStreamField;
 import java.io.UnsupportedEncodingException;
+import java.lang.annotation.Native;
 import java.nio.charset.Charset;
 import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.Formatter;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Spliterator;
 import java.util.StringJoiner;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import jdk.internal.HotSpotIntrinsicCandidate;
+import jdk.internal.vm.annotation.IntrinsicCandidate;
 
 import libcore.util.CharsetUtils;
 
@@ -164,6 +169,45 @@ public final class String
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
     private static final long serialVersionUID = -6849794470754667710L;
 
+    // Android-changed: Modified the javadoc for the ART environment.
+    // Note that this COMPACT_STRINGS value is mainly used by the StringBuilder, not by String.
+    /**
+     * If String compaction is disabled, the bytes in {@code value} are
+     * always encoded in UTF16.
+     *
+     * For methods with several possible implementation paths, when String
+     * compaction is disabled, only one code path is taken.
+     *
+     * The instance field value is generally opaque to optimizing JIT
+     * compilers. Therefore, in performance-sensitive place, an explicit
+     * check of the static boolean {@code COMPACT_STRINGS} is done first
+     * before checking the {@code coder} field since the static boolean
+     * {@code COMPACT_STRINGS} would be constant folded away by an
+     * optimizing JIT compiler. The idioms for these cases are as follows.
+     *
+     * For code such as:
+     *
+     *    if (coder == LATIN1) { ... }
+     *
+     * can be written more optimally as
+     *
+     *    if (coder() == LATIN1) { ... }
+     *
+     * or:
+     *
+     *    if (COMPACT_STRINGS && coder == LATIN1) { ... }
+     *
+     * An optimizing JIT compiler can fold the above conditional as:
+     *
+     *    COMPACT_STRINGS == true  => if (coder == LATIN1) { ... }
+     *    COMPACT_STRINGS == false => if (false)           { ... }
+     */
+    // Android-changed: Inline the constant on ART.
+    static final boolean COMPACT_STRINGS = true;
+
+    @Native static final byte LATIN1 = 0;
+    @Native static final byte UTF16  = 1;
+
     /**
      * Class String is special cased within the Serialization Stream Protocol.
      *
@@ -199,7 +243,7 @@ public final class String
      * @param  original
      *         A {@code String}
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public String(String original) {
         // BEGIN Android-changed: Implemented as compiler and runtime intrinsics.
         /*
@@ -1280,9 +1324,8 @@ public final class String
             return StringUTF16.contentEquals(v1, v2, len);
         }
          */
-        char[] v2 = sb.getValue();
         for (int i = 0; i < len; i++) {
-            if (charAt(i) != v2[i]) {
+            if (charAt(i) != sb.charAt(i)) {
                 return false;
             }
         }
@@ -2066,6 +2109,7 @@ public final class String
      * @return  the index of the first occurrence of the specified substring,
      *          or {@code -1} if there is no such occurrence.
      */
+    @NeverInline
     public int indexOf(String str) {
         // BEGIN Android-changed: Implement with indexOf() method that takes String parameters.
         /*
@@ -2099,6 +2143,7 @@ public final class String
      *          starting at the specified index,
      *          or {@code -1} if there is no such occurrence.
      */
+    @NeverInline
     public int indexOf(String str, int fromIndex) {
         // BEGIN Android-changed: Implement with indexOf() method that takes String parameters.
         /*
@@ -2161,68 +2206,44 @@ public final class String
      * source is the character array being searched, and the target
      * is the string being searched for.
      *
-     * @param   source       the characters being searched.
-     * @param   sourceOffset offset of the source string.
-     * @param   sourceCount  count of the source string.
-     * @param   target       the characters being searched for.
-     * @param   fromIndex    the index to begin searching from.
+     * @param   src       the characters being searched.
+     * @param   srcCoder  the coder of the source string.
+     * @param   srcCount  length of the source string.
+     * @param   tgtStr    the characters being searched for.
+     * @param   fromIndex the index to begin searching from.
      */
-    static int indexOf(char[] source, int sourceOffset, int sourceCount,
-            String target, int fromIndex) {
-        return indexOf(source, sourceOffset, sourceCount,
-                       target.toCharArray(), 0, target.length(),
-                       fromIndex);
-    }
+    static int indexOf(byte[] src, byte srcCoder, int srcCount,
+        String tgtStr, int fromIndex) {
+        // byte[] tgt    = tgtStr.value;
+        byte tgtCoder = tgtStr.coder();
+        int tgtCount  = tgtStr.length();
 
-    /**
-     * Code shared by String and StringBuffer to do searches. The
-     * source is the character array being searched, and the target
-     * is the string being searched for.
-     *
-     * @param   source       the characters being searched.
-     * @param   sourceOffset offset of the source string.
-     * @param   sourceCount  count of the source string.
-     * @param   target       the characters being searched for.
-     * @param   targetOffset offset of the target string.
-     * @param   targetCount  count of the target string.
-     * @param   fromIndex    the index to begin searching from.
-     */
-    static int indexOf(char[] source, int sourceOffset, int sourceCount,
-            char[] target, int targetOffset, int targetCount,
-            int fromIndex) {
-        if (fromIndex >= sourceCount) {
-            return (targetCount == 0 ? sourceCount : -1);
+        if (fromIndex >= srcCount) {
+            return (tgtCount == 0 ? srcCount : -1);
         }
         if (fromIndex < 0) {
             fromIndex = 0;
         }
-        if (targetCount == 0) {
+        if (tgtCount == 0) {
             return fromIndex;
         }
-
-        char first = target[targetOffset];
-        int max = sourceOffset + (sourceCount - targetCount);
-
-        for (int i = sourceOffset + fromIndex; i <= max; i++) {
-            /* Look for first character. */
-            if (source[i] != first) {
-                while (++i <= max && source[i] != first);
-            }
-
-            /* Found first character, now look at the rest of v2 */
-            if (i <= max) {
-                int j = i + 1;
-                int end = j + targetCount - 1;
-                for (int k = targetOffset + 1; j < end && source[j]
-                        == target[k]; j++, k++);
-
-                if (j == end) {
-                    /* Found whole string. */
-                    return i - sourceOffset;
-                }
-            }
+        if (tgtCount > srcCount) {
+            return -1;
         }
-        return -1;
+        if (srcCoder == tgtCoder) {
+            return srcCoder == LATIN1
+                // Android-changed: libcore doesn't store String as Latin1 or UTF16 byte[] field.
+                // ? StringLatin1.indexOf(src, srcCount, tgt, tgtCount, fromIndex)
+                // : StringUTF16.indexOf(src, srcCount, tgt, tgtCount, fromIndex);
+                ? StringLatin1.indexOf(src, srcCount, tgtStr, tgtCount, fromIndex)
+                : StringUTF16.indexOf(src, srcCount, tgtStr, tgtCount, fromIndex);
+        }
+        if (srcCoder == LATIN1) {    //  && tgtCoder == UTF16
+            return -1;
+        }
+        // srcCoder == UTF16 && tgtCoder == LATIN1) {
+        // return StringUTF16.indexOfLatin1(src, srcCount, tgt, tgtCount, fromIndex);
+        return StringUTF16.indexOfLatin1(src, srcCount, tgtStr, tgtCount, fromIndex);
     }
 
     /**
@@ -2331,17 +2352,46 @@ public final class String
      * source is the character array being searched, and the target
      * is the string being searched for.
      *
-     * @param   source       the characters being searched.
-     * @param   sourceOffset offset of the source string.
-     * @param   sourceCount  count of the source string.
-     * @param   target       the characters being searched for.
-     * @param   fromIndex    the index to begin searching from.
+     * @param   src         the characters being searched.
+     * @param   srcCoder    coder handles the mapping between bytes/chars
+     * @param   srcCount    count of the source string.
+     * @param   tgtStr      the characters being searched for.
+     * @param   fromIndex   the index to begin searching from.
      */
-    static int lastIndexOf(char[] source, int sourceOffset, int sourceCount,
-            String target, int fromIndex) {
-        return lastIndexOf(source, sourceOffset, sourceCount,
-                       target.toCharArray(), 0, target.length(),
-                       fromIndex);
+    static int lastIndexOf(byte[] src, byte srcCoder, int srcCount,
+        String tgtStr, int fromIndex) {
+        // byte[] tgt = tgtStr.value;
+        byte tgtCoder = tgtStr.coder();
+        int tgtCount = tgtStr.length();
+        /*
+         * Check arguments; return immediately where possible. For
+         * consistency, don't check for null str.
+         */
+        int rightIndex = srcCount - tgtCount;
+        if (fromIndex > rightIndex) {
+            fromIndex = rightIndex;
+        }
+        if (fromIndex < 0) {
+            return -1;
+        }
+        /* Empty string always matches. */
+        if (tgtCount == 0) {
+            return fromIndex;
+        }
+        if (srcCoder == tgtCoder) {
+            return srcCoder == LATIN1
+                // Android-changed: libcore doesn't store String as Latin1 or UTF16 byte[] field.
+                // ? StringLatin1.lastIndexOf(src, srcCount, tgt, tgtCount, fromIndex)
+                // : StringUTF16.lastIndexOf(src, srcCount, tgt, tgtCount, fromIndex);
+                ? StringLatin1.lastIndexOf(src, srcCount, tgtStr, tgtCount, fromIndex)
+                : StringUTF16.lastIndexOf(src, srcCount, tgtStr, tgtCount, fromIndex);
+        }
+        if (srcCoder == LATIN1) {    // && tgtCoder == UTF16
+            return -1;
+        }
+        // srcCoder == UTF16 && tgtCoder == LATIN1
+        // return StringUTF16.lastIndexOfLatin1(src, srcCount, tgt, tgtCount, fromIndex);
+        return StringUTF16.lastIndexOfLatin1(src, srcCount, tgtStr, tgtCount, fromIndex);
     }
 
     /**
@@ -3434,19 +3484,6 @@ public final class String
         return indexOfNonWhitespace() == length();
     }
 
-    private int indexOfNonWhitespace() {
-        // BEGIN Android-removed: Delegate to StringUTF16.
-        /*
-        if (isLatin1()) {
-            return StringLatin1.indexOfNonWhitespace(value);
-        } else {
-            return StringUTF16.indexOfNonWhitespace(value);
-        }
-         */
-        return StringUTF16.indexOfNonWhitespace(this);
-        // END Android-removed: Delegate to StringUTF16.
-    }
-
     /**
      * Returns a stream of lines extracted from this string,
      * separated by line terminators.
@@ -3488,6 +3525,383 @@ public final class String
     }
 
     /**
+     * Adjusts the indentation of each line of this string based on the value of
+     * {@code n}, and normalizes line termination characters.
+     * <p>
+     * This string is conceptually separated into lines using
+     * {@link String#lines()}. Each line is then adjusted as described below
+     * and then suffixed with a line feed {@code "\n"} (U+000A). The resulting
+     * lines are then concatenated and returned.
+     * <p>
+     * If {@code n > 0} then {@code n} spaces (U+0020) are inserted at the
+     * beginning of each line.
+     * <p>
+     * If {@code n < 0} then up to {@code n}
+     * {@linkplain Character#isWhitespace(int) white space characters} are removed
+     * from the beginning of each line. If a given line does not contain
+     * sufficient white space then all leading
+     * {@linkplain Character#isWhitespace(int) white space characters} are removed.
+     * Each white space character is treated as a single character. In
+     * particular, the tab character {@code "\t"} (U+0009) is considered a
+     * single character; it is not expanded.
+     * <p>
+     * If {@code n == 0} then the line remains unchanged. However, line
+     * terminators are still normalized.
+     *
+     * @param n  number of leading
+     *           {@linkplain Character#isWhitespace(int) white space characters}
+     *           to add or remove
+     *
+     * @return string with indentation adjusted and line endings normalized
+     *
+     * @see String#lines()
+     * @see String#isBlank()
+     * @see Character#isWhitespace(int)
+     *
+     * @since 12
+     */
+    public String indent(int n) {
+        if (isEmpty()) {
+            return "";
+        }
+        Stream<String> stream = lines();
+        if (n > 0) {
+            final String spaces = " ".repeat(n);
+            stream = stream.map(s -> spaces + s);
+        } else if (n == Integer.MIN_VALUE) {
+            stream = stream.map(s -> s.stripLeading());
+        } else if (n < 0) {
+            stream = stream.map(s -> s.substring(Math.min(-n, s.indexOfNonWhitespace())));
+        }
+        return stream.collect(Collectors.joining("\n", "", "\n"));
+    }
+
+    private int indexOfNonWhitespace() {
+        // BEGIN Android-removed: Delegate to StringUTF16.
+        /*
+        return isLatin1() ? StringLatin1.indexOfNonWhitespace(value)
+                          : StringUTF16.indexOfNonWhitespace(value);
+         */
+        return StringUTF16.indexOfNonWhitespace(this);
+        // END Android-removed: Delegate to StringUTF16.
+    }
+
+    private int lastIndexOfNonWhitespace() {
+        // BEGIN Android-changed: Delegate to StringUTF16.
+        /*
+        return isLatin1() ? StringLatin1.lastIndexOfNonWhitespace(value)
+                          : StringUTF16.lastIndexOfNonWhitespace(value);
+        */
+        return StringUTF16.lastIndexOfNonWhitespace(this);
+        // END Android-changed: Delegate to StringUTF16.
+    }
+
+    /**
+     * Returns a string whose value is this string, with incidental
+     * {@linkplain Character#isWhitespace(int) white space} removed from
+     * the beginning and end of every line.
+     * <p>
+     * Incidental {@linkplain Character#isWhitespace(int) white space}
+     * is often present in a text block to align the content with the opening
+     * delimiter. For example, in the following code, dots represent incidental
+     * {@linkplain Character#isWhitespace(int) white space}:
+     * <blockquote><pre>
+     * String html = """
+     * ..............&lt;html&gt;
+     * ..............    &lt;body&gt;
+     * ..............        &lt;p&gt;Hello, world&lt;/p&gt;
+     * ..............    &lt;/body&gt;
+     * ..............&lt;/html&gt;
+     * ..............""";
+     * </pre></blockquote>
+     * This method treats the incidental
+     * {@linkplain Character#isWhitespace(int) white space} as indentation to be
+     * stripped, producing a string that preserves the relative indentation of
+     * the content. Using | to visualize the start of each line of the string:
+     * <blockquote><pre>
+     * |&lt;html&gt;
+     * |    &lt;body&gt;
+     * |        &lt;p&gt;Hello, world&lt;/p&gt;
+     * |    &lt;/body&gt;
+     * |&lt;/html&gt;
+     * </pre></blockquote>
+     * First, the individual lines of this string are extracted. A <i>line</i>
+     * is a sequence of zero or more characters followed by either a line
+     * terminator or the end of the string.
+     * If the string has at least one line terminator, the last line consists
+     * of the characters between the last terminator and the end of the string.
+     * Otherwise, if the string has no terminators, the last line is the start
+     * of the string to the end of the string, in other words, the entire
+     * string.
+     * A line does not include the line terminator.
+     * <p>
+     * Then, the <i>minimum indentation</i> (min) is determined as follows:
+     * <ul>
+     *   <li><p>For each non-blank line (as defined by {@link String#isBlank()}),
+     *   the leading {@linkplain Character#isWhitespace(int) white space}
+     *   characters are counted.</p>
+     *   </li>
+     *   <li><p>The leading {@linkplain Character#isWhitespace(int) white space}
+     *   characters on the last line are also counted even if
+     *   {@linkplain String#isBlank() blank}.</p>
+     *   </li>
+     * </ul>
+     * <p>The <i>min</i> value is the smallest of these counts.
+     * <p>
+     * For each {@linkplain String#isBlank() non-blank} line, <i>min</i> leading
+     * {@linkplain Character#isWhitespace(int) white space} characters are
+     * removed, and any trailing {@linkplain Character#isWhitespace(int) white
+     * space} characters are removed. {@linkplain String#isBlank() Blank} lines
+     * are replaced with the empty string.
+     *
+     * <p>
+     * Finally, the lines are joined into a new string, using the LF character
+     * {@code "\n"} (U+000A) to separate lines.
+     *
+     * @apiNote
+     * This method's primary purpose is to shift a block of lines as far as
+     * possible to the left, while preserving relative indentation. Lines
+     * that were indented the least will thus have no leading
+     * {@linkplain Character#isWhitespace(int) white space}.
+     * The result will have the same number of line terminators as this string.
+     * If this string ends with a line terminator then the result will end
+     * with a line terminator.
+     *
+     * @implSpec
+     * This method treats all {@linkplain Character#isWhitespace(int) white space}
+     * characters as having equal width. As long as the indentation on every
+     * line is consistently composed of the same character sequences, then the
+     * result will be as described above.
+     *
+     * @return string with incidental indentation removed and line
+     *         terminators normalized
+     *
+     * @see String#lines()
+     * @see String#isBlank()
+     * @see String#indent(int)
+     * @see Character#isWhitespace(int)
+     *
+     * @since 15
+     *
+     */
+    public String stripIndent() {
+        int length = length();
+        if (length == 0) {
+            return "";
+        }
+        char lastChar = charAt(length - 1);
+        boolean optOut = lastChar == '\n' || lastChar == '\r';
+        List<String> lines = lines().toList();
+        final int outdent = optOut ? 0 : outdent(lines);
+        return lines.stream()
+            .map(line -> {
+                int firstNonWhitespace = line.indexOfNonWhitespace();
+                int lastNonWhitespace = line.lastIndexOfNonWhitespace();
+                int incidentalWhitespace = Math.min(outdent, firstNonWhitespace);
+                return firstNonWhitespace > lastNonWhitespace
+                    ? "" : line.substring(incidentalWhitespace, lastNonWhitespace);
+            })
+            .collect(Collectors.joining("\n", "", optOut ? "\n" : ""));
+    }
+
+    private static int outdent(List<String> lines) {
+        // Note: outdent is guaranteed to be zero or positive number.
+        // If there isn't a non-blank line then the last must be blank
+        int outdent = Integer.MAX_VALUE;
+        for (String line : lines) {
+            int leadingWhitespace = line.indexOfNonWhitespace();
+            if (leadingWhitespace != line.length()) {
+                outdent = Integer.min(outdent, leadingWhitespace);
+            }
+        }
+        String lastLine = lines.get(lines.size() - 1);
+        if (lastLine.isBlank()) {
+            outdent = Integer.min(outdent, lastLine.length());
+        }
+        return outdent;
+    }
+
+    /**
+     * Returns a string whose value is this string, with escape sequences
+     * translated as if in a string literal.
+     * <p>
+     * Escape sequences are translated as follows;
+     * <table class="striped">
+     *   <caption style="display:none">Translation</caption>
+     *   <thead>
+     *   <tr>
+     *     <th scope="col">Escape</th>
+     *     <th scope="col">Name</th>
+     *     <th scope="col">Translation</th>
+     *   </tr>
+     *   </thead>
+     *   <tbody>
+     *   <tr>
+     *     <th scope="row">{@code \u005Cb}</th>
+     *     <td>backspace</td>
+     *     <td>{@code U+0008}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005Ct}</th>
+     *     <td>horizontal tab</td>
+     *     <td>{@code U+0009}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005Cn}</th>
+     *     <td>line feed</td>
+     *     <td>{@code U+000A}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005Cf}</th>
+     *     <td>form feed</td>
+     *     <td>{@code U+000C}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005Cr}</th>
+     *     <td>carriage return</td>
+     *     <td>{@code U+000D}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005Cs}</th>
+     *     <td>space</td>
+     *     <td>{@code U+0020}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005C"}</th>
+     *     <td>double quote</td>
+     *     <td>{@code U+0022}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005C'}</th>
+     *     <td>single quote</td>
+     *     <td>{@code U+0027}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005C\u005C}</th>
+     *     <td>backslash</td>
+     *     <td>{@code U+005C}</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005C0 - \u005C377}</th>
+     *     <td>octal escape</td>
+     *     <td>code point equivalents</td>
+     *   </tr>
+     *   <tr>
+     *     <th scope="row">{@code \u005C<line-terminator>}</th>
+     *     <td>continuation</td>
+     *     <td>discard</td>
+     *   </tr>
+     *   </tbody>
+     * </table>
+     *
+     * @implNote
+     * This method does <em>not</em> translate Unicode escapes such as "{@code \u005cu2022}".
+     * Unicode escapes are translated by the Java compiler when reading input characters and
+     * are not part of the string literal specification.
+     *
+     * @throws IllegalArgumentException when an escape sequence is malformed.
+     *
+     * @return String with escape sequences translated.
+     *
+     * @jls 3.10.7 Escape Sequences
+     *
+     * @since 15
+     */
+    public String translateEscapes() {
+        if (isEmpty()) {
+            return "";
+        }
+        char[] chars = toCharArray();
+        int length = chars.length;
+        int from = 0;
+        int to = 0;
+        while (from < length) {
+            char ch = chars[from++];
+            if (ch == '\\') {
+                ch = from < length ? chars[from++] : '\0';
+                switch (ch) {
+                case 'b':
+                    ch = '\b';
+                    break;
+                case 'f':
+                    ch = '\f';
+                    break;
+                case 'n':
+                    ch = '\n';
+                    break;
+                case 'r':
+                    ch = '\r';
+                    break;
+                case 's':
+                    ch = ' ';
+                    break;
+                case 't':
+                    ch = '\t';
+                    break;
+                case '\'':
+                case '\"':
+                case '\\':
+                    // as is
+                    break;
+                case '0': case '1': case '2': case '3':
+                case '4': case '5': case '6': case '7':
+                    int limit = Integer.min(from + (ch <= '3' ? 2 : 1), length);
+                    int code = ch - '0';
+                    while (from < limit) {
+                        ch = chars[from];
+                        if (ch < '0' || '7' < ch) {
+                            break;
+                        }
+                        from++;
+                        code = (code << 3) | (ch - '0');
+                    }
+                    ch = (char)code;
+                    break;
+                case '\n':
+                    continue;
+                case '\r':
+                    if (from < length && chars[from] == '\n') {
+                        from++;
+                    }
+                    continue;
+                default: {
+                    String msg = String.format(
+                        "Invalid escape sequence: \\%c \\\\u%04X",
+                        ch, (int)ch);
+                    throw new IllegalArgumentException(msg);
+                }
+                }
+            }
+
+            chars[to++] = ch;
+        }
+
+        return new String(chars, 0, to);
+    }
+
+    /**
+     * This method allows the application of a function to {@code this}
+     * string. The function should expect a single String argument
+     * and produce an {@code R} result.
+     * <p>
+     * Any exception thrown by {@code f.apply()} will be propagated to the
+     * caller.
+     *
+     * @param f    a function to apply
+     *
+     * @param <R>  the type of the result
+     *
+     * @return     the result of applying the function to this string
+     *
+     * @see java.util.function.Function
+     *
+     * @since 12
+     */
+    public <R> R transform(Function<? super String, ? extends R> f) {
+        return f.apply(this);
+    }
+
+    /**
      * This object (which is already a string!) is itself returned.
      *
      * @return  the string itself.
@@ -3513,7 +3927,7 @@ public final class String
             isLatin1() ? new StringLatin1.CharsSpliterator(value, Spliterator.IMMUTABLE)
                        : new StringUTF16.CharsSpliterator(value, Spliterator.IMMUTABLE),
              */
-            new StringUTF16.CharsSpliterator(this, Spliterator.IMMUTABLE),
+            new StringUTF16.CharsSpliteratorForString(this, Spliterator.IMMUTABLE),
             // END Android-removed: Delegate to StringUTF16.
             false);
     }
@@ -3538,7 +3952,7 @@ public final class String
             isLatin1() ? new StringLatin1.CharsSpliterator(value, Spliterator.IMMUTABLE)
                        : new StringUTF16.CodePointsSpliterator(value, Spliterator.IMMUTABLE),
              */
-            new StringUTF16.CodePointsSpliterator(this, Spliterator.IMMUTABLE),
+            new StringUTF16.CodePointsSpliteratorForString(this, Spliterator.IMMUTABLE),
             // END Android-removed: Delegate to StringUTF16.
             false);
     }
@@ -3642,6 +4056,27 @@ public final class String
      */
     public static String format(Locale l, String format, Object... args) {
         return new Formatter(l).format(format, args).toString();
+    }
+
+    /**
+     * Formats using this string as the format string, and the supplied
+     * arguments.
+     *
+     * @implSpec This method is equivalent to {@code String.format(this, args)}.
+     *
+     * @param  args
+     *         Arguments referenced by the format specifiers in this string.
+     *
+     * @return  A formatted string
+     *
+     * @see  java.lang.String#format(String,Object...)
+     * @see  java.util.Formatter
+     *
+     * @since 15
+     *
+     */
+    public String formatted(Object... args) {
+        return new Formatter().format(this, args).toString();
     }
 
     /**
@@ -3903,6 +4338,84 @@ public final class String
     @FastNative
     private native String doRepeat(int count);
 
+    ////////////////////////////////////////////////////////////////
+
+    /**
+     * Copy character bytes from this string into dst starting at dstBegin.
+     * This method doesn't perform any range checking.
+     *
+     * Invoker guarantees: dst is in UTF16 (inflate itself for asb), if two
+     * coders are different, and dst is big enough (range check)
+     *
+     * @param dstBegin  the char index, not offset of byte[]
+     * @param coder     the coder of dst[]
+     */
+    void getBytes(byte dst[], int dstBegin, byte coder) {
+        // Android-changed: libcore doesn't store String as Latin1 or UTF16 byte[] field.
+        /*
+        if (coder() == coder) {
+            System.arraycopy(value, 0, dst, dstBegin << coder, value.length);
+        } else {    // this.coder == LATIN && coder == UTF16
+            StringLatin1.inflate(value, 0, dst, dstBegin, value.length);
+        }
+        */
+        // We do bound check here before the native calls, because the upstream implementation does
+        // the bound check in System.arraycopy and StringLatin1.inflate or throws an exception.
+        if (coder == UTF16) {
+            int fromIndex = dstBegin << 1;
+            checkBoundsOffCount(fromIndex, length() << 1, dst.length);
+            fillBytesUTF16(dst, fromIndex);
+        } else {
+            if (coder() != LATIN1) {
+                // Do not concat String in the error message.
+                throw new StringIndexOutOfBoundsException("Expect Latin-1 coder.");
+            }
+            checkBoundsOffCount(dstBegin, length(), dst.length);
+            fillBytesLatin1(dst, dstBegin);
+        }
+    }
+
+    // BEGIN Android-added: Implement fillBytes*() method natively.
+
+    /**
+     * Fill the underlying characters into the byte buffer. No range check.
+     * The caller should guarantee that dst is big enough for this operation.
+     */
+    @FastNative
+    private native void fillBytesLatin1(byte[] dst, int byteIndex);
+
+    /**
+     * Fill the underlying characters into the byte buffer. No range check.
+     * The caller should guarantee that dst is big enough for this operation.
+     */
+    @FastNative
+    private native void fillBytesUTF16(byte[] dst, int byteIndex);
+    // END Android-added: Implement fillBytes*() method natively.
+
+    /*
+     * Package private constructor which shares value array for speed.
+     */
+    String(byte[] value, byte coder) {
+        // BEGIN Android-changed: Implemented as compiler and runtime intrinsics.
+        // this.value = value;
+        // this.coder = coder;
+        throw new UnsupportedOperationException("Use StringFactory instead.");
+        // END Android-changed: Implemented as compiler and runtime intrinsics.
+    }
+
+    /**
+     * Android note: It returns UTF16 if the string has any 0x00 char.
+     * See the difference between {@link StringLatin1#canEncode(int)} and
+     * art::mirror::String::IsASCII(uint16_t) in string.h.
+     */
+    byte coder() {
+        // Android-changed: ART stores the flag in the count field.
+        // return COMPACT_STRINGS ? coder : UTF16;
+        // We assume that STRING_COMPRESSION_ENABLED is enabled here.
+        // The flag has been true for 6+ years.
+        return COMPACT_STRINGS ? ((byte) (count & 1)) : UTF16;
+    }
+
     /*
      * StringIndexOutOfBoundsException  if {@code index} is
      * negative or greater than or equal to {@code length}.
@@ -3911,6 +4424,17 @@ public final class String
         if (index < 0 || index >= length) {
             throw new StringIndexOutOfBoundsException("index " + index +
                                                       ",length " + length);
+        }
+    }
+
+    /*
+     * StringIndexOutOfBoundsException  if {@code offset}
+     * is negative or greater than {@code length}.
+     */
+    static void checkOffset(int offset, int length) {
+        if (offset < 0 || offset > length) {
+            throw new StringIndexOutOfBoundsException("offset " + offset +
+                ",length " + length);
         }
     }
 

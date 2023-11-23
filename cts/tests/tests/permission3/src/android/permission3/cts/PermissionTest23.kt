@@ -19,6 +19,7 @@ package android.permission3.cts
 import android.content.pm.PackageManager
 import androidx.test.filters.FlakyTest
 import com.android.compatibility.common.util.SystemUtil
+import com.android.modules.utils.build.SdkLevel
 import org.junit.Assert
 import org.junit.Assume
 import org.junit.Before
@@ -247,7 +248,7 @@ class PermissionTest23 : BaseUsePermissionTest() {
             android.Manifest.permission.CALL_PHONE,
             android.Manifest.permission.RECORD_AUDIO,
             android.Manifest.permission.CAMERA,
-            android.Manifest.permission.READ_EXTERNAL_STORAGE, targetSdk = 23
+            android.Manifest.permission.READ_EXTERNAL_STORAGE
         )
         // Don't use UI for granting location and sensor permissions as they show another dialog
         uiAutomation.grantRuntimePermission(
@@ -262,7 +263,6 @@ class PermissionTest23 : BaseUsePermissionTest() {
         uiAutomation.grantRuntimePermission(
             APP_PACKAGE_NAME, android.Manifest.permission.BODY_SENSORS
         )
-
         uninstallPackage(APP_PACKAGE_NAME)
         installPackage(APP_APK_PATH_23)
 
@@ -272,8 +272,10 @@ class PermissionTest23 : BaseUsePermissionTest() {
 
     @Test
     fun testNullPermissionRequest() {
+        val permissions: Array<String?> = arrayOf(null)
+        val results: Array<Pair<String?, Boolean>> = arrayOf()
         // Go through normal grant flow
-        requestAppPermissionsAndAssertResult(null to false) {}
+        requestAppPermissionsAndAssertResult(permissions, results) {}
     }
 
     @Test
@@ -285,10 +287,14 @@ class PermissionTest23 : BaseUsePermissionTest() {
         // Request the permission and allow it
         // Expect the permission are granted
         requestAppPermissionsAndAssertResult(
-            null to false,
-            android.Manifest.permission.WRITE_CONTACTS to true,
-            null to false,
-            android.Manifest.permission.RECORD_AUDIO to true
+            arrayOf(
+                android.Manifest.permission.WRITE_CONTACTS,
+                null,
+                android.Manifest.permission.RECORD_AUDIO,
+                null),
+            arrayOf(
+                android.Manifest.permission.WRITE_CONTACTS to true,
+                android.Manifest.permission.RECORD_AUDIO to true)
         ) {
             clickPermissionRequestAllowForegroundButton()
             clickPermissionRequestAllowButton()
@@ -307,12 +313,12 @@ class PermissionTest23 : BaseUsePermissionTest() {
         Assume.assumeFalse("other form factors might not support the ask button",
                 isTv || isAutomotive || isWatch)
 
-        grantAppPermissions(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, targetSdk = 23)
+        grantAppPermissions(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         assertAppHasPermission(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, true)
         assertAppHasPermission(android.Manifest.permission.ACCESS_FINE_LOCATION, true)
         assertAppHasPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION, true)
 
-        revokeAppPermissions(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION, targetSdk = 23)
+        revokeAppPermissions(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION)
         SystemUtil.runWithShellPermissionIdentity {
             val perms = listOf(android.Manifest.permission.ACCESS_BACKGROUND_LOCATION,
                     android.Manifest.permission.ACCESS_FINE_LOCATION,

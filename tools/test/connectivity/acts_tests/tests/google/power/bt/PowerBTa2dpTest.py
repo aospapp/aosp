@@ -39,7 +39,9 @@ class PowerBTa2dpTest(PBtBT.PowerBTBaseTest):
         # Loop all codecs and tx power levels
         for codec_config in self.codecs:
             for tpl in self.tx_power_levels:
-                self.generate_test_case(codec_config, tpl)
+                # As a temporary fix, directly set the test with tpl 10
+                if tpl != 10:
+                    self.generate_test_case(codec_config, tpl)
 
     def setup_test(self):
         super().setup_test()
@@ -107,3 +109,9 @@ class PowerBTa2dpTest(PBtBT.PowerBTBaseTest):
             codec_config['codec_type'], tpl))
         self.dut.droid.goToSleepNow()
         self.measure_power_and_validate()
+
+    def test_BTa2dp_AAC_codec_at_EPA_BF(self):
+        self.measure_a2dp_power(self.codecs[0], 10)
+
+    def test_BTa2dp_SBC_codec_at_EPA_BF(self):
+        self.measure_a2dp_power(self.codecs[1], 10)

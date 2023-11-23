@@ -60,7 +60,6 @@ class Tracer final : public art::instrumentation::InstrumentationListener {
       override REQUIRES_SHARED(art::Locks::mutator_lock_) { }
 
   void MethodUnwind(art::Thread* thread ATTRIBUTE_UNUSED,
-                    art::Handle<art::mirror::Object> this_object ATTRIBUTE_UNUSED,
                     art::ArtMethod* method ATTRIBUTE_UNUSED,
                     uint32_t dex_pc ATTRIBUTE_UNUSED)
       override REQUIRES_SHARED(art::Locks::mutator_lock_) { }
@@ -131,7 +130,8 @@ static void StartTracing() REQUIRES(!art::Locks::mutator_lock_,
                                              art::instrumentation::Instrumentation::kMethodEntered |
                                              art::instrumentation::Instrumentation::kMethodExited |
                                              art::instrumentation::Instrumentation::kMethodUnwind);
-  runtime->GetInstrumentation()->EnableMethodTracing(kTracerInstrumentationKey, kNeedsInterpreter);
+  runtime->GetInstrumentation()->EnableMethodTracing(
+      kTracerInstrumentationKey, &gEmptyTracer, kNeedsInterpreter);
 }
 
 class TraceFastPhaseCB : public art::RuntimePhaseCallback {

@@ -19,6 +19,7 @@
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <application android:label="@string/app">
         <activity android:name=".VpnClient"
@@ -32,7 +33,9 @@
 
         <service android:name=".ReflectorVpnService"
              android:permission="android.permission.BIND_VPN_SERVICE"
+             android:foregroundServiceType="specialUse"
              android:exported="true">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
             <intent-filter>
                 <action android:name="android.net.VpnService"/>
             </intent-filter>

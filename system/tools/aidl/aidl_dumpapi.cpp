@@ -31,6 +31,23 @@ using std::unique_ptr;
 namespace android {
 namespace aidl {
 
+static bool NeedsFinalValue(const AidlTypeSpecifier& type, const AidlConstantValue& c) {
+  // For enum types, use enumerator
+  if (auto defined_type = type.GetDefinedType();
+      defined_type && defined_type->AsEnumDeclaration()) {
+    return false;
+  }
+  // We need final value for constant expression which is not a single constant expression.
+  struct Visitor : AidlVisitor {
+    bool trivial = true;
+    void Visit(const AidlConstantReference&) override { trivial = false; }
+    void Visit(const AidlUnaryConstExpression&) override { trivial = false; }
+    void Visit(const AidlBinaryConstExpression&) override { trivial = false; }
+  } v;
+  c.DispatchVisit(v);
+  return !v.trivial;
+}
+
 void DumpVisitor::DumpType(const AidlDefinedType& dt, const string& type) {
   if (!dt.IsUserDefined()) {
     return;
@@ -41,6 +58,12 @@ void DumpVisitor::DumpType(const AidlDefinedType& dt, const string& type) {
   if (auto generic_type = dt.AsParameterizable(); generic_type && generic_type->IsGeneric()) {
     out << "<" << Join(generic_type->GetTypeParameters(), ", ") << ">";
   }
+
+  if (dt.AsUnstructuredParcelable()) {
+    out << ";\n";
+    return;
+  }
+
   out << " {\n";
   out.Indent();
   DumpMembers(dt);
@@ -91,7 +114,28 @@ void DumpVisitor::DumpAnnotations(const AidlAnnotatable& a) {
 }
 
 void DumpVisitor::DumpConstantValue(const AidlTypeSpecifier& type, const AidlConstantValue& c) {
-  out << c.ValueString(type, AidlConstantValueDecorator);
+  if (inline_constants) {
+    out << c.ValueString(type, AidlConstantValueDecorator);
+    return;
+  }
+  if (c.GetType() == AidlConstantValue::Type::ARRAY) {
+    type.ViewAsArrayBase([&](const auto& base_type) {
+      out << "{";
+      for (size_t i = 0; i < c.Size(); i++) {
+        if (i > 0) {
+          out << ", ";
+        }
+        DumpConstantValue(base_type, c.ValueAt(i));
+      }
+      out << "}";
+    });
+  } else {
+    c.DispatchVisit(*this);
+    // print final value as comment
+    if (NeedsFinalValue(type, c)) {
+      out << " /* " << c.ValueString(type, AidlConstantValueDecorator) << " */";
+    }
+  }
 }
 
 void DumpVisitor::Visit(const AidlInterface& t) {
@@ -120,8 +164,11 @@ void DumpVisitor::Visit(const AidlEnumDeclaration& t) {
   out.Indent();
   for (const auto& e : t.GetEnumerators()) {
     DumpComments(*e);
-    out << e->GetName() << " = ";
-    DumpConstantValue(t.GetBackingType(), *e->GetValue());
+    out << e->GetName();
+    if (e->IsValueUserSpecified() || inline_constants) {
+      out << " = ";
+      DumpConstantValue(t.GetBackingType(), *e->GetValue());
+    }
     out << ",\n";
   }
   out.Dedent();
@@ -167,9 +214,44 @@ void DumpVisitor::Visit(const AidlTypeSpecifier& t) {
   out << t.ToString();
 }
 
+// These Visit() methods are not invoked when inline_constants = true
+void DumpVisitor::Visit(const AidlConstantValue& c) {
+  AIDL_FATAL_IF(inline_constants, AIDL_LOCATION_HERE);
+  out << c.Literal();
+}
+
+void DumpVisitor::Visit(const AidlConstantReference& r) {
+  AIDL_FATAL_IF(inline_constants, AIDL_LOCATION_HERE);
+  if (auto& ref = r.GetRefType(); ref) {
+    ref->DispatchVisit(*this);
+    out << ".";
+  }
+  out << r.GetFieldName();
+}
+
+void DumpVisitor::Visit(const AidlBinaryConstExpression& b) {
+  AIDL_FATAL_IF(inline_constants, AIDL_LOCATION_HERE);
+  // TODO(b/262594867) put parentheses only when necessary
+  out << "(";
+  b.Left()->DispatchVisit(*this);
+  out << " " << b.Op() << " ";
+  b.Right()->DispatchVisit(*this);
+  out << ")";
+}
+
+void DumpVisitor::Visit(const AidlUnaryConstExpression& u) {
+  AIDL_FATAL_IF(inline_constants, AIDL_LOCATION_HERE);
+  // TODO(b/262594867) put parentheses only when necessary
+  out << "(";
+  out << u.Op();
+  u.Val()->DispatchVisit(*this);
+  out << ")";
+}
+
 static string GetApiDumpPathFor(const AidlDefinedType& defined_type, const Options& options) {
   string package_as_path = Join(Split(defined_type.GetPackage(), "."), OS_PATH_SEPARATOR);
-  AIDL_FATAL_IF(options.OutputDir().empty() || options.OutputDir().back() != '/', defined_type);
+  AIDL_FATAL_IF(options.OutputDir().empty() || options.OutputDir().back() != OS_PATH_SEPARATOR,
+                defined_type);
   return options.OutputDir() + package_as_path + OS_PATH_SEPARATOR + defined_type.GetName() +
          ".aidl";
 }
@@ -203,7 +285,7 @@ bool dump_api(const Options& options, const IoDelegate& io_delegate) {
         if (!type->GetPackage().empty()) {
           (*writer) << "package " << type->GetPackage() << ";\n";
         }
-        DumpVisitor visitor(*writer);
+        DumpVisitor visitor(*writer, /*inline_constants=*/false);
         type->DispatchVisit(visitor);
       }
     } else {

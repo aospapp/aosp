@@ -2,6 +2,7 @@ package com.android.cts.intent.sender;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.ActivityManager;
 import android.app.UiAutomation;
 import android.content.Context;
 import android.content.Intent;
@@ -9,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.res.Configuration;
 import android.os.UserHandle;
+import android.os.UserManager;
 import android.provider.Settings;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
@@ -167,13 +169,18 @@ public class SuspendPackageTest extends InstrumentationTestCase {
         String settingsPackageName = "com.android.settings";
         try {
             mUiAutomation.adoptShellPermissionIdentity("android.permission.INTERACT_ACROSS_USERS");
+            int userId = UserManager.isHeadlessSystemUserMode()
+                    ? ActivityManager.getCurrentUser() // doesn't work with UserHandle.USER_CURRENT
+                    : UserHandle.USER_SYSTEM;
             ResolveInfo resolveInfo = mPackageManager.resolveActivityAsUser(
-                    new Intent(Settings.ACTION_SETTINGS), PackageManager.MATCH_SYSTEM_ONLY,
-                    UserHandle.USER_SYSTEM);
+                    new Intent(Settings.ACTION_SETTINGS), PackageManager.MATCH_SYSTEM_ONLY, userId);
             if (resolveInfo != null && resolveInfo.activityInfo != null) {
-                return resolveInfo.activityInfo.packageName;
+                String packageName = resolveInfo.activityInfo.packageName;
+                Log.d(TAG, "getSettingsPackageName(): returning " + packageName);
+                return packageName;
             }
-            Log.w(TAG, "Unable to resolve ACTION_SETTINGS intent.");
+            Log.w(TAG, "Unable to resolve ACTION_SETTINGS (" + Settings.ACTION_SETTINGS
+                    + ") intent for user " + userId);
             return DEFAULT_SETTINGS_PKG;
         } finally {
             mUiAutomation.dropShellPermissionIdentity();

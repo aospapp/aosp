@@ -13,6 +13,7 @@
 # limitations under the License.
 
 native_tests := \
+    aaudio_test_mmap_path \
     adbd_test \
     android_logger_test_src_lib \
     android_logger_test_tests_config_log_level \
@@ -30,18 +31,14 @@ native_tests := \
     anyhow_test_tests_test_repr \
     anyhow_test_tests_test_source \
     audio_health_tests \
-    backtrace_test \
     bionic-unit-tests \
     bionic-unit-tests-static \
-    bluetoothtbd_test \
     bluetooth_test_common \
     bootstat_tests \
     boringssl_crypto_test \
     boringssl_ssl_test \
     bsdiff_unittest \
     buffer_hub-test \
-    buffer_hub_queue-test \
-    buffer_hub_queue_producer-test \
     bugreportz_test \
     bytes_test_tests_test_buf \
     bytes_test_tests_test_buf_mut \
@@ -63,9 +60,6 @@ native_tests := \
     dumpstate_test \
     dumpstate_test_fixture \
     dumpsys_test \
-    dvr_api-test \
-    dvr_buffer_queue-test \
-    dvr_display-test \
     gpuservice_unittest \
     gwp_asan_unittest \
     hello_world_test \
@@ -105,8 +99,8 @@ native_tests := \
     libunwindstack_unit_test \
     libuwb_core_tests \
     libuwb_uci_jni_rust_tests \
-    libuwb_uci_rust_tests \
     libuwb_uci_packet_tests \
+    libuci_hal_android_tests \
     libvintf_test \
     linker-unit-tests \
     logcat-unit-tests \
@@ -121,24 +115,6 @@ native_tests := \
     mj_system_unittest_gtest \
     mj_util_unittest_gtest \
     mtp_ffs_handle_test \
-    net_test_audio_a2dp_hw \
-    net_test_avrcp \
-    net_test_bluetooth \
-    net_test_bta \
-    net_test_btcore \
-    net_test_btif \
-    net_test_btif_profile_queue \
-    net_test_btpackets \
-    net_test_device \
-    net_test_hci \
-    net_test_osi \
-    net_test_performance \
-    net_test_stack \
-    net_test_stack_ad_parser \
-    net_test_stack_multi_adv \
-    net_test_stack_rfcomm \
-    net_test_stack_smp \
-    net_test_types \
     netd_integration_test \
     netd_unit_test \
     netdutils_test \
@@ -213,7 +189,6 @@ native_tests := \
     tokio_test_tests_sync_barrier \
     tokio_test_tests_sync_broadcast \
     tokio_test_tests_sync_errors \
-    tokio_test_tests_sync_mpsc \
     tokio_test_tests_sync_mutex \
     tokio_test_tests_sync_mutex_owned \
     tokio_test_tests_sync_notify \
@@ -258,7 +233,9 @@ native_tests := \
     lmkd_unit_test
 
 ifeq ($(BOARD_IS_AUTOMOTIVE), true)
-native_tests += libwatchdog_test
+native_tests += \
+    libwatchdog_test \
+    evsmanagerd_test
 endif
 
 ifneq ($(strip $(BOARD_PERFSETUP_SCRIPT)),)

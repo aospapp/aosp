@@ -16,5 +16,5 @@
 
 package android.companion.cts.core
 
-const val TEST_APP_PACKAGE_NAME = "android.os.cts.companiontestapp"
-const val TEST_APP_APK_PATH = "/data/local/tmp/cts/companion/CtsCompanionTestApp.apk"
+const val TEST_APP_PACKAGE_NAME = "android.companion.cts.companiondevicetestapp"
+const val TEST_APP_APK_PATH = "/data/local/tmp/cts/companion/CompanionDeviceTestApp.apk"

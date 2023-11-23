@@ -19,6 +19,8 @@ package {
 android_test {
     name: "CtsDevicePolicyTestCases",
     defaults: ["cts_defaults"],
+    min_sdk_version: "29",
+    target_sdk_version: "29",
     static_libs: [
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
@@ -34,7 +36,8 @@ android_test {
         "DeviceAdminApp",
         "TestApp",
         "MetricsRecorder",
-        "statsdprotolite"
+        "statsdprotolite",
+        "Interactive",
     ],
     srcs: ["src/**/*.java"],
     test_suites: [
@@ -43,4 +46,34 @@ android_test {
         "general-tests",
     ],
     platform_apis: true,
+}
+
+android_test {
+    name: "CtsInteractiveDevicePolicyTestCases",
+    defaults: ["cts_defaults"],
+    static_libs: [
+        "compatibility-device-util-axt",
+        "ctstestrunner-axt",
+        "cts-net-utils",
+        "truth-prebuilt",
+        "androidx.test.ext.junit",
+        "testng", // used for assertThrows
+        // TODO: Remove this once we remove ui automator usage
+        "androidx.test.uiautomator_uiautomator",
+        "EventLib",
+        "ActivityContext",
+        "Harrier",
+        "DeviceAdminApp",
+        "TestApp",
+        "MetricsRecorder",
+        "statsdprotolite",
+        "Interactive",
+    ],
+    srcs: ["src/**/*.java"],
+    test_suites: [
+        "cts-interactive",
+        "general-tests",
+    ],
+    platform_apis: true,
+    test_config: "InteractiveAndroidTest.xml",
 }

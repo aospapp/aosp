@@ -21,8 +21,8 @@ import android.platform.test.rule.DropCachesRule;
 import android.platform.test.rule.KillAppsRule;
 import android.platform.test.rule.PressHomeRule;
 
-import org.junit.rules.TestRule;
 import org.junit.rules.RuleChain;
+import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 
@@ -41,13 +41,13 @@ public class AppStartupRunRule<T extends IAppHelper> implements TestRule {
         /**
          * The following constraints on instrumentation arguments must hold.
          * +------------+-------+-------+
-         * |  Action    |  Hot  |  Cold |
+         * | Action     | Hot   | Cold  |
          * +------------+-------+-------+
          * | press-home | true  | false |
          * +------------+-------+-------+
-         * |  kill-app  | false |  true |
+         * | kill-app   | false | true  |
          * +------------+-------+-------+
-         * | drop-cache | false |  true |
+         * | drop-cache | false | true  |
          * +------------+-------+-------+
          */
 
@@ -57,6 +57,10 @@ public class AppStartupRunRule<T extends IAppHelper> implements TestRule {
                         // cold startup needs to kill the app and clear cache before every test run.
                         .outerRule(new KillAppsRule(appHelper.getPackage()))
                         .around(new DropCachesRule())
+                        // Test Finish rule order reversed
+                        // so adding Sleep before and after Press Home
+                        // to avoid getting such issues in future
+                        .around(new SleepAtTestFinishRule(3000))
                         // hot startup needs to press home to exit an app after every test run.
                         .around(new PressHomeRule())
                         // sleep to make sure that asynchrounous app launch and relevant metric

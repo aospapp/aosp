@@ -24,6 +24,7 @@ java_library {
         "ub-uiautomator",
         "androidx.test.rules",
         "androidx.test.runner",
+        "androidx.test.uiautomator_uiautomator",
         "activity-helper",
     ],
     static_libs: [

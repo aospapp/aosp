@@ -33,7 +33,6 @@ from acts_contrib.test_utils.bt.bt_constants import scan_result
 from acts_contrib.test_utils.bt.bt_gatt_utils import log_gatt_server_uuids
 
 import time
-import os
 
 
 class GattClientLib():

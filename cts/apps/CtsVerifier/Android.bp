@@ -46,11 +46,6 @@ license {
 }
 
 filegroup {
-    name: "CtsVerifierNotice",
-    srcs: ["NOTICE.txt"],
-}
-
-filegroup {
     name: "CtsVerifierMockVrListenerServiceFiles",
     srcs: ["src/com/android/cts/verifier/vr/MockVrListenerService.java"],
 }
@@ -91,9 +86,18 @@ android_library {
         "CtsForceStopHelper-constants",
         "ctsmediautil",
         "DpmWrapper",
+        "MediaPerformanceClassCommon",
     ],
 
-    libs: ["telephony-common"] + ["android.test.runner.stubs"] + ["android.test.base.stubs"] + ["android.test.mock.stubs"] + ["android.car-test-stubs"] + ["voip-common"] + ["truth-prebuilt"],
+    libs: [
+        "telephony-common",
+        "android.test.runner.stubs",
+        "android.test.base.stubs",
+        "android.test.mock.stubs",
+        "android.car-test-stubs",
+        "voip-common",
+        "truth",
+    ],
 
     platform_apis: true,
 
@@ -134,7 +138,7 @@ java_import {
 android_library {
     name: "cts-verifier-framework",
 
-    sdk_version: "current",
+    sdk_version: "test_current",
     min_sdk_version: "29",
     resource_dirs: ["res"],
     srcs: [
@@ -153,6 +157,8 @@ android_library {
 filegroup {
     name: "pre_installed_apps",
     srcs: [
+        ":CtsDefaultNotesApp",
+        ":CtsDeviceControlsApp",
         ":CtsEmptyDeviceAdmin",
         ":CtsEmptyDeviceOwner",
         ":CtsPermissionApp",
@@ -205,24 +211,32 @@ filegroup {
 genrule {
     name: "android-cts-verifier",
     srcs: [
+        ":android-cts-verifier-notice",
         ":cts_apps_to_include",
         ":CtsVerifier",
         ":camera-its",
-        ":CtsVerifierNotice",
+        ":camera-webcam-test",
     ],
     tools: [
         "soong_zip",
         "merge_zips",
     ],
     out: ["android-cts-verifier.zip"],
-    cmd: "echo $(locations :cts_apps_to_include) $(location :CtsVerifier) $(location :CtsVerifierNotice) > $(genDir)/list &&" +
+    cmd: "echo $(locations :cts_apps_to_include) $(location :CtsVerifier) $(location :android-cts-verifier-notice) > $(genDir)/list &&" +
         " $(location soong_zip) -o $(genDir)/cts-verifier.zip -j -P android-cts-verifier -l $(genDir)/list &&" +
-        " $(location merge_zips) $(out) $(genDir)/cts-verifier.zip $(location :camera-its)",
+        " $(location merge_zips) $(out) $(genDir)/cts-verifier.zip $(location :camera-its) $(location :camera-webcam-test)",
     dists: [
         {
             targets: ["cts"],
         },
     ],
+}
+
+gen_notice {
+    name: "android-cts-verifier-notice",
+    for: ["android-cts-verifier"],
+    stem: "NOTICE",
+    suffix: ".txt",
 }
 
 filegroup {

@@ -17,6 +17,8 @@
 
 #include <keymaster/contexts/keymaster1_passthrough_context.h>
 
+#include <utility>
+
 #include <keymaster/contexts/soft_attestation_cert.h>
 #include <keymaster/key_blob_utils/integrity_assured_key_blob.h>
 #include <keymaster/key_blob_utils/ocb_utils.h>
@@ -171,8 +173,8 @@ Keymaster1PassthroughContext::ParseKeyBlob(const KeymasterKeyBlob& blob,
     }
     auto factory = GetKeyFactory(algorithm);
 
-    return factory->LoadKey(move(key_material), additional_params, move(hw_enforced),
-                            move(sw_enforced), key);
+    return factory->LoadKey(std::move(key_material), additional_params, std::move(hw_enforced),
+                            std::move(sw_enforced), key);
 }
 
 keymaster_error_t Keymaster1PassthroughContext::DeleteKey(const KeymasterKeyBlob& blob) const {

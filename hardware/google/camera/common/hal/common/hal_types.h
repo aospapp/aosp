@@ -105,6 +105,13 @@ enum class StreamRotation : uint32_t {
   kRotation270,
 };
 
+typedef camera_metadata_enum_android_request_available_dynamic_range_profiles_map
+    DynamicRangeProfile;
+typedef camera_metadata_enum_android_request_available_color_space_profiles_map
+    ColorSpaceProfile;
+typedef camera_metadata_enum_android_scaler_available_stream_use_cases
+    StreamUseCase;
+
 // See the definition of
 // ::android::hardware::camera::device::V3_8::Stream;
 struct Stream {
@@ -120,13 +127,13 @@ struct Stream {
   uint32_t physical_camera_id = 0;
   uint32_t buffer_size = 0;
   int32_t group_id = -1;
-  bool used_in_max_resolution_mode = false;
-  bool used_in_default_resolution_mode = true;
-  camera_metadata_enum_android_request_available_dynamic_range_profiles_map
-      dynamic_profile =
-          ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
-  camera_metadata_enum_android_scaler_available_stream_use_cases use_case =
-      ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT;
+  bool intended_for_max_resolution_mode = false;
+  bool intended_for_default_resolution_mode = true;
+  DynamicRangeProfile dynamic_profile =
+      ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD;
+  StreamUseCase use_case = ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_DEFAULT;
+  ColorSpaceProfile color_space =
+      ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_UNSPECIFIED;
 };
 
 // See the definition of
@@ -144,6 +151,7 @@ struct StreamConfiguration {
   std::unique_ptr<HalCameraMetadata> session_params;
   uint32_t stream_config_counter = 0;
   bool multi_resolution_input_image = false;
+  long log_id = 0;
 };
 
 struct CameraIdAndStreamConfiguration {
@@ -378,9 +386,10 @@ struct BufferReturn {
 // ::android::hardware::camera::provider::V2_5::DeviceState
 enum class DeviceState : uint64_t {
   kNormal = 0ull,
-  kBackCovered = 1ull,
-  kFrontCovered = 2ull,
-  kFolded = 4ull
+  kBackCovered = 1 << 0,
+  kFrontCovered = 1 << 1,
+  kFolded = 1 << 2,
+  kMaxDeviceState = 1 << 3  // for data validation
 };
 
 // Callback function invoked to process capture results.

@@ -42,7 +42,7 @@ class UpdateDeviceOtaTool(ota_tool.OtaTool):
     def update(self, ota_runner):
         logging.info('Forcing adb to be in root mode.')
         ota_runner.android_device.root_adb()
-        update_command = 'python2.7 %s -s %s %s' % (
+        update_command = 'python3 %s -s %s %s' % (
             self.command, ota_runner.serial, ota_runner.get_ota_package())
         logging.info('Running %s' % update_command)
         result = job.run(update_command, timeout=UPDATE_TIMEOUT)

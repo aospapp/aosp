@@ -13,35 +13,51 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+'''GNSS Base Class for Lab TTFF/FFPE'''
 
 import os
 import time
-import glob
 import errno
+import re
 from collections import namedtuple
-from pandas import DataFrame
-from acts import utils
-from acts import signals
-from acts.base_test import BaseTestClass
-from acts.controllers.gnss_lib import GnssSimulator
-from acts.context import get_current_context
-from acts_contrib.test_utils.gnss import dut_log_test_utils as diaglog
-from acts_contrib.test_utils.gnss import gnss_test_utils as gutils
-from acts_contrib.test_utils.gnss import gnss_testlog_utils as glogutils
+from pandas import DataFrame, merge
 from acts_contrib.test_utils.gnss.gnss_defines import DEVICE_GPSLOG_FOLDER
 from acts_contrib.test_utils.gnss.gnss_defines import GPS_PKG_NAME
 from acts_contrib.test_utils.gnss.gnss_defines import BCM_GPS_XML_PATH
+from acts_contrib.test_utils.gnss import dut_log_test_utils as diaglog
+from acts_contrib.test_utils.gnss import gnss_test_utils as gutils
+from acts_contrib.test_utils.gnss import gnss_testlog_utils as glogutils
+from acts import utils
+from acts import signals
+from acts.controllers.gnss_lib import GnssSimulator
+from acts.context import get_current_context
+from acts.base_test import BaseTestClass
+
+
+def glob_re(dut, directory, regex_tag):
+    """glob with regular expression method.
+    Args:
+        dut: An AndroidDevice object.
+        directory: Target directory path.
+           Type, str
+        regex_tag: regular expression format string.
+           Type, str
+    Return:
+        result_ls: list of glob result
+    """
+    all_files_in_dir = os.listdir(directory)
+    dut.log.debug(f'glob_re dir: {all_files_in_dir}')
+    target_log_name_regx = re.compile(regex_tag)
+    tmp_ls = list(filter(target_log_name_regx.match, all_files_in_dir))
+    result_ls = [os.path.join(directory, file) for file in tmp_ls]
+    dut.log.debug(f'glob_re list: {result_ls}')
+    return result_ls
 
 
 class LabTtffTestBase(BaseTestClass):
     """ LAB TTFF Tests Base Class"""
     GTW_GPSTOOL_APP = 'gtw_gpstool_apk'
-    GNSS_SIMULATOR_KEY = 'gnss_simulator'
-    GNSS_SIMULATOR_IP_KEY = 'gnss_simulator_ip'
-    GNSS_SIMULATOR_PORT_KEY = 'gnss_simulator_port'
-    GNSS_SIMULATOR_PORT_CTRL_KEY = 'gnss_simulator_port_ctrl'
-    GNSS_SIMULATOR_SCENARIO_KEY = 'gnss_simulator_scenario'
-    GNSS_SIMULATOR_POWER_LEVEL_KEY = 'gnss_simulator_power_level'
+    GNSS_SIMULATOR_KEY = 'gnss_sim_params'
     CUSTOM_FILES_KEY = 'custom_files'
     CSTTFF_CRITERIA = 'cs_criteria'
     HSTTFF_CRITERIA = 'hs_criteria'
@@ -52,76 +68,106 @@ class LabTtffTestBase(BaseTestClass):
     TTFF_ITERATION = 'ttff_iteration'
     SIMULATOR_LOCATION = 'simulator_location'
     DIAG_OPTION = 'diag_option'
+    SCENARIO_POWER = 'scenario_power'
+    MDSAPP = 'mdsapp'
+    MASKFILE = 'maskfile'
+    MODEMPARFILE = 'modemparfile'
+    NV_DICT = 'nv_dict'
+    TTFF_TIMEOUT = 'ttff_timeout'
 
     def __init__(self, controllers):
         """ Initializes class attributes. """
 
         super().__init__(controllers)
-
         self.dut = None
         self.gnss_simulator = None
         self.rockbottom_script = None
         self.gnss_log_path = self.log_path
         self.gps_xml_bk_path = BCM_GPS_XML_PATH + '.bk'
+        self.gpstool_ver = ''
+        self.test_params = None
+        self.custom_files = None
+        self.maskfile = None
+        self.mdsapp = None
+        self.modemparfile = None
+        self.nv_dict = None
+        self.scenario_power = None
+        self.ttff_timeout = None
+        self.test_types = None
+        self.simulator_location = None
+        self.gnss_simulator_scenario = None
+        self.gnss_simulator_power_level = None
 
     def setup_class(self):
         super().setup_class()
 
-        req_params = [
-            self.GNSS_SIMULATOR_KEY, self.GNSS_SIMULATOR_IP_KEY,
-            self.GNSS_SIMULATOR_PORT_KEY, self.GNSS_SIMULATOR_SCENARIO_KEY,
-            self.GNSS_SIMULATOR_POWER_LEVEL_KEY, self.CSTTFF_CRITERIA,
-            self.HSTTFF_CRITERIA, self.WSTTFF_CRITERIA, self.TTFF_ITERATION,
-            self.SIMULATOR_LOCATION, self.DIAG_OPTION
-        ]
+        # Update parameters by test case configurations.
+        test_param = self.TAG + '_params'
+        self.test_params = self.user_params.get(test_param, {})
+        if not self.test_params:
+            self.log.warning(test_param + ' was not found in the user '
+                             'parameters defined in the config file.')
 
+        # Override user_param values with test parameters
+        self.user_params.update(self.test_params)
+
+        # Unpack user_params with default values. All the usages of user_params
+        # as self attributes need to be included either as a required parameter
+        # or as a parameter with a default value.
+
+        # Required parameters
+        req_params = [
+            self.CSTTFF_PECRITERIA, self.WSTTFF_PECRITERIA, self.HSTTFF_PECRITERIA,
+            self.CSTTFF_CRITERIA, self.HSTTFF_CRITERIA, self.WSTTFF_CRITERIA,
+            self.TTFF_ITERATION, self.GNSS_SIMULATOR_KEY, self.DIAG_OPTION,
+            self.GTW_GPSTOOL_APP
+        ]
         self.unpack_userparams(req_param_names=req_params)
+
+        # Optional parameters
+        self.custom_files = self.user_params.get(self.CUSTOM_FILES_KEY,[])
+        self.maskfile = self.user_params.get(self.MASKFILE,'')
+        self.mdsapp = self.user_params.get(self.MDSAPP,'')
+        self.modemparfile = self.user_params.get(self.MODEMPARFILE,'')
+        self.nv_dict = self.user_params.get(self.NV_DICT,{})
+        self.scenario_power = self.user_params.get(self.SCENARIO_POWER, [])
+        self.ttff_timeout = self.user_params.get(self.TTFF_TIMEOUT, 60)
+
+        # Set TTFF Spec.
+        test_type = namedtuple('Type', ['command', 'criteria'])
+        self.test_types = {
+            'cs': test_type('Cold Start', self.cs_criteria),
+            'ws': test_type('Warm Start', self.ws_criteria),
+            'hs': test_type('Hot Start', self.hs_criteria)
+        }
+
         self.dut = self.android_devices[0]
-        self.gnss_simulator_scenario = self.user_params[
-            self.GNSS_SIMULATOR_SCENARIO_KEY]
-        self.gnss_simulator_power_level = self.user_params[
-            self.GNSS_SIMULATOR_POWER_LEVEL_KEY]
-        self.gtw_gpstool_app = self.user_params[self.GTW_GPSTOOL_APP]
-        custom_files = self.user_params.get(self.CUSTOM_FILES_KEY, [])
-        self.cs_ttff_criteria = self.user_params.get(self.CSTTFF_CRITERIA, [])
-        self.hs_ttff_criteria = self.user_params.get(self.HSTTFF_CRITERIA, [])
-        self.ws_ttff_criteria = self.user_params.get(self.WSTTFF_CRITERIA, [])
-        self.cs_ttff_pecriteria = self.user_params.get(self.CSTTFF_PECRITERIA,
-                                                       [])
-        self.hs_ttff_pecriteria = self.user_params.get(self.HSTTFF_PECRITERIA,
-                                                       [])
-        self.ws_ttff_pecriteria = self.user_params.get(self.WSTTFF_PECRITERIA,
-                                                       [])
-        self.ttff_iteration = self.user_params.get(self.TTFF_ITERATION, [])
-        self.simulator_location = self.user_params.get(self.SIMULATOR_LOCATION,
-                                                       [])
-        self.diag_option = self.user_params.get(self.DIAG_OPTION, [])
+
+        # GNSS Simulator Setup
+        self.simulator_location = self.gnss_sim_params.get(
+            self.SIMULATOR_LOCATION, [])
+        self.gnss_simulator_scenario = self.gnss_sim_params.get('scenario')
+        self.gnss_simulator_power_level = self.gnss_sim_params.get(
+            'power_level')
 
         # Create gnss_simulator instance
-        gnss_simulator_key = self.user_params[self.GNSS_SIMULATOR_KEY]
-        gnss_simulator_ip = self.user_params[self.GNSS_SIMULATOR_IP_KEY]
-        gnss_simulator_port = self.user_params[self.GNSS_SIMULATOR_PORT_KEY]
+        gnss_simulator_key = self.gnss_sim_params.get('type')
+        gnss_simulator_ip = self.gnss_sim_params.get('ip')
+        gnss_simulator_port = self.gnss_sim_params.get('port')
         if gnss_simulator_key == 'gss7000':
-            gnss_simulator_port_ctrl = self.user_params[
-                self.GNSS_SIMULATOR_PORT_CTRL_KEY]
+            gnss_simulator_port_ctrl = self.gnss_sim_params.get('port_ctrl')
         else:
             gnss_simulator_port_ctrl = None
         self.gnss_simulator = GnssSimulator.AbstractGnssSimulator(
             gnss_simulator_key, gnss_simulator_ip, gnss_simulator_port,
             gnss_simulator_port_ctrl)
 
-        test_type = namedtuple('Type', ['command', 'criteria'])
-        self.test_types = {
-            'cs': test_type('Cold Start', self.cs_ttff_criteria),
-            'ws': test_type('Warm Start', self.ws_ttff_criteria),
-            'hs': test_type('Hot Start', self.hs_ttff_criteria)
-        }
-
         # Unpack the rockbottom script file if its available.
-        for file in custom_files:
-            if 'rockbottom_' + self.dut.model in file:
-                self.rockbottom_script = file
-                break
+        if self.custom_files:
+            for file in self.custom_files:
+                if 'rockbottom_' + self.dut.model in file:
+                    self.rockbottom_script = file
+                    break
 
     def setup_test(self):
 
@@ -129,25 +175,43 @@ class LabTtffTestBase(BaseTestClass):
         self.gnss_simulator.stop_scenario()
         self.gnss_simulator.close()
         if self.rockbottom_script:
-            self.log.info('Running rockbottom script for this device ' +
-                          self.dut.model)
+            self.log.info(
+                f'Running rockbottom script for this device {self.dut.model}')
             self.dut_rockbottom()
         else:
-            self.log.info('Not running rockbottom for this device ' +
-                          self.dut.model)
+            self.log.info(
+                f'Not running rockbottom for this device {self.dut.model}')
 
         utils.set_location_service(self.dut, True)
         gutils.reinstall_package_apk(self.dut, GPS_PKG_NAME,
-                                     self.gtw_gpstool_app)
+                                     self.gtw_gpstool_apk)
+        gpstool_ver_cmd = f'dumpsys package {GPS_PKG_NAME} | grep versionName'
+        self.gpstool_ver = self.dut.adb.shell(gpstool_ver_cmd).split('=')[1]
+        self.log.info(f'GTW GPSTool version: {self.gpstool_ver}')
 
         # For BCM DUTs, delete gldata.sto and set IgnoreRomAlm="true" based on b/196936791#comment20
         if self.diag_option == "BCM":
             gutils.remount_device(self.dut)
             # Backup gps.xml
-            copy_cmd = "cp {} {}".format(BCM_GPS_XML_PATH, self.gps_xml_bk_path)
+            if self.dut.file_exists(BCM_GPS_XML_PATH):
+                copy_cmd = f'cp {BCM_GPS_XML_PATH} {self.gps_xml_bk_path}'
+            elif self.dut.file_exists(self.gps_xml_bk_path):
+                self.log.debug(f'{BCM_GPS_XML_PATH} is missing')
+                self.log.debug(
+                    f'Copy {self.gps_xml_bk_path} and rename to {BCM_GPS_XML_PATH}'
+                )
+                copy_cmd = f'cp {self.gps_xml_bk_path} {BCM_GPS_XML_PATH}'
+            else:
+                self.log.error(
+                    f'Missing both {BCM_GPS_XML_PATH} and {self.gps_xml_bk_path} in DUT'
+                )
+                raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
+                                        self.gps_xml_bk_path)
             self.dut.adb.shell(copy_cmd)
             gutils.delete_bcm_nvmem_sto_file(self.dut)
             gutils.bcm_gps_ignore_rom_alm(self.dut)
+            if self.current_test_name == "test_tracking_power_sweep":
+                gutils.bcm_gps_ignore_warmstandby(self.dut)
             # Reboot DUT to apply the setting
             gutils.reboot(self.dut)
         self.gnss_simulator.connect()
@@ -160,9 +224,9 @@ class LabTtffTestBase(BaseTestClass):
         # The rockbottom script might include a device reboot, so it is
         # necessary to stop SL4A during its execution.
         self.dut.stop_services()
-        self.log.info('Executing rockbottom script for ' + self.dut.model)
+        self.log.info(f'Executing rockbottom script for {self.dut.model}')
         os.chmod(self.rockbottom_script, 0o777)
-        os.system('{} {}'.format(self.rockbottom_script, self.dut.serial))
+        os.system(f'{self.rockbottom_script} {self.dut.serial}')
         # Make sure the DUT is in root mode after coming back
         self.dut.root_adb()
         # Restart SL4A
@@ -174,9 +238,9 @@ class LabTtffTestBase(BaseTestClass):
         # Restore the gps.xml everytime after the test.
         if self.diag_option == "BCM":
             # Restore gps.xml
-            rm_cmd = "rm -rf {}".format(BCM_GPS_XML_PATH)
-            restore_cmd = "mv {} {}".format(self.gps_xml_bk_path,
-                                            BCM_GPS_XML_PATH)
+            gutils.remount_device(self.dut)
+            rm_cmd = f'rm -rf {BCM_GPS_XML_PATH}'
+            restore_cmd = f'cp {self.gps_xml_bk_path} {BCM_GPS_XML_PATH}'
             self.dut.adb.shell(rm_cmd)
             self.dut.adb.shell(restore_cmd)
 
@@ -187,7 +251,7 @@ class LabTtffTestBase(BaseTestClass):
             self.gnss_simulator.stop_scenario()
             self.gnss_simulator.close()
 
-    def start_and_set_gnss_simulator_power(self):
+    def start_set_gnss_power(self):
         """
         Start GNSS simulator secnario and set power level.
 
@@ -195,7 +259,24 @@ class LabTtffTestBase(BaseTestClass):
 
         self.gnss_simulator.start_scenario(self.gnss_simulator_scenario)
         time.sleep(25)
-        self.gnss_simulator.set_power(self.gnss_simulator_power_level)
+        if self.scenario_power:
+            self.log.info(
+                'Set GNSS simulator power with power_level by scenario_power')
+            for setting in self.scenario_power:
+                power_level = setting.get('power_level', -130)
+                sat_system = setting.get('sat_system', '')
+                freq_band = setting.get('freq_band', 'ALL')
+                sat_id = setting.get('sat_id', '')
+                self.log.debug(f'sat: {sat_system}; freq_band: {freq_band}, '
+                               f'power_level: {power_level}, sat_id: {sat_id}')
+                self.gnss_simulator.set_scenario_power(power_level,
+                                                       sat_id,
+                                                       sat_system,
+                                                       freq_band)
+        else:
+            self.log.debug('Set GNSS simulator power '
+                           f'with power_level: {self.gnss_simulator_power_level}')
+            self.gnss_simulator.set_power(self.gnss_simulator_power_level)
 
     def get_and_verify_ttff(self, mode):
         """Retrieve ttff with designate mode.
@@ -204,13 +285,8 @@ class LabTtffTestBase(BaseTestClass):
                 mode: A string for identify gnss test mode.
         """
         if mode not in self.test_types:
-            raise signals.TestError('Unrecognized mode %s' % mode)
+            raise signals.TestError(f'Unrecognized mode {mode}')
         test_type = self.test_types.get(mode)
-
-        if mode != 'cs':
-            wait_time = 900
-        else:
-            wait_time = 300
 
         gutils.process_gnss_by_gtw_gpstool(self.dut,
                                            self.test_types['cs'].criteria)
@@ -219,12 +295,12 @@ class LabTtffTestBase(BaseTestClass):
                                          ttff_mode=mode,
                                          iteration=self.ttff_iteration,
                                          raninterval=True,
-                                         hot_warm_sleep=wait_time)
+                                         hot_warm_sleep=3,
+                                         timeout=self.ttff_timeout)
         # Since Wear takes little longer to update the TTFF info.
         # Workround to solve the wearable timing issue
         if gutils.is_device_wearable(self.dut):
             time.sleep(20)
-
         ttff_data = gutils.process_ttff_by_gtw_gpstool(self.dut, begin_time,
                                                        self.simulator_location)
 
@@ -232,41 +308,43 @@ class LabTtffTestBase(BaseTestClass):
         gps_log_path = os.path.join(self.gnss_log_path, 'GPSLogs')
         os.makedirs(gps_log_path, exist_ok=True)
 
-        self.dut.adb.pull("{} {}".format(DEVICE_GPSLOG_FOLDER, gps_log_path))
-
-        gps_api_log = glob.glob(gps_log_path + '/*/GNSS_*.txt')
-        ttff_loop_log = glob.glob(gps_log_path +
-                                  '/*/GPS_{}_*.txt'.format(mode.upper()))
+        self.dut.adb.pull(f'{DEVICE_GPSLOG_FOLDER} {gps_log_path}')
+        local_log_dir = os.path.join(gps_log_path, 'files')
+        gps_api_log = glob_re(self.dut, local_log_dir, r'GNSS_\d+')
+        ttff_loop_log = glob_re(self.dut, local_log_dir,
+                                fr'\w+_{mode.upper()}_\d+')
 
         if not gps_api_log and ttff_loop_log:
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT),
                                     gps_log_path)
 
-        df = DataFrame(glogutils.parse_gpstool_ttfflog_to_df(gps_api_log[0]))
+        df_ttff_ffpe = DataFrame(glogutils.parse_gpstool_ttfflog_to_df(gps_api_log[0]))
 
         ttff_dict = {}
         for i in ttff_data:
-            d = ttff_data[i]._asdict()
-            ttff_dict[i] = dict(d)
+            data = ttff_data[i]._asdict()
+            ttff_dict[i] = dict(data)
 
-        ttff_time = []
-        ttff_pe = []
-        ttff_haccu = []
-        for i in ttff_dict.keys():
-            ttff_time.append(ttff_dict[i]['ttff_sec'])
-            ttff_pe.append(ttff_dict[i]['ttff_pe'])
-            ttff_haccu.append(ttff_dict[i]['ttff_haccu'])
-        df['ttff_sec'] = ttff_time
-        df['ttff_pe'] = ttff_pe
-        df['ttff_haccu'] = ttff_haccu
-        df.to_json(gps_log_path + '/gps_log.json', orient='table')
+        ttff_data_df = DataFrame(ttff_dict).transpose()
+        ttff_data_df = ttff_data_df[[
+            'ttff_loop', 'ttff_sec', 'ttff_pe', 'ttff_haccu'
+        ]]
+        try:
+            df_ttff_ffpe = merge(df_ttff_ffpe, ttff_data_df, left_on='loop', right_on='ttff_loop')
+        except: # pylint: disable=bare-except
+            self.log.warning("Can't merge ttff_data and df.")
+        ttff_data_df.to_json(gps_log_path + '/gps_log_ttff_data.json',
+                             orient='table',
+                             index=False)
+        df_ttff_ffpe.to_json(gps_log_path + '/gps_log.json', orient='table', index=False)
         result = gutils.check_ttff_data(self.dut,
                                         ttff_data,
                                         ttff_mode=test_type.command,
                                         criteria=test_type.criteria)
         if not result:
-            raise signals.TestFailure('%s TTFF fails to reach '
-                                      'designated criteria' % test_type.command)
+            raise signals.TestFailure(
+                f'{test_type.command} TTFF fails to reach '
+                'designated criteria')
         return ttff_data
 
     def verify_pe(self, mode):
@@ -285,7 +363,7 @@ class LabTtffTestBase(BaseTestClass):
         }
 
         if mode not in ffpe_types:
-            raise signals.TestError('Unrecognized mode %s' % mode)
+            raise signals.TestError(f'Unrecognized mode {mode}')
         test_type = ffpe_types.get(mode)
 
         ttff_data = self.get_and_verify_ttff(mode)
@@ -294,8 +372,9 @@ class LabTtffTestBase(BaseTestClass):
                                       ttff_mode=test_type.command,
                                       pe_criteria=test_type.pecriteria)
         if not result:
-            raise signals.TestFailure('%s TTFF fails to reach '
-                                      'designated criteria' % test_type.command)
+            raise signals.TestFailure(
+                f'{test_type.command} TTFF fails to reach '
+                'designated criteria')
         return ttff_data
 
     def clear_gps_log(self):
@@ -303,9 +382,77 @@ class LabTtffTestBase(BaseTestClass):
         Delete the existing GPS GTW Log from DUT.
 
         """
-        self.dut.adb.shell("rm -rf {}".format(DEVICE_GPSLOG_FOLDER))
+        self.dut.adb.shell(f'rm -rf {DEVICE_GPSLOG_FOLDER}')
 
-    def gnss_ttff_ffpe(self, mode, sub_context_path=''):
+    def start_dut_gnss_log(self):
+        """Start GNSS chip log according to different diag_option"""
+        # Start GNSS chip log
+        if self.diag_option == "QCOM":
+            diaglog.start_diagmdlog_background(self.dut, maskfile=self.maskfile)
+        else:
+            gutils.start_pixel_logger(self.dut)
+
+    def stop_and_pull_dut_gnss_log(self, gnss_vendor_log_path=None):
+        """
+        Stop DUT GNSS logger and pull log into local PC dir
+            Arg:
+                gnss_vendor_log_path: gnss log path directory.
+                    Type, str.
+                    Default, None
+        """
+        if not gnss_vendor_log_path:
+            gnss_vendor_log_path = self.gnss_log_path
+        if self.diag_option == "QCOM":
+            diaglog.stop_background_diagmdlog(self.dut,
+                                              gnss_vendor_log_path,
+                                              keep_logs=False)
+        else:
+            gutils.stop_pixel_logger(self.dut)
+            self.log.info('Getting Pixel BCM Log!')
+            diaglog.get_pixellogger_bcm_log(self.dut,
+                                            gnss_vendor_log_path,
+                                            keep_logs=False)
+
+    def start_gnss_and_wait(self, wait=60):
+        """
+        The process of enable gnss and spend the wait time for GNSS to
+        gather enoung information that make sure the stability of testing.
+
+        Args:
+            wait: wait time between power sweep.
+                Type, int.
+                Default, 60.
+        """
+        # Create log path for waiting section logs of GPStool.
+        gnss_wait_log_dir = os.path.join(self.gnss_log_path, 'GNSS_wait')
+
+        # Enable GNSS to receive satellites' signals for "wait_between_pwr" seconds.
+        self.log.info('Enable GNSS for searching satellites')
+        gutils.start_gnss_by_gtw_gpstool(self.dut, state=True)
+        self.log.info(f'Wait for {wait} seconds')
+        time.sleep(wait)
+
+        # Stop GNSS and pull the logs.
+        gutils.start_gnss_by_gtw_gpstool(self.dut, state=False)
+        diaglog.get_gpstool_logs(self.dut, gnss_wait_log_dir, False)
+
+    def exe_eecoexer_loop_cmd(self, cmd_list=None):
+        """
+        Function for execute EECoexer command list
+            Args:
+                cmd_list: a list of EECoexer function command.
+                Type, list.
+        """
+        if cmd_list:
+            for cmd in cmd_list:
+                self.log.info('Execute EEcoexer Command: {}'.format(cmd))
+                gutils.execute_eecoexer_function(self.dut, cmd)
+
+    def gnss_ttff_ffpe(self,
+                       mode,
+                       sub_context_path='',
+                       coex_cmd='',
+                       stop_coex_cmd=''):
         """
         Base ttff and ffpe function
             Args:
@@ -317,16 +464,24 @@ class LabTtffTestBase(BaseTestClass):
         full_output_path = get_current_context().get_full_output_path()
         self.gnss_log_path = os.path.join(full_output_path, sub_context_path)
         os.makedirs(self.gnss_log_path, exist_ok=True)
-        self.log.debug('Create log path: {}'.format(self.gnss_log_path))
+        self.log.debug(f'Create log path: {self.gnss_log_path}')
 
         # Start and set GNSS simulator
-        self.start_and_set_gnss_simulator_power()
+        self.start_set_gnss_power()
 
         # Start GNSS chip log
-        if self.diag_option == "QCOM":
-            diaglog.start_diagmdlog_background(self.dut, maskfile=self.maskfile)
+        self.start_dut_gnss_log()
+
+        # Wait for acquiring almanac
+        if mode != 'cs':
+            wait_time = 900
         else:
-            gutils.start_pixel_logger(self.dut)
+            wait_time = 3
+        self.start_gnss_and_wait(wait=wait_time)
+
+        # Start Coex if available
+        if coex_cmd and stop_coex_cmd:
+            self.exe_eecoexer_loop_cmd(coex_cmd)
 
         # Start verifying TTFF and FFPE
         self.verify_pe(mode)
@@ -337,13 +492,8 @@ class LabTtffTestBase(BaseTestClass):
         os.makedirs(gnss_vendor_log_path, exist_ok=True)
 
         # Stop GNSS chip log and pull the logs to local file system
-        if self.diag_option == "QCOM":
-            diaglog.stop_background_diagmdlog(self.dut,
-                                              gnss_vendor_log_path,
-                                              keep_logs=False)
-        else:
-            gutils.stop_pixel_logger(self.dut)
-            self.log.info('Getting Pixel BCM Log!')
-            diaglog.get_pixellogger_bcm_log(self.dut,
-                                            gnss_vendor_log_path,
-                                            keep_logs=False)
+        self.stop_and_pull_dut_gnss_log(gnss_vendor_log_path)
+
+        # Stop Coex if available
+        if coex_cmd and stop_coex_cmd:
+            self.exe_eecoexer_loop_cmd(stop_coex_cmd)

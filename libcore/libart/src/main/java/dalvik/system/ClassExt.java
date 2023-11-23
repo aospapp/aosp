@@ -122,6 +122,13 @@ public final class ClassExt {
      */
     private int preRedefineClassDefIndex;
 
+    /**
+     * Backing store of user-defined values pertaining to a class.
+     * Maintained by the ClassValue class.
+     *
+     * ClassValue.ClassValueMap is package-private, hence plain Object.
+     */
+    public Object classValueMap;
 
     /**
     * Private constructor.

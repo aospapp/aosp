@@ -318,6 +318,13 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
                         assertNotNull("Missing field: SENSOR_SENSITIVITY",
                                 capReq.get(CaptureRequest.SENSOR_SENSITIVITY));
                     }
+                    if (mStaticInfo.areKeysAvailable(CaptureRequest.CONTROL_SETTINGS_OVERRIDE)) {
+                        assertNotNull("Settings override key is not set in capture template",
+                                capReq.get(CaptureRequest.CONTROL_SETTINGS_OVERRIDE));
+                        assertTrue("CONTROL_SETTINGS_OVERRIDE isn't OFF in capture templates",
+                                capReq.get(CaptureRequest.CONTROL_SETTINGS_OVERRIDE)
+                                == CameraMetadata.CONTROL_SETTINGS_OVERRIDE_OFF);
+                    }
                 }
 
                 /**
@@ -1020,7 +1027,7 @@ public class CameraDeviceTest extends Camera2AndroidTestCase {
             imageReader.setOnImageAvailableListener(imageListener, mHandler);
 
             // To check the state leak condition, we need a capture request that has
-            // at least one session pararameter value difference from the initial session
+            // at least one session parameter value difference from the initial session
             // parameters configured above. Scan all available template types for the
             // required delta.
             CaptureRequest.Builder requestBuilder = null;

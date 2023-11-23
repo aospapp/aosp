@@ -145,25 +145,6 @@ bool UidRanges::overlapsSelf() const {
     return false;
 }
 
-// std::binary_search cannot do partial match. For example, an uid range x-y not only overlaps with
-// x-y, but also w-x, y-z, w-z, ...etc. Therefore, we need a specialized binary search.
-bool UidRanges::overlaps(const UidRanges& other) const {
-    for (const auto& target : other.getRanges()) {
-        int first = 0;
-        int end = mRanges.size() - 1;
-
-        while (first <= end) {
-            int middle = (first + end) / 2;
-            if (isOverlapped(mRanges[middle], target)) return true;
-            if (compUidRangeParcel(mRanges[middle], target))
-                first = middle + 1;
-            else
-                end = middle - 1;
-        }
-    }
-    return false;
-}
-
 std::string UidRanges::toString() const {
     std::string s("uids{ ");
     for (const auto &range : mRanges) {

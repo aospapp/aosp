@@ -17,10 +17,12 @@
 package android.keystore.cts;
 
 import static android.keystore.cts.KeyAttestationTest.verifyCertificateChain;
+import static android.security.keystore.KeyProperties.DIGEST_SHA256;
 import static android.security.keystore.KeyProperties.KEY_ALGORITHM_EC;
+import static android.security.keystore.KeyProperties.KEY_ALGORITHM_RSA;
 import static android.security.keystore.KeyProperties.PURPOSE_ATTEST_KEY;
 import static android.security.keystore.KeyProperties.PURPOSE_SIGN;
-
+import static android.security.keystore.KeyProperties.SIGNATURE_PADDING_RSA_PSS;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -32,13 +34,8 @@ import android.content.pm.PackageManager;
 import android.keystore.cts.util.TestUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.util.Log;
-
 import androidx.test.platform.app.InstrumentationRegistry;
-
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
+import com.android.compatibility.common.util.CddTest;
 import java.security.GeneralSecurityException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPairGenerator;
@@ -51,6 +48,9 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.stream.Stream;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
 public class AttestKeyTest {
     private static final String TAG = AttestKeyTest.class.getSimpleName();
@@ -79,31 +79,31 @@ public class AttestKeyTest {
     }
 
     @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
     public void testEcAttestKey() throws Exception {
-        final String attestKeyAlias = "attestKey";
-
-        Certificate attestKeyCertChain[] = generateKeyPair(KEY_ALGORITHM_EC,
-                new KeyGenParameterSpec.Builder(attestKeyAlias, PURPOSE_ATTEST_KEY)
-                        .setAttestationChallenge("challenge".getBytes())
-                        .build());
-        assertThat(attestKeyCertChain.length, greaterThan(1));
-
-        final String attestedKeyAlias = "attestedKey";
-        Certificate attestedKeyCertChain[] = generateKeyPair(KEY_ALGORITHM_EC,
-                new KeyGenParameterSpec.Builder(attestedKeyAlias, PURPOSE_SIGN)
-                        .setAttestationChallenge("challenge".getBytes())
-                        .setAttestKeyAlias(attestKeyAlias)
-                        .build());
-        // Even though we asked for an attestation, we only get one cert.
-        assertThat(attestedKeyCertChain.length, is(1));
-
-        verifyCombinedChain(attestKeyCertChain, attestedKeyCertChain);
-
-        X509Certificate attestationCert = (X509Certificate) attestedKeyCertChain[0];
-        Attestation attestation = Attestation.loadFromCertificate(attestationCert);
+        testEcAttestKey(false /* useStrongBox */);
     }
 
     @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
+    public void testEcAttestKey_StrongBox() throws Exception {
+        testEcAttestKey(true /* useStrongBox */);
+    }
+
+    @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
+    public void testRsaAttestKey() throws Exception {
+        testRsaAttestKey(false /* useStrongBox */);
+    }
+
+    @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
+    public void testRsaAttestKey_StrongBox() throws Exception {
+        testRsaAttestKey(true /* useStrongBox */);
+    }
+
+    @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
     public void testAttestationWithNonAttestKey() throws Exception {
         final String nonAttestKeyAlias = "nonAttestKey";
         final String attestedKeyAlias = "attestedKey";
@@ -123,6 +123,7 @@ public class AttestKeyTest {
     }
 
     @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
     public void testAttestKeyWithoutChallenge() throws Exception {
         final String attestKeyAlias = "attestKey";
         final String attestedKeyAlias = "attestedKey";
@@ -131,7 +132,8 @@ public class AttestKeyTest {
 
         try {
             generateKeyPair(KEY_ALGORITHM_EC,
-                    new KeyGenParameterSpec.Builder(attestedKeyAlias, PURPOSE_SIGN)
+                    new KeyGenParameterSpec
+                            .Builder(attestedKeyAlias, PURPOSE_SIGN)
                             // Don't set attestation challenge
                             .setAttestKeyAlias(attestKeyAlias)
                             .build());
@@ -143,16 +145,19 @@ public class AttestKeyTest {
     }
 
     @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
     public void testStrongBoxCannotAttestToTeeKey() throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         assumeTrue("Can only test with strongbox keymint",
-                TestUtils.getFeatureVersionKeystoreStrongBox(context) >= Attestation.KM_VERSION_KEYMINT_1);
+                TestUtils.getFeatureVersionKeystoreStrongBox(context)
+                        >= Attestation.KM_VERSION_KEYMINT_1);
 
         final String strongBoxAttestKeyAlias = "nonAttestKey";
         final String attestedKeyAlias = "attestedKey";
         generateKeyPair(KEY_ALGORITHM_EC,
-                new KeyGenParameterSpec.Builder(strongBoxAttestKeyAlias,
-                        PURPOSE_ATTEST_KEY).setIsStrongBoxBacked(true).build());
+                new KeyGenParameterSpec.Builder(strongBoxAttestKeyAlias, PURPOSE_ATTEST_KEY)
+                        .setIsStrongBoxBacked(true)
+                        .build());
 
         try {
             generateKeyPair(KEY_ALGORITHM_EC,
@@ -169,6 +174,7 @@ public class AttestKeyTest {
     }
 
     @Test
+    @CddTest(requirements = {"9.11/C-1-6"})
     public void testTeeCannotAttestToStrongBoxKey() throws Exception {
         TestUtils.assumeStrongBox();
 
@@ -190,6 +196,7 @@ public class AttestKeyTest {
                             + "attestKey"));
         }
     }
+
     private void assumeAttestKey() {
         PackageManager packageManager =
                 InstrumentationRegistry.getInstrumentation().getTargetContext().getPackageManager();
@@ -197,11 +204,83 @@ public class AttestKeyTest {
                 packageManager.hasSystemFeature(PackageManager.FEATURE_KEYSTORE_APP_ATTEST_KEY));
     }
 
+    private void testEcAttestKey(boolean useStrongBox) throws Exception {
+        if (useStrongBox) {
+            TestUtils.assumeStrongBox();
+        }
+
+        final String attestKeyAlias = "attestKey";
+
+        Certificate attestKeyCertChain[] = generateKeyPair(KEY_ALGORITHM_EC,
+                new KeyGenParameterSpec.Builder(attestKeyAlias, PURPOSE_ATTEST_KEY)
+                        .setAttestationChallenge("challenge".getBytes())
+                        .setIsStrongBoxBacked(useStrongBox)
+                        .build());
+        assertThat(attestKeyCertChain.length, greaterThan(1));
+
+        testAttestKey(useStrongBox, attestKeyAlias, attestKeyCertChain);
+    }
+
+    private void testRsaAttestKey(boolean useStrongBox) throws Exception {
+        if (useStrongBox) {
+            TestUtils.assumeStrongBox();
+        }
+
+        final String attestKeyAlias = "attestKey";
+
+        Certificate attestKeyCertChain[] = generateKeyPair(KEY_ALGORITHM_RSA,
+                new KeyGenParameterSpec.Builder(attestKeyAlias, PURPOSE_ATTEST_KEY)
+                        .setAttestationChallenge("challenge".getBytes())
+                        .setIsStrongBoxBacked(useStrongBox)
+                        .build());
+        assertThat(attestKeyCertChain.length, greaterThan(1));
+
+        testAttestKey(useStrongBox, attestKeyAlias, attestKeyCertChain);
+    }
+
+    private void testAttestKey(boolean useStrongBox, String attestKeyAlias,
+            Certificate[] attestKeyCertChain) throws Exception {
+        final String attestedEcKeyAlias = "attestedEcKey";
+        final Certificate attestedEcKeyCertChain[] = generateKeyPair(KEY_ALGORITHM_EC,
+                new KeyGenParameterSpec.Builder(attestedEcKeyAlias, PURPOSE_SIGN)
+                        .setAttestationChallenge("challenge".getBytes())
+                        .setAttestKeyAlias(attestKeyAlias)
+                        .setIsStrongBoxBacked(useStrongBox)
+                        .build());
+
+        // Even though we asked for an attestation, we only get one cert.
+        assertThat(attestedEcKeyCertChain.length, is(1));
+
+        verifyCombinedChain(useStrongBox, attestKeyCertChain, attestedEcKeyCertChain);
+
+        final X509Certificate attestationEcKeyCert = (X509Certificate) attestedEcKeyCertChain[0];
+        final Attestation ecKeyAttestation = Attestation.loadFromCertificate(attestationEcKeyCert);
+
+        final String attestedRsaKeyAlias = "attestedRsaKey";
+        final Certificate attestedRsaKeyCertChain[] = generateKeyPair(KEY_ALGORITHM_RSA,
+                new KeyGenParameterSpec.Builder(attestedRsaKeyAlias, PURPOSE_SIGN)
+                        .setAttestationChallenge("challenge".getBytes())
+                        .setAttestKeyAlias(attestKeyAlias)
+                        .setIsStrongBoxBacked(useStrongBox)
+                        .setDigests(DIGEST_SHA256)
+                        .setSignaturePaddings(SIGNATURE_PADDING_RSA_PSS)
+                        .build());
+
+        // Even though we asked for an attestation, we only get one cert.
+        assertThat(attestedRsaKeyCertChain.length, is(1));
+
+        verifyCombinedChain(useStrongBox, attestKeyCertChain, attestedRsaKeyCertChain);
+
+        final X509Certificate attestationRsaKeyCert = (X509Certificate) attestedRsaKeyCertChain[0];
+        final Attestation rsaKeyAttestation =
+                Attestation.loadFromCertificate(attestationRsaKeyCert);
+    }
+
     private Certificate[] generateKeyPair(String algorithm, KeyGenParameterSpec spec)
             throws NoSuchAlgorithmException, NoSuchProviderException,
-            InvalidAlgorithmParameterException, KeyStoreException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(algorithm,
-                "AndroidKeyStore");
+                   InvalidAlgorithmParameterException, KeyStoreException {
+        KeyPairGenerator keyPairGenerator =
+                KeyPairGenerator.getInstance(algorithm, "AndroidKeyStore");
         keyPairGenerator.initialize(spec);
         keyPairGenerator.generateKeyPair();
         mAliasesToDelete.add(spec.getKeystoreAlias());
@@ -209,12 +288,11 @@ public class AttestKeyTest {
         return mKeyStore.getCertificateChain(spec.getKeystoreAlias());
     }
 
-    private void verifyCombinedChain(Certificate[] attestKeyCertChain,
+    private void verifyCombinedChain(boolean useStrongBox, Certificate[] attestKeyCertChain,
             Certificate[] attestedKeyCertChain) throws GeneralSecurityException {
-        Certificate[] combinedChain = Stream
-                .concat(Arrays.stream(attestedKeyCertChain),
-                        Arrays.stream(attestKeyCertChain))
-                .toArray(Certificate[]::new);
+        Certificate[] combinedChain = Stream.concat(Arrays.stream(attestedKeyCertChain),
+                                                    Arrays.stream(attestKeyCertChain))
+                                              .toArray(Certificate[] ::new);
 
         int i = 0;
         for (Certificate cert : combinedChain) {
@@ -222,6 +300,6 @@ public class AttestKeyTest {
             ++i;
         }
 
-        verifyCertificateChain((Certificate[]) combinedChain, false /* expectStrongBox */);
+        verifyCertificateChain((Certificate[]) combinedChain, useStrongBox);
     }
 }

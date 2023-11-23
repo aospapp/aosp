@@ -30,10 +30,10 @@ class AsuiteCCLibTest(unittest.TestCase):
         # pylint: disable=unused-variable
         # pylint: disable=import-outside-toplevel
         # pylint: disable=unused-import
-        from asuite.metrics import metrics
-        from asuite.metrics import metrics_base
-        from asuite.metrics import metrics_utils
-        from asuite import atest_utils
+        from atest.metrics import metrics
+        from atest.metrics import metrics_base
+        from atest.metrics import metrics_utils
+
 
         # TODO (b/132602907): Add the real usage for checking if metrics pass or
         #  fail.

@@ -1723,6 +1723,7 @@ public final class System {
         // wait until the application class loader has been set up.
         // IMPORTANT: Ensure that this remains the last initialization action!
         sun.misc.VM.booted();
+        jdk.internal.misc.VM.booted();
     }
 
     /**

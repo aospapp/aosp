@@ -1,0 +1,18 @@
+# Warning: the Cargo build is secondary to the Android build and it's likely to
+# get out of sync or have dependency problems. If this happens, fixes and
+# reports of the problem are welcomed.
+
+[package]
+name = "hwtrust"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0"
+thiserror = "1.0"
+ciborium = "0.2.0"
+clap = { version = "4.1", features = ["derive"] }
+coset = "0.3.3"
+hex = "0.4.3"
+openssl = "0.10.45"
+

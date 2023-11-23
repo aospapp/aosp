@@ -15,6 +15,7 @@
  */
 package com.android.cts.appbinding;
 
+import com.android.tradefed.util.RunUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -89,7 +90,7 @@ public class AppBindingHostTest extends BaseHostJUnit4Test implements IBuildRece
 
     private void waitForBroadcastIdle() throws Exception {
         runCommand("am wait-for-broadcast-idle");
-        Thread.sleep(100); // Just wait a bit to make sure the system isn't too busy...
+        RunUtil.getDefault().sleep(100); // Just wait a bit to make sure the system isn't too busy...
     }
 
     private String runCommand(String command) throws Exception {
@@ -201,7 +202,7 @@ public class AppBindingHostTest extends BaseHostJUnit4Test implements IBuildRece
             } catch (Throwable th) {
                 lastThrowable = th;
             }
-            Thread.sleep(sleep);
+            RunUtil.getDefault().sleep(sleep);
             sleep = Math.min(1000, sleep * 2);
         }
         throw lastThrowable;
@@ -473,7 +474,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
 
         enableTargetService(false);
 
-        Thread.sleep(2); // Technically not needed, but allow the system to handle the broadcast.
+        RunUtil.getDefault().sleep(2); // Technically not needed, but allow the system to handle the broadcast.
 
         checkNotBoundWithError(PACKAGE_A, mCurrentUserId,
                 "Service with android.telephony.action.CARRIER_MESSAGING_CLIENT_SERVICE not found");
@@ -481,7 +482,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
         // Enable the component and now it should be bound.
         enableTargetService(true);
 
-        Thread.sleep(2); // Technically not needed, but allow the system to handle the broadcast.
+        RunUtil.getDefault().sleep(2); // Technically not needed, but allow the system to handle the broadcast.
 
         checkBound(PACKAGE_A, SERVICE_1, mCurrentUserId);
     }
@@ -503,7 +504,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
         // Enable the component and now it should be bound.
         enableTargetService(true);
 
-        Thread.sleep(2); // Technically not needed, but allow the system to handle the broadcast.
+        RunUtil.getDefault().sleep(2); // Technically not needed, but allow the system to handle the broadcast.
 
         checkBound(PACKAGE_A, SERVICE_1, mCurrentUserId);
 
@@ -511,7 +512,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
 
         enableTargetService(false);
 
-        Thread.sleep(2); // Technically not needed, but allow the system to handle the broadcast.
+        RunUtil.getDefault().sleep(2); // Technically not needed, but allow the system to handle the broadcast.
 
         checkNotBoundWithError(PACKAGE_A, mCurrentUserId,
                 "Service with android.telephony.action.CARRIER_MESSAGING_CLIENT_SERVICE not found");
@@ -670,7 +671,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
                     + ",\\#con=2,\\#dis=2,\\#died=1,backoff=10000");
         });
 
-        Thread.sleep(5000);
+        RunUtil.getDefault().sleep(5000);
 
         // It should re-bind.
         runWithRetries(10, () -> {
@@ -688,7 +689,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
                             + ",\\#con=3,\\#dis=3,\\#died=2,backoff=20000");
         });
 
-        Thread.sleep(10000);
+        RunUtil.getDefault().sleep(10000);
 
         runWithRetries(10, () -> {
             runCommand("dumpsys app_binding -s",
@@ -698,7 +699,7 @@ ACTIVITY MANAGER RUNNING PROCESSES (dumpsys activity processes)
 
         // If the connection lasts more than service_stable_connection_threshold_sec seconds,
         // the backoff resets.
-        Thread.sleep(10000);
+        RunUtil.getDefault().sleep(10000);
 
         runWithRetries(10, () -> {
             runCommand("dumpsys app_binding -s",

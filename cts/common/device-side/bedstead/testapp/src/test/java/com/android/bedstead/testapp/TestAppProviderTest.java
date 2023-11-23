@@ -16,24 +16,39 @@
 
 package com.android.bedstead.testapp;
 
+import static com.android.queryable.annotations.IntegerQuery.DEFAULT_INT_QUERY_PARAMETERS_VALUE;
 import static com.android.queryable.queries.ActivityQuery.activity;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.nene.types.OptionalBoolean;
+import com.android.queryable.annotations.IntegerQuery;
+import com.android.queryable.annotations.Query;
+import com.android.queryable.annotations.StringQuery;
+
+import com.google.auto.value.AutoAnnotation;
+
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Ignore;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@RunWith(JUnit4.class)
-public class TestAppProviderTest {
+@RunWith(BedsteadJUnit4.class)
+public final class TestAppProviderTest {
+
+    @ClassRule
+    @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     // Expects that this package name matches an actual test app
     private static final String EXISTING_PACKAGENAME = "com.android.bedstead.testapp.EmptyTestApp";
@@ -45,14 +60,186 @@ public class TestAppProviderTest {
     private static final String KNOWN_EXISTING_TESTAPP_ACTIVITY_CLASSNAME =
             "android.testapp.activity";
 
-    private static final String QUERY_ONLY_TEST_APP_PACKAGE_NAME = "com.android.RemoteDPC";
+    private static final String QUERY_ONLY_TEST_APP_PACKAGE_NAME = "com.android.cts.RemoteDPC";
 
     private static final String PERMISSION_DECLARED_BY_TESTAPP = "android.permission.READ_CALENDAR";
 
     private static final String METADATA_KEY = "test-metadata-key";
     private static final String METADATA_VALUE = "test-metadata-value";
 
+    private static final String STRING_VALUE = "String";
+    private static final String DIFFERENT_STRING_VALUE = "Different String";
+
+    private static final int INTEGER_VALUE = 10;
+    private static final int HIGHER_INTEGER_VALUE = 11;
+    private static final int LOWER_INTEGER_VALUE = 9;
+
     private TestAppProvider mTestAppProvider;
+
+    @AutoAnnotation
+    public static Query query(StringQuery packageName, IntegerQuery minSdkVersion, IntegerQuery maxSdkVersion, IntegerQuery targetSdkVersion) {
+        return new AutoAnnotation_TestAppProviderTest_query(packageName, minSdkVersion, maxSdkVersion, targetSdkVersion);
+    }
+
+    @AutoAnnotation
+    public static StringQuery stringQuery(String startsWith, String isEqualTo, String isNotEqualTo, OptionalBoolean isNull) {
+        return new AutoAnnotation_TestAppProviderTest_stringQuery(startsWith, isEqualTo, isNotEqualTo, isNull);
+    }
+
+    @AutoAnnotation
+    public static IntegerQuery integerQuery(int isEqualTo, int isGreaterThan, int isGreaterThanOrEqualTo, int isLessThan, int isLessThanOrEqualTo) {
+        return new AutoAnnotation_TestAppProviderTest_integerQuery(isEqualTo, isGreaterThan, isGreaterThanOrEqualTo, isLessThan, isLessThanOrEqualTo);
+    }
+
+    static final class QueryBuilder {
+        private StringQuery mPackageName = null;
+        private IntegerQuery mMinSdkVersion = null;
+        private IntegerQuery mMaxSdkVersion = null;
+        private IntegerQuery mTargetSdkVersion = null;
+
+        public QueryBuilder packageName(StringQuery packageName) {
+            mPackageName = packageName;
+            return this;
+        }
+
+        public QueryBuilder minSdkVersion(IntegerQuery minSdkVersion) {
+            mMinSdkVersion = minSdkVersion;
+            return this;
+        }
+
+        public QueryBuilder maxSdkVersion(IntegerQuery maxSdkVersion) {
+            mMaxSdkVersion = maxSdkVersion;
+            return this;
+        }
+
+        public QueryBuilder targetSdkVersion(IntegerQuery targetSdkVersion) {
+            mTargetSdkVersion = targetSdkVersion;
+            return this;
+        }
+
+        public Query build() {
+            return query(
+                    mPackageName != null ? mPackageName : stringQueryBuilder().build(),
+                    mMinSdkVersion != null ? mMinSdkVersion : integerQueryBuilder().build(),
+                    mMaxSdkVersion != null ? mMaxSdkVersion : integerQueryBuilder().build(),
+                    mTargetSdkVersion != null ? mTargetSdkVersion : integerQueryBuilder().build()
+            );
+        }
+    }
+
+    static final class StringQueryBuilder {
+        private String mStartsWith = StringQuery.DEFAULT_STRING_QUERY_PARAMETERS_VALUE;
+        private String mIsEqualTo = StringQuery.DEFAULT_STRING_QUERY_PARAMETERS_VALUE;
+        private String mIsNotEqualTo = StringQuery.DEFAULT_STRING_QUERY_PARAMETERS_VALUE;
+        private OptionalBoolean mIsNull = OptionalBoolean.ANY;
+
+        public StringQueryBuilder startsWith(String startsWith) {
+            mStartsWith = startsWith;
+            return this;
+        }
+
+        public StringQueryBuilder isEqualTo(String isEqualTo) {
+            mIsEqualTo = isEqualTo;
+            return this;
+        }
+
+        public StringQueryBuilder isNotEqualTo(String isNotEqualTo) {
+            mIsNotEqualTo = isNotEqualTo;
+            return this;
+        }
+
+        public StringQueryBuilder isNull(OptionalBoolean isNull) {
+            mIsNull = isNull;
+            return this;
+        }
+
+        public StringQuery build() {
+            return stringQuery(mStartsWith, mIsEqualTo, mIsNotEqualTo, mIsNull);
+        }
+    }
+
+    static final class IntegerQueryBuilder {
+        private int mIsEqualTo = DEFAULT_INT_QUERY_PARAMETERS_VALUE;
+        private int mIsGreaterThan = DEFAULT_INT_QUERY_PARAMETERS_VALUE;
+        private int mIsGreaterThanOrEqualTo = DEFAULT_INT_QUERY_PARAMETERS_VALUE;
+        private int mIsLessThan = DEFAULT_INT_QUERY_PARAMETERS_VALUE;
+        private int mIsLessThanOrEqualTo = DEFAULT_INT_QUERY_PARAMETERS_VALUE;
+
+        public IntegerQueryBuilder isEqualTo(int isEqualTo) {
+            mIsEqualTo = isEqualTo;
+            return this;
+        }
+
+        public IntegerQueryBuilder isGreaterThan(int isGreaterThan) {
+            mIsGreaterThan = isGreaterThan;
+            return this;
+        }
+
+        public IntegerQueryBuilder isGreaterThanOrEqualTo(int isGreaterThanOrEqualTo) {
+            mIsGreaterThanOrEqualTo = isGreaterThanOrEqualTo;
+            return this;
+        }
+
+        public IntegerQueryBuilder isLessThan(int isLessThan) {
+            mIsLessThan = isLessThan;
+            return this;
+        }
+
+        public IntegerQueryBuilder isLessThanOrEqualTo(int isLessThanOrEqualTo) {
+            mIsLessThanOrEqualTo = isLessThanOrEqualTo;
+            return this;
+        }
+
+        public IntegerQuery build() {
+            return integerQuery(
+                    mIsEqualTo,
+                    mIsGreaterThan, mIsGreaterThanOrEqualTo,
+                    mIsLessThan, mIsLessThanOrEqualTo);
+        }
+    }
+
+    // TODO: The below AutoBuilder should work instead of the custom one but we get
+    // [AutoBuilderNoVisible] No visible constructor for com.android.queryable.annotations.Query
+
+//    @AutoBuilder(ofClass = Query.class)
+//    interface QueryBuilder {
+//        QueryBuilder packageName(StringQuery packageName);
+//        QueryBuilder minSdkVersion(IntegerQuery minSdkVersion);
+//        QueryBuilder maxSdkVersion(IntegerQuery maxSdkVersion);
+//        QueryBuilder targetSdkVersion(IntegerQuery targetSdkVersion);
+//        Query build();
+//    }
+
+//    @AutoBuilder(ofClass = StringQuery.class)
+//    interface StringQueryBuilder {
+//        StringQueryBuilder startsWith(String startsWith);
+//        StringQueryBuilder isEqualTo(String isEqualTo);
+//        StringQueryBuilder isNotEqualTo(String isNotEqualTo);
+//        StringQueryBuilder isNull(OptionalBoolean isNull);
+//        StringQuery build();
+//    }
+//
+//    @AutoBuilder(ofClass = IntegerQuery.class)
+//    interface IntegerQueryBuilder {
+//        IntegerQueryBuilder isEqualTo(int isEqualTo);
+//        IntegerQueryBuilder isGreaterThan(int isGreaterThan);
+//        IntegerQueryBuilder isGreaterThanOrEqualTo(int isGreaterThanOrEqualTo);
+//        IntegerQueryBuilder isLessThan(int isLessThan);
+//        IntegerQueryBuilder isLessThanOrEqualTo(int isLessThanOrEqualTo);
+//        IntegerQuery build();
+//    }
+
+    static QueryBuilder queryBuilder() {
+        return new QueryBuilder();
+    }
+
+    static StringQueryBuilder stringQueryBuilder() {
+        return new StringQueryBuilder();
+    }
+
+    static IntegerQueryBuilder integerQueryBuilder() {
+        return new IntegerQueryBuilder();
+    }
 
     @Before
     public void setup() {
@@ -233,7 +420,7 @@ public class TestAppProviderTest {
     public void query_withExistingActivity_returnsMatching() {
         TestApp testApp = mTestAppProvider.query()
                 .whereActivities().contains(
-                        activity().activityClass()
+                        activity().where().activityClass()
                             .className().isEqualTo(KNOWN_EXISTING_TESTAPP_ACTIVITY_CLASSNAME)
                 )
                 .get();
@@ -262,13 +449,13 @@ public class TestAppProviderTest {
     }
 
     @Test
+    @Ignore // Restore when we have a way of querying for device admin in nene
     public void query_isDeviceAdmin_returnsMatching() {
         TestApp testApp = mTestAppProvider.query()
                 .whereIsDeviceAdmin().isTrue()
                 .get();
 
-        assertThat(testApp.packageName()).isEqualTo(
-                "com.android.bedstead.testapp.DeviceAdminTestApp");
+        assertThat(testApp.packageName()).endsWith("DeviceAdminTestApp");
     }
 
     @Test
@@ -306,5 +493,175 @@ public class TestAppProviderTest {
                 .get();
 
         assertThat(testApp.sharedUserId()).isNull();
+    }
+    
+    @Test
+    public void query_queryAnnotationSpecifiesPackageName_matches() {
+        Query queryAnnotation = queryBuilder()
+                .packageName(stringQueryBuilder().isEqualTo(STRING_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mPackageName.matches(STRING_VALUE)).isTrue();
+        assertThat(queryBuilder.mPackageName.matches(DIFFERENT_STRING_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_queryAnnotationSpecifiesTargetSdkVersion_matches() {
+        Query queryAnnotation = queryBuilder()
+                .targetSdkVersion(integerQueryBuilder().isEqualTo(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mTargetSdkVersion.matches(INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mTargetSdkVersion.matches(HIGHER_INTEGER_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_queryAnnotationSpecifiesMaxSdkVersion_matches() {
+        Query queryAnnotation = queryBuilder()
+                .maxSdkVersion(integerQueryBuilder().isEqualTo(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMaxSdkVersion.matches(INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMaxSdkVersion.matches(HIGHER_INTEGER_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_queryAnnotationSpecifiesMinSdkVersion_matches() {
+        Query queryAnnotation = queryBuilder()
+                .minSdkVersion(integerQueryBuilder().isEqualTo(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMinSdkVersion.matches(INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMinSdkVersion.matches(HIGHER_INTEGER_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_stringQueryAnnotationSpecifiesIsEqualTo_matches() {
+        Query queryAnnotation = queryBuilder()
+                .packageName(stringQueryBuilder().isEqualTo(STRING_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mPackageName.matches(STRING_VALUE)).isTrue();
+        assertThat(queryBuilder.mPackageName.matches(DIFFERENT_STRING_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_stringQueryAnnotationSpecifiesIsNotEqualTo_matches() {
+        Query queryAnnotation = queryBuilder()
+                .packageName(stringQueryBuilder().isNotEqualTo(STRING_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mPackageName.matches(STRING_VALUE)).isFalse();
+        assertThat(queryBuilder.mPackageName.matches(DIFFERENT_STRING_VALUE)).isTrue();
+    }
+
+    @Test
+    public void query_stringQueryAnnotationSpecifiesStartsWith_matches() {
+        Query queryAnnotation = queryBuilder()
+                .packageName(stringQueryBuilder().startsWith(STRING_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mPackageName.matches(STRING_VALUE + "A")).isTrue();
+        assertThat(queryBuilder.mPackageName.matches(DIFFERENT_STRING_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_stringQueryAnnotationSpecifiesIsNullTrue_matches() {
+        Query queryAnnotation = queryBuilder()
+                .packageName(stringQueryBuilder().isNull(OptionalBoolean.TRUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mPackageName.matches(null)).isTrue();
+        assertThat(queryBuilder.mPackageName.matches(STRING_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_stringQueryAnnotationSpecifiesIsNullFalse_matches() {
+        Query queryAnnotation = queryBuilder()
+                .packageName(stringQueryBuilder().isNull(OptionalBoolean.FALSE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mPackageName.matches(null)).isFalse();
+        assertThat(queryBuilder.mPackageName.matches(STRING_VALUE)).isTrue();
+    }
+
+    @Test
+    public void query_integerQueryAnnotationSpecifiesIsEqualTo_matches() {
+        Query queryAnnotation = queryBuilder()
+                .minSdkVersion(integerQueryBuilder().isEqualTo(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMinSdkVersion.matches(INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMinSdkVersion.matches(HIGHER_INTEGER_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_integerQueryAnnotationSpecifiesIsGreaterThan_matches() {
+        Query queryAnnotation = queryBuilder()
+                .minSdkVersion(integerQueryBuilder().isGreaterThan(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMinSdkVersion.matches(INTEGER_VALUE)).isFalse();
+        assertThat(queryBuilder.mMinSdkVersion.matches(HIGHER_INTEGER_VALUE)).isTrue();
+    }
+
+    @Test
+    public void query_integerQueryAnnotationSpecifiesIsGreaterThanOrEqualTo_matches() {
+        Query queryAnnotation = queryBuilder()
+                .minSdkVersion(integerQueryBuilder().isGreaterThanOrEqualTo(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMinSdkVersion.matches(INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMinSdkVersion.matches(HIGHER_INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMinSdkVersion.matches(LOWER_INTEGER_VALUE)).isFalse();
+    }
+
+    @Test
+    public void query_integerQueryAnnotationSpecifiesIsLessThan_matches() {
+        Query queryAnnotation = queryBuilder()
+                .minSdkVersion(integerQueryBuilder().isLessThan(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMinSdkVersion.matches(INTEGER_VALUE)).isFalse();
+        assertThat(queryBuilder.mMinSdkVersion.matches(LOWER_INTEGER_VALUE)).isTrue();
+    }
+
+    @Test
+    public void query_integerQueryAnnotationSpecifiesIsLessThanOrEqualTo_matches() {
+        Query queryAnnotation = queryBuilder()
+                .minSdkVersion(integerQueryBuilder().isLessThanOrEqualTo(INTEGER_VALUE).build())
+                .build();
+
+        TestAppQueryBuilder queryBuilder = mTestAppProvider.query(queryAnnotation);
+
+        assertThat(queryBuilder.mMinSdkVersion.matches(INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMinSdkVersion.matches(LOWER_INTEGER_VALUE)).isTrue();
+        assertThat(queryBuilder.mMinSdkVersion.matches(HIGHER_INTEGER_VALUE)).isFalse();
     }
 }

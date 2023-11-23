@@ -226,6 +226,7 @@ class AidlAnnotation : public AidlNode {
   enum class Type {
     BACKING = 1,
     JAVA_STABLE_PARCELABLE,
+    NDK_STABLE_PARCELABLE,
     UNSUPPORTED_APP_USAGE,
     VINTF_STABILITY,
     NULLABLE,
@@ -271,7 +272,6 @@ class AidlAnnotation : public AidlNode {
       std::map<std::string, std::shared_ptr<AidlConstantValue>> parameter_list,
       const Comments& comments);
 
-  AidlAnnotation(AidlAnnotation&&) = default;
   virtual ~AidlAnnotation() = default;
   bool CheckValid() const;
   bool CheckContext(TargetContext context) const;
@@ -360,12 +360,13 @@ class AidlAnnotatable : public AidlCommentable {
   std::string GetDescriptor() const;
 
   const AidlAnnotation* UnsupportedAppUsage() const;
-  const AidlAnnotation* RustDerive() const;
+  std::vector<std::string> RustDerive() const;
   const AidlAnnotation* BackingType() const;
   std::vector<std::string> SuppressWarnings() const;
   std::unique_ptr<android::aidl::perm::Expression> EnforceExpression() const;
   bool IsPermissionManual() const;
   bool IsPermissionNone() const;
+  bool IsPermissionAnnotated() const;
   bool IsPropagateAllowBlocking() const;
 
   // ToString is for dumping AIDL.
@@ -391,6 +392,7 @@ struct DynamicArray {};
 struct FixedSizeArray {
   FixedSizeArray(std::unique_ptr<AidlConstantValue> dim) { dimensions.push_back(std::move(dim)); }
   std::vector<std::unique_ptr<AidlConstantValue>> dimensions;
+  std::vector<int32_t> GetDimensionInts() const;
 };
 // Represents `[]` or `[N]` part of type specifier
 using ArrayType = std::variant<DynamicArray, FixedSizeArray>;
@@ -686,7 +688,7 @@ class AidlConstantValue : public AidlNode {
   // Raw value of type (currently valid in C++ and Java). Empty string on error.
   string ValueString(const AidlTypeSpecifier& type, const ConstantValueDecorator& decorator) const;
 
-  void TraverseChildren(std::function<void(const AidlNode&)> traverse) const {
+  void TraverseChildren(std::function<void(const AidlNode&)> traverse) const override {
     if (type_ == Type::ARRAY) {
       for (const auto& v : values_) {
         traverse(*v);
@@ -694,6 +696,8 @@ class AidlConstantValue : public AidlNode {
     }
   }
   void DispatchVisit(AidlVisitor& visitor) const override { visitor.Visit(*this); }
+  size_t Size() const { return values_.size(); }
+  const AidlConstantValue& ValueAt(size_t index) const { return *values_.at(index); }
 
  private:
   AidlConstantValue(const AidlLocation& location, Type parsed_type, int64_t parsed_value,
@@ -725,7 +729,7 @@ class AidlConstantValue : public AidlNode {
 };
 
 // Represents "<type>.<field>" which resolves to a constant which is one of
-// - constant declartion
+// - constant declaration
 // - enumerator
 // When a <type> is missing, <field> is of the enclosing type.
 class AidlConstantReference : public AidlConstantValue {
@@ -763,6 +767,8 @@ class AidlUnaryConstExpression : public AidlConstantValue {
     traverse(*unary_);
   }
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
+  const std::unique_ptr<AidlConstantValue>& Val() const { return unary_; }
+  const std::string& Op() const { return op_; }
 
  private:
   bool evaluate() const override;
@@ -788,6 +794,9 @@ class AidlBinaryConstExpression : public AidlConstantValue {
     traverse(*right_val_);
   }
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
+  const std::unique_ptr<AidlConstantValue>& Left() const { return left_val_; }
+  const std::unique_ptr<AidlConstantValue>& Right() const { return right_val_; }
+  const std::string& Op() const { return op_; }
 
  private:
   bool evaluate() const override;
@@ -1034,11 +1043,16 @@ class AidlDefinedType : public AidlMember, public AidlScope {
   std::vector<const AidlMember*> members_;  // keep members in order of appearance.
 };
 
+struct AidlUnstructuredHeaders {
+  std::string cpp;
+  std::string ndk;
+};
+
 class AidlParcelable : public AidlDefinedType, public AidlParameterizable<std::string> {
  public:
   AidlParcelable(const AidlLocation& location, const std::string& name, const std::string& package,
-                 const Comments& comments, const std::string& cpp_header = "",
-                 std::vector<std::string>* type_params = nullptr,
+                 const Comments& comments, const AidlUnstructuredHeaders& headers,
+                 std::vector<std::string>* type_params,
                  std::vector<std::unique_ptr<AidlMember>>* members = nullptr);
   virtual ~AidlParcelable() = default;
 
@@ -1048,7 +1062,8 @@ class AidlParcelable : public AidlDefinedType, public AidlParameterizable<std::s
   AidlParcelable& operator=(const AidlParcelable&) = delete;
   AidlParcelable& operator=(AidlParcelable&&) = delete;
 
-  std::string GetCppHeader() const { return cpp_header_; }
+  std::string GetCppHeader() const { return headers_.cpp; }
+  std::string GetNdkHeader() const { return headers_.ndk; }
 
   bool CheckValid(const AidlTypenames& typenames) const override;
   const AidlParcelable* AsParcelable() const override { return this; }
@@ -1059,7 +1074,7 @@ class AidlParcelable : public AidlDefinedType, public AidlParameterizable<std::s
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
 
  private:
-  std::string cpp_header_;
+  AidlUnstructuredHeaders headers_;
 };
 
 class AidlStructuredParcelable : public AidlParcelable {
@@ -1197,6 +1212,7 @@ class AidlInterface final : public AidlDefinedType {
 
   bool CheckValid(const AidlTypenames& typenames) const override;
   bool CheckValidPermissionAnnotations(const AidlMethod& m) const;
+  bool UsesPermissions() const;
   std::string GetDescriptor() const;
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
 };

@@ -2682,6 +2682,12 @@ public final class URI
     private static final long H_URIC_NO_SLASH
         = H_UNRESERVED | H_ESCAPED | highMask(";?:@&=+$,");
 
+    // Android-changed: cherry-picked from Java 9 to allow _ and . in scope ID.
+    // scope_id = alpha | digit | "_" | "."
+    private static final long L_SCOPE_ID
+            = L_ALPHANUM | lowMask("_.");
+    private static final long H_SCOPE_ID
+            = H_ALPHANUM | highMask("_.");
 
     // -- Escaping and encoding --
 
@@ -3265,7 +3271,9 @@ public final class URI
                         if (r+1 == q) {
                             fail ("scope id expected");
                         }
-                        checkChars (r+1, q, L_ALPHANUM, H_ALPHANUM,
+                        // Android-changed: cherry-picked from Java 9 to allow _ and . in scope ID.
+                        // checkChars (r+1, q, L_ALPHANUM, H_ALPHANUM,
+                        checkChars (r+1, q, L_SCOPE_ID, H_SCOPE_ID,
                                                 "scope id");
                     } else {
                         parseIPv6Reference(p, q);

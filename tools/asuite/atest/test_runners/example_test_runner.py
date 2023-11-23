@@ -15,7 +15,10 @@
 """Example test runner class."""
 
 
-from test_runners import test_runner_base
+from typing import List
+
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base
 
 
 class ExampleTestRunner(test_runner_base.TestRunnerBase):
@@ -36,7 +39,7 @@ class ExampleTestRunner(test_runner_base.TestRunnerBase):
         """
         run_cmds = self.generate_run_commands(test_infos, extra_args)
         for run_cmd in run_cmds:
-            super(ExampleTestRunner, self).run(run_cmd)
+            super(ExampleTestRunner).run(run_cmd)
 
     # pylint: disable=unnecessary-pass
     # Please keep above disable flag to ensure host_env_check is overriden.
@@ -49,8 +52,11 @@ class ExampleTestRunner(test_runner_base.TestRunnerBase):
         """
         pass
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Return the build requirements.
+
+        Args:
+            test_infos: List of TestInfo.
 
         Returns:
             Set of build targets.

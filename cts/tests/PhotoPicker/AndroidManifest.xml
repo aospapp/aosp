@@ -17,9 +17,24 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.photopicker.cts">
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 <application android:label="Photo Picker Device Tests">
     <uses-library android:name="android.test.runner" />
-    <activity android:name="android.photopicker.cts.GetResultActivity" />
+    <activity android:name="android.photopicker.cts.GetResultActivity"
+              android:exported="false"
+              android:enabled="true">
+        <intent-filter android:priority="999">
+            <action android:name="android.provider.action.PICK_IMAGES" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <data android:mimeType="image/*" />
+            <data android:mimeType="video/*" />
+        </intent-filter>
+        <intent-filter android:priority="999">
+            <action android:name="android.provider.action.PICK_IMAGES" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent-filter>
+    </activity>
+
 
     <provider android:name="android.photopicker.cts.cloudproviders.CloudProviderPrimary"
               android:authorities="android.photopicker.cts.cloudproviders.cloud_primary"

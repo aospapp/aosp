@@ -36,9 +36,6 @@ struct HalGroup {
    public:
     virtual ~HalGroup() {}
 
-    // Add an hal to this HalGroup so that it can be constructed programatically.
-    virtual bool add(Hal&& hal, std::string* error = nullptr) = 0;
-
    protected:
     // Get all hals with the given name (e.g "android.hardware.camera").
     // There could be multiple hals that matches the same given name.

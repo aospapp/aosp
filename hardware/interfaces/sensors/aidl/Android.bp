@@ -11,6 +11,7 @@ aidl_interface {
     name: "android.hardware.sensors",
     vendor_available: true,
     srcs: ["android/hardware/sensors/*.aidl"],
+    host_supported: true,
     imports: [
         "android.hardware.common-V2",
         "android.hardware.common.fmq-V1",
@@ -23,11 +24,6 @@ aidl_interface {
         java: {
             enabled: false,
         },
-        ndk: {
-            vndk: {
-                enabled: true,
-            },
-        },
     },
     versions_with_info: [
         {
@@ -37,6 +33,15 @@ aidl_interface {
                 "android.hardware.common.fmq-V1",
             ],
         },
+        {
+            version: "2",
+            imports: [
+                "android.hardware.common-V2",
+                "android.hardware.common.fmq-V1",
+            ],
+        },
+
     ],
+    frozen: true,
 
 }

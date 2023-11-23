@@ -1786,3 +1786,21 @@ def GetInstanceIP(instance):
     external_ip = access_configs.get("natIP", "")
     internal_ip = network_interface.get("networkIP", "")
     return IP(internal=internal_ip, external=external_ip)
+
+def GetGCEHostName(gce_project, instance, zone):
+    """Get the GCE host name with specific rule.
+
+    Args:
+        gce_project: String, GCE project name.
+        instance: String, GCE instance name.
+        zone: String, Instance zone name.
+
+    Returns:
+        One host name coverted by instance name, project name, and zone.
+    """
+    if ":" in gce_project:
+        domain = gce_project.split(":")[0]
+        project_no_domain = gce_project.split(":")[1]
+        project = f"{project_no_domain}.{domain}"
+        return f"nic0.{instance}.{zone}.c.{project}.internal.gcpnode.com"
+    return f"nic0.{instance}.{zone}.c.{gce_project}.internal.gcpnode.com"

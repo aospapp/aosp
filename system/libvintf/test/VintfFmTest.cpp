@@ -115,6 +115,8 @@ class MockWritableFileSystem : public WritableFileSystem {
                 (const override));
     MOCK_METHOD(status_t, listFiles, (const std::string&, std::vector<std::string>*, std::string*),
                 (const override));
+    MOCK_METHOD(status_t, modifiedTime, (const std::string&, int64_t*, std::string*),
+                (const override));
     MOCK_METHOD(status_t, write, (const std::string&, const std::string&, std::string*),
                 (const override));
     MOCK_METHOD(status_t, deleteFile, (const std::string&, std::string*), (const override));

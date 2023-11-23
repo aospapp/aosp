@@ -31,6 +31,20 @@ class SystemVendorTest : public VtsTrebleVintfTestBase {
   virtual ~SystemVendorTest(){};
 };
 
+// A parameterized test for an HIDL HAL registered through hwservicemanager.
+class SystemVendorSingleHwbinderHalTest
+    : public SystemVendorTest,
+      public ::testing::WithParamInterface<std::string /* fq instance name */> {
+ public:
+  static void SetUpTestSuite();
+  virtual ~SystemVendorSingleHwbinderHalTest() {}
+  static std::string GetTestCaseSuffix(
+      const ::testing::TestParamInfo<ParamType>& info);
+
+ protected:
+  static std::set<std::string> manifest_hwbinder_hals_;
+};
+
 }  // namespace testing
 }  // namespace vintf
 }  // namespace android

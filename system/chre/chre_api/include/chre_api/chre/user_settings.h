@@ -43,9 +43,12 @@ extern "C" {
  * connectivity but enabled for location, the WIFI available setting is
  * enabled.
  *
- * NOTE: The BLE available setting indicates the overall availability of
- * BLE related functionality. For example, if BLE is disabled for connectivity,
- * but enabled for location, the BLE available setting is enabled.
+ * NOTE: The BLE available setting is the logical OR of the main Bluetooth
+ * setting and the Bluetooth scanning setting found under Location settings.
+ * Note that this indicates whether the user is allowing Bluetooth to be used,
+ * however the system may still fully power down the BLE chip in some scenarios
+ * if no request for it exists on the Android host side. See the
+ * chreBleStartScanAsync() API documentation for more information.
  *
  * @defgroup CHRE_USER_SETTINGS
  * @{

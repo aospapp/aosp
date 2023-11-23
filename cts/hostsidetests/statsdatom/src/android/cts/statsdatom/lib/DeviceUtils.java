@@ -24,7 +24,6 @@ import android.service.battery.BatteryServiceDumpProto;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestResult.TestStatus;
-import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.CollectingByteOutputReceiver;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -32,18 +31,24 @@ import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.result.CollectingTestListener;
+import com.android.tradefed.result.ITestInvocationListener;
+import com.android.tradefed.result.ResultForwarder;
 import com.android.tradefed.result.TestDescription;
 import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.util.Pair;
+import com.android.tradefed.util.RunUtil;
 
+import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.MessageLite;
 import com.google.protobuf.Parser;
 
 import java.io.FileNotFoundException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.StringTokenizer;
+
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -78,6 +83,32 @@ public final class DeviceUtils {
     public static @Nonnull TestRunResult runDeviceTests(ITestDevice device, String pkgName,
             @Nullable String testClassName, @Nullable String testMethodName)
             throws DeviceNotAvailableException {
+        return internalRunDeviceTests(device, pkgName, testClassName, testMethodName, null);
+    }
+
+    /**
+     * Runs device side tests.
+     *
+     * @param device Can be retrieved by running getDevice() in a class that extends DeviceTestCase
+     * @param pkgName Test package name, such as "com.android.server.cts.statsdatom"
+     * @param testClassName Test class name which can either be a fully qualified name or "." + a
+     *     class name; if null, all test in the package will be run
+     * @param testMethodName Test method name; if null, all tests in class or package will be run
+     * @param listener Listener for test results from the test invocation.
+     * @return {@link TestRunResult} of this invocation
+     * @throws DeviceNotAvailableException
+     */
+    public static @Nonnull TestRunResult runDeviceTests(ITestDevice device, String pkgName,
+            @Nullable String testClassName, @Nullable String testMethodName,
+            ITestInvocationListener listener)
+            throws DeviceNotAvailableException {
+        return internalRunDeviceTests(device, pkgName, testClassName, testMethodName, listener);
+    }
+
+    private static @Nonnull TestRunResult internalRunDeviceTests(ITestDevice device, String pkgName,
+            @Nullable String testClassName, @Nullable String testMethodName,
+            @Nullable ITestInvocationListener otherListener)
+            throws DeviceNotAvailableException {
         if (testClassName != null && testClassName.startsWith(".")) {
             testClassName = pkgName + testClassName;
         }
@@ -90,10 +121,17 @@ public final class DeviceUtils {
             testRunner.setClassName(testClassName);
         }
 
-        CollectingTestListener listener = new CollectingTestListener();
-        assertThat(device.runInstrumentationTests(testRunner, listener)).isTrue();
+        CollectingTestListener collectingTestListener = new CollectingTestListener();
+        ITestInvocationListener combinedLister;
+        if (otherListener != null) {
+            combinedLister = new ResultForwarder(otherListener, collectingTestListener);
+        } else {
+            combinedLister = collectingTestListener;
+        }
 
-        final TestRunResult result = listener.getCurrentRunResults();
+        assertThat(device.runInstrumentationTests(testRunner, combinedLister)).isTrue();
+
+        final TestRunResult result = collectingTestListener.getCurrentRunResults();
         if (result.isRunFailure()) {
             throw new Error("Failed to successfully run device tests for "
                     + result.getName() + ": " + result.getRunFailureMessage());
@@ -174,6 +212,7 @@ public final class DeviceUtils {
      *
      * @param device Device to run cmd on
      * @param parser Protobuf parser object, which can be retrieved by running MyProto.parser()
+     * @param extensionRegistry ExtensionRegistry containing extensions that should be parsed
      * @param cmd The adb shell command to run (e.g. "cmd stats update config")
      *
      * @throws DeviceNotAvailableException
@@ -182,16 +221,22 @@ public final class DeviceUtils {
      * @return Proto of specified type
      */
     public static <T extends MessageLite> T getShellCommandOutput(@Nonnull ITestDevice device,
-            Parser<T> parser, String cmd)
+            Parser<T> parser, ExtensionRegistry extensionRegistry, String cmd)
             throws DeviceNotAvailableException, InvalidProtocolBufferException {
         final CollectingByteOutputReceiver receiver = new CollectingByteOutputReceiver();
         device.executeShellCommand(cmd, receiver);
         try {
-            return parser.parseFrom(receiver.getOutput());
+            return parser.parseFrom(receiver.getOutput(), extensionRegistry);
         } catch (Exception ex) {
             CLog.d("Error parsing " + parser.getClass().getCanonicalName() + " for cmd " + cmd);
             throw ex;
         }
+    }
+
+    public static <T extends MessageLite> T getShellCommandOutput(
+            @Nonnull ITestDevice device, Parser<T> parser, String cmd)
+            throws DeviceNotAvailableException, InvalidProtocolBufferException {
+        return getShellCommandOutput(device, parser, ExtensionRegistry.getEmptyRegistry(), cmd);
     }
 
     /**
@@ -277,7 +322,7 @@ public final class DeviceUtils {
             @Nullable String actionKey, @Nullable String actionValue, long waitTimeMs)
             throws Exception {
         try (AutoCloseable a = withActivity(device, pkgName, activity, actionKey, actionValue)) {
-            Thread.sleep(waitTimeMs);
+            RunUtil.getDefault().sleep(waitTimeMs);
         }
     }
 
@@ -309,7 +354,7 @@ public final class DeviceUtils {
 
         return () -> {
             device.executeShellCommand("am force-stop " + pkgName);
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         };
     }
 
@@ -462,7 +507,8 @@ public final class DeviceUtils {
             throws Exception {
         Pair<Integer, Integer> kernelVersion = getKernelVersion(device);
         return kernelVersion.first > version.first
-                || (kernelVersion.first == version.first && kernelVersion.second >= version.second);
+                || (Objects.equals(kernelVersion.first, version.first)
+                && kernelVersion.second >= version.second);
     }
 
     private DeviceUtils() {}

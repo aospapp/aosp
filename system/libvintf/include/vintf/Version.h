@@ -64,6 +64,8 @@ struct Version {
     inline bool minorAtLeast(const Version& other) const {
         return majorVer == other.majorVer && minorVer >= other.minorVer;
     }
+
+    inline Version withMinor(size_t mi) { return Version(majorVer, mi); }
 };
 
 struct KernelVersion {
@@ -92,6 +94,9 @@ struct KernelVersion {
         if (majorRev > other.majorRev) return false;
         return minorRev < other.minorRev;
     }
+    inline bool operator>(const KernelVersion& other) const { return other < (*this); }
+    inline bool operator<=(const KernelVersion& other) const { return !((*this) > other); }
+    inline bool operator>=(const KernelVersion& other) const { return !((*this) < other); }
 
     inline constexpr Version dropMinor() const { return Version{version, majorRev}; }
 };

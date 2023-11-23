@@ -16,22 +16,22 @@
 
 package android.keystore.cts;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
 import static org.testng.Assert.assertThrows;
 
 import android.os.Process;
+import android.security.keystore.AttestationUtils;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.test.MoreAsserts;
 
-import junit.framework.TestCase;
+import org.junit.Test;
 
 import java.math.BigInteger;
 import java.security.ProviderException;
@@ -42,8 +42,6 @@ import java.util.Date;
 
 import javax.crypto.KeyGenerator;
 import javax.security.auth.x500.X500Principal;
-
-import org.junit.Test;
 
 public class KeyGenParameterSpecTest {
 
@@ -83,8 +81,15 @@ public class KeyGenParameterSpecTest {
         assertFalse(spec.isUserAuthenticationRequired());
         assertEquals(0, spec.getUserAuthenticationValidityDurationSeconds());
         assertEquals(KeyProperties.AUTH_BIOMETRIC_STRONG, spec.getUserAuthenticationType());
+        assertNull(spec.getAttestationChallenge());
+        assertFalse(spec.isDevicePropertiesAttestationIncluded());
+        assertEquals(0, spec.getAttestationIds().length);
+        assertFalse(spec.isUniqueIdIncluded());
+        assertTrue(spec.isInvalidatedByBiometricEnrollment());
+        assertFalse(spec.isStrongBoxBacked());
         assertFalse(spec.isUnlockedDeviceRequired());
         assertEquals(KeyProperties.UNRESTRICTED_USAGE_COUNT, spec.getMaxUsageCount());
+        assertFalse(spec.isCriticalToDeviceEncryption());
     }
 
     @Test
@@ -99,6 +104,11 @@ public class KeyGenParameterSpecTest {
         AlgorithmParameterSpec algSpecificParams = new ECGenParameterSpec("secp256r1");
         int maxUsageCount = 1;
 
+        byte[] challenge = new byte[]{0x01, 0x02, 0x03, 0x04, 0x05};
+        int[] ids = new int[]{AttestationUtils.ID_TYPE_SERIAL,
+            AttestationUtils.ID_TYPE_IMEI,
+            AttestationUtils.ID_TYPE_MEID,
+            AttestationUtils.USE_INDIVIDUAL_ATTESTATION};
         KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(
                 "arbitrary", KeyProperties.PURPOSE_SIGN | KeyProperties.PURPOSE_ENCRYPT)
                 .setAlgorithmParameterSpec(algSpecificParams)
@@ -120,6 +130,9 @@ public class KeyGenParameterSpecTest {
                 .setUserAuthenticationRequired(true)
                 .setUserAuthenticationParameters(12345,
                         KeyProperties.AUTH_DEVICE_CREDENTIAL | KeyProperties.AUTH_BIOMETRIC_STRONG)
+                .setAttestationChallenge(challenge)
+                .setDevicePropertiesAttestationIncluded(true)
+                .setAttestationIds(ids)
                 .setUnlockedDeviceRequired(true)
                 .setMaxUsageCount(maxUsageCount)
                 .build();
@@ -150,6 +163,9 @@ public class KeyGenParameterSpecTest {
         assertEquals(12345, spec.getUserAuthenticationValidityDurationSeconds());
         assertEquals(KeyProperties.AUTH_DEVICE_CREDENTIAL | KeyProperties.AUTH_BIOMETRIC_STRONG,
                 spec.getUserAuthenticationType());
+        assertArrayEquals(challenge, spec.getAttestationChallenge());
+        assertTrue(spec.isDevicePropertiesAttestationIncluded());
+        assertArrayEquals(ids, spec.getAttestationIds());
         assertTrue(spec.isUnlockedDeviceRequired());
         assertEquals(maxUsageCount, spec.getMaxUsageCount());
     }

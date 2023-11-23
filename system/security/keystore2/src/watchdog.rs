@@ -141,7 +141,7 @@ impl WatchdogState {
             },
         );
         // Put the groups back into a vector.
-        let mut groups: Vec<Vec<(&Index, &Record)>> = groups.into_iter().map(|(_, v)| v).collect();
+        let mut groups: Vec<Vec<(&Index, &Record)>> = groups.into_values().collect();
         // Sort the groups by start time of the most recent (.last()) of each group.
         // It is panic safe to use unwrap() here because we never add empty vectors to
         // the map.

@@ -82,7 +82,7 @@ static const std::string kWebViewPlatSupportLib = "libwebviewchromium_plat_suppo
 
 static bool not_accessible(const std::string& err) {
   return err.find("dlopen failed: library \"") == 0 &&
-         err.find("is not accessible for the namespace \"classloader-namespace\"") != std::string::npos;
+         err.find("is not accessible for the namespace \"") != std::string::npos;
 }
 
 static bool not_found(const std::string& err) {
@@ -296,6 +296,11 @@ static bool check_path(JNIEnv* env,
       }
 
       std::string path = dir + "/" + dp->d_name;
+      // We cannot just load hwasan libraries into a non-hwasan process, so
+      // we are skipping those.
+      if (path.find("hwasan") != std::string::npos) {
+        continue;
+      }
       struct stat sb;
       // Use lstat to not dereference a symlink. If it links out of library_path
       // it can be ignored because the Bionic linker derefences symlinks before

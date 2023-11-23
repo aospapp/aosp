@@ -217,7 +217,8 @@ public class BindDeviceAdminServiceGoodSetupTest extends AndroidTestCase {
     private boolean bind(Intent serviceIntent, ServiceConnection serviceConnection,
             UserHandle userHandle) {
         return mDpm.bindDeviceAdminServiceAsUser(AdminReceiver.getComponentName(mContext),
-                serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE, userHandle);
+                serviceIntent, serviceConnection,
+                Context.BindServiceFlags.of(Context.BIND_AUTO_CREATE), userHandle);
     }
 
     interface CrossUserCallable<T> {

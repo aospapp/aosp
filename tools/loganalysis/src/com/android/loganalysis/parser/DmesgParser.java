@@ -47,13 +47,22 @@ public class DmesgParser implements IParser {
     private static final String INIT = "init";
     private static final String WAIT_PROPERTY = "Wait for property ";
     private static final String TOTAL_MODULE = "TOTAL_MODULE";
+    private static final String MOUNT_ALL = "mount_all";
+
+    private static final String TIMESTAMP_PATTERN =
+            String.format("\\[\\s+(?<%s>[\\d.]+)]", TIMESTAMP);
+
+    // This is optionally present in dmesg output on some kernels
+    // Matches possibly repeated pairs of square brackets enclosing arbitrary text
+    // An example is [   10.258464] [@3 insmod][....] aml dvb init
+    private static final String CPU_INFO_PATTERN = "(\\[[^]]+])+";
 
     // Matches: [ 14.822691] init:
-    private static final String SERVICE_PREFIX = String.format("^\\[\\s+(?<%s>.*)\\] init:\\s+",
-            TIMESTAMP);
+    private static final String SERVICE_PREFIX =
+            String.format("^%s( %s)? init:\\s+", TIMESTAMP_PATTERN, CPU_INFO_PATTERN);
     // Matches: [    3.791635] ueventd:
-    private static final String UEVENTD_PREFIX = String.format("^\\[\\s+(?<%s>.*)\\] ueventd:\\s+",
-            TIMESTAMP);
+    private static final String UEVENTD_PREFIX =
+            String.format("^%s( %s)? ueventd:\\s+", TIMESTAMP_PATTERN, CPU_INFO_PATTERN);
 
     // Matches: starting service 'ueventd'...
     private static final String START_SERVICE_SUFFIX = String.format("starting service "
@@ -106,8 +115,8 @@ public class DmesgParser implements IParser {
                             "%sLoaded kernel module \\S+\\/(?<koname>\\S+)\\.ko", SERVICE_PREFIX));
 
     // Matches: [    3.791635] ueventd: Coldboot took 0.695055 seconds
-    private static final String STAGE_SUFFIX= String.format(
-            "(?<%s>.*)\\s+took\\s+(?<%s>.*)\\s+seconds$", STAGE, DURATION);
+    private static final String STAGE_SUFFIX =
+            String.format("(?<%s>.*)\\s+took\\s+(?<%s>.*)\\s+seconds$", STAGE, DURATION);
     private static final Pattern UEVENTD_STAGE_INFO = Pattern.compile(
             String.format("%s%s", UEVENTD_PREFIX, STAGE_SUFFIX));
 
@@ -116,6 +125,15 @@ public class DmesgParser implements IParser {
     // Matches [    7.270487] init: Wait for property 'apexd.status=ready' took 230ms
     private static final Pattern WAIT_FOR_PROPERTY_INFO = Pattern.compile(
             String.format("%s%s", SERVICE_PREFIX, PROPERTY_SUFFIX));
+
+    // Matches: [    2.295667] init: Command 'mount_all --late' action=late-fs
+    // (/vendor/etc/init/init.rc:347) took 250ms and succeeded
+    private static final String MOUNT_SUFFIX =
+            String.format(
+                    "Command 'mount_all (?<%s>/\\S+|.*)?--(?<%s>.+)'.* took (?<%s>\\d+)ms.*",
+                    SOURCE, STAGE, DURATION);
+    private static final Pattern MOUNT_STAGE_INFO =
+            Pattern.compile(String.format("%s%s", SERVICE_PREFIX, MOUNT_SUFFIX));
 
     private DmesgItem mDmesgItem = new DmesgItem();
 
@@ -134,10 +152,10 @@ public class DmesgParser implements IParser {
     /**
      * Parse the kernel log till EOF to retrieve the duration of the service calls, start times of
      * different boot stages and actions taken. Besides, while parsing these informations are stored
-     * in the intermediate {@link DmesgServiceInfoItem}, {@link DmesgStageInfoItem} and
-     * {@link DmesgActionInfoItem} objects
+     * in the intermediate {@link DmesgServiceInfoItem}, {@link DmesgStageInfoItem} and {@link
+     * DmesgActionInfoItem} objects
      *
-     * @param input dmesg log
+     * @param bufferedLog dmesg log
      * @throws IOException
      */
     public DmesgItem parseInfo(BufferedReader bufferedLog) throws IOException {
@@ -184,9 +202,9 @@ public class DmesgParser implements IParser {
      * log and store the {@code duration} it took to complete the service if the end time stamp is
      * available in {@link DmesgServiceInfoItem}.
      *
-     * @param individual line of the dmesg log
-     * @return {@code true}, if the {@code line} indicates start or end of a service,
-     *         {@code false}, otherwise
+     * @param line individual line of the dmesg log
+     * @return {@code true}, if the {@code line} indicates start or end of a service, {@code false},
+     *     otherwise
      */
     @VisibleForTesting
     boolean parseServiceInfo(String line) {
@@ -211,13 +229,12 @@ public class DmesgParser implements IParser {
     }
 
     /**
-     * Parse init stages log from each {@code line} of dmesg log and
-     * store the stage name, start time and duration if available in a
-     * {@link DmesgStageInfoItem} object
+     * Parse init stages log from each {@code line} of dmesg log and store the stage name, start
+     * time and duration if available in a {@link DmesgStageInfoItem} object
      *
-     * @param individual line of the dmesg log
-     * @return {@code true}, if the {@code line} indicates start of a boot stage,
-     *         {@code false}, otherwise
+     * @param line individual line of the dmesg log
+     * @return {@code true}, if the {@code line} indicates start of a boot stage, {@code false},
+     *     otherwise
      */
     @VisibleForTesting
     boolean parseStageInfo(String line) {
@@ -246,17 +263,31 @@ public class DmesgParser implements IParser {
             mDmesgItem.addStageInfoItem(stageInfoItem);
             return true;
         }
-
+        if ((match = matches(MOUNT_STAGE_INFO, line)) != null) {
+            DmesgStageInfoItem stageInfoItem = new DmesgStageInfoItem();
+            if (match.group(SOURCE).isEmpty()) {
+                stageInfoItem.setStageName(
+                        String.format("%s_%s_%s", INIT, MOUNT_ALL, match.group(STAGE)));
+            } else {
+                stageInfoItem.setStageName(
+                        String.format(
+                                "%s_%s_%s_%s",
+                                INIT, MOUNT_ALL, match.group(STAGE), match.group(SOURCE).trim()));
+            }
+            stageInfoItem.setDuration((long) Double.parseDouble(match.group(DURATION)));
+            mDmesgItem.addStageInfoItem(stageInfoItem);
+            return true;
+        }
         return false;
     }
 
     /**
-     * Parse action from each {@code line} of dmesg log and store the action name and start time
-     * in {@link DmesgActionInfoItem} object
+     * Parse action from each {@code line} of dmesg log and store the action name and start time in
+     * {@link DmesgActionInfoItem} object
      *
-     * @param individual {@code line} of the dmesg log
-     * @return {@code true}, if {@code line} indicates starting of processing of action
-     *         {@code false}, otherwise
+     * @param line individual {@code line} of the dmesg log
+     * @return {@code true}, if {@code line} indicates starting of processing of action {@code
+     *     false}, otherwise
      */
     @VisibleForTesting
     boolean parseActionInfo(String line) {
@@ -279,7 +310,7 @@ public class DmesgParser implements IParser {
      * Parse modules from each {@code line} of dmesg log and store the module name and loading time
      * in {@link DmesgModuleInfoItem} object
      *
-     * @param individual {@code line} of the dmesg log
+     * @param line individual {@code line} of the dmesg log
      * @return {@code true}, if {@code line} indicates start, end of a module loading or the summary
      *     {@code false}, otherwise
      */

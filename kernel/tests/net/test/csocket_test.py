@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2016 The Android Open Source Project
 #
@@ -45,9 +45,9 @@ class CsocketTest(unittest.TestCase):
     s = self._BuildSocket(family, addr)
     addr = s.getsockname()
     sockaddr = csocket.Sockaddr(addr)
-    s.sendto("foo", addr)
+    s.sendto(b"foo", addr)
     data, addr = csocket.Recvfrom(s, 4096, 0)
-    self.assertEqual("foo", data)
+    self.assertEqual(b"foo", data)
     self.assertEqual(sockaddr, addr)
 
     s.close()
@@ -77,9 +77,9 @@ class CsocketTest(unittest.TestCase):
 
     addr = s.getsockname()
     sockaddr = csocket.Sockaddr(addr)
-    s.sendto("foo", addr)
+    s.sendto(b"foo", addr)
     data, addr, cmsg = csocket.Recvmsg(s, 4096, 1024, 0)
-    self.assertEqual("foo", data)
+    self.assertEqual(b"foo", data)
     self.assertEqual(sockaddr, addr)
     self.assertEqual([pktinfo, ttl], cmsg)
 

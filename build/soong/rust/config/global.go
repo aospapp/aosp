@@ -24,7 +24,7 @@ import (
 var pctx = android.NewPackageContext("android/soong/rust/config")
 
 var (
-	RustDefaultVersion = "1.59.0"
+	RustDefaultVersion = "1.68.0"
 	RustDefaultBase    = "prebuilts/rust/"
 	DefaultEdition     = "2021"
 	Stdlibs            = []string{
@@ -50,6 +50,11 @@ var (
 		"-C force-unwind-tables=yes",
 		// Use v0 mangling to distinguish from C++ symbols
 		"-C symbol-mangling-version=v0",
+		"--color always",
+		// TODO (b/267698452): Temporary workaround until the "no unstable
+		// features" policy is enforced.
+		"-A stable-features",
+		"-Zdylib-lto",
 	}
 
 	deviceGlobalRustFlags = []string{
@@ -77,7 +82,13 @@ var (
 
 func init() {
 	pctx.SourcePathVariable("RustDefaultBase", RustDefaultBase)
-	pctx.VariableConfigMethod("HostPrebuiltTag", android.Config.PrebuiltOS)
+	pctx.VariableConfigMethod("HostPrebuiltTag", func(config android.Config) string {
+		if config.UseHostMusl() {
+			return "linux-musl-x86"
+		} else {
+			return config.PrebuiltOS()
+		}
+	})
 
 	pctx.VariableFunc("RustBase", func(ctx android.PackageVarContext) string {
 		if override := ctx.Config().Getenv("RUST_PREBUILTS_BASE"); override != "" {
@@ -93,7 +104,7 @@ func init() {
 
 	pctx.ImportAs("cc_config", "android/soong/cc/config")
 	pctx.StaticVariable("RustLinker", "${cc_config.ClangBin}/clang++")
-	pctx.StaticVariable("RustLinkerArgs", "")
+	pctx.StaticVariable("RustLinkerArgs", "-Wl,--as-needed")
 
 	pctx.StaticVariable("DeviceGlobalLinkFlags", strings.Join(deviceGlobalLinkFlags, " "))
 

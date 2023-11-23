@@ -19,13 +19,17 @@ package android.app.stubs;
 import android.app.LauncherActivity;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.ListView;
 
-public class LauncherActivityStub extends LauncherActivity {
-    public boolean isOnCreateCalled = false;
-    public boolean isOnListItemClick = false;
+public final class LauncherActivityStub extends LauncherActivity {
+
+    private static final String TAG = LauncherActivityStub.class.getSimpleName();
+
+    public boolean isOnCreateCalled;
+    public boolean isOnListItemClick;
     // For testing LauncherActivity#getTargetIntent()
     private Intent mSuperIntent;
 
@@ -47,10 +51,6 @@ public class LauncherActivityStub extends LauncherActivity {
         return super.intentForPosition(position);
     }
 
-    public LauncherActivityStub() {
-        super();
-    }
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -58,11 +58,13 @@ public class LauncherActivityStub extends LauncherActivity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
                 | WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        Log.d(TAG, "onCreate() user="  + getUser() + ", display=" + getDisplayId());
     }
 
     @Override
     public void onListItemClick(ListView l, View v, int position, long id) {
         super.onListItemClick(l, v, position, id);
+        Log.d(TAG, "onListItemClick(): position=" + position + " , id=" + id);
         isOnListItemClick = true;
     }
 }

@@ -48,6 +48,7 @@ enum VendorTagIds : uint32_t {
   kHdrUsageMode,
   kSwDenoiseEnabled,
   kVideoSwDenoiseEnabled,
+  kVideo60to30FPSThermalThrottle,
   // This should not be used as a vendor tag ID on its own, but as a placeholder
   // to indicate the end of currently defined vendor tag IDs
   kEndMarker
@@ -73,6 +74,9 @@ enum class SmoothyMode : uint32_t {
   // done at app side which is N frame later than HAL where N is the pipeline
   // depth.
   kDelayedTrackingMode,
+
+  // Indicates macro video mode.
+  kMacroVideoMode,
 };
 
 // Logical camera vendor tags
@@ -228,6 +232,15 @@ static const std::vector<VendorTag> kInternalVendorTags = {
     // Payload: VideoSwDenoiseEnabled
     {.tag_id = VendorTagIds::kVideoSwDenoiseEnabled,
      .tag_name = "VideoSwDenoiseEnabled",
+     .tag_type = CameraMetadataType::kByte},
+    // Video Recording 60 to 30 FPS Thermal Throttling enabled
+    //
+    // Indicates whether 60 to 30FPS thermal throttling is enabled
+    //
+    // Present in: request and session keys
+    // Payload: Video60to30FPSThermalThrottle
+    {.tag_id = VendorTagIds::kVideo60to30FPSThermalThrottle,
+     .tag_name = "Video60to30FPSThermalThrottle",
      .tag_type = CameraMetadataType::kByte},
 };
 

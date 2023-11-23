@@ -277,6 +277,13 @@ public class SuspendPackagesTest {
         assertOpDisallowed(cameraOp);
     }
 
+    @Test
+    public void testOpVibrateOnSuspend() throws Exception {
+        final int vibrateOp = AppOpsManager.strOpToOp(AppOpsManager.OPSTR_VIBRATE);
+        SuspendTestUtils.suspend(null, null, null);
+        assertOpDisallowed(vibrateOp);
+    }
+
     @After
     public void tearDown() throws Exception {
         if (mTestAppInterface != null) {

@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaGattcLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "gatt_client")
 
     def bleStartBleScan(self, scan_filter):
         """Starts a BLE scan
@@ -38,10 +37,8 @@ class FuchsiaGattcLib(BaseLib):
         test_args = {
             "filter": scan_filter,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def bleStopBleScan(self):
         """Stops a BLE scan
@@ -51,10 +48,8 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.BleStopScan"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def listServices(self, id):
         """Lists services of a peripheral specified by id.
@@ -67,10 +62,8 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.GattcListServices"
         test_args = {"identifier": id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def bleGetDiscoveredDevices(self):
         """Stops a BLE scan
@@ -80,10 +73,8 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.BleGetDiscoveredDevices"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def discoverCharacteristics(self):
         """Discover the characteristics of a connected service.
@@ -94,10 +85,8 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.GattcDiscoverCharacteristics"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def writeCharById(self, id, offset, write_value):
         """Write Characteristic by id..
@@ -116,10 +105,8 @@ class FuchsiaGattcLib(BaseLib):
             "offset": offset,
             "write_value": write_value,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def writeLongCharById(self, id, offset, write_value, reliable_mode=False):
         """Write Characteristic by id.
@@ -140,10 +127,8 @@ class FuchsiaGattcLib(BaseLib):
             "write_value": write_value,
             "reliable_mode": reliable_mode
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def writeLongDescById(self, id, offset, write_value):
         """Write Descriptor by id.
@@ -162,10 +147,8 @@ class FuchsiaGattcLib(BaseLib):
             "offset": offset,
             "write_value": write_value,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def writeCharByIdWithoutResponse(self, id, write_value):
         """Write Characteristic by id without response.
@@ -182,10 +165,8 @@ class FuchsiaGattcLib(BaseLib):
             "identifier": id,
             "write_value": write_value,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def enableNotifyCharacteristic(self, id):
         """Enable notifications on a Characteristic.
@@ -200,10 +181,8 @@ class FuchsiaGattcLib(BaseLib):
         test_args = {
             "identifier": id,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def disableNotifyCharacteristic(self, id):
         """Disable notifications on a Characteristic.
@@ -219,10 +198,8 @@ class FuchsiaGattcLib(BaseLib):
             "identifier": id,
             "value": False,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def readCharacteristicById(self, id):
         """Read Characteristic value by id..
@@ -237,10 +214,8 @@ class FuchsiaGattcLib(BaseLib):
         test_args = {
             "identifier": id,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def readCharacteristicByType(self, uuid):
         """Read Characteristic value by id..
@@ -255,10 +230,8 @@ class FuchsiaGattcLib(BaseLib):
         test_args = {
             "uuid": uuid,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def readDescriptorById(self, id):
         """Read Descriptor value by id..
@@ -273,10 +246,8 @@ class FuchsiaGattcLib(BaseLib):
         test_args = {
             "identifier": id,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def readLongDescriptorById(self, id, offset, max_bytes):
         """Reads Long Descriptor value by id.
@@ -295,10 +266,8 @@ class FuchsiaGattcLib(BaseLib):
             "offset": offset,
             "max_bytes": max_bytes
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def writeDescriptorById(self, id, offset, write_value):
         """Write Descriptor by id.
@@ -315,10 +284,8 @@ class FuchsiaGattcLib(BaseLib):
             "identifier": id,
             "write_value": write_value,
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def readLongCharacteristicById(self, id, offset, max_bytes):
         """Reads Long Characteristic value by id.
@@ -337,10 +304,8 @@ class FuchsiaGattcLib(BaseLib):
             "offset": offset,
             "max_bytes": max_bytes
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def connectToService(self, id, service_id):
         """ Connect to a specific Service specified by id.
@@ -353,10 +318,8 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.GattcConnectToService"
         test_args = {"identifier": id, "service_identifier": service_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def bleConnectToPeripheral(self, id):
         """Connects to a peripheral specified by id.
@@ -369,10 +332,8 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.BleConnectPeripheral"
         test_args = {"identifier": id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def bleDisconnectPeripheral(self, id):
         """Disconnects from a peripheral specified by id.
@@ -385,7 +346,5 @@ class FuchsiaGattcLib(BaseLib):
         """
         test_cmd = "gatt_client_facade.BleDisconnectPeripheral"
         test_args = {"identifier": id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

@@ -36,7 +36,7 @@ class NativeCodecUnitTest final : CodecTestBase {
     const long kStallTimeMs = 1000;
 
   public:
-    NativeCodecUnitTest(const char* mime);
+    explicit NativeCodecUnitTest(const char* mediaType);
     ~NativeCodecUnitTest();
 
     bool setupCodec(bool isAudio, bool isEncoder);
@@ -95,7 +95,7 @@ class NativeCodecUnitTest final : CodecTestBase {
     bool testGetBufferFormatInUnInitState();
 };
 
-NativeCodecUnitTest::NativeCodecUnitTest(const char* mime) : CodecTestBase(mime) {
+NativeCodecUnitTest::NativeCodecUnitTest(const char* mediaType) : CodecTestBase(mediaType) {
     mFormat = nullptr;
 }
 
@@ -113,8 +113,8 @@ bool NativeCodecUnitTest::dequeueOutput(size_t bufferIndex, AMediaCodecBufferInf
     if ((info->flags & AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM) != 0) {
         mSawOutputEOS = true;
     }
-    CHECK_STATUS(AMediaCodec_releaseOutputBuffer(mCodec, bufferIndex, false),
-                 "AMediaCodec_releaseOutputBuffer failed");
+    RETURN_IF_FAIL(AMediaCodec_releaseOutputBuffer(mCodec, bufferIndex, false),
+                   "AMediaCodec_releaseOutputBuffer failed")
     return !hasSeenError();
 }
 
@@ -142,12 +142,12 @@ AMediaFormat* getSampleVideoFormat() {
 bool NativeCodecUnitTest::setupCodec(bool isAudio, bool isEncoder) {
     bool isPass = true;
     mFormat = isAudio ? getSampleAudioFormat() : getSampleVideoFormat();
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
-    mCodec = isEncoder ? AMediaCodec_createEncoderByType(mime)
-                       : AMediaCodec_createDecoderByType(mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
+    mCodec = isEncoder ? AMediaCodec_createEncoderByType(mediaType)
+                       : AMediaCodec_createDecoderByType(mediaType);
     if (!mCodec) {
-        ALOGE("unable to create codec %s", mime);
+        ALOGE("unable to create codec %s", mediaType);
         isPass = false;
     }
     return isPass;
@@ -185,7 +185,7 @@ void setUpDefaultFormatElementsList(std::vector<formatKey*>& vec, bool isAudio, 
 }
 
 void deleteDefaultFormatElementsList(std::vector<formatKey*>& vector) {
-    for (int i = 0; i < vector.size(); i++) delete vector.at(i);
+    for (auto& i : vector) delete i;
 }
 
 AMediaFormat* getSampleFormat(std::vector<formatKey*> vector, int skipIndex) {
@@ -203,11 +203,11 @@ AMediaFormat* getSampleFormat(std::vector<formatKey*> vector, int skipIndex) {
 }
 
 bool NativeCodecUnitTest::testConfigureCodecForIncompleteFormat(bool isAudio, bool isEncoder) {
-    const char* mime = isAudio ? AMEDIA_MIMETYPE_AUDIO_AAC : AMEDIA_MIMETYPE_VIDEO_AVC;
-    mCodec = isEncoder ? AMediaCodec_createEncoderByType(mime)
-                       : AMediaCodec_createDecoderByType(mime);
+    const char* mediaType = isAudio ? AMEDIA_MIMETYPE_AUDIO_AAC : AMEDIA_MIMETYPE_VIDEO_AVC;
+    mCodec = isEncoder ? AMediaCodec_createEncoderByType(mediaType)
+                       : AMediaCodec_createDecoderByType(mediaType);
     if (!mCodec) {
-        ALOGE("unable to create codec %s", mime);
+        ALOGE("unable to create codec for media Type %s", mediaType);
         return false;
     }
     std::vector<formatKey*> vector;
@@ -218,16 +218,18 @@ bool NativeCodecUnitTest::testConfigureCodecForIncompleteFormat(bool isAudio, bo
     for (i = 0; i < vector.size(); i++) {
         if (!isPass) break;
         format = getSampleFormat(vector, i);
-        if (AMEDIA_OK == AMediaCodec_configure(mCodec, format, nullptr, nullptr,
-                                               isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_configure(mCodec, format, nullptr, nullptr,
+                                  isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
             ALOGE("codec configure succeeds for format with missing key %s", vector.at(i)->key);
             isPass = false;
         }
         AMediaFormat_delete(format);
     }
     format = getSampleFormat(vector, i);
-    if (AMEDIA_OK != AMediaCodec_configure(mCodec, format, nullptr, nullptr,
-                                           isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+    if (AMEDIA_OK !=
+        AMediaCodec_configure(mCodec, format, nullptr, nullptr,
+                              isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
         ALOGE("codec configure fails for valid format %s", AMediaFormat_toString(format));
         isPass = false;
     }
@@ -240,8 +242,9 @@ bool NativeCodecUnitTest::testConfigureCodecForBadFlags(bool isEncoder) {
     bool isAudio = true;
     if (!setupCodec(isAudio, isEncoder)) return false;
     bool isPass = true;
-    if (AMEDIA_OK == AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                           isEncoder ? 0 : AMEDIACODEC_CONFIGURE_FLAG_ENCODE)) {
+    if (AMEDIA_OK ==
+        AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                              isEncoder ? 0 : AMEDIACODEC_CONFIGURE_FLAG_ENCODE)) {
         isPass = false;
         ALOGE("codec configure succeeds with bad configure flag");
     }
@@ -256,12 +259,13 @@ bool NativeCodecUnitTest::testConfigureInInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, true, isEncoder)) return false;
-        if (AMEDIA_OK == AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                               isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                                  isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
             ALOGE("codec configure succeeds in initialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -273,34 +277,38 @@ bool NativeCodecUnitTest::testConfigureInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        if (AMEDIA_OK == AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                               isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        if (AMEDIA_OK ==
+            AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                                  isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
             ALOGE("codec configure succeeds in initialized state");
             return false;
         }
         if (!flushCodec()) return false;
-        if (AMEDIA_OK == AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                               isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                                  isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
             ALOGE("codec configure succeeds in flush state");
             return false;
         }
         if (mIsCodecInAsyncMode) {
-            CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+            RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         }
         if (!queueEOS()) return false;
-        if (AMEDIA_OK == AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                               isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                                  isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
             ALOGE("codec configure succeeds in running state");
             return false;
         }
         if (!waitForAllOutputs()) return false;
-        if (AMEDIA_OK == AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                               isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                                  isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0)) {
             ALOGE("codec configure succeeds in eos state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -312,11 +320,11 @@ bool NativeCodecUnitTest::testConfigureInUnInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
-        CHECK_STATUS(AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
-                                           isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0),
-                     "codec configure fails in uninitialized state");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
+        RETURN_IF_FAIL(AMediaCodec_configure(mCodec, mFormat, nullptr, nullptr,
+                                             isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0),
+                       "codec configure fails in uninitialized state")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -333,7 +341,7 @@ bool NativeCodecUnitTest::testDequeueInputBufferInInitState() {
             ALOGE("dequeue input buffer succeeds in uninitialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -345,7 +353,7 @@ bool NativeCodecUnitTest::testDequeueInputBufferInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         if (mIsCodecInAsyncMode) {
             if (AMediaCodec_dequeueInputBuffer(mCodec, kQDeQTimeOutUs) >=
                 AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
@@ -355,7 +363,7 @@ bool NativeCodecUnitTest::testDequeueInputBufferInRunningState() {
         }
         if (!queueEOS()) return false;
         if (!waitForAllOutputs()) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -372,8 +380,8 @@ bool NativeCodecUnitTest::testDequeueInputBufferInUnInitState() {
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (AMediaCodec_dequeueInputBuffer(mCodec, kQDeQTimeOutUs) >= -1) {
             ALOGE("dequeue input buffer succeeds in stopped state");
             return false;
@@ -395,7 +403,7 @@ bool NativeCodecUnitTest::testDequeueOutputBufferInInitState() {
             ALOGE("dequeue output buffer succeeds in uninitialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -407,7 +415,7 @@ bool NativeCodecUnitTest::testDequeueOutputBufferInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         if (mIsCodecInAsyncMode) {
             AMediaCodecBufferInfo outInfo;
             if (AMediaCodec_dequeueOutputBuffer(mCodec, &outInfo, kQDeQTimeOutUs) >=
@@ -418,7 +426,7 @@ bool NativeCodecUnitTest::testDequeueOutputBufferInRunningState() {
         }
         if (!queueEOS()) return false;
         if (!waitForAllOutputs()) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -436,8 +444,8 @@ bool NativeCodecUnitTest::testDequeueOutputBufferInUnInitState() {
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (AMediaCodec_dequeueOutputBuffer(mCodec, &outInfo, kQDeQTimeOutUs) >=
             AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             ALOGE("dequeue output buffer succeeds in stopped state");
@@ -458,7 +466,7 @@ bool NativeCodecUnitTest::testFlushInInitState() {
             ALOGE("codec flush succeeds in uninitialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -469,20 +477,20 @@ bool NativeCodecUnitTest::testFlushInRunningState() {
     if (!setupCodec(isAudio, isEncoder)) return false;
     bool isAsync = true;
     if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (!flushCodec()) return false;
     std::this_thread::sleep_for(std::chrono::milliseconds(kStallTimeMs));
     if (!mAsyncHandle.isInputQueueEmpty()) {
         ALOGE("received input buffer callback before start");
         return false;
     }
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     std::this_thread::sleep_for(std::chrono::milliseconds(kStallTimeMs));
     if (mAsyncHandle.isInputQueueEmpty()) {
         ALOGE("did not receive input buffer callback after start");
         return false;
     }
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     return !hasSeenError();
 }
 
@@ -497,8 +505,8 @@ bool NativeCodecUnitTest::testFlushInUnInitState() {
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (flushCodec()) {
             ALOGE("codec flush succeeds in uninitialized state");
             return false;
@@ -521,7 +529,7 @@ bool NativeCodecUnitTest::testGetNameInInitState() {
             return false;
         }
         if (name) AMediaCodec_releaseName(mCodec, name);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -533,7 +541,7 @@ bool NativeCodecUnitTest::testGetNameInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         char* name = nullptr;
         if (AMEDIA_OK != AMediaCodec_getName(mCodec, &name) || !name) {
             ALOGE("codec get metadata call fails in running state");
@@ -550,7 +558,7 @@ bool NativeCodecUnitTest::testGetNameInRunningState() {
             return false;
         }
         if (name) AMediaCodec_releaseName(mCodec, name);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -570,8 +578,8 @@ bool NativeCodecUnitTest::testGetNameInUnInitState() {
     name = nullptr;
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (AMEDIA_OK != AMediaCodec_getName(mCodec, &name) || !name) {
             ALOGE("codec get metadata call fails in uninitialized state");
             if (name) AMediaCodec_releaseName(mCodec, name);
@@ -591,30 +599,30 @@ bool NativeCodecUnitTest::testSetAsyncNotifyCallbackInInitState() {
     // configure component in sync mode
     if (!configureCodec(mFormat, !isAsync, false, isEncoder)) return false;
     // setCallBack in async mode
-    CHECK_STATUS(mAsyncHandle.setCallBack(mCodec, isAsync),
-                 "AMediaCodec_setAsyncNotifyCallback failed");
+    RETURN_IF_FAIL(mAsyncHandle.setCallBack(mCodec, isAsync),
+                   "AMediaCodec_setAsyncNotifyCallback failed")
     mIsCodecInAsyncMode = true;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (!queueEOS()) return false;
     if (!waitForAllOutputs()) return false;
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
 
     // configure component in async mode
     if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (!queueEOS()) return false;
     if (!waitForAllOutputs()) return false;
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
 
     // configure component in async mode
     if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     // configure component in sync mode
     if (!reConfigureCodec(mFormat, !isAsync, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (!queueEOS()) return false;
     if (!waitForAllOutputs()) return false;
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     return !hasSeenError();
 }
 
@@ -625,7 +633,7 @@ bool NativeCodecUnitTest::testSetAsyncNotifyCallbackInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         // setCallBack in async mode
         if (AMEDIA_OK == mAsyncHandle.setCallBack(mCodec, true)) {
             ALOGE("setAsyncNotifyCallback call succeeds in running state");
@@ -633,7 +641,7 @@ bool NativeCodecUnitTest::testSetAsyncNotifyCallbackInRunningState() {
         }
         if (!queueEOS()) return false;
         if (!waitForAllOutputs()) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -644,26 +652,26 @@ bool NativeCodecUnitTest::testSetAsyncNotifyCallbackInUnInitState() {
     if (!setupCodec(isAudio, isEncoder)) return false;
     bool isAsync = true;
     // setCallBack in async mode
-    CHECK_STATUS(mAsyncHandle.setCallBack(mCodec, isAsync),
-                 "AMediaCodec_setAsyncNotifyCallback fails in uninitalized state");
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(mAsyncHandle.setCallBack(mCodec, isAsync),
+                   "AMediaCodec_setAsyncNotifyCallback fails in uninitialized state")
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     // configure component in sync mode
     if (!reConfigureCodec(mFormat, !isAsync, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (!queueEOS()) return false;
     if (!waitForAllOutputs()) return false;
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
 
     // setCallBack in async mode
-    CHECK_STATUS(mAsyncHandle.setCallBack(mCodec, isAsync),
-                 "AMediaCodec_setAsyncNotifyCallback fails in stopped state");
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(mAsyncHandle.setCallBack(mCodec, isAsync),
+                   "AMediaCodec_setAsyncNotifyCallback fails in stopped state")
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     // configure component in sync mode
     if (!reConfigureCodec(mFormat, !isAsync, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (!queueEOS()) return false;
     if (!waitForAllOutputs()) return false;
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     return !hasSeenError();
 }
 
@@ -680,7 +688,7 @@ bool NativeCodecUnitTest::testGetInputBufferInInitState() {
             ALOGE("getInputBuffer succeeds in initialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -692,7 +700,7 @@ bool NativeCodecUnitTest::testGetInputBufferInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         size_t bufSize;
         if (AMediaCodec_getInputBuffer(mCodec, -1, &bufSize) != nullptr) {
             ALOGE("getInputBuffer succeeds for bad buffer index -1");
@@ -707,7 +715,7 @@ bool NativeCodecUnitTest::testGetInputBufferInRunningState() {
         }
         if (!enqueueEOS(bufferIndex)) return false;
         if (!waitForAllOutputs()) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -724,8 +732,8 @@ bool NativeCodecUnitTest::testGetInputBufferInUnInitState() {
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (AMediaCodec_getInputBuffer(mCodec, 0, &bufSize) != nullptr) {
             ALOGE("getInputBuffer succeeds in stopped state");
             return false;
@@ -739,20 +747,20 @@ bool NativeCodecUnitTest::testGetInputFormatInInitState() {
     bool isEncoder = false;
     if (!setupCodec(isAudio, isEncoder)) return false;
     const bool boolStates[]{true, false};
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
         AMediaFormat* dupFormat = AMediaCodec_getInputFormat(mCodec);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (!dupMime || strcmp(dupMime, mime) != 0) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (!dupMediaType || strcmp(dupMediaType, mediaType) != 0) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat fails in initialized state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -762,21 +770,21 @@ bool NativeCodecUnitTest::testGetInputFormatInRunningState() {
     bool isEncoder = false;
     if (!setupCodec(isAudio, isEncoder)) return false;
     const bool boolStates[]{true, false};
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         AMediaFormat* dupFormat = AMediaCodec_getInputFormat(mCodec);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (!dupMime || strcmp(dupMime, mime) != 0) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (!dupMediaType || strcmp(dupMediaType, mediaType) != 0) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat fails in running state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -786,25 +794,25 @@ bool NativeCodecUnitTest::testGetInputFormatInUnInitState() {
     bool isEncoder = true;
     if (!setupCodec(isAudio, isEncoder)) return false;
     const bool boolStates[]{true, false};
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
     for (auto isAsync : boolStates) {
         AMediaFormat* dupFormat = AMediaCodec_getInputFormat(mCodec);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat succeeds in uninitialized state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         dupFormat = AMediaCodec_getInputFormat(mCodec);
-        dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getInputFormat succeeds in stopped state");
             return false;
@@ -826,7 +834,7 @@ bool NativeCodecUnitTest::testGetOutputBufferInInitState() {
             ALOGE("GetOutputBuffer succeeds in initialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return true;
 }
@@ -839,7 +847,7 @@ bool NativeCodecUnitTest::testGetOutputBufferInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         size_t bufSize;
         if (AMediaCodec_getOutputBuffer(mCodec, -1, &bufSize)) {
             ALOGE("GetOutputBuffer succeeds for bad buffer index -1");
@@ -856,7 +864,7 @@ bool NativeCodecUnitTest::testGetOutputBufferInRunningState() {
                     bufferIndex = element.bufferIndex;
                     if (element.bufferIndex >= 0) {
                         if (!AMediaCodec_getOutputBuffer(mCodec, bufferIndex, &buffSize)) {
-                            ALOGE("GetOutputBuffer fails for valid bufffer index");
+                            ALOGE("GetOutputBuffer fails for valid buffer index");
                             return false;
                         }
                         isOk = dequeueOutput(element.bufferIndex, &element.bufferInfo);
@@ -865,7 +873,7 @@ bool NativeCodecUnitTest::testGetOutputBufferInRunningState() {
                     bufferIndex = AMediaCodec_dequeueOutputBuffer(mCodec, &outInfo, kQDeQTimeOutUs);
                     if (bufferIndex >= 0) {
                         if (!AMediaCodec_getOutputBuffer(mCodec, bufferIndex, &buffSize)) {
-                            ALOGE("GetOutputBuffer fails for valid bufffer index");
+                            ALOGE("GetOutputBuffer fails for valid buffer index");
                             return false;
                         }
                         isOk = dequeueOutput(bufferIndex, &outInfo);
@@ -884,7 +892,7 @@ bool NativeCodecUnitTest::testGetOutputBufferInRunningState() {
             ALOGE("Got unexpected error");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -901,8 +909,8 @@ bool NativeCodecUnitTest::testGetOutputBufferInUnInitState() {
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (AMediaCodec_getOutputBuffer(mCodec, 0, &bufSize) != nullptr) {
             ALOGE("GetOutputBuffer succeeds in stopped state");
             return false;
@@ -915,21 +923,21 @@ bool NativeCodecUnitTest::testGetOutputFormatInInitState() {
     bool isAudio = true;
     bool isEncoder = true;
     if (!setupCodec(isAudio, isEncoder)) return false;
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
         AMediaFormat* dupFormat = AMediaCodec_getOutputFormat(mCodec);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (!dupMime || strcmp(dupMime, mime) != 0) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (!dupMediaType || strcmp(dupMediaType, mediaType) != 0) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat fails in initialized state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -938,22 +946,22 @@ bool NativeCodecUnitTest::testGetOutputFormatInRunningState() {
     bool isAudio = true;
     bool isEncoder = true;
     if (!setupCodec(isAudio, isEncoder)) return false;
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         AMediaFormat* dupFormat = AMediaCodec_getOutputFormat(mCodec);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (!dupMime || strcmp(dupMime, mime) != 0) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (!dupMediaType || strcmp(dupMediaType, mediaType) != 0) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat fails in running state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -965,21 +973,21 @@ bool NativeCodecUnitTest::testGetOutputFormatInUnInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         AMediaFormat* dupFormat = AMediaCodec_getOutputFormat(mCodec);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat succeeds in uninitialized state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         dupFormat = AMediaCodec_getOutputFormat(mCodec);
-        dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("getOutputFormat succeeds in stopped state");
             return false;
@@ -1006,7 +1014,7 @@ bool NativeCodecUnitTest::testSetParametersInInitState() {
             return false;
         }
         AMediaFormat_delete(params);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1020,7 +1028,7 @@ bool NativeCodecUnitTest::testSetParametersInRunningState() {
     AMediaFormat_getInt32(mFormat, AMEDIAFORMAT_KEY_BIT_RATE, &bitrate);
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         // behaviour of setParams with null argument is acceptable according to SDK
         AMediaCodec_setParameters(mCodec, nullptr);
         AMediaFormat* params = AMediaFormat_new();
@@ -1047,7 +1055,7 @@ bool NativeCodecUnitTest::testSetParametersInRunningState() {
             return false;
         }
         AMediaFormat_delete(params);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1059,8 +1067,8 @@ bool NativeCodecUnitTest::testSetParametersInUnInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         int bitrate;
         AMediaFormat_getInt32(mFormat, AMEDIAFORMAT_KEY_BIT_RATE, &bitrate);
         AMediaFormat* params = AMediaFormat_new();
@@ -1080,12 +1088,12 @@ bool NativeCodecUnitTest::testStartInRunningState() {
     bool isEncoder = true;
     if (!setupCodec(isAudio, isEncoder)) return false;
     if (!configureCodec(mFormat, false, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
     if (AMEDIA_OK == AMediaCodec_start(mCodec)) {
         ALOGE("Start succeeds in running state");
         return false;
     }
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     return !hasSeenError();
 }
 
@@ -1098,8 +1106,8 @@ bool NativeCodecUnitTest::testStartInUnInitState() {
         return false;
     }
     if (!configureCodec(mFormat, false, false, isEncoder)) return false;
-    CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     if (AMEDIA_OK == AMediaCodec_start(mCodec)) {
         ALOGE("codec start succeeds in stopped state");
         return false;
@@ -1114,7 +1122,7 @@ bool NativeCodecUnitTest::testStopInInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "Stop fails in initialized state");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "Stop fails in initialized state")
     }
     return !hasSeenError();
 }
@@ -1126,9 +1134,9 @@ bool NativeCodecUnitTest::testStopInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         if (!queueEOS()) return false;
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "Stop fails in running state");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "Stop fails in running state")
     }
     return !hasSeenError();
 }
@@ -1140,9 +1148,9 @@ bool NativeCodecUnitTest::testStopInUnInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "Stop fails in stopped state");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "Stop fails in stopped state")
     }
     return !hasSeenError();
 }
@@ -1154,12 +1162,13 @@ bool NativeCodecUnitTest::testQueueInputBufferInInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, 0, 0, 0,
-                                                      AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_queueInputBuffer(mCodec, 0, 0, 0, 0,
+                                         AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
             ALOGE("queueInputBuffer succeeds in initialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1171,13 +1180,14 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadIndex() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, -1, 0, 0, 0,
-                                                      AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        if (AMEDIA_OK ==
+            AMediaCodec_queueInputBuffer(mCodec, -1, 0, 0, 0,
+                                         AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
             ALOGE("queueInputBuffer succeeds with bad buffer index :: -1");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1189,7 +1199,7 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadSize() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         int bufferIndex = mIsCodecInAsyncMode ? mAsyncHandle.getInput().bufferIndex
                                               : AMediaCodec_dequeueInputBuffer(mCodec, -1);
         size_t bufSize;
@@ -1198,14 +1208,15 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadSize() {
             ALOGE("getInputBuffer fails for valid index");
             return false;
         } else {
-            if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, 0, bufSize + 100, 0,
-                                                          AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+            if (AMEDIA_OK ==
+                AMediaCodec_queueInputBuffer(mCodec, 0, 0, bufSize + 100, 0,
+                                             AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
                 ALOGE("queueInputBuffer succeeds for bad size %zu, buffer capacity %zu ",
                       bufSize + 100, bufSize);
                 return false;
             }
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1217,7 +1228,7 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadBuffInfo() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         int bufferIndex = mIsCodecInAsyncMode ? mAsyncHandle.getInput().bufferIndex
                                               : AMediaCodec_dequeueInputBuffer(mCodec, -1);
         size_t bufSize;
@@ -1226,13 +1237,14 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadBuffInfo() {
             ALOGE("getInputBuffer fails for valid index");
             return false;
         } else {
-            if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, 16, bufSize, 0,
-                                                          AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+            if (AMEDIA_OK ==
+                AMediaCodec_queueInputBuffer(mCodec, 0, 16, bufSize, 0,
+                                             AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
                 ALOGE("queueInputBuffer succeeds with bad offset and size param");
                 return false;
             }
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1244,13 +1256,14 @@ bool NativeCodecUnitTest::testQueueInputBufferWithBadOffset() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, -1, 0, 0,
-                                                      AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        if (AMEDIA_OK ==
+            AMediaCodec_queueInputBuffer(mCodec, 0, -1, 0, 0,
+                                         AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
             ALOGE("queueInputBuffer succeeds with bad buffer offset :: -1");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1261,16 +1274,18 @@ bool NativeCodecUnitTest::testQueueInputBufferInUnInitState() {
     if (!setupCodec(isAudio, isEncoder)) return false;
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
-        if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, 0, 0, 0,
-                                                      AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+        if (AMEDIA_OK ==
+            AMediaCodec_queueInputBuffer(mCodec, 0, 0, 0, 0,
+                                         AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
             ALOGE("queueInputBuffer succeeds in uninitialized state");
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
-        if (AMEDIA_OK == AMediaCodec_queueInputBuffer(mCodec, 0, 0, 0, 0,
-                                                      AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
+        if (AMEDIA_OK ==
+            AMediaCodec_queueInputBuffer(mCodec, 0, 0, 0, 0,
+                                         AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM)) {
             ALOGE("queueInputBuffer succeeds in stopped state");
             return false;
         }
@@ -1289,7 +1304,7 @@ bool NativeCodecUnitTest::testReleaseOutputBufferInInitState() {
             ALOGE("ReleaseOutputBuffer succeeds in initialized state");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1302,7 +1317,7 @@ bool NativeCodecUnitTest::testReleaseOutputBufferInRunningState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         if (AMEDIA_OK == AMediaCodec_releaseOutputBuffer(mCodec, -1, false)) {
             ALOGE("ReleaseOutputBuffer succeeds for bad buffer index -1");
             return false;
@@ -1327,7 +1342,7 @@ bool NativeCodecUnitTest::testReleaseOutputBufferInRunningState() {
                     bufferIndex = AMediaCodec_dequeueOutputBuffer(mCodec, &outInfo, kQDeQTimeOutUs);
                     if (bufferIndex >= 0) {
                         if (!AMediaCodec_getOutputBuffer(mCodec, bufferIndex, &buffSize)) {
-                            ALOGE("GetOutputBuffer fails for valid bufffer index");
+                            ALOGE("GetOutputBuffer fails for valid buffer index");
                             return false;
                         }
                         isOk = dequeueOutput(bufferIndex, &outInfo);
@@ -1346,7 +1361,7 @@ bool NativeCodecUnitTest::testReleaseOutputBufferInRunningState() {
             ALOGE("Got unexpected error");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1362,8 +1377,8 @@ bool NativeCodecUnitTest::testReleaseOutputBufferInUnInitState() {
             return false;
         }
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         if (AMEDIA_OK == AMediaCodec_releaseOutputBuffer(mCodec, 0, false)) {
             ALOGE("ReleaseOutputBuffer succeeds in stopped state");
             return false;
@@ -1380,15 +1395,15 @@ bool NativeCodecUnitTest::testGetBufferFormatInInitState() {
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
         AMediaFormat* dupFormat = AMediaCodec_getBufferFormat(mCodec, 0);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds in initialized state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1397,17 +1412,17 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
     bool isAudio = true;
     bool isEncoder = true;
     if (!setupCodec(isAudio, isEncoder)) return false;
-    const char* mime = nullptr;
-    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mime);
+    const char* mediaType = nullptr;
+    AMediaFormat_getString(mFormat, AMEDIAFORMAT_KEY_MIME, &mediaType);
     AMediaCodecBufferInfo outInfo;
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
         AMediaFormat* dupFormat = AMediaCodec_getBufferFormat(mCodec, -1);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds for bad buffer index -1");
             return false;
@@ -1423,9 +1438,9 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
                     bufferIndex = element.bufferIndex;
                     if (element.bufferIndex >= 0) {
                         dupFormat = AMediaCodec_getBufferFormat(mCodec, bufferIndex);
-                        dupMime = nullptr;
-                        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-                        if (!dupMime || strcmp(dupMime, mime) != 0) {
+                        dupMediaType = nullptr;
+                        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+                        if (!dupMediaType || strcmp(dupMediaType, mediaType) != 0) {
                             AMediaFormat_delete(dupFormat);
                             ALOGE("GetBufferFormat fails in running state");
                             return false;
@@ -1437,9 +1452,9 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
                     bufferIndex = AMediaCodec_dequeueOutputBuffer(mCodec, &outInfo, kQDeQTimeOutUs);
                     if (bufferIndex >= 0) {
                         dupFormat = AMediaCodec_getBufferFormat(mCodec, bufferIndex);
-                        dupMime = nullptr;
-                        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-                        if (!dupMime || strcmp(dupMime, mime) != 0) {
+                        dupMediaType = nullptr;
+                        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+                        if (!dupMediaType || strcmp(dupMediaType, mediaType) != 0) {
                             AMediaFormat_delete(dupFormat);
                             ALOGE("GetBufferFormat fails in running state");
                             return false;
@@ -1454,9 +1469,9 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
                 }
             }
             dupFormat = AMediaCodec_getBufferFormat(mCodec, bufferIndex);
-            dupMime = nullptr;
-            AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-            if (dupMime) {
+            dupMediaType = nullptr;
+            AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+            if (dupMediaType) {
                 AMediaFormat_delete(dupFormat);
                 ALOGE("GetBufferFormat succeeds for buffer index not owned by client");
                 return false;
@@ -1466,7 +1481,7 @@ bool NativeCodecUnitTest::testGetBufferFormatInRunningState() {
             ALOGE("Got unexpected error");
             return false;
         }
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     }
     return !hasSeenError();
 }
@@ -1478,21 +1493,21 @@ bool NativeCodecUnitTest::testGetBufferFormatInUnInitState() {
     const bool boolStates[]{true, false};
     for (auto isAsync : boolStates) {
         AMediaFormat* dupFormat = AMediaCodec_getBufferFormat(mCodec, 0);
-        const char* dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        const char* dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds in uninitialized state");
             return false;
         }
         AMediaFormat_delete(dupFormat);
         if (!configureCodec(mFormat, isAsync, false, isEncoder)) return false;
-        CHECK_STATUS(AMediaCodec_start(mCodec), "AMediaCodec_start failed");
-        CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+        RETURN_IF_FAIL(AMediaCodec_start(mCodec), "AMediaCodec_start failed")
+        RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
         dupFormat = AMediaCodec_getBufferFormat(mCodec, 0);
-        dupMime = nullptr;
-        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMime);
-        if (dupMime) {
+        dupMediaType = nullptr;
+        AMediaFormat_getString(dupFormat, AMEDIAFORMAT_KEY_MIME, &dupMediaType);
+        if (dupMediaType) {
             AMediaFormat_delete(dupFormat);
             ALOGE("GetBufferFormat succeeds in stopped state");
             return false;
@@ -1535,7 +1550,7 @@ static jboolean nativeTestCreateDecoderByTypeForNull(JNIEnv*, jobject) {
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestCreateDecoderByTypeForInvalidMime(JNIEnv*, jobject) {
+static jboolean nativeTestCreateDecoderByTypeForInvalidMediaType(JNIEnv*, jobject) {
     bool isPass = true;
     AMediaCodec* codec = AMediaCodec_createDecoderByType("invalid name");
     if (codec) {
@@ -1557,7 +1572,7 @@ static jboolean nativeTestCreateEncoderByTypeForNull(JNIEnv*, jobject) {
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestCreateEncoderByTypeForInvalidMime(JNIEnv*, jobject) {
+static jboolean nativeTestCreateEncoderByTypeForInvalidMediaType(JNIEnv*, jobject) {
     bool isPass = true;
     AMediaCodec* codec = AMediaCodec_createEncoderByType("invalid name");
     if (codec) {
@@ -1574,8 +1589,9 @@ static jboolean nativeTestConfigureForNullFormat(JNIEnv*, jobject) {
         ALOGE("unable to create codec %s", AMEDIA_MIMETYPE_AUDIO_AAC);
         return static_cast<jboolean>(false);
     }
-    bool isPass = (AMEDIA_OK != AMediaCodec_configure(codec, nullptr, nullptr, nullptr,
-                                                      AMEDIACODEC_CONFIGURE_FLAG_ENCODE));
+    bool isPass = (AMEDIA_OK !=
+                   AMediaCodec_configure(codec, nullptr, nullptr, nullptr,
+                                         AMEDIACODEC_CONFIGURE_FLAG_ENCODE));
     if (!isPass) {
         ALOGE("codec configure succeeds with null format");
     }
@@ -1590,8 +1606,9 @@ static jboolean nativeTestConfigureForEmptyFormat(JNIEnv*, jobject) {
         return static_cast<jboolean>(false);
     }
     AMediaFormat* format = AMediaFormat_new();
-    bool isPass = (AMEDIA_OK != AMediaCodec_configure(codec, format, nullptr, nullptr,
-                                                      AMEDIACODEC_CONFIGURE_FLAG_ENCODE));
+    bool isPass = (AMEDIA_OK !=
+                   AMediaCodec_configure(codec, format, nullptr, nullptr,
+                                         AMEDIACODEC_CONFIGURE_FLAG_ENCODE));
     if (!isPass) {
         ALOGE("codec configure succeeds with empty format");
     }
@@ -1600,8 +1617,8 @@ static jboolean nativeTestConfigureForEmptyFormat(JNIEnv*, jobject) {
     return static_cast<jboolean>(isPass);
 }
 
-static jboolean nativeTestConfigureCodecForIncompleteFormat(JNIEnv*, jobject, bool isAudio,
-                                                            bool isEncoder) {
+static jboolean nativeTestConfigureCodecForIncompleteFormat(JNIEnv*, jobject, jboolean isAudio,
+                                                            jboolean isEncoder) {
     auto* nativeCodecUnitTest = new NativeCodecUnitTest(AMEDIA_MIMETYPE_AUDIO_AAC);
     bool isPass = nativeCodecUnitTest->testConfigureCodecForIncompleteFormat(isAudio, isEncoder);
     delete nativeCodecUnitTest;
@@ -1982,12 +1999,12 @@ int registerAndroidMediaV2CtsCodecUnitTest(JNIEnv* env) {
              (void*)nativeTestCreateByCodecNameForInvalidName},
             {"nativeTestCreateDecoderByTypeForNull", "()Z",
              (void*)nativeTestCreateDecoderByTypeForNull},
-            {"nativeTestCreateDecoderByTypeForInvalidMime", "()Z",
-             (void*)nativeTestCreateDecoderByTypeForInvalidMime},
+            {"nativeTestCreateDecoderByTypeForInvalidMediaType", "()Z",
+             (void*)nativeTestCreateDecoderByTypeForInvalidMediaType},
             {"nativeTestCreateEncoderByTypeForNull", "()Z",
              (void*)nativeTestCreateEncoderByTypeForNull},
-            {"nativeTestCreateEncoderByTypeForInvalidMime", "()Z",
-             (void*)nativeTestCreateEncoderByTypeForInvalidMime},
+            {"nativeTestCreateEncoderByTypeForInvalidMediaType", "()Z",
+             (void*)nativeTestCreateEncoderByTypeForInvalidMediaType},
             {"nativeTestConfigureForNullFormat", "()Z", (void*)nativeTestConfigureForNullFormat},
             {"nativeTestConfigureForEmptyFormat", "()Z", (void*)nativeTestConfigureForEmptyFormat},
             {"nativeTestConfigureCodecForIncompleteFormat", "(ZZ)Z",
@@ -2086,4 +2103,11 @@ int registerAndroidMediaV2CtsCodecUnitTest(JNIEnv* env) {
     };
     jclass c = env->FindClass("android/mediav2/cts/CodecUnitTest$TestApiNative");
     return env->RegisterNatives(c, methodTable, sizeof(methodTable) / sizeof(JNINativeMethod));
+}
+
+extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM* vm, void*) {
+    JNIEnv* env;
+    if (vm->GetEnv(reinterpret_cast<void**>(&env), JNI_VERSION_1_6) != JNI_OK) return JNI_ERR;
+    if (registerAndroidMediaV2CtsCodecUnitTest(env) != JNI_OK) return JNI_ERR;
+    return JNI_VERSION_1_6;
 }

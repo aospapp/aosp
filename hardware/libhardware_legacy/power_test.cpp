@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-#include <android/system/suspend/internal/ISuspendControlServiceInternal.h>
-#include <binder/IServiceManager.h>
+#include <aidl/android/system/suspend/internal/ISuspendControlServiceInternal.h>
+#include <android/binder_manager.h>
 #include <gtest/gtest.h>
 #include <hardware_legacy/power.h>
 #include <wakelock/wakelock.h>
 
 #include <csignal>
 #include <cstdlib>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
-using android::sp;
-using android::system::suspend::internal::ISuspendControlServiceInternal;
-using android::system::suspend::internal::WakeLockInfo;
+using aidl::android::system::suspend::internal::ISuspendControlServiceInternal;
+using aidl::android::system::suspend::internal::WakeLockInfo;
 using namespace std::chrono_literals;
 
 namespace android {
@@ -93,17 +93,16 @@ TEST(LibpowerTest, WakeLockStressTest) {
 class WakeLockTest : public ::testing::Test {
    public:
     virtual void SetUp() override {
-        sp<IBinder> control =
-            android::defaultServiceManager()->getService(android::String16("suspend_control_internal"));
-        ASSERT_NE(control, nullptr) << "failed to get the internal suspend control service";
-        controlService = interface_cast<ISuspendControlServiceInternal>(control);
+        ndk::SpAIBinder binder(AServiceManager_waitForService("suspend_control_internal"));
+        controlService = ISuspendControlServiceInternal::fromBinder(binder);
+        ASSERT_NE(controlService, nullptr) << "failed to get the internal suspend control service";
     }
 
     // Returns true iff found.
-    bool findWakeLockInfoByName(const sp<ISuspendControlServiceInternal>& service, const std::string& name,
+    bool findWakeLockInfoByName(const std::string& name,
                                 WakeLockInfo* info) {
         std::vector<WakeLockInfo> wlStats;
-        service->getWakeLockStats(&wlStats);
+        controlService->getWakeLockStats(&wlStats);
         auto it = std::find_if(wlStats.begin(), wlStats.end(),
                                [&name](const auto& x) { return x.name == name; });
         if (it != wlStats.end()) {
@@ -114,7 +113,7 @@ class WakeLockTest : public ::testing::Test {
     }
 
     // All userspace wake locks are registered with system suspend.
-    sp<ISuspendControlServiceInternal> controlService;
+    std::shared_ptr<ISuspendControlServiceInternal> controlService;
 };
 
 // Test RAII properties of WakeLock destructor.
@@ -127,7 +126,7 @@ TEST_F(WakeLockTest, WakeLockDestructor) {
         }
 
         WakeLockInfo info;
-        auto success = findWakeLockInfoByName(controlService, name, &info);
+        auto success = findWakeLockInfoByName(name, &info);
         ASSERT_TRUE(success);
         ASSERT_EQ(info.name, name);
         ASSERT_EQ(info.pid, getpid());
@@ -138,7 +137,7 @@ TEST_F(WakeLockTest, WakeLockDestructor) {
     // come on binder thread. Sleep to make sure that stats are reported *after* wake lock release.
     std::this_thread::sleep_for(1ms);
     WakeLockInfo info;
-    auto success = findWakeLockInfoByName(controlService, name, &info);
+    auto success = findWakeLockInfoByName(name, &info);
     ASSERT_TRUE(success);
     ASSERT_EQ(info.name, name);
     ASSERT_EQ(info.pid, getpid());

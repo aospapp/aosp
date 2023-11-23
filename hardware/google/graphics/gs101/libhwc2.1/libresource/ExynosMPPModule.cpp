@@ -77,10 +77,8 @@ int32_t ExynosMPPModule::setColorConversionInfo()
         }
         MPP_LOGD(eDebugColorManagement,
                 "%s, src: 0x%8x", __func__, mppSource->mSrcImg.dataSpace);
-        const IDisplayColorGS101::IDpp& dpp =
-            primaryDisplay->getDppForLayer(layer);
-        mppLayer->setLayerData((void *)&dpp,
-                sizeof(IDisplayColorGS101::IDpp));
+        const auto& dpp = primaryDisplay->getDppForLayer(layer);
+        mppLayer->setLayerData((void *)&dpp, sizeof(dpp));
     }
     return NO_ERROR;
 }

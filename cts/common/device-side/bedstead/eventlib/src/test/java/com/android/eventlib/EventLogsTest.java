@@ -19,6 +19,8 @@ package com.android.eventlib;
 import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
+import static com.android.bedstead.nene.permissions.CommonPermissions.INTERACT_ACROSS_USERS_FULL;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
@@ -32,6 +34,7 @@ import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.eventlib.events.CustomEvent;
@@ -616,9 +619,10 @@ public class EventLogsTest {
         intent.putExtra("TAG", tag);
         intent.putExtra("DATA", data);
 
-        SystemUtil.runWithShellPermissionIdentity(() -> {
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
             sContext.startActivityAsUser(intent, user.userHandle());
-        });
+        }
 
         CustomEvent.queryPackage(TEST_APP_PACKAGE_NAME)
                 .whereTag().isEqualTo(tag)

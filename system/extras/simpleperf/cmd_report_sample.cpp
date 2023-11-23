@@ -372,8 +372,7 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
   // files[file_id] is the number of symbols in the file.
   std::vector<uint32_t> files;
   uint32_t max_message_size = 64 * (1 << 20);
-  uint32_t warning_message_size = 512 * (1 << 20);
-  coded_is.SetTotalBytesLimit(max_message_size, warning_message_size);
+  coded_is.SetTotalBytesLimit(max_message_size);
   while (true) {
     uint32_t size;
     if (!coded_is.ReadLittleEndian32(&size)) {
@@ -386,7 +385,7 @@ bool ReportSampleCommand::DumpProtobufReport(const std::string& filename) {
     // Handle files having large symbol table.
     if (size > max_message_size) {
       max_message_size = size;
-      coded_is.SetTotalBytesLimit(max_message_size, warning_message_size);
+      coded_is.SetTotalBytesLimit(max_message_size);
     }
     auto limit = coded_is.PushLimit(size);
     proto::Record proto_record;
@@ -516,12 +515,14 @@ bool ReportSampleCommand::OpenRecordFile() {
   if (record_file_reader_ == nullptr) {
     return false;
   }
-  record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_);
+  if (!record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_)) {
+    return false;
+  }
   auto& meta_info = record_file_reader_->GetMetaInfoFeature();
   if (auto it = meta_info.find("trace_offcpu"); it != meta_info.end()) {
     trace_offcpu_ = it->second == "true";
     if (trace_offcpu_) {
-      std::string event_name = GetEventNameByAttr(*record_file_reader_->AttrSection()[0].attr);
+      std::string event_name = GetEventNameByAttr(record_file_reader_->AttrSection()[0].attr);
       if (!android::base::StartsWith(event_name, "cpu-clock") &&
           !android::base::StartsWith(event_name, "task-clock")) {
         LOG(ERROR) << "Recording file " << record_filename_ << " is no longer supported. "
@@ -536,8 +537,8 @@ bool ReportSampleCommand::OpenRecordFile() {
   if (!record_filter_.CheckClock(record_file_reader_->GetClockId())) {
     return false;
   }
-  for (EventAttrWithId& attr : record_file_reader_->AttrSection()) {
-    event_types_.push_back(GetEventNameByAttr(*attr.attr));
+  for (const EventAttrWithId& attr : record_file_reader_->AttrSection()) {
+    event_types_.push_back(GetEventNameByAttr(attr.attr));
   }
   return true;
 }
@@ -782,7 +783,7 @@ bool ReportSampleCommand::ProcessSwitchRecord(Record* r) {
 }
 
 bool ReportSampleCommand::WriteRecordInProtobuf(proto::Record& proto_record) {
-  coded_os_->WriteLittleEndian32(proto_record.ByteSize());
+  coded_os_->WriteLittleEndian32(static_cast<uint32_t>(proto_record.ByteSizeLong()));
   if (!proto_record.SerializeToCodedStream(coded_os_)) {
     LOG(ERROR) << "failed to write record to protobuf";
     return false;

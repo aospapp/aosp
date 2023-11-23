@@ -16,6 +16,8 @@
 
 package android.system.helpers;
 
+import static junit.framework.Assert.assertTrue;
+
 import android.app.KeyguardManager;
 import android.content.Context;
 import android.graphics.Point;
@@ -418,7 +420,7 @@ public class LockscreenHelper {
     }
 
     public void waitLockscreenVisible() {
-        mDevice.wait(Until.hasObject(SCREEN_LOCK), MAX_SCREEN_LOCK_WAIT_TIME_MS);
+        assertTrue(mDevice.wait(Until.hasObject(SCREEN_LOCK), MAX_SCREEN_LOCK_WAIT_TIME_MS));
     }
 
     /* Returns screen coordinates for each pattern dot

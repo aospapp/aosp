@@ -55,4 +55,8 @@ ndk_library {
     name: "libnativehelper",
     symbol_file: "libnativehelper.map.txt",
     first_version: "S",
+    export_header_libs: [
+        "libnativehelper_ndk_headers",
+        "ndk_jni.h",
+    ],
 }

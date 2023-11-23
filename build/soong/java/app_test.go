@@ -1005,6 +1005,7 @@ func TestAppSdkVersion(t *testing.T) {
 		platformSdkInt        int
 		platformSdkCodename   string
 		platformSdkFinal      bool
+		minSdkVersionBp       string
 		expectedMinSdkVersion string
 		platformApis          bool
 		activeCodenames       []string
@@ -1052,6 +1053,14 @@ func TestAppSdkVersion(t *testing.T) {
 			platformSdkCodename:   "S",
 			activeCodenames:       []string{"S"},
 		},
+		{
+			name:                  "two active SDKs",
+			sdkVersion:            "module_current",
+			minSdkVersionBp:       "UpsideDownCake",
+			expectedMinSdkVersion: "UpsideDownCake", // And not VanillaIceCream
+			platformSdkCodename:   "VanillaIceCream",
+			activeCodenames:       []string{"UpsideDownCake", "VanillaIceCream"},
+		},
 	}
 
 	for _, moduleType := range []string{"android_app", "android_library"} {
@@ -1061,12 +1070,17 @@ func TestAppSdkVersion(t *testing.T) {
 				if test.platformApis {
 					platformApiProp = "platform_apis: true,"
 				}
+				minSdkVersionProp := ""
+				if test.minSdkVersionBp != "" {
+					minSdkVersionProp = fmt.Sprintf(` min_sdk_version: "%s",`, test.minSdkVersionBp)
+				}
 				bp := fmt.Sprintf(`%s {
 					name: "foo",
 					srcs: ["a.java"],
 					sdk_version: "%s",
 					%s
-				}`, moduleType, test.sdkVersion, platformApiProp)
+					%s
+				}`, moduleType, test.sdkVersion, platformApiProp, minSdkVersionProp)
 
 				result := android.GroupFixturePreparers(
 					prepareForJavaTest,
@@ -1218,7 +1232,7 @@ func TestJNIABI(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			app := ctx.ModuleForTests(test.name, "android_common")
-			jniLibZip := app.Output("jnilibs.zip")
+			jniLibZip := app.Output(jniJarOutputPathString)
 			var abis []string
 			args := strings.Fields(jniLibZip.Args["jarArgs"])
 			for i := 0; i < len(args); i++ {
@@ -1351,7 +1365,7 @@ func TestJNIPackaging(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			app := ctx.ModuleForTests(test.name, "android_common")
-			jniLibZip := app.MaybeOutput("jnilibs.zip")
+			jniLibZip := app.MaybeOutput(jniJarOutputPathString)
 			if g, w := (jniLibZip.Rule != nil), test.packaged; g != w {
 				t.Errorf("expected jni packaged %v, got %v", w, g)
 			}
@@ -1442,7 +1456,7 @@ func TestJNISDK(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			app := ctx.ModuleForTests(test.name, "android_common")
 
-			jniLibZip := app.MaybeOutput("jnilibs.zip")
+			jniLibZip := app.MaybeOutput(jniJarOutputPathString)
 			if len(jniLibZip.Implicits) != 1 {
 				t.Fatalf("expected exactly one jni library, got %q", jniLibZip.Implicits.Strings())
 			}
@@ -1490,6 +1504,7 @@ func TestCertificates(t *testing.T) {
 	testCases := []struct {
 		name                     string
 		bp                       string
+		allowMissingDependencies bool
 		certificateOverride      string
 		expectedCertSigningFlags string
 		expectedCertificate      string
@@ -1505,7 +1520,7 @@ func TestCertificates(t *testing.T) {
 			`,
 			certificateOverride:      "",
 			expectedCertSigningFlags: "",
-			expectedCertificate:      "build/make/target/product/security/testkey.x509.pem build/make/target/product/security/testkey.pk8",
+			expectedCertificate:      "build/make/target/product/security/testkey",
 		},
 		{
 			name: "module certificate property",
@@ -1524,7 +1539,7 @@ func TestCertificates(t *testing.T) {
 			`,
 			certificateOverride:      "",
 			expectedCertSigningFlags: "",
-			expectedCertificate:      "cert/new_cert.x509.pem cert/new_cert.pk8",
+			expectedCertificate:      "cert/new_cert",
 		},
 		{
 			name: "path certificate property",
@@ -1538,7 +1553,7 @@ func TestCertificates(t *testing.T) {
 			`,
 			certificateOverride:      "",
 			expectedCertSigningFlags: "",
-			expectedCertificate:      "build/make/target/product/security/expiredkey.x509.pem build/make/target/product/security/expiredkey.pk8",
+			expectedCertificate:      "build/make/target/product/security/expiredkey",
 		},
 		{
 			name: "certificate overrides",
@@ -1557,7 +1572,7 @@ func TestCertificates(t *testing.T) {
 			`,
 			certificateOverride:      "foo:new_certificate",
 			expectedCertSigningFlags: "",
-			expectedCertificate:      "cert/new_cert.x509.pem cert/new_cert.pk8",
+			expectedCertificate:      "cert/new_cert",
 		},
 		{
 			name: "certificate signing flags",
@@ -1578,7 +1593,7 @@ func TestCertificates(t *testing.T) {
 			`,
 			certificateOverride:      "",
 			expectedCertSigningFlags: "--lineage lineage.bin --rotation-min-sdk-version 32",
-			expectedCertificate:      "cert/new_cert.x509.pem cert/new_cert.pk8",
+			expectedCertificate:      "cert/new_cert",
 		},
 		{
 			name: "cert signing flags from filegroup",
@@ -1604,7 +1619,20 @@ func TestCertificates(t *testing.T) {
 			`,
 			certificateOverride:      "",
 			expectedCertSigningFlags: "--lineage lineage.bin --rotation-min-sdk-version 32",
-			expectedCertificate:      "cert/new_cert.x509.pem cert/new_cert.pk8",
+			expectedCertificate:      "cert/new_cert",
+		},
+		{
+			name: "missing with AllowMissingDependencies",
+			bp: `
+				android_app {
+					name: "foo",
+					srcs: ["a.java"],
+					certificate: ":new_certificate",
+					sdk_version: "current",
+				}
+			`,
+			expectedCertificate:      "out/soong/.intermediates/foo/android_common/missing",
+			allowMissingDependencies: true,
 		},
 	}
 
@@ -1616,17 +1644,32 @@ func TestCertificates(t *testing.T) {
 					if test.certificateOverride != "" {
 						variables.CertificateOverrides = []string{test.certificateOverride}
 					}
+					if test.allowMissingDependencies {
+						variables.Allow_missing_dependencies = proptools.BoolPtr(true)
+					}
+				}),
+				android.FixtureModifyContext(func(ctx *android.TestContext) {
+					ctx.SetAllowMissingDependencies(test.allowMissingDependencies)
 				}),
 			).RunTestWithBp(t, test.bp)
 
 			foo := result.ModuleForTests("foo", "android_common")
 
-			signapk := foo.Output("foo.apk")
-			signCertificateFlags := signapk.Args["certificates"]
-			android.AssertStringEquals(t, "certificates flags", test.expectedCertificate, signCertificateFlags)
+			certificate := foo.Module().(*AndroidApp).certificate
+			android.AssertPathRelativeToTopEquals(t, "certificates key", test.expectedCertificate+".pk8", certificate.Key)
+			// The sign_target_files_apks and check_target_files_signatures
+			// tools require that certificates have a .x509.pem extension.
+			android.AssertPathRelativeToTopEquals(t, "certificates pem", test.expectedCertificate+".x509.pem", certificate.Pem)
 
-			certSigningFlags := signapk.Args["flags"]
-			android.AssertStringEquals(t, "cert signing flags", test.expectedCertSigningFlags, certSigningFlags)
+			signapk := foo.Output("foo.apk")
+			if signapk.Rule != android.ErrorRule {
+				signCertificateFlags := signapk.Args["certificates"]
+				expectedFlags := certificate.Pem.String() + " " + certificate.Key.String()
+				android.AssertStringEquals(t, "certificates flags", expectedFlags, signCertificateFlags)
+
+				certSigningFlags := signapk.Args["flags"]
+				android.AssertStringEquals(t, "cert signing flags", test.expectedCertSigningFlags, certSigningFlags)
+			}
 		})
 	}
 }
@@ -2301,12 +2344,14 @@ func TestAndroidTest_FixTestConfig(t *testing.T) {
 			srcs: ["b.java"],
 			package_name: "com.android.bar.test",
 			instrumentation_for: "foo",
+			mainline_package_name: "com.android.bar",
 		}
 
 		override_android_test {
 			name: "baz_test",
 			base: "foo_test",
 			package_name: "com.android.baz.test",
+			mainline_package_name: "com.android.baz",
 		}
 		`)
 
@@ -2325,6 +2370,7 @@ func TestAndroidTest_FixTestConfig(t *testing.T) {
 			expectedFlags: []string{
 				"--manifest out/soong/.intermediates/bar_test/android_common/manifest_fixer/AndroidManifest.xml",
 				"--package-name com.android.bar.test",
+				"--mainline-package-name com.android.bar",
 			},
 		},
 		{
@@ -2334,6 +2380,8 @@ func TestAndroidTest_FixTestConfig(t *testing.T) {
 				"--manifest out/soong/.intermediates/foo_test/android_common_baz_test/manifest_fixer/AndroidManifest.xml",
 				"--package-name com.android.baz.test",
 				"--test-file-name baz_test.apk",
+				"out/soong/.intermediates/foo_test/android_common_baz_test/test_config_fixer/AndroidTest.xml",
+				"--mainline-package-name com.android.baz",
 			},
 		},
 	}
@@ -2428,7 +2476,7 @@ func TestStl(t *testing.T) {
 	for _, test := range testCases {
 		t.Run(test.name, func(t *testing.T) {
 			app := ctx.ModuleForTests(test.name, "android_common")
-			jniLibZip := app.Output("jnilibs.zip")
+			jniLibZip := app.Output(jniJarOutputPathString)
 			var jnis []string
 			args := strings.Fields(jniLibZip.Args["jarArgs"])
 			for i := 0; i < len(args); i++ {
@@ -2605,12 +2653,20 @@ func TestUsesLibraries(t *testing.T) {
 	prebuilt := result.ModuleForTests("prebuilt", "android_common")
 
 	// Test that implicit dependencies on java_sdk_library instances are passed to the manifest.
-	// This should not include explicit `uses_libs`/`optional_uses_libs` entries.
+	// These also include explicit `uses_libs`/`optional_uses_libs` entries, as they may be
+	// propagated from dependencies.
 	actualManifestFixerArgs := app.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
 	expectManifestFixerArgs := `--extract-native-libs=true ` +
 		`--uses-library qux ` +
 		`--uses-library quuz ` +
-		`--uses-library runtime-library`
+		`--uses-library foo ` +
+		`--uses-library com.non.sdk.lib ` +
+		`--uses-library runtime-library ` +
+		`--uses-library runtime-required-x ` +
+		`--uses-library runtime-required-y ` +
+		`--optional-uses-library bar ` +
+		`--optional-uses-library runtime-optional-x ` +
+		`--optional-uses-library runtime-optional-y`
 	android.AssertStringDoesContain(t, "manifest_fixer args", actualManifestFixerArgs, expectManifestFixerArgs)
 
 	// Test that all libraries are verified (library order matters).
@@ -2978,11 +3034,13 @@ func TestExportedProguardFlagFiles(t *testing.T) {
 
 func TestTargetSdkVersionManifestFixer(t *testing.T) {
 	platform_sdk_codename := "Tiramisu"
+	platform_sdk_version := 33
 	testCases := []struct {
 		name                     string
 		targetSdkVersionInBp     string
 		targetSdkVersionExpected string
 		unbundledBuild           bool
+		platformSdkFinal         bool
 	}{
 		{
 			name:                     "Non-Unbundled build: Android.bp has targetSdkVersion",
@@ -3019,20 +3077,34 @@ func TestTargetSdkVersionManifestFixer(t *testing.T) {
 			targetSdkVersionExpected: "10000",
 			unbundledBuild:           true,
 		},
+		{
+			name:                     "Bundled build in REL branches",
+			targetSdkVersionExpected: "33",
+			unbundledBuild:           false,
+			platformSdkFinal:         true,
+		},
 	}
 	for _, testCase := range testCases {
+		targetSdkVersionTemplate := ""
+		if testCase.targetSdkVersionInBp != "" {
+			targetSdkVersionTemplate = fmt.Sprintf(`target_sdk_version: "%s",`, testCase.targetSdkVersionInBp)
+		}
 		bp := fmt.Sprintf(`
 			android_app {
 				name: "foo",
 				sdk_version: "current",
-				target_sdk_version: "%v",
+				%s
 			}
-			`, testCase.targetSdkVersionInBp)
+			`, targetSdkVersionTemplate)
 		fixture := android.GroupFixturePreparers(
 			prepareForJavaTest,
 			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				if testCase.platformSdkFinal {
+					variables.Platform_sdk_final = proptools.BoolPtr(true)
+				}
 				// explicitly set platform_sdk_codename to make the test deterministic
 				variables.Platform_sdk_codename = &platform_sdk_codename
+				variables.Platform_sdk_version = &platform_sdk_version
 				variables.Platform_version_active_codenames = []string{platform_sdk_codename}
 				// create a non-empty list if unbundledBuild==true
 				if testCase.unbundledBuild {
@@ -3049,6 +3121,256 @@ func TestTargetSdkVersionManifestFixer(t *testing.T) {
 	}
 }
 
+func TestDefaultAppTargetSdkVersionForUpdatableModules(t *testing.T) {
+	platform_sdk_codename := "Tiramisu"
+	platform_sdk_version := 33
+	testCases := []struct {
+		name                     string
+		platform_sdk_final       bool
+		targetSdkVersionInBp     *string
+		targetSdkVersionExpected *string
+		updatable                bool
+	}{
+		{
+			name:                     "Non-Updatable Module: Android.bp has older targetSdkVersion",
+			targetSdkVersionInBp:     proptools.StringPtr("29"),
+			targetSdkVersionExpected: proptools.StringPtr("29"),
+			updatable:                false,
+		},
+		{
+			name:                     "Updatable Module: Android.bp has older targetSdkVersion",
+			targetSdkVersionInBp:     proptools.StringPtr("30"),
+			targetSdkVersionExpected: proptools.StringPtr("30"),
+			updatable:                true,
+		},
+		{
+			name:                     "Updatable Module: Android.bp has no targetSdkVersion",
+			targetSdkVersionExpected: proptools.StringPtr("10000"),
+			updatable:                true,
+		},
+		{
+			name:                     "[SDK finalised] Non-Updatable Module: Android.bp has older targetSdkVersion",
+			platform_sdk_final:       true,
+			targetSdkVersionInBp:     proptools.StringPtr("30"),
+			targetSdkVersionExpected: proptools.StringPtr("30"),
+			updatable:                false,
+		},
+		{
+			name:                     "[SDK finalised] Updatable Module: Android.bp has older targetSdkVersion",
+			platform_sdk_final:       true,
+			targetSdkVersionInBp:     proptools.StringPtr("30"),
+			targetSdkVersionExpected: proptools.StringPtr("30"),
+			updatable:                true,
+		},
+		{
+			name:                     "[SDK finalised] Updatable Module: Android.bp has targetSdkVersion as platform sdk codename",
+			platform_sdk_final:       true,
+			targetSdkVersionInBp:     proptools.StringPtr(platform_sdk_codename),
+			targetSdkVersionExpected: proptools.StringPtr("33"),
+			updatable:                true,
+		},
+		{
+			name:                     "[SDK finalised] Updatable Module: Android.bp has no targetSdkVersion",
+			platform_sdk_final:       true,
+			targetSdkVersionExpected: proptools.StringPtr("33"),
+			updatable:                true,
+		},
+	}
+	for _, testCase := range testCases {
+		targetSdkVersionTemplate := ""
+		if testCase.targetSdkVersionInBp != nil {
+			targetSdkVersionTemplate = fmt.Sprintf(`target_sdk_version: "%s",`, *testCase.targetSdkVersionInBp)
+		}
+		bp := fmt.Sprintf(`
+			android_app {
+				name: "foo",
+				sdk_version: "current",
+				min_sdk_version: "29",
+				%s
+				updatable: %t,
+				enforce_default_target_sdk_version: %t
+			}
+			`, targetSdkVersionTemplate, testCase.updatable, testCase.updatable) // enforce default target sdk version if app is updatable
+
+		fixture := android.GroupFixturePreparers(
+			PrepareForTestWithJavaDefaultModules,
+			android.PrepareForTestWithAllowMissingDependencies,
+			android.PrepareForTestWithAndroidMk,
+			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				// explicitly set following platform variables to make the test deterministic
+				variables.Platform_sdk_final = &testCase.platform_sdk_final
+				variables.Platform_sdk_version = &platform_sdk_version
+				variables.Platform_sdk_codename = &platform_sdk_codename
+				variables.Platform_version_active_codenames = []string{platform_sdk_codename}
+				variables.Unbundled_build = proptools.BoolPtr(true)
+				variables.Unbundled_build_apps = []string{"sampleModule"}
+			}),
+		)
+
+		result := fixture.RunTestWithBp(t, bp)
+		foo := result.ModuleForTests("foo", "android_common")
+
+		manifestFixerArgs := foo.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
+		android.AssertStringDoesContain(t, testCase.name, manifestFixerArgs, "--targetSdkVersion  "+*testCase.targetSdkVersionExpected)
+	}
+}
+
+func TestEnforceDefaultAppTargetSdkVersionFlag(t *testing.T) {
+	platform_sdk_codename := "Tiramisu"
+	platform_sdk_version := 33
+	testCases := []struct {
+		name                           string
+		enforceDefaultTargetSdkVersion bool
+		expectedError                  string
+		platform_sdk_final             bool
+		targetSdkVersionInBp           string
+		targetSdkVersionExpected       string
+		updatable                      bool
+	}{
+		{
+			name:                           "Not enforcing Target SDK Version: Android.bp has older targetSdkVersion",
+			enforceDefaultTargetSdkVersion: false,
+			targetSdkVersionInBp:           "29",
+			targetSdkVersionExpected:       "29",
+			updatable:                      false,
+		},
+		{
+			name:                           "[SDK finalised] Enforce Target SDK Version: Android.bp has current targetSdkVersion",
+			enforceDefaultTargetSdkVersion: true,
+			platform_sdk_final:             true,
+			targetSdkVersionInBp:           "current",
+			targetSdkVersionExpected:       "33",
+			updatable:                      true,
+		},
+		{
+			name:                           "Enforce Target SDK Version: Android.bp has current targetSdkVersion",
+			enforceDefaultTargetSdkVersion: true,
+			platform_sdk_final:             false,
+			targetSdkVersionInBp:           "current",
+			targetSdkVersionExpected:       "10000",
+			updatable:                      false,
+		},
+		{
+			name:                           "Not enforcing Target SDK Version for Updatable app",
+			enforceDefaultTargetSdkVersion: false,
+			expectedError:                  "Updatable apps must enforce default target sdk version",
+			targetSdkVersionInBp:           "29",
+			targetSdkVersionExpected:       "29",
+			updatable:                      true,
+		},
+	}
+	for _, testCase := range testCases {
+		errExpected := testCase.expectedError != ""
+		bp := fmt.Sprintf(`
+			android_app {
+				name: "foo",
+				enforce_default_target_sdk_version: %t,
+				sdk_version: "current",
+				min_sdk_version: "29",
+				target_sdk_version: "%v",
+				updatable: %t
+			}
+			`, testCase.enforceDefaultTargetSdkVersion, testCase.targetSdkVersionInBp, testCase.updatable)
+
+		fixture := android.GroupFixturePreparers(
+			PrepareForTestWithJavaDefaultModules,
+			android.PrepareForTestWithAllowMissingDependencies,
+			android.PrepareForTestWithAndroidMk,
+			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				// explicitly set following platform variables to make the test deterministic
+				variables.Platform_sdk_final = &testCase.platform_sdk_final
+				variables.Platform_sdk_version = &platform_sdk_version
+				variables.Platform_sdk_codename = &platform_sdk_codename
+				variables.Unbundled_build = proptools.BoolPtr(true)
+				variables.Unbundled_build_apps = []string{"sampleModule"}
+			}),
+		)
+
+		errorHandler := android.FixtureExpectsNoErrors
+		if errExpected {
+			errorHandler = android.FixtureExpectsAtLeastOneErrorMatchingPattern(testCase.expectedError)
+		}
+		result := fixture.ExtendWithErrorHandler(errorHandler).RunTestWithBp(t, bp)
+
+		if !errExpected {
+			foo := result.ModuleForTests("foo", "android_common")
+			manifestFixerArgs := foo.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
+			android.AssertStringDoesContain(t, testCase.name, manifestFixerArgs, "--targetSdkVersion  "+testCase.targetSdkVersionExpected)
+		}
+	}
+}
+
+func TestEnforceDefaultAppTargetSdkVersionFlagForTests(t *testing.T) {
+	platform_sdk_codename := "Tiramisu"
+	platform_sdk_version := 33
+	testCases := []struct {
+		name                           string
+		enforceDefaultTargetSdkVersion bool
+		expectedError                  string
+		platform_sdk_final             bool
+		targetSdkVersionInBp           string
+		targetSdkVersionExpected       string
+	}{
+		{
+			name:                           "Not enforcing Target SDK Version: Android.bp has older targetSdkVersion",
+			enforceDefaultTargetSdkVersion: false,
+			targetSdkVersionInBp:           "29",
+			targetSdkVersionExpected:       "29",
+		},
+		{
+			name:                           "[SDK finalised] Enforce Target SDK Version: Android.bp has current targetSdkVersion",
+			enforceDefaultTargetSdkVersion: true,
+			platform_sdk_final:             true,
+			targetSdkVersionInBp:           "current",
+			targetSdkVersionExpected:       "33",
+		},
+		{
+			name:                           "Enforce Target SDK Version: Android.bp has current targetSdkVersion",
+			enforceDefaultTargetSdkVersion: true,
+			platform_sdk_final:             false,
+			targetSdkVersionInBp:           "current",
+			targetSdkVersionExpected:       "10000",
+		},
+	}
+	for _, testCase := range testCases {
+		errExpected := testCase.expectedError != ""
+		bp := fmt.Sprintf(`
+			android_test {
+				name: "foo",
+				enforce_default_target_sdk_version: %t,
+				min_sdk_version: "29",
+				target_sdk_version: "%v",
+			}
+		`, testCase.enforceDefaultTargetSdkVersion, testCase.targetSdkVersionInBp)
+
+		fixture := android.GroupFixturePreparers(
+			PrepareForTestWithJavaDefaultModules,
+			android.PrepareForTestWithAllowMissingDependencies,
+			android.PrepareForTestWithAndroidMk,
+			android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+				// explicitly set following platform variables to make the test deterministic
+				variables.Platform_sdk_final = &testCase.platform_sdk_final
+				variables.Platform_sdk_version = &platform_sdk_version
+				variables.Platform_sdk_codename = &platform_sdk_codename
+				variables.Unbundled_build = proptools.BoolPtr(true)
+				variables.Unbundled_build_apps = []string{"sampleModule"}
+			}),
+		)
+
+		errorHandler := android.FixtureExpectsNoErrors
+		if errExpected {
+			errorHandler = android.FixtureExpectsAtLeastOneErrorMatchingPattern(testCase.expectedError)
+		}
+		result := fixture.ExtendWithErrorHandler(errorHandler).RunTestWithBp(t, bp)
+
+		if !errExpected {
+			foo := result.ModuleForTests("foo", "android_common")
+			manifestFixerArgs := foo.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
+			android.AssertStringDoesContain(t, testCase.name, manifestFixerArgs, "--targetSdkVersion  "+testCase.targetSdkVersionExpected)
+		}
+	}
+}
+
 func TestAppMissingCertificateAllowMissingDependencies(t *testing.T) {
 	result := android.GroupFixturePreparers(
 		PrepareForTestWithJavaDefaultModules,
@@ -3060,6 +3382,14 @@ func TestAppMissingCertificateAllowMissingDependencies(t *testing.T) {
 			srcs: ["a.java"],
 			certificate: ":missing_certificate",
 			sdk_version: "current",
+		}
+
+		android_app {
+			name: "bar",
+			srcs: ["a.java"],
+			certificate: ":missing_certificate",
+			product_specific: true,
+			sdk_version: "current",
 		}`)
 
 	foo := result.ModuleForTests("foo", "android_common")
@@ -3068,4 +3398,152 @@ func TestAppMissingCertificateAllowMissingDependencies(t *testing.T) {
 		t.Fatalf("expected ErrorRule for foo.apk, got %s", fooApk.Rule.String())
 	}
 	android.AssertStringDoesContain(t, "expected error rule message", fooApk.Args["error"], "missing dependencies: missing_certificate\n")
+}
+
+func TestAppIncludesJniPackages(t *testing.T) {
+	ctx := android.GroupFixturePreparers(
+		PrepareForTestWithJavaDefaultModules,
+	).RunTestWithBp(t, `
+		android_library_import {
+			name: "aary-nodeps",
+			aars: ["aary.aar"],
+			extract_jni: true,
+		}
+
+		android_library {
+			name: "aary-lib",
+			sdk_version: "current",
+			min_sdk_version: "21",
+			static_libs: ["aary-nodeps"],
+		}
+
+		android_app {
+			name: "aary-lib-dep",
+			sdk_version: "current",
+			min_sdk_version: "21",
+			manifest: "AndroidManifest.xml",
+			static_libs: ["aary-lib"],
+			use_embedded_native_libs: true,
+		}
+
+		android_app {
+			name: "aary-import-dep",
+			sdk_version: "current",
+			min_sdk_version: "21",
+			manifest: "AndroidManifest.xml",
+			static_libs: ["aary-nodeps"],
+			use_embedded_native_libs: true,
+		}
+
+		android_app {
+			name: "aary-no-use-embedded",
+			sdk_version: "current",
+			min_sdk_version: "21",
+			manifest: "AndroidManifest.xml",
+			static_libs: ["aary-nodeps"],
+		}`)
+
+	testCases := []struct {
+		name       string
+		hasPackage bool
+	}{
+		{
+			name:       "aary-import-dep",
+			hasPackage: true,
+		},
+		{
+			name:       "aary-lib-dep",
+			hasPackage: true,
+		},
+		{
+			name:       "aary-no-use-embedded",
+			hasPackage: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			app := ctx.ModuleForTests(tc.name, "android_common")
+
+			outputFile := "jnilibs.zip"
+			jniOutputLibZip := app.MaybeOutput(outputFile)
+			if jniOutputLibZip.Rule == nil && !tc.hasPackage {
+				return
+			}
+
+			jniPackage := "arm64-v8a_jni.zip"
+			inputs := jniOutputLibZip.Inputs
+			foundPackage := false
+			for i := 0; i < len(inputs); i++ {
+				if strings.Contains(inputs[i].String(), jniPackage) {
+					foundPackage = true
+				}
+			}
+			if foundPackage != tc.hasPackage {
+				t.Errorf("expected to find %v in %v inputs; inputs = %v", jniPackage, outputFile, inputs)
+			}
+		})
+	}
+}
+
+func TestTargetSdkVersionMtsTests(t *testing.T) {
+	platformSdkCodename := "Tiramisu"
+	android_test := "android_test"
+	android_test_helper_app := "android_test_helper_app"
+	bpTemplate := `
+	%v {
+		name: "mytest",
+		target_sdk_version: "%v",
+		test_suites: ["othersuite", "%v"],
+	}
+	`
+	testCases := []struct {
+		desc                     string
+		moduleType               string
+		targetSdkVersionInBp     string
+		targetSdkVersionExpected string
+		testSuites               string
+	}{
+		{
+			desc:                     "Non-MTS android_test_apps targeting current should not be upgraded to 10000",
+			moduleType:               android_test,
+			targetSdkVersionInBp:     "current",
+			targetSdkVersionExpected: platformSdkCodename,
+			testSuites:               "non-mts-suite",
+		},
+		{
+			desc:                     "MTS android_test_apps targeting released sdks should not be upgraded to 10000",
+			moduleType:               android_test,
+			targetSdkVersionInBp:     "29",
+			targetSdkVersionExpected: "29",
+			testSuites:               "mts-suite",
+		},
+		{
+			desc:                     "MTS android_test_apps targeting current should be upgraded to 10000",
+			moduleType:               android_test,
+			targetSdkVersionInBp:     "current",
+			targetSdkVersionExpected: "10000",
+			testSuites:               "mts-suite",
+		},
+		{
+			desc:                     "MTS android_test_helper_apps targeting current should be upgraded to 10000",
+			moduleType:               android_test_helper_app,
+			targetSdkVersionInBp:     "current",
+			targetSdkVersionExpected: "10000",
+			testSuites:               "mts-suite",
+		},
+	}
+	fixture := android.GroupFixturePreparers(
+		prepareForJavaTest,
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.Platform_sdk_codename = &platformSdkCodename
+			variables.Platform_version_active_codenames = []string{platformSdkCodename}
+		}),
+	)
+	for _, testCase := range testCases {
+		result := fixture.RunTestWithBp(t, fmt.Sprintf(bpTemplate, testCase.moduleType, testCase.targetSdkVersionInBp, testCase.testSuites))
+		mytest := result.ModuleForTests("mytest", "android_common")
+		manifestFixerArgs := mytest.Output("manifest_fixer/AndroidManifest.xml").Args["args"]
+		android.AssertStringDoesContain(t, testCase.desc, manifestFixerArgs, "--targetSdkVersion  "+testCase.targetSdkVersionExpected)
+	}
 }

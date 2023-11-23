@@ -30,6 +30,7 @@ import android.service.carrier.MessagePdu;
 import android.telephony.SmsMessage;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.cts.util.TelephonyUtils;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -41,6 +42,7 @@ import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -125,7 +127,7 @@ public class CarrierMessagingServiceWrapperTest {
         testConnectToMessagingServiceWrapper();
 
         Mockito.reset(mCallback);
-        mServiceWrapper.receiveSms(new MessagePdu(Arrays.asList(
+        mServiceWrapper.receiveSms(new MessagePdu(Collections.singletonList(
                 TelephonyUtils.hexStringToByteArray(mPdu))), SmsMessage.FORMAT_3GPP, -1,
                 mTestSub, Runnable::run, mCallback);
         // Currently we just check if any result is returned. We don't test it being

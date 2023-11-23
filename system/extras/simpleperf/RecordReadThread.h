@@ -90,9 +90,10 @@ class RecordParser {
 };
 
 struct RecordStat {
-  size_t lost_samples = 0;
-  size_t lost_non_samples = 0;
-  size_t cut_stack_samples = 0;
+  size_t kernelspace_lost_records = 0;
+  size_t userspace_lost_samples = 0;
+  size_t userspace_lost_non_samples = 0;
+  size_t userspace_cut_stack_samples = 0;
   uint64_t aux_data_size = 0;
   uint64_t lost_aux_data_size = 0;
 };

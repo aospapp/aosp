@@ -83,6 +83,10 @@ const (
 	rlibVendorVariant     = "android_vendor.29_arm64_armv8-a_rlib_rlib-std"
 	sharedRecoveryVariant = "android_recovery_arm64_armv8-a_shared"
 	rlibRecoveryVariant   = "android_recovery_arm64_armv8-a_rlib_rlib-std"
+	binaryCoreVariant     = "android_arm64_armv8-a"
+	binaryVendorVariant   = "android_vendor.29_arm64_armv8-a"
+	binaryProductVariant  = "android_product.29_arm64_armv8-a"
+	binaryRecoveryVariant = "android_recovery_arm64_armv8-a"
 )
 
 func testRustVndkFs(t *testing.T, bp string, fs android.MockFS) *android.TestContext {
@@ -205,6 +209,10 @@ func TestLinkPathFromFilePath(t *testing.T) {
 // Test to make sure dependencies are being picked up correctly.
 func TestDepsTracking(t *testing.T) {
 	ctx := testRust(t, `
+		cc_library {
+			host_supported: true,
+			name: "cc_stubs_dep",
+		}
 		rust_ffi_host_static {
 			name: "libstatic",
 			srcs: ["foo.rs"],
@@ -231,6 +239,7 @@ func TestDepsTracking(t *testing.T) {
 			crate_name: "rlib",
 			static_libs: ["libstatic"],
 			whole_static_libs: ["libwholestatic"],
+			shared_libs: ["cc_stubs_dep"],
 		}
 		rust_proc_macro {
 			name: "libpm",
@@ -249,6 +258,7 @@ func TestDepsTracking(t *testing.T) {
 	`)
 	module := ctx.ModuleForTests("fizz-buzz", "linux_glibc_x86_64").Module().(*Module)
 	rustc := ctx.ModuleForTests("librlib", "linux_glibc_x86_64_rlib_rlib-std").Rule("rustc")
+	rustLink := ctx.ModuleForTests("fizz-buzz", "linux_glibc_x86_64").Rule("rustLink")
 
 	// Since dependencies are added to AndroidMk* properties, we can check these to see if they've been picked up.
 	if !android.InList("libdylib", module.Properties.AndroidMkDylibs) {
@@ -275,6 +285,17 @@ func TestDepsTracking(t *testing.T) {
 		t.Errorf("-lstatic flag not being passed to rustc for static library %#v", rustc.Args["rustcFlags"])
 	}
 
+	if !strings.Contains(rustLink.Args["linkFlags"], "cc_stubs_dep.so") {
+		t.Errorf("shared cc_library not being passed to rustc linkFlags %#v", rustLink.Args["linkFlags"])
+	}
+
+	if !android.SuffixInList(rustLink.OrderOnly.Strings(), "cc_stubs_dep.so") {
+		t.Errorf("shared cc dep not being passed as order-only to rustc %#v", rustLink.OrderOnly.Strings())
+	}
+
+	if !android.SuffixInList(rustLink.Implicits.Strings(), "cc_stubs_dep.so.toc") {
+		t.Errorf("shared cc dep TOC not being passed as implicit to rustc %#v", rustLink.Implicits.Strings())
+	}
 }
 
 func TestSourceProviderDeps(t *testing.T) {
@@ -327,7 +348,7 @@ func TestSourceProviderDeps(t *testing.T) {
 			source_stem: "bindings",
 			host_supported: true,
 			wrapper_src: "src/any.h",
-        }
+		}
 	`)
 
 	libfoo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_rlib_dylib-std").Rule("rustc")
@@ -367,7 +388,6 @@ func TestSourceProviderDeps(t *testing.T) {
 	if !android.InList("libbindings.rlib-std", libprocmacroMod.Properties.AndroidMkRlibs) {
 		t.Errorf("bindgen dependency not detected as a rlib dependency (dependency missing from AndroidMkRlibs)")
 	}
-
 }
 
 func TestSourceProviderTargetMismatch(t *testing.T) {

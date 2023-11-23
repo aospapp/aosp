@@ -55,6 +55,7 @@ public class AtomicReferenceArray<E> implements java.io.Serializable {
     private static final long serialVersionUID = -6209656149925076980L;
     private static final VarHandle AA
         = MethodHandles.arrayElementVarHandle(Object[].class);
+    @SuppressWarnings("serial") // Conditionally serializable
     private final Object[] array; // must have exact type Object[]
 
     /**
@@ -329,6 +330,7 @@ public class AtomicReferenceArray<E> implements java.io.Serializable {
             throw new java.io.InvalidObjectException("Not array type");
         if (a.getClass() != Object[].class)
             a = Arrays.copyOf((Object[])a, Array.getLength(a), Object[].class);
+        @SuppressWarnings("removal")
         Field arrayField = java.security.AccessController.doPrivileged(
             (java.security.PrivilegedAction<Field>) () -> {
                 try {

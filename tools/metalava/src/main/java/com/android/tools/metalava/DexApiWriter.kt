@@ -59,7 +59,7 @@ class DexApiWriter(
             writer.print("V")
         } else {
             val returnType = method.returnType()
-            writer.print(returnType?.internalName(method) ?: "V")
+            writer.print(returnType.internalName(method))
         }
         writer.print("\n")
     }

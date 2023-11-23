@@ -146,7 +146,6 @@ class MetricLogger(object):
         Args:
             event: the event that is triggering this start
         """
-        pass
 
     def end(self, event):
         """End the logging process.
@@ -154,7 +153,6 @@ class MetricLogger(object):
         Args:
             event: the event that is triggering this start
         """
-        pass
 
     def _init_for_event(self, event):
         """Populate unset attributes with default values."""
@@ -223,7 +221,8 @@ class LoggerProxy(object):
         Args:
             event: The event that triggered this logger.
         """
-        self._logger = self._logger_cls(event=event, *self._logger_args,
+        self._logger = self._logger_cls(event=event,
+                                        *self._logger_args,
                                         **self._logger_kwargs)
         self._logger.start(event)
 

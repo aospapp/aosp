@@ -16,10 +16,11 @@
 
 package com.android.compatibility.common.util;
 
+import static com.android.compatibility.common.util.UserSettings.Namespace;
+
 import android.content.Context;
 import android.provider.Settings;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import java.util.Objects;
@@ -29,37 +30,47 @@ import java.util.Objects;
  */
 public class SettingsStateManager implements StateManager<String> {
 
-    private final Context mContext;
-    private final String mNamespace;
+    private final UserSettings mUserSettings;
+
     private final String mKey;
 
     /**
-     * Default constructor.
+     * Constructor for the {@link Namespace#SECURE} namespace.
      *
      * @param context context used to retrieve the {@link Settings} provider.
      * @param namespace settings namespace.
-     * @param key prefence key.
+     * @param key preference key.
      */
-    public SettingsStateManager(@NonNull Context context, @NonNull String namespace,
-            @NonNull String key) {
-        mContext = Objects.requireNonNull(context);
-        mNamespace = Objects.requireNonNull(namespace);
+    public SettingsStateManager(Context context, String key) {
+        this(context, Namespace.SECURE, key);
+    }
+
+    /**
+     * Full-attributes constructor.
+     *
+     * @param context context used to retrieve the {@link Settings} provider.
+     * @param namespace settings namespace.
+     * @param key preference key.
+     */
+    public SettingsStateManager(Context context, Namespace namespace, String key) {
+        mUserSettings = new UserSettings(Objects.requireNonNull(context),
+                Objects.requireNonNull(namespace));
         mKey = Objects.requireNonNull(key);
     }
 
     @Override
     public void set(@Nullable String value) {
-        SettingsUtils.syncSet(mContext, mNamespace, mKey, value);
+        mUserSettings.syncSet(mKey, value);
     }
 
     @Override
     @Nullable
     public String get() {
-        return SettingsUtils.get(mNamespace, mKey);
+        return mUserSettings.get(mKey);
     }
 
     @Override
     public String toString() {
-        return "SettingsStateManager[namespace=" + mNamespace + ", key=" + mKey + "]";
+        return "SettingsStateManager[" + mUserSettings + ", key=" + mKey + "]";
     }
 }

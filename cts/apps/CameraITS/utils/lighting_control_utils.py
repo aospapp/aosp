@@ -29,6 +29,27 @@ ARDUINO_LIGHT_START_BYTE = 254
 KEYBOARD_ENTRY_WAIT_TIME = 20  # seconds to wait for keyboard entry
 
 
+def _toggle_screen_state(device, desired_state):
+  """Trigger device power key to toggle screen."""
+  current_state = 'ON'
+  if desired_state == 'ON':
+    current_state = 'OFF'
+  output = device.adb.shell('dumpsys display | grep mScreenState=')
+  output_val = str(output.decode('utf-8')).strip()
+  if current_state in output_val:
+    device.adb.shell(['input', 'keyevent', 'KEYCODE_POWER'])
+
+
+def turn_off_device(device):
+  """Turn off a device via power key if screen is on."""
+  _toggle_screen_state(device, 'OFF')
+
+
+def turn_on_device(device):
+  """Turn on a device via power key if screen is on."""
+  _toggle_screen_state(device, 'ON')
+
+
 def set_light_brightness(ch, brightness, serial_port, delay=0):
   """Turn on light to specified brightness.
 

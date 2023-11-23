@@ -27,7 +27,8 @@ type bazelFilepath struct {
 }
 
 func TestCreateBazelFiles_QueryView_AddsTopLevelFiles(t *testing.T) {
-	files := CreateBazelFiles(map[string]RuleShim{}, map[string]BazelTargets{}, QueryView)
+	files := CreateBazelFiles(android.NullConfig("out", "out/soong"),
+		map[string]RuleShim{}, map[string]BazelTargets{}, QueryView)
 	expectedFilePaths := []bazelFilepath{
 		{
 			dir:      "",
@@ -83,28 +84,62 @@ func TestCreateBazelFiles_QueryView_AddsTopLevelFiles(t *testing.T) {
 
 func TestCreateBazelFiles_Bp2Build_CreatesDefaultFiles(t *testing.T) {
 	testConfig := android.TestConfig("", make(map[string]string), "", make(map[string][]byte))
-	files := CreateSoongInjectionFiles(testConfig, CodegenMetrics{})
-
+	files, err := soongInjectionFiles(testConfig, CreateCodegenMetrics())
+	if err != nil {
+		t.Error(err)
+	}
 	expectedFilePaths := []bazelFilepath{
 		{
-			dir:      "cc_toolchain",
+			dir:      "android",
 			basename: GeneratedBuildFileName,
 		},
 		{
-			dir:      "cc_toolchain",
+			dir:      "android",
 			basename: "constants.bzl",
 		},
 		{
+			dir:      "cc_toolchain",
+			basename: GeneratedBuildFileName,
+		},
+		{
+			dir:      "cc_toolchain",
+			basename: "config_constants.bzl",
+		},
+		{
+			dir:      "cc_toolchain",
+			basename: "sanitizer_constants.bzl",
+		},
+		{
 			dir:      "java_toolchain",
 			basename: GeneratedBuildFileName,
 		},
 		{
 			dir:      "java_toolchain",
+			basename: "constants.bzl",
+		},
+		{
+			dir:      "apex_toolchain",
+			basename: GeneratedBuildFileName,
+		},
+		{
+			dir:      "apex_toolchain",
 			basename: "constants.bzl",
 		},
 		{
 			dir:      "metrics",
 			basename: "converted_modules.txt",
+		},
+		{
+			dir:      "metrics",
+			basename: "BUILD.bazel",
+		},
+		{
+			dir:      "metrics",
+			basename: "converted_modules_path_map.json",
+		},
+		{
+			dir:      "metrics",
+			basename: "converted_modules_path_map.bzl",
 		},
 		{
 			dir:      "product_config",
@@ -125,6 +160,26 @@ func TestCreateBazelFiles_Bp2Build_CreatesDefaultFiles(t *testing.T) {
 		{
 			dir:      "api_levels",
 			basename: "api_levels.bzl",
+		},
+		{
+			dir:      "api_levels",
+			basename: "platform_versions.bzl",
+		},
+		{
+			dir:      "allowlists",
+			basename: GeneratedBuildFileName,
+		},
+		{
+			dir:      "allowlists",
+			basename: "env.bzl",
+		},
+		{
+			dir:      "allowlists",
+			basename: "mixed_build_prod_allowlist.txt",
+		},
+		{
+			dir:      "allowlists",
+			basename: "mixed_build_staging_allowlist.txt",
 		},
 	}
 

@@ -58,6 +58,7 @@ filegroup {
 java_sdk_library {
     name: "art.module.intra.core.api",
     visibility: [
+        "//build/soong/java/core-libraries",
         "//libcore/mmodules/core_platform_api",
     ],
     srcs: [
@@ -75,6 +76,10 @@ java_sdk_library {
     system_modules: "none",
     patch_module: "java.base",
 
+    // This jar is packaged as part of the SDK, use -target 8 so that it works
+    // with old JDKs.
+    java_version: "1.8",
+
     // Don't copy any output files to the dist.
     no_dist: true,
 }
@@ -85,6 +90,9 @@ java_sdk_library {
 // which is in turn needed to build art-module-intra-core-api-stubs-system-modules
 java_system_modules {
     name: "art-module-intra-core-api-stubs-bootstrap-system-modules",
+    visibility: [
+        "//build/soong/java/core-libraries",
+    ],
     libs: [
         // The intra core API stubs library.
         "art.module.intra.core.api.stubs",
@@ -94,9 +102,11 @@ java_system_modules {
 // A library containing additional classes that are needed in the system modules.
 java_library {
     name: "art-module-intra-core-api-stubs-system-modules-lib",
+    visibility: [
+        "//build/soong/java/core-libraries",
+    ],
     srcs: [
         ":openjdk_lambda_stub_files",
-        ":openjdk_generated_annotation_stub_files",
     ],
     libs: [
         "art.module.intra.core.api",
@@ -104,22 +114,17 @@ java_library {
     system_modules: "art-module-intra-core-api-stubs-bootstrap-system-modules",
     sdk_version: "none",
     patch_module: "java.base",
+
+    // This jar is packaged as part of the SDK, use -target 8 so that it works
+    // with old JDKs.
+    java_version: "1.8",
 }
 
-// Used when compiling against art.module.intra.core.api.stubs.
-java_system_modules {
-    name: "art-module-intra-core-api-stubs-system-modules",
+java_api_contribution {
+    name: "art-module-intra-core-api-intra-core-stubs",
+    api_surface: "intra-core",
+    api_file: "api/intra/current.txt",
     visibility: [
-        "//art/build/sdk",
-        "//external/bouncycastle",
-        "//external/conscrypt",
-        "//external/icu/android_icu4j",
-    ],
-    libs: [
-        // The intra core API stubs library.
-        "art.module.intra.core.api.stubs",
-
-        // Additional classes needed by javac but which are not present in the stubs.
-        "art-module-intra-core-api-stubs-system-modules-lib",
+        "//build/orchestrator/apis",
     ],
 }

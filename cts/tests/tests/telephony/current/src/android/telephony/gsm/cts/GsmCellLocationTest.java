@@ -32,6 +32,7 @@ public class GsmCellLocationTest {
     private static final int INVALID_CID = -1;
     private static final int INVALID_LAC = -1;
 
+    @SuppressWarnings("XorPower")
     @Test
     public void testGsmCellLocation() {
         Bundle bundle = new Bundle();

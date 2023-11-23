@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -19,6 +19,7 @@
 from socket import *  # pylint: disable=wildcard-import
 import struct
 
+import binascii
 import cstruct
 import genetlink
 import net_test
@@ -61,7 +62,7 @@ class TcpMetrics(genetlink.GenericNetlink):
     ctrl = genetlink.GenericNetlinkControl()
     self.family = ctrl.GetFamily(TCP_METRICS_GENL_NAME)
 
-  def _Decode(self, command, msg, nla_type, nla_data):
+  def _Decode(self, command, msg, nla_type, nla_data, nested):
     """Decodes TCP metrics netlink attributes to human-readable format."""
 
     name = self._GetConstantName(__name__, nla_type, "TCP_METRICS_ATTR_")
@@ -79,7 +80,7 @@ class TcpMetrics(genetlink.GenericNetlink):
     elif name == "TCP_METRICS_ATTR_FOPEN_COOKIE":
       data = nla_data
     else:
-      data = nla_data.encode("hex")
+      data = binascii.hexlify(nla_data)
 
     return name, data
 

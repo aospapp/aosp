@@ -15,52 +15,41 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-
-#include <linux/videodev2.h>
-#include <linux/v4l2-controls.h>
-
 #include <exynos-hwjpeg.h>
+#include <fcntl.h>
+#include <linux/v4l2-controls.h>
+#include <linux/videodev2.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "hwjpeg-internal.h"
 
-CHWJpegBase::CHWJpegBase(const char *path)
-         : m_iFD(-1), m_uiDeviceCaps(0), m_uiAuxFlags(0)
-{
+CHWJpegBase::CHWJpegBase(const char *path) : m_iFD(-1), m_uiDeviceCaps(0), m_uiAuxFlags(0) {
     m_iFD = open(path, O_RDWR);
-    if (m_iFD < 0)
-        ALOGERR("Failed to open '%s'", path);
+    if (m_iFD < 0) ALOGERR("Failed to open '%s'", path);
 }
 
-CHWJpegBase::~CHWJpegBase()
-{
-    if (m_iFD >= 0)
-        close(m_iFD);
+CHWJpegBase::~CHWJpegBase() {
+    if (m_iFD >= 0) close(m_iFD);
 }
 
-void CHWJpegBase::SetAuxFlags(unsigned int auxflags)
-{
+void CHWJpegBase::SetAuxFlags(unsigned int auxflags) {
     ALOGW_IF(!!(m_uiAuxFlags & auxflags),
-            "Configuration auxiliary flags %#x overrides previous flags %#x",
-            auxflags , m_uiAuxFlags);
+             "Configuration auxiliary flags %#x overrides previous flags %#x", auxflags,
+             m_uiAuxFlags);
 
     m_uiAuxFlags |= auxflags;
 }
 
-void CHWJpegBase::ClearAuxFlags(unsigned int auxflags)
-{
-
+void CHWJpegBase::ClearAuxFlags(unsigned int auxflags) {
     ALOGW_IF(!!(m_uiAuxFlags & auxflags) && ((m_uiAuxFlags & auxflags) != auxflags),
-            "Clearing auxiliary flags %#x overrides previous flags %#x",
-            auxflags, m_uiAuxFlags);
+             "Clearing auxiliary flags %#x overrides previous flags %#x", auxflags, m_uiAuxFlags);
 
     m_uiAuxFlags &= ~auxflags;
 }
 
-bool CStopWatch::Start()
-{
+bool CStopWatch::Start() {
     int ret = clock_gettime(CLOCK_MONOTONIC, &m_tBegin);
     if (ret) {
         ALOGERR("Failed to get current clock");
@@ -71,8 +60,7 @@ bool CStopWatch::Start()
     return true;
 }
 
-unsigned long CStopWatch::GetElapsed()
-{
+unsigned long CStopWatch::GetElapsed() {
     timespec tp;
     int ret = clock_gettime(CLOCK_MONOTONIC, &tp);
     if (ret) {
@@ -81,13 +69,11 @@ unsigned long CStopWatch::GetElapsed()
     }
 
     unsigned long elapsed = (tp.tv_sec - m_tBegin.tv_sec) * 1000000;
-    return (m_tBegin.tv_nsec > tp.tv_nsec)
-        ? elapsed - (m_tBegin.tv_nsec - tp.tv_nsec) / 1000
-        : elapsed + (tp.tv_nsec - m_tBegin.tv_nsec) / 1000;
+    return (m_tBegin.tv_nsec > tp.tv_nsec) ? elapsed - (m_tBegin.tv_nsec - tp.tv_nsec) / 1000
+                                           : elapsed + (tp.tv_nsec - m_tBegin.tv_nsec) / 1000;
 }
 
-unsigned long CStopWatch::GetElapsedUpdate()
-{
+unsigned long CStopWatch::GetElapsedUpdate() {
     timespec tp;
     int ret = clock_gettime(CLOCK_MONOTONIC, &tp);
     if (ret) {
@@ -96,17 +82,15 @@ unsigned long CStopWatch::GetElapsedUpdate()
     }
 
     unsigned long elapsed = (tp.tv_sec - m_tBegin.tv_sec) * 1000000;
-    elapsed = (m_tBegin.tv_nsec > tp.tv_nsec)
-        ? elapsed - (m_tBegin.tv_nsec - tp.tv_nsec) / 1000
-        : elapsed + (tp.tv_nsec - m_tBegin.tv_nsec) / 1000;
+    elapsed = (m_tBegin.tv_nsec > tp.tv_nsec) ? elapsed - (m_tBegin.tv_nsec - tp.tv_nsec) / 1000
+                                              : elapsed + (tp.tv_nsec - m_tBegin.tv_nsec) / 1000;
 
     m_tBegin = tp;
     return elapsed;
 }
 
-bool WriteToFile(const char *path, const char *data, size_t len)
-{
-    int fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP );
+bool WriteToFile(const char *path, const char *data, size_t len) {
+    int fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP);
     if (fd < 0) {
         ALOGERR("Failed to open '%s' for write/create", path);
         return false;
@@ -124,15 +108,15 @@ bool WriteToFile(const char *path, const char *data, size_t len)
     return true;
 }
 
-bool WriteToFile(const char *path, int dmabuf, size_t len)
-{
-    char *p = reinterpret_cast<char *>(mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, dmabuf, 0));
+bool WriteToFile(const char *path, int dmabuf, size_t len) {
+    char *p = reinterpret_cast<char *>(
+            mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, dmabuf, 0));
     if (p == MAP_FAILED) {
         ALOGERR("Filed to map the given dmabuf fd %d", dmabuf);
         return false;
     }
 
-    int fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP );
+    int fd = open(path, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWGRP);
     if (fd < 0) {
         ALOGERR("Failed to open '%s' for write/create", path);
         munmap(p, len);

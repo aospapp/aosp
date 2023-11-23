@@ -14,40 +14,43 @@
   ~ See the License for the specific language governing permissions and
   ~ limitations under the License
   -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/RootLayoutPadding"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="10dip"
->
+    android:layout_height="match_parent">
 
-  <TextView
-          android:layout_width="wrap_content"
-          android:layout_height="wrap_content"
-          android:textAppearance="?android:attr/textAppearanceLarge"
-          android:text="Test should be executed at least 2 minutes apart"
-          android:id="@+id/run_read_logs_title"
-          android:layout_margin="2dp"
-          android:textSize="14sp"
-          android:textStyle="bold"
-  />
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-  <Button android:id="@+id/run_read_logs_fg_allow_btn"
-      android:text="@string/read_logs_fg_allow_text"
-      android:layout_marginBottom="20dp"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="?android:attr/textAppearanceLarge"
+            android:text="Test should be executed at least 2 minutes apart"
+            android:id="@+id/run_read_logs_title"
+            android:layout_margin="2dp"
+            android:textSize="14sp"
+            android:textStyle="bold"
+        />
 
-  <Button android:id="@+id/run_read_logs_fg_deny_btn"
-      android:text="@string/read_logs_fg_deny_text"
-      android:layout_width="match_parent"
-      android:layout_height="wrap_content" />
+        <Button android:id="@+id/run_read_logs_fg_allow_btn"
+                android:text="@string/read_logs_fg_allow_text"
+                android:layout_marginBottom="20dp"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
 
-  <include android:layout_width="match_parent"
-      android:layout_height="wrap_content"
-      android:layout_alignParentBottom="true"
-      layout="@layout/pass_fail_buttons"
-  />
+        <Button android:id="@+id/run_read_logs_fg_deny_btn"
+                android:text="@string/read_logs_fg_deny_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"/>
 
-</LinearLayout>
+        <include android:layout_width="match_parent"
+                 android:layout_height="wrap_content"
+                 android:layout_alignParentBottom="true"
+                 layout="@layout/pass_fail_buttons"
+        />
 
+    </LinearLayout>
+</ScrollView>

@@ -16,19 +16,15 @@
 
 package android.voiceinteraction.service;
 
-import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
-
 import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.service.voice.AlwaysOnHotwordDetector;
 import android.service.voice.VoiceInteractionService;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
 
 import java.util.Collections;
-import java.util.Locale;
 import java.util.Set;
 
 public class MainInteractionService extends VoiceInteractionService {
@@ -56,10 +52,6 @@ public class MainInteractionService extends VoiceInteractionService {
         final int testEvent = mIntent.getIntExtra(Utils.KEY_TEST_EVENT, -1);
         if (testEvent == Utils.VIS_NORMAL_TEST) {
             maybeStart();
-        } else if (testEvent == Utils.HOTWORD_DETECTION_SERVICE_TRIGGER_TEST) {
-            runWithShellPermissionIdentity(() -> {
-                callCreateAlwaysOnHotwordDetector();
-            });
         }
         return START_NOT_STICKY;
     }
@@ -96,52 +88,5 @@ public class MainInteractionService extends VoiceInteractionService {
     public Set<String> onGetSupportedVoiceActions(Set<String> voiceActions) {
         Log.v(TAG, "onGetSupportedVoiceActions " + voiceActions);
         return super.onGetSupportedVoiceActions(voiceActions);
-    }
-
-    private void callCreateAlwaysOnHotwordDetector() {
-        Log.i(TAG, "callCreateAlwaysOnHotwordDetector()");
-        try {
-            createAlwaysOnHotwordDetector(/* keyphrase */ "Hello Google",
-                    Locale.forLanguageTag("en-US"), /* options */ null, /* sharedMemory */ null,
-                    new AlwaysOnHotwordDetector.Callback() {
-                        @Override
-                        public void onAvailabilityChanged(int status) {
-                            Log.i(TAG, "onAvailabilityChanged(" + status + ")");
-                        }
-
-                        @Override
-                        public void onDetected(AlwaysOnHotwordDetector.EventPayload eventPayload) {
-                            Log.i(TAG, "onDetected");
-                        }
-
-                        @Override
-                        public void onError() {
-                            Log.i(TAG, "onError");
-                        }
-
-                        @Override
-                        public void onRecognitionPaused() {
-                            Log.i(TAG, "onRecognitionPaused");
-                        }
-
-                        @Override
-                        public void onRecognitionResumed() {
-                            Log.i(TAG, "onRecognitionResumed");
-                        }
-                    });
-        } catch (IllegalStateException e) {
-            Log.w(TAG, "callCreateAlwaysOnHotwordDetector() exception: " + e);
-            broadcastIntentWithResult(
-                    Utils.HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT_INTENT,
-                    Utils.HOTWORD_DETECTION_SERVICE_TRIGGER_ILLEGAL_STATE_EXCEPTION);
-        }
-    }
-
-    private void broadcastIntentWithResult(String intentName, int result) {
-        Intent intent = new Intent(intentName)
-                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND | Intent.FLAG_RECEIVER_REGISTERED_ONLY)
-                .putExtra(Utils.KEY_TEST_RESULT, result);
-        Log.d(TAG, "broadcast intent = " + intent + ", result = " + result);
-        sendBroadcast(intent);
     }
 }

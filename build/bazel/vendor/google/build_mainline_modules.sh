@@ -15,14 +15,14 @@
 # limitations under the License.
 #
 
-BAZEL=tools/bazel
+BAZEL=build/bazel/bin/bazel
 
 function main() {
   if [ ! -e "build/make/core/Makefile" ]; then
     echo "$0 must be run from the top of the Android source tree."
     exit 1
   fi
-  "build/soong/soong_ui.bash" --build-mode --all-modules --dir="$(pwd)" bp2build USE_BAZEL_ANALYSIS=
+  "build/soong/soong_ui.bash" --build-mode --all-modules --dir="$(pwd)" bp2build
   ${BAZEL} build //build/bazel/vendor/google:mainline_modules --config=bp2build
 }
 

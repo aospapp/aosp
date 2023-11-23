@@ -18,12 +18,18 @@ package com.android.server.cts.device.statsdatom;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.Manifest;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.net.wifi.WifiManager;
 import android.os.Vibrator;
 
 import androidx.test.InstrumentationRegistry;
 
 import org.junit.Test;
+
+import java.util.List;
 
 /**
  * Methods to check device properties. They pass iff the check returns true.
@@ -41,5 +47,35 @@ public class Checkers {
     public void checkWifiEnhancedPowerReportingSupported() {
         WifiManager wm = InstrumentationRegistry.getContext().getSystemService(WifiManager.class);
         assertThat(wm.isEnhancedPowerReportingSupported()).isTrue();
+    }
+
+    @Test
+    public void checkValidLightSensor() {
+        PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        assertThat(pm.hasSystemFeature(PackageManager.FEATURE_SENSOR_LIGHT)).isTrue();
+    }
+
+    @Test
+    public void checkBrightnessSliderPermission() {
+        PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
+        assertThat(
+                    numberOfSystemAppsWithPermission(
+                        Manifest.permission.BRIGHTNESS_SLIDER_USAGE, pm)).isGreaterThan(0);
+    }
+
+    @Test
+    public void checkConfigShowUserSwitcher() {
+        assertThat(Resources.getSystem().getBoolean(com.android.internal
+                .R.bool.config_showUserSwitcherByDefault)).isTrue();
+    }
+
+    /**
+     * Returns the number of system apps with the given permission.
+     */
+    private int numberOfSystemAppsWithPermission(String permission, PackageManager pm) {
+        List<PackageInfo> packages = pm.getPackagesHoldingPermissions(
+                    new String[]{permission}, PackageManager.MATCH_SYSTEM_ONLY);
+        packages.removeIf(packageInfo -> packageInfo.packageName.equals("com.android.shell"));
+        return packages.size();
     }
 }

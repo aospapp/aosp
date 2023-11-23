@@ -93,6 +93,15 @@ public class UiInteractionFrameInfoHelperTest {
         assertTrue(
                 "No metric cuj_NOTIFICATION_ADD_max_frame_time_ms",
                 frameMetrics.containsKey("cuj_NOTIFICATION_ADD_max_frame_time_ms"));
+        assertTrue(
+                "No metric cuj_NOTIFICATION_ADD_sf_missed_frames",
+                frameMetrics.containsKey("cuj_NOTIFICATION_ADD_sf_missed_frames"));
+        assertTrue(
+                "No metric cuj_NOTIFICATION_ADD_app_missed_frames",
+                frameMetrics.containsKey("cuj_NOTIFICATION_ADD_app_missed_frames"));
+        assertTrue(
+                "No metric cuj_NOTIFICATION_ADD_max_successive_misses",
+                frameMetrics.containsKey("cuj_NOTIFICATION_ADD_max_successive_misses"));
 
         assertTrue(mInteractionFrameHelper.stopCollecting());
         HelperTestUtility.sendKeyCode(KEYCODE_HOME);

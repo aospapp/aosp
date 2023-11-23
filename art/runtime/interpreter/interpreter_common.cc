@@ -92,10 +92,6 @@ bool ShouldStayInSwitchInterpreter(ArtMethod* method)
   }
 
   const void* code = method->GetEntryPointFromQuickCompiledCode();
-  if (code == GetQuickInstrumentationEntryPoint()) {
-    code = Runtime::Current()->GetInstrumentation()->GetCodeForInvoke(method);
-  }
-
   return Runtime::Current()->GetClassLinker()->IsQuickToInterpreterBridge(code);
 }
 
@@ -185,7 +181,6 @@ bool MoveToExceptionHandler(Thread* self,
       // Exception is not caught by the current method. We will unwind to the
       // caller. Notify any instrumentation listener.
       instrumentation->MethodUnwindEvent(self,
-                                         shadow_frame.GetThisObject(),
                                          shadow_frame.GetMethod(),
                                          shadow_frame.GetDexPC());
     }
@@ -236,14 +231,16 @@ void AbortTransactionV(Thread* self, const char* fmt, va_list args) {
 // about ALWAYS_INLINE (-Werror, -Wgcc-compat) in definitions.
 //
 
-template <bool is_range, bool do_assignability_check>
+template <bool is_range>
+NO_STACK_PROTECTOR
 static ALWAYS_INLINE bool DoCallCommon(ArtMethod* called_method,
                                        Thread* self,
                                        ShadowFrame& shadow_frame,
                                        JValue* result,
                                        uint16_t number_of_inputs,
                                        uint32_t (&arg)[Instruction::kMaxVarArgRegs],
-                                       uint32_t vregC) REQUIRES_SHARED(Locks::mutator_lock_);
+                                       uint32_t vregC,
+                                       bool string_init) REQUIRES_SHARED(Locks::mutator_lock_);
 
 template <bool is_range>
 ALWAYS_INLINE void CopyRegisters(ShadowFrame& caller_frame,
@@ -255,6 +252,7 @@ ALWAYS_INLINE void CopyRegisters(ShadowFrame& caller_frame,
 
 // END DECLARATIONS.
 
+NO_STACK_PROTECTOR
 void ArtInterpreterToCompiledCodeBridge(Thread* self,
                                         ArtMethod* caller,
                                         ShadowFrame* shadow_frame,
@@ -262,25 +260,6 @@ void ArtInterpreterToCompiledCodeBridge(Thread* self,
                                         JValue* result)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ArtMethod* method = shadow_frame->GetMethod();
-  // Ensure static methods are initialized.
-  if (method->IsStatic()) {
-    ObjPtr<mirror::Class> declaringClass = method->GetDeclaringClass();
-    if (UNLIKELY(!declaringClass->IsVisiblyInitialized())) {
-      self->PushShadowFrame(shadow_frame);
-      StackHandleScope<1> hs(self);
-      Handle<mirror::Class> h_class(hs.NewHandle(declaringClass));
-      if (UNLIKELY(!Runtime::Current()->GetClassLinker()->EnsureInitialized(
-                        self, h_class, /*can_init_fields=*/ true, /*can_init_parents=*/ true))) {
-        self->PopShadowFrame();
-        DCHECK(self->IsExceptionPending());
-        return;
-      }
-      self->PopShadowFrame();
-      DCHECK(h_class->IsInitializing());
-      // Reload from shadow frame in case the method moved, this is faster than adding a handle.
-      method = shadow_frame->GetMethod();
-    }
-  }
   // Basic checks for the arg_offset. If there's no code item, the arg_offset must be 0. Otherwise,
   // check that the arg_offset isn't greater than the number of registers. A stronger check is
   // difficult since the frame may contain space for all the registers in the method, or only enough
@@ -1018,11 +997,9 @@ static ObjPtr<mirror::CallSite> InvokeBootstrapMethod(Thread* self,
   // Set-up a shadow frame for invoking the bootstrap method handle.
   ShadowFrameAllocaUniquePtr bootstrap_frame =
       CREATE_SHADOW_FRAME(call_site_type->NumberOfVRegs(),
-                          nullptr,
                           referrer,
                           shadow_frame.GetDexPC());
-  ScopedStackedShadowFramePusher pusher(
-      self, bootstrap_frame.get(), StackedShadowFrameType::kShadowFrameUnderConstruction);
+  ScopedStackedShadowFramePusher pusher(self, bootstrap_frame.get());
   ShadowFrameSetter setter(bootstrap_frame.get(), 0u);
 
   // The first parameter is a MethodHandles lookup instance.
@@ -1205,23 +1182,15 @@ inline void CopyRegisters(ShadowFrame& caller_frame,
   }
 }
 
-template <bool is_range,
-          bool do_assignability_check>
+template <bool is_range>
 static inline bool DoCallCommon(ArtMethod* called_method,
                                 Thread* self,
                                 ShadowFrame& shadow_frame,
                                 JValue* result,
                                 uint16_t number_of_inputs,
                                 uint32_t (&arg)[Instruction::kMaxVarArgRegs],
-                                uint32_t vregC) {
-  bool string_init = false;
-  // Replace calls to String.<init> with equivalent StringFactory call.
-  if (UNLIKELY(called_method->GetDeclaringClass()->IsStringClass()
-               && called_method->IsConstructor())) {
-    called_method = WellKnownClasses::StringInitToStringFactory(called_method);
-    string_init = true;
-  }
-
+                                uint32_t vregC,
+                                bool string_init) {
   // Compute method information.
   CodeItemDataAccessor accessor(called_method->DexInstructionData());
   // Number of registers for the callee's call frame.
@@ -1288,16 +1257,15 @@ static inline bool DoCallCommon(ArtMethod* called_method,
   // Allocate shadow frame on the stack.
   const char* old_cause = self->StartAssertNoThreadSuspension("DoCallCommon");
   ShadowFrameAllocaUniquePtr shadow_frame_unique_ptr =
-      CREATE_SHADOW_FRAME(num_regs, &shadow_frame, called_method, /* dex pc */ 0);
+      CREATE_SHADOW_FRAME(num_regs, called_method, /* dex pc */ 0);
   ShadowFrame* new_shadow_frame = shadow_frame_unique_ptr.get();
 
   // Initialize new shadow frame by copying the registers from the callee shadow frame.
-  if (do_assignability_check) {
+  if (!shadow_frame.GetMethod()->SkipAccessChecks()) {
     // Slow path.
     // We might need to do class loading, which incurs a thread state change to kNative. So
     // register the shadow frame as under construction and allow suspension again.
-    ScopedStackedShadowFramePusher pusher(
-        self, new_shadow_frame, StackedShadowFrameType::kShadowFrameUnderConstruction);
+    ScopedStackedShadowFramePusher pusher(self, new_shadow_frame);
     self->EndAssertNoThreadSuspension(old_cause);
 
     // ArtMethod here is needed to check type information of the call site against the callee.
@@ -1336,7 +1304,7 @@ static inline bool DoCallCommon(ArtMethod* called_method,
         // Handle Object references. 1 virtual register slot.
         case 'L': {
           ObjPtr<mirror::Object> o = shadow_frame.GetVRegReference(src_reg);
-          if (do_assignability_check && o != nullptr) {
+          if (o != nullptr) {
             const dex::TypeIndex type_idx = params->GetTypeItem(shorty_pos).type_idx_;
             ObjPtr<mirror::Class> arg_type = method->GetDexCache()->GetResolvedType(type_idx);
             if (arg_type == nullptr) {
@@ -1410,9 +1378,15 @@ static inline bool DoCallCommon(ArtMethod* called_method,
   return !self->IsExceptionPending();
 }
 
-template<bool is_range, bool do_assignability_check>
-bool DoCall(ArtMethod* called_method, Thread* self, ShadowFrame& shadow_frame,
-            const Instruction* inst, uint16_t inst_data, JValue* result) {
+template<bool is_range>
+NO_STACK_PROTECTOR
+bool DoCall(ArtMethod* called_method,
+            Thread* self,
+            ShadowFrame& shadow_frame,
+            const Instruction* inst,
+            uint16_t inst_data,
+            bool is_string_init,
+            JValue* result) {
   // Argument word count.
   const uint16_t number_of_inputs =
       (is_range) ? inst->VRegA_3rc(inst_data) : inst->VRegA_35c(inst_data);
@@ -1428,12 +1402,18 @@ bool DoCall(ArtMethod* called_method, Thread* self, ShadowFrame& shadow_frame,
     inst->GetVarArgs(arg, inst_data);
   }
 
-  return DoCallCommon<is_range, do_assignability_check>(
-      called_method, self, shadow_frame,
-      result, number_of_inputs, arg, vregC);
+  return DoCallCommon<is_range>(
+      called_method,
+      self,
+      shadow_frame,
+      result,
+      number_of_inputs,
+      arg,
+      vregC,
+      is_string_init);
 }
 
-template <bool is_range, bool do_access_check, bool transaction_active>
+template <bool is_range, bool transaction_active>
 bool DoFilledNewArray(const Instruction* inst,
                       const ShadowFrame& shadow_frame,
                       Thread* self,
@@ -1450,6 +1430,7 @@ bool DoFilledNewArray(const Instruction* inst,
     return false;
   }
   uint16_t type_idx = is_range ? inst->VRegB_3rc() : inst->VRegB_35c();
+  bool do_access_check = !shadow_frame.GetMethod()->SkipAccessChecks();
   ObjPtr<mirror::Class> array_class = ResolveVerifyAndClinit(dex::TypeIndex(type_idx),
                                                              shadow_frame.GetMethod(),
                                                              self,
@@ -1554,17 +1535,50 @@ void RecordArrayElementsInTransaction(ObjPtr<mirror::Array> array, int32_t count
   }
 }
 
+void UnlockHeldMonitors(Thread* self, ShadowFrame* shadow_frame)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  DCHECK(shadow_frame->GetForcePopFrame() || Runtime::Current()->IsTransactionAborted());
+  // Unlock all monitors.
+  if (shadow_frame->GetMethod()->MustCountLocks()) {
+    DCHECK(!shadow_frame->GetMethod()->SkipAccessChecks());
+    // Get the monitors from the shadow-frame monitor-count data.
+    shadow_frame->GetLockCountData().VisitMonitors(
+      [&](mirror::Object** obj) REQUIRES_SHARED(Locks::mutator_lock_) {
+        // Since we don't use the 'obj' pointer after the DoMonitorExit everything should be fine
+        // WRT suspension.
+        DoMonitorExit(self, shadow_frame, *obj);
+      });
+  } else {
+    std::vector<verifier::MethodVerifier::DexLockInfo> locks;
+    verifier::MethodVerifier::FindLocksAtDexPc(shadow_frame->GetMethod(),
+                                               shadow_frame->GetDexPC(),
+                                               &locks,
+                                               Runtime::Current()->GetTargetSdkVersion());
+    for (const auto& reg : locks) {
+      if (UNLIKELY(reg.dex_registers.empty())) {
+        LOG(ERROR) << "Unable to determine reference locked by "
+                   << shadow_frame->GetMethod()->PrettyMethod() << " at pc "
+                   << shadow_frame->GetDexPC();
+      } else {
+        DoMonitorExit(
+            self, shadow_frame, shadow_frame->GetVRegReference(*reg.dex_registers.begin()));
+      }
+    }
+  }
+}
+
 // Explicit DoCall template function declarations.
-#define EXPLICIT_DO_CALL_TEMPLATE_DECL(_is_range, _do_assignability_check)                      \
-  template REQUIRES_SHARED(Locks::mutator_lock_)                                                \
-  bool DoCall<_is_range, _do_assignability_check>(ArtMethod* method, Thread* self,              \
-                                                  ShadowFrame& shadow_frame,                    \
-                                                  const Instruction* inst, uint16_t inst_data,  \
-                                                  JValue* result)
-EXPLICIT_DO_CALL_TEMPLATE_DECL(false, false);
-EXPLICIT_DO_CALL_TEMPLATE_DECL(false, true);
-EXPLICIT_DO_CALL_TEMPLATE_DECL(true, false);
-EXPLICIT_DO_CALL_TEMPLATE_DECL(true, true);
+#define EXPLICIT_DO_CALL_TEMPLATE_DECL(_is_range)                      \
+  template REQUIRES_SHARED(Locks::mutator_lock_)                       \
+  bool DoCall<_is_range>(ArtMethod* method,                            \
+                         Thread* self,                                 \
+                         ShadowFrame& shadow_frame,                    \
+                         const Instruction* inst,                      \
+                         uint16_t inst_data,                           \
+                         bool string_init,                             \
+                         JValue* result)
+EXPLICIT_DO_CALL_TEMPLATE_DECL(false);
+EXPLICIT_DO_CALL_TEMPLATE_DECL(true);
 #undef EXPLICIT_DO_CALL_TEMPLATE_DECL
 
 // Explicit DoInvokePolymorphic template function declarations.
@@ -1578,16 +1592,15 @@ EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL(true);
 #undef EXPLICIT_DO_INVOKE_POLYMORPHIC_TEMPLATE_DECL
 
 // Explicit DoFilledNewArray template function declarations.
-#define EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(_is_range_, _check, _transaction_active)       \
+#define EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(_is_range_, _transaction_active)               \
   template REQUIRES_SHARED(Locks::mutator_lock_)                                                  \
-  bool DoFilledNewArray<_is_range_, _check, _transaction_active>(const Instruction* inst,         \
-                                                                 const ShadowFrame& shadow_frame, \
-                                                                 Thread* self, JValue* result)
-#define EXPLICIT_DO_FILLED_NEW_ARRAY_ALL_TEMPLATE_DECL(_transaction_active)       \
-  EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(false, false, _transaction_active);  \
-  EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(false, true, _transaction_active);   \
-  EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(true, false, _transaction_active);   \
-  EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(true, true, _transaction_active)
+  bool DoFilledNewArray<_is_range_, _transaction_active>(const Instruction* inst,                 \
+                                                         const ShadowFrame& shadow_frame,         \
+                                                         Thread* self,                            \
+                                                         JValue* result)
+#define EXPLICIT_DO_FILLED_NEW_ARRAY_ALL_TEMPLATE_DECL(_transaction_active)                       \
+  EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(false, _transaction_active);                         \
+  EXPLICIT_DO_FILLED_NEW_ARRAY_TEMPLATE_DECL(true, _transaction_active)
 EXPLICIT_DO_FILLED_NEW_ARRAY_ALL_TEMPLATE_DECL(false);
 EXPLICIT_DO_FILLED_NEW_ARRAY_ALL_TEMPLATE_DECL(true);
 #undef EXPLICIT_DO_FILLED_NEW_ARRAY_ALL_TEMPLATE_DECL

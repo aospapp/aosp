@@ -507,10 +507,15 @@ public class FutureTask<V> implements RunnableFuture<V> {
             status = "[Cancelled]";
             break;
         default:
+            // BEGIN Android-changed: recursion risk building string (b/241297967)
+            /*
             final Callable<?> callable = this.callable;
             status = (callable == null)
                 ? "[Not completed]"
                 : "[Not completed, task = " + callable + "]";
+            */
+            status = "[Not completed]";
+            // END Android-changed: recursion risk building string (b/241297967)
         }
         return super.toString() + status;
     }

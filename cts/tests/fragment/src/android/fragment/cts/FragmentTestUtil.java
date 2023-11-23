@@ -218,26 +218,26 @@ public class FragmentTestUtil {
     }
 
     /**
-     * Restarts the RecreatedActivity and waits for the new activity to be resumed.
+     * Restarts the FragmentTestActivity and waits for the new activity to be resumed.
      *
      * @return The newly-restarted Activity
      */
-    public static <T extends RecreatedActivity> T recreateActivity(
+    public static <T extends FragmentTestActivity> T recreateActivity(
             ActivityTestRule<? extends Activity> rule, T activity) throws InterruptedException {
         // Now switch the orientation
-        RecreatedActivity.sResumed = new CountDownLatch(1);
-        RecreatedActivity.sDestroyed = new CountDownLatch(1);
+        FragmentTestActivity.sResumed = new CountDownLatch(1);
+        FragmentTestActivity.sDestroyed = new CountDownLatch(1);
 
         runOnUiThreadRethrow(rule, () -> {
             activity.recreate();
         });
-        assertTrue(RecreatedActivity.sResumed.await(1, TimeUnit.SECONDS));
-        assertTrue(RecreatedActivity.sDestroyed.await(1, TimeUnit.SECONDS));
-        T newActivity = (T) RecreatedActivity.sActivity;
+        assertTrue(FragmentTestActivity.sResumed.await(1, TimeUnit.SECONDS));
+        assertTrue(FragmentTestActivity.sDestroyed.await(1, TimeUnit.SECONDS));
+        T newActivity = (T) FragmentTestActivity.sActivity;
 
         waitForExecution(rule);
 
-        RecreatedActivity.clearState();
+        FragmentTestActivity.clearState();
         return newActivity;
     }
 }

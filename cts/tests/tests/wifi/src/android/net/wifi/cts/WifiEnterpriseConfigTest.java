@@ -1010,9 +1010,7 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
         assertEquals(TEST_DECORATED_IDENTITY_PREFIX, config.getDecoratedIdentityPrefix());
     }
 
-    // TODO(b/196180536): Wait for T SDK finalization before changing
-    // to `@SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)`
-    @SdkSuppress(minSdkVersion = 31)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
     public void testSetGetTrustOnFirstUse() {
         if (!hasWifi()) {
             return;
@@ -1025,9 +1023,7 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
         assertFalse(config.isTrustOnFirstUseEnabled());
     }
 
-    // TODO(b/196180536): Wait for T SDK finalization before changing
-    // to `@SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)`
-    @SdkSuppress(minSdkVersion = 31)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
     public void testHasCaCertificate() {
         if (!hasWifi()) {
             return;
@@ -1041,5 +1037,17 @@ public class WifiEnterpriseConfigTest extends WifiJUnit3TestBase {
         assertFalse(config.hasCaCertificate());
         config.setCaCertificate(FakeKeys.CA_CERT0);
         assertTrue(config.hasCaCertificate());
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    public void testSetMinimumTlsVersion() throws Exception {
+        if (!hasWifi()) {
+            return;
+        }
+        WifiEnterpriseConfig config = new WifiEnterpriseConfig();
+        // The default value should be v1.0 to be compatible with all server-supported TLS version.
+        assertEquals(WifiEnterpriseConfig.TLS_V1_0, config.getMinimumTlsVersion());
+        config.setMinimumTlsVersion(WifiEnterpriseConfig.TLS_V1_3);
+        assertEquals(WifiEnterpriseConfig.TLS_V1_3, config.getMinimumTlsVersion());
     }
 }

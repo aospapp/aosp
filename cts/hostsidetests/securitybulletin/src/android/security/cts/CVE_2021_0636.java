@@ -16,15 +16,20 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.*;
+
 import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.RunUtil;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static org.junit.Assert.*;
-
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0636 extends SecurityTestCase {
+public class CVE_2021_0636 extends NonRootSecurityTestCase {
 
     public void testPocCVE_2021_0636(String mediaFileName) throws Exception {
         /*
@@ -32,13 +37,14 @@ public class CVE_2021_0636 extends SecurityTestCase {
          */
         AdbUtils.pushResource(
                 "/" + mediaFileName, "/sdcard/" + mediaFileName, getDevice());
-        AdbUtils.runCommandLine("logcat -c", getDevice());
-        AdbUtils.runCommandLine(
-                "am start -a android.intent.action.VIEW -t video/avi -d file:///sdcard/"
-                    + mediaFileName, getDevice());
-        Thread.sleep(4000); // Delay to run the media file and capture output in logcat
-        AdbUtils.runCommandLine("rm -rf /sdcard/" + mediaFileName, getDevice());
-        AdbUtils.assertNoCrashes(getDevice(), "mediaserver");
+        TombstoneUtils.Config config = new TombstoneUtils.Config().setProcessPatterns("mediaserver");
+        try (AutoCloseable a = TombstoneUtils.withAssertNoSecurityCrashes(getDevice(), config)) {
+            AdbUtils.runCommandLine(
+                    "am start -a android.intent.action.VIEW -t video/avi -d file:///sdcard/"
+                        + mediaFileName, getDevice());
+            RunUtil.getDefault().sleep(4000); // Delay to run the media file and capture output in logcat
+            AdbUtils.runCommandLine("rm -rf /sdcard/" + mediaFileName, getDevice());
+        }
     }
 
     @Test

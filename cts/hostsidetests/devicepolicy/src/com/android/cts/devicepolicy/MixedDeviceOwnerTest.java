@@ -138,13 +138,6 @@ public final class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
         super.testDelegatedCertInstaller();
     }
 
-    @FlakyTest(bugId = 141161038)
-    @Override
-    @Test
-    public void testCannotRemoveUserIfRestrictionSet() throws Exception {
-        super.testCannotRemoveUserIfRestrictionSet();
-    }
-
     @FlakyTest(bugId = 137088260)
     @Test
     public void testWifi() throws Exception {
@@ -161,28 +154,6 @@ public final class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
     @Test
     public void testAdminConfiguredNetworks() throws Exception {
         executeDeviceTestClass(".AdminConfiguredNetworksTest");
-    }
-
-    @Test
-    public void testSetTime() throws Exception {
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".TimeManagementTest", "testSetTime");
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_TIME_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .build());
-
-        executeDeviceTestMethod(".TimeManagementTest", "testSetTime_failWhenAutoTimeEnabled");
-    }
-
-    @Test
-    public void testSetTimeZone() throws Exception {
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".TimeManagementTest", "testSetTimeZone");
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_TIME_ZONE_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .build());
-
-        executeDeviceTestMethod(".TimeManagementTest", "testSetTimeZone_failIfAutoTimeZoneEnabled");
     }
 
     @Test
@@ -469,13 +440,6 @@ public final class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
     @Override
     @Test
     @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
-    public void testPersistentIntentResolving() throws Exception {
-        super.testPersistentIntentResolving();
-    }
-
-    @Override
-    @Test
-    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
     public void testDisallowAutofill_allowed() throws Exception {
         super.testDisallowAutofill_allowed();
     }
@@ -492,13 +456,6 @@ public final class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
     @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
     public void testPermissionAppUpdate() throws Exception {
         super.testPermissionAppUpdate();
-    }
-
-    @Override
-    @Test
-    @IgnoreOnHeadlessSystemUserMode(reason = "Headless system user doesn't launch activities")
-    public void testPermissionMixedPolicies() throws Exception {
-        super.testPermissionMixedPolicies();
     }
 
     @Override
@@ -521,17 +478,6 @@ public final class MixedDeviceOwnerTest extends DeviceAndProfileOwnerTest {
     public void testPermissionGrantOfDisallowedPermissionWhileOtherPermIsGranted()
             throws Exception {
         super.testPermissionGrantOfDisallowedPermissionWhileOtherPermIsGranted();
-    }
-
-    @Override
-    public void testApplicationHidden() throws Exception {
-        if (isHeadlessSystemUserMode()) {
-            // Must run on user 0 because the test has a broadcast receiver that listen to packages
-            // added / removed intents
-            mUserId = mDeviceOwnerUserId;
-            CLog.d("testApplicationHidden(): setting mUserId as %d before running it", mUserId);
-        }
-        super.testApplicationHidden();
     }
 
     @Override

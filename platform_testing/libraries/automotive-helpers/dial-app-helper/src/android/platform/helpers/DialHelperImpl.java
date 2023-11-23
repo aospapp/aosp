@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,22 +17,30 @@
 package android.platform.helpers;
 
 import android.app.Instrumentation;
-import android.content.Context;
-import android.platform.helpers.exceptions.UnknownUiException;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothManager;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiObject2;
+import android.content.Context;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
+import android.platform.helpers.exceptions.UnknownUiException;
+import android.platform.spectatio.exceptions.MissingUiElementException;
 
-import java.util.regex.Pattern;
-import android.os.SystemClock;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
 
-public class DialHelperImpl extends AbstractAutoStandardAppHelper implements IAutoDialHelper {
+public class DialHelperImpl extends AbstractStandardAppHelper implements IAutoDialHelper {
     private static final String LOG_TAG = DialHelperImpl.class.getSimpleName();
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
+
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private ScrollDirection mScrollDirection;
 
     public DialHelperImpl(Instrumentation instr) {
         super(instr);
@@ -40,526 +48,444 @@ public class DialHelperImpl extends AbstractAutoStandardAppHelper implements IAu
                 (BluetoothManager)
                         mInstrumentation.getContext().getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager.getAdapter();
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(AutomotiveConfigConstants.CONTACT_LIST_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_LIST_SCROLL_BACKWARD);
+        mForwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_LIST_SCROLL_FORWARD);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_LIST_SCROLL_ELEMENT);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.CONTACT_LIST_SCROLL_DIRECTION));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
     }
 
     /** {@inheritDoc} */
     public void open() {
-        pressHome();
-        waitForIdle();
-        String phone_launch_command =
-                "am start -n " + getApplicationConfig(AutoConfigConstants.PHONE_ACTIVITY);
-        executeShellCommand(phone_launch_command);
+        getSpectatioUiUtil().pressHome();
+        getSpectatioUiUtil().wait1Second();
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(
+                                AutomotiveConfigConstants.OPEN_PHONE_ACTIVITY_COMMAND));
+        getSpectatioUiUtil().wait1Second();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.DIAL_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.DIAL_PACKAGE);
     }
 
     /** {@inheritDoc} */
     @Override
     public String getLauncherName() {
-        return "Phone";
+        throw new UnsupportedOperationException("Operation not supported.");
     }
 
     /** {@inheritDoc} */
     public void makeCall() {
-        BySelector dialButtonSelector =
-                getResourceFromConfig(
-                        AutoConfigConstants.PHONE,
-                        AutoConfigConstants.DIAL_PAD_VIEW,
-                        AutoConfigConstants.MAKE_CALL);
-        UiObject2 dialButton = findUiObject(dialButtonSelector);
-        if (dialButton != null) {
-            clickAndWaitForGone(dialButton, dialButtonSelector);
-        } else {
-            throw new UnknownUiException("Unable to find call button.");
-        }
-        waitForWindowUpdate(getApplicationConfig(AutoConfigConstants.DIAL_PACKAGE));
-        SystemClock.sleep(3000); // Wait for the call to go through
+        BySelector dialButtonSelector = getUiElementFromConfig(AutomotiveConfigConstants.MAKE_CALL);
+        UiObject2 dialButton = getSpectatioUiUtil().findUiObject(dialButtonSelector);
+        validateUiObject(dialButton, AutomotiveConfigConstants.MAKE_CALL);
+        getSpectatioUiUtil().clickAndWait(dialButton);
+        getSpectatioUiUtil().wait5Seconds(); // Wait for the call to go through
     }
 
     /** {@inheritDoc} */
     public void endCall() {
-        BySelector endButtonSelector =
-                getResourceFromConfig(
-                        AutoConfigConstants.PHONE,
-                        AutoConfigConstants.IN_CALL_VIEW,
-                        AutoConfigConstants.END_CALL);
-        UiObject2 endButton = findUiObject(endButtonSelector);
-        if (endButton != null) {
-            clickAndWaitForGone(endButton, endButtonSelector);
-        } else {
-            throw new UnknownUiException("Unable to find end call button.");
-        }
-        waitForWindowUpdate(getApplicationConfig(AutoConfigConstants.DIAL_PACKAGE));
+        BySelector endButtonSelector = getUiElementFromConfig(AutomotiveConfigConstants.END_CALL);
+        UiObject2 endButton = getSpectatioUiUtil().findUiObject(endButtonSelector);
+        validateUiObject(endButton, AutomotiveConfigConstants.END_CALL);
+        getSpectatioUiUtil().clickAndWait(endButton);
+        getSpectatioUiUtil().wait5Seconds();
     }
 
     /** {@inheritDoc} */
     public void dialANumber(String phoneNumber) {
         enterNumber(phoneNumber);
-        waitForIdle();
+        getSpectatioUiUtil().wait1Second();
     }
 
     /** {@inheritDoc} */
     public void openCallHistory() {
         BySelector callHistorySelector =
-                By.clickable(true)
-                        .hasDescendant(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.CALL_HISTORY_VIEW,
-                                        AutoConfigConstants.CALL_HISTORY_MENU));
-        UiObject2 historyMenuButton = findUiObject(callHistorySelector);
-        if (historyMenuButton != null) {
-            clickAndWaitForIdleScreen(historyMenuButton);
-        } else {
-            throw new UnknownUiException("Unable to find call history menu.");
-        }
+                getUiElementFromConfig(AutomotiveConfigConstants.CALL_HISTORY_MENU);
+        UiObject2 historyMenuButton = getSpectatioUiUtil().findUiObject(callHistorySelector);
+        validateUiObject(historyMenuButton, AutomotiveConfigConstants.CALL_HISTORY_MENU);
+        getSpectatioUiUtil().clickAndWait(historyMenuButton);
     }
 
     /** {@inheritDoc} */
     public void callContact(String contactName) {
         openContacts();
         dialFromList(contactName);
-        SystemClock.sleep(3000); // Wait for the call to go through
+        getSpectatioUiUtil().wait5Seconds(); // Wait for the call to go through
     }
 
     /** {@inheritDoc} */
     public String getRecentCallHistory() {
         UiObject2 recentCallHistory = getCallHistory();
-        if (recentCallHistory != null) {
-            return recentCallHistory.getText();
-        } else {
-            throw new UnknownUiException("Unable to find history");
-        }
+        validateUiObject(recentCallHistory, /* action= */ "Recent Call History");
+        return recentCallHistory.getText();
     }
 
     /** {@inheritDoc} */
     public void callMostRecentHistory() {
         UiObject2 recentCallHistory = getCallHistory();
-        clickAndWaitForIdleScreen(recentCallHistory);
+        validateUiObject(recentCallHistory, /* action= */ "Calling Most Recent Call From History");
+        getSpectatioUiUtil().clickAndWait(recentCallHistory);
     }
 
     /** {@inheritDoc} */
     public void deleteDialedNumber() {
         String phoneNumber = getDialInNumber();
-        UiObject2 deleteButton =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.DIAL_PAD_VIEW,
-                                AutoConfigConstants.DELETE_NUMBER));
+        BySelector deleteButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DELETE_NUMBER);
+        UiObject2 deleteButton = getSpectatioUiUtil().findUiObject(deleteButtonSelector);
+        validateUiObject(deleteButton, AutomotiveConfigConstants.DELETE_NUMBER);
         for (int index = 0; index < phoneNumber.length(); ++index) {
-            if (deleteButton != null) {
-                clickAndWaitForIdleScreen(deleteButton);
-            } else {
-                throw new UnknownUiException("Unable to find delete button");
-            }
+            getSpectatioUiUtil().clickAndWait(deleteButton);
         }
     }
 
     /** {@inheritDoc} */
     public String getDialInNumber() {
-        UiObject2 dialInNumber =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.DIAL_PAD_VIEW,
-                                AutoConfigConstants.DIALED_NUMBER));
-        String phoneNumber = dialInNumber.getText();
-        return phoneNumber;
+        BySelector dialedInNumberSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DIAL_IN_NUMBER);
+        UiObject2 dialInNumber = getSpectatioUiUtil().findUiObject(dialedInNumberSelector);
+        validateUiObject(dialInNumber, AutomotiveConfigConstants.DIAL_IN_NUMBER);
+        return dialInNumber.getText();
     }
 
     /** {@inheritDoc} */
     public String getDialedNumber() {
-        UiObject2 dialedNumber =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.DIALED_CONTACT_TITLE));
-        String phoneNumber = dialedNumber.getText();
-        return phoneNumber;
+        BySelector dialedNumberSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DIALED_CONTACT_TITLE);
+        UiObject2 dialedNumber = getSpectatioUiUtil().findUiObject(dialedNumberSelector);
+        validateUiObject(dialedNumber, AutomotiveConfigConstants.DIALED_CONTACT_TITLE);
+        return dialedNumber.getText();
     }
 
     /** {@inheritDoc} */
     public String getDialedContactName() {
-        UiObject2 dialedContactName =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.DIALED_CONTACT_TITLE));
-        String callerName = dialedContactName.getText();
-        return callerName;
+        BySelector dialedContactNameSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DIALED_CONTACT_TITLE);
+        UiObject2 dialedContactName = getSpectatioUiUtil().findUiObject(dialedContactNameSelector);
+        validateUiObject(dialedContactName, AutomotiveConfigConstants.DIALED_CONTACT_TITLE);
+        return dialedContactName.getText();
     }
 
     /** {@inheritDoc} */
     public void inCallDialPad(String phoneNumber) {
-        UiObject2 dialPad =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.SWITCH_TO_DIAL_PAD));
-        if (dialPad != null) {
-            clickAndWaitForIdleScreen(dialPad);
-        } else {
-            throw new UnknownUiException("Unable to find in-call dial pad");
-        }
+        BySelector dialPadSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SWITCH_TO_DIAL_PAD);
+        UiObject2 dialPad = getSpectatioUiUtil().findUiObject(dialPadSelector);
+        validateUiObject(dialPad, AutomotiveConfigConstants.SWITCH_TO_DIAL_PAD);
+        getSpectatioUiUtil().clickAndWait(dialPad);
         enterNumber(phoneNumber);
-        waitForIdle();
+        getSpectatioUiUtil().wait1Second();
     }
 
     /** {@inheritDoc} */
     public void muteCall() {
-        UiObject2 muteButton =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.MUTE_CALL));
-        if (muteButton != null) {
-            clickAndWaitForIdleScreen(muteButton);
-        } else {
-            throw new UnknownUiException("Unable to find mute call button.");
-        }
+        BySelector muteButtonSelector = getUiElementFromConfig(AutomotiveConfigConstants.MUTE_CALL);
+        UiObject2 muteButton = getSpectatioUiUtil().findUiObject(muteButtonSelector);
+        validateUiObject(muteButton, AutomotiveConfigConstants.MUTE_CALL);
+        getSpectatioUiUtil().clickAndWait(muteButton);
     }
 
     /** {@inheritDoc} */
     public void unmuteCall() {
-        UiObject2 muteButton =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.MUTE_CALL));
-        if (muteButton != null) {
-            clickAndWaitForIdleScreen(muteButton);
-        } else {
-            throw new UnknownUiException("Unable to find unmute call button.");
-        }
+        BySelector muteButtonSelector = getUiElementFromConfig(AutomotiveConfigConstants.MUTE_CALL);
+        UiObject2 muteButton = getSpectatioUiUtil().findUiObject(muteButtonSelector);
+        validateUiObject(muteButton, AutomotiveConfigConstants.MUTE_CALL);
+        getSpectatioUiUtil().clickAndWait(muteButton);
+    }
+
+    private UiObject2 getContactFromContactList(String contact) {
+        BySelector contactSelector = By.text(contact);
+        UiObject2 contactFromList =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        contactSelector,
+                        String.format("scroll to find %s", contact));
+            validateUiObject(contactFromList, String.format("Given Contact %s", contact));
+            return contactFromList;
     }
 
     /** {@inheritDoc} */
     public void dialFromList(String contact) {
-        UiObject2 contactToCall = findUiObject(By.text(contact));
-        if (contactToCall != null) {
-            clickAndWaitForIdleScreen(contactToCall);
-        } else {
-            scrollThroughCallList(contact);
-        }
+        UiObject2 contactToCall = getContactFromContactList(contact);
+        getSpectatioUiUtil().clickAndWait(contactToCall);
     }
 
     /** {@inheritDoc} */
     public void changeAudioSource(AudioSource source) {
+        BySelector voiceChannelButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CHANGE_VOICE_CHANNEL);
         UiObject2 voiceChannelButton =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.CHANGE_VOICE_CHANNEL));
-        clickAndWaitForIdleScreen(voiceChannelButton);
-        UiObject2 channelButton;
+                getSpectatioUiUtil().findUiObject(voiceChannelButtonSelector);
+        validateUiObject(voiceChannelButton, AutomotiveConfigConstants.CHANGE_VOICE_CHANNEL);
+        getSpectatioUiUtil().clickAndWait(voiceChannelButton);
+        BySelector voiceChannelSelector;
         if (source == AudioSource.PHONE) {
-            channelButton =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.IN_CALL_VIEW,
-                                    AutoConfigConstants.VOICE_CHANNEL_PHONE));
+            voiceChannelSelector =
+                    getUiElementFromConfig(AutomotiveConfigConstants.VOICE_CHANNEL_PHONE);
         } else {
-            channelButton =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.IN_CALL_VIEW,
-                                    AutoConfigConstants.VOICE_CHANNEL_CAR));
+            voiceChannelSelector =
+                    getUiElementFromConfig(AutomotiveConfigConstants.VOICE_CHANNEL_CAR);
         }
-        clickAndWaitForIdleScreen(channelButton);
-        SystemClock.sleep(3000);
+        UiObject2 channelButton = getSpectatioUiUtil().findUiObject(voiceChannelSelector);
+        validateUiObject(channelButton, String.format("Voice Channel %s", source));
+        getSpectatioUiUtil().clickAndWait(channelButton);
+        getSpectatioUiUtil().wait5Seconds();
     }
 
     /** {@inheritDoc} */
     public String getContactName() {
-        UiObject2 contactName =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.DIALED_CONTACT_TITLE));
-        if (contactName != null) {
-            return contactName.getText();
-        } else {
-            throw new UnknownUiException("Unable to find contact name.");
-        }
+        BySelector contactNameSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DIALED_CONTACT_TITLE);
+        UiObject2 contactName = getSpectatioUiUtil().findUiObject(contactNameSelector);
+        validateUiObject(contactName, AutomotiveConfigConstants.DIALED_CONTACT_TITLE);
+        return contactName.getText();
     }
 
     /** {@inheritDoc} */
     public String getContactType() {
         // Contact number displayed on screen contains type
         // e.g. Mobile xxx-xxx-xxxx , Work xxx-xxx-xxxx
-        UiObject2 contactDetail =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.IN_CALL_VIEW,
-                                AutoConfigConstants.DIALED_CONTACT_TYPE));
-        if (contactDetail != null) {
-            return contactDetail.getText().trim();
-        } else {
-            throw new UnknownUiException("Unable to find Contact Type on In Call Screen.");
-        }
+        BySelector contactTypeSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DIALED_CONTACT_TYPE);
+        UiObject2 contactType = getSpectatioUiUtil().findUiObject(contactTypeSelector);
+        validateUiObject(contactType, AutomotiveConfigConstants.DIALED_CONTACT_TYPE);
+        return contactType.getText();
     }
 
     /** {@inheritDoc} */
     public void searchContactsByName(String contact) {
         openSearchContact();
-        UiObject2 searchBox =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.CONTACT_SEARCH_BAR));
-        if (searchBox != null) {
-            searchBox.setText(contact);
-        } else {
-            throw new UnknownUiException("Unable to find the search box.");
-        }
+        BySelector searchBoxSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_SEARCH_BAR);
+        UiObject2 searchBox = getSpectatioUiUtil().findUiObject(searchBoxSelector);
+        validateUiObject(searchBox, AutomotiveConfigConstants.CONTACT_SEARCH_BAR);
+        searchBox.setText(contact);
     }
 
     /** {@inheritDoc} */
     public void searchContactsByNumber(String number) {
         openSearchContact();
-        UiObject2 searchBox =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.CONTACT_SEARCH_BAR));
-        if (searchBox != null) {
-            searchBox.setText(number);
-        } else {
-            throw new UnknownUiException("Unable to find the search box.");
-        }
+        BySelector searchBoxSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_SEARCH_BAR);
+        UiObject2 searchBox = getSpectatioUiUtil().findUiObject(searchBoxSelector);
+        validateUiObject(searchBox, AutomotiveConfigConstants.CONTACT_SEARCH_BAR);
+        searchBox.setText(number);
     }
 
     /** {@inheritDoc} */
     public String getFirstSearchResult() {
-        UiObject2 searchResult =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.SEARCH_RESULT));
-        String result;
-        if (searchResult != null) {
-            result = searchResult.getText();
-        } else {
-            throw new UnknownUiException("Unable to find the search result");
-        }
-        pressBack();
+        BySelector searchResultSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SEARCH_RESULT);
+        UiObject2 searchResult = getSpectatioUiUtil().findUiObject(searchResultSelector);
+        validateUiObject(searchResult, AutomotiveConfigConstants.SEARCH_RESULT);
+        String result = searchResult.getText();
+        exitSearchResultPage();
         return result;
+    }
+
+    private void exitSearchResultPage() {
+        BySelector searchBackButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SEARCH_BACK_BUTTON);
+        UiObject2 searchBackButton = getSpectatioUiUtil().findUiObject(searchBackButtonSelector);
+        validateUiObject(searchBackButton, AutomotiveConfigConstants.SEARCH_BACK_BUTTON);
+        getSpectatioUiUtil().clickAndWait(searchBackButton);
+    }
+
+    private void openContactOrder() {
+        try {
+            ScrollActions scrollAction =
+                    ScrollActions.valueOf(
+                            getActionFromConfig(
+                                    AutomotiveConfigConstants.CONTACT_SETTING_SCROLL_ACTION));
+            BySelector contactOrderSelector =
+                    getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_ORDER);
+            UiObject2 contactOrder = null;
+            switch (scrollAction) {
+                case USE_BUTTON:
+                    BySelector forwardButtonSelector =
+                            getUiElementFromConfig(
+                                    AutomotiveConfigConstants.CONTACT_SETTING_SCROLL_FORWARD);
+                    BySelector backwardButtonSelector =
+                            getUiElementFromConfig(
+                                    AutomotiveConfigConstants.CONTACT_SETTING_SCROLL_BACKWARD);
+                    contactOrder =
+                            getSpectatioUiUtil()
+                                    .scrollAndFindUiObject(
+                                            forwardButtonSelector,
+                                            backwardButtonSelector,
+                                            contactOrderSelector);
+                    break;
+                case USE_GESTURE:
+                    BySelector scrollElementSelector =
+                            getUiElementFromConfig(
+                                    AutomotiveConfigConstants.CONTACT_SETTING_SCROLL_ELEMENT);
+                    ScrollDirection scrollDirection =
+                            ScrollDirection.valueOf(
+                                    getActionFromConfig(
+                                            AutomotiveConfigConstants
+                                                    .CONTACT_SETTING_SCROLL_DIRECTION));
+                    contactOrder =
+                            getSpectatioUiUtil()
+                                    .scrollAndFindUiObject(
+                                            scrollElementSelector,
+                                            contactOrderSelector,
+                                            (scrollDirection == ScrollDirection.VERTICAL));
+                    break;
+                default:
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Cannot scroll through contact settings. Unknown Scroll Action"
+                                            + " %s.",
+                                    scrollAction));
+            }
+            validateUiObject(contactOrder, AutomotiveConfigConstants.CONTACT_ORDER);
+            getSpectatioUiUtil().clickAndWait(contactOrder);
+        } catch (MissingUiElementException ex) {
+            throw new RuntimeException("Unable to open contact order menu.", ex);
+        }
     }
 
     /** {@inheritDoc} */
     public void sortContactListBy(OrderType orderType) {
         openContacts();
         openSettings();
-        UiObject2 contactOrderButton =
-                findUiObject(
-                        By.clickable(true)
-                                .hasDescendant(
-                                        getResourceFromConfig(
-                                                AutoConfigConstants.PHONE,
-                                                AutoConfigConstants.CONTACTS_VIEW,
-                                                AutoConfigConstants.CONTACT_ORDER)));
-        clickAndWaitForIdleScreen(contactOrderButton);
-        UiObject2 orderButton;
+        openContactOrder();
+        BySelector orderBySelector = null;
         if (orderType == OrderType.FIRST_NAME) {
-            orderButton =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.CONTACTS_VIEW,
-                                    AutoConfigConstants.SORT_BY_FIRST_NAME));
+            orderBySelector = getUiElementFromConfig(AutomotiveConfigConstants.SORT_BY_FIRST_NAME);
         } else {
-            orderButton =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.CONTACTS_VIEW,
-                                    AutoConfigConstants.SORT_BY_LAST_NAME));
+            orderBySelector = getUiElementFromConfig(AutomotiveConfigConstants.SORT_BY_LAST_NAME);
         }
-        if (orderButton != null) {
-            clickAndWaitForIdleScreen(orderButton);
-        } else {
-            throw new UnknownUiException("Unable to find dialer settings button");
-        }
-        UiObject2 contactsMenu =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.CONTACTS_MENU));
+        UiObject2 orderButton = getSpectatioUiUtil().findUiObject(orderBySelector);
+        validateUiObject(orderButton, String.format("sorting by %s", orderType));
+        getSpectatioUiUtil().clickAndWait(orderButton);
+        BySelector contactsMenuSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACTS_MENU);
+        UiObject2 contactsMenu = getSpectatioUiUtil().findUiObject(contactsMenuSelector);
         while (contactsMenu == null) {
-            pressBack();
-            contactsMenu =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.CONTACTS_VIEW,
-                                    AutoConfigConstants.CONTACTS_MENU));
+            getSpectatioUiUtil().pressBack();
+            contactsMenu = getSpectatioUiUtil().findUiObject(contactsMenuSelector);
         }
+    }
+
+    private void scrollToTopOfContactList() {
+        mScrollUtility.scrollToBeginning(
+                mScrollAction,
+                mScrollDirection,
+                mBackwardButtonSelector,
+                mScrollableElementSelector,
+                "Scroll to top of Contact list");
     }
 
     /** {@inheritDoc} */
     public String getFirstContactFromContactList() {
         openContacts();
-        scrollToTop();
-        UiObject2 firstContact =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.CONTACT_NAME));
-        if (firstContact != null) {
-            return firstContact.getText();
-        } else {
-            throw new UnknownUiException("Unable to find first contact from contact list");
-        }
+        scrollToTopOfContactList();
+        BySelector contactNameSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_NAME);
+        UiObject2 firstContact = getSpectatioUiUtil().findUiObject(contactNameSelector);
+        validateUiObject(
+                firstContact,
+                String.format("%s to get first contact", AutomotiveConfigConstants.CONTACT_NAME));
+        return firstContact.getText();
     }
 
     /** {@inheritDoc} */
     public boolean isContactInFavorites(String contact) {
         openFavorites();
-        UiObject2 obj = findUiObject(By.text(contact));
-        return obj != null;
+        UiObject2 uiObject = getSpectatioUiUtil().findUiObject(contact);
+        return uiObject != null;
     }
 
     /** {@inheritDoc} */
     public void openDetailsPage(String contactName) {
         openContacts();
-        UiObject2 contact =
-                scrollAndFindUiObject(
-                        By.text(Pattern.compile(contactName, Pattern.CASE_INSENSITIVE)));
-        if (contact != null) {
-            UiObject2 contactDetailButton;
-            UiObject2 showDetailsButton =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.CONTACTS_VIEW,
-                                    AutoConfigConstants.CONTACT_DETAIL));
-            if (showDetailsButton == null) {
-                contactDetailButton = contact;
-            } else {
-                int lastIndex = contact.getParent().getChildren().size() - 1;
-                contactDetailButton = contact.getParent().getChildren().get(lastIndex);
-            }
-            clickAndWaitForIdleScreen(contactDetailButton);
+        UiObject2 contact = getContactFromContactList(contactName);
+        UiObject2 contactDetailButton;
+        BySelector showContactDetailsSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_DETAIL);
+        UiObject2 showDetailsButton = getSpectatioUiUtil().findUiObject(showContactDetailsSelector);
+        if (showDetailsButton == null) {
+            contactDetailButton = contact;
         } else {
-            throw new UnknownUiException(
-                    String.format("Unable to find contact name %s.", contactName));
+            int lastIndex = contact.getParent().getChildren().size() - 1;
+            contactDetailButton = contact.getParent().getChildren().get(lastIndex);
         }
+        getSpectatioUiUtil().clickAndWait(contactDetailButton);
     }
 
     /** This method is used to get the first history in the Recents tab. */
     private UiObject2 getCallHistory() {
-        UiObject2 callHistory =
-                findUiObject(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.CALL_HISTORY_VIEW,
-                                        AutoConfigConstants.CALL_HISTORY_INFO))
-                        .getParent();
-        UiObject2 recentCallHistory = callHistory.getChildren().get(2);
+        BySelector callHistorySelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CALL_HISTORY_INFO);
+        UiObject2 callHistory = getSpectatioUiUtil().findUiObject(callHistorySelector);
+        validateUiObject(callHistory, AutomotiveConfigConstants.CALL_HISTORY_INFO);
+        UiObject2 recentCallHistory = callHistory.getParent().getChildren().get(2);
         return recentCallHistory;
     }
 
     /** This method is used to open the contacts menu */
     public void openContacts() {
         BySelector contactMenuSelector =
-                By.clickable(true)
-                        .hasDescendant(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.CONTACTS_VIEW,
-                                        AutoConfigConstants.CONTACTS_MENU));
-        UiObject2 contactMenuButton = findUiObject(contactMenuSelector);
-        if (contactMenuButton != null) {
-            clickAndWaitForIdleScreen(contactMenuButton);
-        } else {
-            throw new UnknownUiException("Unable to find Contacts menu.");
-        }
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACTS_MENU);
+        UiObject2 contactMenuButton = getSpectatioUiUtil().findUiObject(contactMenuSelector);
+        validateUiObject(contactMenuButton, AutomotiveConfigConstants.CONTACTS_MENU);
+        getSpectatioUiUtil().clickAndWait(contactMenuButton);
     }
 
     /** This method opens the contact search window. */
     private void openSearchContact() {
-        UiObject2 searchContact =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.SEARCH_CONTACT));
-        if (searchContact != null) {
-            clickAndWaitForIdleScreen(searchContact);
-        } else {
-            throw new UnknownUiException("Unable to find the search contact button.");
-        }
+        BySelector searchContactSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SEARCH_CONTACT);
+        UiObject2 searchContact = getSpectatioUiUtil().findUiObject(searchContactSelector);
+        validateUiObject(searchContact, AutomotiveConfigConstants.SEARCH_CONTACT);
+        getSpectatioUiUtil().clickAndWait(searchContact);
     }
 
     /** This method opens the settings for contact. */
     private void openSettings() {
-        UiObject2 settingButton =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.CONTACT_SETTINGS));
-        if (settingButton != null) {
-            clickAndWaitForIdleScreen(settingButton);
-        } else {
-            throw new UnknownUiException("Unable to find dialer settings button");
-        }
+        BySelector contactSettingSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_SETTINGS);
+        UiObject2 settingButton = getSpectatioUiUtil().findUiObject(contactSettingSelector);
+        validateUiObject(settingButton, AutomotiveConfigConstants.CONTACT_SETTINGS);
+        getSpectatioUiUtil().clickAndWait(settingButton);
     }
 
     /** This method opens the Favorites tab. */
     private void openFavorites() {
         BySelector favoritesMenuSelector =
-                By.clickable(true)
-                        .hasDescendant(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.FAVORITES_VIEW,
-                                        AutoConfigConstants.FAVORITES_MENU));
-        UiObject2 favoritesMenuButton = findUiObject(favoritesMenuSelector);
-        if (favoritesMenuButton != null) {
-            clickAndWaitForIdleScreen(favoritesMenuButton);
-        } else {
-            throw new UnknownUiException("Unable to find Favorites menu.");
-        }
+                getUiElementFromConfig(AutomotiveConfigConstants.FAVORITES_MENU);
+        UiObject2 favoritesMenuButton = getSpectatioUiUtil().findUiObject(favoritesMenuSelector);
+        validateUiObject(favoritesMenuButton, AutomotiveConfigConstants.FAVORITES_MENU);
+        getSpectatioUiUtil().clickAndWait(favoritesMenuButton);
     }
 
     public boolean isPhonePaired() {
         return mBluetoothAdapter.getBondedDevices().size() != 0;
-    }
-
-    /**
-     * This method is used to scroll through the list (Favorites, Call History, Contact)
-     *
-     * <p>in search of the contact number or name and click if found
-     *
-     * @param contact contact number or name to be dialed
-     */
-    private void scrollThroughCallList(String contact) {
-        UiObject2 contactObject =
-                scrollAndFindUiObject(By.text(Pattern.compile(contact, Pattern.CASE_INSENSITIVE)));
-        if (contactObject != null) {
-            clickAndWaitForIdleScreen(contactObject);
-        }
     }
 
     /**
@@ -568,36 +494,35 @@ public class DialHelperImpl extends AbstractAutoStandardAppHelper implements IAu
      * @param phoneNumber number to be dialed
      */
     private void enterNumber(String phoneNumber) {
-        if (phoneNumber == null) {
-            throw new UnknownUiException("No phone number provided");
+        if (phoneNumber == null || phoneNumber.trim().isEmpty()) {
+            throw new IllegalArgumentException("No phone number provided");
         }
-        pressHome();
-        waitForIdle();
-        executeShellCommand(getApplicationConfig(AutoConfigConstants.OPEN_DIAL_PAD_COMMAND));
-        UiObject2 dial_pad =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.DIAL_PAD_VIEW,
-                                AutoConfigConstants.DIAL_PAD_FRAGMENT));
-        if (dial_pad == null) {
-            throw new UnknownUiException("Unable to find dial pad");
-        }
+        getSpectatioUiUtil().pressHome();
+        getSpectatioUiUtil().wait1Second();
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(AutomotiveConfigConstants.OPEN_DIAL_PAD_COMMAND));
+        BySelector dialPadSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.DIAL_PAD_FRAGMENT);
+        UiObject2 dialPad = getSpectatioUiUtil().findUiObject(dialPadSelector);
+        validateUiObject(dialPad, AutomotiveConfigConstants.DIAL_PAD_FRAGMENT);
         char[] array = phoneNumber.toCharArray();
         for (char ch : array) {
             UiObject2 numberButton =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.PHONE,
-                                    AutoConfigConstants.DIAL_PAD_VIEW,
-                                    Character.toString(ch)));
+                    getSpectatioUiUtil()
+                            .findUiObject(getUiElementFromConfig(Character.toString(ch)));
             if (numberButton == null) {
-                numberButton = findUiObject(By.text(Character.toString(ch)));
+                numberButton = getSpectatioUiUtil().findUiObject(Character.toString(ch));
             }
-            if (numberButton == null) {
-                throw new UnknownUiException("Unable to find number" + phoneNumber);
-            }
-            clickAndWaitForIdleScreen(numberButton);
+            validateUiObject(numberButton, String.format("Number %s", Character.toString(ch)));
+            getSpectatioUiUtil().clickAndWait(numberButton);
+        }
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
         }
     }
 }

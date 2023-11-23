@@ -17,10 +17,10 @@
 
 package com.android.cts.forcestophelper;
 
+import static com.android.cts.forcestophelper.AlarmReceiver.createAlarmPendingIntent;
 import static com.android.cts.forcestophelper.Constants.ALARM_DELAY;
 import static com.android.cts.forcestophelper.Constants.EXTRA_ON_ALARM;
 import static com.android.cts.forcestophelper.Constants.EXTRA_ON_TASK_REMOVED;
-import static com.android.cts.forcestophelper.AlarmReceiver.createAlarmPendingIntent;
 
 import android.app.AlarmManager;
 import android.app.Notification;
@@ -43,8 +43,8 @@ public class TaskRemovedListenerService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        mOnTaskRemoved = intent.getParcelableExtra(EXTRA_ON_TASK_REMOVED);
-        mOnAlarm = intent.getParcelableExtra(EXTRA_ON_ALARM);
+        mOnTaskRemoved = intent.getParcelableExtra(EXTRA_ON_TASK_REMOVED, PendingIntent.class);
+        mOnAlarm = intent.getParcelableExtra(EXTRA_ON_ALARM, PendingIntent.class);
 
         if (mOnTaskRemoved != null && mOnAlarm != null) {
             final NotificationManager nm = getSystemService(NotificationManager.class);

@@ -32,13 +32,14 @@ android_test {
         "libcore-expectations-virtualdeviceknownfailures-jar",
 
         "mockito-target-minus-junit4",
-        "time_zone_distro-tests",
-        "time_zone_distro_installer-tests",
     ],
     dex_preopt: {
         enabled: false,
     },
-    dxflags: ["--multi-dex"],
+    dxflags: [
+        "--android-platform-build",
+        "--multi-dex",
+    ],
     optimize: {
         enabled: false,
     },
@@ -60,5 +61,6 @@ android_test {
         "cts",
         "mts-art",
         "general-tests",
+        "automotive-general-tests",
     ],
 }

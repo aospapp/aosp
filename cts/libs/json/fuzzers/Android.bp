@@ -16,11 +16,13 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_fuzz_host {
+java_fuzz {
     name: "json-reader-fuzzer",
     srcs: [
         "JsonReaderFuzzer.java",
     ],
+    host_supported: true,
+    device_supported: false,
     static_libs: [
         "jazzer",
         "jsonlib",

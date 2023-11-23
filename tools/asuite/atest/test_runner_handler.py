@@ -25,20 +25,22 @@ import traceback
 
 from typing import Any, Dict, List
 
-import atest_error
-import bazel_mode
-import constants
-import module_info
-import result_reporter
+from atest import atest_error
+from atest import bazel_mode
+from atest import constants
+from atest import module_info
+from atest import result_reporter
+from atest import atest_utils
 
-from atest_enum import ExitCode
-from metrics import metrics
-from metrics import metrics_utils
-from test_finders import test_info
-from test_runners import atest_tf_test_runner
-from test_runners import robolectric_test_runner
-from test_runners import suite_plan_test_runner
-from test_runners import vts_tf_test_runner
+from atest.atest_enum import ExitCode
+from atest.metrics import metrics
+from atest.metrics import metrics_utils
+from atest.test_finders import test_info
+from atest.test_runners import atest_tf_test_runner
+from atest.test_runners import roboleaf_test_runner
+from atest.test_runners import robolectric_test_runner
+from atest.test_runners import suite_plan_test_runner
+from atest.test_runners import vts_tf_test_runner
 
 _TEST_RUNNERS = {
     atest_tf_test_runner.AtestTradefedTestRunner.NAME: atest_tf_test_runner.AtestTradefedTestRunner,
@@ -46,6 +48,7 @@ _TEST_RUNNERS = {
     suite_plan_test_runner.SuitePlanTestRunner.NAME: suite_plan_test_runner.SuitePlanTestRunner,
     vts_tf_test_runner.VtsTradefedTestRunner.NAME: vts_tf_test_runner.VtsTradefedTestRunner,
     bazel_mode.BazelTestRunner.NAME: bazel_mode.BazelTestRunner,
+    roboleaf_test_runner.RoboleafTestRunner.NAME: roboleaf_test_runner.RoboleafTestRunner,
 }
 
 
@@ -111,12 +114,12 @@ def get_test_runner_reqs(mod_info: module_info.ModuleInfo,
         test_runner_build_req |= test_runner(
             unused_result_dir,
             mod_info=mod_info,
-            test_infos=tests,
             extra_args=extra_args or {},
-        ).get_test_runner_build_reqs()
+        ).get_test_runner_build_reqs(tests)
     return test_runner_build_req
 
 
+# pylint: disable=too-many-locals
 def run_all_tests(results_dir, test_infos, extra_args, mod_info,
                   delay_print_summary=False):
     """Run the given tests.
@@ -155,13 +158,20 @@ def run_all_tests(results_dir, test_infos, extra_args, mod_info,
             reporter.runner_failure(test_runner.NAME, stacktrace)
             tests_ret_code = ExitCode.TEST_FAILURE
             is_success = False
+        run_time = metrics_utils.convert_duration(time.time() - test_start)
         metrics.RunnerFinishEvent(
-            duration=metrics_utils.convert_duration(time.time() - test_start),
+            duration=run_time,
             success=is_success,
             runner_name=test_runner.NAME,
             test=[{'name': test_name,
                    'result': ret_code,
                    'stacktrace': stacktrace}])
+        # Tests that spends over 10 mins to finish will be stored in the
+        # shardable test file, and Atest will launch auto-sharding in the next
+        # runs.
+        for test in tests:
+            atest_utils.update_shardable_tests(test.test_name,
+                                               run_time.get('seconds', 0))
     if delay_print_summary:
         return tests_ret_code, reporter
     return reporter.print_summary() or tests_ret_code, reporter

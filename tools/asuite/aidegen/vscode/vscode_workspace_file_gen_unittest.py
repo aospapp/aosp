@@ -33,7 +33,7 @@ class WorkspaceProjectFileGenUnittests(unittest.TestCase):
     @mock.patch.object(
         vscode_workspace_file_gen, '_create_code_workspace_file_content')
     @mock.patch.object(common_util, 'get_android_root_dir')
-    def test_vdcode_apply_optional_config(
+    def test_vscode_apply_optional_config(
             self, mock_get_root, mock_ws_content, mock_get_unique):
         """Test IdeVSCode's apply_optional_config method."""
         mock_get_root.return_value = 'a/b'

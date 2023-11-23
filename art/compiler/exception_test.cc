@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <android-base/test_utils.h>
+
 #include <memory>
 #include <type_traits>
 
@@ -22,6 +24,7 @@
 #include "base/callee_save_type.h"
 #include "base/enums.h"
 #include "base/leb128.h"
+#include "base/macros.h"
 #include "base/malloc_arena_pool.h"
 #include "class_linker.h"
 #include "common_runtime_test.h"
@@ -42,7 +45,7 @@
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class ExceptionTest : public CommonRuntimeTest {
  protected:
@@ -78,7 +81,12 @@ class ExceptionTest : public CommonRuntimeTest {
     ArenaStack arena_stack(&pool);
     ScopedArenaAllocator allocator(&arena_stack);
     StackMapStream stack_maps(&allocator, kRuntimeISA);
-    stack_maps.BeginMethod(4 * sizeof(void*), 0u, 0u, 0u);
+    stack_maps.BeginMethod(/* frame_size_in_bytes= */ 4 * sizeof(void*),
+                           /* core_spill_mask= */ 0u,
+                           /* fp_spill_mask= */ 0u,
+                           /* num_dex_registers= */ 0u,
+                           /* baseline= */ false,
+                           /* debuggable= */ false);
     stack_maps.BeginStackMapEntry(kDexPc, native_pc_offset);
     stack_maps.EndStackMapEntry();
     stack_maps.EndMethod(code_size);
@@ -86,7 +94,7 @@ class ExceptionTest : public CommonRuntimeTest {
 
     const size_t stack_maps_size = stack_map.size();
     const size_t header_size = sizeof(OatQuickMethodHeader);
-    const size_t code_alignment = GetInstructionSetAlignment(kRuntimeISA);
+    const size_t code_alignment = GetInstructionSetCodeAlignment(kRuntimeISA);
 
     fake_header_code_and_maps_.resize(stack_maps_size + header_size + code_size + code_alignment);
     // NB: The start of the vector might not have been allocated the desired alignment.
@@ -187,15 +195,24 @@ TEST_F(ExceptionTest, StackTraceElement) {
     fake_stack.push_back(0);
   }
 
-  fake_stack.push_back(method_g_->GetOatQuickMethodHeader(0)->ToNativeQuickPc(
-      method_g_, kDexPc, /* is_for_catch_handler= */ false));  // return pc
+  OatQuickMethodHeader* header = OatQuickMethodHeader::FromEntryPoint(
+      method_g_->GetEntryPointFromQuickCompiledCode());
+  // Untag native pc when running with hwasan since the pcs on the stack aren't tagged and we use
+  // this to create a fake stack. See OatQuickMethodHeader::Contains where we untag code pointers
+  // before comparing it with the PC from the stack.
+  uintptr_t native_pc = header->ToNativeQuickPc(method_g_, kDexPc);
+  if (running_with_hwasan()) {
+    // TODO(228989263): Use HWASanUntag once we have a hwasan target for tests too. HWASanUntag
+    // uses static checks which won't work if we don't have a dedicated target.
+    native_pc = (native_pc & ((1ULL << 56) - 1));
+  }
+  fake_stack.push_back(native_pc);  // return pc
 
   // Create/push fake 16byte stack frame for method g
   fake_stack.push_back(reinterpret_cast<uintptr_t>(method_g_));
   fake_stack.push_back(0);
   fake_stack.push_back(0);
-  fake_stack.push_back(method_g_->GetOatQuickMethodHeader(0)->ToNativeQuickPc(
-      method_g_, kDexPc, /* is_for_catch_handler= */ false));  // return pc
+  fake_stack.push_back(native_pc);  // return pc.
 
   // Create/push fake 16byte stack frame for method f
   fake_stack.push_back(reinterpret_cast<uintptr_t>(method_f_));

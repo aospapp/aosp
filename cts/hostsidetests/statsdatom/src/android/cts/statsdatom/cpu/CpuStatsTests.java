@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.cpu;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -41,7 +42,7 @@ public class CpuStatsTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -65,10 +66,10 @@ public class CpuStatsTests extends DeviceTestCase implements IBuildReceiver {
 
         // Do some trivial work on the app
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testSimpleCpu");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Trigger atom pull
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // Verify correctness of data
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
@@ -89,10 +90,10 @@ public class CpuStatsTests extends DeviceTestCase implements IBuildReceiver {
 
         // Do some trivial work on the app
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testSimpleCpu");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Trigger atom pull
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // The list of atoms will be empty if the atom is not supported.
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
@@ -110,10 +111,10 @@ public class CpuStatsTests extends DeviceTestCase implements IBuildReceiver {
 
         // Do some trivial work on the app
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testSimpleCpu");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Trigger atom pull
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // The list of atoms will be empty if the atom is not supported.
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
@@ -133,10 +134,10 @@ public class CpuStatsTests extends DeviceTestCase implements IBuildReceiver {
 
         // Do some trivial work on the app
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testSimpleCpu");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Trigger atom pull
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // The list of atoms will be empty if the atom is not supported.
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());

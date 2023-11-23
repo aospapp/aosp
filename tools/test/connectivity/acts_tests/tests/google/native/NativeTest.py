@@ -14,10 +14,10 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-import time
 from acts.base_test import BaseTestClass
 from acts_contrib.test_utils.bt.native_bt_test_utils import setup_native_bluetooth
 from acts_contrib.test_utils.bt.bt_test_utils import generate_id_by_size
+
 
 class NativeTest(BaseTestClass):
     tests = None
@@ -25,11 +25,11 @@ class NativeTest(BaseTestClass):
     def __init__(self, controllers):
         BaseTestClass.__init__(self, controllers)
         self.tests = (
-                "test_bool_return_true",
-                "test_bool_return_false",
-                "test_null_return",
-                "test_string_empty_return",
-                "test_max_param_size",
+            "test_bool_return_true",
+            "test_bool_return_false",
+            "test_null_return",
+            "test_string_empty_return",
+            "test_max_param_size",
         )
 
     def setup_class(self):
@@ -55,6 +55,5 @@ class NativeTest(BaseTestClass):
         return test_string == self.droid.TestStringMaxReturn(test_string)
 
     def test_specific_param_naming(self):
-        a = [{"string_test":"test", "int_test":1}]
+        a = [{"string_test": "test", "int_test": 1}]
         return self.droid.TestSpecificParamNaming(a)
-

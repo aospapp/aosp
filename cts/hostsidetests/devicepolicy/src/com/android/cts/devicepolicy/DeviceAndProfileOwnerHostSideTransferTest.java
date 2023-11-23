@@ -2,8 +2,6 @@ package com.android.cts.devicepolicy;
 
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import static org.junit.Assert.fail;
 
 import android.stats.devicepolicy.EventId;
@@ -163,39 +161,5 @@ public abstract class DeviceAndProfileOwnerHostSideTransferTest extends BaseDevi
         }
         startUserAndWait(userId);
         return userId;
-    }
-
-    @Test
-    public void testTargetDeviceAdminServiceBound() throws Exception {
-        runDeviceTestsAsUser(TRANSFER_OWNER_OUTGOING_PKG,
-            mOutgoingTestClassName,
-            "testTransferOwnership", mUserId);
-        assertServiceRunning(INCOMING_ADMIN_SERVICE_FULL_NAME);
-    }
-
-    private void assertServiceRunning(String serviceName) throws DeviceNotAvailableException {
-        final String result = getDevice().executeShellCommand(
-                String.format("dumpsys activity services %s", serviceName));
-        assertThat(result).contains("app=ProcessRecord");
-    }
-
-    protected void setSameAffiliationId(int profileUserId, String testClassName)
-        throws Exception {
-        runDeviceTestsAsUser(TRANSFER_OWNER_OUTGOING_PKG,
-            testClassName,
-            "testSetAffiliationId1", mPrimaryUserId);
-        runDeviceTestsAsUser(TRANSFER_OWNER_OUTGOING_PKG,
-            testClassName,
-            "testSetAffiliationId1", profileUserId);
-    }
-
-    protected void assertAffiliationIdsAreIntact(int profileUserId,
-        String testClassName) throws Exception {
-        runDeviceTestsAsUser(TRANSFER_OWNER_INCOMING_PKG,
-            testClassName,
-            "testIsAffiliationId1", mPrimaryUserId);
-        runDeviceTestsAsUser(TRANSFER_OWNER_INCOMING_PKG,
-            testClassName,
-            "testIsAffiliationId1", profileUserId);
     }
 }

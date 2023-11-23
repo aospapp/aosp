@@ -30,18 +30,10 @@ import (
 	"github.com/google/blueprint/proptools"
 )
 
-func NewTestContext(config Config) *TestContext {
-	namespaceExportFilter := func(namespace *Namespace) bool {
-		return true
-	}
-
-	nameResolver := NewNameResolver(namespaceExportFilter)
+func newTestContextForFixture(config Config) *TestContext {
 	ctx := &TestContext{
-		Context:      &Context{blueprint.NewContext(), config},
-		NameResolver: nameResolver,
+		Context: &Context{blueprint.NewContext(), config},
 	}
-
-	ctx.SetNameInterface(nameResolver)
 
 	ctx.postDeps = append(ctx.postDeps, registerPathDepsMutator)
 
@@ -49,6 +41,16 @@ func NewTestContext(config Config) *TestContext {
 	if ctx.config.mockBpList != "" {
 		ctx.SetModuleListFile(ctx.config.mockBpList)
 	}
+
+	return ctx
+}
+
+func NewTestContext(config Config) *TestContext {
+	ctx := newTestContextForFixture(config)
+
+	nameResolver := NewNameResolver(config)
+	ctx.NameResolver = nameResolver
+	ctx.SetNameInterface(nameResolver)
 
 	return ctx
 }
@@ -82,6 +84,8 @@ var PrepareForTestWithLicenses = GroupFixturePreparers(
 	FixtureRegisterWithContext(RegisterLicenseBuildComponents),
 	FixtureRegisterWithContext(registerLicenseMutators),
 )
+
+var PrepareForTestWithGenNotice = FixtureRegisterWithContext(RegisterGenNoticeBuildComponents)
 
 func registerLicenseMutators(ctx RegistrationContext) {
 	ctx.PreArchMutators(RegisterLicensesPackageMapper)
@@ -199,6 +203,10 @@ func (ctx *TestContext) HardCodedPreArchMutators(f RegisterMutatorFunc) {
 	ctx.PreArchMutators(f)
 }
 
+func (ctx *TestContext) ModuleProvider(m blueprint.Module, p blueprint.ProviderKey) interface{} {
+	return ctx.Context.ModuleProvider(m, p)
+}
+
 func (ctx *TestContext) PreDepsMutators(f RegisterMutatorFunc) {
 	ctx.preDeps = append(ctx.preDeps, f)
 }
@@ -211,8 +219,8 @@ func (ctx *TestContext) FinalDepsMutators(f RegisterMutatorFunc) {
 	ctx.finalDeps = append(ctx.finalDeps, f)
 }
 
-func (ctx *TestContext) RegisterBp2BuildConfig(config bp2BuildConversionAllowlist) {
-	ctx.config.bp2buildPackageConfig = config
+func (ctx *TestContext) RegisterBp2BuildConfig(config Bp2BuildConversionAllowlist) {
+	ctx.config.Bp2buildPackageConfig = config
 }
 
 // PreArchBp2BuildMutators adds mutators to be register for converting Android Blueprint modules
@@ -455,8 +463,14 @@ func (ctx *TestContext) Register() {
 
 // RegisterForBazelConversion prepares a test context for bp2build conversion.
 func (ctx *TestContext) RegisterForBazelConversion() {
-	ctx.SetRunningAsBp2build()
+	ctx.config.BuildMode = Bp2build
 	RegisterMutatorsForBazelConversion(ctx.Context, ctx.bp2buildPreArch)
+}
+
+// RegisterForApiBazelConversion prepares a test context for API bp2build conversion.
+func (ctx *TestContext) RegisterForApiBazelConversion() {
+	ctx.config.BuildMode = ApiBp2build
+	RegisterMutatorsForApiBazelConversion(ctx.Context, ctx.bp2buildPreArch)
 }
 
 func (ctx *TestContext) ParseFileList(rootDir string, filePaths []string) (deps []string, errs []error) {
@@ -665,6 +679,46 @@ func (ctx *TestContext) InstallMakeRulesForTesting(t *testing.T) []InstallMakeRu
 	return parseMkRules(t, ctx.config, nodes)
 }
 
+// MakeVarVariable provides access to make vars that will be written by the makeVarsSingleton
+type MakeVarVariable interface {
+	// Name is the name of the variable.
+	Name() string
+
+	// Value is the value of the variable.
+	Value() string
+}
+
+func (v makeVarsVariable) Name() string {
+	return v.name
+}
+
+func (v makeVarsVariable) Value() string {
+	return v.value
+}
+
+// PrepareForTestAccessingMakeVars sets up the test so that MakeVarsForTesting will work.
+var PrepareForTestAccessingMakeVars = GroupFixturePreparers(
+	PrepareForTestWithAndroidMk,
+	PrepareForTestWithMakevars,
+)
+
+// MakeVarsForTesting returns a filtered list of MakeVarVariable objects that represent the
+// variables that will be written out.
+//
+// It is necessary to use PrepareForTestAccessingMakeVars in tests that want to call this function.
+// Along with any other preparers needed to add the make vars.
+func (ctx *TestContext) MakeVarsForTesting(filter func(variable MakeVarVariable) bool) []MakeVarVariable {
+	vars := ctx.SingletonForTests("makevars").Singleton().(*makeVarsSingleton).varsForTesting
+	result := make([]MakeVarVariable, 0, len(vars))
+	for _, v := range vars {
+		if filter(v) {
+			result = append(result, v)
+		}
+	}
+
+	return result
+}
+
 func (ctx *TestContext) Config() Config {
 	return ctx.config
 }
@@ -686,17 +740,17 @@ type TestingBuildParams struct {
 //
 // The parts of this structure which are changed are:
 // * BuildParams
-//   * Args
-//   * All Path, Paths, WritablePath and WritablePaths fields.
+//   - Args
+//   - All Path, Paths, WritablePath and WritablePaths fields.
 //
 // * RuleParams
-//   * Command
-//   * Depfile
-//   * Rspfile
-//   * RspfileContent
-//   * SymlinkOutputs
-//   * CommandDeps
-//   * CommandOrderOnly
+//   - Command
+//   - Depfile
+//   - Rspfile
+//   - RspfileContent
+//   - SymlinkOutputs
+//   - CommandDeps
+//   - CommandOrderOnly
 //
 // See PathRelativeToTop for more details.
 //
@@ -757,6 +811,20 @@ func normalizePathRelativeToTop(path Path) Path {
 		return nil
 	}
 	return path.RelativeToTop()
+}
+
+func allOutputs(p BuildParams) []string {
+	outputs := append(WritablePaths(nil), p.Outputs...)
+	outputs = append(outputs, p.ImplicitOutputs...)
+	if p.Output != nil {
+		outputs = append(outputs, p.Output)
+	}
+	return outputs.Strings()
+}
+
+// AllOutputs returns all 'BuildParams.Output's and 'BuildParams.Outputs's in their full path string forms.
+func (p TestingBuildParams) AllOutputs() []string {
+	return allOutputs(p.BuildParams)
 }
 
 // baseTestingComponent provides functionality common to both TestingModule and TestingSingleton.
@@ -900,12 +968,7 @@ func (b baseTestingComponent) buildParamsFromOutput(file string) TestingBuildPar
 func (b baseTestingComponent) allOutputs() []string {
 	var outputFullPaths []string
 	for _, p := range b.provider.BuildParamsForTests() {
-		outputs := append(WritablePaths(nil), p.Outputs...)
-		outputs = append(outputs, p.ImplicitOutputs...)
-		if p.Output != nil {
-			outputs = append(outputs, p.Output)
-		}
-		outputFullPaths = append(outputFullPaths, outputs.Strings()...)
+		outputFullPaths = append(outputFullPaths, allOutputs(p)...)
 	}
 	return outputFullPaths
 }
@@ -1035,7 +1098,7 @@ func FailIfNoMatchingErrors(t *testing.T, pattern string, errs []error) bool {
 		}
 	}
 	if !found {
-		t.Errorf("missing the expected error %q (checked %d error(s))", pattern, len(errs))
+		t.Errorf("could not match the expected error regex %q (checked %d error(s))", pattern, len(errs))
 		for i, err := range errs {
 			t.Errorf("errs[%d] = %q", i, err)
 		}
@@ -1071,7 +1134,13 @@ func SetKatiEnabledForTests(config Config) {
 	config.katiEnabled = true
 }
 
+func SetTrimmedApexEnabledForTests(config Config) {
+	config.productVariables.TrimmedApex = new(bool)
+	*config.productVariables.TrimmedApex = true
+}
+
 func AndroidMkEntriesForTest(t *testing.T, ctx *TestContext, mod blueprint.Module) []AndroidMkEntries {
+	t.Helper()
 	var p AndroidMkEntriesProvider
 	var ok bool
 	if p, ok = mod.(AndroidMkEntriesProvider); !ok {
@@ -1086,10 +1155,11 @@ func AndroidMkEntriesForTest(t *testing.T, ctx *TestContext, mod blueprint.Modul
 }
 
 func AndroidMkDataForTest(t *testing.T, ctx *TestContext, mod blueprint.Module) AndroidMkData {
+	t.Helper()
 	var p AndroidMkDataProvider
 	var ok bool
 	if p, ok = mod.(AndroidMkDataProvider); !ok {
-		t.Errorf("module does not implement AndroidMkDataProvider: " + mod.Name())
+		t.Fatalf("module does not implement AndroidMkDataProvider: " + mod.Name())
 	}
 	data := p.AndroidMk()
 	data.fillInData(ctx, mod)

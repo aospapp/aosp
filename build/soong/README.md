@@ -1,20 +1,39 @@
 # Soong
 
-Soong is the replacement for the old Android make-based build system.  It
-replaces Android.mk files with Android.bp files, which are JSON-like simple
-declarative descriptions of modules to build.
+Soong is one of the build systems used in Android. There are altogether three:
+* The legacy Make-based build system that is controlled by files called
+  `Android.mk`.
+* Soong, which is controlled by files called `Android.bp`.
+* The upcoming Bazel-based build system that is controlled by files called
+  `BUILD.bazel`.
+
+`Android.bp` file are JSON-like declarative descriptions of "modules" to build;
+a "module" is the basic unit of building that Soong understands, similarly to
+how "target" is the basic unit of building for Bazel (and Make, although the
+two kinds of "targets" are very different)
 
 See [Simple Build
 Configuration](https://source.android.com/compatibility/tests/development/blueprints)
 on source.android.com to read how Soong is configured for testing.
+
+### Contributing
+
+Code reviews are handled through the usual code review system of Android,
+available [here](https://android-review.googlesource.com/dashboard/self).
+
+For simple changes (fixing typos, obvious optimizations, etc.), sending a code
+review request is enough. For more substantial changes, file a bug in our
+[bug tracker](https://issuetracker.google.com/issues/new?component=381517) or
+or write us at android-building@googlegroups.com .
+
+For Googlers, see our [internal documentation](http://go/soong).
 
 ## Android.bp file format
 
 By design, Android.bp files are very simple.  There are no conditionals or
 control flow statements - any complexity is handled in build logic written in
 Go.  The syntax and semantics of Android.bp files are intentionally similar
-to [Bazel BUILD files](https://www.bazel.io/versions/master/docs/be/overview.html)
-when possible.
+to [Bazel BUILD files](https://bazel.build/concepts/build-files) when possible.
 
 ### Modules
 
@@ -86,31 +105,35 @@ Android.bp files can contain C-style multiline `/* */` and C++ style single-line
 
 ### Types
 
-Variables and properties are strongly typed, variables dynamically based on the
-first assignment, and properties statically by the module type.  The supported
-types are:
+Variables and properties are strongly typed. Variables are dynamically typed
+based on the first assignment, and properties are statically typed by the
+module type.  The supported types are:
 * Bool (`true` or `false`)
 * Integers (`int`)
 * Strings (`"string"`)
 * Lists of strings (`["string1", "string2"]`)
 * Maps (`{key1: "value1", key2: ["value2"]}`)
 
-Maps may values of any type, including nested maps.  Lists and maps may have
-trailing commas after the last value.
+Maps may contain values of any type, including nested maps. Lists and maps may
+have trailing commas after the last value.
 
 Strings can contain double quotes using `\"`, for example `"cat \"a b\""`.
 
 ### Operators
 
-Strings, lists of strings, and maps can be appended using the `+` operator.
-Integers can be summed up using the `+` operator. Appending a map produces the
-union of keys in both maps, appending the values of any keys that are present
-in both maps.
+The `+` operator:
+* Sums integers.
+* Concatenates strings and lists.
+* Produces the union of maps.
+
+Concatenating maps produces a map whose keys are the union of the given maps'
+keys, and whose mapped values are the union of the given maps' corresponding
+mapped values.
 
 ### Defaults modules
 
-A defaults module can be used to repeat the same properties in multiple modules.
-For example:
+A `defaults` module can be used to repeat the same properties in multiple
+modules. For example:
 
 ```
 cc_defaults {
@@ -165,7 +188,7 @@ the same `.bp` file as the `package` module) to be visible to all the subpackage
 
 ```
 package {
-    default_visibility: [":__subpackages"]
+    default_visibility: [":__subpackages__"]
 }
 ```
 
@@ -590,27 +613,44 @@ To load the code of Soong in IntelliJ:
   Content Root, then add the `build/blueprint` directory.
 * Optional: also add the `external/golang-protobuf` directory. In practice,
   IntelliJ seems to work well enough without this, too.
+
 ### Running Soong in a debugger
+
+Both the Android build driver (`soong_ui`) and Soong proper (`soong_build`) are
+Go applications and can be debugged with the help of the standard Go debugger
+called Delve. A client (e.g., IntelliJ IDEA) communicates with Delve via IP port
+that Delve listens to (the port number is passed to it on invocation).
+
+#### Debugging Android Build Driver ####
+To make `soong_ui` wait for a debugger connection, use the `SOONG_UI_DELVE`
+variable:
+
+```
+SOONG_UI_DELVE=5006 m nothing
+```
+
+#### Debugging Soong Proper ####
 
 To make `soong_build` wait for a debugger connection, install `dlv` and then
 start the build with `SOONG_DELVE=<listen addr>` in the environment.
 For example:
 ```bash
-SOONG_DELVE=:5006 m nothing
+SOONG_DELVE=5006 m nothing
 ```
-
-To make `soong_ui` wait for a debugger connection, use the `SOONG_UI_DELVE`
-variable:
-
+Android build driver invokes `soong_build` multiple times, and by default each
+invocation is run in the debugger. Setting `SOONG_DELVE_STEPS` controls which
+invocations are run in the debugger, e.g., running
+```bash
+SOONG_DELVE=2345 SOONG_DELVE_STEPS='build,modulegraph' m
 ```
-SOONG_UI_DELVE=:5006 m nothing
-```
+results in only `build` (main build step) and `modulegraph` being run in the debugger.
+The allowed step names are `api_bp2build`, `bp2build_files`, `bp2build_workspace`,
+`build`, `modulegraph`, `queryview`, `soong_docs`.
 
-
-setting or unsetting `SOONG_DELVE` causes a recompilation of `soong_build`. This
+Note setting or unsetting `SOONG_DELVE` causes a recompilation of `soong_build`. This
 is because in order to debug the binary, it needs to be built with debug
 symbols.
-
+#### Delve Troubleshooting ####
 To test the debugger connection, run this command:
 
 ```
@@ -629,15 +669,23 @@ using:
 sudo sysctl -w kernel.yama.ptrace_scope=0
 ```
 
+#### IntelliJ Setup ####
 To connect to the process using IntelliJ:
 
 * Run -> Edit Configurations...
 * Choose "Go Remote" on the left
 * Click on the "+" buttion on the top-left
-* Give it a nice name and set "Host" to localhost and "Port" to the port in the
-  environment variable
+* Give it a nice _name_ and set "Host" to `localhost` and "Port" to the port in the
+  environment variable (`SOONG_UI_DELVE` for `soong_ui`, `SOONG_DELVE` for
+  `soong_build`)
+* Set the breakpoints where you want application to stop
+* Run the build from the command line
+* In IntelliJ, click Run -> Debug _name_
+* Observe _Connecting..._ message in the debugger pane. It changes to
+  _Connected_ once the communication with the debugger has been established; the
+  terminal window where the build started will display
+  `API server listening at ...` message
 
-Debugging works far worse than debugging Java, but is sometimes useful.
 
 Sometimes the `dlv` process hangs on connection. A symptom of this is `dlv`
 spinning a core or two. In that case, `kill -9` `dlv` and try again.

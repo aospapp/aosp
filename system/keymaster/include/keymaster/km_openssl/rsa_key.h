@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_RSA_KEY_H_
 #define SYSTEM_KEYMASTER_RSA_KEY_H_
 
+#include <utility>
+
 #include <openssl/rsa.h>
 
 #include <keymaster/km_openssl/openssl_utils.h>
@@ -28,10 +30,11 @@ namespace keymaster {
 class RsaKey : public AsymmetricKey {
   public:
     RsaKey(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced, const KeyFactory* factory)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), factory) {}
     RsaKey(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced, const KeyFactory* factory,
            RSA_Ptr rsa_key)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory), rsa_key_(move(rsa_key)) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), factory),
+                        rsa_key_(std::move(rsa_key)) {}
 
     int evp_key_type() const override { return EVP_PKEY_RSA; }
 
@@ -46,7 +49,8 @@ class RsaKey : public AsymmetricKey {
   protected:
     RsaKey(RSA* rsa, AuthorizationSet hw_enforced, AuthorizationSet sw_enforced,
            const KeyFactory* key_factory)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), key_factory), rsa_key_(rsa) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), key_factory), rsa_key_(rsa)
+          {}
 
   private:
     RSA_Ptr rsa_key_;

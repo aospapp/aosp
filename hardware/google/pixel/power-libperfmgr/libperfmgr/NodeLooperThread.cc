@@ -21,6 +21,7 @@
 
 #include <android-base/file.h>
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <utils/Trace.h>
 
 namespace android {
@@ -39,6 +40,11 @@ bool NodeLooperThread::Request(const std::vector<NodeAction>& actions,
     bool ret = true;
     ::android::AutoMutex _l(lock_);
     for (const auto& a : actions) {
+        if (!a.enable_property.empty() &&
+            !android::base::GetBoolProperty(a.enable_property, true)) {
+            // Disabled action based on its control property
+            continue;
+        }
         if (a.node_index >= nodes_.size()) {
             LOG(ERROR) << "Node index out of bound: " << a.node_index
                        << " ,size: " << nodes_.size();

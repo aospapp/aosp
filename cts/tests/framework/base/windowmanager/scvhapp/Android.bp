@@ -27,6 +27,7 @@ android_test {
     static_libs: [
         "cts-wm-app-base",
         "androidx.annotation_annotation",
+        "cts-wm-util",
     ],
 
     sdk_version: "test_current",

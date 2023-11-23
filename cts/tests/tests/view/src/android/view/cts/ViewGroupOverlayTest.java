@@ -57,6 +57,8 @@ import java.util.List;
 @RunWith(AndroidJUnit4.class)
 public class ViewGroupOverlayTest {
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
+
     private Activity mActivity;
     private ViewGroup mViewGroupWithOverlay;
     private ViewGroupOverlay mViewGroupOverlay;
@@ -68,6 +70,7 @@ public class ViewGroupOverlayTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mViewGroupWithOverlay = (ViewGroup) mActivity.findViewById(R.id.viewgroup_with_overlay);
         mViewGroupOverlay = mViewGroupWithOverlay.getOverlay();
@@ -267,7 +270,7 @@ public class ViewGroupOverlayTest {
         mActivityRule.runOnUiThread(() -> mViewGroupOverlay.add(redView));
 
         // Emulate a tap in the center of the view we've added to the overlay
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule,
                 mViewGroupWithOverlay);
 
         // Verify that our mock listener hasn't been called

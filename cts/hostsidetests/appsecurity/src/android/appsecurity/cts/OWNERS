@@ -1,1 +1,3 @@
 per-file *ResumeOnReboot* = file:platform/frameworks/base:/core/java/android/service/resumeonreboot/OWNERS
+per-file BootCountTrackerRule.java = file:platform/frameworks/base:/core/java/android/service/resumeonreboot/OWNERS
+per-file ApkVerityInstallTest.java = file:platform/system/security:/fsverity/OWNERS

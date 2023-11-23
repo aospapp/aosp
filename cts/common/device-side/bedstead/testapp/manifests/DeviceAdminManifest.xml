@@ -18,16 +18,16 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.testapp.DeviceAdminTestApp">
-    <application android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory">
+    <application android:appComponentFactory="com.android.bedstead.testapp.TestAppAppComponentFactory" android:label="DeviceAdminTestApp">
         <receiver android:name=".DeviceAdminReceiver"
                   android:permission="android.permission.BIND_DEVICE_ADMIN"
                   android:exported="true">
             <meta-data android:name="android.app.device_admin"
-                       android:resource="@xml/device_admin"/>
+                       android:resource="@xml/no_headless_device_owner_device_admin"/>
             <intent-filter>
                 <action android:name="android.app.action.DEVICE_ADMIN_ENABLED"/>
             </intent-filter>
         </receiver>
     </application>
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
 </manifest>

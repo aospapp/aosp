@@ -390,6 +390,34 @@ public class NetworkScanApiTest extends BaseCarrierApiTest {
     }
 
     @Test
+    public void testRequestNetworkScanWithRenounceWithoutChannels() {
+        boolean isLocationSwitchOn = getAndSetLocationSwitch(true);
+        try {
+            mNetworkScanRequest = buildNetworkScanRequest(/*includeBandsAndChannels=*/false);
+            mNetworkScanCallback = new NetworkScanCallbackImpl();
+            Message startNetworkScan = mHandler.obtainMessage(EVENT_NETWORK_SCAN_RENOUNCE_START,
+                    false);
+            setReady(false);
+            startNetworkScan.sendToTarget();
+            waitUntilReady();
+
+            Log.d(TAG, "mNetworkScanStatus: " + mNetworkScanStatus);
+            assertWithMessage(
+                    "The final scan status is "
+                            + mNetworkScanStatus
+                            + " with error code "
+                            + mErrorCode
+                            + ", not ScanCompleted"
+                            + " or ScanError with an error code ERROR_MODEM_UNAVAILABLE or"
+                            + " ERROR_UNSUPPORTED")
+                    .that(isScanStatusValid())
+                    .isTrue();
+        } finally {
+            getAndSetLocationSwitch(isLocationSwitchOn);
+        }
+    }
+
+    @Test
     public void testRequestNetworkScanLocationOffPass() {
         requestNetworkScanLocationOffHelper(false, true);
     }

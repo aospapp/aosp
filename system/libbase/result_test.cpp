@@ -16,6 +16,7 @@
 
 #include "android-base/result.h"
 #include <utils/ErrorsMacros.h>
+#include "android-base/errors.h"
 #include "errno.h"
 
 #include <istream>
@@ -486,6 +487,17 @@ TEST(result, unique_ptr) {
   Result<std::unique_ptr<int>> result2 = return_unique_ptr(true);
   ASSERT_THAT(result2, Ok());
   EXPECT_EQ(**result2, 3);
+}
+
+TEST(result, void) {
+  using testing::Ok;
+
+  auto return_void = []() -> Result<void> {
+    OR_RETURN(Result<void>());
+    return {};
+  };
+
+  ASSERT_THAT(return_void(), Ok());
 }
 
 struct ConstructorTracker {

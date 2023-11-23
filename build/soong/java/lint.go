@@ -17,6 +17,7 @@ package java
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/google/blueprint/proptools"
@@ -60,6 +61,11 @@ type LintProperties struct {
 
 		// If true, baselining updatability lint checks (e.g. NewApi) is prohibited. Defaults to false.
 		Strict_updatability_linting *bool
+
+		// Treat the code in this module as test code for @VisibleForTesting enforcement.
+		// This will be true by default for test module types, false otherwise.
+		// If soong gets support for testonly, this flag should be replaced with that.
+		Test *bool
 	}
 }
 
@@ -73,11 +79,10 @@ type linter struct {
 	classpath               android.Paths
 	classes                 android.Path
 	extraLintCheckJars      android.Paths
-	test                    bool
 	library                 bool
-	minSdkVersion           android.ApiLevel
-	targetSdkVersion        android.ApiLevel
-	compileSdkVersion       android.ApiLevel
+	minSdkVersion           int
+	targetSdkVersion        int
+	compileSdkVersion       int
 	compileSdkKind          android.SdkKind
 	javaLanguageLevel       string
 	kotlinLanguageLevel     string
@@ -91,9 +96,10 @@ type linter struct {
 }
 
 type lintOutputs struct {
-	html android.Path
-	text android.Path
-	xml  android.Path
+	html              android.Path
+	text              android.Path
+	xml               android.Path
+	referenceBaseline android.Path
 
 	depSets LintDepSets
 }
@@ -154,6 +160,50 @@ func (l LintDepSetsBuilder) Build() LintDepSets {
 	}
 }
 
+type lintDatabaseFiles struct {
+	apiVersionsModule       string
+	apiVersionsCopiedName   string
+	apiVersionsPrebuiltPath string
+	annotationsModule       string
+	annotationCopiedName    string
+	annotationPrebuiltpath  string
+}
+
+var allLintDatabasefiles = map[android.SdkKind]lintDatabaseFiles{
+	android.SdkPublic: {
+		apiVersionsModule:       "api_versions_public",
+		apiVersionsCopiedName:   "api_versions_public.xml",
+		apiVersionsPrebuiltPath: "prebuilts/sdk/current/public/data/api-versions.xml",
+		annotationsModule:       "sdk-annotations.zip",
+		annotationCopiedName:    "annotations-public.zip",
+		annotationPrebuiltpath:  "prebuilts/sdk/current/public/data/annotations.zip",
+	},
+	android.SdkSystem: {
+		apiVersionsModule:       "api_versions_system",
+		apiVersionsCopiedName:   "api_versions_system.xml",
+		apiVersionsPrebuiltPath: "prebuilts/sdk/current/system/data/api-versions.xml",
+		annotationsModule:       "sdk-annotations-system.zip",
+		annotationCopiedName:    "annotations-system.zip",
+		annotationPrebuiltpath:  "prebuilts/sdk/current/system/data/annotations.zip",
+	},
+	android.SdkModule: {
+		apiVersionsModule:       "api_versions_module_lib",
+		apiVersionsCopiedName:   "api_versions_module_lib.xml",
+		apiVersionsPrebuiltPath: "prebuilts/sdk/current/module-lib/data/api-versions.xml",
+		annotationsModule:       "sdk-annotations-module-lib.zip",
+		annotationCopiedName:    "annotations-module-lib.zip",
+		annotationPrebuiltpath:  "prebuilts/sdk/current/module-lib/data/annotations.zip",
+	},
+	android.SdkSystemServer: {
+		apiVersionsModule:       "api_versions_system_server",
+		apiVersionsCopiedName:   "api_versions_system_server.xml",
+		apiVersionsPrebuiltPath: "prebuilts/sdk/current/system-server/data/api-versions.xml",
+		annotationsModule:       "sdk-annotations-system-server.zip",
+		annotationCopiedName:    "annotations-system-server.zip",
+		annotationPrebuiltpath:  "prebuilts/sdk/current/system-server/data/annotations.zip",
+	},
+}
+
 func (l *linter) LintDepSets() LintDepSets {
 	return l.outputs.depSets
 }
@@ -185,10 +235,8 @@ func (l *linter) deps(ctx android.BottomUpMutatorContext) {
 
 	extraCheckModules := l.properties.Lint.Extra_check_modules
 
-	if checkOnly := ctx.Config().Getenv("ANDROID_LINT_CHECK"); checkOnly != "" {
-		if checkOnlyModules := ctx.Config().Getenv("ANDROID_LINT_CHECK_EXTRA_MODULES"); checkOnlyModules != "" {
-			extraCheckModules = strings.Split(checkOnlyModules, ",")
-		}
+	if extraCheckModulesEnv := ctx.Config().Getenv("ANDROID_LINT_CHECK_EXTRA_MODULES"); extraCheckModulesEnv != "" {
+		extraCheckModules = append(extraCheckModules, strings.Split(extraCheckModulesEnv, ",")...)
 	}
 
 	ctx.AddFarVariationDependencies(ctx.Config().BuildOSCommonTarget.Variations(),
@@ -209,7 +257,7 @@ func lintRBEExecStrategy(ctx android.ModuleContext) string {
 	return ctx.Config().GetenvWithDefault("RBE_LINT_EXEC_STRATEGY", remoteexec.LocalExecStrategy)
 }
 
-func (l *linter) writeLintProjectXML(ctx android.ModuleContext, rule *android.RuleBuilder) lintPaths {
+func (l *linter) writeLintProjectXML(ctx android.ModuleContext, rule *android.RuleBuilder, srcsList android.Path) lintPaths {
 	projectXMLPath := android.PathForModuleOut(ctx, "lint", "project.xml")
 	// Lint looks for a lint.xml file next to the project.xml file, give it one.
 	configXMLPath := android.PathForModuleOut(ctx, "lint", "lint.xml")
@@ -228,7 +276,7 @@ func (l *linter) writeLintProjectXML(ctx android.ModuleContext, rule *android.Ru
 	if l.library {
 		cmd.Flag("--library")
 	}
-	if l.test {
+	if proptools.BoolDefault(l.properties.Lint.Test, false) {
 		cmd.Flag("--test")
 	}
 	if l.manifest != nil {
@@ -240,8 +288,7 @@ func (l *linter) writeLintProjectXML(ctx android.ModuleContext, rule *android.Ru
 
 	// TODO(ccross): some of the files in l.srcs are generated sources and should be passed to
 	// lint separately.
-	srcsList := android.PathForModuleOut(ctx, "lint-srcs.list")
-	cmd.FlagWithRspFileInputList("--srcs ", srcsList, l.srcs)
+	cmd.FlagWithInput("--srcs ", srcsList)
 
 	cmd.FlagWithInput("--generated_srcs ", srcJarList)
 
@@ -267,19 +314,25 @@ func (l *linter) writeLintProjectXML(ctx android.ModuleContext, rule *android.Ru
 	cmd.FlagWithInput("@",
 		android.PathForSource(ctx, "build/soong/java/lint_defaults.txt"))
 
-	cmd.FlagForEachArg("--error_check ", l.extraMainlineLintErrors)
+	if l.compileSdkKind == android.SdkPublic {
+		cmd.FlagForEachArg("--error_check ", l.extraMainlineLintErrors)
+	} else {
+		// TODO(b/268261262): Remove this branch. We're demoting NewApi to a warning due to pre-existing issues that need to be fixed.
+		cmd.FlagForEachArg("--warning_check ", l.extraMainlineLintErrors)
+	}
 	cmd.FlagForEachArg("--disable_check ", l.properties.Lint.Disabled_checks)
 	cmd.FlagForEachArg("--warning_check ", l.properties.Lint.Warning_checks)
 	cmd.FlagForEachArg("--error_check ", l.properties.Lint.Error_checks)
 	cmd.FlagForEachArg("--fatal_check ", l.properties.Lint.Fatal_checks)
 
-	if l.GetStrictUpdatabilityLinting() {
-		// Verify the module does not baseline issues that endanger safe updatability.
-		if baselinePath := l.getBaselineFilepath(ctx); baselinePath.Valid() {
-			cmd.FlagWithInput("--baseline ", baselinePath.Path())
-			cmd.FlagForEachArg("--disallowed_issues ", updatabilityChecks)
-		}
-	}
+	// TODO(b/193460475): Re-enable strict updatability linting
+	//if l.GetStrictUpdatabilityLinting() {
+	//	// Verify the module does not baseline issues that endanger safe updatability.
+	//	if baselinePath := l.getBaselineFilepath(ctx); baselinePath.Valid() {
+	//		cmd.FlagWithInput("--baseline ", baselinePath.Path())
+	//		cmd.FlagForEachArg("--disallowed_issues ", updatabilityChecks)
+	//	}
+	//}
 
 	return lintPaths{
 		projectXML: projectXMLPath,
@@ -299,8 +352,8 @@ func (l *linter) generateManifest(ctx android.ModuleContext, rule *android.RuleB
 		Text(`echo "<?xml version='1.0' encoding='utf-8'?>" &&`).
 		Text(`echo "<manifest xmlns:android='http://schemas.android.com/apk/res/android'" &&`).
 		Text(`echo "    android:versionCode='1' android:versionName='1' >" &&`).
-		Textf(`echo "  <uses-sdk android:minSdkVersion='%s' android:targetSdkVersion='%s'/>" &&`,
-			l.minSdkVersion.String(), l.targetSdkVersion.String()).
+		Textf(`echo "  <uses-sdk android:minSdkVersion='%d' android:targetSdkVersion='%d'/>" &&`,
+			l.minSdkVersion, l.targetSdkVersion).
 		Text(`echo "</manifest>"`).
 		Text(") >").Output(manifestPath)
 
@@ -325,17 +378,31 @@ func (l *linter) lint(ctx android.ModuleContext) {
 		return
 	}
 
-	if l.minSdkVersion.CompareTo(l.compileSdkVersion) == -1 {
+	if l.minSdkVersion != l.compileSdkVersion {
 		l.extraMainlineLintErrors = append(l.extraMainlineLintErrors, updatabilityChecks...)
-		_, filtered := android.FilterList(l.properties.Lint.Warning_checks, updatabilityChecks)
-		if len(filtered) != 0 {
-			ctx.PropertyErrorf("lint.warning_checks",
-				"Can't treat %v checks as warnings if min_sdk_version is different from sdk_version.", filtered)
+		// Skip lint warning checks for NewApi warnings for libcore where they come from source
+		// files that reference the API they are adding (b/208656169).
+		if !strings.HasPrefix(ctx.ModuleDir(), "libcore") {
+			_, filtered := android.FilterList(l.properties.Lint.Warning_checks, updatabilityChecks)
+
+			if len(filtered) != 0 {
+				ctx.PropertyErrorf("lint.warning_checks",
+					"Can't treat %v checks as warnings if min_sdk_version is different from sdk_version.", filtered)
+			}
 		}
-		_, filtered = android.FilterList(l.properties.Lint.Disabled_checks, updatabilityChecks)
+
+		_, filtered := android.FilterList(l.properties.Lint.Disabled_checks, updatabilityChecks)
 		if len(filtered) != 0 {
 			ctx.PropertyErrorf("lint.disabled_checks",
 				"Can't disable %v checks if min_sdk_version is different from sdk_version.", filtered)
+		}
+
+		// TODO(b/238784089): Remove this workaround when the NewApi issues have been addressed in PermissionController
+		if ctx.ModuleName() == "PermissionController" {
+			l.extraMainlineLintErrors = android.FilterListPred(l.extraMainlineLintErrors, func(s string) bool {
+				return s != "NewApi"
+			})
+			l.properties.Lint.Warning_checks = append(l.properties.Lint.Warning_checks, "NewApi")
 		}
 	}
 
@@ -349,6 +416,9 @@ func (l *linter) lint(ctx android.ModuleContext) {
 				"%s is not a java module", ctx.OtherModuleName(extraLintCheckModule))
 		}
 	}
+
+	l.extraLintCheckJars = append(l.extraLintCheckJars, android.PathForSource(ctx,
+		"prebuilts/cmdline-tools/AndroidGlobalLintChecker.jar"))
 
 	rule := android.NewRuleBuilder(pctx, ctx).
 		Sbox(android.PathForModuleOut(ctx, "lint"),
@@ -372,12 +442,16 @@ func (l *linter) lint(ctx android.ModuleContext) {
 		rule.Temporary(manifest)
 	}
 
-	lintPaths := l.writeLintProjectXML(ctx, rule)
+	srcsList := android.PathForModuleOut(ctx, "lint", "lint-srcs.list")
+	srcsListRsp := android.PathForModuleOut(ctx, "lint-srcs.list.rsp")
+	rule.Command().Text("cp").FlagWithRspFileInputList("", srcsListRsp, l.srcs).Output(srcsList)
+
+	lintPaths := l.writeLintProjectXML(ctx, rule, srcsList)
 
 	html := android.PathForModuleOut(ctx, "lint", "lint-report.html")
 	text := android.PathForModuleOut(ctx, "lint", "lint-report.txt")
 	xml := android.PathForModuleOut(ctx, "lint", "lint-report.xml")
-	baseline := android.PathForModuleOut(ctx, "lint", "lint-baseline.xml")
+	referenceBaseline := android.PathForModuleOut(ctx, "lint", "lint-baseline.xml")
 
 	depSetsBuilder := NewLintDepSetBuilder().Direct(html, text, xml)
 
@@ -391,26 +465,17 @@ func (l *linter) lint(ctx android.ModuleContext) {
 	rule.Command().Text("mkdir -p").Flag(lintPaths.cacheDir.String()).Flag(lintPaths.homeDir.String())
 	rule.Command().Text("rm -f").Output(html).Output(text).Output(xml)
 
-	var apiVersionsName, apiVersionsPrebuilt string
-	if l.compileSdkKind == android.SdkModule || l.compileSdkKind == android.SdkSystemServer {
-		// When compiling an SDK module (or system server) we use the filtered
-		// database because otherwise lint's
-		// NewApi check produces too many false positives; This database excludes information
-		// about classes created in mainline modules hence removing those false positives.
-		apiVersionsName = "api_versions_public_filtered.xml"
-		apiVersionsPrebuilt = "prebuilts/sdk/current/public/data/api-versions-filtered.xml"
-	} else {
-		apiVersionsName = "api_versions.xml"
-		apiVersionsPrebuilt = "prebuilts/sdk/current/public/data/api-versions.xml"
+	files, ok := allLintDatabasefiles[l.compileSdkKind]
+	if !ok {
+		files = allLintDatabasefiles[android.SdkPublic]
 	}
-
 	var annotationsZipPath, apiVersionsXMLPath android.Path
 	if ctx.Config().AlwaysUsePrebuiltSdks() {
-		annotationsZipPath = android.PathForSource(ctx, "prebuilts/sdk/current/public/data/annotations.zip")
-		apiVersionsXMLPath = android.PathForSource(ctx, apiVersionsPrebuilt)
+		annotationsZipPath = android.PathForSource(ctx, files.annotationPrebuiltpath)
+		apiVersionsXMLPath = android.PathForSource(ctx, files.apiVersionsPrebuiltPath)
 	} else {
-		annotationsZipPath = copiedAnnotationsZipPath(ctx)
-		apiVersionsXMLPath = copiedAPIVersionsXmlPath(ctx, apiVersionsName)
+		annotationsZipPath = copiedLintDatabaseFilesPath(ctx, files.annotationCopiedName)
+		apiVersionsXMLPath = copiedLintDatabaseFilesPath(ctx, files.apiVersionsCopiedName)
 	}
 
 	cmd := rule.Command()
@@ -427,17 +492,21 @@ func (l *linter) lint(ctx android.ModuleContext) {
 		FlagWithOutput("--html ", html).
 		FlagWithOutput("--text ", text).
 		FlagWithOutput("--xml ", xml).
-		FlagWithArg("--compile-sdk-version ", l.compileSdkVersion.String()).
+		FlagWithArg("--compile-sdk-version ", strconv.Itoa(l.compileSdkVersion)).
 		FlagWithArg("--java-language-level ", l.javaLanguageLevel).
 		FlagWithArg("--kotlin-language-level ", l.kotlinLanguageLevel).
 		FlagWithArg("--url ", fmt.Sprintf(".=.,%s=out", android.PathForOutput(ctx).String())).
-		Flag("--exitcode").
+		Flag("--apply-suggestions"). // applies suggested fixes to files in the sandbox
 		Flags(l.properties.Lint.Flags).
 		Implicit(annotationsZipPath).
 		Implicit(apiVersionsXMLPath)
 
 	rule.Temporary(lintPaths.projectXML)
 	rule.Temporary(lintPaths.configXML)
+
+	if exitCode := ctx.Config().Getenv("ANDROID_LINT_SUPPRESS_EXIT_CODE"); exitCode == "" {
+		cmd.Flag("--exitcode")
+	}
 
 	if checkOnly := ctx.Config().Getenv("ANDROID_LINT_CHECK"); checkOnly != "" {
 		cmd.FlagWithArg("--check ", checkOnly)
@@ -448,9 +517,19 @@ func (l *linter) lint(ctx android.ModuleContext) {
 		cmd.FlagWithInput("--baseline ", lintBaseline.Path())
 	}
 
-	cmd.FlagWithOutput("--write-reference-baseline ", baseline)
+	cmd.FlagWithOutput("--write-reference-baseline ", referenceBaseline)
 
-	cmd.Text("|| (").Text("if [ -e").Input(text).Text("]; then cat").Input(text).Text("; fi; exit 7)")
+	cmd.Text("; EXITCODE=$?; ")
+
+	// The sources in the sandbox may have been modified by --apply-suggestions, zip them up and
+	// export them out of the sandbox.  Do this before exiting so that the suggestions exit even after
+	// a fatal error.
+	cmd.BuiltTool("soong_zip").
+		FlagWithOutput("-o ", android.PathForModuleOut(ctx, "lint", "suggested-fixes.zip")).
+		FlagWithArg("-C ", cmd.PathForInput(android.PathForSource(ctx))).
+		FlagWithInput("-r ", srcsList)
+
+	cmd.Text("; if [ $EXITCODE != 0 ]; then if [ -e").Input(text).Text("]; then cat").Input(text).Text("; fi; exit $EXITCODE; fi")
 
 	rule.Command().Text("rm -rf").Flag(lintPaths.cacheDir.String()).Flag(lintPaths.homeDir.String())
 
@@ -460,9 +539,10 @@ func (l *linter) lint(ctx android.ModuleContext) {
 	rule.Build("lint", "lint")
 
 	l.outputs = lintOutputs{
-		html: html,
-		text: text,
-		xml:  xml,
+		html:              html,
+		text:              text,
+		xml:               xml,
+		referenceBaseline: referenceBaseline,
 
 		depSets: depSetsBuilder.Build(),
 	}
@@ -494,9 +574,10 @@ func BuildModuleLintReportZips(ctx android.ModuleContext, depSets LintDepSets) a
 }
 
 type lintSingleton struct {
-	htmlZip android.WritablePath
-	textZip android.WritablePath
-	xmlZip  android.WritablePath
+	htmlZip              android.WritablePath
+	textZip              android.WritablePath
+	xmlZip               android.WritablePath
+	referenceBaselineZip android.WritablePath
 }
 
 func (l *lintSingleton) GenerateBuildActions(ctx android.SingletonContext) {
@@ -524,46 +605,39 @@ func (l *lintSingleton) copyLintDependencies(ctx android.SingletonContext) {
 		return
 	}
 
-	frameworkDocStubs := findModuleOrErr(ctx, "framework-doc-stubs")
-	if frameworkDocStubs == nil {
-		if !ctx.Config().AllowMissingDependencies() {
-			ctx.Errorf("lint: missing framework-doc-stubs")
+	for _, sdk := range android.SortedKeys(allLintDatabasefiles) {
+		files := allLintDatabasefiles[sdk]
+		apiVersionsDb := findModuleOrErr(ctx, files.apiVersionsModule)
+		if apiVersionsDb == nil {
+			if !ctx.Config().AllowMissingDependencies() {
+				ctx.Errorf("lint: missing module api_versions_public")
+			}
+			return
 		}
-		return
-	}
 
-	filteredDb := findModuleOrErr(ctx, "api-versions-xml-public-filtered")
-	if filteredDb == nil {
-		if !ctx.Config().AllowMissingDependencies() {
-			ctx.Errorf("lint: missing api-versions-xml-public-filtered")
+		sdkAnnotations := findModuleOrErr(ctx, files.annotationsModule)
+		if sdkAnnotations == nil {
+			if !ctx.Config().AllowMissingDependencies() {
+				ctx.Errorf("lint: missing module sdk-annotations.zip")
+			}
+			return
 		}
-		return
+
+		ctx.Build(pctx, android.BuildParams{
+			Rule:   android.CpIfChanged,
+			Input:  android.OutputFileForModule(ctx, sdkAnnotations, ""),
+			Output: copiedLintDatabaseFilesPath(ctx, files.annotationCopiedName),
+		})
+
+		ctx.Build(pctx, android.BuildParams{
+			Rule:   android.CpIfChanged,
+			Input:  android.OutputFileForModule(ctx, apiVersionsDb, ".api_versions.xml"),
+			Output: copiedLintDatabaseFilesPath(ctx, files.apiVersionsCopiedName),
+		})
 	}
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:   android.CpIfChanged,
-		Input:  android.OutputFileForModule(ctx, frameworkDocStubs, ".annotations.zip"),
-		Output: copiedAnnotationsZipPath(ctx),
-	})
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:   android.CpIfChanged,
-		Input:  android.OutputFileForModule(ctx, frameworkDocStubs, ".api_versions.xml"),
-		Output: copiedAPIVersionsXmlPath(ctx, "api_versions.xml"),
-	})
-
-	ctx.Build(pctx, android.BuildParams{
-		Rule:   android.CpIfChanged,
-		Input:  android.OutputFileForModule(ctx, filteredDb, ""),
-		Output: copiedAPIVersionsXmlPath(ctx, "api_versions_public_filtered.xml"),
-	})
 }
 
-func copiedAnnotationsZipPath(ctx android.PathContext) android.WritablePath {
-	return android.PathForOutput(ctx, "lint", "annotations.zip")
-}
-
-func copiedAPIVersionsXmlPath(ctx android.PathContext, name string) android.WritablePath {
+func copiedLintDatabaseFilesPath(ctx android.PathContext, name string) android.WritablePath {
 	return android.PathForOutput(ctx, "lint", name)
 }
 
@@ -616,12 +690,15 @@ func (l *lintSingleton) generateLintReportZips(ctx android.SingletonContext) {
 	l.xmlZip = android.PathForOutput(ctx, "lint-report-xml.zip")
 	zip(l.xmlZip, func(l *lintOutputs) android.Path { return l.xml })
 
-	ctx.Phony("lint-check", l.htmlZip, l.textZip, l.xmlZip)
+	l.referenceBaselineZip = android.PathForOutput(ctx, "lint-report-reference-baselines.zip")
+	zip(l.referenceBaselineZip, func(l *lintOutputs) android.Path { return l.referenceBaseline })
+
+	ctx.Phony("lint-check", l.htmlZip, l.textZip, l.xmlZip, l.referenceBaselineZip)
 }
 
 func (l *lintSingleton) MakeVars(ctx android.MakeVarsContext) {
 	if !ctx.Config().UnbundledBuild() {
-		ctx.DistForGoal("lint-check", l.htmlZip, l.textZip, l.xmlZip)
+		ctx.DistForGoal("lint-check", l.htmlZip, l.textZip, l.xmlZip, l.referenceBaselineZip)
 	}
 }
 

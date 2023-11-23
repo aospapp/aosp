@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2019 NXP
+ *  Copyright 2018-2019,2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -44,5 +44,6 @@ typedef struct phNxpEse_sCoreRecvBuff_List {
 
 ESESTATUS phNxpEse_GetData(uint32_t* data_len, uint8_t** pbuff);
 ESESTATUS phNxpEse_StoreDatainList(uint32_t data_len, uint8_t* pbuff);
+void phNxpEse_FlushData();
 
 #endif /* PHNXPESE_RECVMGR_H */

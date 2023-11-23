@@ -1,0 +1,8 @@
+winsonc@google.com
+hwwang@google.com
+
+# Bug component: 315013
+per-file Android.bp = mpgroover@google.com
+per-file AndroidManifest.xml = mpgroover@google.com
+per-file AndroidTest.xml = mpgroover@google.com
+per-file ShareIdentityTest.java = mpgroover@google.com

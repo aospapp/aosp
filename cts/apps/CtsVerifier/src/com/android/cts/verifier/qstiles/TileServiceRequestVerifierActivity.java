@@ -107,7 +107,6 @@ public class TileServiceRequestVerifierActivity extends InteractiveVerifierActiv
         list.add(new InstallPackageVerify());
         list.add(new TileNotPresent());
         list.add(new RequestAddTileDismiss());
-        list.add(new RequestAddTileAnswerNo());
         list.add(new RequestAddTileCorrectInfo());
         list.add(new RequestAddTileAnswerYes());
         list.add(new TilePresentAfterRequest());
@@ -152,7 +151,8 @@ public class TileServiceRequestVerifierActivity extends InteractiveVerifierActiv
                     next();
                 }
             };
-            mContext.registerReceiver(br, new IntentFilter(ACTION_REMOVE_PACKAGE));
+            mContext.registerReceiver(br, new IntentFilter(ACTION_REMOVE_PACKAGE),
+                    Context.RECEIVER_EXPORTED);
             return br;
         }
 
@@ -164,7 +164,8 @@ public class TileServiceRequestVerifierActivity extends InteractiveVerifierActiv
             BroadcastReceiver br = registerReceiver();
             try {
                 PendingIntent pi = PendingIntent.getBroadcast(mContext, /* requestCode */ 0,
-                        new Intent(ACTION_REMOVE_PACKAGE), PendingIntent.FLAG_MUTABLE);
+                        new Intent(ACTION_REMOVE_PACKAGE).setPackage(mContext.getPackageName()),
+                        PendingIntent.FLAG_MUTABLE);
                 packageInstaller.uninstall(HELPER_ACTIVITY_COMPONENT.getPackageName(),
                         pi.getIntentSender());
                 status = WAIT_FOR_USER;
@@ -244,39 +245,6 @@ public class TileServiceRequestVerifierActivity extends InteractiveVerifierActiv
         @Override
         protected View inflate(ViewGroup parent) {
             return createAutoItem(parent, R.string.tiles_request_dismissed);
-        }
-
-        @Override
-        protected boolean showRequestAction() {
-            return true;
-        }
-
-        @Override
-        protected void requestAction() {
-            registerForResult(
-                    integer -> {
-                        if (integer.equals(
-                                StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED)) {
-                            status = PASS;
-                        } else {
-                            setFailed("Request called back with result: " + integer);
-                        }
-                        next();
-                    }
-            );
-        }
-
-        @Override
-        protected void test() {
-            status = WAIT_FOR_USER;
-            next();
-        }
-    }
-
-    private class RequestAddTileAnswerNo extends InteractiveTestCase {
-        @Override
-        protected View inflate(ViewGroup parent) {
-            return createAutoItem(parent, R.string.tiles_request_answer_no);
         }
 
         @Override

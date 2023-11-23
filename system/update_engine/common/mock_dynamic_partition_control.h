@@ -38,6 +38,10 @@ class MockDynamicPartitionControl : public DynamicPartitionControlInterface {
               GetVirtualAbCompressionXorFeatureFlag,
               (),
               (override));
+  MOCK_METHOD(FeatureFlag,
+              GetVirtualAbUserspaceSnapshotsFeatureFlag,
+              (),
+              (override));
   MOCK_METHOD(FeatureFlag, GetVirtualAbFeatureFlag, (), (override));
   MOCK_METHOD(bool, FinishUpdate, (bool), (override));
   MOCK_METHOD(std::unique_ptr<FileDescriptor>,

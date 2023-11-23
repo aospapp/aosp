@@ -26,7 +26,7 @@
 
 using namespace vixl::aarch32;  // NOLINT(build/namespaces)
 
-namespace art {
+namespace art HIDDEN {
 namespace arm {
 
 #ifdef ___
@@ -81,9 +81,7 @@ void ArmVIXLAssembler::MaybeUnpoisonHeapReference(vixl32::Register reg) {
 }
 
 void ArmVIXLAssembler::GenerateMarkingRegisterCheck(vixl32::Register temp, int code) {
-  // The Marking Register is only used in the Baker read barrier configuration.
-  DCHECK(kEmitCompilerReadBarrier);
-  DCHECK(kUseBakerReadBarrier);
+  DCHECK(kReserveMarkingRegister);
 
   vixl32::Label mr_is_ok;
 

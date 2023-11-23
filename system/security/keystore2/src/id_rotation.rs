@@ -20,6 +20,8 @@
 //! It is assumed that the timestamp file does not exist after a factory reset. So the creation
 //! time of the timestamp file provides a lower bound for the time since factory reset.
 
+use crate::ks_err;
+
 use anyhow::{Context, Result};
 use std::fs;
 use std::io::ErrorKind;
@@ -66,7 +68,7 @@ impl IdRotationState {
                 _ => Err(e).context("Failed to open timestamp file."),
             },
         }
-        .context("In had_factory_reset_since_id_rotation:")
+        .context(ks_err!())
     }
 }
 

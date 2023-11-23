@@ -29,6 +29,8 @@ namespace android {
 namespace aidl {
 namespace tests {
 namespace unions {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 class EnumUnion {
 public:
   typedef std::false_type fixed_size;
@@ -119,10 +121,7 @@ public:
     switch (getTag()) {
     case intEnum: os << "intEnum: " << ::android::internal::ToString(get<intEnum>()); break;
     case longEnum: os << "longEnum: " << ::android::internal::ToString(get<longEnum>()); break;
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
     case deprecatedField: os << "deprecatedField: " << ::android::internal::ToString(get<deprecatedField>()); break;
-    #pragma clang diagnostic pop
     }
     os << "}";
     return os.str();
@@ -130,6 +129,7 @@ public:
 private:
   std::variant<::aidl::android::aidl::tests::IntEnum, ::aidl::android::aidl::tests::LongEnum, int32_t> _value;
 };
+#pragma clang diagnostic pop
 }  // namespace unions
 }  // namespace tests
 }  // namespace aidl

@@ -18,6 +18,8 @@ package android.voicesettings.cts;
 
 import static android.provider.Settings.ACTION_VOICE_CONTROL_AIRPLANE_MODE;
 
+import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.provider.Settings;
@@ -25,6 +27,7 @@ import android.util.Log;
 
 import com.android.compatibility.common.util.BroadcastUtils;
 
+import org.junit.After;
 import org.junit.Test;
 
 public class AirplaneModeTest extends BroadcastTestBase {
@@ -37,10 +40,25 @@ public class AirplaneModeTest extends BroadcastTestBase {
     private static final int AIRPLANE_MODE_IS_OFF = 0;
     private static final int AIRPLANE_MODE_IS_ON = 1;
 
+    private int mOriginalAirplaneMode;
+
     @Override
     protected void customSetup() throws Exception {
         mHasFeature = mContext.getPackageManager().hasSystemFeature(FEATURE_VOICE_RECOGNIZERS);
-        Log.v(TAG, "setUp(): mHasFeature=" + mHasFeature);
+        mOriginalAirplaneMode = getMode();
+        Log.v(TAG, "setUp(): mHasFeature=" + mHasFeature + ", original airplane mode="
+                + mOriginalAirplaneMode);
+    }
+
+    @After
+    public void restoreAirplanMode() {
+        Log.v(TAG, "@After: restoreAirplanMode() to " + mOriginalAirplaneMode);
+        // The test already tries to restore the airplane mode but the value cannot be restored if
+        // the test fails. Try to make sure the airplane mode can be restored even the test fails.
+        runWithShellPermissionIdentity(() ->
+                Settings.Global.putInt(mContext.getContentResolver(),
+                        Settings.Global.AIRPLANE_MODE_ON, mOriginalAirplaneMode)
+        );
     }
 
     @Test

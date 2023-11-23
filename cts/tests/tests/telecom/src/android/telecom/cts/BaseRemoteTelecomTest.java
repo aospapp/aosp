@@ -16,19 +16,22 @@
 
 package android.telecom.cts;
 
-import static android.telecom.cts.TestUtils.*;
+import static android.telecom.cts.TestUtils.PACKAGE;
+import static android.telecom.cts.TestUtils.REMOTE_ACCOUNT_ID;
+import static android.telecom.cts.TestUtils.REMOTE_ACCOUNT_LABEL;
+import static android.telecom.cts.TestUtils.REMOTE_COMPONENT;
+import static android.telecom.cts.TestUtils.TAG;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
-import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.CoreMatchers.not;
 import static org.junit.Assert.assertThat;
 
 import android.content.ComponentName;
 import android.telecom.Connection;
-import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.RemoteConference;
 import android.telecom.RemoteConnection;
-import android.text.TextUtils;
 import android.util.Log;
 
 import java.util.ArrayList;
@@ -93,7 +96,11 @@ public class BaseRemoteTelecomTest extends BaseTelecomTestWithMockServices {
 
     protected void tearDownRemoteConnectionService(PhoneAccountHandle remoteAccountHandle)
             throws Exception {
-        assertNumConnections(this.remoteConnectionService, 0);
+        if (this.remoteConnectionService != null) {
+            //check only if remote connection service was setup
+            //some skipped testcases may not set it up
+            assertNumConnections(this.remoteConnectionService, 0);
+        }
         mTelecomManager.unregisterPhoneAccount(remoteAccountHandle);
         CtsRemoteConnectionService.tearDown();
         //Telecom doesn't unbind the remote connection service at the end of all calls today.

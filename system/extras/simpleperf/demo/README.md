@@ -19,9 +19,9 @@ This directory is to show examples of using simpleperf to profile Android applic
 meaning of each directory is as below:
 
     ../scripts/                  -- contain simpleperf binaries and scripts.
-    SimpleperfExamplePureJava/   -- contains an Android Studio project using only Java code.
+    SimpleperfExampleJava/       -- contains an Android Studio project using only Java code.
     SimpleperfExampleCpp/        -- contains an Android Studio project using both Java and C++ code.
-    SimpleperfExampleOfKotlin/   -- contains an Android Studio project using Kotlin code.
+    SimpleperfExampleKotlin/     -- contains an Android Studio project using Kotlin code.
     CppApi/                      -- contains an Android Studio project using c++ app_api to record.
     JavaApi/                     -- contains an Android Studio project using Java app_api to record.
 
@@ -43,19 +43,20 @@ Please make sure your device having Android version >= N.
 
 ## Profile a Java application
 
-Android Studio project: SimpleExamplePureJava
+Android Studio project: SimpleExampleJava
 
 steps:
 1. Build and install the application:
 
 ```sh
-# Open SimpleperfExamplePureJava project with Android Studio,
+# Open SimpleperfExampleJava project with Android Studio,
 # and build this project successfully, otherwise the `./gradlew` command below will fail.
-$ cd SimpleperfExamplePureJava
+$ cd SimpleperfExampleJava
 
+# Build and install a debuggable app. We can also build and install a released app on Android >= Q.
 # On windows, use "gradlew" instead.
 $ ./gradlew clean assemble
-$ adb install -r app/build/outputs/apk/app-profiling.apk
+$ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 2. Record profiling data:
@@ -63,7 +64,7 @@ $ adb install -r app/build/outputs/apk/app-profiling.apk
 ```sh
 $ cd ../../scripts/
 # app_profiler.py collects profiling data in perf.data, and binaries on device in binary_cache/.
-$ python app_profiler.py -p com.example.simpleperf.simpleperfexamplepurejava
+$ python app_profiler.py -p simpleperf.example.java
 ```
 
 3. Show profiling data:
@@ -107,19 +108,20 @@ $ python report_html.py --add_source_code --source_dirs ../demo --add_disassembl
 
 ## Profile a Kotlin application
 
-Android Studio project: SimpleExampleOfKotlin
+Android Studio project: SimpleExampleKotlin
 
 steps:
 1. Build and install the application:
 
 ```sh
-# Open SimpleperfExampleOfKotlin project with Android Studio,
+# Open SimpleperfExampleKotlin project with Android Studio,
 # and build this project sucessfully, otherwise the `./gradlew` command below will fail.
-$ cd SimpleperfExampleOfKotlin
+$ cd SimpleperfExampleKotlin
 
+# Build and install a debuggable app. We can also build and install a released app on Android >= Q.
 # On windows, use "gradlew" instead.
 $ ./gradlew clean assemble
-$ adb install -r app/build/outputs/apk/profiling/app-profiling.apk
+$ adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 2. Record profiling data:
@@ -127,7 +129,7 @@ $ adb install -r app/build/outputs/apk/profiling/app-profiling.apk
 ```sh
 $ cd ../../scripts/
 # app_profiler.py collects profiling data in perf.data, and binaries on device in binary_cache/.
-$ python app_profiler.py -p com.example.simpleperf.simpleperfexampleofkotlin
+$ python app_profiler.py -p simpleperf.example.kotlin
 ```
 
 3. Show profiling data:

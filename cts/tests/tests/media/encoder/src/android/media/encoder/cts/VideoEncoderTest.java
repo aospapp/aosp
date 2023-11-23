@@ -39,10 +39,9 @@ import android.media.cts.CodecUtils;
 import android.media.cts.InputSurface;
 import android.media.cts.MediaHeavyPresubmitTest;
 import android.media.cts.MediaTestBase;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.cts.OutputSurface;
-import android.media.cts.Preconditions;
 import android.media.cts.TestArgs;
+import android.media.cts.TestUtils;
 import android.net.Uri;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
@@ -51,11 +50,10 @@ import android.util.Range;
 import android.util.Size;
 import android.view.Surface;
 
-import androidx.test.ext.junit.runners.AndroidJUnit4;
-import androidx.test.filters.SmallTest;
-import androidx.test.platform.app.InstrumentationRegistry;
-
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 
 import org.junit.After;
 import org.junit.Assume;
@@ -65,10 +63,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
 import java.io.IOException;
-import java.lang.Throwable;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,13 +76,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 @MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
@@ -489,6 +478,7 @@ public class VideoEncoderTest extends MediaTestBase {
             }
         }
 
+        @SuppressWarnings("ReturnValueIgnored") // TODO: mCheckOutputFormatHook should be a Consumer
         protected void saveEncoderFormat(MediaFormat format) {
             mEncodedStream.setFormat(format);
             if (mCheckOutputFormatHook != null) {
@@ -1281,7 +1271,7 @@ public class VideoEncoderTest extends MediaTestBase {
         return encoder;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{2}x{3}_{4}_{5})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{2}x{3}_{4}_{5}")
     public static Collection<Object[]> input() {
         final String[] mediaTypesList = new String[] {
                 MediaFormat.MIMETYPE_VIDEO_AVC,
@@ -1290,6 +1280,7 @@ public class VideoEncoderTest extends MediaTestBase {
                 MediaFormat.MIMETYPE_VIDEO_MPEG4,
                 MediaFormat.MIMETYPE_VIDEO_VP8,
                 MediaFormat.MIMETYPE_VIDEO_VP9,
+                MediaFormat.MIMETYPE_VIDEO_AV1,
         };
         final List<Object[]> argsList = new ArrayList<>();
         for (String mediaType : mediaTypesList) {
@@ -1299,6 +1290,10 @@ public class VideoEncoderTest extends MediaTestBase {
             String[] encoders = MediaUtils.getEncoderNamesForMime(mediaType);
             for (String encoder : encoders) {
                 if (TestArgs.shouldSkipCodec(encoder)) {
+                    continue;
+                }
+                if (!TestUtils.isTestableCodecInCurrentMode(encoder)) {
+                    Log.d(TAG, "Skipping tests for codec: " + encoder);
                     continue;
                 }
                 CodecCapabilities caps = getCodecCapabities(encoder, mediaType, true);
@@ -1360,6 +1355,17 @@ public class VideoEncoderTest extends MediaTestBase {
         mMode = mode;
     }
 
+    @CddTest(requirements = {"5.1.7/C-3-1"})
+    @ApiTest(apis = {"MediaCodecInfo.CodecCapabilities#FEATURE_IntraRefresh",
+            "android.media.MediaFormat#KEY_WIDTH",
+            "android.media.MediaFormat#KEY_HEIGHT",
+            "android.media.MediaFormat#KEY_FRAME_RATE",
+            "android.media.MediaFormat#KEY_BIT_RATE",
+            "android.media.MediaFormat#KEY_I_FRAME_INTERVAL",
+            "android.media.MediaFormat#KEY_INTRA_REFRESH_PERIOD",
+            "android.media.MediaFormat#KEY_MAX_INPUT_SIZE",
+            "MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420Flexible",
+            "MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface"})
     @Test
     public void testEncode() {
         int frameRate = 30;

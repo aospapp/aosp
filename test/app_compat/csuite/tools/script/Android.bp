@@ -22,9 +22,6 @@ python_binary_host {
     srcs: [
         "generate_module.py",
     ],
-    defaults: [
-        "csuite_python_defaults",
-    ],
 }
 
 python_test_host {
@@ -41,7 +38,4 @@ python_test_host {
     test_options: {
         unit_test: true,
     },
-    defaults: [
-        "csuite_python_defaults",
-    ],
 }

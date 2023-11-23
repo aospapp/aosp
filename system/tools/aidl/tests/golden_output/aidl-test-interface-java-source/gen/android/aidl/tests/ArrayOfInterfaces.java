@@ -80,6 +80,22 @@ public class ArrayOfInterfaces implements android.os.Parcelable
       {
         return this;
       }
+      /** @hide */
+      public static java.lang.String getDefaultTransactionName(int transactionCode)
+      {
+        switch (transactionCode)
+        {
+          default:
+          {
+            return null;
+          }
+        }
+      }
+      /** @hide */
+      public java.lang.String getTransactionName(int transactionCode)
+      {
+        return this.getDefaultTransactionName(transactionCode);
+      }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
         java.lang.String descriptor = DESCRIPTOR;
@@ -114,6 +130,11 @@ public class ArrayOfInterfaces implements android.os.Parcelable
         {
           return DESCRIPTOR;
         }
+      }
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 0;
       }
     }
     public static final java.lang.String DESCRIPTOR = "android$aidl$tests$ArrayOfInterfaces$IEmptyInterface".replace('$', '.');
@@ -158,6 +179,26 @@ public class ArrayOfInterfaces implements android.os.Parcelable
       @Override public android.os.IBinder asBinder()
       {
         return this;
+      }
+      /** @hide */
+      public static java.lang.String getDefaultTransactionName(int transactionCode)
+      {
+        switch (transactionCode)
+        {
+          case TRANSACTION_methodWithInterfaces:
+          {
+            return "methodWithInterfaces";
+          }
+          default:
+          {
+            return null;
+          }
+        }
+      }
+      /** @hide */
+      public java.lang.String getTransactionName(int transactionCode)
+      {
+        return this.getDefaultTransactionName(transactionCode);
       }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
@@ -245,20 +286,10 @@ public class ArrayOfInterfaces implements android.os.Parcelable
             _data.writeStrongInterface(iface);
             _data.writeStrongInterface(nullable_iface);
             _data.writeInterfaceArray(iface_array_in);
-            if ((iface_array_out==null)) {
-              _data.writeInt(-1);
-            }
-            else {
-              _data.writeInt(iface_array_out.length);
-            }
+            _data.writeInt(iface_array_out.length);
             _data.writeInterfaceArray(iface_array_inout);
             _data.writeInterfaceArray(nullable_iface_array_in);
-            if ((nullable_iface_array_out==null)) {
-              _data.writeInt(-1);
-            }
-            else {
-              _data.writeInt(nullable_iface_array_out.length);
-            }
+            _data.writeInt(nullable_iface_array_out.length);
             _data.writeInterfaceArray(nullable_iface_array_inout);
             boolean _status = mRemote.transact(Stub.TRANSACTION_methodWithInterfaces, _data, _reply, 0);
             _reply.readException();
@@ -276,6 +307,11 @@ public class ArrayOfInterfaces implements android.os.Parcelable
         }
       }
       static final int TRANSACTION_methodWithInterfaces = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 0;
+      }
     }
     public static final java.lang.String DESCRIPTOR = "android$aidl$tests$ArrayOfInterfaces$IMyInterface".replace('$', '.');
     public android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] methodWithInterfaces(android.aidl.tests.ArrayOfInterfaces.IEmptyInterface iface, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface nullable_iface, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] iface_array_in, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] iface_array_out, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] iface_array_inout, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] nullable_iface_array_in, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] nullable_iface_array_out, android.aidl.tests.ArrayOfInterfaces.IEmptyInterface[] nullable_iface_array_inout) throws android.os.RemoteException;

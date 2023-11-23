@@ -1,18 +1,20 @@
 ## Media CTS Tests
 The tests are organized into following testcases
 
-| TestCase | Description |
-|------------------------|----------------------|
-| CtsMediaAudioTestCases | Audio related tests |
-| CtsMediaCodecTestCases | MediaCodec related tests, for combinations decode/encode |
-| CtsMediaDecoderTestCases | MediaCodec related tests, for decoding |
-| CtsMediaEncoderTestCases | MediaCodec related tests, for encoding |
-| CtsMediaDrmFrameworkTestCases | Media DRM related tests |
-| CtsMediaExtractorTestCases | MediaExtractor related tests |
-| CtsMediaMuxerTestCases | MediaMuxer related tests  |
-| CtsMediaPlayerTestCases | MediaPlayer related tests  |
-| CtsMediaRecorderTestCases | MediaRecorder related tests  |
-| CtsMediaMiscTestCases | All other media tests  |
+| TestCase                        | Description                                                               |
+|---------------------------------|---------------------------------------------------------------------------|
+| CtsMediaAudioTestCases          | Audio related tests                                                       |
+| CtsMediaBetterTogetherTestCases | BetterTogether related test cases (MediaSession/MediaRouter/MediaBrowser) |
+| CtsMediaCodecTestCases          | MediaCodec related tests, for combinations decode/encode                  |
+| CtsMediaDecoderTestCases        | MediaCodec related tests, for decoding                                    |
+| CtsMediaEncoderTestCases        | MediaCodec related tests, for encoding                                    |
+| CtsMediaDrmFrameworkTestCases   | Media DRM related tests                                                   |
+| CtsMediaExtractorTestCases      | MediaExtractor related tests                                              |
+| CtsMediaMuxerTestCases          | MediaMuxer related tests                                                  |
+| CtsMediaPlayerTestCases         | MediaPlayer related tests                                                 |
+| CtsMediaProjectionTestCases     | MediaProjection related tests                                             |
+| CtsMediaRecorderTestCases       | MediaRecorder related tests                                               |
+| CtsMediaMiscTestCases           | All other media tests                                                     |
 
 
 ## Test files used in the tests

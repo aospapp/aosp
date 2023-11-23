@@ -26,7 +26,6 @@ import fnmatch
 import json
 import logging
 import os
-import pkgutil
 import sys
 
 from acts import base_test
@@ -108,6 +107,7 @@ class TestRunner(object):
             run.
         running: A boolean signifies whether this test run is ongoing or not.
     """
+
     def __init__(self, test_configs, run_list):
         self.test_run_config = test_configs
         self.testbed_name = self.test_run_config.testbed_name
@@ -151,6 +151,7 @@ class TestRunner(object):
             A dictionary where keys are test class name strings, values are
             actual test classes that can be instantiated.
         """
+
         def is_testfile_name(name, ext):
             if ext == '.py':
                 if name.endswith('Test') or name.endswith('_test'):

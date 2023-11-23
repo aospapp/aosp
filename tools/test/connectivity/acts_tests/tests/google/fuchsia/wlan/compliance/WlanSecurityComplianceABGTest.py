@@ -24,7 +24,7 @@ from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib.hostapd_security import Security
 from acts.controllers.ap_lib.hostapd_utils import generate_random_password
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 AP_11ABG_PROFILE_NAME = 'whirlwind_11ag_legacy'
 SSID_LENGTH_DEFAULT = 15
@@ -156,7 +156,7 @@ def create_security_profile(test_func):
     return security_profile_generator
 
 
-class WlanSecurityComplianceABGTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanSecurityComplianceABGTest(WifiBaseTest):
     """Tests for validating 11a, 11b, and 11g PHYS.
 
     Test Bed Requirement:

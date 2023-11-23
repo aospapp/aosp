@@ -72,7 +72,7 @@ $(WTS_ACTS_DISTRO): $(SOONG_ZIP)
 	# add in the local wts py files for use with the prebuilt
 	$(hide) zip -r $(WTS_ACTS_DISTRO_ARCHIVE) -j tools/test/connectivity/wts-acts/*.py
 	# create executable tool from the archive
-	$(hide) echo '#!/usr/bin/env python' | cat - $(WTS_ACTS_DISTRO_DIR)/wts-acts.zip > $(WTS_ACTS_DISTRO_DIR)/wts-acts
+	$(hide) echo '#!/usr/bin/env python3' | cat - $(WTS_ACTS_DISTRO_DIR)/wts-acts.zip > $(WTS_ACTS_DISTRO_DIR)/wts-acts
 	$(hide) chmod 755 $(WTS_ACTS_DISTRO)
 
 wts-acts: $(WTS_ACTS_DISTRO)

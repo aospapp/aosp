@@ -16,16 +16,20 @@
 package org.hyphonate.megaaudio.player;
 
 import android.media.AudioTimestamp;
+import android.util.Log;
 
 public class OboePlayer extends Player {
-    boolean mPlaying;
+    @SuppressWarnings("unused")
+    private static final String TAG = OboePlayer.class.getSimpleName();
+    @SuppressWarnings("unused")
+    private static final boolean LOG = true;
 
     private int mPlayerSubtype;
+
     private long mNativePlayer;
 
-    private AudioSource mAudioSource;
-
-    public OboePlayer(AudioSourceProvider sourceProvider, int playerSubtype) {
+    public OboePlayer(PlayerBuilder builder, AudioSourceProvider sourceProvider,
+                      int playerSubtype) {
         super(sourceProvider);
 
         mPlayerSubtype = playerSubtype;
@@ -34,13 +38,15 @@ public class OboePlayer extends Player {
             mAudioSource = nativeAudioSource;
             mNativePlayer = allocNativePlayer(nativeAudioSource.getNativeObject(), mPlayerSubtype);
         } else {
+            // No native source provided, so wrap a Java source in a native provider wrapper
             mAudioSource = mSourceProvider.getJavaSource();
             mNativePlayer = allocNativePlayer(
                     JavaSourceProxy.allocNativeSource(mAudioSource), mPlayerSubtype);
         }
+
+        setupStream(builder);
     }
 
-    @Override
     public int getNumBufferFrames() {
         return getBufferFrameCountN(mNativePlayer);
     }
@@ -50,21 +56,25 @@ public class OboePlayer extends Player {
         return getRoutedDeviceIdN(mNativePlayer);
     }
 
-    @Override
-    public AudioSource getAudioSource() {
-        return mAudioSource;
-    }
-
-    @Override
-    public boolean isPlaying() { return mPlaying; }
-
-    @Override
-    public int setupStream(int channelCount, int sampleRate, int numBurstFrames) {
-        mChannelCount = channelCount;
-        mSampleRate = sampleRate;
+    private int setupStream(PlayerBuilder builder) {
+        mChannelCount = builder.getChannelCount();
+        mSampleRate = builder.getSampleRate();
+        mNumExchangeFrames = builder.getNumExchangeFrames();
+        mPerformanceMode = builder.getPerformanceMode();
+        mSharingMode = builder.getSharingMode();
+        int routeDeviceId = builder.getRouteDeviceId();
+        if (LOG) {
+            Log.i(TAG, "setupStream()");
+            Log.i(TAG, "  chans:" + mChannelCount);
+            Log.i(TAG, "  rate: " + mSampleRate);
+            Log.i(TAG, "  frames: " + mNumExchangeFrames);
+            Log.i(TAG, "  perf mode: " + mPerformanceMode);
+            Log.i(TAG, "  route device: " + routeDeviceId);
+            Log.i(TAG, "  sharing mode: " + mSharingMode);
+        }
         return setupStreamN(
-                mNativePlayer, channelCount, sampleRate,
-                mRouteDevice == null ? -1 : mRouteDevice.getId());
+                mNativePlayer, mChannelCount, mSampleRate, mPerformanceMode, mSharingMode,
+                routeDeviceId);
     }
 
     @Override
@@ -79,7 +89,10 @@ public class OboePlayer extends Player {
 
     @Override
     public int startStream() {
-        return startStreamN(mNativePlayer, mPlayerSubtype);
+        int retVal = startStreamN(mNativePlayer, mPlayerSubtype);
+        // TODO - Need Java constants defined for the C++ StreamBase.Result enum
+        mPlaying = retVal == 0;
+        return retVal;
     }
 
     @Override
@@ -91,6 +104,7 @@ public class OboePlayer extends Player {
 
     /**
      * Gets a timestamp from the audio stream
+     *
      * @param timestamp
      * @return
      */
@@ -98,12 +112,23 @@ public class OboePlayer extends Player {
         return getTimestampN(mNativePlayer, timestamp);
     }
 
+    public int getStreamState() {
+        return getStreamStateN(mNativePlayer);
+    }
+
+    public int getLastErrorCallbackResult() {
+        return getLastErrorCallbackResultN(mNativePlayer);
+    }
+
     private native long allocNativePlayer(long nativeSource, int playerSubtype);
 
-    private native int setupStreamN(long nativePlayer, int channelCount, int sampleRate, int routeDeviceId);
+    private native int setupStreamN(long nativePlayer, int channelCount, int sampleRate,
+                                    int performanceMode, int sharingMode, int routeDeviceId);
+
     private native int teardownStreamN(long nativePlayer);
 
     private native int startStreamN(long nativePlayer, int playerSubtype);
+
     private native int stopN(long nativePlayer);
 
     private native int getBufferFrameCountN(long mNativePlayer);
@@ -111,4 +136,8 @@ public class OboePlayer extends Player {
     private native int getRoutedDeviceIdN(long nativePlayer);
 
     private native boolean getTimestampN(long nativePlayer, AudioTimestamp timestamp);
+
+    private native int getStreamStateN(long nativePlayer);
+
+    private native int getLastErrorCallbackResultN(long nativePlayer);
 }

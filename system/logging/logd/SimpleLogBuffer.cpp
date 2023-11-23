@@ -110,33 +110,16 @@ void SimpleLogBuffer::LogInternal(LogBufferElement&& elem) {
     reader_list_->NotifyNewLog(1 << log_id);
 }
 
-// These extra parameters are only required for chatty, but since they're a no-op for
-// SimpleLogBuffer, it's easier to include them here, then to duplicate FlushTo() for
-// ChattyLogBuffer.
-class ChattyFlushToState : public FlushToState {
-  public:
-    ChattyFlushToState(uint64_t start, LogMask log_mask) : FlushToState(start, log_mask) {}
-
-    pid_t* last_tid() { return last_tid_; }
-
-    bool drop_chatty_messages() const { return drop_chatty_messages_; }
-    void set_drop_chatty_messages(bool value) { drop_chatty_messages_ = value; }
-
-  private:
-    pid_t last_tid_[LOG_ID_MAX] = {};
-    bool drop_chatty_messages_ = true;
-};
-
 std::unique_ptr<FlushToState> SimpleLogBuffer::CreateFlushToState(uint64_t start,
                                                                   LogMask log_mask) {
-    return std::make_unique<ChattyFlushToState>(start, log_mask);
+    return std::make_unique<FlushToState>(start, log_mask);
 }
 
 bool SimpleLogBuffer::FlushTo(
         LogWriter* writer, FlushToState& abstract_state,
         const std::function<FilterResult(log_id_t log_id, pid_t pid, uint64_t sequence,
                                          log_time realtime)>& filter) {
-    auto& state = reinterpret_cast<ChattyFlushToState&>(abstract_state);
+    auto& state = reinterpret_cast<FlushToState&>(abstract_state);
 
     std::list<LogBufferElement>::iterator it;
     if (state.start() <= 1) {
@@ -181,27 +164,10 @@ bool SimpleLogBuffer::FlushTo(
             }
         }
 
-        // drop_chatty_messages is initialized to true, so if the first message that we attempt to
-        // flush is a chatty message, we drop it.  Once we see a non-chatty message it gets set to
-        // false to let further chatty messages be printed.
-        if (state.drop_chatty_messages()) {
-            if (element.dropped_count() != 0) {
-                continue;
-            }
-            state.set_drop_chatty_messages(false);
-        }
-
-        bool same_tid = state.last_tid()[element.log_id()] == element.tid();
-        // Dropped (chatty) immediately following a valid log from the same source in the same log
-        // buffer indicates we have a multiple identical squash.  chatty that differs source is due
-        // to spam filter.  chatty to chatty of different source is also due to spam filter.
-        state.last_tid()[element.log_id()] =
-                (element.dropped_count() && !same_tid) ? 0 : element.tid();
-
         logd_lock.unlock();
         // We never prune logs equal to or newer than any LogReaderThreads' `start` value, so the
         // `element` pointer is safe here without the lock
-        if (!element.FlushTo(writer, stats_, same_tid)) {
+        if (!element.FlushTo(writer)) {
             logd_lock.lock();
             return false;
         }

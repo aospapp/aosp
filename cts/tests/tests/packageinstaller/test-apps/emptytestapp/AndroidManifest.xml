@@ -15,12 +15,13 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-        package="android.packageinstaller.emptytestapp.cts" >
+        package="android.packageinstaller.emptytestapp.cts"
+        android:installLocation="preferExternal">
 
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="26"/>
 
     <application android:hasCode="false"
-                 android:label="Empty Test App"
+                 android:label="@string/app_name"
     />
 
 </manifest>

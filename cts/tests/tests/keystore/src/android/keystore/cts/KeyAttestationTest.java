@@ -46,6 +46,8 @@ import static android.security.keystore.KeyProperties.PURPOSE_VERIFY;
 import static android.security.keystore.KeyProperties.SIGNATURE_PADDING_RSA_PKCS1;
 import static android.security.keystore.KeyProperties.SIGNATURE_PADDING_RSA_PSS;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -60,6 +62,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.content.pm.PackageManager;
@@ -67,7 +70,6 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.keystore.cts.Attestation;
 import android.keystore.cts.util.TestUtils;
 import android.os.Build;
-import android.os.SystemProperties;
 import android.platform.test.annotations.RestrictedBuildTest;
 import android.security.KeyStoreException;
 import android.security.keystore.AttestationUtils;
@@ -83,6 +85,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.permissions.PermissionContext;
+import com.android.compatibility.common.util.PropertyUtil;
 
 import com.google.common.collect.ImmutableSet;
 
@@ -217,9 +220,20 @@ public class KeyAttestationTest {
                                         && KeyStoreException.ERROR_ID_ATTESTATION_FAILURE
                                         == ((KeyStoreException) e.getCause()).getNumericErrorCode();
                                 if (devicePropertiesAttestation && isIdAttestationFailure) {
-                                    Log.i(TAG, "key attestation with device IDs not supported; "
-                                            + "test skipped");
-                                    continue;
+                                    if (getContext().getPackageManager().hasSystemFeature(
+                                            PackageManager.FEATURE_DEVICE_ID_ATTESTATION)) {
+                                        throw new Exception("Unexpected failure while generating"
+                                                + " key.\nIn case of AOSP/GSI builds, system "
+                                                + "provided properties could be different from "
+                                                + "provisioned properties in KeyMaster/KeyMint. "
+                                                + "In such cases, make sure attestation specific "
+                                                + "properties (Build.*_FOR_ATTESTATION) are "
+                                                + "configured correctly.", e);
+                                    } else {
+                                        Log.i(TAG, "key attestation with device IDs not supported;"
+                                                + " test skipped");
+                                        continue;
+                                    }
                                 }
                                 throw new Exception("Failed on curve " + curveIndex +
                                         " challenge " + challengeIndex + " purpose " +
@@ -244,7 +258,7 @@ public class KeyAttestationTest {
         assertTrue(assertMessage, KeyStoreException.ERROR_INCORRECT_USAGE == errorCode
                 || (devicePropertiesAttestation
                 && KeyStoreException.ERROR_ID_ATTESTATION_FAILURE == errorCode));
-        assertFalse(keyStoreException.isTransientFailure());
+        assertFalse("Unexpected transient failure.", keyStoreException.isTransientFailure());
     }
 
     @Test
@@ -261,9 +275,15 @@ public class KeyAttestationTest {
                 fail("Attestation challenges larger than 128 bytes should be rejected");
             } catch (ProviderException e) {
                 KeyStoreException cause = (KeyStoreException) e.getCause();
-                assertTrue(KM_ERROR_INVALID_INPUT_LENGTH == cause.getErrorCode() ||
-                        (devicePropertiesAttestation
-                                && KM_ERROR_CANNOT_ATTEST_IDS == cause.getErrorCode())
+                int errorCode = cause.getErrorCode();
+                String assertMessage = String.format(
+                        "The KeyMint implementation may only return INVALID_INPUT_LENGTH or "
+                        + "CANNOT_ATTEST_IDSs as errors when the attestation challenge is "
+                        + "too large (error code was %d, attestation properties %b)",
+                        errorCode, devicePropertiesAttestation);
+                assertTrue(assertMessage, KM_ERROR_INVALID_INPUT_LENGTH == cause.getErrorCode()
+                        || (devicePropertiesAttestation
+                            && KM_ERROR_CANNOT_ATTEST_IDS == cause.getErrorCode())
                 );
                 assertPublicAttestationError(cause, devicePropertiesAttestation);
             }
@@ -399,8 +419,7 @@ public class KeyAttestationTest {
             // Feature Version is required on devices launching with Android 12 (API Level
             // 31) but may be reported on devices launching with an earlier version. If it's
             // present, it must match what is reported in attestation.
-            int firstApiLevel = SystemProperties.getInt("ro.product.first_api_level", 0);
-            if (firstApiLevel >= 31) {
+            if (PropertyUtil.getFirstApiLevel() >= 31) {
                 assertNotEquals(0, keyStoreFeatureVersion);
             }
             if (keyStoreFeatureVersion != 0) {
@@ -453,8 +472,7 @@ public class KeyAttestationTest {
             // Feature Version is required on devices launching with Android 12 (API Level
             // 31) but may be reported on devices launching with an earlier version. If it's
             // present, it must match what is reported in attestation.
-            int firstApiLevel = SystemProperties.getInt("ro.product.first_api_level", 0);
-            if (firstApiLevel >= 31) {
+            if (PropertyUtil.getFirstApiLevel() >= 31) {
                 assertNotEquals(0, keyStoreFeatureVersionStrongBox);
             }
             if (keyStoreFeatureVersionStrongBox != 0) {
@@ -484,7 +502,8 @@ public class KeyAttestationTest {
             assertEquals(KM_ERROR_PERMISSION_DENIED, cause.getErrorCode());
             // Assert public failure information.
             assertEquals(KeyStoreException.ERROR_PERMISSION_DENIED, cause.getNumericErrorCode());
-            assertFalse(cause.isTransientFailure());
+            assertFalse("Unexpected transient failure in generate key.",
+                    cause.isTransientFailure());
         } finally {
             KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
             keyStore.load(null);
@@ -494,6 +513,9 @@ public class KeyAttestationTest {
 
     @Test
     public void testEcAttestation_UniqueIdWorksWithCorrectPermission() throws Exception {
+        assumeTrue("Device doesn't have secure lock screen",
+                TestUtils.hasSecureLockScreen(getContext()));
+
         String keystoreAlias = "test_key";
         KeyGenParameterSpec spec = new KeyGenParameterSpec.Builder(keystoreAlias, PURPOSE_SIGN)
                 .setAlgorithmParameterSpec(new ECGenParameterSpec("secp256r1"))
@@ -624,9 +646,15 @@ public class KeyAttestationTest {
                 fail("Attestation challenges larger than 128 bytes should be rejected");
             } catch(ProviderException e){
                 KeyStoreException cause = (KeyStoreException) e.getCause();
-                assertTrue(KM_ERROR_INVALID_INPUT_LENGTH == cause.getErrorCode() ||
-                        (devicePropertiesAttestation
-                                && KM_ERROR_CANNOT_ATTEST_IDS == cause.getErrorCode())
+                int errorCode = cause.getErrorCode();
+                String assertMessage = String.format(
+                        "The KeyMint implementation may only return INVALID_INPUT_LENGTH or "
+                        + "CANNOT_ATTEST_IDSs as errors when the attestation challenge is "
+                        + "too large (error code was %d, attestation properties %b)",
+                        errorCode, devicePropertiesAttestation);
+                assertTrue(assertMessage, KM_ERROR_INVALID_INPUT_LENGTH == cause.getErrorCode()
+                        || (devicePropertiesAttestation
+                            && KM_ERROR_CANNOT_ATTEST_IDS == cause.getErrorCode())
                 );
                 assertPublicAttestationError(cause, devicePropertiesAttestation);
             }
@@ -786,8 +814,17 @@ public class KeyAttestationTest {
                                 && KeyStoreException.ERROR_ID_ATTESTATION_FAILURE
                                 == ((KeyStoreException) e.getCause()).getNumericErrorCode();
                 if (devicePropertiesAttestation && isIdAttestationFailure) {
-                    Log.i(TAG, "key attestation with device IDs not supported; test skipped");
-                    continue;
+                    if (getContext().getPackageManager().hasSystemFeature(
+                            PackageManager.FEATURE_DEVICE_ID_ATTESTATION)) {
+                        throw new Exception("Unexpected failure while generating key."
+                            + "\nIn case of AOSP/GSI builds, system provided properties could be"
+                            + " different from provisioned properties in KeyMaster/KeyMint. In"
+                            + " such cases, make sure attestation specific properties"
+                            + " (Build.*_FOR_ATTESTATION) are configured correctly.", e);
+                    } else {
+                        Log.i(TAG, "key attestation with device IDs not supported; test skipped");
+                        continue;
+                    }
                 }
                 throw new Exception("Failed on key size " + keySize + " challenge [" +
                         new String(challenge) + "], purposes " +
@@ -872,7 +909,8 @@ public class KeyAttestationTest {
             expectedKeyUsage[KEY_USAGE_KEY_ENCIPHERMENT_BIT_OFFSET] = true;
             expectedKeyUsage[KEY_USAGE_DATA_ENCIPHERMENT_BIT_OFFSET] = true;
         }
-        assertThat(attestationCert.getKeyUsage(), is(expectedKeyUsage));
+        assertThat("Attested certificate has unexpected key usage.",
+                attestationCert.getKeyUsage(), is(expectedKeyUsage));
     }
 
     @SuppressWarnings("deprecation")
@@ -954,11 +992,26 @@ public class KeyAttestationTest {
         }
 
         if (devicePropertiesAttestation) {
-            assertEquals(Build.BRAND, keyDetailsList.getBrand());
-            assertEquals(Build.DEVICE, keyDetailsList.getDevice());
-            assertEquals(Build.PRODUCT, keyDetailsList.getProduct());
-            assertEquals(Build.MANUFACTURER, keyDetailsList.getManufacturer());
-            assertEquals(Build.MODEL, keyDetailsList.getModel());
+            final String platformReportedBrand =
+                    TestUtils.isPropertyEmptyOrUnknown(Build.BRAND_FOR_ATTESTATION)
+                    ? Build.BRAND : Build.BRAND_FOR_ATTESTATION;
+            assertThat(keyDetailsList.getBrand()).isEqualTo(platformReportedBrand);
+            final String platformReportedDevice =
+                    TestUtils.isPropertyEmptyOrUnknown(Build.DEVICE_FOR_ATTESTATION)
+                            ? Build.DEVICE : Build.DEVICE_FOR_ATTESTATION;
+            assertThat(keyDetailsList.getDevice()).isEqualTo(platformReportedDevice);
+            final String platformReportedProduct =
+                    TestUtils.isPropertyEmptyOrUnknown(Build.PRODUCT_FOR_ATTESTATION)
+                    ? Build.PRODUCT : Build.PRODUCT_FOR_ATTESTATION;
+            assertThat(keyDetailsList.getProduct()).isEqualTo(platformReportedProduct);
+            final String platformReportedManufacturer =
+                    TestUtils.isPropertyEmptyOrUnknown(Build.MANUFACTURER_FOR_ATTESTATION)
+                            ? Build.MANUFACTURER : Build.MANUFACTURER_FOR_ATTESTATION;
+            assertThat(keyDetailsList.getManufacturer()).isEqualTo(platformReportedManufacturer);
+            final String platformReportedModel =
+                    TestUtils.isPropertyEmptyOrUnknown(Build.MODEL_FOR_ATTESTATION)
+                    ? Build.MODEL : Build.MODEL_FOR_ATTESTATION;
+            assertThat(keyDetailsList.getModel()).isEqualTo(platformReportedModel);
         } else {
             assertNull(keyDetailsList.getBrand());
             assertNull(keyDetailsList.getDevice());
@@ -987,11 +1040,14 @@ public class KeyAttestationTest {
             Attestation attestation) throws NoSuchAlgorithmException, NameNotFoundException {
         checkUnexpectedOids(attestation);
         checkAttestationSecurityLevelDependentParams(attestation);
-        assertNotNull(attestation.getAttestationChallenge());
-        assertThat(attestation.getAttestationChallenge(), is(challenge));
+        assertNotNull("Attestation challenge must not be null.",
+                attestation.getAttestationChallenge());
+        assertThat("Attestation challenge not matching with provided challenge.",
+                attestation.getAttestationChallenge(), is(challenge));
         // In EAT, this is null if not filled in. In ASN.1, this is an array with length 0.
         if (attestation.getUniqueId() != null) {
-            assertEquals(0, attestation.getUniqueId().length);
+            assertEquals("Unique ID must not be empty if present.",
+                    0, attestation.getUniqueId().length);
         }
         checkPurposes(attestation, purposes);
         checkDigests(attestation,
@@ -1011,7 +1067,9 @@ public class KeyAttestationTest {
 
     private int getSystemPatchLevel() {
         Matcher matcher = OS_PATCH_LEVEL_STRING_PATTERN.matcher(Build.VERSION.SECURITY_PATCH);
-        assertTrue(matcher.matches());
+        String invalidPatternMessage = "Invalid pattern for security path level string "
+                + Build.VERSION.SECURITY_PATCH;
+        assertTrue(invalidPatternMessage, matcher.matches());
         String year_string = matcher.group(OS_PATCH_LEVEL_YEAR_GROUP_NAME);
         String month_string = matcher.group(OS_PATCH_LEVEL_MONTH_GROUP_NAME);
         int patch_level = Integer.parseInt(year_string) * 100 + Integer.parseInt(month_string);
@@ -1055,11 +1113,16 @@ public class KeyAttestationTest {
         }
 
         if (attestation.getKeymasterSecurityLevel() == KM_SECURITY_LEVEL_SOFTWARE) {
-            assertThat(attestation.getSoftwareEnforced().getOrigin(), is(KM_ORIGIN_GENERATED));
+            assertThat("For security level software,"
+                            + " SoftwareEnforced origin must be " + KM_ORIGIN_GENERATED,
+                    attestation.getSoftwareEnforced().getOrigin(), is(KM_ORIGIN_GENERATED));
         } else if (attestation.getKeymasterVersion() == 0) {
-            assertThat(attestation.getTeeEnforced().getOrigin(), is(KM_ORIGIN_UNKNOWN));
+            assertThat("For KeyMaster version 0,"
+                            + "TeeEnforced origin must be " + KM_ORIGIN_UNKNOWN,
+                    attestation.getTeeEnforced().getOrigin(), is(KM_ORIGIN_UNKNOWN));
         } else {
-            assertThat(attestation.getTeeEnforced().getOrigin(), is(KM_ORIGIN_GENERATED));
+            assertThat("TeeEnforced origin must be " + KM_ORIGIN_GENERATED,
+                    attestation.getTeeEnforced().getOrigin(), is(KM_ORIGIN_GENERATED));
         }
     }
 
@@ -1104,10 +1167,7 @@ public class KeyAttestationTest {
             boolean requireCreationDateTime =
                 attestation.getKeymasterVersion() >= Attestation.KM_VERSION_KEYMINT_1;
 
-            // b/232078430: skip time checks in Android T due to unfixed bug.
-            boolean doTimeChecks = false;
-
-            if (doTimeChecks && (requireCreationDateTime || creationDateTime != null)) {
+            if (requireCreationDateTime || creationDateTime != null) {
                 assertNotNull(creationDateTime);
 
                 assertTrue("Test start time (" + startTime.getTime() + ") and key creation time (" +
@@ -1127,17 +1187,27 @@ public class KeyAttestationTest {
             Date originationExpirationDateTime = validityPeriodList.getOriginationExpireDateTime();
             Date usageExpirationDateTime = validityPeriodList.getUsageExpireDateTime();
 
-            assertNotNull(activeDateTime);
-            assertNotNull(originationExpirationDateTime);
-            assertNotNull(usageExpirationDateTime);
+            assertNotNull("Active date time should not be null in SoftwareEnforced"
+                            + " authorization list.", activeDateTime);
+            assertNotNull("Origination expiration date time should not be null in"
+                            + " SoftwareEnforced authorization list.",
+                    originationExpirationDateTime);
+            assertNotNull("Usage expiration date time should not be null in SoftwareEnforced"
+                            + " authorization list.", usageExpirationDateTime);
 
-            assertNull(nonValidityPeriodList.getActiveDateTime());
-            assertNull(nonValidityPeriodList.getOriginationExpireDateTime());
-            assertNull(nonValidityPeriodList.getUsageExpireDateTime());
+            assertNull("Active date time must not be included in TeeEnforced authorization list.",
+                    nonValidityPeriodList.getActiveDateTime());
+            assertNull("Origination date time must not be included in TeeEnforced authorization"
+                            + "list.", nonValidityPeriodList.getOriginationExpireDateTime());
+            assertNull("Usage expiration date time must not be included in TeeEnforced"
+                            + " authorization list.",
+                    nonValidityPeriodList.getUsageExpireDateTime());
 
-            assertThat(originationExpirationDateTime.getTime(),
+            assertThat("Origination expiration date time must match with provided expiration"
+                            + " date time.", originationExpirationDateTime.getTime(),
                     is(startTime.getTime() + ORIGINATION_TIME_OFFSET));
-            assertThat(usageExpirationDateTime.getTime(),
+            assertThat("Usage (consumption) expiration date time must match with provided"
+                            + " expiration date time.", usageExpirationDateTime.getTime(),
                     is(startTime.getTime() + CONSUMPTION_TIME_OFFSET));
         }
     }
@@ -1161,7 +1231,8 @@ public class KeyAttestationTest {
         intersection.addAll(softwareEnforcedDigests);
         intersection.retainAll(teeEnforcedDigests);
 
-        assertThat(allDigests, is(expectedDigests));
+        assertThat("Set of digests from software enforced and Tee enforced must match"
+                + " with expected digests set.", allDigests, is(expectedDigests));
         assertTrue("Digest sets must be disjoint", intersection.isEmpty());
 
         if (attestation.getKeymasterSecurityLevel() == KM_SECURITY_LEVEL_SOFTWARE
@@ -1171,12 +1242,16 @@ public class KeyAttestationTest {
         } else {
             if (attestation.getKeymasterVersion() == 1) {
                 // KM1 implementations may not support SHA512 in the TEE
-                assertTrue(softwareEnforcedDigests.contains(KM_DIGEST_SHA_2_512)
+                assertTrue("KeyMaster version 1 may not support SHA256, in which case it must be"
+                        + " software-emulated.",
+                        softwareEnforcedDigests.contains(KM_DIGEST_SHA_2_512)
                         || teeEnforcedDigests.contains(KM_DIGEST_SHA_2_512));
 
-                assertThat(teeEnforcedDigests, hasItems(KM_DIGEST_NONE, KM_DIGEST_SHA_2_256));
+                assertThat("Tee enforced digests should have digests {none and SHA2-256}",
+                        teeEnforcedDigests, hasItems(KM_DIGEST_NONE, KM_DIGEST_SHA_2_256));
             } else {
-                assertThat(teeEnforcedDigests, is(expectedDigests));
+                assertThat("Tee enforced digests should have all expected digests.",
+                        teeEnforcedDigests, is(expectedDigests));
             }
         }
     }
@@ -1207,17 +1282,19 @@ public class KeyAttestationTest {
         if (isGsiImage()) {
             // b/168663786: When using a GSI image, the system patch level might be
             // greater than or equal to the OS patch level reported from TEE.
-            assertThat(teeOsPatchLevel, lessThanOrEqualTo(systemPatchLevel));
+            assertThat("For GSI image TEE os patch level should be less than or equal to system"
+                    + " patch level.", teeOsPatchLevel, lessThanOrEqualTo(systemPatchLevel));
         } else {
-            assertThat(teeOsPatchLevel, is(systemPatchLevel));
+            assertThat("TEE os patch level must be equal to system patch level.",
+                    teeOsPatchLevel, is(systemPatchLevel));
         }
     }
 
     @SuppressWarnings("unchecked")
     private void checkAttestationSecurityLevelDependentParams(Attestation attestation) {
-        assertThat("Attestation version must be one of: {1, 2, 3, 4, 100, 200}",
+        assertThat("Attestation version must be one of: {1, 2, 3, 4, 100, 200, 300}",
                 attestation.getAttestationVersion(),
-                either(is(1)).or(is(2)).or(is(3)).or(is(4)).or(is(100)).or(is(200)));
+                either(is(1)).or(is(2)).or(is(3)).or(is(4)).or(is(100)).or(is(200)).or(is(300)));
 
         AuthorizationList teeEnforced = attestation.getTeeEnforced();
         AuthorizationList softwareEnforced = attestation.getSoftwareEnforced();
@@ -1230,11 +1307,13 @@ public class KeyAttestationTest {
                 assertThat("TEE attestation can only come from TEE keymaster",
                         attestation.getKeymasterSecurityLevel(),
                         is(KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT));
-                assertThat(attestation.getKeymasterVersion(),
-                        either(is(2)).or(is(3)).or(is(4)).or(is(41)).or(is(100)).or(is(200)));
+                assertThat("KeyMaster version is not valid.", attestation.getKeymasterVersion(),
+                           either(is(2)).or(is(3)).or(is(4)).or(is(41))
+                           .or(is(100)).or(is(200)).or(is(300)));
 
                 checkRootOfTrust(attestation, false /* requireLocked */);
-                assertThat(teeEnforced.getOsVersion(), is(systemOsVersion));
+                assertThat("TEE enforced OS version and system OS version must be same.",
+                        teeEnforced.getOsVersion(), is(systemOsVersion));
                 checkSystemPatchLevel(teeEnforced.getOsPatchLevel(), systemPatchLevel);
                 break;
 
@@ -1246,7 +1325,8 @@ public class KeyAttestationTest {
                 } else {
                     assertThat("Software KM is version 3", attestation.getKeymasterVersion(),
                             is(3));
-                    assertThat(softwareEnforced.getOsVersion(), is(systemOsVersion));
+                    assertThat("Software enforced OS version and System OS version must be same.",
+                            softwareEnforced.getOsVersion(), is(systemOsVersion));
                     checkSystemPatchLevel(softwareEnforced.getOsPatchLevel(), systemPatchLevel);
                 }
 
@@ -1272,12 +1352,12 @@ public class KeyAttestationTest {
             case KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT:
                 assertThat("Attestation security level doesn't match keymaster security level",
                         attestation.getKeymasterSecurityLevel(), is(attestationSecurityLevel));
-                assertThat(attestation.getKeymasterVersion(), greaterThanOrEqualTo(2));
+                assertThat("Keymaster version should be greater than or equal to 2.",
+                        attestation.getKeymasterVersion(), greaterThanOrEqualTo(2));
 
                 // Devices launched in Android 10.0 (API level 29) and after should run CTS
                 // in LOCKED state.
-                boolean requireLocked = (
-                        SystemProperties.getInt("ro.product.first_api_level", 0) >= 29);
+                boolean requireLocked = PropertyUtil.getFirstApiLevel() >= 29;
                 checkRootOfTrust(attestation, requireLocked);
                 break;
 
@@ -1302,6 +1382,14 @@ public class KeyAttestationTest {
             assertTrue(unlockedDeviceMessage, rootOfTrust.isDeviceLocked());
             checkEntropy(rootOfTrust.getVerifiedBootKey());
             assertEquals(KM_VERIFIED_BOOT_VERIFIED, rootOfTrust.getVerifiedBootState());
+            if (PropertyUtil.getFirstApiLevel() < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                // Verified boot hash was not previously checked in CTS, so set an api level check
+                // to avoid running into waiver issues.
+                return;
+            }
+            assertNotNull(rootOfTrust.getVerifiedBootHash());
+            assertEquals(32, rootOfTrust.getVerifiedBootHash().length);
+            checkEntropy(rootOfTrust.getVerifiedBootHash());
         }
     }
 
@@ -1426,7 +1514,8 @@ public class KeyAttestationTest {
             km1PossiblePaddingModes = builder.build();
         }
 
-        assertThat(paddingModes, either(is(expectedPaddingModes)).or(is(km1PossiblePaddingModes)));
+        assertThat("Attested padding mode does not matched with expected modes.",
+                paddingModes, either(is(expectedPaddingModes)).or(is(km1PossiblePaddingModes)));
     }
 
     private void checkEcKeyDetails(Attestation attestation, String ecCurve, int keySize) {
@@ -1511,7 +1600,9 @@ public class KeyAttestationTest {
                         new JcaX509CertificateHolder(x509PrevCert).getIssuer();
                 // Use .toASN1Object().equals() rather than .equals() because .equals() is case
                 // insensitive, and we want to verify an exact match.
-                assertTrue(
+                assertTrue(String.format("Certificate Issuer (%s) is not matching with parent"
+                            + " certificate's Subject (%s).",
+                                signedCertIssuer.toString(), signingCertSubject.toString()),
                         signedCertIssuer.toASN1Object().equals(signingCertSubject.toASN1Object()));
 
                 X500Name signedCertSubject =

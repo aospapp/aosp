@@ -47,6 +47,7 @@ public class StatsdHelper {
     private static final String LOG_TAG = StatsdHelper.class.getSimpleName();
     private static final long MAX_ATOMS = 2000;
     private static final long METRIC_DELAY_MS = 3000;
+    private static final long CONFIG_REGISTRATION_TIMEOUT_MS = 1000;
     private long mConfigId = -1;
     private StatsManager mStatsManager;
 
@@ -74,10 +75,14 @@ public class StatsdHelper {
         try {
             adoptShellIdentity();
             getStatsManager().addConfig(configId, toByteArray(config));
-            dropShellIdentity();
+            if (!pollForRegisteredConfig(configId)) {
+                return false;
+            }
         } catch (Exception e) {
             Log.e(LOG_TAG, "Not able to setup the event config.", e);
             return false;
+        } finally {
+            dropShellIdentity();
         }
         Log.i(LOG_TAG, "Successfully added config with config-id:" + configId);
         setConfigId(configId);
@@ -128,13 +133,17 @@ public class StatsdHelper {
         try {
             adoptShellIdentity();
             getStatsManager().addConfig(configId, toByteArray(config));
+            if (!pollForRegisteredConfig(configId)) {
+                return false;
+            }
             StatsLog.logEvent(0);
             // Dump the counters before the test started.
             SystemClock.sleep(METRIC_DELAY_MS);
-            dropShellIdentity();
         } catch (Exception e) {
             Log.e(LOG_TAG, "Not able to setup the gauge config.", e);
             return false;
+        } finally {
+            dropShellIdentity();
         }
 
         Log.i(LOG_TAG, "Successfully added config with config-id:" + configId);
@@ -353,6 +362,36 @@ public class StatsdHelper {
             bucketInfo.atom[i] = atomTimestampData.get(i).first;
             bucketInfo.elapsedTimestampNanos[i] = atomTimestampData.get(i).second;
         }
+    }
+
+    private boolean pollForRegisteredConfig(long configId) {
+        long endTime = System.currentTimeMillis() + CONFIG_REGISTRATION_TIMEOUT_MS;
+        while (System.currentTimeMillis() < endTime) {
+            if (verifyConfigIsRegistered(configId)) {
+                Log.i(LOG_TAG, String.format("Found config %d registered.", configId));
+                return true;
+            }
+            SystemClock.sleep(100);
+        }
+        Log.e(
+                LOG_TAG,
+                String.format(
+                        "Didn't find config registered after %d ms.",
+                        CONFIG_REGISTRATION_TIMEOUT_MS));
+        return false;
+    }
+
+    private boolean verifyConfigIsRegistered(long configId) {
+        com.android.os.nano.StatsLog.StatsdStatsReport report = getStatsdStatsReport();
+        for (com.android.os.nano.StatsLog.StatsdStatsReport.ConfigStats configStats :
+                report.configStats) {
+            if (configStats.id == configId
+                    && configStats.isValid
+                    && configStats.deletionTimeSec == 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Gets {@code StatsManager}, used to configure, collect and remove the statsd configs. */

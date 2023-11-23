@@ -16,15 +16,16 @@
 
 package android.ndef.cts;
 
-import java.nio.charset.Charset;
-import java.util.Arrays;
-
 import android.net.Uri;
+import android.nfc.FormatException;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
-import android.nfc.FormatException;
 
 import junit.framework.TestCase;
+
+import java.nio.BufferUnderflowException;
+import java.nio.charset.Charset;
+import java.util.Arrays;
 
 /**
  * NDEF is a NFC-Forum defined data format.<p>
@@ -431,6 +432,25 @@ public class NdefTest extends TestCase {
         assertEquals("com.foo.bar".getBytes(), r.getPayload());
     }
 
+    public void testCreateTextRecord() {
+        String s = new String("Hello");
+        NdefRecord r = NdefRecord.createTextRecord("en", s);
+        byte[] payload = r.getPayload();
+        byte[] textArray = Arrays.copyOfRange(payload, (int) payload[0] + 1 , payload.length);
+        assertEquals(s.getBytes(), textArray);
+
+        try {
+            NdefRecord.createTextRecord("en", null);
+            fail("NullPointerException not throw");
+        } catch (NullPointerException e) { }
+
+        try {
+            byte[] language = new byte[64];
+            NdefRecord.createTextRecord(new String(language), s);
+            fail("IllegalArgumentException not throw");
+        } catch (IllegalArgumentException e) { }
+    }
+
     public void testToByteArray() throws FormatException {
         NdefRecord r;
 
@@ -480,6 +500,21 @@ public class NdefTest extends TestCase {
                 1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8,})).toByteArray());
     }
 
+    public void testGetByteArrayLength() {
+        NdefRecord r;
+        byte[] b;
+
+        // single short record
+        r = new NdefRecord(NdefRecord.TNF_EMPTY, null, null, null);
+        b = new byte[] {(byte) 0xD8, 0, 0, 0};
+        assertEquals(b.length, new NdefMessage(r).getByteArrayLength());
+
+        // 3 records
+        r = new NdefRecord(NdefRecord.TNF_EMPTY, null, null, null);
+        b = new byte[] {(byte) 0x98, 0, 0, 0, (byte) 0x18, 0, 0, 0, (byte) 0x58, 0, 0, 0};
+        assertEquals(b.length, new NdefMessage(r, r, r).getByteArrayLength());
+    }
+
     public void testToUri() {
         // absolute uri
         assertEquals(Uri.parse("http://www.android.com"),
@@ -527,6 +562,29 @@ public class NdefTest extends TestCase {
         assertEquals("a/b", NdefRecord.createMime("A/B", null).toMimeType());
         assertEquals("a/b", new NdefRecord(NdefRecord.TNF_MIME_MEDIA, " A/B ".getBytes(),
                 null, null).toMimeType());
+    }
+
+    public void testFormatException() {
+        try {
+            throw new FormatException();
+        } catch (FormatException e) {
+            assertTrue(e.getMessage() == null);
+        }
+
+        String s = new String("testFormatException");
+        try {
+            throw new FormatException(s);
+        } catch (FormatException e) {
+            assertTrue(e.getMessage().equals(s));
+        }
+
+        BufferUnderflowException ex = new BufferUnderflowException();
+        try {
+            throw new FormatException(s, ex);
+        } catch (FormatException e) {
+            assertTrue(e.getMessage().equals(s));
+            assertTrue(e.getCause().toString().equals(ex.toString()));
+        }
     }
 
     static void assertEquals(byte[] expected, byte[] actual) {

@@ -34,6 +34,7 @@
 #include "base/time_utils.h"
 #include "gc/collector/gc_type.h"
 #include "gc/collector/iteration.h"
+#include "gc/collector/mark_compact.h"
 #include "gc/collector_type.h"
 #include "gc/gc_cause.h"
 #include "gc/space/large_object_space.h"
@@ -150,7 +151,7 @@ class Heap {
   static constexpr size_t kMinLargeObjectThreshold = 3 * kPageSize;
   static constexpr size_t kDefaultLargeObjectThreshold = kMinLargeObjectThreshold;
   // Whether or not parallel GC is enabled. If not, then we never create the thread pool.
-  static constexpr bool kDefaultEnableParallelGC = false;
+  static constexpr bool kDefaultEnableParallelGC = true;
   static uint8_t* const kPreferredAllocSpaceBegin;
 
   // Whether or not we use the free list large object space. Only use it if USE_ART_LOW_4G_ALLOCATOR
@@ -181,10 +182,8 @@ class Heap {
 
   // How often we allow heap trimming to happen (nanoseconds).
   static constexpr uint64_t kHeapTrimWait = MsToNs(5000);
-  // How long we wait after a transition request to perform a collector transition (nanoseconds).
-  static constexpr uint64_t kCollectorTransitionWait = MsToNs(5000);
-  // Whether the transition-wait applies or not. Zero wait will stress the
-  // transition code and collector, but increases jank probability.
+  // Whether the transition-GC heap threshold condition applies or not for non-low memory devices.
+  // Stressing GC will bypass the heap threshold condition.
   DECLARE_RUNTIME_DEBUG_FLAG(kStressCollectorTransition);
 
   // Create a heap with the requested sizes. The possible empty
@@ -385,6 +384,9 @@ class Heap {
   void ThreadFlipBegin(Thread* self) REQUIRES(!*thread_flip_lock_);
   void ThreadFlipEnd(Thread* self) REQUIRES(!*thread_flip_lock_);
 
+  // Ensures that the obj doesn't cause userfaultfd in JNI critical calls.
+  void EnsureObjectUserfaulted(ObjPtr<mirror::Object> obj) REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Clear all of the mark bits, doesn't clear bitmaps which have the same live bits as mark bits.
   // Mutator lock is required for GetContinuousSpaces.
   void ClearMarkedObjects()
@@ -578,6 +580,9 @@ class Heap {
     return region_space_;
   }
 
+  space::BumpPointerSpace* GetBumpPointerSpace() const {
+    return bump_pointer_space_;
+  }
   // Implements java.lang.Runtime.maxMemory, returning the maximum amount of memory a program can
   // consume. For a regular VM this would relate to the -Xmx option and would return -1 if no Xmx
   // were specified. Android apps start with a growth limit (small heap size) which is
@@ -659,6 +664,10 @@ class Heap {
 
   accounting::ObjectStack* GetLiveStack() REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
     return live_stack_.get();
+  }
+
+  accounting::ObjectStack* GetAllocationStack() REQUIRES_SHARED(Locks::heap_bitmap_lock_) {
+    return allocation_stack_.get();
   }
 
   void PreZygoteFork() NO_THREAD_SAFETY_ANALYSIS;
@@ -760,8 +769,10 @@ class Heap {
       REQUIRES(!*gc_complete_lock_);
   void ResetGcPerformanceInfo() REQUIRES(!*gc_complete_lock_);
 
-  // Thread pool.
-  void CreateThreadPool();
+  // Thread pool. Create either the given number of threads, or as per the
+  // values of conc_gc_threads_ and parallel_gc_threads_.
+  void CreateThreadPool(size_t num_threads = 0);
+  void WaitForWorkersToBeCreated();
   void DeleteThreadPool();
   ThreadPool* GetThreadPool() {
     return thread_pool_.get();
@@ -812,9 +823,21 @@ class Heap {
     return active_collector;
   }
 
-  CollectorType CurrentCollectorType() {
+  collector::MarkCompact* MarkCompactCollector() {
+    DCHECK(!gUseUserfaultfd || mark_compact_ != nullptr);
+    return mark_compact_;
+  }
+
+  bool IsPerformingUffdCompaction() { return gUseUserfaultfd && mark_compact_->IsCompacting(); }
+
+  CollectorType CurrentCollectorType() const {
+    DCHECK(!gUseUserfaultfd || collector_type_ == kCollectorTypeCMC);
     return collector_type_;
   }
+
+  bool IsMovingGc() const { return IsMovingGc(CurrentCollectorType()); }
+
+  CollectorType GetForegroundCollectorType() const { return foreground_collector_type_; }
 
   bool IsGcConcurrentAndMoving() const {
     if (IsGcConcurrent() && IsMovingGc(collector_type_)) {
@@ -939,6 +962,7 @@ class Heap {
       REQUIRES(!Locks::alloc_tracker_lock_);
 
   void DisableGCForShutdown() REQUIRES(!*gc_complete_lock_);
+  bool IsGCDisabledForShutdown() const REQUIRES(!*gc_complete_lock_);
 
   // Create a new alloc space and compact default alloc space to it.
   HomogeneousSpaceCompactResult PerformHomogeneousSpaceCompact()
@@ -1001,9 +1025,6 @@ class Heap {
     return main_space_backup_ != nullptr;
   }
 
-  // Attempt to use all the userfaultfd related ioctls.
-  void MaybePerformUffdIoctls(GcCause cause, uint32_t requested_gc_num) const;
-
   // Size_t saturating arithmetic
   static ALWAYS_INLINE size_t UnsignedDifference(size_t x, size_t y) {
     return x > y ? x - y : 0;
@@ -1019,19 +1040,11 @@ class Heap {
         allocator_type != kAllocatorTypeTLAB &&
         allocator_type != kAllocatorTypeRegion;
   }
-  static ALWAYS_INLINE bool AllocatorMayHaveConcurrentGC(AllocatorType allocator_type) {
-    if (kUseReadBarrier) {
-      // Read barrier may have the TLAB allocator but is always concurrent. TODO: clean this up.
-      return true;
-    }
-    return
-        allocator_type != kAllocatorTypeTLAB &&
-        allocator_type != kAllocatorTypeBumpPointer;
-  }
   static bool IsMovingGc(CollectorType collector_type) {
     return
         collector_type == kCollectorTypeCC ||
         collector_type == kCollectorTypeSS ||
+        collector_type == kCollectorTypeCMC ||
         collector_type == kCollectorTypeCCBackground ||
         collector_type == kCollectorTypeHomogeneousSpaceCompact;
   }
@@ -1116,9 +1129,6 @@ class Heap {
   ALWAYS_INLINE bool IsOutOfMemoryOnAllocation(AllocatorType allocator_type,
                                                size_t alloc_size,
                                                bool grow);
-
-  // Run the finalizers. If timeout is non zero, then we use the VMRuntime version.
-  void RunFinalization(JNIEnv* env, uint64_t timeout);
 
   // Blocks the caller until the garbage collector becomes idle and returns the type of GC we
   // waited for.
@@ -1223,6 +1233,7 @@ class Heap {
   // sweep GC, false for other GC types.
   bool IsGcConcurrent() const ALWAYS_INLINE {
     return collector_type_ == kCollectorTypeCC ||
+        collector_type_ == kCollectorTypeCMC ||
         collector_type_ == kCollectorTypeCMS ||
         collector_type_ == kCollectorTypeCCBackground;
   }
@@ -1326,7 +1337,7 @@ class Heap {
   // The current collector type.
   CollectorType collector_type_;
   // Which collector we use when the app is in the foreground.
-  CollectorType foreground_collector_type_;
+  const CollectorType foreground_collector_type_;
   // Which collector we will use when the app is notified of a transition to background.
   CollectorType background_collector_type_;
   // Desired collector type, heap trimming daemon transitions the heap if it is != collector_type_.
@@ -1437,8 +1448,9 @@ class Heap {
 
   // Computed with foreground-multiplier in GrowForUtilization() when run in
   // jank non-perceptible state. On update to process state from background to
-  // foreground we set target_footprint_ to this value.
+  // foreground we set target_footprint_ and concurrent_start_bytes_ to the corresponding value.
   size_t min_foreground_target_footprint_ GUARDED_BY(process_state_update_lock_);
+  size_t min_foreground_concurrent_start_bytes_ GUARDED_BY(process_state_update_lock_);
 
   // When num_bytes_allocated_ exceeds this amount then a concurrent GC should be requested so that
   // it completes ahead of an allocation failing.
@@ -1588,6 +1600,7 @@ class Heap {
 
   std::vector<collector::GarbageCollector*> garbage_collectors_;
   collector::SemiSpace* semi_space_collector_;
+  collector::MarkCompact* mark_compact_;
   Atomic<collector::ConcurrentCopying*> active_concurrent_copying_collector_;
   collector::ConcurrentCopying* young_concurrent_copying_collector_;
   collector::ConcurrentCopying* concurrent_copying_collector_;
@@ -1680,9 +1693,6 @@ class Heap {
   // Stack trace hashes that we already saw,
   std::unordered_set<uint64_t> seen_backtraces_ GUARDED_BY(backtrace_lock_);
 
-  // Userfaultfd file descriptor.
-  // TODO (lokeshgidra): remove this when the userfaultfd-based GC is in use.
-  int uffd_;
   // We disable GC when we are shutting down the runtime in case there are daemon threads still
   // allocating.
   bool gc_disabled_for_shutdown_ GUARDED_BY(gc_complete_lock_);
@@ -1712,6 +1722,7 @@ class Heap {
   friend class CollectorTransitionTask;
   friend class collector::GarbageCollector;
   friend class collector::ConcurrentCopying;
+  friend class collector::MarkCompact;
   friend class collector::MarkSweep;
   friend class collector::SemiSpace;
   friend class GCCriticalSection;

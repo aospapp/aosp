@@ -18,8 +18,6 @@ package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.REPORT_LOG_NAME;
 
-import static com.android.ex.camera2.blocking.BlockingSessionCallback.SESSION_CLOSED;
-
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -27,11 +25,13 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
+import android.hardware.HardwareBuffer;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCaptureSession.CaptureCallback;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
+import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
@@ -41,10 +41,12 @@ import android.hardware.camera2.cts.helpers.StaticMetadata;
 import android.hardware.camera2.cts.helpers.StaticMetadata.CheckLevel;
 import android.hardware.camera2.cts.testcases.Camera2AndroidTestRule;
 import android.hardware.camera2.params.InputConfiguration;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
+import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.SystemClock;
 import android.util.Log;
@@ -54,6 +56,7 @@ import android.util.Size;
 import android.view.Surface;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.DeviceReportLog;
 import com.android.compatibility.common.util.ResultType;
@@ -70,6 +73,7 @@ import org.junit.runners.JUnit4;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -96,6 +100,8 @@ public class PerformanceTest {
     private static final int NUM_RESULTS_WAIT_TIMEOUT = 100;
     private static final int NUM_FRAMES_WAITED_FOR_UNKNOWN_LATENCY = 8;
     private static final long FRAME_DURATION_NS_30FPS = 33333333L;
+    private static final int NUM_ZOOM_STEPS = 10;
+    private static final String HAS_ACTIVITY_ARG_KEY = "has-activity";
 
     private DeviceReportLog mReportLog;
 
@@ -120,6 +126,33 @@ public class PerformanceTest {
 
     @Rule
     public final Camera2AndroidTestRule mTestRule = new Camera2AndroidTestRule(mContext);
+
+    // b/284352937: Display an activity with SurfaceView so that camera's effect on refresh
+    // rate takes precedence.
+    //
+    // - If no activity is displayed, home screen would vote for a completely different refresh
+    // rate. Some examples are 24hz and 144hz. These doesn't reflect the actual refresh rate
+    // when camera runs with a SurfaceView.
+    // - The testSurfaceViewJitterReduction needs to read timestamps for each output image. If
+    // we directly connect camera to SurfaceView, we won't have access to timestamps.
+    //
+    // So the solution is that if no activity already exists, create an activity with SurfaceView,
+    // but not connect it to camera.
+    @Rule
+    public final ActivityTestRule<Camera2SurfaceViewCtsActivity> mActivityRule =
+            createActivityRuleIfNeeded();
+
+    private static ActivityTestRule<Camera2SurfaceViewCtsActivity> createActivityRuleIfNeeded() {
+        Bundle bundle = InstrumentationRegistry.getArguments();
+        byte hasActivity = bundle.getByte(HAS_ACTIVITY_ARG_KEY);
+
+        // If the caller already has an activity, do not create the ActivityTestRule.
+        if (hasActivity != 0) {
+            return null;
+        } else {
+            return new ActivityTestRule<>(Camera2SurfaceViewCtsActivity.class);
+        }
+    }
 
     /**
      * Test camera launch KPI: the time duration between a camera device is
@@ -164,6 +197,7 @@ public class PerformanceTest {
                             mTestRule.getStaticInfo().isDepthOutputSupported());
                     initializeImageReader(id, ImageFormat.DEPTH16);
                 }
+                updatePreviewSurface(mPreviewSize);
 
                 SimpleImageListener imageListener = null;
                 long startTimeMs, openTimeMs, configureTimeMs, previewStartedTimeMs;
@@ -295,6 +329,9 @@ public class PerformanceTest {
         int[] JPEG_FORMAT = {ImageFormat.JPEG};
         testSingleCaptureForFormat(JPEG_FORMAT, "jpeg", /*addPreviewDelay*/ true);
         if (!mTestRule.isPerfMeasure()) {
+            int[] JPEG_R_FORMAT = {ImageFormat.JPEG_R};
+            testSingleCaptureForFormat(JPEG_R_FORMAT, "jpeg_r", /*addPreviewDelay*/ true,
+                    /*enablePostview*/ false);
             int[] YUV_FORMAT = {ImageFormat.YUV_420_888};
             testSingleCaptureForFormat(YUV_FORMAT, null, /*addPreviewDelay*/ true);
             int[] PRIVATE_FORMAT = {ImageFormat.PRIVATE};
@@ -321,6 +358,12 @@ public class PerformanceTest {
 
     private void testSingleCaptureForFormat(int[] formats, String formatDescription,
             boolean addPreviewDelay) throws Exception {
+       testSingleCaptureForFormat(formats, formatDescription, addPreviewDelay,
+               /*enablePostview*/ true);
+    }
+
+    private void testSingleCaptureForFormat(int[] formats, String formatDescription,
+            boolean addPreviewDelay, boolean enablePostview) throws Exception {
         double[] avgResultTimes = new double[mTestRule.getCameraIdsUnderTest().length];
         double[] avgCaptureTimes = new double[mTestRule.getCameraIdsUnderTest().length];
 
@@ -389,8 +432,7 @@ public class PerformanceTest {
 
                     readers = prepareStillCaptureAndStartPreview(id, previewBuilder, captureBuilder,
                             mTestRule.getOrderedPreviewSizes().get(0), imageSizes, formats,
-                            previewResultListener, NUM_MAX_IMAGES, imageListeners,
-                            false /*isHeic*/);
+                            previewResultListener, NUM_MAX_IMAGES, imageListeners, enablePostview);
 
                     if (addPreviewDelay) {
                         Thread.sleep(500);
@@ -862,6 +904,445 @@ public class PerformanceTest {
         }
     }
 
+    // Direction of zoom: in or out
+    private enum ZoomDirection {
+        ZOOM_IN,
+        ZOOM_OUT;
+    }
+
+    // Range of zoom: >= 1.0x, <= 1.0x, or full range.
+    private enum ZoomRange {
+        RATIO_1_OR_LARGER,
+        RATIO_1_OR_SMALLER,
+        RATIO_FULL_RANGE;
+    }
+
+    /**
+     * Testing Zoom settings override performance for zoom in from 1.0x
+     *
+     * The range of zoomRatio being tested is [1.0x, maxZoomRatio]
+     */
+    @Test
+    public void testZoomSettingsOverrideLatencyInFrom1x() throws Exception {
+        testZoomSettingsOverrideLatency("zoom_in_from_1x",
+                ZoomDirection.ZOOM_IN, ZoomRange.RATIO_1_OR_LARGER);
+    }
+
+    /**
+     * Testing Zoom settings override performance for zoom out to 1.0x
+     *
+     * The range of zoomRatio being tested is [maxZoomRatio, 1.0x]
+     */
+    @Test
+    public void testZoomSettingsOverrideLatencyOutTo1x() throws Exception {
+        testZoomSettingsOverrideLatency("zoom_out_to_1x",
+                ZoomDirection.ZOOM_OUT, ZoomRange.RATIO_1_OR_LARGER);
+    }
+
+    /**
+     * Testing Zoom settings override performance for zoom out from 1.0x
+     *
+     * The range of zoomRatios being tested is [1.0x, minZoomRatio].
+     * The test is skipped if minZoomRatio == 1.0x.
+     */
+    @Test
+    public void testZoomSettingsOverrideLatencyOutFrom1x() throws Exception {
+        testZoomSettingsOverrideLatency("zoom_out_from_1x",
+                ZoomDirection.ZOOM_OUT, ZoomRange.RATIO_1_OR_SMALLER);
+    }
+
+    /**
+     * Testing Zoom settings override performance for zoom in on a camera with ultrawide lens
+     *
+     * The range of zoomRatios being tested is [minZoomRatio, maxZoomRatio].
+     * The test is skipped if minZoomRatio == 1.0x.
+     */
+    @Test
+    public void testZoomSettingsOverrideLatencyInWithUltraWide() throws Exception {
+        testZoomSettingsOverrideLatency("zoom_in_from_ultrawide",
+                ZoomDirection.ZOOM_IN, ZoomRange.RATIO_FULL_RANGE);
+    }
+
+    /**
+     * Testing Zoom settings override performance for zoom out on a camera with ultrawide lens
+     *
+     * The range of zoomRatios being tested is [maxZoomRatio, minZoomRatio].
+     * The test is skipped if minZoomRatio == 1.0x.
+     */
+    @Test
+    public void testZoomSettingsOverrideLatencyOutWithUltraWide() throws Exception {
+        testZoomSettingsOverrideLatency("zoom_out_to_ultrawide",
+                ZoomDirection.ZOOM_OUT, ZoomRange.RATIO_FULL_RANGE);
+    }
+
+    /**
+     * This test measures the zoom latency improvement for devices supporting zoom settings
+     * override.
+     */
+    private void testZoomSettingsOverrideLatency(String testCase,
+            ZoomDirection direction, ZoomRange range) throws Exception {
+        final int ZOOM_STEPS = 5;
+        final float ZOOM_ERROR_MARGIN = 0.05f;
+        final int ZOOM_IN_MIN_IMPROVEMENT_IN_FRAMES = 1;
+        for (String id : mTestRule.getCameraIdsUnderTest()) {
+            StaticMetadata staticMetadata = mTestRule.getAllStaticInfo().get(id);
+            CameraCharacteristics ch = staticMetadata.getCharacteristics();
+
+            if (!staticMetadata.isColorOutputSupported()) {
+                continue;
+            }
+
+            if (!staticMetadata.isZoomSettingsOverrideSupported()) {
+                continue;
+            }
+
+            // Figure out start and end zoom ratio
+            Range<Float> zoomRatioRange = staticMetadata.getZoomRatioRangeChecked();
+            float startRatio = zoomRatioRange.getLower();
+            float endRatio = zoomRatioRange.getUpper();
+            if (startRatio >= 1.0f && (range == ZoomRange.RATIO_FULL_RANGE
+                    || range == ZoomRange.RATIO_1_OR_SMALLER)) {
+                continue;
+            }
+            if (range == ZoomRange.RATIO_1_OR_LARGER) {
+                startRatio = 1.0f;
+            } else if (range == ZoomRange.RATIO_1_OR_SMALLER) {
+                endRatio = 1.0f;
+            }
+            if (direction == ZoomDirection.ZOOM_OUT) {
+                float temp = startRatio;
+                startRatio = endRatio;
+                endRatio = temp;
+            }
+
+            int[] overrideImprovements = new int[NUM_ZOOM_STEPS];
+            float[] zoomRatios = new float[NUM_ZOOM_STEPS];
+
+            String streamName = "test_camera_zoom_override_latency";
+            mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
+            mReportLog.addValue("camera_id", id, ResultType.NEUTRAL, ResultUnit.NONE);
+            mReportLog.addValue("zoom_test_case", testCase, ResultType.NEUTRAL, ResultUnit.NONE);
+
+            try {
+                mTestRule.openDevice(id);
+                mPreviewSize = mTestRule.getOrderedPreviewSizes().get(0);
+                updatePreviewSurface(mPreviewSize);
+
+                // Start viewfinder with settings override set and the starting zoom ratio,
+                // and wait for some number of frames.
+                CaptureRequest.Builder previewBuilder = configurePreviewOutputs(id);
+                previewBuilder.set(CaptureRequest.CONTROL_SETTINGS_OVERRIDE,
+                        CameraMetadata.CONTROL_SETTINGS_OVERRIDE_ZOOM);
+                previewBuilder.set(CaptureRequest.CONTROL_ZOOM_RATIO, startRatio);
+                SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+                int sequenceId = mTestRule.getCameraSession().setRepeatingRequest(
+                        previewBuilder.build(), resultListener, mTestRule.getHandler());
+                CaptureResult result = CameraTestUtils.waitForNumResults(
+                        resultListener, NUM_RESULTS_WAIT, WAIT_FOR_RESULT_TIMEOUT_MS);
+
+                float previousRatio = startRatio;
+                for (int j = 0; j < NUM_ZOOM_STEPS; j++) {
+                    float zoomFactor = startRatio + (endRatio - startRatio)
+                             * (j + 1) / NUM_ZOOM_STEPS;
+                    previewBuilder.set(CaptureRequest.CONTROL_ZOOM_RATIO, zoomFactor);
+                    int newSequenceId = mTestRule.getCameraSession().setRepeatingRequest(
+                            previewBuilder.build(), resultListener, mTestRule.getHandler());
+                    long lastFrameNumberForRequest =
+                            resultListener.getCaptureSequenceLastFrameNumber(sequenceId,
+                                    WAIT_FOR_RESULT_TIMEOUT_MS);
+
+                    int improvement = 0;
+                    long frameNumber = -1;
+                    Log.v(TAG, "LastFrameNumber for sequence " + sequenceId + ": "
+                            + lastFrameNumberForRequest);
+                    while (frameNumber < lastFrameNumberForRequest + 1) {
+                        TotalCaptureResult zoomResult = resultListener.getTotalCaptureResult(
+                                WAIT_FOR_RESULT_TIMEOUT_MS);
+                        frameNumber = zoomResult.getFrameNumber();
+                        float resultZoomFactor = zoomResult.get(CaptureResult.CONTROL_ZOOM_RATIO);
+
+                        Log.v(TAG, "frameNumber " + frameNumber + " zoom: " + resultZoomFactor);
+                        assertTrue(String.format("Zoom ratio should monotonically increase/decrease"
+                                + " or stay the same (previous = %f, current = %f", previousRatio,
+                                resultZoomFactor),
+                                Math.abs(previousRatio - resultZoomFactor) < ZOOM_ERROR_MARGIN
+                                || (direction == ZoomDirection.ZOOM_IN
+                                        && previousRatio < resultZoomFactor)
+                                || (direction == ZoomDirection.ZOOM_OUT
+                                        && previousRatio > resultZoomFactor));
+
+                        if (Math.abs(resultZoomFactor - zoomFactor) < ZOOM_ERROR_MARGIN
+                                && improvement == 0) {
+                            improvement = (int) (lastFrameNumberForRequest + 1 - frameNumber);
+                        }
+                        previousRatio = resultZoomFactor;
+                    }
+
+                    // Zoom in from 1.0x must have at least 1 frame latency improvement.
+                    if (direction == ZoomDirection.ZOOM_IN
+                            && range == ZoomRange.RATIO_1_OR_LARGER
+                            && staticMetadata.isPerFrameControlSupported()) {
+                        mTestRule.getCollector().expectTrue(
+                                "Zoom-in latency improvement (" + improvement
+                                + ") must be at least " + ZOOM_IN_MIN_IMPROVEMENT_IN_FRAMES,
+                                improvement >= ZOOM_IN_MIN_IMPROVEMENT_IN_FRAMES);
+                    }
+                    zoomRatios[j] = zoomFactor;
+                    overrideImprovements[j] = improvement;
+
+                    sequenceId = newSequenceId;
+                }
+
+                mReportLog.addValues("Camera zoom ratios", zoomRatios, ResultType.NEUTRAL,
+                        ResultUnit.NONE);
+                mReportLog.addValues("Latency improvements", overrideImprovements,
+                        ResultType.HIGHER_BETTER, ResultUnit.FRAMES);
+            } finally {
+                mTestRule.closeDefaultImageReader();
+                mTestRule.closeDevice(id);
+                closePreviewSurface();
+            }
+            mReportLog.submit(mInstrumentation);
+
+            if (VERBOSE) {
+                Log.v(TAG, "Camera " + id + " zoom settings: " + Arrays.toString(zoomRatios));
+                Log.v(TAG, "Camera " + id + " zoom settings override latency improvements "
+                        + "(in frames): " + Arrays.toString(overrideImprovements));
+            }
+        }
+    }
+
+    /**
+     * Testing SurfaceView jitter reduction performance
+     *
+     * Because the application doesn't have access to SurfaceView frames,
+     * we use an ImageReader with COMPOSER_OVERLAY usage.
+     */
+    @Test
+    public void testSurfaceViewJitterReduction() throws Exception {
+        String cameraId = null;
+        Range<Integer>[] aeFpsRanges = null;
+        for (String id : mTestRule.getCameraIdsUnderTest()) {
+            StaticMetadata staticMetadata = mTestRule.getAllStaticInfo().get(id);
+            if (staticMetadata.isColorOutputSupported()) {
+                cameraId = id;
+                aeFpsRanges = staticMetadata.getAeAvailableTargetFpsRangesChecked();
+                // Because jitter reduction is a framework feature and not camera specific,
+                // we only test for 1 camera Id.
+                break;
+            }
+        }
+        if (cameraId == null) {
+            Log.i(TAG, "No camera supports color outputs, skipping");
+            return;
+        }
+
+        try {
+            mTestRule.openDevice(cameraId);
+
+            for (Range<Integer> fpsRange : aeFpsRanges) {
+                if (fpsRange.getLower() == fpsRange.getUpper()) {
+                    testPreviewJitterForFpsRange(cameraId,
+                            HardwareBuffer.USAGE_COMPOSER_OVERLAY,
+                            /*reduceJitter*/false, fpsRange);
+
+                    testPreviewJitterForFpsRange(cameraId,
+                            HardwareBuffer.USAGE_COMPOSER_OVERLAY,
+                            /*reduceJitter*/true, fpsRange);
+                }
+            }
+        } finally {
+            mTestRule.closeDevice(cameraId);
+        }
+    }
+
+    /**
+     * Testing SurfaceTexture jitter reduction performance
+     */
+    @Test
+    public void testSurfaceTextureJitterReduction() throws Exception {
+        String cameraId = null;
+        Range<Integer>[] aeFpsRanges = null;
+        for (String id : mTestRule.getCameraIdsUnderTest()) {
+            StaticMetadata staticMetadata = mTestRule.getAllStaticInfo().get(id);
+            if (staticMetadata.isColorOutputSupported()) {
+                cameraId = id;
+                aeFpsRanges = staticMetadata.getAeAvailableTargetFpsRangesChecked();
+                // Because jitter reduction is a framework feature and not camera specific,
+                // we only test for 1 camera Id.
+                break;
+            }
+        }
+        if (cameraId == null) {
+            Log.i(TAG, "No camera supports color outputs, skipping");
+            return;
+        }
+
+        try {
+            mTestRule.openDevice(cameraId);
+
+            for (Range<Integer> fpsRange : aeFpsRanges) {
+                if (fpsRange.getLower() == fpsRange.getUpper()) {
+                    testPreviewJitterForFpsRange(cameraId,
+                            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+                            /*reduceJitter*/false, fpsRange);
+                    testPreviewJitterForFpsRange(cameraId,
+                            HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE,
+                            /*reduceJitter*/true, fpsRange);
+                }
+            }
+        } finally {
+            mTestRule.closeDevice(cameraId);
+        }
+    }
+
+    private void testPreviewJitterForFpsRange(String cameraId, long usage,
+            boolean reduceJitter, Range<Integer> fpsRange) throws Exception {
+        try {
+            assertTrue("usage must be COMPOSER_OVERLAY/GPU_SAMPLED_IMAGE, but is " + usage,
+                    usage == HardwareBuffer.USAGE_COMPOSER_OVERLAY
+                    || usage == HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+            String streamName = "test_camera_preview_jitter_";
+            if (usage == HardwareBuffer.USAGE_COMPOSER_OVERLAY) {
+                streamName += "surface_view";
+            } else {
+                streamName += "surface_texture";
+            }
+            mReportLog = new DeviceReportLog(REPORT_LOG_NAME, streamName);
+            mReportLog.addValue("camera_id", cameraId, ResultType.NEUTRAL, ResultUnit.NONE);
+
+            // Display refresh rate while camera is active. Note that the default display's
+            // getRefreshRate() isn't reflecting the real refresh rate. Hardcode it for now.
+            float refreshRate = 60.0f;
+            float numRefreshesPerDuration = refreshRate / fpsRange.getLower();
+            long refreshInterval = (long) (1000000000L / refreshRate);
+
+            Long frameDuration = (long) (1e9 / fpsRange.getLower());
+            initializeImageReader(cameraId, ImageFormat.PRIVATE,
+                    frameDuration, usage);
+
+            CameraCharacteristics ch =
+                    mTestRule.getCameraManager().getCameraCharacteristics(cameraId);
+            Integer timestampSource = ch.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE);
+            assertNotNull("Timestamp source must not be null", timestampSource);
+
+            boolean timestampIsRealtime = false;
+            if (timestampSource == CameraMetadata.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME
+                    && (!reduceJitter || usage == HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE)) {
+                timestampIsRealtime = true;
+            }
+            SimpleTimestampListener imageListener =
+                    new SimpleTimestampListener(timestampIsRealtime);
+            mTestRule.getReader().setOnImageAvailableListener(
+                    imageListener, mTestRule.getHandler());
+
+            CaptureRequest.Builder previewBuilder = mTestRule.getCamera().createCaptureRequest(
+                    CameraDevice.TEMPLATE_PREVIEW);
+            previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, fpsRange);
+            previewBuilder.addTarget(mTestRule.getReaderSurface());
+            CaptureRequest previewRequest = previewBuilder.build();
+
+            List<OutputConfiguration> outputConfigs = new ArrayList<>();
+            OutputConfiguration config = new OutputConfiguration(mTestRule.getReaderSurface());
+            if (!reduceJitter) {
+                config.setTimestampBase(OutputConfiguration.TIMESTAMP_BASE_SENSOR);
+            }
+            outputConfigs.add(config);
+
+            boolean useSessionKeys = isFpsRangeASessionKey(ch);
+            mTestRule.setCameraSessionListener(new BlockingSessionCallback());
+            configureAndSetCameraSessionWithConfigs(outputConfigs, useSessionKeys, previewRequest);
+
+            // Start preview and run for 6 seconds
+            SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+            mTestRule.getCameraSession().setRepeatingRequest(
+                    previewRequest, resultListener, mTestRule.getHandler());
+
+            Thread.sleep(6000);
+
+            blockingStopRepeating();
+
+            // Let N be expected number of VSYNCs between frames
+            //
+            // Number of frames ahead of expected VSYNC: 0.5 * VSYNC < frame duration <=
+            // (N - 0.5) * VSYNC
+            long framesAheadCount = 0;
+            // Number of frames delayed past the expected VSYNC: frame duration >= (N + 0.5) * VSYNC
+            long framesDelayedCount = 0;
+            // Number of frames dropped: Fell into one single VSYNC
+            long framesDroppedCount = 0;
+            // The number of frame intervals in total
+            long intervalCount = imageListener.getTimestampCount() - 1;
+            assertTrue("Number of timestamp intervals must be at least 1, but is " + intervalCount,
+                    intervalCount >= 1);
+            // The sum of delays in ms for all frames captured
+            double framesDelayInMs = 0;
+
+            SimpleTimestampListener.TimestampHolder timestamp1 =
+                    imageListener.getNextTimestampHolder();
+            if (usage == HardwareBuffer.USAGE_COMPOSER_OVERLAY) {
+                framesDelayInMs =
+                        Math.max(0, timestamp1.mTimestamp - timestamp1.mDeliveryTime) / 1000000;
+            } else {
+                framesDelayInMs =
+                        (timestamp1.mDeliveryTime - timestamp1.mTimestamp) / 1000000;
+            }
+            for (long i = 0; i < intervalCount; i++) {
+                SimpleTimestampListener.TimestampHolder timestamp2 =
+                        imageListener.getNextTimestampHolder();
+                // The listener uses the image timestamp if it's in the future. Otherwise, use
+                // the current system time (image delivery time).
+                long presentTime2 = Math.max(timestamp2.mDeliveryTime, timestamp2.mTimestamp);
+                long presentTime1 = Math.max(timestamp1.mDeliveryTime, timestamp1.mTimestamp);
+                long frameInterval = presentTime2 - presentTime1;
+                if (frameInterval <= refreshInterval / 2) {
+                    framesDroppedCount++;
+                } else if (frameInterval <= refreshInterval * (numRefreshesPerDuration - 0.5f)) {
+                    framesAheadCount++;
+                } else if (frameInterval >=  refreshInterval * (numRefreshesPerDuration + 0.5f)) {
+                    framesDelayedCount++;
+                }
+
+                if (usage == HardwareBuffer.USAGE_COMPOSER_OVERLAY) {
+                    framesDelayInMs +=
+                            Math.max(0, timestamp2.mTimestamp - timestamp2.mDeliveryTime) / 1000000;
+                } else {
+                    framesDelayInMs +=
+                            (timestamp1.mDeliveryTime - timestamp1.mTimestamp) / 1000000;
+                }
+                timestamp1 = timestamp2;
+            }
+
+            mReportLog.addValue("reduce_jitter", reduceJitter, ResultType.NEUTRAL,
+                    ResultUnit.NONE);
+            mReportLog.addValue("camera_configured_frame_rate", fpsRange.getLower(),
+                    ResultType.NEUTRAL, ResultUnit.NONE);
+            mReportLog.addValue("camera_preview_frame_dropped_rate",
+                    1.0f * framesDroppedCount / intervalCount, ResultType.LOWER_BETTER,
+                    ResultUnit.NONE);
+            mReportLog.addValue("camera_preview_frame_ahead_rate",
+                    1.0f * framesAheadCount / intervalCount, ResultType.LOWER_BETTER,
+                    ResultUnit.NONE);
+            mReportLog.addValue("camera_preview_frame_delayed_rate",
+                    1.0f * framesDelayedCount / intervalCount,
+                    ResultType.LOWER_BETTER, ResultUnit.NONE);
+            mReportLog.addValue("camera_preview_frame_latency_ms",
+                    framesDelayInMs / (intervalCount + 1), ResultType.LOWER_BETTER,
+                    ResultUnit.MS);
+
+            if (VERBOSE) {
+                Log.v(TAG, "Camera " + cameraId + " frame rate: " + fpsRange.getLower()
+                        + ", dropped rate: " + (1.0f * framesDroppedCount / intervalCount)
+                        + ", ahead rate: " + (1.0f * framesAheadCount / intervalCount)
+                        + ", delayed rate: " + (1.0f * framesDelayedCount / intervalCount)
+                        + ", latency in ms: " + (framesDelayInMs / (intervalCount + 1)));
+            }
+        } finally {
+            mTestRule.closeDefaultImageReader();
+            mReportLog.submit(mInstrumentation);
+        }
+    }
+
     private void reprocessingCaptureStallTestByCamera(int reprocessInputFormat) throws Exception {
         prepareReprocessCapture(reprocessInputFormat);
 
@@ -1191,13 +1672,13 @@ public class PerformanceTest {
      * @param resultListener Capture result listener
      * @param maxNumImages The max number of images set to the image reader
      * @param imageListeners The single capture capture image listeners
-     * @param isHeic Capture HEIC image if true, JPEG image if false
+     * @param enablePostView Enable post view as part of the still capture request
      */
     private ImageReader[] prepareStillCaptureAndStartPreview(String id,
             CaptureRequest.Builder previewBuilder, CaptureRequest.Builder stillBuilder,
             Size previewSz, Size[] captureSizes, int[] formats, CaptureCallback resultListener,
             int maxNumImages, ImageReader.OnImageAvailableListener[] imageListeners,
-            boolean isHeic)
+            boolean enablePostView)
             throws Exception {
 
         if ((captureSizes == null) || (formats == null) || (imageListeners == null) &&
@@ -1225,7 +1706,8 @@ public class PerformanceTest {
 
         // Configure the requests.
         previewBuilder.addTarget(mPreviewSurface);
-        stillBuilder.addTarget(mPreviewSurface);
+        if (enablePostView)
+            stillBuilder.addTarget(mPreviewSurface);
         for (int i = 0; i < readers.length; i++) {
             stillBuilder.addTarget(readers[i].getSurface());
         }
@@ -1278,6 +1760,25 @@ public class PerformanceTest {
         } else {
             cameraSession = CameraTestUtils.configureCameraSession(
                 mTestRule.getCamera(), surfaces,
+                mTestRule.getCameraSessionListener(), mTestRule.getHandler());
+        }
+        mTestRule.setCameraSession(cameraSession);
+    }
+
+    /*
+     * Helper function to configure camera session using parameters provided.
+     */
+    private void configureAndSetCameraSessionWithConfigs(List<OutputConfiguration> configs,
+            boolean useInitialRequest, CaptureRequest initialRequest)
+            throws CameraAccessException {
+        CameraCaptureSession cameraSession;
+        if (useInitialRequest) {
+            cameraSession = CameraTestUtils.tryConfigureCameraSessionWithConfig(
+                mTestRule.getCamera(), configs, initialRequest,
+                mTestRule.getCameraSessionListener(), mTestRule.getHandler());
+        } else {
+            cameraSession = CameraTestUtils.configureCameraSessionWithConfig(
+                mTestRule.getCamera(), configs,
                 mTestRule.getCameraSessionListener(), mTestRule.getHandler());
         }
         mTestRule.setCameraSession(cameraSession);
@@ -1449,20 +1950,92 @@ public class PerformanceTest {
     }
 
     /**
+     * Configure preview outputs and wait until done.
+     *
+     * @return The preview capture request builder
+     */
+    private CaptureRequest.Builder configurePreviewOutputs(String id)
+            throws Exception {
+        if (mPreviewSurface == null) {
+            throw new IllegalStateException("preview surface must be initialized first");
+        }
+
+        // Create previewBuilder
+        CaptureRequest.Builder previewBuilder =
+                mTestRule.getCamera().createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        previewBuilder.addTarget(mPreviewSurface);
+
+        // Figure out constant target FPS range no larger than 30fps
+        CameraCharacteristics ch = mTestRule.getStaticInfo().getCharacteristics();
+        StreamConfigurationMap config =
+                ch.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+        long minFrameDuration = Math.max(FRAME_DURATION_NS_30FPS,
+                config.getOutputMinFrameDuration(SurfaceTexture.class, mPreviewSize));
+
+        List<Surface> outputSurfaces = new ArrayList<>();
+        outputSurfaces.add(mPreviewSurface);
+        Range<Integer> targetRange =
+                CameraTestUtils.getSuitableFpsRangeForDuration(id,
+                        minFrameDuration, mTestRule.getStaticInfo());
+        previewBuilder.set(CaptureRequest.CONTROL_AE_TARGET_FPS_RANGE, targetRange);
+
+        // Create capture session
+        boolean useSessionKeys = isFpsRangeASessionKey(ch);
+        CaptureRequest previewRequest = previewBuilder.build();
+        mTestRule.setCameraSessionListener(new BlockingSessionCallback());
+        configureAndSetCameraSession(outputSurfaces, useSessionKeys, previewRequest);
+
+        return previewBuilder;
+    }
+
+    /**
      * Initialize the ImageReader instance and preview surface.
      * @param cameraId The camera to be opened.
      * @param format The format used to create ImageReader instance.
      */
     private void initializeImageReader(String cameraId, int format) throws Exception {
-        mTestRule.setOrderedPreviewSizes(CameraTestUtils.getSortedSizesForFormat(
+        initializeImageReader(cameraId, format, null/*maxFrameDuration*/, 0/*usage*/);
+    }
+
+    /**
+     * Initialize the ImageReader instance and preview surface.
+     * @param cameraId The camera to be opened.
+     * @param format The format used to create ImageReader instance.
+     * @param frameDuration The min frame duration of the ImageReader cannot be larger than
+     *                      frameDuration.
+     * @param usage The usage of the ImageReader
+     */
+    private void initializeImageReader(String cameraId, int format, Long frameDuration, long usage)
+            throws Exception {
+        List<Size> boundedSizes = CameraTestUtils.getSortedSizesForFormat(
                 cameraId, mTestRule.getCameraManager(), format,
                 CameraTestUtils.getPreviewSizeBound(mTestRule.getWindowManager(),
-                        CameraTestUtils.PREVIEW_SIZE_BOUND)));
+                        CameraTestUtils.PREVIEW_SIZE_BOUND));
+
+        // Remove the sizes not meeting the frame duration requirement.
+        final float kFrameDurationTolerance = 0.01f;
+        if (frameDuration != null) {
+            StreamConfigurationMap configMap = mTestRule.getStaticInfo().getValueFromKeyNonNull(
+                    CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+            ListIterator<Size> iter = boundedSizes.listIterator();
+            while (iter.hasNext()) {
+                long duration = configMap.getOutputMinFrameDuration(format, iter.next());
+                if (duration > frameDuration * (1 + kFrameDurationTolerance)) {
+                    iter.remove();
+                }
+            }
+        }
+
+        mTestRule.setOrderedPreviewSizes(boundedSizes);
         mPreviewSize = mTestRule.getOrderedPreviewSizes().get(0);
         mImageReaderFormat = format;
-        mTestRule.createDefaultImageReader(
-                mPreviewSize, format, NUM_MAX_IMAGES, /*listener*/null);
-        updatePreviewSurface(mPreviewSize);
+        if (usage != 0) {
+            mTestRule.createDefaultImageReader(
+                    mPreviewSize, format, NUM_MAX_IMAGES, usage, /*listener*/null);
+        } else {
+            mTestRule.createDefaultImageReader(
+                    mPreviewSize, format, NUM_MAX_IMAGES, /*listener*/null);
+        }
     }
 
     private void simpleOpenCamera(String cameraId) throws Exception {
@@ -1522,6 +2095,64 @@ public class PerformanceTest {
 
         public long getTimeReceivedImage() {
             return mTimeReceivedImage;
+        }
+    }
+
+    /**
+     * Simple image listener that behaves like a SurfaceView.
+     */
+    private static class SimpleTimestampListener
+            implements ImageReader.OnImageAvailableListener {
+        public static class TimestampHolder {
+            public long mDeliveryTime;
+            public long mTimestamp;
+            TimestampHolder(long deliveryTime, long timestamp) {
+                mDeliveryTime = deliveryTime;
+                mTimestamp = timestamp;
+            }
+        }
+
+        private final boolean mUseRealtime;
+
+        private final LinkedBlockingQueue<TimestampHolder> mTimestampQueue =
+                new LinkedBlockingQueue<TimestampHolder>();
+
+        SimpleTimestampListener(boolean timestampIsRealtime) {
+            mUseRealtime = timestampIsRealtime;
+        }
+
+        @Override
+        public void onImageAvailable(ImageReader reader) {
+            try {
+                Image image = null;
+                image = reader.acquireNextImage();
+                if (image != null) {
+                    long timestamp = image.getTimestamp();
+                    long currentTimeMillis = mUseRealtime
+                            ? SystemClock.elapsedRealtime() : SystemClock.uptimeMillis();
+                    long currentTimeNs = currentTimeMillis * 1000000;
+                    mTimestampQueue.put(new TimestampHolder(currentTimeNs, timestamp));
+                    image.close();
+                }
+            } catch (InterruptedException e) {
+                throw new UnsupportedOperationException(
+                        "Can't handle InterruptedException in onImageAvailable");
+            }
+        }
+
+        /**
+         * Get the number of timestamps
+         */
+        public int getTimestampCount() {
+            return mTimestampQueue.size();
+        }
+
+        /**
+         * Get the timestamps for next image received.
+         */
+        public TimestampHolder getNextTimestampHolder() {
+            TimestampHolder holder = mTimestampQueue.poll();
+            return holder;
         }
     }
 

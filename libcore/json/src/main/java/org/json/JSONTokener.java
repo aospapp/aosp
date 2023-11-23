@@ -118,7 +118,9 @@ public class JSONTokener {
 
     @UnsupportedAppUsage
     private int nextCleanInternal() throws JSONException {
-        while (pos < in.length()) {
+        final int inLength = in.length();
+
+        while (pos < inLength) {
             int c = in.charAt(pos++);
             switch (c) {
                 case '\t':
@@ -128,7 +130,7 @@ public class JSONTokener {
                     continue;
 
                 case '/':
-                    if (pos == in.length()) {
+                    if (pos == inLength) {
                         return c;
                     }
 
@@ -178,7 +180,9 @@ public class JSONTokener {
      */
     @UnsupportedAppUsage
     private void skipToEndOfLine() {
-        for (; pos < in.length(); pos++) {
+        final int inLength = in.length();
+
+        for (; pos < inLength; pos++) {
             char c = in.charAt(pos);
             if (c == '\r' || c == '\n') {
                 pos++;
@@ -206,12 +210,13 @@ public class JSONTokener {
         /* the index of the first character not yet appended to the builder. */
         int start = pos;
 
-        while (pos < in.length()) {
+        final int inLength = in.length();
+
+        while (pos < inLength) {
             int c = in.charAt(pos++);
             if (c == quote) {
                 if (builder == null) {
-                    // a new string avoids leaking memory
-                    return new String(in.substring(start, pos - 1));
+                    return in.substring(start, pos - 1);
                 } else {
                     builder.append(in, start, pos - 1);
                     return builder.toString();
@@ -219,7 +224,7 @@ public class JSONTokener {
             }
 
             if (c == '\\') {
-                if (pos == in.length()) {
+                if (pos == inLength) {
                     throw syntaxError("Unterminated escape sequence");
                 }
                 if (builder == null) {
@@ -332,7 +337,7 @@ public class JSONTokener {
         }
 
         /* ... finally give up. We have an unquoted string */
-        return new String(literal); // a new string avoids leaking memory
+        return literal;
     }
 
     /**
@@ -341,8 +346,10 @@ public class JSONTokener {
      */
     @UnsupportedAppUsage
     private String nextToInternal(String excluded) {
+        final int inLength = in.length();
+
         int start = pos;
-        for (; pos < in.length(); pos++) {
+        for (; pos < inLength; pos++) {
             char c = in.charAt(pos);
             if (c == '\r' || c == '\n' || excluded.indexOf(c) != -1) {
                 return in.substring(start, pos);
@@ -367,6 +374,8 @@ public class JSONTokener {
             pos--;
         }
 
+        final int inLength = in.length();
+
         while (true) {
             Object name = nextValue();
             if (!(name instanceof String)) {
@@ -387,7 +396,7 @@ public class JSONTokener {
             if (separator != ':' && separator != '=') {
                 throw syntaxError("Expected ':' after " + name);
             }
-            if (pos < in.length() && in.charAt(pos) == '>') {
+            if (pos < inLength && in.charAt(pos) == '>') {
                 pos++;
             }
 
@@ -518,11 +527,6 @@ public class JSONTokener {
     /**
      * Returns the next {@code length} characters of the input.
      *
-     * <p>The returned string shares its backing character array with this
-     * tokener's input string. If a reference to the returned string may be held
-     * indefinitely, you should use {@code new String(result)} to copy it first
-     * to avoid memory leaks.
-     *
      * @throws JSONException if the remaining input is not long enough to
      *     satisfy this request.
      */
@@ -543,11 +547,6 @@ public class JSONTokener {
      *   <li>a newline character '\n'
      *   <li>a carriage return '\r'
      * </ul>
-     *
-     * <p>The returned string shares its backing character array with this
-     * tokener's input string. If a reference to the returned string may be held
-     * indefinitely, you should use {@code new String(result)} to copy it first
-     * to avoid memory leaks.
      *
      * @return a possibly-empty string
      */

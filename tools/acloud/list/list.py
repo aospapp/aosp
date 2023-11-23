@@ -34,6 +34,9 @@ from acloud.public import config
 logger = logging.getLogger(__name__)
 
 _COMMAND_PS_LAUNCH_CVD = ["ps", "-wweo", "lstart,cmd"]
+_NOT_CONNECTED_DEVICE_HINT = (
+    "\nFor not connected device, you can try \"$ acloud reconnect\" or "
+    "\"$ acloud restart\" to get the device back.")
 
 
 def _ProcessInstances(instance_list):
@@ -91,11 +94,12 @@ def PrintInstancesDetails(instance_list, verbose=False):
         verbose: Boolean, True to print all details and only full name if False.
         instance_list: List of instances.
     """
+    not_any_connected_device = False
     if not instance_list:
         print("No remote or local instances found")
 
     for num, instance_info in enumerate(instance_list, 1):
-        idx_str = "[%d]" % num
+        idx_str = f"[{num}]"
         utils.PrintColorString(idx_str, end="")
         if verbose:
             print(instance_info.Summary())
@@ -103,6 +107,11 @@ def PrintInstancesDetails(instance_list, verbose=False):
             print("")
         else:
             print(instance_info)
+
+        if not instance_info.AdbConnected():
+            not_any_connected_device = True
+    if not_any_connected_device:
+        utils.PrintColorString(_NOT_CONNECTED_DEVICE_HINT)
 
 
 def GetRemoteInstances(cfg):
@@ -118,7 +127,7 @@ def GetRemoteInstances(cfg):
     """
     credentials = auth.CreateCredentials(cfg)
     compute_client = gcompute_client.ComputeClient(cfg, credentials)
-    filter_item = "labels.%s=%s" % (constants.LABEL_CREATE_BY, getpass.getuser())
+    filter_item = f"labels.{constants.LABEL_CREATE_BY}={getpass.getuser()}"
     all_instances = compute_client.ListInstances(instance_filter=filter_item)
 
     logger.debug("Instance list from: (filter: %s\n%s):",
@@ -149,12 +158,13 @@ def _GetLocalCuttlefishInstances(id_cfg_pairs):
         try:
             if not os.path.isfile(cfg_path):
                 continue
-            ins = instance.LocalInstance(cfg_path)
-            if ins.CvdStatus():
-                local_instance_list.append(ins)
-            else:
-                logger.info("Cvd runtime config is found at %s but instance "
-                            "%d is not active.", cfg_path, ins_id)
+            instances = instance.GetCuttleFishLocalInstances(cfg_path)
+            for ins in instances:
+                if ins.CvdStatus():
+                    local_instance_list.append(ins)
+                else:
+                    logger.info("Cvd runtime config is found at %s but instance "
+                                "%d is not active.", cfg_path, ins_id)
         finally:
             ins_lock.Unlock()
     return local_instance_list

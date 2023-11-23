@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 import android.app.UiAutomation;
 import android.app.time.cts.shell.DeviceShellCommandExecutor;
 import android.os.ParcelFileDescriptor;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -32,6 +33,7 @@ import java.util.Objects;
 public final class InstrumentationShellCommandExecutor
         extends DeviceShellCommandExecutor {
 
+    private static final String LOG_TAG = "ShellCommandExecutor";
     private final UiAutomation mUiAutomation;
 
     public InstrumentationShellCommandExecutor(@NonNull UiAutomation uiAutomation) {
@@ -64,6 +66,6 @@ public final class InstrumentationShellCommandExecutor
 
     @Override
     protected void log(String msg) {
-        System.out.println("InstrumentationShellCommandExecutor: " + msg);
+        Log.v(LOG_TAG, msg);
     }
 }

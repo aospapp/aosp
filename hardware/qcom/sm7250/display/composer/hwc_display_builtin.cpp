@@ -27,6 +27,42 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+* Changes from Qualcomm Innovation Center are provided under the following license:
+*
+* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted (subject to the limitations in the
+* disclaimer below) provided that the following conditions are met:
+*
+*    * Redistributions of source code must retain the above copyright
+*      notice, this list of conditions and the following disclaimer.
+*
+*    * Redistributions in binary form must reproduce the above
+*      copyright notice, this list of conditions and the following
+*      disclaimer in the documentation and/or other materials provided
+*      with the distribution.
+*
+*    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+*      contributors may be used to endorse or promote products derived
+*      from this software without specific prior written permission.
+*
+* NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+* GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+* HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+* IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+* ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+* DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+* GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+* INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+* IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+* OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
 #include <android-base/file.h>
 #include <cutils/properties.h>
 #include <cutils/sockets.h>
@@ -256,7 +292,9 @@ int HWCDisplayBuiltIn::Init() {
 
 void HWCDisplayBuiltIn::Dump(std::ostringstream *os) {
   HWCDisplay::Dump(os);
+#ifndef TARGET_HEADLESS
   *os << histogram.Dump();
+#endif
 }
 
 void HWCDisplayBuiltIn::ValidateUiScaling() {
@@ -366,6 +404,9 @@ HWC2::Error HWCDisplayBuiltIn::Validate(uint32_t *out_num_types, uint32_t *out_n
     // Avoid flush for Command mode panel.
     flush_ = !client_connected_;
     validated_ = true;
+    layer_changes_.clear();
+    layer_requests_.clear();
+    DLOGV_IF(kTagDisplay, "layer_set is empty");
     return status;
   }
 
@@ -1301,11 +1342,13 @@ HWC2::Error HWCDisplayBuiltIn::SetDisplayedContentSamplingEnabledVndService(bool
   std::unique_lock<decltype(sampling_mutex)> lk(sampling_mutex);
   vndservice_sampling_vote = enabled;
   if (api_sampling_vote || vndservice_sampling_vote) {
+#ifndef TARGET_HEADLESS
     histogram.start();
     display_intf_->colorSamplingOn();
   } else {
     display_intf_->colorSamplingOff();
     histogram.stop();
+#endif
   }
   return HWC2::Error::None;
 }
@@ -1326,6 +1369,7 @@ HWC2::Error HWCDisplayBuiltIn::SetDisplayedContentSamplingEnabled(int32_t enable
 
   auto start = api_sampling_vote || vndservice_sampling_vote;
   if (start && max_frames == 0) {
+#ifndef TARGET_HEADLESS
     histogram.start();
     display_intf_->colorSamplingOn();
   } else if (start) {
@@ -1334,20 +1378,26 @@ HWC2::Error HWCDisplayBuiltIn::SetDisplayedContentSamplingEnabled(int32_t enable
   } else {
     display_intf_->colorSamplingOff();
     histogram.stop();
+#endif
   }
   return HWC2::Error::None;
 }
 
 HWC2::Error HWCDisplayBuiltIn::GetDisplayedContentSamplingAttributes(
     int32_t *format, int32_t *dataspace, uint8_t *supported_components) {
-  return histogram.getAttributes(format, dataspace, supported_components);
+#ifndef TARGET_HEADLESS
+ return histogram.getAttributes(format, dataspace, supported_components);
+#endif
+ return HWC2::Error::None;
 }
 
 HWC2::Error HWCDisplayBuiltIn::GetDisplayedContentSample(
     uint64_t max_frames, uint64_t timestamp, uint64_t *numFrames,
     int32_t samples_size[NUM_HISTOGRAM_COLOR_COMPONENTS],
     uint64_t *samples[NUM_HISTOGRAM_COLOR_COMPONENTS]) {
+#ifndef TARGET_HEADLESS
   histogram.collect(max_frames, timestamp, samples_size, samples, numFrames);
+#endif
   return HWC2::Error::None;
 }
 
@@ -1466,6 +1516,14 @@ DisplayError HWCDisplayBuiltIn::SetStandByMode(bool enable, bool is_twm) {
   return kErrorNone;
 }
 
+DisplayError HWCDisplayBuiltIn::DelayFirstCommit() {
+  if (display_intf_) {
+    return display_intf_->DelayFirstCommit();
+  }
+
+  return kErrorNotSupported;
+}
+
 HWC2::Error HWCDisplayBuiltIn::UpdateDisplayId(hwc2_display_t id) {
   id_ = id;
   return HWC2::Error::None;
@@ -1579,8 +1637,9 @@ int HWCDisplayBuiltIn::Deinit() {
   if (gl_layer_stitch_) {
     layer_stitch_task_.PerformTask(LayerStitchTaskCode::kCodeDestroyInstance, nullptr);
   }
-
+#ifndef TARGET_HEADLESS
   histogram.stop();
+#endif
   return HWCDisplay::Deinit();
 }
 
@@ -1713,7 +1772,9 @@ void HWCDisplayBuiltIn::AppendStitchLayer() {
 }
 
 DisplayError HWCDisplayBuiltIn::HistogramEvent(int fd, uint32_t blob_id) {
+#ifndef TARGET_HEADLESS
   histogram.notify_histogram_event(fd, blob_id);
+#endif
   return kErrorNone;
 }
 
@@ -1731,6 +1792,13 @@ int HWCDisplayBuiltIn::PostInit() {
 bool HWCDisplayBuiltIn::HasReadBackBufferSupport() {
   DisplayConfigFixedInfo fixed_info = {};
   display_intf_->GetConfig(&fixed_info);
+
+  uint32_t width = UINT32(window_rect_.right + window_rect_.left);
+  uint32_t height = UINT32(window_rect_.bottom + window_rect_.top);
+  if (width > 0 || height > 0) {
+     DLOGE("No ReadBackBuffersupport on window_rect width = %u - height = %u",width,height);
+     return false;
+  }
 
   return fixed_info.readback_supported;
 }

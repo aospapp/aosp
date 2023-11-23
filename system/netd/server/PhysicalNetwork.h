@@ -33,7 +33,7 @@ class PhysicalNetwork : public Network {
                                                     Permission permission) = 0;
     };
 
-    PhysicalNetwork(unsigned netId, Delegate* delegate);
+    PhysicalNetwork(unsigned netId, Delegate* delegate, bool local);
     virtual ~PhysicalNetwork();
 
     // These refer to permissions that apps must have in order to use this network.
@@ -58,6 +58,7 @@ class PhysicalNetwork : public Network {
     Delegate* const mDelegate;
     Permission mPermission;
     bool mIsDefault;
+    const bool mIsLocalNetwork;
 };
 
 }  // namespace android::net

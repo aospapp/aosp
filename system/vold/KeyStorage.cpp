@@ -23,7 +23,6 @@
 #include <algorithm>
 #include <memory>
 #include <mutex>
-#include <thread>
 #include <vector>
 
 #include <errno.h>
@@ -57,16 +56,14 @@ static constexpr size_t SECDISCARDABLE_BYTES = 1 << 14;
 static const char* kCurrentVersion = "1";
 static const char* kRmPath = "/system/bin/rm";
 static const char* kSecdiscardPath = "/system/bin/secdiscard";
-static const char* kStretch_none = "none";
-static const char* kStretch_nopassword = "nopassword";
 static const char* kHashPrefix_secdiscardable = "Android secdiscardable SHA512";
 static const char* kHashPrefix_keygen = "Android key wrapping key generation SHA512";
 static const char* kFn_encrypted_key = "encrypted_key";
 static const char* kFn_keymaster_key_blob = "keymaster_key_blob";
 static const char* kFn_keymaster_key_blob_upgraded = "keymaster_key_blob_upgraded";
 static const char* kFn_secdiscardable = "secdiscardable";
-static const char* kFn_stretching = "stretching";
 static const char* kFn_version = "version";
+// Note: old key directories may contain a file named "stretching".
 
 namespace {
 
@@ -117,9 +114,13 @@ static void hashWithPrefix(char const* prefix, const std::string& tohash, std::s
     SHA512_Final(reinterpret_cast<uint8_t*>(&(*res)[0]), &c);
 }
 
-// Generates a keystore key, using rollback resistance if supported.
-static bool generateKeystoreKey(Keystore& keystore, const km::AuthorizationSetBuilder& paramBuilder,
-                                std::string* key) {
+static bool generateKeyStorageKey(Keystore& keystore, const std::string& appId, std::string* key) {
+    auto paramBuilder = km::AuthorizationSetBuilder()
+                                .AesEncryptionKey(AES_KEY_BYTES * 8)
+                                .GcmModeMinMacLen(GCM_MAC_BYTES * 8)
+                                .Authorization(km::TAG_APPLICATION_ID, appId)
+                                .Authorization(km::TAG_NO_AUTH_REQUIRED);
+    LOG(DEBUG) << "Generating \"key storage\" key";
     auto paramsWithRollback = paramBuilder;
     paramsWithRollback.Authorization(km::TAG_ROLLBACK_RESISTANCE);
 
@@ -132,23 +133,13 @@ static bool generateKeystoreKey(Keystore& keystore, const km::AuthorizationSetBu
     return true;
 }
 
-static bool generateKeyStorageKey(Keystore& keystore, const std::string& appId, std::string* key) {
-    auto paramBuilder = km::AuthorizationSetBuilder()
-                                .AesEncryptionKey(AES_KEY_BYTES * 8)
-                                .GcmModeMinMacLen(GCM_MAC_BYTES * 8)
-                                .Authorization(km::TAG_APPLICATION_ID, appId)
-                                .Authorization(km::TAG_NO_AUTH_REQUIRED);
-    LOG(DEBUG) << "Generating \"key storage\" key";
-    return generateKeystoreKey(keystore, paramBuilder, key);
-}
-
 bool generateWrappedStorageKey(KeyBuffer* key) {
     Keystore keystore;
     if (!keystore) return false;
     std::string key_temp;
     auto paramBuilder = km::AuthorizationSetBuilder().AesEncryptionKey(AES_KEY_BYTES * 8);
     paramBuilder.Authorization(km::TAG_STORAGE_KEY);
-    if (!generateKeystoreKey(keystore, paramBuilder, &key_temp)) return false;
+    if (!keystore.generateKey(paramBuilder, &key_temp)) return false;
     *key = KeyBuffer(key_temp.size());
     memcpy(reinterpret_cast<void*>(key->data()), key_temp.c_str(), key->size());
     return true;
@@ -197,9 +188,13 @@ bool createSecdiscardable(const std::string& filename, std::string* hash) {
 }
 
 bool readSecdiscardable(const std::string& filename, std::string* hash) {
-    std::string secdiscardable;
-    if (!readFileToString(filename, &secdiscardable)) return false;
-    hashWithPrefix(kHashPrefix_secdiscardable, secdiscardable, hash);
+    if (pathExists(filename)) {
+        std::string secdiscardable;
+        if (!readFileToString(filename, &secdiscardable)) return false;
+        hashWithPrefix(kHashPrefix_secdiscardable, secdiscardable, hash);
+    } else {
+        *hash = "";
+    }
     return true;
 }
 
@@ -235,9 +230,8 @@ static bool CommitUpgradedKey(Keystore& keystore, const std::string& dir) {
     return true;
 }
 
-static void DeferredCommitKeys() {
-    android::base::WaitForProperty("vold.checkpoint_committed", "1");
-    LOG(INFO) << "Committing upgraded keys";
+void DeferredCommitKeystoreKeys() {
+    LOG(INFO) << "Committing upgraded Keystore keys";
     Keystore keystore;
     if (!keystore) {
         LOG(ERROR) << "Failed to open Keystore; old keys won't be deleted from Keystore";
@@ -245,10 +239,11 @@ static void DeferredCommitKeys() {
     }
     std::lock_guard<std::mutex> lock(key_upgrade_lock);
     for (auto& dir : key_dirs_to_commit) {
-        LOG(INFO) << "Committing upgraded key " << dir;
+        LOG(INFO) << "Committing upgraded Keystore key for " << dir;
         CommitUpgradedKey(keystore, dir);
     }
     key_dirs_to_commit.clear();
+    LOG(INFO) << "Done committing upgraded Keystore keys";
 }
 
 // Returns true if the Keystore key in |dir| has already been upgraded and is
@@ -264,7 +259,6 @@ static bool IsKeyCommitPending(const std::string& dir) {
 // that key_upgrade_lock is held and that a commit isn't already pending for the
 // directory.
 static void ScheduleKeyCommit(const std::string& dir) {
-    if (key_dirs_to_commit.empty()) std::thread(DeferredCommitKeys).detach();
     key_dirs_to_commit.push_back(dir);
 }
 
@@ -414,36 +408,9 @@ static bool decryptWithKeystoreKey(Keystore& keystore, const std::string& dir,
     return true;
 }
 
-static std::string getStretching(const KeyAuthentication& auth) {
-    if (auth.usesKeystore()) {
-        return kStretch_nopassword;
-    } else {
-        return kStretch_none;
-    }
-}
-
-static bool stretchSecret(const std::string& stretching, const std::string& secret,
-                          std::string* stretched) {
-    if (stretching == kStretch_nopassword) {
-        if (!secret.empty()) {
-            LOG(WARNING) << "Password present but stretching is nopassword";
-            // Continue anyway
-        }
-        stretched->clear();
-    } else if (stretching == kStretch_none) {
-        *stretched = secret;
-    } else {
-        LOG(ERROR) << "Unknown stretching type: " << stretching;
-        return false;
-    }
-    return true;
-}
-
-static bool generateAppId(const KeyAuthentication& auth, const std::string& stretching,
-                          const std::string& secdiscardable_hash, std::string* appId) {
-    std::string stretched;
-    if (!stretchSecret(stretching, auth.secret, &stretched)) return false;
-    *appId = secdiscardable_hash + stretched;
+static std::string generateAppId(const KeyAuthentication& auth,
+                                 const std::string& secdiscardable_hash) {
+    std::string appId = secdiscardable_hash + auth.secret;
 
     const std::lock_guard<std::mutex> scope_lock(storage_binding_info.guard);
     switch (storage_binding_info.state) {
@@ -451,14 +418,13 @@ static bool generateAppId(const KeyAuthentication& auth, const std::string& stre
             storage_binding_info.state = StorageBindingInfo::State::NOT_USED;
             break;
         case StorageBindingInfo::State::IN_USE:
-            appId->append(storage_binding_info.seed.begin(), storage_binding_info.seed.end());
+            appId.append(storage_binding_info.seed.begin(), storage_binding_info.seed.end());
             break;
         case StorageBindingInfo::State::NOT_USED:
             // noop
             break;
     }
-
-    return true;
+    return appId;
 }
 
 static void logOpensslError() {
@@ -569,9 +535,12 @@ static bool decryptWithoutKeystore(const std::string& preKey, const std::string&
 
 // Creates a directory at the given path |dir| and stores |key| in it, in such a
 // way that it can only be retrieved via Keystore (if no secret is given in
-// |auth|) or with the given secret (if a secret is given in |auth|), and can be
-// securely deleted.  If a storage binding seed has been set, then the storage
-// binding seed will be required to retrieve the key as well.
+// |auth|) or with the given secret (if a secret is given in |auth|).  In the
+// former case, an attempt is made to make the key securely deletable.  In the
+// latter case, secure deletion is expected to be handled at a higher level.
+//
+// If a storage binding seed has been set, then the storage binding seed will be
+// required to retrieve the key as well.
 static bool storeKey(const std::string& dir, const KeyAuthentication& auth, const KeyBuffer& key) {
     if (TEMP_FAILURE_RETRY(mkdir(dir.c_str(), 0700)) == -1) {
         PLOG(ERROR) << "key mkdir " << dir;
@@ -579,11 +548,10 @@ static bool storeKey(const std::string& dir, const KeyAuthentication& auth, cons
     }
     if (!writeStringToFile(kCurrentVersion, dir + "/" + kFn_version)) return false;
     std::string secdiscardable_hash;
-    if (!createSecdiscardable(dir + "/" + kFn_secdiscardable, &secdiscardable_hash)) return false;
-    std::string stretching = getStretching(auth);
-    if (!writeStringToFile(stretching, dir + "/" + kFn_stretching)) return false;
-    std::string appId;
-    if (!generateAppId(auth, stretching, secdiscardable_hash, &appId)) return false;
+    if (auth.usesKeystore() &&
+        !createSecdiscardable(dir + "/" + kFn_secdiscardable, &secdiscardable_hash))
+        return false;
+    std::string appId = generateAppId(auth, secdiscardable_hash);
     std::string encryptedKey;
     if (auth.usesKeystore()) {
         Keystore keystore;
@@ -622,7 +590,7 @@ bool storeKeyAtomically(const std::string& key_path, const std::string& tmp_path
     if (!RenameKeyDir(tmp_path, key_path)) return false;
 
     if (!FsyncParentDirectory(key_path)) return false;
-    LOG(DEBUG) << "Created key: " << key_path;
+    LOG(DEBUG) << "Stored key " << key_path;
     return true;
 }
 
@@ -635,10 +603,7 @@ bool retrieveKey(const std::string& dir, const KeyAuthentication& auth, KeyBuffe
     }
     std::string secdiscardable_hash;
     if (!readSecdiscardable(dir + "/" + kFn_secdiscardable, &secdiscardable_hash)) return false;
-    std::string stretching;
-    if (!readFileToString(dir + "/" + kFn_stretching, &stretching)) return false;
-    std::string appId;
-    if (!generateAppId(auth, stretching, secdiscardable_hash, &appId)) return false;
+    std::string appId = generateAppId(auth, secdiscardable_hash);
     std::string encryptedMessage;
     if (!readFileToString(dir + "/" + kFn_encrypted_key, &encryptedMessage)) return false;
     if (auth.usesKeystore()) {
@@ -693,8 +658,11 @@ bool destroyKey(const std::string& dir) {
         kSecdiscardPath,
         "--",
         dir + "/" + kFn_encrypted_key,
-        dir + "/" + kFn_secdiscardable,
     };
+    auto secdiscardable = dir + "/" + kFn_secdiscardable;
+    if (pathExists(secdiscardable)) {
+        secdiscard_cmd.push_back(secdiscardable);
+    }
     // Try each thing, even if previous things failed.
 
     for (auto& fn : {kFn_keymaster_key_blob, kFn_keymaster_key_blob_upgraded}) {

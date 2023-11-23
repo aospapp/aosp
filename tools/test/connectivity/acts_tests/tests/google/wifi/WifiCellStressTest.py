@@ -14,9 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import pprint
-import queue
-import threading
 import time
 
 import acts.base_test
@@ -30,6 +27,7 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_2G
 from acts_contrib.test_utils.tel.tel_test_utils import WIFI_CONFIG_APBAND_5G
+
 WifiEnums = wutils.WifiEnums
 
 DEFAULT_TIMEOUT = 10
@@ -59,10 +57,11 @@ class WifiCellStressTest(WifiBaseTest):
             "open_network", "reference_networks", "iperf_server_address",
             "stress_count", "stress_hours", "attn_vals", "pno_interval",
             "iperf_server_port", "dbs_supported_models",
-            "sta_sta_supported_models"]
+            "sta_sta_supported_models"
+        ]
 
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
         self.ap_iface = 'wlan0'
         if self.dut.model in self.dbs_supported_models:
             self.ap_iface = 'wlan1'
@@ -129,7 +128,7 @@ class WifiCellStressTest(WifiBaseTest):
         """
         self.log.info("Running ping for %d seconds" % sec)
         result = self.dut.adb.shell("ping -w %d %s" % (sec, PING_ADDR),
-                                    timeout=sec+1)
+                                    timeout=sec + 1)
         self.log.debug("Ping Result = %s" % result)
         if "100% packet loss" in result:
             raise signals.TestFailure("100% packet loss during ping")
@@ -152,12 +151,11 @@ class WifiCellStressTest(WifiBaseTest):
         time.sleep(DEFAULT_TIMEOUT)
         for count in range(self.stress_count):
             """Test toggling softap"""
-            self.log.info("Iteration %d", count+1)
+            self.log.info("Iteration %d", count + 1)
             softap_config = wutils.create_softap_config()
-            wutils.start_wifi_tethering(self.dut,
-                softap_config[wutils.WifiEnums.SSID_KEY],
-                softap_config[wutils.WifiEnums.PWD_KEY],
-                band)
+            wutils.start_wifi_tethering(
+                self.dut, softap_config[wutils.WifiEnums.SSID_KEY],
+                softap_config[wutils.WifiEnums.PWD_KEY], band)
             config = {
                 "SSID": softap_config[wutils.WifiEnums.SSID_KEY],
                 "password": softap_config[wutils.WifiEnums.PWD_KEY]
@@ -169,22 +167,26 @@ class WifiCellStressTest(WifiBaseTest):
             "Can not turn off airplane mode on: %s" % self.dut.serial)
         self.check_cell_data_and_enable()
         softap_config = wutils.create_softap_config()
-        wutils.start_wifi_tethering(
-        self.dut, softap_config[wutils.WifiEnums.SSID_KEY],
-        softap_config[wutils.WifiEnums.PWD_KEY], band)
+        wutils.start_wifi_tethering(self.dut,
+                                    softap_config[wutils.WifiEnums.SSID_KEY],
+                                    softap_config[wutils.WifiEnums.PWD_KEY],
+                                    band)
         config = {
             "SSID": softap_config[wutils.WifiEnums.SSID_KEY],
             "password": softap_config[wutils.WifiEnums.PWD_KEY]
         }
         wutils.wifi_toggle_state(self.dut_client, True)
-        wutils.connect_to_wifi_network(self.dut_client, config,
-            check_connectivity=False)
+        wutils.connect_to_wifi_network(self.dut_client,
+                                       config,
+                                       check_connectivity=False)
         # Ping the DUT
         dut_addr = self.dut.droid.connectivityGetIPv4Addresses(
             self.ap_iface)[0]
         asserts.assert_true(
-            utils.adb_shell_ping(self.dut_client, count=10, dest_ip=dut_addr,
-                 timeout=20),
+            utils.adb_shell_ping(self.dut_client,
+                                 count=10,
+                                 dest_ip=dut_addr,
+                                 timeout=20),
             "%s ping %s failed" % (self.dut_client.serial, dut_addr))
         wutils.wifi_toggle_state(self.dut_client, True)
         wutils.stop_wifi_tethering(self.dut)

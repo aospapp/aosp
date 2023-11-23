@@ -625,9 +625,9 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         // If two apps are installed as part of a sharedUid, one granting access to the sharedUid
         // to the previous key and the other revoking access to the sharedUid, then when an app
         // signed with the old key attempts to join the sharedUid the installation should be blocked
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
         assertInstallFromBuildSucceeds(
                 "v3-ec-p256-with-por_1_2-default-caps-sharedUid-companion.apk");
-        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
         assertInstallFromBuildFails("v3-ec-p256-1-sharedUid-companion2.apk");
     }
 
@@ -635,13 +635,35 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         // Similar to the test above if two apps are installed as part of a sharedUid with both
         // granting access to the sharedUid to the previous key then an app signed with the previous
         // key should be allowed to install and join the sharedUid. If one of the first two apps
-        // is then updated with a lineage that denies access to the sharedUid for the old key the
-        // installation of this updated app should be blocked.
+        // is then updated with a lineage that denies access to the sharedUid for the old key, all
+        // subsequent installs / updates with that old key should be blocked.
         assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-default-caps-sharedUid.apk");
         assertInstallFromBuildSucceeds(
                 "v3-ec-p256-with-por_1_2-default-caps-sharedUid-companion.apk");
         assertInstallFromBuildSucceeds("v3-ec-p256-1-sharedUid-companion2.apk");
-        assertInstallFromBuildFails("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
+        assertInstallFromBuildFails("v3-ec-p256-1-sharedUid-companion2.apk");
+    }
+
+    public void testInstallV3SharedUidDeniedOnlyRotatedUpdateAllowed() throws Exception {
+        // To allow rotation after a signing key compromise, an APK that is already part of a
+        // shareddUserId can rotate to a new key with the old key being denied the SHARED_USER_ID
+        // capability and still be updated in the sharedUserId. Another app signed with this same
+        // lineage and capabilities that is not currently part of the sharedUserId will not be
+        // allowed to join as long as any apps signed with the untrusted key are still part of
+        // the sharedUserId.
+        assertInstallFromBuildSucceeds("v3-ec-p256-1-sharedUid.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-1-sharedUid-companion2.apk");
+        assertInstallFromBuildSucceeds("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid.apk");
+        // An app signed with the untrusted key is still part of the sharedUserId, so a new app
+        // that does not trust this key is not allowed to join the sharedUserId.
+        assertInstallFromBuildFails("v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid-companion.apk");
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid-companion2.apk");
+        // Once all apps have rotated away from the untrusted key, a new app that also does not
+        // trust the previous key can now join the sharedUserId.
+        assertInstallFromBuildSucceeds(
+                "v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid-companion.apk");
     }
 
     public void testInstallV3FirstAppOnlySignedByNewKeyLastAppOldKey() throws Exception {
@@ -1177,6 +1199,19 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         Utils.runDeviceTests(
                 getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
                 "testUsingOriginalSigner");
+    }
+
+    @CddTest(requirement="4/C-0-2")
+    public void testV31SignersTargetPAnd100001PlatformUsesTargetPSigner() throws Exception {
+        // The v3.1 signature scheme allows signer configs to target SDK versions; if a rotated
+        // signer config is targeting P, the v3.0 block will include a signature with that rotated
+        // config. This test verifies when the v3.1 signer is targeting an SDK version beyond that
+        // of the platform's, the rotated signing config from the v3.0 block is used by the
+        // platform.
+        assertInstallSucceeds("v31-ec-p256_2-tgt-28-ec-p256_3-tgt-100001.apk");
+        Utils.runDeviceTests(
+                getDevice(), DEVICE_TESTS_PKG, DEVICE_TESTS_CLASS,
+                "testUsingRotatedSigner");
     }
 
     @CddTest(requirement="4/C-0-2")
@@ -1805,7 +1840,11 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     private String installApkFromBuild(String apkName) throws Exception {
         CompatibilityBuildHelper buildHelper = new CompatibilityBuildHelper(mCtsBuild);
         File apk = buildHelper.getTestFile(apkName);
-        return getDevice().installPackage(apk, true, INSTALL_ARG_FORCE_QUERYABLE);
+        try {
+            return getDevice().installPackage(apk, true, INSTALL_ARG_FORCE_QUERYABLE);
+        } finally {
+            getDevice().deleteFile("/data/local/tmp/" + apk.getName());
+        }
     }
 
     private String installPackageFromResource(String apkFilenameInResources, boolean ephemeral)
@@ -1824,6 +1863,7 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
             }
         } finally {
             cleanUpFile(apkFile);
+            getDevice().deleteFile("/data/local/tmp/" + apkFile.getName());
         }
     }
 
@@ -1831,15 +1871,18 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
             throws IOException, DeviceNotAvailableException {
         File apkFile = null;
         File v4SignatureFile = null;
+        String remoteApkFilePath = null, remoteV4SignaturePath = null;
         try {
             apkFile = getFileFromResource(apkFilenameInResources);
             v4SignatureFile = getFileFromResource(apkFilenameInResources + ".idsig");
-            String remoteApkFilePath = pushFileToRemote(apkFile);
-            pushFileToRemote(v4SignatureFile);
+            remoteApkFilePath = pushFileToRemote(apkFile);
+            remoteV4SignaturePath = pushFileToRemote(v4SignatureFile);
             return installV4Package(remoteApkFilePath);
         } finally {
             cleanUpFile(apkFile);
             cleanUpFile(v4SignatureFile);
+            getDevice().deleteFile(remoteApkFilePath);
+            getDevice().deleteFile(remoteV4SignaturePath);
         }
     }
 
@@ -1849,8 +1892,13 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
         File apkFile = buildHelper.getTestFile(apkName);
         File v4SignatureFile = buildHelper.getTestFile(apkName + ".idsig");
         String remoteApkFilePath = pushFileToRemote(apkFile);
-        pushFileToRemote(v4SignatureFile);
-        return installV4Package(remoteApkFilePath);
+        String remoteV4SignaturePath = pushFileToRemote(v4SignatureFile);
+        try {
+            return installV4Package(remoteApkFilePath);
+        } finally {
+            getDevice().deleteFile(remoteApkFilePath);
+            getDevice().deleteFile(remoteV4SignaturePath);
+        }
     }
 
     private String pushFileToRemote(File localFile) throws DeviceNotAvailableException {
@@ -1887,6 +1935,11 @@ public class PkgInstallSignatureVerificationTest extends DeviceTestCase implemen
     private void cleanUpFile(File file) {
         if (file != null && file.exists()) {
             file.delete();
+            // Delete the parent dir as well which is a temp dir
+            File parent = file.getParentFile();
+            if (parent.exists()) {
+                parent.delete();
+            }
         }
     }
 

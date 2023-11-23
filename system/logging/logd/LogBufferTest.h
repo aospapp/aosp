@@ -17,12 +17,12 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
 #include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "ChattyLogBuffer.h"
 #include "LogBuffer.h"
 #include "LogReaderList.h"
 #include "LogStatistics.h"
@@ -49,9 +49,11 @@ void FixupMessages(std::vector<LogMessage>* messages);
 
 class TestWriter : public LogWriter {
   public:
-    TestWriter(std::vector<LogMessage>* msgs, bool* released)
-        : LogWriter(0, true), msgs_(msgs), released_(released) {}
+    TestWriter(std::vector<LogMessage>* msgs, std::mutex* mutex, bool* released)
+        : LogWriter(0, true), mutex_(mutex ?: &logd_lock), msgs_(msgs), released_(released) {}
+
     bool Write(const logger_entry& entry, const char* message) override {
+        auto lock = std::lock_guard{*mutex_};
         msgs_->emplace_back(LogMessage{entry, std::string(message, entry.len), false});
         return true;
     }
@@ -63,6 +65,7 @@ class TestWriter : public LogWriter {
     std::string name() const override { return "test_writer"; }
 
   private:
+    std::mutex* mutex_;
     std::vector<LogMessage>* msgs_;
     bool* released_;
 };
@@ -70,9 +73,7 @@ class TestWriter : public LogWriter {
 class LogBufferTest : public testing::TestWithParam<std::string> {
   protected:
     void SetUp() override {
-        if (GetParam() == "chatty") {
-            log_buffer_.reset(new ChattyLogBuffer(&reader_list_, &tags_, &prune_, &stats_));
-        } else if (GetParam() == "serialized") {
+        if (GetParam() == "serialized") {
             log_buffer_.reset(new SerializedLogBuffer(&reader_list_, &tags_, &stats_));
         } else if (GetParam() == "simple") {
             log_buffer_.reset(new SimpleLogBuffer(&reader_list_, &tags_, &stats_));
@@ -97,12 +98,12 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
         uint64_t next_sequence;
     };
 
-    FlushMessagesResult FlushMessages(uint64_t sequence = 1, LogMask log_mask = kLogMaskAll) {
+    FlushMessagesResult FlushMessages(std::mutex* mutex = nullptr) {
         std::vector<LogMessage> read_log_messages;
-        auto lock = std::lock_guard{logd_lock};
-        std::unique_ptr<LogWriter> test_writer(new TestWriter(&read_log_messages, nullptr));
+        std::unique_ptr<LogWriter> test_writer(new TestWriter(&read_log_messages, mutex, nullptr));
 
-        auto flush_to_state = log_buffer_->CreateFlushToState(sequence, log_mask);
+        auto lock = std::lock_guard{logd_lock};
+        auto flush_to_state = log_buffer_->CreateFlushToState(1, kLogMaskAll);
         EXPECT_TRUE(log_buffer_->FlushTo(test_writer.get(), *flush_to_state, nullptr));
         return {read_log_messages, flush_to_state->start()};
     }
@@ -120,8 +121,9 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
     class TestReaderThread {
       public:
         TestReaderThread(const ReaderThreadParams& params, LogBufferTest& test) : test_(test) {
-            auto lock = std::lock_guard{logd_lock};
-            std::unique_ptr<LogWriter> test_writer(new TestWriter(&read_log_messages_, &released_));
+            auto lock = std::lock_guard{mutex_};
+            std::unique_ptr<LogWriter> test_writer(
+                    new TestWriter(&read_log_messages_, &mutex_, &released_));
             std::unique_ptr<LogReaderThread> log_reader(new LogReaderThread(
                     test_.log_buffer_.get(), &test_.reader_list_, std::move(test_writer),
                     params.non_block, params.tail, params.log_mask, params.pid, params.start_time,
@@ -135,9 +137,26 @@ class LogBufferTest : public testing::TestWithParam<std::string> {
             }
         }
 
-        std::vector<LogMessage> read_log_messages() const { return read_log_messages_; }
+        std::vector<LogMessage> WaitForMessages(size_t n) {
+            int retry_count = 1s / 5000us;
+            while (retry_count--) {
+                usleep(5000);
+                auto lock = std::lock_guard{mutex_};
+                if (read_log_messages_.size() == n) {
+                    return read_log_messages_;
+                }
+            }
+            return {};
+        }
 
+        std::vector<LogMessage> read_log_messages() {
+            auto lock = std::lock_guard{mutex_};
+            return read_log_messages_;
+        }
+
+      private:
         LogBufferTest& test_;
+        std::mutex mutex_;
         std::vector<LogMessage> read_log_messages_;
         bool released_ = false;
     };

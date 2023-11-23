@@ -39,7 +39,7 @@ function copy_media() {
 
   ## download resources if not already done
   if [ ! -f "/tmp/$resLabel.zip" ]; then
-    wget "https://storage.googleapis.com/android_media/cts/tests/tests/media/$subFolder/$resLabel.zip" -O /tmp/$resLabel.zip
+    wget "https://dl.google.com/android/xts/cts/tests/tests/media/$subFolder/$resLabel.zip" -O /tmp/$resLabel.zip
   fi
   unzip -qo "/tmp/$resLabel" -d $srcDir
   ## install on target device

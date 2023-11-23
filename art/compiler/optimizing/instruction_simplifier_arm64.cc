@@ -21,7 +21,7 @@
 #include "mirror/array-inl.h"
 #include "mirror/string.h"
 
-namespace art {
+namespace art HIDDEN {
 
 using helpers::CanFitInShifterOperand;
 using helpers::HasShifterOperand;
@@ -31,7 +31,7 @@ namespace arm64 {
 
 using helpers::ShifterOperandSupportsExtension;
 
-class InstructionSimplifierArm64Visitor : public HGraphVisitor {
+class InstructionSimplifierArm64Visitor final : public HGraphVisitor {
  public:
   InstructionSimplifierArm64Visitor(HGraph* graph, OptimizingCompilerStats* stats)
       : HGraphVisitor(graph), stats_(stats) {}

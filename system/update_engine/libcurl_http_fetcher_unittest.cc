@@ -23,7 +23,6 @@
 #include <gtest/gtest.h>
 
 #include "update_engine/common/fake_hardware.h"
-#include "update_engine/common/mock_proxy_resolver.h"
 #include "update_engine/mock_libcurl_http_fetcher.h"
 
 using std::string;
@@ -44,7 +43,7 @@ class LibcurlHttpFetcherTest : public ::testing::Test {
 
   brillo::FakeMessageLoop loop_{nullptr};
   FakeHardware fake_hardware_;
-  MockLibcurlHttpFetcher libcurl_fetcher_{nullptr, &fake_hardware_};
+  MockLibcurlHttpFetcher libcurl_fetcher_{&fake_hardware_};
   UnresolvedHostStateMachine state_machine_;
 };
 

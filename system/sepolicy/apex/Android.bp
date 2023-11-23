@@ -92,9 +92,9 @@ filegroup {
 }
 
 filegroup {
-  name: "com.android.cronet-file_contexts",
+  name: "com.android.federatedcompute-file_contexts",
   srcs: [
-    "com.android.cronet-file_contexts",
+    "com.android.federatedcompute-file_contexts",
   ],
 }
 
@@ -263,5 +263,33 @@ filegroup {
   name: "com.android.ondevicepersonalization-file_contexts",
   srcs: [
     "com.android.ondevicepersonalization-file_contexts",
+  ],
+}
+
+filegroup {
+  name: "com.android.healthfitness-file_contexts",
+  srcs: [
+    "com.android.healthfitness-file_contexts",
+  ],
+}
+
+filegroup {
+  name: "com.android.rkpd-file_contexts",
+  srcs: [
+    "com.android.rkpd-file_contexts",
+  ],
+}
+
+filegroup {
+  name: "com.android.devicelock-file_contexts",
+  srcs: [
+    "com.android.devicelock-file_contexts",
+  ],
+}
+
+filegroup {
+  name: "com.android.telephonymodules-file_contexts",
+  srcs: [
+    "com.android.telephonymodules-file_contexts"
   ],
 }

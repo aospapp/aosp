@@ -24,76 +24,54 @@ package {
     default_applicable_licenses: ["system_chre_license"],
 }
 
-cc_library_static {
-    name: "chre_chpp_linux",
+// Everything needed to run CHPP on Linux, except for the link layer.
+// Note that this is cc_defaults and not a lib because modules that inherit
+// these defaults may need to change compilation flags for sources here.
+cc_defaults {
+    name: "chre_chpp_core_without_link",
     vendor: true,
     cflags: [
-        "-std=c89",
         "-Wall",
         "-Wcast-align",
         "-Wcast-qual",
         "-Wconversion",
         "-Werror",
         "-Wextra",
-        "-Wmissing-prototypes",
         "-Wno-strict-aliasing",
         "-Wpointer-arith",
-        "-Wsign-compare",
         "-Wshadow",
-        "-Wstrict-prototypes",
         "-Wswitch",
-        "-DCHPP_CLIENT_ENABLED_DISCOVERY",
-        "-DCHPP_CLIENT_ENABLED_LOOPBACK",
-        "-DCHPP_CLIENT_ENABLED_TIMESYNC",
-        "-DCHPP_CLIENT_ENABLED_TRANSPORT_LOOPBACK",
-        "-DCHPP_CLIENT_ENABLED_GNSS",
-        "-DCHPP_CLIENT_ENABLED_WIFI",
-        "-DCHPP_CLIENT_ENABLED_WWAN",
-        "-DCHPP_SERVICE_ENABLED_GNSS",
-        "-DCHPP_SERVICE_ENABLED_WIFI",
-        "-DCHPP_SERVICE_ENABLED_WWAN",
-        "-DCHPP_SERVICE_ENABLED_TRANSPORT_LOOPBACK",
         "-DCHPP_MAX_REGISTERED_CLIENTS=3",
         "-DCHPP_MAX_REGISTERED_SERVICES=3",
         "-DCHPP_ENABLE_WORK_MONITOR",
         "-DCHPP_DEBUG_ASSERT_ENABLED",
-        "-DCHPP_WIFI_DEFAULT_CAPABILITIES=0xf",
-        "-DCHPP_WWAN_DEFAULT_CAPABILITIES=0x1",
-        "-DCHPP_GNSS_DEFAULT_CAPABILITIES=0x7",
+        "-DCHPP_CLIENT_ENABLED_TRANSPORT_LOOPBACK",
+        "-DCHPP_SERVICE_ENABLED_TRANSPORT_LOOPBACK",
+
         // clock_gettime() requires _POSIX_C_SOURCE >= 199309L
         "-D_POSIX_C_SOURCE=199309L",
         // Required for pthread_setname_np()
         "-D_GNU_SOURCE",
     ],
-    conlyflags: ["-std=c11"],
+    conlyflags: [
+        "-std=c11",
+        "-Wmissing-prototypes",
+        "-Wsign-compare",
+        "-Wstrict-prototypes",
+    ],
     srcs: [
         "transport.c",
         "app.c",
         "clients.c",
+        "platform/pal_api.c",
+        "platform/linux/memory.c",
+        "platform/linux/notifier.c",
+        "platform/shared/crc.c",
         "services.c",
-        "clients/discovery.c",
-        "clients/loopback.c",
-        "clients/timesync.c",
-        "clients/gnss.c",
-        "clients/wifi.c",
-        "clients/wwan.c",
-        "common/gnss_convert.c",
-        "common/wifi_convert.c",
-        "common/wifi_utils.c",
-        "common/wwan_convert.c",
         "services/discovery.c",
         "services/loopback.c",
         "services/nonhandle.c",
         "services/timesync.c",
-        "services/gnss.c",
-        "services/wifi.c",
-        "services/wwan.c",
-        "platform/pal_api.c",
-        "platform/linux/link.c",
-        "platform/linux/memory.c",
-        "platform/linux/notifier.c",
-        "platform/shared/crc.c",
-        "platform/linux/services/platform_gnss.c",
     ],
     export_include_dirs: [
         "platform/linux/include",
@@ -111,8 +89,57 @@ cc_library_static {
     host_supported: true,
 }
 
+// Meant to be combined with chre_chpp_core_without_link to add in the full set
+// of optional clients and services.
+cc_defaults {
+    name: "chre_chpp_clients_and_services",
+    cflags: [
+        "-DCHPP_CLIENT_ENABLED_DISCOVERY",
+        "-DCHPP_CLIENT_ENABLED_LOOPBACK",
+        "-DCHPP_CLIENT_ENABLED_TIMESYNC",
+        "-DCHPP_CLIENT_ENABLED_GNSS",
+        "-DCHPP_CLIENT_ENABLED_WIFI",
+        "-DCHPP_CLIENT_ENABLED_WWAN",
+        "-DCHPP_SERVICE_ENABLED_GNSS",
+        "-DCHPP_SERVICE_ENABLED_WIFI",
+        "-DCHPP_SERVICE_ENABLED_WWAN",
+        "-DCHPP_WIFI_DEFAULT_CAPABILITIES=0xf",
+        "-DCHPP_WWAN_DEFAULT_CAPABILITIES=0x1",
+        "-DCHPP_GNSS_DEFAULT_CAPABILITIES=0x7",
+    ],
+    srcs: [
+        "clients/discovery.c",
+        "clients/loopback.c",
+        "clients/timesync.c",
+        "clients/gnss.c",
+        "clients/wifi.c",
+        "clients/wwan.c",
+        "common/gnss_convert.c",
+        "common/wifi_convert.c",
+        "common/wifi_utils.c",
+        "common/wwan_convert.c",
+        "platform/linux/services/platform_gnss.c",
+        "services/gnss.c",
+        "services/wifi.c",
+        "services/wwan.c",
+    ]
+}
+
+cc_library_static {
+    name: "chre_chpp_linux",
+    defaults: [
+        "chre_chpp_core_without_link",
+        "chre_chpp_clients_and_services",
+    ],
+    srcs: [
+        "platform/linux/link.c",
+    ],
+}
+
 cc_test_host {
     name: "chre_chpp_linux_tests",
+    // TODO(b/232537107): Evaluate if isolated can be turned on
+    isolated: false,
     cflags: [
         "-DCHPP_CLIENT_ENABLED_TRANSPORT_LOOPBACK",
         "-DCHPP_CHECKSUM_ENABLED",
@@ -153,4 +180,29 @@ cc_test_host {
         "test/wwan_convert_test.cpp"
     ],
     static_libs: ["chre_chpp_linux"],
+}
+
+cc_test_host {
+    name: "chre_chpp_fake_link_sync_tests",
+    defaults: ["chre_chpp_core_without_link"],
+    cflags: [
+        // Speed up tests by setting timeouts to 10 ms
+        "-DCHPP_TRANSPORT_TX_TIMEOUT_NS=10000000",
+        "-DCHPP_TRANSPORT_RX_TIMEOUT_NS=10000000",
+    ],
+    local_include_dirs: [
+        "include",
+
+        // Note: this needs to come before platform/linux/include
+        "test/include/fake_link",
+        "platform/linux/include",
+    ],
+    srcs: [
+        "test/fake_link.cpp",
+        "test/fake_link_sync_test.cpp",
+        "test/packet_util.cpp",
+    ],
+    header_libs: [
+        "libbase_headers",
+    ]
 }

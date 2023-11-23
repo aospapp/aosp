@@ -18,6 +18,7 @@
     <include name="mts-art-tests-list-user-shard-00"/>
     <include name="mts-art-tests-list-user-shard-01"/>
     <include name="mts-art-tests-list-user-shard-02"/>
+    <include name="mts-art-tests-list-user-shard-03"/>
     <!-- Excluded flaky tests (b/209958457). -->
     <option name="compatibility:exclude-filter" value="CtsLibcoreFileIOTestCases android.cts.FileChannelInterProcessLockTest#test_lockJJZ_Exclusive_asyncChannel"/>
     <option name="compatibility:exclude-filter" value="CtsLibcoreFileIOTestCases android.cts.FileChannelInterProcessLockTest#test_lockJJZ_Exclusive_syncChannel"/>
@@ -34,4 +35,7 @@
     <option name="compatibility:exclude-filter" value="CtsLibcoreTestCases com.android.org.conscrypt.javax.net.ssl.SSLSocketVersionCompatibilityTest#test_SSLSocket_setSoWriteTimeout[3: TLSv1.3 client, TLSv1.3 server]"/>
     <option name="compatibility:exclude-filter" value="CtsLibcoreTestCases libcore.dalvik.system.DelegateLastClassLoaderTest#testLookupOrderNodelegate_getResource"/>
     <option name="compatibility:exclude-filter" value="CtsLibcoreTestCases libcore.dalvik.system.DelegateLastClassLoaderTest#testLookupOrder_getResource"/>
+    <!-- Excluded failing tests (b/247108425). -->
+    <option name="compatibility:exclude-filter" value="art_standalone_compiler_tests JniCompilerTest*"/>
+    <option name="compatibility:exclude-filter" value="art_standalone_libartpalette_tests PaletteClientJniTest*"/>
 </configuration>

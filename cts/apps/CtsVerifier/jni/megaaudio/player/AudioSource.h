@@ -43,6 +43,10 @@ public:
      */
     virtual void init(int numFrames, int numChans) {}
 
+    virtual void setSampleRate(int sampleRate) {}
+
+    virtual void setFreq(float freq) {}
+
     /**
      * Reset the stream to its beginning
      */

@@ -27,13 +27,13 @@ git clone https://github.com/tensorflow/tensorflow.git --depth=1 tflm
 # Generate chre related files
 cd tflm
 make -f tensorflow/lite/micro/tools/make/Makefile TARGET=chre generate_hello_world_make_project
-rm -rf tensorflow/lite/micro/tools/make/gen/chre_x86_64/prj/hello_world/make/tensorflow/lite/micro/examples
+rm -rf gen/chre_x86_64/prj/hello_world/make/tensorflow/lite/micro/examples
 
 # Remove the destination folder
 rm -rf $REAL_DEST_PATH
 
 # Copy files over
-cp -r tensorflow/lite/micro/tools/make/gen/chre_x86_64/prj/hello_world/make $REAL_DEST_PATH
+cp -r gen/chre_x86_64/prj/hello_world/make $REAL_DEST_PATH
 
 # Done
 echo "TFLM code sync'ed"

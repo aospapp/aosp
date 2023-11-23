@@ -19,6 +19,7 @@ package com.android.apksig.internal.apk.v3;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.getLengthPrefixedSlice;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.readLengthPrefixedByteArray;
 
+import com.android.apksig.ApkVerificationIssue;
 import com.android.apksig.ApkVerifier.Issue;
 import com.android.apksig.SigningCertificateLineage;
 import com.android.apksig.apk.ApkFormatException;
@@ -182,7 +183,7 @@ public class V3SchemeVerifier {
         // versions
         SortedMap<Integer, ApkSigningBlockUtils.Result.SignerInfo> sortedSigners = new TreeMap<>();
         for (ApkSigningBlockUtils.Result.SignerInfo signer : mResult.signers) {
-            sortedSigners.put(signer.minSdkVersion, signer);
+            sortedSigners.put(signer.maxSdkVersion, signer);
         }
 
         // first make sure there is neither overlap nor holes
@@ -200,7 +201,10 @@ public class V3SchemeVerifier {
                 // first round sets up our basis
                 firstMin = currentMin;
             } else {
-                if (currentMin != lastMax + 1) {
+                // A signer's minimum SDK can equal the previous signer's maximum SDK if this signer
+                // is targeting a development release.
+                if (currentMin != (lastMax + 1)
+                        && !(currentMin == lastMax && signerTargetsDevRelease(signer))) {
                     mResult.addError(Issue.V3_INCONSISTENT_SDK_VERSIONS);
                     break;
                 }
@@ -228,8 +232,8 @@ public class V3SchemeVerifier {
         }
 
         try {
-             mResult.signingCertificateLineage =
-                     SigningCertificateLineage.consolidateLineages(lineages);
+            mResult.signingCertificateLineage =
+                    SigningCertificateLineage.consolidateLineages(lineages);
         } catch (IllegalArgumentException e) {
             mResult.addError(Issue.V3_INCONSISTENT_LINEAGES);
         }
@@ -488,7 +492,8 @@ public class V3SchemeVerifier {
         X509Certificate mainCertificate = result.certs.get(0);
         byte[] certificatePublicKeyBytes;
         try {
-            certificatePublicKeyBytes = ApkSigningBlockUtils.encodePublicKey(mainCertificate.getPublicKey());
+            certificatePublicKeyBytes = ApkSigningBlockUtils.encodePublicKey(
+                    mainCertificate.getPublicKey());
         } catch (InvalidKeyException e) {
             System.out.println("Caught an exception encoding the public key: " + e);
             e.printStackTrace();
@@ -604,6 +609,17 @@ public class V3SchemeVerifier {
             result.addWarning(Issue.V31_ROTATION_MIN_SDK_ATTR_MISSING,
                     mOptionalRotationMinSdkVersion.getAsInt());
         }
+    }
+
+    /**
+     * Returns whether the specified {@code signerInfo} is targeting a development release.
+     */
+    public static boolean signerTargetsDevRelease(
+            ApkSigningBlockUtils.Result.SignerInfo signerInfo) {
+        boolean result = signerInfo.additionalAttributes.stream()
+                .mapToInt(attribute -> attribute.getId())
+                .anyMatch(attrId -> attrId == V3SchemeConstants.ROTATION_ON_DEV_RELEASE_ATTR_ID);
+        return result;
     }
 
     /** Builder of {@link V3SchemeVerifier} instances. */

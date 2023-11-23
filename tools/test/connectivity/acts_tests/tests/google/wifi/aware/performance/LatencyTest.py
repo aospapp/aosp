@@ -33,7 +33,7 @@ class LatencyTest(AwareBaseTest):
     # take some time
     WAIT_FOR_CLUSTER = 5
 
-    def start_discovery_session(self, dut, session_id, is_publish, dtype):
+    def start_discovery_session(self, dut, session_id, is_publish, dtype, instant_mode = None):
         """Start a discovery session
 
     Args:
@@ -41,6 +41,7 @@ class LatencyTest(AwareBaseTest):
       session_id: ID of the Aware session in which to start discovery
       is_publish: True for a publish session, False for subscribe session
       dtype: Type of the discovery session
+      instant_mode: set the channel to use instant communication mode.
 
     Returns:
       Discovery session started event.
@@ -48,6 +49,9 @@ class LatencyTest(AwareBaseTest):
         config = {}
         config[aconsts.DISCOVERY_KEY_DISCOVERY_TYPE] = dtype
         config[aconsts.DISCOVERY_KEY_SERVICE_NAME] = "GoogleTestServiceXY"
+        if instant_mode is not None:
+            config[aconsts.DISCOVERY_KEY_INSTANT_COMMUNICATION_MODE] = instant_mode
+
 
         if is_publish:
             disc_id = dut.droid.wifiAwarePublish(session_id, config)
@@ -74,6 +78,7 @@ class LatencyTest(AwareBaseTest):
                               solicited/active.
       dw_24ghz: DW interval in the 2.4GHz band.
       dw_5ghz: DW interval in the 5GHz band.
+      num_iterations: number of the iterations.
       startup_offset: The start-up gap (in seconds) between the two devices
       timeout_period: Time period over which to measure synchronization
     """
@@ -160,6 +165,7 @@ class LatencyTest(AwareBaseTest):
                               solicited/active.
       dw_24ghz: DW interval in the 2.4GHz band.
       dw_5ghz: DW interval in the 5GHz band.
+      num_iterations: number of the iterations.
     """
         key = "%s_dw24_%d_dw5_%d" % ("unsolicited_passive"
                                      if do_unsolicited_passive else
@@ -237,13 +243,15 @@ class LatencyTest(AwareBaseTest):
         p_dut.droid.wifiAwareDestroyAll()
         s_dut.droid.wifiAwareDestroyAll()
 
-    def run_message_latency(self, results, dw_24ghz, dw_5ghz, num_iterations):
+    def run_message_latency(self, results, dw_24ghz, dw_5ghz, num_iterations, instant_mode=None):
         """Run the message tx latency test with the specified DW intervals.
 
     Args:
       results: Result array to be populated - will add results (not erase it)
       dw_24ghz: DW interval in the 2.4GHz band.
       dw_5ghz: DW interval in the 5GHz band.
+      num_iterations: number of the iterations.
+      instant_mode: set the band to use instant communication mode, 2G or 5G
     """
         key = "dw24_%d_dw5_%d" % (dw_24ghz, dw_5ghz)
         results[key] = {}
@@ -262,9 +270,9 @@ class LatencyTest(AwareBaseTest):
              p_dut,
              s_dut,
              p_config=autils.create_discovery_config(
-                 self.SERVICE_NAME, aconsts.PUBLISH_TYPE_UNSOLICITED),
+                 self.SERVICE_NAME, aconsts.PUBLISH_TYPE_UNSOLICITED, instant_mode=instant_mode),
              s_config=autils.create_discovery_config(
-                 self.SERVICE_NAME, aconsts.SUBSCRIBE_TYPE_PASSIVE),
+                 self.SERVICE_NAME, aconsts.SUBSCRIBE_TYPE_PASSIVE, instant_mode=instant_mode),
              device_startup_offset=self.device_startup_offset)
 
         latencies = []
@@ -330,6 +338,7 @@ class LatencyTest(AwareBaseTest):
       results: Result array to be populated - will add results (not erase it)
       dw_24ghz: DW interval in the 2.4GHz band.
       dw_5ghz: DW interval in the 5GHz band.
+      num_iterations: number of the iterations.
     """
         key_avail = "on_avail_dw24_%d_dw5_%d" % (dw_24ghz, dw_5ghz)
         key_link_props = "link_props_dw24_%d_dw5_%d" % (dw_24ghz, dw_5ghz)
@@ -435,21 +444,21 @@ class LatencyTest(AwareBaseTest):
         results[key_avail]["ndp_setup_failures"] = ndp_setup_failures
 
     def run_end_to_end_latency(self, results, dw_24ghz, dw_5ghz,
-                               num_iterations, startup_offset, include_setup):
+                               num_iterations, startup_offset, include_setup, instant_mode = None):
         """Measure the latency for end-to-end communication link setup:
     - Start Aware
     - Discovery
-    - Message from Sub -> Pub
-    - Message from Pub -> Sub
     - NDP setup
 
     Args:
       results: Result array to be populated - will add results (not erase it)
       dw_24ghz: DW interval in the 2.4GHz band.
       dw_5ghz: DW interval in the 5GHz band.
+      num_iterations: number of the iterations.
       startup_offset: The start-up gap (in seconds) between the two devices
       include_setup: True to include the cluster setup in the latency
                     measurements.
+      instant_mode: set the band to use instant communication mode, 2G or 5G
     """
         key = "dw24_%d_dw5_%d" % (dw_24ghz, dw_5ghz)
         results[key] = {}
@@ -492,11 +501,19 @@ class LatencyTest(AwareBaseTest):
 
                 # start publish
                 p_disc_id, p_disc_event = self.start_discovery_session(
-                    p_dut, p_id, True, aconsts.PUBLISH_TYPE_UNSOLICITED)
+                    p_dut, p_id, True, aconsts.PUBLISH_TYPE_UNSOLICITED, instant_mode)
 
                 # start subscribe
                 s_disc_id, s_session_event = self.start_discovery_session(
-                    s_dut, s_id, False, aconsts.SUBSCRIBE_TYPE_PASSIVE)
+                    s_dut, s_id, False, aconsts.SUBSCRIBE_TYPE_PASSIVE, instant_mode)
+
+                # create NDP
+
+                # Publisher: request network
+                p_req_key = autils.request_network(
+                    p_dut,
+                    p_dut.droid.wifiAwareCreateNetworkSpecifier(
+                        p_disc_id, None, None))
 
                 # wait for discovery (allow for failures here since running lots of
                 # samples and would like to get the partial data even in the presence of
@@ -515,82 +532,6 @@ class LatencyTest(AwareBaseTest):
                                    "SESSION_CB_ON_SERVICE_DISCOVERED")
                     failures = failures + 1
                     break
-
-                # message from Sub -> Pub
-                msg_s2p = "Message Subscriber -> Publisher #%d" % i
-                next_msg_id = self.get_next_msg_id()
-                s_dut.droid.wifiAwareSendMessage(s_disc_id, peer_id_on_sub,
-                                                 next_msg_id, msg_s2p, 0)
-
-                # wait for Tx confirmation
-                try:
-                    s_dut.ed.pop_event(aconsts.SESSION_CB_ON_MESSAGE_SENT,
-                                       autils.EVENT_TIMEOUT)
-                except queue.Empty:
-                    s_dut.log.info("[Subscriber] Timed out while waiting for "
-                                   "SESSION_CB_ON_MESSAGE_SENT")
-                    failures = failures + 1
-                    break
-
-                # wait for Rx confirmation (and validate contents)
-                try:
-                    event = p_dut.ed.pop_event(
-                        aconsts.SESSION_CB_ON_MESSAGE_RECEIVED,
-                        autils.EVENT_TIMEOUT)
-                    peer_id_on_pub = event['data'][
-                        aconsts.SESSION_CB_KEY_PEER_ID]
-                    if (event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING]
-                            != msg_s2p):
-                        p_dut.log.info(
-                            "[Publisher] Corrupted input message - %s", event)
-                        failures = failures + 1
-                        break
-                except queue.Empty:
-                    p_dut.log.info("[Publisher] Timed out while waiting for "
-                                   "SESSION_CB_ON_MESSAGE_RECEIVED")
-                    failures = failures + 1
-                    break
-
-                # message from Pub -> Sub
-                msg_p2s = "Message Publisher -> Subscriber #%d" % i
-                next_msg_id = self.get_next_msg_id()
-                p_dut.droid.wifiAwareSendMessage(p_disc_id, peer_id_on_pub,
-                                                 next_msg_id, msg_p2s, 0)
-
-                # wait for Tx confirmation
-                try:
-                    p_dut.ed.pop_event(aconsts.SESSION_CB_ON_MESSAGE_SENT,
-                                       autils.EVENT_TIMEOUT)
-                except queue.Empty:
-                    p_dut.log.info("[Publisher] Timed out while waiting for "
-                                   "SESSION_CB_ON_MESSAGE_SENT")
-                    failures = failures + 1
-                    break
-
-                # wait for Rx confirmation (and validate contents)
-                try:
-                    event = s_dut.ed.pop_event(
-                        aconsts.SESSION_CB_ON_MESSAGE_RECEIVED,
-                        autils.EVENT_TIMEOUT)
-                    if (event["data"][aconsts.SESSION_CB_KEY_MESSAGE_AS_STRING]
-                            != msg_p2s):
-                        s_dut.log.info(
-                            "[Subscriber] Corrupted input message - %s", event)
-                        failures = failures + 1
-                        break
-                except queue.Empty:
-                    s_dut.log.info("[Subscriber] Timed out while waiting for "
-                                   "SESSION_CB_ON_MESSAGE_RECEIVED")
-                    failures = failures + 1
-                    break
-
-                # create NDP
-
-                # Publisher: request network
-                p_req_key = autils.request_network(
-                    p_dut,
-                    p_dut.droid.wifiAwareCreateNetworkSpecifier(
-                        p_disc_id, peer_id_on_pub, None))
 
                 # Subscriber: request network
                 s_req_key = autils.request_network(
@@ -613,6 +554,8 @@ class LatencyTest(AwareBaseTest):
                          cconsts.NETWORK_CB_LINK_PROPERTIES_CHANGED),
                         (cconsts.NETWORK_CB_KEY_ID, s_req_key))
                 except:
+                    s_dut.log.info("[Subscriber] Timed out while waiting for "
+                                   "EVENT_NETWORK_CALLBACK")
                     failures = failures + 1
                     break
 
@@ -742,6 +685,34 @@ class LatencyTest(AwareBaseTest):
         asserts.explicit_pass(
             "test_message_latency_default_dws finished", extras=results)
 
+    def test_message_latency_default_dws_instant_mode_2g(self):
+        """Measure the send message latency with the default DW configuration. Test
+    performed on non-queued message transmission - i.e. waiting for confirmation
+    of reception (ACK) before sending the next message."""
+        results = {}
+        self.run_message_latency(
+            results=results,
+            dw_24ghz=aconsts.POWER_DW_24_INTERACTIVE,
+            dw_5ghz=aconsts.POWER_DW_5_INTERACTIVE,
+            num_iterations=100,
+            instant_mode="2G")
+        asserts.explicit_pass(
+            "test_message_latency_default_dws finished", extras=results)
+
+    def test_message_latency_default_dws_instant_mode_5g(self):
+        """Measure the send message latency with the default DW configuration. Test
+    performed on non-queued message transmission - i.e. waiting for confirmation
+    of reception (ACK) before sending the next message."""
+        results = {}
+        self.run_message_latency(
+            results=results,
+            dw_24ghz=aconsts.POWER_DW_24_INTERACTIVE,
+            dw_5ghz=aconsts.POWER_DW_5_INTERACTIVE,
+            num_iterations=100,
+            instant_mode="5G")
+        asserts.explicit_pass(
+            "test_message_latency_default_dws finished", extras=results)
+
     def test_message_latency_non_interactive_dws(self):
         """Measure the send message latency with the DW configuration for
     non-interactive mode. Test performed on non-queued message transmission -
@@ -787,8 +758,6 @@ class LatencyTest(AwareBaseTest):
         """Measure the latency for end-to-end communication link setup:
       - Start Aware
       - Discovery
-      - Message from Sub -> Pub
-      - Message from Pub -> Sub
       - NDP setup
     """
         results = {}
@@ -802,14 +771,48 @@ class LatencyTest(AwareBaseTest):
         asserts.explicit_pass(
             "test_end_to_end_latency_default_dws finished", extras=results)
 
+    def test_end_to_end_latency_default_dws_instant_mode_2g(self):
+        """Measure the latency for end-to-end communication link setup:
+      - Start Aware
+      - Discovery
+      - NDP setup
+    """
+        results = {}
+        self.run_end_to_end_latency(
+            results,
+            dw_24ghz=aconsts.POWER_DW_24_INTERACTIVE,
+            dw_5ghz=aconsts.POWER_DW_5_INTERACTIVE,
+            num_iterations=10,
+            startup_offset=0,
+            include_setup=True,
+            instant_mode="2G")
+        asserts.explicit_pass(
+            "test_end_to_end_latency_default_dws finished", extras=results)
+
+    def test_end_to_end_latency_default_dws_instant_mode_5g(self):
+        """Measure the latency for end-to-end communication link setup:
+      - Start Aware
+      - Discovery
+      - NDP setup
+    """
+        results = {}
+        self.run_end_to_end_latency(
+            results,
+            dw_24ghz=aconsts.POWER_DW_24_INTERACTIVE,
+            dw_5ghz=aconsts.POWER_DW_5_INTERACTIVE,
+            num_iterations=10,
+            startup_offset=0,
+            include_setup=True,
+            instant_mode="5G")
+        asserts.explicit_pass(
+            "test_end_to_end_latency_default_dws finished", extras=results)
+
     def test_end_to_end_latency_post_attach_default_dws(self):
         """Measure the latency for end-to-end communication link setup without
     the initial synchronization:
       - Start Aware & synchronize initially
       - Loop:
         - Discovery
-        - Message from Sub -> Pub
-        - Message from Pub -> Sub
         - NDP setup
     """
         results = {}
@@ -822,4 +825,60 @@ class LatencyTest(AwareBaseTest):
             include_setup=False)
         asserts.explicit_pass(
             "test_end_to_end_latency_post_attach_default_dws finished",
+            extras=results)
+
+    def test_end_to_end_latency_post_attach_default_dws_instant_mode_2g(self):
+        """Measure the latency for end-to-end communication link setup without
+    the initial synchronization:
+        - Start Aware & synchronize initially
+        - Loop:
+        - Discovery
+        - NDP setup
+    """
+        asserts.skip_if(not self.android_devices[0].droid.isSdkAtLeastT(),
+                        "instant communication mode is only supported on T+")
+        asserts.skip_if(not (self.android_devices[0].aware_capabilities[aconsts
+                             .CAP_SUPPORTED_INSTANT_COMMUNICATION_MODE]
+                             and self.android_devices[0].aware_capabilities[aconsts
+                             .CAP_SUPPORTED_INSTANT_COMMUNICATION_MODE]),
+                        "Device doesn't support instant communication mode")
+        results = {}
+        self.run_end_to_end_latency(
+            results,
+            dw_24ghz=aconsts.POWER_DW_24_INTERACTIVE,
+            dw_5ghz=aconsts.POWER_DW_5_INTERACTIVE,
+            num_iterations=10,
+            startup_offset=0,
+            include_setup=False,
+            instant_mode="2G")
+        asserts.explicit_pass(
+            "test_end_to_end_latency_post_attach_default_dws_instant_mode finished",
+            extras=results)
+
+    def test_end_to_end_latency_post_attach_default_dws_instant_mode_5g(self):
+        """Measure the latency for end-to-end communication link setup without
+    the initial synchronization:
+        - Start Aware & synchronize initially
+        - Loop:
+        - Discovery
+        - NDP setup
+    """
+        asserts.skip_if(not self.android_devices[0].droid.isSdkAtLeastT(),
+                        "instant communication mode is only supported on T+")
+        asserts.skip_if(not (self.android_devices[0].aware_capabilities[aconsts
+                             .CAP_SUPPORTED_INSTANT_COMMUNICATION_MODE]
+                             and self.android_devices[0].aware_capabilities[aconsts
+                             .CAP_SUPPORTED_INSTANT_COMMUNICATION_MODE]),
+                        "Device doesn't support instant communication mode")
+        results = {}
+        self.run_end_to_end_latency(
+            results,
+            dw_24ghz=aconsts.POWER_DW_24_INTERACTIVE,
+            dw_5ghz=aconsts.POWER_DW_5_INTERACTIVE,
+            num_iterations=10,
+            startup_offset=0,
+            include_setup=False,
+            instant_mode="5G")
+        asserts.explicit_pass(
+            "test_end_to_end_latency_post_attach_default_dws_instant_mode finished",
             extras=results)

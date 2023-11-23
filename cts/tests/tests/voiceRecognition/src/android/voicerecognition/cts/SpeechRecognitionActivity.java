@@ -21,6 +21,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.speech.ModelDownloadListener;
 import android.speech.RecognitionListener;
 import android.speech.RecognitionSupportCallback;
 import android.speech.RecognizerIntent;
@@ -40,15 +41,9 @@ import java.util.concurrent.Executors;
 public class SpeechRecognitionActivity extends Activity {
     private final String TAG = "SpeechRecognitionActivity";
 
-    SpeechRecognizer mRecognizer;
+    private List<RecognizerInfo> mRecognizerInfos;
 
     private Handler mHandler;
-    private SpeechRecognizerListener mListener;
-
-    final List<CallbackMethod> mCallbackMethodsInvoked = new ArrayList<>();
-
-    public boolean mStartListeningCalled;
-    public CountDownLatch mCountDownLatch;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,122 +53,212 @@ public class SpeechRecognitionActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        if (mRecognizer != null) {
-            mRecognizer.destroy();
-            mRecognizer = null;
+        if (mRecognizerInfos != null) {
+            for (RecognizerInfo recognizerInfo : mRecognizerInfos) {
+                if (recognizerInfo.mRecognizer != null) {
+                    recognizerInfo.mRecognizer.destroy();
+                }
+            }
+            mRecognizerInfos.clear();
         }
         super.onDestroy();
     }
 
-    public void startListening() {
-        final Intent recognizerIntent =
-                new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        recognizerIntent.putExtra(
-                RecognizerIntent.EXTRA_CALLING_PACKAGE, this.getPackageName());
-        startListening(recognizerIntent);
+    public void startListeningDefault() {
+        startListening(/* index */ 0);
     }
 
-    public void startListening(Intent intent) {
-        mHandler.post(() -> mRecognizer.startListening(intent));
+    public void startListening(int index) {
+        final Intent recognizerIntent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        recognizerIntent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, this.getPackageName());
+        startListening(recognizerIntent, index);
     }
 
-    public void stopListening() {
-        mHandler.post(mRecognizer::stopListening);
+    public void startListening(Intent intent, int index) {
+        mHandler.post(() -> mRecognizerInfos.get(index).mRecognizer.startListening(intent));
     }
 
-    public void cancel() {
-        mHandler.post(mRecognizer::cancel);
+    public void stopListeningDefault() {
+        stopListening(/* index */ 0);
     }
 
-    public void destroyRecognizer() {
-        mHandler.post(mRecognizer::destroy);
+    public void stopListening(int index) {
+        mHandler.post(mRecognizerInfos.get(index).mRecognizer::stopListening);
     }
 
-    public void checkRecognitionSupport(Intent intent, RecognitionSupportCallback rsc) {
-        mHandler.post(() -> mRecognizer.checkRecognitionSupport(intent,
-                Executors.newSingleThreadExecutor(), rsc));
+    public void cancelDefault() {
+        cancel(/* index */ 0);
     }
 
-    public void triggerModelDownload(Intent intent) {
-        mHandler.post(() -> mRecognizer.triggerModelDownload(intent));
+    public void cancel(int index) {
+        mHandler.post(mRecognizerInfos.get(index).mRecognizer::cancel);
     }
 
-    public void init(boolean onDevice, String customRecognizerComponent) {
+    public void destroyRecognizerDefault() {
+        destroyRecognizer(/* index */ 0);
+    }
+
+    public void destroyRecognizer(int index) {
+        mHandler.post(mRecognizerInfos.get(index).mRecognizer::destroy);
+    }
+
+    public void checkRecognitionSupportDefault(Intent intent, RecognitionSupportCallback rsc) {
+        checkRecognitionSupport(intent, rsc, /* index */ 0);
+    }
+
+    public void checkRecognitionSupport(Intent intent, RecognitionSupportCallback rsc, int index) {
+        mHandler.post(() -> mRecognizerInfos.get(index).mRecognizer.checkRecognitionSupport(
+                intent, Executors.newSingleThreadExecutor(), rsc));
+    }
+
+    public void triggerModelDownloadDefault(Intent intent) {
+        triggerModelDownload(intent, /* index */ 0);
+    }
+
+    public void triggerModelDownload(Intent intent, int index) {
+        mHandler.post(() -> mRecognizerInfos.get(index).mRecognizer.triggerModelDownload(intent));
+    }
+
+    public void triggerModelDownloadWithListenerDefault(
+            Intent intent, ModelDownloadListener listener) {
+        triggerModelDownloadWithListener(intent, listener, /* index */ 0);
+    }
+
+    public void triggerModelDownloadWithListener(
+            Intent intent, ModelDownloadListener listener, int index) {
+        mHandler.post(() -> mRecognizerInfos.get(index)
+                .mRecognizer.triggerModelDownload(
+                        intent,
+                        Executors.newSingleThreadExecutor(),
+                        listener));
+    }
+
+    public void initDefault(boolean onDevice, String customRecognizerComponent) {
+        init(onDevice, customRecognizerComponent, /* recognizerCount */ 1);
+    }
+
+    public void init(boolean onDevice, String customRecognizerComponent, int recognizerCount) {
+        mRecognizerInfos = new ArrayList<>();
         mHandler = new Handler(getMainLooper());
-        mHandler.post(() -> {
-            if (onDevice) {
-                mRecognizer = SpeechRecognizer.createOnDeviceTestingSpeechRecognizer(this);
-            } else if (customRecognizerComponent != null) {
-                mRecognizer = SpeechRecognizer.createSpeechRecognizer(this,
-                        ComponentName.unflattenFromString(customRecognizerComponent));
-            } else {
-                mRecognizer = SpeechRecognizer.createSpeechRecognizer(this);
-            }
 
-            mListener = new SpeechRecognizerListener();
-            mRecognizer.setRecognitionListener(mListener);
-            mRecognizer.setRecognitionListener(mListener);
+        for (int i = 0; i < recognizerCount; i++) {
+            mHandler.post(() -> {
+                final SpeechRecognizer recognizer;
+                if (onDevice) {
+                    recognizer = SpeechRecognizer.createOnDeviceTestingSpeechRecognizer(this);
+                } else if (customRecognizerComponent != null) {
+                    recognizer = SpeechRecognizer.createSpeechRecognizer(this,
+                            ComponentName.unflattenFromString(customRecognizerComponent));
+                } else {
+                    recognizer = SpeechRecognizer.createSpeechRecognizer(this);
+                }
+                mRecognizerInfos.add(new RecognizerInfo(recognizer));
+            });
+        }
+    }
+
+    RecognizerInfo getRecognizerInfoDefault() {
+        return getRecognizerInfo(/* index */ 0);
+    }
+
+    RecognizerInfo getRecognizerInfo(int index) {
+        return mRecognizerInfos.get(index);
+    }
+
+    int getRecognizerCount() {
+        return mRecognizerInfos.size();
+    }
+
+    /**
+     * Data class containing information about a recognizer object used in the activity:
+     * <ul>
+     *   <li> {@link RecognizerInfo#mRecognizer} - the recognizer object;
+     *   <li> {@link RecognizerInfo#mCallbackMethodsInvoked} - list of {@link CallbackMethod}s
+     *   invoked on the recognizer's listener;
+     *   <li> {@link RecognizerInfo#mStartListeningCalled} - flag denoting
+     *   if the recognizer has been used;
+     *   <li> {@link RecognizerInfo#mCountDownLatch} - synchronization object used
+     *   to emulate waiting on the recognition result.
+     */
+    static class RecognizerInfo {
+        final SpeechRecognizer mRecognizer;
+        final List<CallbackMethod> mCallbackMethodsInvoked;
+        final List<Integer> mErrorCodesReceived;
+        public boolean mStartListeningCalled;
+        public CountDownLatch mCountDownLatch;
+
+        RecognizerInfo(SpeechRecognizer recognizer) {
+            mRecognizer = recognizer;
+            mCallbackMethodsInvoked = new ArrayList<>();
+            mErrorCodesReceived = new ArrayList<>();
             mStartListeningCalled = false;
             mCountDownLatch = new CountDownLatch(1);
-        });
-    }
 
-    private class SpeechRecognizerListener implements RecognitionListener {
-
-        @Override
-        public void onReadyForSpeech(Bundle params) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_READY_FOR_SPEECH);
+            mRecognizer.setRecognitionListener(new SpeechRecognizerListener());
         }
 
-        @Override
-        public void onBeginningOfSpeech() {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_BEGINNING_OF_SPEECH);
-        }
+        class SpeechRecognizerListener implements RecognitionListener {
+            @Override
+            public void onReadyForSpeech(Bundle params) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_READY_FOR_SPEECH);
+            }
 
-        @Override
-        public void onRmsChanged(float rmsdB) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_RMS_CHANGED);
-        }
+            @Override
+            public void onBeginningOfSpeech() {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_BEGINNING_OF_SPEECH);
+            }
 
-        @Override
-        public void onBufferReceived(byte[] buffer) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_BUFFER_RECEIVED);
-        }
+            @Override
+            public void onRmsChanged(float rmsdB) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_RMS_CHANGED);
+            }
 
-        @Override
-        public void onEndOfSpeech() {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_END_OF_SPEECH);
-        }
+            @Override
+            public void onBufferReceived(byte[] buffer) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_BUFFER_RECEIVED);
+            }
 
-        @Override
-        public void onError(int error) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_ERROR);
-        }
+            @Override
+            public void onEndOfSpeech() {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_END_OF_SPEECH);
+            }
 
-        @Override
-        public void onResults(Bundle results) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_RESULTS);
-            mStartListeningCalled = true;
-            mCountDownLatch.countDown();
-        }
+            @Override
+            public void onError(int error) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_ERROR);
+                mErrorCodesReceived.add(error);
+            }
 
-        @Override
-        public void onPartialResults(Bundle partialResults) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_PARTIAL_RESULTS);
-        }
+            @Override
+            public void onResults(Bundle results) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_RESULTS);
+                mStartListeningCalled = true;
+                mCountDownLatch.countDown();
+            }
 
-        @Override
-        public void onSegmentResults(@NonNull Bundle segmentResults) {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_SEGMENTS_RESULTS);
-        }
+            @Override
+            public void onPartialResults(Bundle partialResults) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_PARTIAL_RESULTS);
+            }
 
-        @Override
-        public void onEndOfSegmentedSession() {
-            mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_END_SEGMENTED_SESSION);
-        }
+            @Override
+            public void onSegmentResults(@NonNull Bundle segmentResults) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_SEGMENTS_RESULTS);
+            }
 
-        @Override
-        public void onEvent(int eventType, Bundle params) {
+            @Override
+            public void onEndOfSegmentedSession() {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_END_SEGMENTED_SESSION);
+            }
+
+            @Override
+            public void onLanguageDetection(@NonNull Bundle results) {
+                mCallbackMethodsInvoked.add(CallbackMethod.CALLBACK_METHOD_LANGUAGE_DETECTION);
+            }
+
+            @Override
+            public void onEvent(int eventType, Bundle params) {
+            }
         }
     }
 }

@@ -28,10 +28,12 @@ import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
 import android.os.Process;
 import android.os.SharedMemory;
+import android.os.SystemClock;
 import android.service.voice.AlwaysOnHotwordDetector;
 import android.service.voice.HotwordDetectedResult;
 import android.service.voice.HotwordDetectionService;
 import android.service.voice.HotwordRejectedResult;
+import android.service.voice.SandboxedDetectionInitializer;
 import android.system.ErrnoException;
 import android.text.TextUtils;
 import android.util.Log;
@@ -49,6 +51,10 @@ import javax.annotation.concurrent.GuardedBy;
 public class MainHotwordDetectionService extends HotwordDetectionService {
     static final String TAG = "MainHotwordDetectionService";
 
+    public static byte[] FAKE_HOTWORD_AUDIO_DATA =
+            new byte[]{'h', 'o', 't', 'w', 'o', 'r', 'd', '!'};
+    public static String KEY_FAKE_DATA = "fakeData";
+    public static String VALUE_FAKE_DATA = "fakeData";
     public static final int DEFAULT_PHRASE_ID = 5;
     public static final HotwordDetectedResult DETECTED_RESULT =
             new HotwordDetectedResult.Builder()
@@ -60,6 +66,7 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
                     .setHotwordPhraseId(DEFAULT_PHRASE_ID)
                     .setPersonalizedScore(10)
                     .setScore(15)
+                    .setBackgroundAudioPower(50)
                     .build();
     public static final HotwordDetectedResult DETECTED_RESULT_AFTER_STOP_DETECTION =
             new HotwordDetectedResult.Builder()
@@ -75,20 +82,38 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             new HotwordRejectedResult.Builder()
                     .setConfidenceLevel(HotwordRejectedResult.CONFIDENCE_LEVEL_MEDIUM)
                     .build();
+
     @NonNull
     private final Object mLock = new Object();
     private Handler mHandler;
     @GuardedBy("mLock")
     private boolean mStopDetectionCalled;
+    @GuardedBy("mLock")
+    private int mDetectionDelayMs = 0;
+    private long mServiceCreatedTimeMillis = -1;
 
     @GuardedBy("mLock")
     @Nullable
     private Runnable mDetectionJob;
 
+    private boolean mIsTestUnexpectedCallback;
+
+    private boolean mIsTestAudioEgress;
+
+    /**
+     * It only works when {@link #mIsTestAudioEgress} is true
+     */
+    private boolean mUseIllegalAudioEgressCopyBufferSize;
+
+    private boolean mIsNoNeedActionDuringDetection;
+
+    private boolean mCheckAudioDataIsNotZero;
+
     @Override
     public void onCreate() {
         super.onCreate();
         mHandler = Handler.createAsync(Looper.getMainLooper());
+        mServiceCreatedTimeMillis = SystemClock.elapsedRealtime();
         Log.d(TAG, "onCreate");
     }
 
@@ -97,14 +122,27 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             long timeoutMillis, @NonNull Callback callback) {
         Log.d(TAG, "onDetect for DSP source");
 
+        if (mIsNoNeedActionDuringDetection) {
+            mIsNoNeedActionDuringDetection = false;
+            return;
+        }
+
         if (!canReadAudio()) {
             callback.onDetected(DETECTED_RESULT_FOR_MIC_FAILURE);
             return;
         }
 
         // TODO: Check the capture session (needs to be reflectively accessed).
-        byte[] data = eventPayload.getTriggerAudio();
+        byte[] data = eventPayload.getData();
         if (data != null && data.length > 0) {
+            if (mIsTestUnexpectedCallback) {
+                Log.d(TAG, "callback onDetected twice");
+                callback.onDetected(DETECTED_RESULT);
+                callback.onDetected(DETECTED_RESULT);
+                mIsTestUnexpectedCallback = false;
+                return;
+            }
+
             // Create the unaccepted HotwordDetectedResult first to test the protection in the
             // onDetected callback function of HotwordDetectionService. When the bundle data of
             // HotwordDetectedResult is larger than max bundle size, it will throw the
@@ -123,13 +161,31 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             } while (Utils.getParcelableSize(persistableBundle)
                     <= HotwordDetectedResult.getMaxBundleSize());
 
-            try {
-                callback.onDetected(hotwordDetectedResult);
-            } catch (IllegalArgumentException e) {
-                callback.onDetected(DETECTED_RESULT);
+            synchronized (mLock) {
+                mHandler.postDelayed(() -> {
+                    try {
+                        if (mIsTestAudioEgress) {
+                            if (mUseIllegalAudioEgressCopyBufferSize) {
+                                callback.onDetected(
+                                        Utils.AUDIO_EGRESS_DETECTED_RESULT_WRONG_COPY_BUFFER_SIZE);
+                            } else {
+                                callback.onDetected(Utils.AUDIO_EGRESS_DETECTED_RESULT);
+                            }
+                        } else {
+                            callback.onDetected(hotwordDetectedResult);
+                        }
+                    } catch (IllegalArgumentException e) {
+                        callback.onDetected(DETECTED_RESULT);
+                    }
+                }, mDetectionDelayMs);
             }
         } else {
             callback.onRejected(REJECTED_RESULT);
+            if (mIsTestUnexpectedCallback) {
+                Log.d(TAG, "callback onRejected again");
+                callback.onRejected(REJECTED_RESULT);
+                mIsTestUnexpectedCallback = false;
+            }
         }
     }
 
@@ -148,6 +204,13 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
         if (audioStream == null) {
             Log.w(TAG, "audioStream is null");
             return;
+        }
+        if (options != null) {
+            if (options.getBoolean(Utils.KEY_DETECTION_REJECTED, false)) {
+                Log.d(TAG, "Call onRejected for external source");
+                callback.onRejected(REJECTED_RESULT);
+                return;
+            }
         }
 
         long startTime = System.currentTimeMillis();
@@ -171,10 +234,19 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             Log.d(TAG, "fis.available() = " + fis.available());
             byte[] buffer = new byte[8];
             fis.read(buffer, 0, 8);
-            if (isSame(buffer, BasicVoiceInteractionService.FAKE_HOTWORD_AUDIO_DATA,
+            if (isSame(buffer, FAKE_HOTWORD_AUDIO_DATA,
                     buffer.length)) {
                 Log.d(TAG, "call callback.onDetected");
-                callback.onDetected(DETECTED_RESULT);
+                if (mIsTestAudioEgress) {
+                    if (mUseIllegalAudioEgressCopyBufferSize) {
+                        callback.onDetected(
+                                Utils.AUDIO_EGRESS_DETECTED_RESULT_WRONG_COPY_BUFFER_SIZE);
+                    } else {
+                        callback.onDetected(Utils.AUDIO_EGRESS_DETECTED_RESULT);
+                    }
+                } else {
+                    callback.onDetected(DETECTED_RESULT);
+                }
             }
         } catch (IOException e) {
             Log.w(TAG, "Failed to read data : ", e);
@@ -193,9 +265,24 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
                 // also more realistic to schedule it onto another thread.
                 mDetectionJob = () -> {
                     Log.d(TAG, "Sending detected result");
-
-                    if (canReadAudio()) {
+                    if (mIsTestUnexpectedCallback) {
+                        Log.d(TAG, "callback onDetected twice");
                         callback.onDetected(DETECTED_RESULT);
+                        callback.onDetected(DETECTED_RESULT);
+                        mIsTestUnexpectedCallback = false;
+                        return;
+                    }
+                    if (canReadAudio()) {
+                        if (mIsTestAudioEgress) {
+                            if (mUseIllegalAudioEgressCopyBufferSize) {
+                                callback.onDetected(
+                                        Utils.AUDIO_EGRESS_DETECTED_RESULT_WRONG_COPY_BUFFER_SIZE);
+                            } else {
+                                callback.onDetected(Utils.AUDIO_EGRESS_DETECTED_RESULT);
+                            }
+                        } else {
+                            callback.onDetected(DETECTED_RESULT);
+                        }
                     } else {
                         callback.onDetected(DETECTED_RESULT_FOR_MIC_FAILURE);
                     }
@@ -232,6 +319,7 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
 
         // Reset mDetectionJob and mStopDetectionCalled when service is initializing.
         synchronized (mLock) {
+            // When the service is initializing, the statusCallback will be not null.
             if (statusCallback != null) {
                 if (mDetectionJob != null) {
                     Log.d(TAG, "onUpdateState mDetectionJob is not null");
@@ -239,18 +327,95 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
                     mDetectionJob = null;
                 }
                 mStopDetectionCalled = false;
+
+                if (options != null) {
+                    if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                            == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_SEND_OVER_MAX_INIT_STATUS) {
+                        Log.d(TAG, "send over the max custom initialization status");
+                        final int initializationStatus =
+                                SandboxedDetectionInitializer.getMaxCustomInitializationStatus();
+                        try {
+                            statusCallback.accept(initializationStatus + 1);
+                        } catch (IllegalArgumentException ex) {
+                            Log.d(TAG, "expect to get IllegalArgumentException here");
+                            statusCallback.accept(initializationStatus);
+                        }
+                        return;
+                    } else if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                            == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_SEND_CUSTOM_INIT_STATUS) {
+                        Log.d(TAG, "send custom initialization status");
+                        statusCallback.accept(options.getInt(Utils.KEY_INITIALIZATION_STATUS, -1));
+                        return;
+                    } else if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                            == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_SEND_SUCCESS_IF_CREATED_AFTER) {
+                        // verify that the HotwordDetectionService was created after the timestamp
+                        // passed in via the options parameter
+                        long optionsTimestampMillis = options.getLong(Utils.KEY_TIMESTAMP_MILLIS,
+                                -1);
+                        Log.d(TAG, "send initialization success if created after: "
+                                + optionsTimestampMillis
+                                + ", onCreate timestamp=" + mServiceCreatedTimeMillis);
+                        statusCallback.accept((mServiceCreatedTimeMillis > optionsTimestampMillis)
+                                ? SandboxedDetectionInitializer.INITIALIZATION_STATUS_SUCCESS
+                                : SandboxedDetectionInitializer.getMaxCustomInitializationStatus());
+                        return;
+                    }
+                }
+            }
+            if (options != null) {
+                mDetectionDelayMs = options.getInt(Utils.KEY_DETECTION_DELAY_MS, 0);
+
+                if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                        == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_CLEAR_SOFTWARE_DETECTION_JOB) {
+                    Log.d(TAG, "options : Clear software detection job");
+                    if (mDetectionJob != null) {
+                        Log.d(TAG, "Clear mDetectionJob");
+                        mHandler.removeCallbacks(mDetectionJob);
+                        mDetectionJob = null;
+                    }
+                    return;
+                }
             }
         }
 
         if (options != null) {
             if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
-                    == Utils.HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_CRASH) {
+                    == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_CRASH) {
                 Log.d(TAG, "Crash itself. Pid: " + Process.myPid());
                 Process.killProcess(Process.myPid());
                 return;
             }
-            String fakeData = options.getString(BasicVoiceInteractionService.KEY_FAKE_DATA);
-            if (!TextUtils.equals(fakeData, BasicVoiceInteractionService.VALUE_FAKE_DATA)) {
+            if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                    == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_UNEXPECTED_CALLBACK) {
+                Log.d(TAG, "options : Test unexpected callback");
+                mIsTestUnexpectedCallback = true;
+                return;
+            }
+            if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                    == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_ENABLE_AUDIO_EGRESS) {
+                mUseIllegalAudioEgressCopyBufferSize = options.getBoolean(
+                        Utils.KEY_AUDIO_EGRESS_USE_ILLEGAL_COPY_BUFFER_SIZE,
+                        /* defaultValue= */ false);
+                Log.d(TAG, "options : Test audio egress use illegal copy buffer size = "
+                        + mUseIllegalAudioEgressCopyBufferSize);
+                mIsTestAudioEgress = true;
+                return;
+            }
+            if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                    == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_NO_NEED_ACTION_DURING_DETECTION) {
+                Log.d(TAG, "options : Test no need action during detection");
+                mIsNoNeedActionDuringDetection = true;
+                return;
+            }
+            if (options.getInt(Utils.KEY_TEST_SCENARIO, -1)
+                    == Utils.EXTRA_HOTWORD_DETECTION_SERVICE_CAN_READ_AUDIO_DATA_IS_NOT_ZERO) {
+                Log.d(TAG, "options : Test can read audio, and data is not zero");
+                mCheckAudioDataIsNotZero = true;
+                return;
+            }
+
+            String fakeData = options.getString(KEY_FAKE_DATA);
+            if (!TextUtils.equals(fakeData, VALUE_FAKE_DATA)) {
                 Log.d(TAG, "options : data is not the same");
                 return;
             }
@@ -332,14 +497,18 @@ public class MainHotwordDetectionService extends HotwordDetectionService {
             if (Utils.isVirtualDevice()) {
                 return true;
             }
-            for (byte b : buffer) {
-                // TODO: Maybe check that some portion of the bytes are non-zero.
-                if (b != 0) {
-                    return true;
+            if (mCheckAudioDataIsNotZero) {
+                for (byte b : buffer) {
+                    // TODO: Maybe check that some portion of the bytes are non-zero.
+                    if (b != 0) {
+                        return true;
+                    }
                 }
+                Log.d(TAG, "All data are zero");
+                return false;
             }
-            Log.d(TAG, "All data are zero");
-            return false;
+
+            return true;
         } finally {
             record.release();
         }

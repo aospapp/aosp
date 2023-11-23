@@ -26,13 +26,15 @@
 #include "chre/platform/power_control_manager.h"
 #include "chre/platform/system_time.h"
 #include "chre/util/dynamic_vector.h"
-#include "chre/util/fixed_size_blocking_queue.h"
 #include "chre/util/non_copyable.h"
-#include "chre/util/synchronized_memory_pool.h"
 #include "chre/util/system/debug_dump.h"
 #include "chre/util/system/stats_container.h"
 #include "chre/util/unique_ptr.h"
 #include "chre_api/chre/event.h"
+
+#ifdef CHRE_STATIC_EVENT_LOOP
+#include "chre/util/fixed_size_blocking_queue.h"
+#include "chre/util/synchronized_memory_pool.h"
 
 // These default values can be overridden in the variant-specific makefile.
 #ifndef CHRE_MAX_EVENT_COUNT
@@ -41,6 +43,27 @@
 
 #ifndef CHRE_MAX_UNSCHEDULED_EVENT_COUNT
 #define CHRE_MAX_UNSCHEDULED_EVENT_COUNT 96
+#endif
+#else
+#include "chre/util/blocking_segmented_queue.h"
+#include "chre/util/synchronized_expandable_memory_pool.h"
+
+// These default values can be overridden in the variant-specific makefile.
+#ifndef CHRE_EVENT_PER_BLOCK
+#define CHRE_EVENT_PER_BLOCK 24
+#endif
+
+#ifndef CHRE_MAX_EVENT_BLOCKS
+#define CHRE_MAX_EVENT_BLOCKS 4
+#endif
+
+#ifndef CHRE_UNSCHEDULED_EVENT_PER_BLOCK
+#define CHRE_UNSCHEDULED_EVENT_PER_BLOCK 24
+#endif
+
+#ifndef CHRE_MAX_UNSCHEDULED_EVENT_BLOCKS
+#define CHRE_MAX_UNSCHEDULED_EVENT_BLOCKS 4
+#endif
 #endif
 
 namespace chre {
@@ -53,8 +76,13 @@ namespace chre {
 class EventLoop : public NonCopyable {
  public:
   EventLoop()
-      : mTimeLastWakeupBucketCycled(SystemTime::getMonotonicTime()),
-        mRunning(true) {}
+      :
+#ifndef CHRE_STATIC_EVENT_LOOP
+        mEvents(kMaxUnscheduleEventBlocks),
+#endif
+        mTimeLastWakeupBucketCycled(SystemTime::getMonotonicTime()),
+        mRunning(true) {
+  }
 
   /**
    * Synchronous callback used with forEachNanoapp
@@ -324,6 +352,7 @@ class EventLoop : public NonCopyable {
   }
 
  private:
+#ifdef CHRE_STATIC_EVENT_LOOP
   //! The maximum number of events that can be active in the system.
   static constexpr size_t kMaxEventCount = CHRE_MAX_EVENT_COUNT;
 
@@ -336,6 +365,44 @@ class EventLoop : public NonCopyable {
   static constexpr size_t kMaxUnscheduledEventCount =
       CHRE_MAX_UNSCHEDULED_EVENT_COUNT;
 
+  //! The memory pool to allocate incoming events from.
+  SynchronizedMemoryPool<Event, kMaxEventCount> mEventPool;
+
+  //! The blocking queue of incoming events from the system that have not been
+  //! distributed out to apps yet.
+  FixedSizeBlockingQueue<Event *, kMaxUnscheduledEventCount> mEvents;
+
+#else
+  //! The maximum number of event that can be stored in a block in mEventPool.
+  static constexpr size_t kEventPerBlock = CHRE_EVENT_PER_BLOCK;
+
+  //! The maximum number of event blocks that mEventPool can hold.
+  static constexpr size_t kMaxEventBlock = CHRE_MAX_EVENT_BLOCKS;
+
+  static constexpr size_t kMaxEventCount =
+      CHRE_EVENT_PER_BLOCK * CHRE_MAX_EVENT_BLOCKS;
+
+  //! The minimum number of events to reserve in the event pool for high
+  //! priority events.
+  static constexpr size_t kMinReservedHighPriorityEventCount = 16;
+
+  //! The maximum number of events per block that are awaiting to be scheduled.
+  //! These events are in a queue to be distributed to apps.
+  static constexpr size_t kMaxUnscheduledEventPerBlock =
+      CHRE_UNSCHEDULED_EVENT_PER_BLOCK;
+
+  //! The maximum number of event blocks that mEvents can hold.
+  static constexpr size_t kMaxUnscheduleEventBlocks =
+      CHRE_MAX_UNSCHEDULED_EVENT_BLOCKS;
+
+  //! The memory pool to allocate incoming events from.
+  SynchronizedExpandableMemoryPool<Event, kEventPerBlock, kMaxEventBlock>
+      mEventPool;
+
+  //! The blocking queue of incoming events from the system that have not been
+  //! distributed out to apps yet.
+  BlockingSegmentedQueue<Event *, kMaxUnscheduledEventPerBlock> mEvents;
+#endif
   //! The time interval of nanoapp wakeup buckets, adjust in conjuction with
   //! Nanoapp::kMaxSizeWakeupBuckets.
   static constexpr Nanoseconds kIntervalWakeupBucket =
@@ -343,9 +410,6 @@ class EventLoop : public NonCopyable {
 
   //! The last time wakeup buckets were pushed onto the nanoapps.
   Nanoseconds mTimeLastWakeupBucketCycled;
-
-  //! The memory pool to allocate incoming events from.
-  SynchronizedMemoryPool<Event, kMaxEventCount> mEventPool;
 
   //! The timer used schedule timed events for tasks running in this event loop.
   TimerPool mTimerPool;
@@ -360,10 +424,6 @@ class EventLoop : public NonCopyable {
   //! It is not necessary to acquire the lock when reading mNanoapps from within
   //! the thread context of this EventLoop.
   mutable Mutex mNanoappsLock;
-
-  //! The blocking queue of incoming events from the system that have not been
-  //! distributed out to apps yet.
-  FixedSizeBlockingQueue<Event *, kMaxUnscheduledEventCount> mEvents;
 
   //! Indicates whether the event loop is running.
   AtomicBool mRunning;
@@ -400,9 +460,25 @@ class EventLoop : public NonCopyable {
    */
   bool allocateAndPostEvent(uint16_t eventType, void *eventData,
                             chreEventCompleteFunction *freeCallback,
-                            uint16_t senderInstanceId,
+                            bool isLowPriority, uint16_t senderInstanceId,
                             uint16_t targetInstanceId,
                             uint16_t targetGroupMask);
+  /**
+   * Remove some low priority events from back of the queue.
+   *
+   * @param removeNum Number of low priority events to be removed.
+   * @return False if cannot remove any low priority event.
+   */
+  bool removeLowPriorityEventsFromBack(size_t removeNum);
+
+  /**
+   * Determine if there are space for high priority event.
+   * During the processing of determining the vacant space, it might
+   * remove low priority events to make space for high priority event.
+   *
+   * @return true if there are no space for a new high priority event.
+   */
+  bool hasNoSpaceForHighPriorityEvent();
 
   /**
    * Delivers the next event pending to the Nanoapp.

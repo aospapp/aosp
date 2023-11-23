@@ -151,6 +151,8 @@ public class MultiStaConcurrencyMultiInternetWifiNetworkTest extends WifiJUnit4T
                 () -> wifiManager.setScanThrottleEnabled(false));
 
         // Enable Wifi
+        sWasWifiEnabled = ShellIdentityUtils.invokeWithShellPermissions(
+                () -> wifiManager.isWifiEnabled());
         ShellIdentityUtils.invokeWithShellPermissions(() -> wifiManager.setWifiEnabled(true));
         // Make sure wifi is enabled
         PollingCheck.check("Wifi not enabled", DURATION_MILLIS, () -> wifiManager.isWifiEnabled());
@@ -205,7 +207,7 @@ public class MultiStaConcurrencyMultiInternetWifiNetworkTest extends WifiJUnit4T
         List<WifiConfiguration> savedNetworks = ShellIdentityUtils.invokeWithShellPermissions(
                 () -> mWifiManager.getPrivilegedConfiguredNetworks());
         mMatchingNetworksMap =
-                TestHelper.findMatchingSavedNetworksWithBssidByBand(mWifiManager, savedNetworks);
+                TestHelper.findMatchingSavedNetworksWithBssidByBand(mWifiManager, savedNetworks, 2);
         assertWithMessage("Need at least 2 saved network bssids in different bands").that(
                 mMatchingNetworksMap.size()).isAtLeast(2);
 

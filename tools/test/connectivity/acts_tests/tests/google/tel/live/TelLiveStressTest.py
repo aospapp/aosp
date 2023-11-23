@@ -120,6 +120,7 @@ RESULTS_LIST = {-2: "UNAVAILABLE_NETWORK_TYPE",
                  8: "CALL_DROP_OR_WRONG_STATE_AFTER_CONNECTED",
                  9: "CALL_HANGUP_FAIL",
                  10: "CALL_ID_CLEANUP_FAIL"}
+voice_call_failure_dict = {}
 
 
 class TelLiveStressTest(TelephonyBaseTest):
@@ -169,6 +170,7 @@ class TelLiveStressTest(TelephonyBaseTest):
         self.cbrs_check_interval = int(
             self.user_params.get("cbrs_check_interval", 100))
         self.dut_incall = False
+        self.wfc_nw_gen = self.user_params.get("wfc_nw_gen", None)
         self.dsds_esim = self.user_params.get("dsds_esim", False)
         self.cbrs_esim = self.user_params.get("cbrs_esim", False)
         telephony_info = getattr(self.dut, "telephony", {})
@@ -194,6 +196,11 @@ class TelLiveStressTest(TelephonyBaseTest):
         self.call_stats_check = self.user_params.get("call_stats_check", False)
         self.nsa_5g_for_stress = self.user_params.get("nsa_5g_for_stress", False)
         self.nr_type = self.user_params.get("nr_type", 'nsa')
+        self.idle_period = self.user_params.get("idle_period", False)
+        self.min_pause_duration = int(self.user_params.get("min_pause_duration", 180))
+        self.max_pause_duration = int(self.user_params.get("max_pause_duration", 600))
+        self.call_pause_intervals = int(self.user_params.get("call_pause_intervals", 10))
+        self.pause=False
         return True
 
     def setup_test(self):
@@ -252,7 +259,8 @@ class TelLiveStressTest(TelephonyBaseTest):
         for ad in self.android_devices:
             if not phone_setup_iwlan(
                     self.log, ad, True, WFC_MODE_CELLULAR_PREFERRED,
-                    self.wifi_network_ssid, self.wifi_network_pass):
+                    self.wifi_network_ssid, self.wifi_network_pass,
+                    nw_gen=self.wfc_nw_gen, nr_type= self.nr_type):
                 ad.log.error("Failed to setup WFC.")
                 return False
         return True
@@ -265,7 +273,8 @@ class TelLiveStressTest(TelephonyBaseTest):
             ad.log.info("Phone VOLTE is enabled successfully.")
             # TODO: b/186865335 Move 5G methods to NR directory
             if self.nsa_5g_for_stress:
-                if not provision_device_for_5g(self.log, ad):
+                if not provision_device_for_5g(
+                        self.log, ad, nr_type=self.nr_type):
                     ad.log.error("Phone failed to attach 5G NSA.")
                     return False
                 ad.log.info("Phone 5G NSA VOLTE is enabled successfully.")
@@ -310,6 +319,9 @@ class TelLiveStressTest(TelephonyBaseTest):
 
     def _send_message(self, max_wait_time=2 * MAX_WAIT_TIME_SMS_RECEIVE):
         slot_id_rx = None
+        if self.pause and self.idle_period:
+            self.log.info("PAUSE MESSAGE TEST FOR %s seconds", self.pause_duration)
+            time.sleep(self.pause_duration)
         if self.single_phone_test:
             ads = [self.dut, self.dut]
         else:
@@ -434,6 +446,16 @@ class TelLiveStressTest(TelephonyBaseTest):
         log_msg = "[Test Case] %s" % test_name
         self.log.info("%s for %s seconds begin", log_msg, duration)
 
+        if self.idle_period:
+            call_iteration = self.call_pause_intervals if self.call_pause_intervals != 0 else 1
+            if the_number % call_iteration == 0:
+                self.pause=True
+                self.pause_duration = random.randrange(
+                    self.min_pause_duration, self.max_pause_duration)
+                self.log.info("PAUSE CALLING TEST FOR %s seconds", self.pause_duration)
+                time.sleep(self.pause_duration)
+                self.pause=False
+
         if self.call_stats_check:
             voice_type_init = check_voice_network_type(ads, voice_init=True)
         else:
@@ -475,10 +497,7 @@ class TelLiveStressTest(TelephonyBaseTest):
                 self.log,
                 self.dut,
                 self.call_server_number,
-                incall_ui_display=INCALL_UI_DISPLAY_BACKGROUND,
-                call_stats_check=self.call_stats_check,
-                voice_type_init=voice_type_init,
-                result_info = self.result_info
+                incall_ui_display=INCALL_UI_DISPLAY_BACKGROUND
             ) and wait_for_in_call_active(self.dut, 60, 3)
         else:
             call_setup_result = call_setup_teardown(
@@ -494,7 +513,6 @@ class TelLiveStressTest(TelephonyBaseTest):
                 call_stats_check=self.call_stats_check,
                 voice_type_init=voice_type_init,
                 result_info = self.result_info)
-            self.result_collection[RESULTS_LIST[call_setup_result.result_value]] += 1
 
         if not call_setup_result:
             get_telephony_signal_strength(ads[0])
@@ -516,6 +534,12 @@ class TelLiveStressTest(TelephonyBaseTest):
                     return True
             self.log.error("%s: Setup Call failed.", log_msg)
             failure_reasons.add("Setup")
+            if self.call_stats_check:
+                network = ads[0].droid.telephonyGetCurrentVoiceNetworkType()
+                ads[0].log.debug("Call Setup failure RAT is %s", network)
+                self.result_info["Call Failures"] = self._update_call_failure(str(ads[0].serial),
+                                                                             "Call Setup Failure",
+                                                                             network)
             result = False
         else:
             elapsed_time = 0
@@ -548,6 +572,13 @@ class TelLiveStressTest(TelephonyBaseTest):
                                             1)
                                     continue
                         failure_reasons.add("Maintenance")
+                        if self.call_stats_check:
+                            network = ad.droid.telephonyGetCurrentVoiceNetworkType()
+                            ad.log.debug("Call Maintenance failure RAT is %s", network)
+                            self.result_info["Call Failures"] = self._update_call_failure(
+                                                                      str(ad.serial),
+                                                                      "Call Maintenance Failure",
+                                                                      network)
                         last_call_drop_reason(ad, begin_time)
                         hangup_call(self.log, ads[0])
                         result = False
@@ -563,7 +594,7 @@ class TelLiveStressTest(TelephonyBaseTest):
         else:
             if self.nsa_5g_for_stress:
                 for ad in (ads[0], ads[1]):
-                    if not is_current_network_5g(ad, self.nr_type):
+                    if not is_current_network_5g(ad, nr_type=self.nr_type):
                         ad.log.error("Phone not attached on 5G")
         for ad in ads:
             if not wait_for_call_id_clearing(ad,
@@ -602,11 +633,12 @@ class TelLiveStressTest(TelephonyBaseTest):
                                      self.user_params["gps_log_file"])
             for reason in failure_reasons:
                 self.result_info["Call %s Failure" % reason] += 1
-            for ad in ads:
-                log_path = os.path.join(self.log_path, test_name,
+            if self.get_binder_logs:
+                for ad in ads:
+                    log_path = os.path.join(self.log_path, test_name,
                                         "%s_binder_logs" % ad.serial)
-                os.makedirs(log_path, exist_ok=True)
-                ad.pull_files(BINDER_LOGS, log_path)
+                    os.makedirs(log_path, exist_ok=True)
+                    ad.pull_files(BINDER_LOGS, log_path)
             try:
                 self._take_bug_report(test_name, begin_time)
             except Exception as e:
@@ -768,6 +800,16 @@ class TelLiveStressTest(TelephonyBaseTest):
         else:
             return True
 
+    def _update_call_failure(self, dut, key, network):
+        if dut not in voice_call_failure_dict.keys():
+            voice_call_failure_dict[dut] = {key:{network:0}}
+        if key not in voice_call_failure_dict[dut].keys():
+            voice_call_failure_dict[dut].update({key:{network:0}})
+        if network not in voice_call_failure_dict[dut][key].keys():
+            voice_call_failure_dict[dut][key].update({network:0})
+        voice_call_failure_dict[dut][key][network] += 1
+        return voice_call_failure_dict
+
     def _cbrs_data_check_test(self, begin_time, expected_cbrs=True,
                               test_time="before"):
         cbrs_fail_count = 0
@@ -806,7 +848,6 @@ class TelLiveStressTest(TelephonyBaseTest):
                 self.log.error("Too many exception errors, quit test")
                 return False
             self.log.info("%s", dict(self.result_info))
-        self.tel_logger.set_result(self.result_collection)
         if any([
                 self.result_info["Call Setup Failure"],
                 self.result_info["Call Maintenance Failure"],
@@ -839,6 +880,9 @@ class TelLiveStressTest(TelephonyBaseTest):
     def _data_download(self, file_names=[]):
         begin_time = get_current_epoch_time()
         slot_id = random.randint(0,1)
+        if self.pause and self.idle_period:
+            self.log.info("PAUSE DATA TEST FOR %s seconds", self.pause_duration)
+            time.sleep(self.pause_duration)
         if self.dsds_esim:
             sub_id = get_subid_from_slot_index(self.log, self.dut, slot_id)
             self.dut.log.info("Data - slot_Id %d", slot_id)
@@ -1315,7 +1359,14 @@ class TelLiveStressTest(TelephonyBaseTest):
     @test_tracker_info(uuid="4212d0e0-fb87-47e5-ba48-9df9a4a6bb9b")
     @TelephonyBaseTest.tel_test_wrap
     def test_voice_performance_stress(self):
-        """ Vocie Performance stress test"""
+        """ Voice Performance stress test"""
         return self.performance_tests()
+
+    @test_tracker_info(uuid="a126793e-6e78-4920-a8c4-b382a444c4b7")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_voice_performance_stress_nr(self):
+        """ Voice Performance stress test"""
+        return self.performance_tests(
+            setup_func=self._setup_lte_volte_enabled)
 
     """ Tests End """

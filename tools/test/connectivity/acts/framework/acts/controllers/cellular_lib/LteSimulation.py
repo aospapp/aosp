@@ -22,6 +22,13 @@ from acts.controllers.cellular_lib.NrCellConfig import NrCellConfig
 from acts.controllers.cellular_lib import BaseCellularDut
 
 
+class IPAddressType(Enum):
+    """ IP Address types"""
+    IPV4 = "IPV4"
+    IPV6 = "IPV6"
+    IPV4V6 = "IPV4V6"
+
+
 class TransmissionMode(Enum):
     """ Transmission modes for LTE (e.g., TM1, TM4, ...) """
     TM1 = "TM1"
@@ -87,7 +94,7 @@ class LteSimulation(BaseSimulation):
     # RSRP signal levels thresholds (as reported by Android) in dBm/15KHz.
     # Excellent is set to -75 since callbox B Tx power is limited to -30 dBm
     DOWNLINK_SIGNAL_LEVEL_DICTIONARY = {
-        'excellent': -75,
+        'excellent': -62,
         'high': -110,
         'medium': -115,
         'weak': -120,
@@ -411,9 +418,13 @@ class LteSimulation(BaseSimulation):
         tdd_config4_tput_lut  # DL 256QAM, UL 64 QAM OFF & MAC padding ON
     }
 
-    def __init__(
-        self, simulator, log, dut, test_config, calibration_table,
-        nr_mode=None):
+    def __init__(self,
+                 simulator,
+                 log,
+                 dut,
+                 test_config,
+                 calibration_table,
+                 nr_mode=None):
         """ Initializes the simulator for a single-carrier LTE simulation.
 
         Args:
@@ -426,8 +437,8 @@ class LteSimulation(BaseSimulation):
 
         """
 
-        super().__init__(
-            simulator, log, dut, test_config, calibration_table, nr_mode)
+        super().__init__(simulator, log, dut, test_config, calibration_table,
+                         nr_mode)
 
         self.num_carriers = None
 
@@ -435,14 +446,14 @@ class LteSimulation(BaseSimulation):
         try:
             if self.nr_mode and 'nr' == self.nr_mode:
                 self.dut.set_preferred_network_type(
-                    BaseCellularDut.PreferredNetworkType.LTE_NR)
+                    BaseCellularDut.PreferredNetworkType.NR_LTE)
             else:
                 self.dut.set_preferred_network_type(
                     BaseCellularDut.PreferredNetworkType.LTE_ONLY)
         except Exception as e:
             # If this fails the test should be able to run anyways, even if it
             # takes longer to find the cell.
-            self.log.warning('Setting preferred RAT failed: ' + str(e))
+            self.log.warning('Setting preferred RAT failed: {}'.format(e))
 
         # Get LTE CA frequency bands setting from the test configuration
         if self.KEY_FREQ_BANDS not in test_config:
@@ -512,17 +523,32 @@ class LteSimulation(BaseSimulation):
                     new_cell_list.append(dict(cell))
                     bw = int(cell[LteCellConfig.PARAM_BW])
                     dl_earfcn = LteCellConfig.PARAM_DL_EARFCN
-                    new_cell_list[-1][dl_earfcn] = self.LOWEST_DL_CN_DICTIONARY[
-                        int(band_num)] + bw * 10 - 2
+                    new_cell_list[-1][
+                        dl_earfcn] = self.LOWEST_DL_CN_DICTIONARY[int(
+                            band_num)] + bw * 10 - 2
             else:
                 # The band is just a number, so just add it to the list
                 new_cell_list.append(cell)
+
+        # verify mimo mode parameter is provided
+        for cell in new_cell_list:
+            if not LteCellConfig.PARAM_MIMO in cell:
+                raise ValueError(
+                    'The config dictionary must include parameter "{}" with the'
+                    ' mimo mode.'.format(self.PARAM_MIMO))
+
+            if cell[LteCellConfig.PARAM_MIMO] not in (m.value
+                                                      for m in MimoMode):
+                raise ValueError(
+                    'The value of {} must be one of the following:'
+                    '1x1, 2x2 or 4x4.'.format(self.PARAM_MIMO))
 
         # Logs new_cell_list for debug
         self.log.info('new cell list: {}'.format(new_cell_list))
 
         self.simulator.set_band_combination(
-            [c[LteCellConfig.PARAM_BAND] for c in new_cell_list])
+            [c[LteCellConfig.PARAM_BAND] for c in new_cell_list],
+            [MimoMode(c[LteCellConfig.PARAM_MIMO]) for c in new_cell_list])
 
         self.num_carriers = len(new_cell_list)
 
@@ -604,7 +630,7 @@ class LteSimulation(BaseSimulation):
 
         bandwidth = bts_config.bandwidth
 
-        if bandwidth == 100: # This assumes 273 RBs. TODO: b/229163022
+        if bandwidth == 100:  # This assumes 273 RBs. TODO: b/229163022
             power = rsrp + 35.15
         elif bandwidth == 20:  # 100 RBs
             power = rsrp + 30.79
@@ -921,3 +947,11 @@ class LteSimulation(BaseSimulation):
                     self.cell_configs[bts_index].incorporate(new_config)
 
             self.simulator.lte_attach_secondary_carriers(self.freq_bands)
+
+    def send_sms(self, message):
+        """ Sends an SMS message to the DUT.
+
+        Args:
+            message: the SMS message to send.
+        """
+        self.simulator.send_sms(message)

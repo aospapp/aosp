@@ -24,6 +24,18 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.MANAGE_MEDIA"/>
 
+    <queries>
+        <package android:name="android.service.games.cts.falsepositive" />
+        <package android:name="android.service.games.cts.finishonbackgame" />
+        <package android:name="android.service.games.cts.game" />
+        <package android:name="android.service.games.cts.notgame" />
+        <package android:name="android.service.games.cts.restartgameverifier" />
+        <package android:name="android.service.games.cts.startactivityverifier" />
+        <package android:name="android.service.games.cts.systembarverifier" />
+        <package android:name="android.service.games.cts.takescreenshotverifier" />
+        <package android:name="android.service.games.cts.touchverifier" />
+    </queries>
+
     <application android:label="CtsGameServiceTestApp">
 
         <service

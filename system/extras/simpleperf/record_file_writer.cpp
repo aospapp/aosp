@@ -74,7 +74,7 @@ RecordFileWriter::~RecordFileWriter() {
   }
 }
 
-bool RecordFileWriter::WriteAttrSection(const std::vector<EventAttrWithId>& attr_ids) {
+bool RecordFileWriter::WriteAttrSection(const EventAttrIds& attr_ids) {
   if (attr_ids.empty()) {
     return false;
   }
@@ -102,7 +102,7 @@ bool RecordFileWriter::WriteAttrSection(const std::vector<EventAttrWithId>& attr
   }
   for (auto& attr_id : attr_ids) {
     FileAttr file_attr;
-    file_attr.attr = *attr_id.attr;
+    file_attr.attr = attr_id.attr;
     file_attr.ids.offset = id_section_offset;
     file_attr.ids.size = attr_id.ids.size() * sizeof(uint64_t);
     id_section_offset += file_attr.ids.size;
@@ -121,7 +121,7 @@ bool RecordFileWriter::WriteAttrSection(const std::vector<EventAttrWithId>& attr
   data_section_offset_ = data_section_offset;
 
   // Save event_attr for use when reading records.
-  event_attr_ = *attr_ids[0].attr;
+  event_attr_ = attr_ids[0].attr;
   return true;
 }
 
@@ -202,7 +202,10 @@ bool RecordFileWriter::ReadDataSection(const std::function<void(const Record*)>&
     if (!Read(record_buf.data(), Record::header_size())) {
       return false;
     }
-    RecordHeader header(record_buf.data());
+    RecordHeader header;
+    if (!header.Parse(record_buf.data())) {
+      return false;
+    }
     if (record_buf.size() < header.size) {
       record_buf.resize(header.size);
     }
@@ -365,7 +368,13 @@ bool RecordFileWriter::WriteFileFeature(const FileFeature& file) {
     proto::FileFeature::Symbol* proto_symbol = proto_file.add_symbol();
     proto_symbol->set_vaddr(symbol.addr);
     proto_symbol->set_len(symbol.len);
-    proto_symbol->set_name(symbol.Name());
+    // Store demangled names for rust symbols. Because simpleperf on windows host doesn't know
+    // how to demangle them.
+    if (strncmp(symbol.Name(), "_R", 2) == 0) {
+      proto_symbol->set_name(symbol.DemangledName());
+    } else {
+      proto_symbol->set_name(symbol.Name());
+    }
   };
   for (const Symbol& symbol : file.symbols) {
     write_symbol(symbol);

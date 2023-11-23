@@ -24,24 +24,18 @@ from acts import signals
 from acts.keys import Config
 from acts.utils import unzip_maintain_permissions
 from acts.test_decorators import test_tracker_info
+from acts_contrib.test_utils.net import ui_utils
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 from acts_contrib.test_utils.tel.tel_defines import GEN_4G
 from acts_contrib.test_utils.tel.tel_defines import MAX_WAIT_TIME_FOR_STATE_CHANGE
-from acts_contrib.test_utils.tel.tel_defines import MOBILE_DATA
-from acts_contrib.test_utils.tel.tel_defines import NETWORK_SERVICE_DATA
-from acts_contrib.test_utils.tel.tel_defines import USE_SIM
-from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_BETWEEN_STATE_CHECK
 from acts_contrib.test_utils.tel.tel_bootloader_utils import flash_radio
 from acts_contrib.test_utils.tel.tel_logging_utils import set_qxdm_logger_command
 from acts_contrib.test_utils.tel.tel_subscription_utils import get_slot_index_from_subid
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phone_subscription
-from acts_contrib.test_utils.tel.tel_phone_setup_utils import phone_setup_volte
 from acts_contrib.test_utils.tel.tel_test_utils import dumpsys_carrier_config
 from acts_contrib.test_utils.tel.tel_test_utils import get_outgoing_voice_sub_id
-from acts_contrib.test_utils.tel.tel_test_utils import is_droid_in_network_generation
 from acts_contrib.test_utils.tel.tel_test_utils import is_sim_locked
-from acts_contrib.test_utils.tel.tel_test_utils import get_current_override_network_type
 from acts_contrib.test_utils.tel.tel_test_utils import power_off_sim
 from acts_contrib.test_utils.tel.tel_test_utils import power_on_sim
 from acts_contrib.test_utils.tel.tel_test_utils import print_radio_info
@@ -49,8 +43,10 @@ from acts_contrib.test_utils.tel.tel_test_utils import revert_default_telephony_
 from acts_contrib.test_utils.tel.tel_test_utils import system_file_push
 from acts_contrib.test_utils.tel.tel_test_utils import unlock_sim
 from acts_contrib.test_utils.tel.tel_test_utils import verify_default_telephony_setting
-from acts_contrib.test_utils.tel.tel_ops_utils import get_resource_value
-from acts_contrib.test_utils.tel.tel_ops_utils import wait_and_click_element
+from acts_contrib.test_utils.tel.tel_settings_utils import att_apn_test
+from acts_contrib.test_utils.tel.tel_settings_utils import tmo_apn_test
+from acts_contrib.test_utils.tel.tel_settings_utils import toggle_mobile_data_test
+from acts_contrib.test_utils.tel.tel_settings_utils import toggle_sim_test
 from acts.utils import set_mobile_data_always_on
 from acts.libs.utils.multithread import multithread_func
 
@@ -63,7 +59,8 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         self.stress_test_number = self.get_stress_test_number()
         self.carrier_configs = dumpsys_carrier_config(self.dut)
         self.dut_subID = get_outgoing_voice_sub_id(self.dut)
-        self.dut_capabilities = self.dut.telephony["subscription"][self.dut_subID].get("capabilities", [])
+        self.dut_capabilities = self.dut.telephony["subscription"][
+            self.dut_subID].get("capabilities", [])
 
     def teardown_test(self):
         ensure_phones_idle(self.log, self.android_devices)
@@ -97,7 +94,6 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         2. Check the carrier_configs are expected value.
 
         """
-        pass
 
     @test_tracker_info(uuid="64deba57-c1c2-422f-b771-639c95edfbc0")
     @TelephonyBaseTest.tel_test_wrap
@@ -362,57 +358,7 @@ class TelLiveSettingsTest(TelephonyBaseTest):
             True is tests passes else False
         """
         ad = self.android_devices[0]
-
-        if not phone_setup_volte(ad.log, ad):
-            ad.log.error('Phone failed to enable LTE')
-            return False
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-
-        ad.adb.shell('am start -a android.settings.WIRELESS_SETTINGS')
-        wait_and_click_element(ad, 'SIMs')
-
-        switch_value = get_resource_value(ad, USE_SIM)
-        if switch_value == 'true':
-            ad.log.info('SIM is enabled as expected')
-        else:
-            ad.log.error('SIM should be enabled but SIM is disabled')
-            return False
-
-        label_text = USE_SIM
-        label_resource_id = 'com.android.settings:id/switch_text'
-
-        ad.log.info('Disable SIM')
-        wait_and_click_element(ad, label_text, label_resource_id)
-
-        button_resource_id = 'android:id/button1'
-        wait_and_click_element(ad, 'Yes', button_resource_id)
-        switch_value = get_resource_value(ad, USE_SIM)
-        if switch_value == 'false':
-            ad.log.info('SIM is disabled as expected')
-        else:
-            ad.log.error('SIM should be disabled but SIM is enabled')
-            return False
-
-        ad.log.info('Enable SIM')
-        wait_and_click_element(ad, label_text, label_resource_id)
-
-        wait_and_click_element(ad, 'Yes', button_resource_id)
-        switch_value = get_resource_value(ad, USE_SIM)
-        if switch_value == 'true':
-            ad.log.info('SIM is enabled as expected')
-        else:
-            ad.log.error('SIM should be enabled but SIM is disabled')
-            return False
-
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-
-        if is_droid_in_network_generation(self.log, ad, GEN_4G,
-                                            NETWORK_SERVICE_DATA):
-            ad.log.info('Success! attached on LTE')
-        else:
-            ad.log.error('Failure - expected LTE, current %s',
-                         get_current_override_network_type(ad))
-            return False
+        return toggle_sim_test(ad, GEN_4G)
 
     @test_tracker_info(uuid='dc0d381b-2dbf-4e25-87a4-53ec657e12d1')
     @TelephonyBaseTest.tel_test_wrap
@@ -434,42 +380,96 @@ class TelLiveSettingsTest(TelephonyBaseTest):
         """
         ad = self.android_devices[0]
 
-        if not phone_setup_volte(ad.log, ad):
-            ad.log.error('Phone failed to enable LTE')
-            return False
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
+        return toggle_mobile_data_test(ad, GEN_4G)
 
-        ad.adb.shell('am start -a android.settings.WIRELESS_SETTINGS')
-        wait_and_click_element(ad, 'SIMs')
-        switch_value = get_resource_value(ad, MOBILE_DATA)
+    @test_tracker_info(uuid='9f0cb1cd-6dff-4736-a7f7-3d08af782575')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_att_apn_settings_sms_lte(self):
+        """Test ATT APN and SMS
 
-        if switch_value == 'true':
-            ad.log.info('Mobile data is enabled as expected')
-        else:
-            ad.log.error('Mobile data should be enabled but it is disabled')
+        Steps:
+            1. Provision device to LTE
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Save New APN
+            7. Switch APN to New APN
+            8. Check Network is connected to LTE
+            9. Send SMS
 
-        ad.log.info('Disable mobile data')
-        ad.droid.telephonyToggleDataConnection(False)
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-        switch_value = get_resource_value(ad, MOBILE_DATA)
-        if switch_value == 'false':
-            ad.log.info('Mobile data is disabled as expected')
-        else:
-            ad.log.error('Mobile data should be disabled but it is enabled')
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
 
-        ad.log.info('Enabling mobile data')
-        ad.droid.telephonyToggleDataConnection(True)
-        time.sleep(WAIT_TIME_BETWEEN_STATE_CHECK)
-        switch_value = get_resource_value(ad, MOBILE_DATA)
-        if switch_value == 'true':
-            ad.log.info('Mobile data is enabled as expected')
-        else:
-            ad.log.error('Mobile data should be enabled but it is disabled')
+        return att_apn_test(self.log, caller, callee, GEN_4G, msg_type='sms')
 
-        if is_droid_in_network_generation(self.log, ad, GEN_4G,
-                                            NETWORK_SERVICE_DATA):
-            ad.log.info('Success! attached on LTE')
-        else:
-            ad.log.error('Failure - expected LTE, current %s',
-                         get_current_override_network_type(ad))
-            return False
+    @test_tracker_info(uuid='7ba6eccd-5115-495a-8298-a1b41e5115d8')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_att_apn_settings_mms_lte(self):
+        """Test ATT APN and MMS
+
+        Steps:
+            1. Provision device to LTE
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Add ATT APN details and Save
+            7. Switch APN to New APN
+            8. Check Network is connected to LTE
+            9. Send MMS
+
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
+
+        return att_apn_test(self.log, caller, callee, GEN_4G, msg_type='mms')
+
+    @test_tracker_info(uuid='ea6886e0-5a34-4b62-9a2b-d81d109284ae')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_tmo_apn_settings_sms_lte(self):
+        """Test TMO APN and SMS
+
+        Steps:
+            1. Provision device to LTE
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Add TMO APN details and Save New APN
+            7. Switch APN to New APN
+            8. Check Network is connected to LTE
+            9. Send SMS
+
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
+
+        return tmo_apn_test(self.log, caller, callee, GEN_4G, msg_type='sms')
+
+    @test_tracker_info(uuid='08b4b549-cacb-481a-b6ea-7368b5608009')
+    @TelephonyBaseTest.tel_test_wrap
+    def test_tmo_apn_settings_mms_lte(self):
+        """Test APN test and MMS
+
+        Steps:
+            1. Provision device to LTE
+            2. Launch Settings - Network & Internet
+            3. Click on SIMs
+            4. Click on Access Point Names
+            5. Add New APN
+            6. Add TMO APN details and Save
+            7. Switch APN to New APN
+            8. Check Network is connected to LTE
+            9. Send MMS
+
+        Returns:
+            True is tests passes else False
+        """
+        caller, callee = self.android_devices[0], self.android_devices[1]
+
+        return tmo_apn_test(self.log, caller, callee, GEN_4G, msg_type='mms')

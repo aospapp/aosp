@@ -18,6 +18,7 @@
 
 #include <aidl/com/google/hardware/pixel/display/BnDisplay.h>
 
+#include "./histogram_mediator.h"
 #include "ExynosDevice.h"
 
 namespace aidl {
@@ -28,16 +29,16 @@ namespace pixel {
 namespace display {
 
 using aidl::android::hardware::common::NativeHandle;
-using RoiRect = ::aidl::android::hardware::graphics::common::Rect;
-using Weight = ::aidl::com::google::hardware::pixel::display::Weight;
-using HistogramPos = ::aidl::com::google::hardware::pixel::display::HistogramPos;
-using Priority = ::aidl::com::google::hardware::pixel::display::Priority;
-using HistogramErrorCode = ::aidl::com::google::hardware::pixel::display::HistogramErrorCode;
+using RoiRect = histogram::RoiRect;
+using Weight = histogram::Weight;
+using HistogramPos = histogram::HistogramPos;
+using Priority = histogram::Priority;
+using HistogramErrorCode = histogram::HistogramErrorCode;
 
 // Default implementation
 class Display : public BnDisplay {
 public:
-    Display(ExynosDevice *device) : mDevice(device){};
+    Display(ExynosDisplay *display) : mDisplay(display), mMediator(display) {}
 
     ndk::ScopedAStatus isHbmSupported(bool *_aidl_return) override;
     ndk::ScopedAStatus setHbmState(HbmState state) override;
@@ -58,9 +59,17 @@ public:
                                        Priority pri, std::vector<char16_t> *histogrambuffer,
                                        HistogramErrorCode *_aidl_return) override;
     ndk::ScopedAStatus getPanelCalibrationStatus(PanelCalibrationStatus *_aidl_return) override;
+    ndk::ScopedAStatus isDbmSupported(bool *_aidl_return) override;
+    ndk::ScopedAStatus setDbmState(bool enabled) override;
+    ndk::ScopedAStatus setPeakRefreshRate(int rate) override;
+    ndk::ScopedAStatus setLowPowerMode(bool enabled) override;
+    ndk::ScopedAStatus isOperationRateSupported(bool *_aidl_return) override;
 
 private:
-    ExynosDevice *mDevice = nullptr;
+    bool runMediator(const RoiRect &roi, const Weight &weight, const HistogramPos &pos,
+                       std::vector<char16_t> *histogrambuffer);
+    ExynosDisplay *mDisplay = nullptr;
+    histogram::HistogramMediator mMediator;
 };
 } // namespace display
 } // namespace pixel

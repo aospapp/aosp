@@ -20,22 +20,33 @@ android_test {
     name: "CtsVoiceInteractionTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
+        "CtsAttentionServiceDevice",
+        "CtsSoundTriggerInstrumentation",
         "CtsVoiceInteractionCommon",
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
         "androidx.test.ext.junit",
         "testng",
+        "platform-compat-test-rules",
     ],
+    aidl: {
+        local_include_dirs: [
+            "service/aidl",
+        ],
+    },
     srcs: [
         "src/**/*.java",
-        "service/src/android/voiceinteraction/service/BasicVoiceInteractionService.java",
+        "service/src/android/voiceinteraction/service/ProxyVoiceInteractionService.java",
         "service/src/android/voiceinteraction/service/MainHotwordDetectionService.java",
         "service/src/android/voiceinteraction/service/MainInteractionService.java",
         "service/src/android/voiceinteraction/service/MainInteractionSession.java",
         "service/src/android/voiceinteraction/service/MainInteractionSessionService.java",
         "service/src/android/voiceinteraction/service/MainRecognitionService.java",
         "service/src/android/voiceinteraction/service/EventPayloadParcelable.java",
-        "service/src/android/voiceinteraction/service/EventPayloadParcelable.aidl"
+        "service/src/android/voiceinteraction/service/EventPayloadParcelable.aidl",
+        "service/src/android/voiceinteraction/service/MainVisualQueryDetectionService.java",
+        "service/src/android/voiceinteraction/service/SimpleVoiceInteractionSession.java",
+        "service/aidl/android/voiceinteraction/service/*.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
@@ -43,6 +54,8 @@ android_test {
         "general-tests",
     ],
     sdk_version: "test_current",
+    // platform APIs required for CoreCompatChangeRule
+    platform_apis: true,
     data: [
         ":CtsNoRecognitionVoiceInteractionService",
         ":CtsVoiceInteractionApp",

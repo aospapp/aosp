@@ -16,6 +16,7 @@
 #ifndef ANDROID_HIDL_TASK_RUNNER_H
 #define ANDROID_HIDL_TASK_RUNNER_H
 
+#include <functional>
 #include <memory>
 #include <thread>
 

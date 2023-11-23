@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/symmetric_key.h>
 
+#include <utility>
+
 #include <assert.h>
 
 #include <openssl/err.h>
@@ -105,8 +107,8 @@ SymmetricKeyFactory::SupportedImportFormats(size_t* format_count) const {
 
 SymmetricKey::SymmetricKey(KeymasterKeyBlob&& key_material, AuthorizationSet&& hw_enforced,
                            AuthorizationSet&& sw_enforced, const KeyFactory* key_factory)
-    : Key(move(hw_enforced), move(sw_enforced), key_factory) {
-    key_material_ = move(key_material);
+    : Key(std::move(hw_enforced), std::move(sw_enforced), key_factory) {
+    key_material_ = std::move(key_material);
 }
 
 SymmetricKey::~SymmetricKey() {}

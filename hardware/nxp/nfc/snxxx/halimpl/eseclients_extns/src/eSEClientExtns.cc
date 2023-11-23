@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 #include "eSEClientExtns.h"
+
 #include <dlfcn.h>
 #include <hidl/LegacySupport.h>
 #include <unistd.h>
@@ -102,8 +103,7 @@ void perform_eSEClientUpdate() {
 ** Function         eSEClientUpdate_NFC_Thread
 **
 ** Description      Interface API to dynamically invoke
-*eSEClientUpdate_NFC_Thread
-**                  method.
+**                  eSEClientUpdate_NFC_Thread method.
 **
 ** Parameters       none
 **

@@ -69,6 +69,11 @@ public class GenerateImagesActivity extends Activity {
         String assetDensityFailureMsg = checkAssetDensity();
         if (assetDensityFailureMsg != null) {
             finish("Failed to verify device assets: "+ assetDensityFailureMsg, false);
+        }
+
+        mOutputDir = setupOutputDirectory();
+        if (mOutputDir == null) {
+            finish("Failed to create output directory " + OUT_DIR, false);
         } else {
             mOutputDir = setupOutputDirectory();
             if (mOutputDir == null) {

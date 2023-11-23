@@ -18,7 +18,19 @@
 #define MEDIACTSNATIVE_NATIVE_MEDIA_COMMON_H
 
 #include <inttypes.h>
+#include <string>
+#include <vector>
 #include <media/NdkMediaFormat.h>
+
+// Migrate this method to std::format when C++20 becomes available
+template <typename... Args>
+std::string StringFormat(const std::string& format, Args... args) {
+    auto size = std::snprintf(nullptr, 0, format.c_str(), args...);
+    if (size < 0) return std::string();
+    std::vector<char> buffer(size + 1); // Add 1 for terminating null byte
+    std::snprintf(buffer.data(), buffer.size(), format.c_str(), args...);
+    return std::string(buffer.data(), size); // Exclude the terminating null byte
+}
 
 extern const char* AMEDIA_MIMETYPE_VIDEO_VP8;
 extern const char* AMEDIA_MIMETYPE_VIDEO_VP9;
@@ -34,6 +46,7 @@ extern const char* AMEDIA_MIMETYPE_AUDIO_AAC;
 extern const char* AMEDIA_MIMETYPE_AUDIO_FLAC;
 extern const char* AMEDIA_MIMETYPE_AUDIO_VORBIS;
 extern const char* AMEDIA_MIMETYPE_AUDIO_OPUS;
+extern const char* AMEDIA_MIMETYPE_AUDIO_RAW;
 
 extern const float kRmsErrorTolerance;
 
@@ -70,6 +83,8 @@ static const int kBitrateModeConstant = 2;
 // common utility functions
 bool isCSDIdentical(AMediaFormat* refFormat, AMediaFormat* testFormat);
 bool isFormatSimilar(AMediaFormat* refFormat, AMediaFormat* testFormat);
+AMediaFormat* deSerializeMediaFormat(const char* msg, const char* separator);
+bool isMediaTypeOutputUnAffectedBySeek(const char* mediaType);
 
 template <class T>
 void flattenField(uint8_t* buffer, int* pos, T value);

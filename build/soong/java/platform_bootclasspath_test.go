@@ -18,14 +18,12 @@ import (
 	"testing"
 
 	"android/soong/android"
-	"android/soong/dexpreopt"
 )
 
 // Contains some simple tests for platform_bootclasspath.
 
 var prepareForTestWithPlatformBootclasspath = android.GroupFixturePreparers(
 	PrepareForTestWithJavaDefaultModules,
-	dexpreopt.PrepareForTestByEnablingDexpreopt,
 )
 
 func TestPlatformBootclasspath(t *testing.T) {
@@ -51,6 +49,7 @@ func TestPlatformBootclasspath(t *testing.T) {
 	var addSourceBootclassPathModule = android.FixtureAddTextFile("source/Android.bp", `
 		java_library {
 			name: "foo",
+			host_supported: true, // verify that b/232106778 is fixed
 			srcs: ["a.java"],
 			system_modules: "none",
 			sdk_version: "none",
@@ -271,7 +270,9 @@ func TestPlatformBootclasspath_Dist(t *testing.T) {
 	entries := android.AndroidMkEntriesForTest(t, result.TestContext, platformBootclasspath)
 	goals := entries[0].GetDistForGoals(platformBootclasspath)
 	android.AssertStringEquals(t, "platform dist goals phony", ".PHONY: droidcore\n", goals[0])
-	android.AssertStringEquals(t, "platform dist goals call", "$(call dist-for-goals,droidcore,out/soong/hiddenapi/hiddenapi-flags.csv:hiddenapi-flags.csv)\n", android.StringRelativeToTop(result.Config, goals[1]))
+	android.AssertStringDoesContain(t, "platform dist goals meta check", goals[1], "$(if $(strip $(ALL_TARGETS.")
+	android.AssertStringDoesContain(t, "platform dist goals meta assign", goals[1], "),,$(eval ALL_TARGETS.")
+	android.AssertStringEquals(t, "platform dist goals call", "$(call dist-for-goals,droidcore,out/soong/hiddenapi/hiddenapi-flags.csv:hiddenapi-flags.csv)\n", android.StringRelativeToTop(result.Config, goals[2]))
 }
 
 func TestPlatformBootclasspath_HiddenAPIMonolithicFiles(t *testing.T) {

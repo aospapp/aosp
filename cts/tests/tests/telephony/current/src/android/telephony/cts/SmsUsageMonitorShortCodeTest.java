@@ -500,7 +500,7 @@ public class SmsUsageMonitorShortCodeTest {
             // in country B. It is intended that the destination will be changed because of this
             // reason. checkDestination() returns CATEGORY_NOT_SHORT_CODE for emergency numbers.
             if (test.category != SMS_CATEGORY_NOT_SHORT_CODE
-                    && PhoneNumberUtils.isEmergencyNumber(test.address, test.countryIso)) {
+                    && PhoneNumberUtils.isEmergencyNumber(test.address)) {
                 continue;
             }
             assertEquals("country: " + test.countryIso + " number: " + test.address,

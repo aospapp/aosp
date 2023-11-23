@@ -36,6 +36,8 @@ struct Namespace {
   std::vector<std::string> permitted_path;
   std::vector<std::string> asan_search_path;
   std::vector<std::string> asan_permitted_path;
+  std::vector<std::string> hwasan_search_path;
+  std::vector<std::string> hwasan_permitted_path;
   std::map<std::string, Link> links;
   std::vector<std::string> allowed_libs;
 };

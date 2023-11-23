@@ -23,9 +23,11 @@ import android.app.Instrumentation
 import android.app.UiAutomation
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Process
 import android.os.UserHandle
 import android.platform.test.annotations.AppModeFull
+import androidx.test.filters.SdkSuppress
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.compatibility.common.util.SystemUtil
 import org.junit.After
@@ -36,6 +38,7 @@ import org.junit.Before
 import org.junit.Test
 
 @AppModeFull
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 class StorageEscalationTest {
     companion object {
         private const val APK_DIRECTORY = "/data/local/tmp/cts/permissions"

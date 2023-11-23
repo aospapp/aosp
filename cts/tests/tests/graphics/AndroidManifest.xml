@@ -38,6 +38,16 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name="android.graphics.cts.FrameRateOverrideCtsActivity"
+            android:label="FrameRateOverrideCtsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.graphics.cts.ImageViewCtsActivity"
              android:label="ImageViewCtsActivity"
              android:exported="true">

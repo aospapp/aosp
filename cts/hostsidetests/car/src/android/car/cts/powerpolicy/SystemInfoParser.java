@@ -18,6 +18,7 @@ package android.car.cts.powerpolicy;
 
 import com.android.tradefed.log.LogUtil.CLog;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.function.Function;
 
@@ -34,6 +35,8 @@ public final class SystemInfoParser<T> implements Function<String, T> {
             Method m = mType.getMethod("parse", String.class);
             Object ret = m.invoke(null, cmdOutput);
             t = mType.cast(ret);
+        } catch (InvocationTargetException e) {
+            CLog.wtf("ERROR: Apply failed with " + cmdOutput, e.getTargetException());
         } catch (Exception e) {
             CLog.wtf("ERROR: Apply failed with " + cmdOutput, e);
         }

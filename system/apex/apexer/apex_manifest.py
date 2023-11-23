@@ -26,13 +26,7 @@ class ApexManifestError(Exception):
     self.errmessage = errmessage
 
 
-def ValidateApexManifest(file):
-  try:
-    with open(file, "rb") as f:
-      manifest_pb = apex_manifest_pb2.ApexManifest()
-      manifest_pb.ParseFromString(f.read())
-  except message.DecodeError as err:
-    raise ApexManifestError(err)
+def ValidateApexManifest(manifest_pb):
   # Checking required fields
   if manifest_pb.name == "":
     raise ApexManifestError("'name' field is required.")
@@ -43,7 +37,15 @@ def ValidateApexManifest(file):
     raise ApexManifestError(
         "'noCode' can't be true when either preInstallHook or postInstallHook is set"
     )
-  return manifest_pb
+
+def ParseApexManifest(file):
+  try:
+    with open(file, "rb") as f:
+      manifest_pb = apex_manifest_pb2.ApexManifest()
+      manifest_pb.ParseFromString(f.read())
+      return manifest_pb
+  except message.DecodeError as err:
+    raise ApexManifestError(err)
 
 def fromApex(apexFilePath):
   with zipfile.ZipFile(apexFilePath, 'r') as apexFile:

@@ -27,14 +27,17 @@ android_test {
     static_libs: [
         "androidx.test.ext.junit",
         "androidx.test.runner",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "collector-device-lib",
         "junit",
         "mockito-target-minus-junit4",
         "perfetto-helper",
+        "truth-prebuilt",
     ],
 
     sdk_version: "current",
 
     test_suites: ["general-tests"],
+
+    data: ["testdata/*"],
 }

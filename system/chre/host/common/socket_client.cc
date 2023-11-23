@@ -24,6 +24,7 @@
 #include <chrono>
 
 #include <cutils/sockets.h>
+#include <sys/epoll.h>
 #include <sys/socket.h>
 #include <utils/RefBase.h>
 #include <utils/StrongPointer.h>
@@ -142,7 +143,37 @@ void SocketClient::receiveThread() {
 
   LOGV("Receive thread started");
   while (!mGracefulShutdown && (mSockFd != INVALID_SOCKET || reconnect())) {
+    struct epoll_event requestedEvent;
+    requestedEvent.data.fd = mSockFd;
+    requestedEvent.events = EPOLLIN | EPOLLWAKEUP;
+
+    int epollFd = TEMP_FAILURE_RETRY(epoll_create1(0));
+    if (epollFd < 0) {
+      LOG_ERROR("Error creating epoll fd", errno);
+      break;
+    }
+
+    if (TEMP_FAILURE_RETRY(epoll_ctl(epollFd, EPOLL_CTL_ADD,
+                                     requestedEvent.data.fd, &requestedEvent)) <
+        0) {
+      LOG_ERROR("Error adding socket fd to epoll", errno);
+      close(epollFd);
+      break;
+    }
+
     while (!mGracefulShutdown) {
+      struct epoll_event returnedEvent;
+      // Blockingly wait for the next epoll event. The implicit wakelock will be
+      // held until the next call to epoll_wait on the same epoll file
+      // descriptor
+      int eventsReady = TEMP_FAILURE_RETRY(epoll_wait(epollFd, &returnedEvent,
+                                                      /* event_count= */ 1,
+                                                      /* timeout_ms= */ -1));
+      if (eventsReady < 0) {
+        LOG_ERROR("Poll error", errno);
+        break;
+      }
+
       ssize_t bytesReceived = recv(mSockFd, buffer, sizeof(buffer), 0);
       if (bytesReceived < 0) {
         LOG_ERROR("Exiting RX thread", errno);
@@ -162,6 +193,7 @@ void SocketClient::receiveThread() {
       LOG_ERROR("Couldn't close socket", errno);
     }
     mSockFd = INVALID_SOCKET;
+    close(epollFd);
   }
 
   if (!mGracefulShutdown) {

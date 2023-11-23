@@ -21,8 +21,17 @@
     <!-- To enable the app to start activities from the background. -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
 
     <application android:testOnly="true" android:manageSpaceActivity=".BackgroundActivity">
+        <uses-library android:name="androidx.window.extensions"
+            android:required="false" />
         <receiver android:name=".StartBackgroundActivityReceiver"
              android:exported="true"/>
         <receiver android:name=".SendPendingIntentReceiver"
@@ -41,6 +50,9 @@
         <activity android:name=".ForegroundActivity"
              android:taskAffinity=".am_cts_bg_task_a"
              android:exported="true"/>
+        <activity android:name=".ForegroundEmbeddingActivity"
+            android:taskAffinity=".am_cts_bg_task_asd"
+            android:exported="true"/>
         <activity android:name=".BackgroundActivity"
              android:taskAffinity=".am_cts_bg_task_b"
              android:exported="true"/>
@@ -51,6 +63,8 @@
         <activity android:name=".PipActivity"
                   android:exported="true"
                   android:supportsPictureInPicture="true"/>
+        <activity android:name=".LaunchIntoPipActivity"
+                    android:exported="true"/>
         <activity android:name=".VirtualDisplayActivity"
                   android:exported="true"/>
         <activity android:name=".WidgetConfigTestActivity"
@@ -62,5 +76,16 @@
             <meta-data android:name="android.appwidget.provider"
                        android:resource="@xml/my_appwidget_info" />
         </receiver>
+        <activity android:name=".SystemBoundRelaunchingActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <service
+            android:name=".ActivityStarterService"
+            android:enabled="true"
+            android:exported="true">
+        </service>
     </application>
 </manifest>

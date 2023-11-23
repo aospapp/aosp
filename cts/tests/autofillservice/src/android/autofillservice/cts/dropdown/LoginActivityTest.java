@@ -37,12 +37,15 @@ import static android.autofillservice.cts.testcore.Helper.assertTextIsSanitized;
 import static android.autofillservice.cts.testcore.Helper.assertTextOnly;
 import static android.autofillservice.cts.testcore.Helper.assertValue;
 import static android.autofillservice.cts.testcore.Helper.assertViewAutofillState;
+import static android.autofillservice.cts.testcore.Helper.disablePccDetectionFeature;
 import static android.autofillservice.cts.testcore.Helper.disallowOverlays;
 import static android.autofillservice.cts.testcore.Helper.dumpStructure;
+import static android.autofillservice.cts.testcore.Helper.enablePccDetectionFeature;
 import static android.autofillservice.cts.testcore.Helper.findAutofillIdByResourceId;
 import static android.autofillservice.cts.testcore.Helper.findNodeByResourceId;
 import static android.autofillservice.cts.testcore.Helper.getActivityTitle;
 import static android.autofillservice.cts.testcore.Helper.isAutofillWindowFullScreen;
+import static android.autofillservice.cts.testcore.Helper.isPccFieldClassificationSet;
 import static android.autofillservice.cts.testcore.Helper.setUserComplete;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillService.SERVICE_CLASS;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillService.SERVICE_PACKAGE;
@@ -62,6 +65,7 @@ import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PAYMENT_CARD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
 import static android.text.InputType.TYPE_NULL;
 import static android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD;
+import static android.view.View.AUTOFILL_HINT_USERNAME;
 import static android.view.View.IMPORTANT_FOR_AUTOFILL_NO;
 import static android.view.WindowManager.LayoutParams.FLAG_SECURE;
 
@@ -82,6 +86,7 @@ import android.autofillservice.cts.testcore.CannedFillResponse;
 import android.autofillservice.cts.testcore.CannedFillResponse.CannedDataset;
 import android.autofillservice.cts.testcore.DismissType;
 import android.autofillservice.cts.testcore.Helper;
+import android.autofillservice.cts.testcore.IdMode;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.FillRequest;
 import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequest;
 import android.autofillservice.cts.testcore.MyAutofillCallback;
@@ -105,7 +110,6 @@ import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.service.autofill.FillContext;
 import android.service.autofill.SaveInfo;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.View;
 import android.view.View.AccessibilityDelegate;
@@ -119,9 +123,11 @@ import android.widget.RemoteViews;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.FlakyTest;
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.compatibility.common.util.RetryableException;
 
+import org.junit.After;
 import org.junit.Test;
 
 import java.util.concurrent.CountDownLatch;
@@ -135,6 +141,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class LoginActivityTest extends LoginActivityCommonTestCase {
 
     private static final String TAG = "LoginActivityTest";
+
+    @After
+    public void disablePcc() {
+        Log.d(TAG, "@After: disablePcc()");
+        disablePccDetectionFeature(sContext);
+    }
 
     @Test
     @AppModeFull(reason = "testAutoFillOneDataset() is enough")
@@ -403,6 +415,76 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         BOTH
     }
 
+    @FlakyTest(bugId = 281726966)
+    @Test
+    public void autofillPccDatasetTest_setForAllHints() throws Exception {
+        // Set service.
+        enablePccDetectionFeature(sContext, "username", "password", "new_password");
+        sReplier.setIdMode(IdMode.PCC_ID);
+        enableService();
+
+        boolean isPccEnabled = isPccFieldClassificationSet(sContext);
+
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(AUTOFILL_HINT_USERNAME, "dude")
+                        .setField("allField1")
+                        .setPresentation(createPresentation("The Dude"))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setField("allField2")
+                        .setPresentation(createPresentation("generic user"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        // Trigger auto-fill.
+        requestFocusOnUsername();
+
+        final FillRequest request = sReplier.getNextFillRequest();
+        if (isPccEnabled) {
+            assertThat(request.hints.size()).isEqualTo(3);
+        }
+
+        disablePccDetectionFeature(sContext);
+        sReplier.setIdMode(IdMode.RESOURCE_ID);
+    }
+
+    @FlakyTest(bugId = 281726966)
+    @Test
+    public void autofillPccDatasetTest() throws Exception {
+        // Set service.
+        enablePccDetectionFeature(sContext, "username");
+        sReplier.setIdMode(IdMode.PCC_ID);
+        enableService();
+
+        boolean isPccEnabled = isPccFieldClassificationSet(sContext);
+
+        final CannedFillResponse.Builder builder = new CannedFillResponse.Builder()
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "dude")
+                        .setField(ID_PASSWORD, "sweet")
+                        .setPresentation(createPresentation("The Dude"))
+                        .build())
+                .addDataset(new CannedDataset.Builder()
+                        .setField(ID_USERNAME, "user1")
+                        .setField(ID_PASSWORD, "pass1")
+                        .setPresentation(createPresentation("generic user"))
+                        .build());
+        sReplier.addResponse(builder.build());
+
+        // Trigger auto-fill.
+        requestFocusOnUsername();
+
+        final FillRequest request = sReplier.getNextFillRequest();
+        if (isPccEnabled) {
+            assertThat(request.hints.size()).isEqualTo(1);
+            assertThat(request.hints.get(0)).isEqualTo("username");
+        }
+
+        disablePccDetectionFeature(sContext);
+        sReplier.setIdMode(IdMode.RESOURCE_ID);
+    }
+
     private void autofillOneDatasetTest(BorderType borderType) throws Exception {
         // Set service.
         enableService();
@@ -519,14 +601,34 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         final Rect usernamePickerBoundaries1 = mUiBot.assertDatasets("DUDE").getVisibleBounds();
         Log.v(TAG,
                 "Username1 at " + usernameBoundaries1 + "; picker at " + usernamePickerBoundaries1);
-        // TODO(b/37566627): assertions below might be too aggressive - use range instead?
-        if (pickerAndViewBoundsMatches) {
-            if (usernamePickerBoundaries1.top < usernameBoundaries1.bottom) {
-                assertThat(usernamePickerBoundaries1.bottom).isEqualTo(usernameBoundaries1.top);
-            } else {
-                assertThat(usernamePickerBoundaries1.top).isEqualTo(usernameBoundaries1.bottom);
-            }
 
+        if (pickerAndViewBoundsMatches) {
+            boolean isMockImeAvailable = sMockImeSessionRule.getMockImeSession() != null;
+            if (!isMockImeAvailable) {
+                // If Mock IME cannot be installed, depending on the height of the IME,
+                // picker may not be displayed just-below/just-above EditText.
+                // So, picker should be allowed to overlap with EditText.
+                // And it should be visible to the user.
+                // Gets the Activity visible frame to appWindowFrame.
+                // And checks whether all of the following conditions are matched.
+                //   1) Picker.top    <= Username1.bottom
+                //   2) Picker.bottom >= Username1.top
+                //   3) Picker        ∈ appWindowFrame
+                final Rect appWindowFrame = new Rect();
+                mActivity.getWindow().getDecorView().getWindowVisibleDisplayFrame(appWindowFrame);
+                Log.v(TAG, "appWindowFrame at " + appWindowFrame);
+
+                assertThat(usernamePickerBoundaries1.top).isAtMost(usernameBoundaries1.bottom);
+                assertThat(usernamePickerBoundaries1.bottom).isAtLeast(usernameBoundaries1.top);
+                assertThat(appWindowFrame.contains(usernamePickerBoundaries1)).isTrue();
+            } else {
+                // TODO(b/37566627): assertions below might be too aggressive - use range instead?
+                if (usernamePickerBoundaries1.top < usernameBoundaries1.bottom) {
+                    assertThat(usernamePickerBoundaries1.bottom).isEqualTo(usernameBoundaries1.top);
+                } else {
+                    assertThat(usernamePickerBoundaries1.top).isEqualTo(usernameBoundaries1.bottom);
+                }
+            }
             assertThat(usernamePickerBoundaries1.left).isEqualTo(usernameBoundaries1.left);
         }
 
@@ -877,6 +979,7 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         mActivity.assertAutoFilled();
     }
 
+    @FlakyTest(bugId = 275112488)
     @Test
     @AppModeFull(reason = "testAutofillCallbacks() is enough")
     public void testAutofillCallbackDisabled() throws Exception {
@@ -1516,20 +1619,24 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_PASSWORD);
 
         // Then make sure it goes away when user doesn't want it..
+        String when;
         switch (dismissType) {
             case BACK_BUTTON:
+                when = "back button tapped";
                 mUiBot.pressBack();
                 break;
             case HOME_BUTTON:
+                when = "home button tapped";
                 mUiBot.pressHome();
                 break;
             case TOUCH_OUTSIDE:
+                when = "touched outside";
                 mUiBot.touchOutsideSaveDialog();
                 break;
             default:
                 throw new IllegalArgumentException("invalid dismiss type: " + dismissType);
         }
-        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD);
+        mUiBot.assertSaveNotShowing(SAVE_DATA_TYPE_PASSWORD, when);
     }
 
     @Test
@@ -1977,7 +2084,8 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
 
         // Configure the save UI.
         final IntentSender listener = PendingIntent.getBroadcast(mContext, 0,
-                new Intent(intentAction), PendingIntent.FLAG_IMMUTABLE).getIntentSender();
+                new Intent(intentAction).setPackage(mContext.getPackageName()),
+                PendingIntent.FLAG_IMMUTABLE).getIntentSender();
 
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, ID_USERNAME, ID_PASSWORD)
@@ -2578,10 +2686,10 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
 
         // Now disable user_complete and try again.
         try {
-            setUserComplete(mContext, false);
+            setUserComplete(false);
             Helper.assertAutofillEnabled(afm, false);
         } finally {
-            setUserComplete(mContext, true);
+            setUserComplete(true);
         }
     }
 
@@ -2605,7 +2713,7 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         mUiBot.assertDatasets("The Dude");
 
         // Now disable service by setting another service
-        Helper.enableAutofillService(mContext, NoOpAutofillService.SERVICE_NAME);
+        Helper.enableAutofillService(NoOpAutofillService.SERVICE_NAME);
 
         // ...and make sure popup's gone
         mUiBot.assertNoDatasets();
@@ -2643,7 +2751,7 @@ public class LoginActivityTest extends LoginActivityCommonTestCase {
         mUiBot.assertDatasets("The Dude");
 
         // Now disable service by setting another service...
-        Helper.enableAutofillService(mContext, serviceName);
+        Helper.enableAutofillService(serviceName);
 
         // ...and make sure popup's gone
         mUiBot.assertNoDatasets();

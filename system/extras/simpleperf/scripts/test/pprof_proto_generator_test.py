@@ -217,8 +217,8 @@ class TestPprofProtoGenerator(TestBase):
         binary_cache_builder.build_binary_cache(testdata_file, [TestHelper.testdata_dir])
 
         # Read recording file.
-        config = {'ndk_path': None, 'max_chain_length': 1000000,
-                  'report_lib_options': ReportLibOptions(False, '', None, None)}
+        config = {'ndk_path': TestHelper.ndk_path, 'max_chain_length': 1000000,
+                  'report_lib_options': ReportLibOptions(False, '', None, None, None)}
         generator = PprofProfileGenerator(config)
         generator.load_record_file(testdata_file)
 

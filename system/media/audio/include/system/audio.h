@@ -18,6 +18,7 @@
 #ifndef ANDROID_AUDIO_CORE_H
 #define ANDROID_AUDIO_CORE_H
 
+#include <float.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -43,6 +44,12 @@
 #define FALLTHROUGH_INTENDED
 #endif // __cplusplus
 #endif // FALLTHROUGH_INTENDED
+
+#ifdef __cplusplus
+#define CONSTEXPR constexpr
+#else
+#define CONSTEXPR
+#endif
 
 __BEGIN_DECLS
 
@@ -118,6 +125,8 @@ typedef struct {
     audio_flags_mask_t   flags;
     char                 tags[AUDIO_ATTRIBUTES_TAGS_MAX_SIZE]; /* UTF8 */
 } __attribute__((packed)) audio_attributes_t; // sent through Binder;
+/** The separator for tags. */
+static const char AUDIO_ATTRIBUTES_TAGS_SEPARATOR = ';';
 
 static const audio_attributes_t AUDIO_ATTRIBUTES_INITIALIZER = {
     /* .content_type = */ AUDIO_CONTENT_TYPE_UNKNOWN,
@@ -193,7 +202,7 @@ static inline audio_unique_id_use_t audio_unique_id_get_use(audio_unique_id_t id
     return (audio_unique_id_use_t) (id & AUDIO_UNIQUE_ID_USE_MASK);
 }
 
-typedef enum {
+typedef enum : int32_t {
     AUDIO_SESSION_DEVICE = HAL_AUDIO_SESSION_DEVICE,
     AUDIO_SESSION_OUTPUT_STAGE = HAL_AUDIO_SESSION_OUTPUT_STAGE,
     AUDIO_SESSION_OUTPUT_MIX = HAL_AUDIO_SESSION_OUTPUT_MIX,
@@ -267,7 +276,7 @@ enum {
 #define AUDIO_CHANNEL_REPRESENTATION_LOG2   2
 
 /* The return value is undefined if the channel mask is invalid. */
-static inline uint32_t audio_channel_mask_get_bits(audio_channel_mask_t channel)
+static inline CONSTEXPR uint32_t audio_channel_mask_get_bits(audio_channel_mask_t channel)
 {
     return channel & ((1 << AUDIO_CHANNEL_COUNT_MAX) - 1);
 }
@@ -278,7 +287,7 @@ typedef enum {
 } audio_channel_representation_t;
 
 /* The return value is undefined if the channel mask is invalid. */
-static inline audio_channel_representation_t audio_channel_mask_get_representation(
+static inline CONSTEXPR audio_channel_representation_t audio_channel_mask_get_representation(
         audio_channel_mask_t channel)
 {
     // The right shift should be sufficient, but also "and" for safety in case mask is not 32 bits
@@ -288,7 +297,7 @@ static inline audio_channel_representation_t audio_channel_mask_get_representati
 
 #ifdef __cplusplus
 // Some effects use `int32_t` directly for channel mask.
-static inline uint32_t audio_channel_mask_get_representation(int32_t mask) {
+static inline constexpr uint32_t audio_channel_mask_get_representation(int32_t mask) {
     return audio_channel_mask_get_representation(static_cast<audio_channel_mask_t>(mask));
 }
 #endif
@@ -300,7 +309,7 @@ static inline uint32_t audio_channel_mask_get_representation(int32_t mask) {
  * or because an input mask has an invalid input bit set.
  * All other APIs that take a channel mask assume that it is valid.
  */
-static inline bool audio_channel_mask_is_valid(audio_channel_mask_t channel)
+static inline CONSTEXPR bool audio_channel_mask_is_valid(audio_channel_mask_t channel)
 {
     uint32_t bits = audio_channel_mask_get_bits(channel);
     audio_channel_representation_t representation = audio_channel_mask_get_representation(channel);
@@ -316,14 +325,15 @@ static inline bool audio_channel_mask_is_valid(audio_channel_mask_t channel)
 }
 
 /* Not part of public API */
-static inline audio_channel_mask_t audio_channel_mask_from_representation_and_bits(
+static inline CONSTEXPR audio_channel_mask_t audio_channel_mask_from_representation_and_bits(
         audio_channel_representation_t representation, uint32_t bits)
 {
     return (audio_channel_mask_t) ((representation << AUDIO_CHANNEL_COUNT_MAX) | bits);
 }
 
 /*
- * Returns true so long as Quadraphonic channels (FL, FR, BL, BR) are completely specified
+ * Returns true so long as Quadraphonic channels (FL, FR, BL, BR)
+ * or (FL, FR, SL, SR) are completely specified
  * in the channel mask. We expect these 4 channels to be the minimum for
  * reasonable spatializer effect quality.
  *
@@ -338,10 +348,46 @@ static inline audio_channel_mask_t audio_channel_mask_from_representation_and_bi
  * AUDIO_CHANNEL_OUT_13POINT_360RA
  * AUDIO_CHANNEL_OUT_22POINT2
  */
-static inline bool audio_is_channel_mask_spatialized(audio_channel_mask_t channelMask) {
+static inline CONSTEXPR bool audio_is_channel_mask_spatialized(audio_channel_mask_t channelMask) {
     return audio_channel_mask_get_representation(channelMask)
                 == AUDIO_CHANNEL_REPRESENTATION_POSITION
-            && (channelMask & AUDIO_CHANNEL_OUT_QUAD) == AUDIO_CHANNEL_OUT_QUAD;
+            && ((channelMask & AUDIO_CHANNEL_OUT_QUAD) == AUDIO_CHANNEL_OUT_QUAD
+                || (channelMask & AUDIO_CHANNEL_OUT_QUAD_SIDE) == AUDIO_CHANNEL_OUT_QUAD_SIDE);
+}
+
+/*
+ * MediaFormat channel masks follow the Java channel mask spec
+ * but might be specified as a native channel mask.  This method
+ * does a "smart" correction to ensure a native channel mask.
+ */
+static inline audio_channel_mask_t
+audio_channel_mask_from_media_format_mask(int32_t channelMaskFromFormat) {
+    // KEY_CHANNEL_MASK follows the android.media.AudioFormat java mask
+    // which is left-bitshifted by 2 relative to the native mask
+    if ((channelMaskFromFormat & 0b11) != 0) {
+        // received an unexpected mask (supposed to follow AudioFormat constants
+        // for output masks with the 2 least-significant bits at 0), but
+        // it may come from an extractor that uses native masks: keeping
+        // the mask as given is ok as it contains at least mono or stereo
+        // and potentially the haptic channels
+        return (audio_channel_mask_t)channelMaskFromFormat;
+    } else {
+        // We exclude bits from the lowest haptic bit all the way to the top of int.
+        // to avoid aliasing.  The remainder bits are position bits
+        // which must be shifted by 2 from Java to get native.
+        //
+        // Using the lowest set bit exclusion AND mask (x - 1), we find
+        // all the bits from lowest set bit to the top is m = x | ~(x - 1).
+        // Using the one's complement to two's complement formula ~x = -x - 1,
+        // we can reduce this to m = x | -x.
+        // (Note -x is also the lowest bit extraction AND mask; i.e. lowest_bit = x & -x).
+        const int32_t EXCLUDE_BITS = AUDIO_CHANNEL_HAPTIC_ALL | -AUDIO_CHANNEL_HAPTIC_ALL;
+        const int32_t positionBits = (channelMaskFromFormat & ~EXCLUDE_BITS) >> 2;
+
+        // Haptic bits are identical between Java and native.
+        const int32_t hapticBits = channelMaskFromFormat & AUDIO_CHANNEL_HAPTIC_ALL;
+        return (audio_channel_mask_t)(positionBits | hapticBits);
+    }
 }
 
 /**
@@ -699,9 +745,11 @@ struct audio_port {
     } ext;
 };
 
-typedef enum {
+typedef enum : int32_t {
     AUDIO_STANDARD_NONE = 0,
     AUDIO_STANDARD_EDID = 1,
+    AUDIO_STANDARD_SADB = 2,
+    AUDIO_STANDARD_VSADB = 3,
 } audio_standard_t;
 
 /**
@@ -1415,6 +1463,13 @@ static inline bool audio_is_ble_unicast_device(audio_devices_t device)
             AUDIO_DEVICE_OUT_BLE_UNICAST_CNT, device);
 }
 
+static inline bool audio_is_ble_broadcast_device(audio_devices_t device)
+{
+    return audio_binary_search_device_array(
+            AUDIO_DEVICE_OUT_BLE_BROADCAST_ARRAY, 0 /*left*/,
+            AUDIO_DEVICE_OUT_BLE_BROADCAST_CNT, device);
+}
+
 static inline bool audio_is_ble_in_device(audio_devices_t device)
 {
     return audio_binary_search_device_array(
@@ -1454,7 +1509,7 @@ static inline bool audio_is_input_channel(audio_channel_mask_t channel)
  *  there are no channel bits set which could _not_ correspond to an output channel.
  * Otherwise returns false.
  */
-static inline bool audio_is_output_channel(audio_channel_mask_t channel)
+static inline CONSTEXPR bool audio_is_output_channel(audio_channel_mask_t channel)
 {
     uint32_t bits = audio_channel_mask_get_bits(channel);
     switch (audio_channel_mask_get_representation(channel)) {
@@ -1476,7 +1531,7 @@ static inline bool audio_is_output_channel(audio_channel_mask_t channel)
  * it is excluded from the count.
  * Returns zero if the representation is invalid.
  */
-static inline uint32_t audio_channel_count_from_in_mask(audio_channel_mask_t channel)
+static inline CONSTEXPR uint32_t audio_channel_count_from_in_mask(audio_channel_mask_t channel)
 {
     uint32_t bits = audio_channel_mask_get_bits(channel);
     switch (audio_channel_mask_get_representation(channel)) {
@@ -1494,7 +1549,7 @@ static inline uint32_t audio_channel_count_from_in_mask(audio_channel_mask_t cha
 #ifdef __cplusplus
 // FIXME(b/169889714): buffer_config_t uses `uint32_t` for the mask.
 // A lot of effects code thus use `uint32_t` directly.
-static inline uint32_t audio_channel_count_from_in_mask(uint32_t mask) {
+static inline CONSTEXPR uint32_t audio_channel_count_from_in_mask(uint32_t mask) {
     return audio_channel_count_from_in_mask(static_cast<audio_channel_mask_t>(mask));
 }
 #endif
@@ -1505,7 +1560,7 @@ static inline uint32_t audio_channel_count_from_in_mask(uint32_t mask) {
  * it is excluded from the count.
  * Returns zero if the representation is invalid.
  */
-static inline uint32_t audio_channel_count_from_out_mask(audio_channel_mask_t channel)
+static inline CONSTEXPR uint32_t audio_channel_count_from_out_mask(audio_channel_mask_t channel)
 {
     uint32_t bits = audio_channel_mask_get_bits(channel);
     switch (audio_channel_mask_get_representation(channel)) {
@@ -1523,7 +1578,7 @@ static inline uint32_t audio_channel_count_from_out_mask(audio_channel_mask_t ch
 #ifdef __cplusplus
 // FIXME(b/169889714): buffer_config_t uses `uint32_t` for the mask.
 // A lot of effects code thus use `uint32_t` directly.
-static inline uint32_t audio_channel_count_from_out_mask(uint32_t mask) {
+static inline CONSTEXPR uint32_t audio_channel_count_from_out_mask(uint32_t mask) {
     return audio_channel_count_from_out_mask(static_cast<audio_channel_mask_t>(mask));
 }
 #endif
@@ -1533,7 +1588,7 @@ static inline uint32_t audio_channel_count_from_out_mask(uint32_t mask) {
  * or AUDIO_CHANNEL_NONE if the channel count is zero,
  * or AUDIO_CHANNEL_INVALID if the channel count exceeds AUDIO_CHANNEL_COUNT_MAX.
  */
-static inline audio_channel_mask_t audio_channel_mask_for_index_assignment_from_count(
+static inline CONSTEXPR audio_channel_mask_t audio_channel_mask_for_index_assignment_from_count(
         uint32_t channel_count)
 {
     if (channel_count == 0) {
@@ -1557,9 +1612,10 @@ static inline audio_channel_mask_t audio_channel_mask_for_index_assignment_from_
  * or AUDIO_CHANNEL_INVALID if the channel count exceeds that of the
  * configurations for which a default output channel mask is defined.
  */
-static inline audio_channel_mask_t audio_channel_out_mask_from_count(uint32_t channel_count)
+static inline CONSTEXPR audio_channel_mask_t audio_channel_out_mask_from_count(
+        uint32_t channel_count)
 {
-    uint32_t bits;
+    uint32_t bits = 0;
     switch (channel_count) {
     case 0:
         return AUDIO_CHANNEL_NONE;
@@ -1587,6 +1643,9 @@ static inline audio_channel_mask_t audio_channel_out_mask_from_count(uint32_t ch
     case FCC_8:
         bits = AUDIO_CHANNEL_OUT_7POINT1;
         break;
+    case 10: // 5.1.4
+        bits = AUDIO_CHANNEL_OUT_5POINT1POINT4;
+        break;
     case FCC_12:
         bits = AUDIO_CHANNEL_OUT_7POINT1POINT4;
         break;
@@ -1607,9 +1666,10 @@ static inline audio_channel_mask_t audio_channel_out_mask_from_count(uint32_t ch
  * or AUDIO_CHANNEL_INVALID if the channel count exceeds that of the
  * configurations for which a default input channel mask is defined.
  */
-static inline audio_channel_mask_t audio_channel_in_mask_from_count(uint32_t channel_count)
+static inline CONSTEXPR audio_channel_mask_t audio_channel_in_mask_from_count(
+        uint32_t channel_count)
 {
-    uint32_t bits;
+    uint32_t bits = 0;
     switch (channel_count) {
     case 0:
         return AUDIO_CHANNEL_NONE;
@@ -1687,6 +1747,12 @@ static inline audio_channel_mask_t audio_channel_mask_out_to_in(audio_channel_ma
     default:
         return AUDIO_CHANNEL_INVALID;
     }
+}
+
+static inline audio_channel_mask_t audio_channel_mask_out_to_in_index_mask(audio_channel_mask_t out)
+{
+    return audio_channel_mask_for_index_assignment_from_count(
+            audio_channel_count_from_out_mask(out));
 }
 
 static inline bool audio_channel_position_mask_is_out_canonical(audio_channel_mask_t channelMask)
@@ -1831,6 +1897,8 @@ static inline bool audio_is_valid_format(audio_format_t format)
     case AUDIO_FORMAT_LHDC_LL:
     case AUDIO_FORMAT_APTX_TWSP:
     case AUDIO_FORMAT_LC3:
+    case AUDIO_FORMAT_APTX_ADAPTIVE_QLEA:
+    case AUDIO_FORMAT_APTX_ADAPTIVE_R4:
         return true;
     case AUDIO_FORMAT_MPEGH:
         switch (format) {
@@ -1845,6 +1913,8 @@ static inline bool audio_is_valid_format(audio_format_t format)
         /* not reached */
     case AUDIO_FORMAT_DTS_UHD:
     case AUDIO_FORMAT_DRA:
+    case AUDIO_FORMAT_DTS_HD_MA:
+    case AUDIO_FORMAT_DTS_UHD_P2:
         return true;
     default:
         return false;
@@ -2161,6 +2231,49 @@ typedef enum {
 } audio_offload_mode_t;
 #endif // AUDIO_NO_SYSTEM_DECLARATIONS
 
+typedef enum : int32_t {
+    AUDIO_MIXER_BEHAVIOR_INVALID = -1,
+    AUDIO_MIXER_BEHAVIOR_DEFAULT = 0,
+    AUDIO_MIXER_BEHAVIOR_BIT_PERFECT = 1,
+} audio_mixer_behavior_t;
+
+struct audio_mixer_attributes {
+    audio_config_base_t config;
+    audio_mixer_behavior_t mixer_behavior;
+};
+
+typedef struct audio_mixer_attributes audio_mixer_attributes_t;
+
+static const audio_mixer_attributes_t AUDIO_MIXER_ATTRIBUTES_INITIALIZER = {
+    /* .config */ {
+        /* .sample_rate*/ 0,
+        /* .channel_mask*/ AUDIO_CHANNEL_NONE,
+        /* .format */ AUDIO_FORMAT_DEFAULT,
+    },
+    /* .mixer_behavior */ AUDIO_MIXER_BEHAVIOR_DEFAULT,
+};
+
+static inline audio_output_flags_t audio_output_flags_from_mixer_behavior(
+        audio_mixer_behavior_t mixerBehavior) {
+    switch (mixerBehavior) {
+        case AUDIO_MIXER_BEHAVIOR_BIT_PERFECT:
+            return AUDIO_OUTPUT_FLAG_BIT_PERFECT;
+        case AUDIO_MIXER_BEHAVIOR_DEFAULT:
+        default:
+            return AUDIO_OUTPUT_FLAG_NONE;
+    }
+}
+
+inline const char* audio_channel_mask_to_string(audio_channel_mask_t channel_mask) {
+    if (audio_is_input_channel(channel_mask)) {
+        return audio_channel_in_mask_to_string(channel_mask);
+    } else if (audio_is_output_channel(channel_mask)) {
+        return audio_channel_out_mask_to_string(channel_mask);
+    } else {
+        return audio_channel_index_mask_to_string(channel_mask);
+    }
+}
+
 __END_DECLS
 
 /**
@@ -2204,13 +2317,24 @@ __END_DECLS
 
 #define AUDIO_PARAMETER_VALUE_ON "on"
 #define AUDIO_PARAMETER_VALUE_OFF "off"
+#define AUDIO_PARAMETER_VALUE_TRUE "true"
+#define AUDIO_PARAMETER_VALUE_FALSE "false"
 
 /**
  *  audio device parameters
  */
 
+/* Used to enable or disable BT SCO */
+#define AUDIO_PARAMETER_KEY_BT_SCO "BT_SCO"
+
 /* BT SCO Noise Reduction + Echo Cancellation parameters */
 #define AUDIO_PARAMETER_KEY_BT_NREC "bt_headset_nrec"
+
+/* Used to enable or disable BT A2DP */
+#define AUDIO_PARAMETER_KEY_BT_A2DP_SUSPENDED "A2dpSuspended"
+
+/* Used to enable or disable BT LE */
+#define AUDIO_PARAMETER_KEY_BT_LE_SUSPENDED "LeAudioSuspended"
 
 /* Get a new HW synchronization source identifier.
  * Return a valid source (positive integer) or AUDIO_HW_SYNC_INVALID if an error occurs
@@ -2223,6 +2347,18 @@ __END_DECLS
 /* User's preferred audio language setting (in ISO 639-2/T three-letter string code)
  * used to select a specific language presentation for next generation audio codecs. */
 #define AUDIO_PARAMETER_KEY_AUDIO_LANGUAGE_PREFERRED "audio_language_preferred"
+
+/* Set to "true" when the AudioOutputDescriptor is closing.
+ * This notification is used by A2DP HAL.
+ * TODO(b/73175392) unify with exiting in the AIDL interface.
+ */
+#define AUDIO_PARAMETER_KEY_CLOSING "closing"
+
+/* Set to "1" on AudioFlinger preExit() for the thread.
+ * This notification is used by the remote submix and A2DP HAL.
+ * TODO(b/73175392) unify with closing in the AIDL interface.
+ */
+#define AUDIO_PARAMETER_KEY_EXITING "exiting"
 
 /**
  *  audio stream parameters

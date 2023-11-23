@@ -19,11 +19,61 @@ on init
     # khugepaged tuning
     write /sys/kernel/mm/transparent_hugepage/khugepaged/scan_sleep_millisecs 60000
 
-on property:persist.vendor.zram.size=*
-    setprop vendor.zram.size ${persist.vendor.zram.size}
+# Property from experiments - server config
+on property:persist.device_config.vendor_system_native_boot.zram_size=*
+    setprop vendor.zram.size ${persist.device_config.vendor_system_native_boot.zram_size}
+
+# Property for local test. It can overwrite the server side config
+on property:sys.boot_completed=1 && property:persist.vendor.boot.zram.size=*
+    setprop vendor.zram.size ${persist.vendor.boot.zram.size}
 
 on property:sys.boot_completed=1
     swapon_all /vendor/etc/fstab.zram.${vendor.zram.size}
 
 on property:sys.boot_completed=1
     chmod 444 /sys/kernel/debug/page_owner
+
+    # Create mm_event trace point.
+    # For legacy devices, only mm_event is using this trace instance.
+    # Debugfs is only used in legacy devices and going to be deprecated.
+    # If others want to put more,it should get hard review from pixel-perf-team.
+    mkdir /sys/kernel/tracing/instances/pixel 0755 system system
+    chown system system /sys/kernel/tracing/instances/pixel/trace
+    chmod 0660 /sys/kernel/tracing/instances/pixel/trace
+    chown system system /sys/kernel/tracing/instances/pixel/tracing_on
+    chmod 0660 /sys/kernel/tracing/instances/pixel/tracing_on
+    write /sys/kernel/tracing/instances/pixel/buffer_size_kb 64
+    write /sys/kernel/tracing/instances/pixel/events/cma/cma_alloc_busy_retry/enable 1
+    write /sys/kernel/tracing/instances/pixel/events/cma/cma_alloc_start/enable 1
+    write /sys/kernel/tracing/instances/pixel/events/cma/cma_alloc_info/enable 1
+    write /sys/kernel/tracing/instances/pixel/events/cma/cma_release/enable 1
+    write /sys/kernel/tracing/instances/pixel/events/chunk_heap/enable 1
+    write /sys/kernel/tracing/instances/pixel/events/dmabuf_heap/dma_buf_release/enable 1
+    write /sys/kernel/tracing/instances/pixel/events/trusty/trusty_dma_buf_put/enable 1
+
+# turns off tracing right before bugreporting to keep more traces
+on property:init.svc.dumpstatez=running
+    write /sys/kernel/tracing/instances/pixel/tracing_on 0
+
+on property:init.svc.dumpstatez=stopped
+    write /sys/kernel/tracing/instances/pixel/tracing_on 1
+
+on property:init.svc.bugreport=running
+    write /sys/kernel/tracing/instances/pixel/tracing_on 0
+
+on property:init.svc.bugreport=stopped
+    write /sys/kernel/tracing/instances/pixel/tracing_on 1
+
+on property:init.svc.bugreportd=running
+    write /sys/kernel/tracing/instances/pixel/tracing_on 0
+
+on property:init.svc.bugreportd=stopped
+    write /sys/kernel/tracing/instances/pixel/tracing_on 1
+
+# max-ram-size experiment
+service vendor.set_max_ram_size /vendor/bin/misc_writer --set-max-ram-size ${persist.device_config.vendor_system_native_boot.max_ram_size:--1}
+    disabled
+    oneshot
+
+on property:persist.device_config.vendor_system_native_boot.max_ram_size=*
+    start vendor.set_max_ram_size

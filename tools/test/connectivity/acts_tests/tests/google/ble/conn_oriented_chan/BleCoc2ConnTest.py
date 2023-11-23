@@ -18,11 +18,9 @@ Test script to execute Bluetooth Connection-orient Channel (CoC) functionality f
 2 connections test cases. This test was designed to be run in a shield box.
 """
 
-import threading
 import time
 
 from acts import utils
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_coc_test_utils import orchestrate_coc_connection
@@ -65,7 +63,8 @@ class BleCoc2ConnTest(BluetoothBaseTest):
     # The formula is that the min/max ce time should be less than half the connection
     # interval and must be multiples of the le_connection_event_time_step.
     def _calc_min_max_ce_time(self, le_connection_interval):
-        conn_event_time_steps = int((le_connection_interval/2)/le_connection_event_time_step_ms)
+        conn_event_time_steps = int(
+            (le_connection_interval / 2) / le_connection_event_time_step_ms)
         conn_event_time_steps -= 1
         return (le_connection_event_time_step_ms * conn_event_time_steps)
 
@@ -94,27 +93,30 @@ class BleCoc2ConnTest(BluetoothBaseTest):
 
         self.log.info(
             "_run_coc_connection_throughput_2_conn: is_secured={}, Interval={}, buffer_size={}, "
-            "le_tx_data_length={}, min_ce_len={}".format(is_secured, le_connection_interval,
-                                          buffer_size, le_tx_data_length, min_ce_len))
+            "le_tx_data_length={}, min_ce_len={}".format(
+                is_secured, le_connection_interval, buffer_size,
+                le_tx_data_length, min_ce_len))
         status, client_conn_id1, server_conn_id1 = orchestrate_coc_connection(
             self.client_ad, self.server_ad, True, is_secured,
-            le_connection_interval, le_tx_data_length, default_bluetooth_socket_timeout_ms,
-            min_ce_len, max_ce_len)
+            le_connection_interval, le_tx_data_length,
+            default_bluetooth_socket_timeout_ms, min_ce_len, max_ce_len)
         if not status:
             return False
 
         status, client_conn_id2, server_conn_id2 = orchestrate_coc_connection(
             self.client_ad, self.server2_ad, True, is_secured,
-            le_connection_interval, le_tx_data_length, default_bluetooth_socket_timeout_ms,
-            min_ce_len, max_ce_len)
+            le_connection_interval, le_tx_data_length,
+            default_bluetooth_socket_timeout_ms, min_ce_len, max_ce_len)
         if not status:
             return False
 
         list_server_ad = [self.server_ad, self.server2_ad]
         list_client_conn_id = [client_conn_id1, client_conn_id2]
-        data_rate = do_multi_connection_throughput(
-            self.client_ad, list_server_ad, list_client_conn_id,
-            num_iterations, number_buffers, buffer_size)
+        data_rate = do_multi_connection_throughput(self.client_ad,
+                                                   list_server_ad,
+                                                   list_client_conn_id,
+                                                   num_iterations,
+                                                   number_buffers, buffer_size)
         if data_rate <= 0:
             return False
 

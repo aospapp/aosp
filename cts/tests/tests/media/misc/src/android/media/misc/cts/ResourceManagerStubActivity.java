@@ -20,6 +20,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+
 import junit.framework.Assert;
 
 public class ResourceManagerStubActivity extends Activity {
@@ -66,7 +67,8 @@ public class ResourceManagerStubActivity extends Activity {
         }
     }
 
-    public void testReclaimResource(int type1, int type2) throws InterruptedException {
+    public void testReclaimResource(int type1, int type2, boolean highResolutionForActivity1,
+            boolean highResolutionForActivity2) throws InterruptedException {
         mType1 = type1;
         mType2 = type2;
         if (type1 != ResourceManagerTestActivityBase.TYPE_MIX && type1 != type2) {
@@ -83,17 +85,19 @@ public class ResourceManagerStubActivity extends Activity {
                     Intent intent1 = new Intent(context, ResourceManagerTestActivity1.class);
                     intent1.putExtra("test-type", mType1);
                     intent1.putExtra("wait-for-reclaim", mWaitForReclaim);
+                    intent1.putExtra("high-resolution", highResolutionForActivity1);
                     startActivityForResult(intent1, mRequestCodes[0]);
                     Thread.sleep(5000);  // wait for process to launch and allocate all codecs.
 
                     Intent intent2 = new Intent(context, ResourceManagerTestActivity2.class);
                     intent2.putExtra("test-type", mType2);
+                    intent2.putExtra("high-resolution", highResolutionForActivity2);
                     startActivityForResult(intent2, mRequestCodes[1]);
 
                     synchronized (mFinishEvent) {
                         mFinishEvent.wait();
                     }
-                } catch(Exception e) {
+                } catch (Exception e) {
                     Log.d(TAG, "testReclaimResource got exception " + e.toString());
                 }
             }
@@ -118,10 +122,69 @@ public class ResourceManagerStubActivity extends Activity {
             if (mType1 != mType2) {
                 reasons.append(ERROR_SUPPORTS_SECURE_WITH_NON_SECURE_CODEC);
             }
-            if (mType1 == ResourceManagerTestActivityBase.TYPE_MIX &&
-                    mType2 == ResourceManagerTestActivityBase.TYPE_SECURE) {
+            if (mType1 == ResourceManagerTestActivityBase.TYPE_MIX
+                    && mType2 == ResourceManagerTestActivityBase.TYPE_SECURE) {
                 reasons.append(ERROR_SUPPORTS_MULTIPLE_SECURE_CODECS);
             }
+            Assert.assertTrue(failMessage + reasons.toString(), result);
+        }
+    }
+
+    public void testVideoCodecReclaim(boolean highResolution, String mimeType)
+            throws InterruptedException {
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    Context context = getApplicationContext();
+
+                    // Start the transcoding activity first.
+                    Log.d(TAG, "Starting ResourceManagerCodecActivity");
+                    Intent decoders = new Intent(context, ResourceManagerCodecActivity.class);
+                    decoders.putExtra("high-resolution", highResolution);
+                    decoders.putExtra("mime", mimeType);
+                    startActivityForResult(decoders, mRequestCodes[0]);
+                    // wait for ResourceManagerCodecActivity to launch and allocate all codecs.
+                    Thread.sleep(5000);
+
+                    Log.d(TAG, "Starting ResourceManagerRecorderActivity");
+                    // Start the Camera Recording next.
+                    Intent recorder = new Intent(context, ResourceManagerRecorderActivity.class);
+                    recorder.putExtra("high-resolution", highResolution);
+                    recorder.putExtra("mime", mimeType);
+                    startActivityForResult(recorder, mRequestCodes[1]);
+
+                    synchronized (mFinishEvent) {
+                        Log.d(TAG, "Waiting for both actvities to complete");
+                        mFinishEvent.wait();
+                        Log.d(TAG, "Both actvities completed");
+                    }
+                } catch (Exception e) {
+                    Log.d(TAG, "testVideoCodecReclaim got exception " + e.toString());
+                }
+            }
+        };
+
+        thread.start();
+        Log.i(TAG, "Started and waiting for Activities");
+        thread.join();
+        Log.i(TAG, "Activities completed");
+        System.gc();
+        // give the gc a chance to release test activities.
+        Thread.sleep(5000);
+
+        boolean result = true;
+        for (int i = 0; i < mResults.length; ++i) {
+            if (!mResults[i]) {
+                Log.e(TAG, "Result from activity " + i + " is a fail.");
+                result = false;
+                break;
+            }
+        }
+        if (!result) {
+            String failMessage = "The potential reasons for the failure:\n";
+            StringBuilder reasons = new StringBuilder();
+            reasons.append(ERROR_INSUFFICIENT_RESOURCES);
             Assert.assertTrue(failMessage + reasons.toString(), result);
         }
     }

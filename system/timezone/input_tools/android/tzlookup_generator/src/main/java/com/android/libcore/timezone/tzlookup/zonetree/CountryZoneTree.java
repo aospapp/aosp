@@ -511,16 +511,31 @@ public final class CountryZoneTree {
                 }
 
                 Instant endInstant = node.getEndInstant();
-                String replacementTimeZoneId = getReplacementTimeZoneIdOrNull(node);
                 if (!node.isLeaf()) {
                     ZoneInfo primaryZone = node.getPrimaryZoneInfo();
-                    addZoneEntryIfMissing(endInstant, replacementTimeZoneId, primaryZone);
+                    String replacementId = getReplacementTimeZoneIdOrNull(node);
+                    addZoneEntryIfMissing(endInstant, replacementId, primaryZone);
                 } else {
-                    // In some rare cases (e.g. Canada: Swift_Current and Creston) zones have agreed
+                    // In some rare cases (e.g. Canada: Yellowknife and Edmonton) zones have agreed
                     // completely since 1970 so some leaves may have multiple zones. So, attempt to
                     // add all zones for leaves, not just the primary.
                     for (ZoneInfo zoneInfo : node.getZoneInfos()) {
-                        addZoneEntryIfMissing(endInstant, replacementTimeZoneId, zoneInfo);
+                        Instant notAfterInstant;
+                        String replacementId;
+                        if (zoneInfo.equals(node.primaryZoneInfo)) {
+                            // Handle the primaryZoneInfo in the normal way.
+                            replacementId = getReplacementTimeZoneIdOrNull(node);
+                            notAfterInstant = endInstant;
+                        } else {
+                            // For zoneInfos that are not the primary for the node, we nominate the
+                            // primary zone of this node as the replacement, and since the zoneInfo
+                            // is already replaced by the time this node starts, we can use
+                            // startInstant as the notAfterInstant value, i.e. it was replaced at
+                            // the earliest time we know about.
+                            notAfterInstant = node.getStartInstant();
+                            replacementId = node.primaryZoneInfo.getZoneId();
+                        }
+                        addZoneEntryIfMissing(notAfterInstant, replacementId, zoneInfo);
                     }
                 }
             }
@@ -530,11 +545,6 @@ public final class CountryZoneTree {
              * this method returns that zone ID. {@code null} is returned otherwise.
              */
             private String getReplacementTimeZoneIdOrNull(ZoneNode node) {
-                if (node.isRoot()) {
-                    // There is no parent node, so there can be no replacement ID.
-                    return null;
-                }
-
                 String zoneId = node.primaryZoneInfo.getZoneId();
                 String replacementId = node.getParent().primaryZoneInfo.getZoneId();
                 if (Objects.equals(zoneId, replacementId)) {
@@ -547,20 +557,20 @@ public final class CountryZoneTree {
             }
 
             private void addZoneEntryIfMissing(
-                    Instant endInstant, String replacementTimeZoneId, ZoneInfo zoneInfo) {
+                    Instant notAfterInstant, String replacementTimeZoneId, ZoneInfo zoneInfo) {
                 String zoneId = zoneInfo.getZoneId();
 
                 if (Objects.equals(zoneId, replacementTimeZoneId)) {
                     throw new IllegalStateException(zoneId + " cannot replace itself. Cycle!");
                 }
 
-                if (!notAfterCutOff.isAfter(endInstant)) {
-                    // notAfterCutOff <= endInstant
-                    endInstant = null;
+                if (!notAfterCutOff.isAfter(notAfterInstant)) {
+                    // notAfterCutOff <= notAfterInstant
+                    notAfterInstant = null;
                     replacementTimeZoneId = null;
                 }
                 if (!zoneUsage.hasEntry(zoneId)) {
-                    zoneUsage.addEntry(zoneId, endInstant, replacementTimeZoneId);
+                    zoneUsage.addEntry(zoneId, notAfterInstant, replacementTimeZoneId);
                 }
             }
 

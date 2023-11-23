@@ -24,6 +24,7 @@ import static android.autofillservice.cts.testcore.Helper.NULL_DATASET_ID;
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetSelected;
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetShown;
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForSaveShown;
+import static android.autofillservice.cts.testcore.Helper.assertFillEventForViewEntered;
 import static android.autofillservice.cts.testcore.Helper.findAutofillIdByResourceId;
 import static android.service.autofill.FillEventHistory.Event.TYPE_CONTEXT_COMMITTED;
 import static android.service.autofill.FillEventHistory.Event.UI_TYPE_MENU;
@@ -43,9 +44,10 @@ import android.service.autofill.FillContext;
 import android.service.autofill.FillEventHistory;
 import android.service.autofill.FillEventHistory.Event;
 import android.service.autofill.FillResponse;
-import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 import android.view.autofill.AutofillId;
+
+import androidx.test.uiautomator.UiObject2;
 
 import com.google.common.collect.ImmutableMap;
 
@@ -474,12 +476,13 @@ public class FillEventHistoryTest extends FillEventHistoryCommonTestCase {
 
         {
             // Verify fill history
-            final List<Event> events = InstrumentedAutoFillService.getFillEvents(4);
+            final List<Event> events = InstrumentedAutoFillService.getFillEvents(5);
 
             assertFillEventForDatasetShown(events.get(0), UI_TYPE_MENU);
             assertFillEventForDatasetSelected(events.get(1), "id1", UI_TYPE_MENU);
-            assertFillEventForDatasetShown(events.get(2), UI_TYPE_MENU);
-            assertFillEventForDatasetSelected(events.get(3), "id2", UI_TYPE_MENU);
+            assertFillEventForViewEntered(events.get(2));
+            assertFillEventForDatasetShown(events.get(3), UI_TYPE_MENU);
+            assertFillEventForDatasetSelected(events.get(4), "id2", UI_TYPE_MENU);
         }
 
         // Finish the context by login in
@@ -496,10 +499,10 @@ public class FillEventHistoryTest extends FillEventHistoryCommonTestCase {
 
             assertFillEventForDatasetShown(events.get(0), UI_TYPE_MENU);
             assertFillEventForDatasetSelected(events.get(1), "id1", UI_TYPE_MENU);
-            assertFillEventForDatasetShown(events.get(2), UI_TYPE_MENU);
-            assertFillEventForDatasetSelected(events.get(3), "id2", UI_TYPE_MENU);
+            assertFillEventForViewEntered(events.get(2));
+            assertFillEventForDatasetShown(events.get(3), UI_TYPE_MENU);
+            assertFillEventForDatasetSelected(events.get(4), "id2", UI_TYPE_MENU);
 
-            assertFillEventForDatasetShown(events.get(4), UI_TYPE_MENU);
             final FillEventHistory.Event event3 = events.get(5);
             assertThat(event3.getType()).isEqualTo(TYPE_CONTEXT_COMMITTED);
             assertThat(event3.getDatasetId()).isNull();
@@ -560,12 +563,13 @@ public class FillEventHistoryTest extends FillEventHistoryCommonTestCase {
 
         {
             // Verify fill history
-            final List<Event> events = InstrumentedAutoFillService.getFillEvents(4);
+            final List<Event> events = InstrumentedAutoFillService.getFillEvents(5);
 
             assertFillEventForDatasetShown(events.get(0), UI_TYPE_MENU);
             assertFillEventForDatasetSelected(events.get(1), "id1", UI_TYPE_MENU);
-            assertFillEventForDatasetShown(events.get(2), UI_TYPE_MENU);
-            assertFillEventForDatasetSelected(events.get(3), "id2", UI_TYPE_MENU);
+            assertFillEventForViewEntered(events.get(2));
+            assertFillEventForDatasetShown(events.get(3), UI_TYPE_MENU);
+            assertFillEventForDatasetSelected(events.get(4), "id2", UI_TYPE_MENU);
         }
 
         // Finish the context by login in
@@ -576,14 +580,15 @@ public class FillEventHistoryTest extends FillEventHistoryCommonTestCase {
 
         {
             // Verify fill history
-            final List<Event> events = InstrumentedAutoFillService.getFillEvents(5);
+            final List<Event> events = InstrumentedAutoFillService.getFillEvents(6);
 
             assertFillEventForDatasetShown(events.get(0), UI_TYPE_MENU);
             assertFillEventForDatasetSelected(events.get(1), "id1", UI_TYPE_MENU);
-            assertFillEventForDatasetShown(events.get(2), UI_TYPE_MENU);
-            assertFillEventForDatasetSelected(events.get(3), "id2", UI_TYPE_MENU);
+            assertFillEventForViewEntered(events.get(2));
+            assertFillEventForDatasetShown(events.get(3), UI_TYPE_MENU);
+            assertFillEventForDatasetSelected(events.get(4), "id2", UI_TYPE_MENU);
 
-            final FillEventHistory.Event event3 = events.get(4);
+            final FillEventHistory.Event event3 = events.get(5);
             assertThat(event3.getType()).isEqualTo(TYPE_CONTEXT_COMMITTED);
             assertThat(event3.getDatasetId()).isNull();
             assertThat(event3.getClientState()).isNull();

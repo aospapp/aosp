@@ -29,4 +29,6 @@ enum CodecType {
     VENDOR,
     APTX_ADAPTIVE,
     OPUS,
+    APTX_ADAPTIVE_LE,
+    APTX_ADAPTIVE_LEX,
 }

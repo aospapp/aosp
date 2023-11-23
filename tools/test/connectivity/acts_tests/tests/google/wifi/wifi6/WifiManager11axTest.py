@@ -14,7 +14,7 @@
 #   limitations under the License.
 
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiManagerTest import WifiManagerTest
+from ..WifiManagerTest import WifiManagerTest
 
 
 class WifiManager11axTest(WifiManagerTest):

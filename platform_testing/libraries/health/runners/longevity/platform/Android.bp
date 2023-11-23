@@ -40,6 +40,7 @@ java_library_static {
         "common-platform-scenarios",
         "guava",
         "platform-test-composers",
+        "platform-test-rules",
         "microbenchmark-device-lib"
     ],
     min_sdk_version: "26",

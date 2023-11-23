@@ -184,13 +184,23 @@ bool AC3FrameScanner::parseHeader()
 
     // bitstream mode, main, commentary, etc.
     uint32_t bsmod = mHeaderBuffer[5] & 7;
-    mDataTypeInfo = bsmod; // as per IEC61937-3, table 3.
+
+    mDataTypeInfo = 0;
 
     // The names fscod, frmsiz are from the AC3 spec.
     uint32_t fscod = mHeaderBuffer[4] >> 6;
     if (mDataType == SPDIF_DATA_TYPE_E_AC3) {
         mStreamType = mHeaderBuffer[2] >> 6; // strmtyp in spec
         mSubstreamID = (mHeaderBuffer[2] >> 3) & 0x07;
+        // For EAC3 stream, only set data-type-dependent information as the value of
+        // bsmod in independent substream 0 of EAC3 elementary stream.
+        if (mStreamType != 1 && mSubstreamID == 0) {
+            const int infomdate = (mHeaderBuffer[5] >> 3) & 1;
+            if (infomdate == 1) {
+                mDataTypeInfo = bsmod;
+            }
+        }
+
 
         // Frame size is explicit in EAC3. Paragraph E2.3.1.3
         uint32_t frmsiz = ((mHeaderBuffer[2] & 0x07) << 8) + mHeaderBuffer[3];
@@ -231,6 +241,7 @@ bool AC3FrameScanner::parseHeader()
                 "EAC3 mStreamType = %d, mSubstreamID = %d",
                 mStreamType, mSubstreamID);
     } else { // regular AC3
+        mDataTypeInfo = bsmod; // as per IEC61937-3, table 3.
         // Extract sample rate and frame size from codes.
         uint32_t frmsizcod = mHeaderBuffer[4] & 0x3F; // frame size code
 

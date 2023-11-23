@@ -30,7 +30,7 @@ android_test_helper_app {
         "cts",
         "general-tests",
         "sts",
-        "mts",
+        "mts-mainline-infra",
         "vts",
         "catbox",
         "gcatbox",
@@ -61,22 +61,29 @@ genrule {
     cmd: "$(location :compatibility-manifest-generator) " +
         " -r android.permission.READ_PHONE_STATE " +
         " -r android.permission.WRITE_EXTERNAL_STORAGE " +
+        " -r android.permission.ACCESS_FINE_LOCATION " +
         " -a com.android.compatibility.common.deviceinfo.GlesStubActivity " +
         " -a com.android.cts.deviceinfo.CameraDeviceInfo " +
         " -a com.android.cts.deviceinfo.SensorDeviceInfo " +
         " -a com.android.cts.deviceinfo.VulkanDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.AppStandbyDeviceInfo " +
+        " -a com.android.compatibility.common.deviceinfo.BiometricsDeviceInfo " +
+        " -a com.android.compatibility.common.deviceinfo.DeviceIdleDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.ClientIdDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.ConfigurationDeviceInfo " +
+        " -a com.android.compatibility.common.deviceinfo.ConnectivityDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.CpuDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.FeatureDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.GenericDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.GlesStubActivity " +
+        " -a com.android.compatibility.common.deviceinfo.GnssDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.GraphicsDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.HapticsDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.InputDeviceInfo " +
+        " -a com.android.compatibility.common.deviceinfo.KeystoreAttestationDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.LocaleDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.MediaDeviceInfo " +
+        " -a com.android.compatibility.common.deviceinfo.MediaOutputDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.MemoryDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.PackageDeviceInfo " +
         " -a com.android.compatibility.common.deviceinfo.ScreenDeviceInfo " +

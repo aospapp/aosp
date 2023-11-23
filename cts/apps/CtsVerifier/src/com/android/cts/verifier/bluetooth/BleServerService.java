@@ -77,6 +77,9 @@ public class BleServerService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_MTU_REQUEST_23BYTES";
     public static final String BLE_MTU_REQUEST_512BYTES =
             "com.android.cts.verifier.bluetooth.BLE_MTU_REQUEST_512BYTES";
+    /* This is sent when Client perform MTU Exchange more than once */
+    public static final String BLE_MTU_BAD_REQUEST =
+            "com.android.cts.verifier.bluetooth.BLE_MTU_BAD_REQUEST";
     public static final String BLE_CHARACTERISTIC_READ_REQUEST =
             "com.android.cts.verifier.bluetooth.BLE_CHARACTERISTIC_READ_REQUEST";
     public static final String BLE_CHARACTERISTIC_WRITE_REQUEST =
@@ -227,9 +230,9 @@ public class BleServerService extends Service {
     private boolean mIndicated;
     private int mNotifyCount;
     private boolean mSecure;
-    private int mCountMtuChange;
+    private int mExpectWritesDuringMtuChangeCount;
     private int mMtuSize = -1;
-    private String mMtuTestReceivedData;
+    private String mMtuTestReceivedData = "";
     private Runnable mResetValuesTask;
     private BluetoothGattService mAdditionalNotificationService;
     private BluetoothGattService mServiceChangedService;
@@ -271,7 +274,7 @@ public class BleServerService extends Service {
             // start adding services
             mNotifyCount = 11;
             mSecure = false;
-            mCountMtuChange = 0;
+            mExpectWritesDuringMtuChangeCount = 0;
             if (!mGattServer.addService(mService)) {
                 notifyAddServiceFail();
             }
@@ -304,11 +307,8 @@ public class BleServerService extends Service {
                     mSecure = true;
                     if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.M) {
                         showMessage("Skip MTU test.");
-                        mCountMtuChange = 1;
-                        notifyMtuRequest();
-                        mCountMtuChange = 2;
-                        notifyMtuRequest();
-                        mCountMtuChange = 0;
+                        notifyMtuRequest(BLE_MTU_REQUEST_23BYTES);
+                        notifyMtuRequest(BLE_MTU_REQUEST_512BYTES);
                     }
                     break;
                 case BLE_ACTION_SERVER_NON_SECURE:
@@ -395,9 +395,9 @@ public class BleServerService extends Service {
         if (DEBUG) {
             Log.d(TAG, "notifyConnected");
         }
+
         Intent intent = new Intent(BLE_SERVER_CONNECTED);
         sendBroadcast(intent);
-
         resetValues();
     }
 
@@ -417,18 +417,12 @@ public class BleServerService extends Service {
         sendBroadcast(intent);
     }
 
-    private void notifyMtuRequest() {
+    private void notifyMtuRequest(String action) {
         if (DEBUG) {
-            Log.d(TAG, "notifyMtuRequest");
+            Log.d(TAG, "notifyMtuRequest : " + action);
         }
-        Intent intent;
-        if (mCountMtuChange == 1) {
-            intent = new Intent(BLE_MTU_REQUEST_23BYTES);
-        } else if (mCountMtuChange == 2) {
-            intent = new Intent(BLE_MTU_REQUEST_512BYTES);
-        } else {
-            return; // never occurs
-        }
+        Intent intent = new Intent(action);
+
         sendBroadcast(intent);
     }
 
@@ -862,7 +856,8 @@ public class BleServerService extends Service {
 
     private void onMtuTestDataReceive() {
 
-        Log.d(TAG, "onMtuTestDataReceive(" + mCountMtuChange + "):" + mMtuTestReceivedData);
+        Log.d(TAG, "onMtuTestDataReceive(" + mExpectWritesDuringMtuChangeCount + "):"
+                        + mMtuTestReceivedData);
 
         // verify
         if (mMtuTestReceivedData.equals(BleClientService.WRITE_VALUE_512BYTES_FOR_MTU)) {
@@ -872,15 +867,22 @@ public class BleServerService extends Service {
             BluetoothGattCharacteristic characteristic = getCharacteristic(CHARACTERISTIC_UUID);
             characteristic.setValue(mMtuTestReceivedData.getBytes());
 
-            notifyMtuRequest();
-        } else {
-            showMessage(getString(R.string.ble_mtu_fail_message));
+            if (mExpectWritesDuringMtuChangeCount == 1) {
+                notifyMtuRequest(BLE_MTU_REQUEST_512BYTES);
+                mExpectWritesDuringMtuChangeCount = 0;
+            } else if (mExpectWritesDuringMtuChangeCount == 0) {
+                notifyMtuRequest(BLE_MTU_REQUEST_23BYTES);
+            } else {
+                notifyMtuRequest(BLE_MTU_BAD_REQUEST);
+            }
+            mMtuTestReceivedData = "";
+            return;
         }
+
+        showMessage(getString(R.string.ble_mtu_fail_message));
+        notifyMtuRequest(BLE_MTU_BAD_REQUEST);
         mMtuTestReceivedData = "";
-        if (mCountMtuChange >= 2) {
-            // All MTU change tests completed
-            mCountMtuChange = 0;
-        }
+        mExpectWritesDuringMtuChangeCount = 0;
     }
 
     private synchronized void cancelNotificationTaskOfSecureTestStartFailure() {
@@ -1080,16 +1082,19 @@ public class BleServerService extends Service {
                 return;
             }
 
+            String valueStr = new String(value);
+
             // MTU test flow
-            if (mCountMtuChange > 0) {
+            String mtuPrefix = "REQUEST_MTU";
+            if (valueStr.startsWith(mtuPrefix)
+                    || mExpectWritesDuringMtuChangeCount > 0
+                    || mMtuTestReceivedData.length() > 10) {
                 if (preparedWrite) {
                     mMtuTestReceivedData += new String(value);
                 } else {
                     String strValue = new String(value);
-                    if (mCountMtuChange > 0) {
-                        mMtuTestReceivedData = strValue;
-                        onMtuTestDataReceive();
-                    }
+                    mMtuTestReceivedData = strValue;
+                    onMtuTestDataReceive();
                 }
                 if (responseNeeded) {
                     mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, offset,
@@ -1100,7 +1105,6 @@ public class BleServerService extends Service {
             }
 
             // Reliable write with bad response test flow
-            String valueStr = new String(value);
             if (BleClientService.WRITE_VALUE_BAD_RESP.equals(valueStr)) {
                 mGattServer.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null);
                 notifyReliableWriteBadResp();
@@ -1228,7 +1232,8 @@ public class BleServerService extends Service {
             }
 
             if (execute) {
-                if (mCountMtuChange > 0) {
+                if (mMtuTestReceivedData.length() > 10
+                        && mMtuTestReceivedData.startsWith("REQUEST_MTU")) {
                     onMtuTestDataReceive();
                 } else {
                     // verify
@@ -1279,25 +1284,24 @@ public class BleServerService extends Service {
                 return;
             }
             if (DEBUG) {
-                Log.d(TAG, "onMtuChanged");
+                Log.d(TAG, "onMtuChanged mExpectWritesDuringMtuChangeCount "
+                                + mExpectWritesDuringMtuChangeCount);
             }
 
             mMtuSize = mtu;
-            if (mCountMtuChange == 0) {
-                if (mtu != 23) {
+            if (mExpectWritesDuringMtuChangeCount == 0) {
+                if (mtu != 517) {
                     String msg = String.format(getString(R.string.ble_mtu_mismatch_message),
-                            23, mtu);
+                            517, mtu);
                     showMessage(msg);
                 }
-            } else if (mCountMtuChange == 1) {
-                if (mtu != 512) {
-                    String msg = String.format(getString(R.string.ble_mtu_mismatch_message),
-                            512, mtu);
+            } else  {
+                String msg = String.format(getString(R.string.ble_mtu_unexpected_message));
                     showMessage(msg);
-                }
             }
+
             mMtuTestReceivedData = "";
-            ++mCountMtuChange;
+            ++mExpectWritesDuringMtuChangeCount;
         }
     };
 

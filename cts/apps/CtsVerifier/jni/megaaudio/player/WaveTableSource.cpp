@@ -25,6 +25,11 @@ WaveTableSource::WaveTableSource() {
     reset();
 }
 
+void WaveTableSource::setSampleRate(int sampleRate) {
+    mSampleRate = sampleRate;
+    calcFN();
+}
+
 /**
  * Calculates the "Nominal" frequency of the wave table.
  */

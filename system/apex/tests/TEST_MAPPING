@@ -11,6 +11,9 @@
     },
     {
       "name": "CtsApexSharedLibrariesTestCases"
+    },
+    {
+      "name": "VendorApexHostTestCases"
     }
   ],
   "presubmit-large": [

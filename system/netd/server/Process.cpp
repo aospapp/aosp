@@ -85,7 +85,7 @@ void blockSigPipe() {
     sigemptyset(&mask);
     sigaddset(&mask, SIGPIPE);
     if (sigprocmask(SIG_BLOCK, &mask, nullptr) != 0) {
-        ALOGW("WARNING: SIGPIPE not blocked\n");
+        ALOGW("WARNING: SIGPIPE not blocked");
     }
 }
 

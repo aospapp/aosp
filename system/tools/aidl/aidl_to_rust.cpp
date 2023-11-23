@@ -100,6 +100,13 @@ std::string GetRawRustName(const AidlTypeSpecifier& type) {
   return rust_name;
 }
 
+// Usually, this means that the type implements `Default`, however `ParcelableHolder` is also
+// included in this list because the code generator knows how to call `::new(stability)`.
+bool AutoConstructor(const AidlTypeSpecifier& type, const AidlTypenames& typenames) {
+  return !(type.GetName() == "ParcelFileDescriptor" || type.GetName() == "IBinder" ||
+           TypeIsInterface(type, typenames));
+}
+
 std::string GetRustName(const AidlTypeSpecifier& type, const AidlTypenames& typenames,
                         StorageMode mode) {
   // map from AIDL built-in type name to the corresponding Rust type name
@@ -117,38 +124,26 @@ std::string GetRustName(const AidlTypeSpecifier& type, const AidlTypenames& type
       {"ParcelFileDescriptor", "binder::ParcelFileDescriptor"},
       {"ParcelableHolder", "binder::ParcelableHolder"},
   };
-  const bool is_vector = type.IsArray() || typenames.IsList(type);
-  // If the type is an array/List<T>, get the inner element type
-  AIDL_FATAL_IF(typenames.IsList(type) && type.GetTypeParameters().size() != 1, type);
-  const auto& element_type = type.IsGeneric() ? (*type.GetTypeParameters().at(0)) : type;
-  const string& element_type_name = element_type.GetName();
-  if (m.find(element_type_name) != m.end()) {
-    AIDL_FATAL_IF(!AidlTypenames::IsBuiltinTypename(element_type_name), type);
-    if (element_type_name == "byte" && type.IsArray()) {
-      return "u8";
-    } else if (element_type_name == "String" && mode == StorageMode::UNSIZED_ARGUMENT) {
+  const string& type_name = type.GetName();
+  if (m.find(type_name) != m.end()) {
+    AIDL_FATAL_IF(!AidlTypenames::IsBuiltinTypename(type_name), type);
+    if (type_name == "String" && mode == StorageMode::UNSIZED_ARGUMENT) {
       return "str";
-    } else if (element_type_name == "ParcelFileDescriptor" || element_type_name == "IBinder") {
-      if (is_vector && mode == StorageMode::DEFAULT_VALUE) {
-        // Out-arguments of ParcelFileDescriptors arrays need to
-        // be Vec<Option<ParcelFileDescriptor>> so resize_out_vec
-        // can initialize all elements to None (it requires Default
-        // and ParcelFileDescriptor doesn't implement that)
-        return "Option<" + m[element_type_name] + ">";
-      } else {
-        return m[element_type_name];
-      }
+    } else {
+      return m[type_name];
     }
-    return m[element_type_name];
   }
-  auto name = GetRawRustName(element_type);
-  if (TypeIsInterface(element_type, typenames)) {
+  auto name = GetRawRustName(type);
+  if (TypeIsInterface(type, typenames)) {
     name = "binder::Strong<dyn " + name + ">";
-    if (is_vector && mode == StorageMode::DEFAULT_VALUE) {
-      // Out-arguments of interface arrays need to be Vec<Option<...>> so resize_out_vec
-      // can initialize all elements to None.
-      name = "Option<" + name + ">";
+  }
+  if (type.IsGeneric()) {
+    name += "<";
+    for (const auto& param : type.GetTypeParameters()) {
+      name += GetRustName(*param, typenames, mode);
+      name += ",";
     }
+    name += ">";
   }
   return name;
 }
@@ -215,6 +210,7 @@ std::string RustNameOf(const AidlTypeSpecifier& type, const AidlTypenames& typen
                        StorageMode mode, Lifetime lifetime) {
   std::string rust_name;
   if (type.IsArray() || typenames.IsList(type)) {
+    const auto& element_type = type.IsGeneric() ? (*type.GetTypeParameters().at(0)) : type;
     StorageMode element_mode;
     if (type.IsFixedSizeArray() && mode == StorageMode::PARCELABLE_FIELD) {
       // Elements of fixed-size array field need to have Default.
@@ -225,16 +221,21 @@ std::string RustNameOf(const AidlTypeSpecifier& type, const AidlTypenames& typen
     } else {
       element_mode = StorageMode::VALUE;
     }
-    rust_name = GetRustName(type, typenames, element_mode);
-    if (type.IsNullable() && UsesOptionInNullableVector(type, typenames)) {
-      // The mapping for nullable string arrays is
-      // optional<vector<optional<string>>> in the NDK,
-      // so we do the same
-      // However, we don't need to when GetRustName() already wraps it with Option.
-      if (!base::StartsWith(rust_name, "Option<")) {
-        rust_name = "Option<" + rust_name + ">";
-      }
+    if (type.IsArray() && element_type.GetName() == "byte") {
+      rust_name = "u8";
+    } else {
+      rust_name = GetRustName(element_type, typenames, element_mode);
     }
+
+    // Needs `Option` wrapping because type is not default constructible
+    const bool default_option =
+        element_mode == StorageMode::DEFAULT_VALUE && !AutoConstructor(element_type, typenames);
+    // Needs `Option` wrapping due to being a nullable, non-primitive, non-enum type in a vector.
+    const bool nullable_option = type.IsNullable() && UsesOptionInNullableVector(type, typenames);
+    if (default_option || nullable_option) {
+      rust_name = "Option<" + rust_name + ">";
+    }
+
     if (mode == StorageMode::UNSIZED_ARGUMENT) {
       rust_name = "[" + rust_name + "]";
     } else if (type.IsFixedSizeArray()) {

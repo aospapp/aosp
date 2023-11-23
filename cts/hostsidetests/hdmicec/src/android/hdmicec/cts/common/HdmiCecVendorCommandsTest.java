@@ -22,8 +22,8 @@ import android.hdmicec.cts.BaseHdmiCecCtsTest;
 import android.hdmicec.cts.CecMessage;
 import android.hdmicec.cts.CecOperand;
 import android.hdmicec.cts.HdmiControlManagerUtility;
-import android.hdmicec.cts.LogicalAddress;
 import android.hdmicec.cts.LogHelper;
+import android.hdmicec.cts.LogicalAddress;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -31,9 +31,9 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
-import org.junit.Test;
 
 /** HDMI CEC test to verify device vendor specific commands (Section 11.2.9) */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -157,7 +157,7 @@ public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
             String params = CecMessage.formatParams(VENDOR_ID);
             params += CecMessage.formatParams("010203");
             hdmiCecClient.sendCecMessage(
-                    LogicalAddress.TV, CecOperand.VENDOR_COMMAND_WITH_ID, params);
+                    hdmiCecClient.getSelfDevice(), CecOperand.VENDOR_COMMAND_WITH_ID, params);
 
             LogHelper.assertLog(
                     device, TEST_LOG_TAG, "Received vendor command with correct vendor ID");
@@ -176,7 +176,8 @@ public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
             LogHelper.waitForLog(getDevice(), TEST_LOG_TAG, 10, REGISTERED_LISTENER);
 
             String params = CecMessage.formatParams("010203");
-            hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.VENDOR_COMMAND, params);
+            hdmiCecClient.sendCecMessage(
+                    hdmiCecClient.getSelfDevice(), CecOperand.VENDOR_COMMAND, params);
 
             LogHelper.assertLog(device, TEST_LOG_TAG, "Received vendor command without vendor ID");
         } finally {
@@ -194,7 +195,8 @@ public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
             LogHelper.waitForLog(getDevice(), TEST_LOG_TAG, 10, REGISTERED_LISTENER);
 
             String params = CecMessage.formatParams("010203");
-            hdmiCecClient.sendCecMessage(LogicalAddress.TV, CecOperand.VENDOR_COMMAND, params);
+            hdmiCecClient.sendCecMessage(
+                    hdmiCecClient.getSelfDevice(), CecOperand.VENDOR_COMMAND, params);
 
             LogHelper.assertLog(device, TEST_LOG_TAG, "Received vendor command without vendor ID");
         } finally {
@@ -214,7 +216,7 @@ public final class HdmiCecVendorCommandsTest extends BaseHdmiCecCtsTest {
             String params = CecMessage.formatParams(VENDOR_ID);
             params += CecMessage.formatParams("010203");
             hdmiCecClient.sendCecMessage(
-                    LogicalAddress.TV, CecOperand.VENDOR_COMMAND_WITH_ID, params);
+                    hdmiCecClient.getSelfDevice(), CecOperand.VENDOR_COMMAND_WITH_ID, params);
 
             LogHelper.assertLogDoesNotContain(
                     device, TEST_LOG_TAG, "Received vendor command with correct vendor ID");

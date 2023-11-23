@@ -21,7 +21,6 @@ package {
 java_library {
     name: "connectivity-helper",
     static_libs: [
-        "ub-uiautomator",
         "androidx.test.rules",
     ],
     srcs: ["src/**/*.java"],

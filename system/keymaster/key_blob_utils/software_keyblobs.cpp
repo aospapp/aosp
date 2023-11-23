@@ -95,7 +95,7 @@ keymaster_error_t FakeKeyAuthorizations(EVP_PKEY* pubkey, AuthorizationSet* hw_e
     hw_enforced->Clear();
     sw_enforced->Clear();
 
-    switch (EVP_PKEY_type(pubkey->type)) {
+    switch (EVP_PKEY_id(pubkey)) {
     case EVP_PKEY_RSA: {
         hw_enforced->push_back(TAG_ALGORITHM, KM_ALGORITHM_RSA);
         hw_enforced->push_back(TAG_DIGEST, KM_DIGEST_NONE);
@@ -196,7 +196,7 @@ keymaster_error_t ParseOldSoftkeymasterBlob(const KeymasterKeyBlob& blob,
     }
     p += publicLen;
 
-    if (end - p < 2) {
+    if (end - p < sizeof(type)) {
         LOG_W("key blob appears to be truncated (if an old SW key)", 0);
         return KM_ERROR_INVALID_KEY_BLOB;
     }
@@ -318,6 +318,7 @@ keymaster_error_t SetKeyBlobAuthorizations(const AuthorizationSet& key_descripti
         case KM_TAG_ATTESTATION_ID_BRAND:
         case KM_TAG_ATTESTATION_ID_DEVICE:
         case KM_TAG_ATTESTATION_ID_IMEI:
+        case KM_TAG_ATTESTATION_ID_SECOND_IMEI:
         case KM_TAG_ATTESTATION_ID_MANUFACTURER:
         case KM_TAG_ATTESTATION_ID_MEID:
         case KM_TAG_ATTESTATION_ID_MODEL:

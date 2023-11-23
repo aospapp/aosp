@@ -78,50 +78,50 @@ class ActsRelayTest(unittest.TestCase):
     def test_turn_on_from_off(self):
         self.board.set(self.relay.position, RelayState.NO)
         self.relay.set_nc()
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NC)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NC)
 
     def test_turn_on_from_on(self):
         self.board.set(self.relay.position, RelayState.NC)
         self.relay.set_nc()
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NC)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NC)
 
     def test_turn_off_from_on(self):
         self.board.set(self.relay.position, RelayState.NC)
         self.relay.set_no()
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NO)
 
     def test_turn_off_from_off(self):
         self.board.set(self.relay.position, RelayState.NO)
         self.relay.set_no()
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NO)
 
     def test_toggle_off_to_on(self):
         self.board.set(self.relay.position, RelayState.NO)
         self.relay.toggle()
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NC)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NC)
 
     def test_toggle_on_to_off(self):
         self.board.set(self.relay.position, RelayState.NC)
         self.relay.toggle()
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NO)
 
     def test_set_on(self):
         self.board.set(self.relay.position, RelayState.NO)
         self.relay.set(RelayState.NC)
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NC)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NC)
 
     def test_set_off(self):
         self.board.set(self.relay.position, RelayState.NC)
         self.relay.set(RelayState.NO)
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NO)
 
     def test_set_foo(self):
         with self.assertRaises(ValueError):
@@ -134,8 +134,8 @@ class ActsRelayTest(unittest.TestCase):
 
         self.relay.set_nc_for(0)
 
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NO)
         self.assertEqual(self.board.relay_previous_states[self.relay.position],
                          RelayState.NC)
 
@@ -146,8 +146,8 @@ class ActsRelayTest(unittest.TestCase):
 
         self.relay.set_no_for(0)
 
-        self.assertEqual(
-            self.board.get_relay_status(self.relay.position), RelayState.NC)
+        self.assertEqual(self.board.get_relay_status(self.relay.position),
+                         RelayState.NC)
         self.assertEqual(self.board.relay_previous_states[self.relay.position],
                          RelayState.NO)
 
@@ -165,8 +165,8 @@ class ActsRelayTest(unittest.TestCase):
         self.board.set(new_relay.position, RelayState.NO)
         new_relay.clean_up()
 
-        self.assertEqual(
-            self.board.get_relay_status(new_relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(new_relay.position),
+                         RelayState.NO)
 
     def test_clean_up_default_off(self):
         new_relay = Relay(self.board, 0)
@@ -174,8 +174,8 @@ class ActsRelayTest(unittest.TestCase):
         self.board.set(new_relay.position, RelayState.NC)
         new_relay.clean_up()
 
-        self.assertEqual(
-            self.board.get_relay_status(new_relay.position), RelayState.NO)
+        self.assertEqual(self.board.get_relay_status(new_relay.position),
+                         RelayState.NO)
 
     def test_clean_up_original_state_none(self):
         val = 'STAYS_THE_SAME'
@@ -208,8 +208,10 @@ class ActsSainSmartBoardTest(unittest.TestCase):
             file.write(self.RELAY_ON_PAGE_CONTENTS)
 
         self.config = ({
-            'name': 'SSBoard',
-            'base_url': self.test_dir,
+            'name':
+            'SSBoard',
+            'base_url':
+            self.test_dir,
             'relays': [{
                 'name': '0',
                 'relay_pos': 0
@@ -293,18 +295,18 @@ class ActsSainSmartBoardTest(unittest.TestCase):
     def test_get_relay_status_status_dict_none(self):
         self._set_status_page('1111111111111111')
         self.ss_board.status_dict = None
-        self.assertEqual(
-            self.ss_board.get_relay_status(self.r0.position), RelayState.NC)
+        self.assertEqual(self.ss_board.get_relay_status(self.r0.position),
+                         RelayState.NC)
 
     def test_get_relay_status_status_dict_on(self):
         self.r0.set(RelayState.NC)
-        self.assertEqual(
-            self.ss_board.get_relay_status(self.r0.position), RelayState.NC)
+        self.assertEqual(self.ss_board.get_relay_status(self.r0.position),
+                         RelayState.NC)
 
     def test_get_relay_status_status_dict_off(self):
         self.r0.set(RelayState.NO)
-        self.assertEqual(
-            self.ss_board.get_relay_status(self.r0.position), RelayState.NO)
+        self.assertEqual(self.ss_board.get_relay_status(self.r0.position),
+                         RelayState.NO)
 
     def test_set_on(self):
         patch_path = 'acts.controllers.relay_lib.sain_smart_board.urlopen'
@@ -312,7 +314,8 @@ class ActsSainSmartBoardTest(unittest.TestCase):
             board = SainSmartBoard(self.config)
             board.status_dict = {}
             board.set(self.r0.position, RelayState.NC)
-        urlopen.assert_called_once_with('%s%s' % (self.ss_board.base_url, '01'))
+        urlopen.assert_called_once_with('%s%s' %
+                                        (self.ss_board.base_url, '01'))
 
     def test_set_off(self):
         patch_path = 'acts.controllers.relay_lib.sain_smart_board.urlopen'
@@ -320,7 +323,8 @@ class ActsSainSmartBoardTest(unittest.TestCase):
             board = SainSmartBoard(self.config)
             board.status_dict = {}
             board.set(self.r0.position, RelayState.NO)
-        urlopen.assert_called_once_with('%s%s' % (self.ss_board.base_url, '00'))
+        urlopen.assert_called_once_with('%s%s' %
+                                        (self.ss_board.base_url, '00'))
 
     def test_connection_error_no_tux(self):
         default_status_msg = self.STATUS_MSG
@@ -672,8 +676,10 @@ class TestRelayRigParser(unittest.TestCase):
         rig.relays['r0'] = self.r0
         rig.relays['r1'] = self.r1
         config = {
-            'type': 'SomeInvalidType',
-            'name': '.',
+            'type':
+            'SomeInvalidType',
+            'name':
+            '.',
             'relays': [{
                 'name': 'r0',
                 'pos': 'MockBoard/0'
@@ -702,12 +708,11 @@ class FuguMockBoard(MockBoard):
 class TestFuguRemote(unittest.TestCase):
     def setUp(self):
         Relay.transition_wait_time = 0
-        self.mock_rig = RelayRigMock({
-            "boards": [{
+        self.mock_rig = RelayRigMock(
+            {"boards": [{
                 'name': 'MockBoard',
                 'type': 'FuguMockBoard'
-            }]
-        })
+            }]})
         self.mock_board = self.mock_rig.boards['MockBoard']
         self.fugu_config = {
             'type': 'FuguRemote',
@@ -750,7 +755,6 @@ class TestFuguRemote(unittest.TestCase):
         fugu = fugu_remote.FuguRemote(self.fugu_config, self.mock_rig)
         fugu.setup()
         self.assertEqual(self.mock_board.get_relay_status(0), RelayState.NC)
-        pass
 
     def press_button_success(self, relay_position):
         self.assertEqual(self.mock_board.relay_states[relay_position],

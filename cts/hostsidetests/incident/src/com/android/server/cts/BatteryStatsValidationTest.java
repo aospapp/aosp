@@ -15,6 +15,7 @@
  */
 package com.android.server.cts;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.log.LogUtil;
 
 import java.util.Random;
@@ -182,7 +183,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         // No cached time before test
         assertValueRange("st", "", STATE_TIME_CACHED_INDEX, 0, 0);
         startSimpleActivity();
-        Thread.sleep(TIME_SPENT_IN_CACHED); // process should be in cached state for about this long
+        RunUtil.getDefault().sleep(TIME_SPENT_IN_CACHED); // process should be in cached state for about this long
         assertApproximateTimeInState(STATE_TIME_CACHED_INDEX, TIME_SPENT_IN_CACHED);
         batteryOffScreenOn();
     }
@@ -198,7 +199,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
                     break;
                 }
             }
-            Thread.sleep(SCREEN_STATE_POLLING_INTERVAL);
+            RunUtil.getDefault().sleep(SCREEN_STATE_POLLING_INTERVAL);
         } while (screenAwake && System.currentTimeMillis() < deadLine);
         assertFalse("Screen could not be turned off", screenAwake);
     }
@@ -221,7 +222,7 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
                     screenAwake &= line.trim().endsWith("SCREEN_STATE_ON");
                 }
             }
-            Thread.sleep(SCREEN_STATE_POLLING_INTERVAL);
+            RunUtil.getDefault().sleep(SCREEN_STATE_POLLING_INTERVAL);
         } while (!screenAwake && System.currentTimeMillis() < deadLine);
         assertTrue("Screen could not be turned on", screenAwake);
     }
@@ -241,21 +242,6 @@ public class BatteryStatsValidationTest extends ProtoDumpTestCase {
         // Should be approximately 15000 ms (3 x 5000 ms). Use 0.8x and 2x as the lower and upper
         // bounds to account for possible errors due to thread scheduling and cpu load.
         assertValueRange("jb", DEVICE_SIDE_JOB_COMPONENT, 5, (long) (15000 * 0.8), 15000 * 2);
-        batteryOffScreenOn();
-    }
-
-    public void testReportRadioPowerState() throws Exception {
-        // Simulate usb unplugged.
-        batteryOnScreenOff();
-
-        installPackage(DEVICE_SIDE_TEST_APK, true);
-        allowImmediateSyncs();
-
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsRadioPowerStateTest",
-                "testReportMobileRadioPowerState");
-        runDeviceTests(DEVICE_SIDE_TEST_PACKAGE, ".BatteryStatsRadioPowerStateTest",
-                "testReportWifiRadioPowerState");
-
         batteryOffScreenOn();
     }
 

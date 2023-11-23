@@ -35,6 +35,7 @@ class VirtualNetwork : public Network {
 public:
   explicit VirtualNetwork(unsigned netId, bool secure, bool excludeLocalRoutes = false);
   virtual ~VirtualNetwork();
+  Permission getPermission() const { return PERMISSION_SYSTEM; };
   [[nodiscard]] int addUsers(const UidRanges& uidRanges, int32_t subPriority) override;
   [[nodiscard]] int removeUsers(const UidRanges& uidRanges, int32_t subPriority) override;
   bool isVirtual() override { return true; }

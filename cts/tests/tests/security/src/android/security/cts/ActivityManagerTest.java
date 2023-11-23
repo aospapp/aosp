@@ -15,27 +15,129 @@
  */
 package android.security.cts;
 
-import static org.junit.Assert.*;
 
+import static android.app.ActivityOptions.ANIM_SCENE_TRANSITION;
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static android.content.Intent.FLAG_ACTIVITY_NO_USER_ACTION;
+import static android.view.Window.FEATURE_ACTIVITY_TRANSITIONS;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.app.Activity;
 import android.app.ActivityManager;
-import android.app.ApplicationExitInfo;
+import android.app.ActivityOptions;
+import android.app.Application;
+import android.app.UiAutomation;
 import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.os.Process;
+import android.os.RemoteException;
+import android.os.UserHandle;
 import android.platform.test.annotations.AsbSecurityTest;
 import android.util.Log;
-import androidx.test.runner.AndroidJUnit4;
+import android.view.SurfaceControl;
+import android.window.IRemoteTransition;
+import android.window.IRemoteTransitionFinishedCallback;
+import android.window.RemoteTransition;
+import android.window.TransitionInfo;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ShellUtils;
+import com.android.compatibility.common.util.SystemUtil;
 import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
-import junit.framework.TestCase;
 
-import java.lang.reflect.InvocationTargetException;
-
-import org.junit.runner.RunWith;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.util.concurrent.Callable;
 
 @RunWith(AndroidJUnit4.class)
 public class ActivityManagerTest extends StsExtraBusinessLogicTestCase {
+
+    private boolean canSupportMultiuser() {
+        String output = ShellUtils.runShellCommand("pm get-max-users");
+        if (output.contains("Maximum supported users:")) {
+            return Integer.parseInt(output.split(": ", 2)[1].trim()) > 1;
+        }
+        return false;
+    }
+
+    @AsbSecurityTest(cveBugId = 217934898)
+    @Test
+    public void testActivityManager_registerUidChangeObserver_onlyNoInteractAcrossPermission()
+            throws Exception {
+        if (!canSupportMultiuser()) {
+            return;
+        }
+        String out = "";
+        final UidImportanceObserver observer = new UidImportanceObserver();
+        final ActivityManager mActMan = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        final int currentUser = mActMan.getCurrentUser();
+        try {
+
+            mActMan.addOnUidImportanceListener(observer,
+                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
+
+            out = ShellUtils.runShellCommand("pm create-user testUser");
+            out = out.length() > 2 ? out.substring(out.length() - 2) : out;
+
+            ShellUtils.runShellCommand("am switch-user " + out);
+
+            Thread.sleep(5000);
+            assertFalse(observer.didObserverOtherUser());
+        } finally {
+            ShellUtils.runShellCommand("am switch-user " + currentUser);
+            ShellUtils.runShellCommand("pm remove-user " + out);
+            mActMan.removeOnUidImportanceListener(observer);
+        }
+    }
+
+    @AsbSecurityTest(cveBugId = 217934898)
+    @Test
+    public void testActivityManager_registerUidChangeObserver_allPermission()
+            throws Exception {
+        if (!canSupportMultiuser()) {
+            return;
+        }
+        String out = "";
+        final UidImportanceObserver observer = new UidImportanceObserver();
+        final ActivityManager mActMan = (ActivityManager) getContext()
+                .getSystemService(Context.ACTIVITY_SERVICE);
+        final int currentUser = mActMan.getCurrentUser();
+        final UiAutomation uiAutomation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        uiAutomation
+                .adoptShellPermissionIdentity("android.permission.INTERACT_ACROSS_USERS_FULL");
+        try {
+            mActMan.addOnUidImportanceListener(observer,
+                    ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
+
+            out = ShellUtils.runShellCommand("pm create-user testUser");
+            out = out.length() > 2 ? out.substring(out.length() - 2) : out;
+
+            ShellUtils.runShellCommand("am switch-user " + out);
+
+            Thread.sleep(5000);
+            assertTrue(observer.didObserverOtherUser());
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
+            ShellUtils.runShellCommand("am switch-user " + currentUser);
+            ShellUtils.runShellCommand("pm remove-user " + out);
+            mActMan.removeOnUidImportanceListener(observer);
+        }
+    }
 
     @AsbSecurityTest(cveBugId = 19394591)
     @Test
@@ -111,6 +213,51 @@ public class ActivityManagerTest extends StsExtraBusinessLogicTestCase {
         assertTrue(Math.abs((double) mockPackagescores / totalLoops - 0.5d) < tolerance);
     }
 
+    @AsbSecurityTest(cveBugId = 237290578)
+    @Test
+    public void testActivityManager_stripTransitionFromActivityOptions() throws Exception {
+        Context targetContext = getInstrumentation().getTargetContext();
+
+        // Need to start a base activity since this requires shared element transition.
+        final Intent baseIntent = new Intent(targetContext, BaseActivity.class);
+        baseIntent.setFlags(FLAG_ACTIVITY_NO_USER_ACTION | FLAG_ACTIVITY_NEW_TASK);
+        final BaseActivity baseActivity = (BaseActivity) SystemUtil.callWithShellPermissionIdentity(
+                () -> getInstrumentation().startActivitySync(baseIntent));
+
+        RemoteTransition someRemote = new RemoteTransition(new IRemoteTransition.Stub() {
+            @Override
+            public void startAnimation(IBinder token, TransitionInfo info,
+                    SurfaceControl.Transaction t,
+                    IRemoteTransitionFinishedCallback finishCallback) throws RemoteException {
+                t.apply();
+                finishCallback.onTransitionFinished(null /* wct */, null /* sct */);
+            }
+
+            @Override
+            public void mergeAnimation(IBinder token, TransitionInfo info,
+                    SurfaceControl.Transaction t, IBinder mergeTarget,
+                    IRemoteTransitionFinishedCallback finishCallback) throws RemoteException {
+            }
+        });
+        ActivityOptions opts = ActivityOptions.makeRemoteTransition(someRemote);
+        assertTrue(waitUntil(() -> baseActivity.mResumed));
+        ActivityOptions sceneOpts = baseActivity.mSceneOpts;
+        assertEquals(ANIM_SCENE_TRANSITION, sceneOpts.getAnimationType());
+
+        // Prepare the intent
+        final Intent intent = new Intent(targetContext, ActivityOptionsActivity.class);
+        intent.setFlags(FLAG_ACTIVITY_NO_USER_ACTION | FLAG_ACTIVITY_NEW_TASK);
+        final Bundle optionsBundle = opts.toBundle();
+        optionsBundle.putAll(sceneOpts.toBundle());
+        final ActivityOptionsActivity activity =
+                (ActivityOptionsActivity) SystemUtil.callWithShellPermissionIdentity(
+                        () -> getInstrumentation().startActivitySync(intent, optionsBundle));
+        assertTrue(waitUntil(() -> activity.mResumed));
+
+        assertTrue(activity.mPreCreate || activity.mPreStart);
+        assertNull(activity.mReceivedTransition);
+    }
+
     /**
      * Run ActivityManager.getHistoricalProcessExitReasons once, return the time spent on it.
      */
@@ -121,5 +268,131 @@ public class ActivityManagerTest extends StsExtraBusinessLogicTestCase {
         } catch (Exception e) {
         }
         return System.nanoTime() - start;
+    }
+
+    static final class UidImportanceObserver implements ActivityManager.OnUidImportanceListener {
+
+        private boolean mObservedNonOwned = false;
+        private int mMyUid;
+
+        UidImportanceObserver() {
+            mMyUid = UserHandle.getUserId(Process.myUid());
+        }
+
+        public void onUidImportance(int uid, int importance) {
+            Log.i("ActivityManagerTestObserver", "Observing change for "
+                    + uid + " by user " + UserHandle.getUserId(uid));
+            if (UserHandle.getUserId(uid) != mMyUid) {
+                mObservedNonOwned = true;
+            }
+        }
+
+        public boolean didObserverOtherUser() {
+            return this.mObservedNonOwned;
+        }
+    }
+
+    private boolean waitUntil(Callable<Boolean> test) throws Exception {
+        long timeoutMs = 2000;
+        final long timeout = System.currentTimeMillis() + timeoutMs;
+        while (!test.call()) {
+            final long waitMs = timeout - System.currentTimeMillis();
+            if (waitMs <= 0) break;
+            try {
+                wait(timeoutMs);
+            } catch (InterruptedException e) {
+                // retry
+            }
+        }
+        return test.call();
+    }
+
+    public static class BaseActivity extends Activity {
+        public boolean mResumed = false;
+        public ActivityOptions mSceneOpts = null;
+
+        @Override
+        public void onCreate(Bundle i) {
+            super.onCreate(i);
+            getWindow().requestFeature(FEATURE_ACTIVITY_TRANSITIONS);
+            mSceneOpts = ActivityOptions.makeSceneTransitionAnimation(this);
+        }
+
+        @Override
+        public void onResume() {
+            super.onResume();
+            mResumed = true;
+        }
+    }
+
+    public static class ActivityOptionsActivity extends Activity {
+        public RemoteTransition mReceivedTransition = null;
+        public boolean mPreCreate = false;
+        public boolean mPreStart = false;
+        public boolean mResumed = false;
+
+        public ActivityOptionsActivity() {
+            registerActivityLifecycleCallbacks(new Callbacks());
+        }
+
+        private class Callbacks implements Application.ActivityLifecycleCallbacks {
+            private void accessOptions(Activity activity) {
+                try {
+                    Field mPendingOptions = Activity.class.getDeclaredField("mPendingOptions");
+                    mPendingOptions.setAccessible(true);
+                    ActivityOptions options = (ActivityOptions) mPendingOptions.get(activity);
+                    if (options != null) {
+                        mReceivedTransition = options.getRemoteTransition();
+                    }
+                } catch (ReflectiveOperationException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            @Override
+            public void onActivityPreCreated(Activity activity, Bundle i) {
+                mPreCreate = true;
+                if (mReceivedTransition == null) {
+                    accessOptions(activity);
+                }
+            }
+
+            @Override
+            public void onActivityPreStarted(Activity activity) {
+                mPreStart = true;
+                if (mReceivedTransition == null) {
+                    accessOptions(activity);
+                }
+            }
+
+            @Override
+            public void onActivityCreated(Activity activity, Bundle savedInstanceState) {
+            }
+
+            @Override
+            public void onActivityStarted(Activity activity) {
+            }
+
+            @Override
+            public void onActivityResumed(Activity activity) {
+                mResumed = true;
+            }
+
+            @Override
+            public void onActivityPaused(Activity activity) {
+            }
+
+            @Override
+            public void onActivityStopped(Activity activity) {
+            }
+
+            @Override
+            public void onActivitySaveInstanceState(Activity activity, Bundle outState) {
+            }
+
+            @Override
+            public void onActivityDestroyed(Activity activity) {
+            }
+        }
     }
 }

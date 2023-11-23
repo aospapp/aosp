@@ -450,6 +450,10 @@ mod tests {
         )));
         assert!(sec_level_enforced.iter().any(|kp| matches!(
             kp,
+            KeyParameter { tag: Tag::VENDOR_PATCHLEVEL, value: KeyParameterValue::Integer(_) }
+        )));
+        assert!(sec_level_enforced.iter().any(|kp| matches!(
+            kp,
             KeyParameter { tag: Tag::BOOT_PATCHLEVEL, value: KeyParameterValue::Integer(_) }
         )));
     }

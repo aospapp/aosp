@@ -22,15 +22,23 @@ import static com.android.apksig.apk.ApkUtils.getTargetSandboxVersionFromBinaryA
 import static com.android.apksig.apk.ApkUtils.getTargetSdkVersionFromBinaryAndroidManifest;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V2;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V3;
+import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31;
+import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31;
+import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V4;
 import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_JAR_SIGNATURE_SCHEME;
+import static com.android.apksig.internal.apk.ApkSigningBlockUtils.VERSION_SOURCE_STAMP;
 import static com.android.apksig.internal.apk.v1.V1SchemeConstants.MANIFEST_ENTRY_NAME;
 import static com.android.apksig.internal.apk.v3.V3SchemeConstants.MIN_SDK_WITH_V31_SUPPORT;
 
+import com.android.apksig.ApkVerifier.Result.V2SchemeSignerInfo;
+import com.android.apksig.ApkVerifier.Result.V3SchemeSignerInfo;
+import com.android.apksig.SigningCertificateLineage.SignerConfig;
 import com.android.apksig.apk.ApkFormatException;
 import com.android.apksig.apk.ApkUtils;
 import com.android.apksig.internal.apk.ApkSigResult;
 import com.android.apksig.internal.apk.ApkSignerInfo;
 import com.android.apksig.internal.apk.ApkSigningBlockUtils;
+import com.android.apksig.internal.apk.ApkSigningBlockUtils.Result.SignerInfo.ContentDigest;
 import com.android.apksig.internal.apk.ContentDigestAlgorithm;
 import com.android.apksig.internal.apk.SignatureAlgorithm;
 import com.android.apksig.internal.apk.SignatureInfo;
@@ -56,7 +64,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
+import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -81,6 +91,10 @@ import java.util.Set;
  * @see <a href="https://source.android.com/security/apksigning/index.html">Application Signing</a>
  */
 public class ApkVerifier {
+
+    private static final Set<Issue> LINEAGE_RELATED_ISSUES = new HashSet<>(Arrays.asList(
+        Issue.V3_SIG_MALFORMED_LINEAGE, Issue.V3_INCONSISTENT_LINEAGES,
+        Issue.V3_SIG_POR_DID_NOT_VERIFY, Issue.V3_SIG_POR_CERT_MISMATCH));
 
     private static final Map<Integer, String> SUPPORTED_APK_SIG_SCHEME_NAMES =
             loadSupportedApkSigSchemeNames();
@@ -215,12 +229,12 @@ public class ApkVerifier {
                             .setBlockId(V3SchemeConstants.APK_SIGNATURE_SCHEME_V31_BLOCK_ID)
                             .build()
                             .verify();
-                    foundApkSigSchemeIds.add(ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31);
+                    foundApkSigSchemeIds.add(VERSION_APK_SIGNATURE_SCHEME_V31);
                     rotationMinSdkVersion = v31Result.signers.stream().mapToInt(
                             signer -> signer.minSdkVersion).min().orElse(0);
                     result.mergeFrom(v31Result);
                     signatureSchemeApkContentDigests.put(
-                            ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31,
+                            VERSION_APK_SIGNATURE_SCHEME_V31,
                             getApkContentDigestsFromSigningSchemeResult(v31Result));
                 } catch (ApkSigningBlockUtils.SignatureNotFoundException ignored) {
                     // v3.1 signature not required
@@ -229,8 +243,10 @@ public class ApkVerifier {
                     return result;
                 }
             }
-            // Android P and newer attempts to verify APKs using APK Signature Scheme v3
-            if (minSdkVersion < MIN_SDK_WITH_V31_SUPPORT || foundApkSigSchemeIds.isEmpty()) {
+            // Android P and newer attempts to verify APKs using APK Signature Scheme v3; since a
+            // V3.1 block should only be written with a V3.0 block, always perform the V3.0 check
+            // if the minSdkVersion supports V3.0.
+            if (maxSdkVersion >= AndroidSdkVersion.P) {
                 try {
                     V3SchemeVerifier.Builder builder = new V3SchemeVerifier.Builder(apk,
                             zipSections, Math.max(minSdkVersion, AndroidSdkVersion.P),
@@ -251,7 +267,7 @@ public class ApkVerifier {
                     // signature is intended to support key rotation on T+ with the v3 signature
                     // containing the original signing key.
                     if (foundApkSigSchemeIds.contains(
-                            ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31)) {
+                            VERSION_APK_SIGNATURE_SCHEME_V31)) {
                         result.addError(Issue.V31_BLOCK_FOUND_WITHOUT_V3_BLOCK);
                     }
                 }
@@ -707,6 +723,31 @@ public class ApkVerifier {
     }
 
     /**
+     * Compares the digests coming from signature blocks. Returns {@code true} if at least one
+     * digest algorithm is present in both digests and actual digests for all common algorithms
+     * are the same.
+     */
+    public static boolean compareDigests(
+            Map<ContentDigestAlgorithm, byte[]> firstDigests,
+            Map<ContentDigestAlgorithm, byte[]> secondDigests) throws NoSuchAlgorithmException {
+
+        Set<ContentDigestAlgorithm> intersectKeys = new HashSet<>(firstDigests.keySet());
+        intersectKeys.retainAll(secondDigests.keySet());
+        if (intersectKeys.isEmpty()) {
+            return false;
+        }
+
+        for (ContentDigestAlgorithm algorithm : intersectKeys) {
+            if (!Arrays.equals(firstDigests.get(algorithm),
+                    secondDigests.get(algorithm))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    /**
      * Verifies the provided {@code apk}'s source stamp signature, including verification of the
      * SHA-256 digest of the stamp signing certificate matches the {@code expectedCertDigest}, and
      * returns the result of the verification.
@@ -736,7 +777,7 @@ public class ApkVerifier {
                 boolean stampSigningBlockFound;
                 try {
                     ApkSigningBlockUtils.Result result = new ApkSigningBlockUtils.Result(
-                            ApkSigningBlockUtils.VERSION_SOURCE_STAMP);
+                            VERSION_SOURCE_STAMP);
                     ApkSigningBlockUtils.findSignature(apk, zipSections,
                             SourceStampConstants.V2_SOURCE_STAMP_BLOCK_ID, result);
                     stampSigningBlockFound = true;
@@ -872,6 +913,124 @@ public class ApkVerifier {
     }
 
     /**
+     * Gets content digests, signing lineage and certificates from the given {@code schemeId} block
+     * alongside encountered errors info and creates a new {@code Result} containing all this
+     * information.
+     */
+    public static Result getSigningBlockResult(
+        DataSource apk, ApkUtils.ZipSections zipSections, int sdkVersion, int schemeId)
+        throws IOException, NoSuchAlgorithmException{
+        Map<Integer, Map<ContentDigestAlgorithm, byte[]>> sigSchemeApkContentDigests =
+                new HashMap<>();
+        Map<Integer, String> supportedSchemeNames = getSupportedSchemeNames(sdkVersion);
+        Set<Integer> foundApkSigSchemeIds = new HashSet<>(2);
+
+        Result result = new Result();
+        result.mergeFrom(getApkContentDigests(apk, zipSections,
+                foundApkSigSchemeIds, supportedSchemeNames, sigSchemeApkContentDigests,
+                schemeId, sdkVersion, sdkVersion));
+        return result;
+    }
+
+    /**
+     * Gets the content digest from the {@code result}'s signers. Ignores {@code ContentDigest}s
+     * for which {@code SignatureAlgorithm} is {@code null}.
+     */
+    public static Map<ContentDigestAlgorithm, byte[]> getContentDigestsFromResult(
+        Result result, int schemeId) {
+        Map<ContentDigestAlgorithm, byte[]>  apkContentDigests = new HashMap<>();
+        if (!(schemeId == VERSION_APK_SIGNATURE_SCHEME_V2
+                || schemeId == VERSION_APK_SIGNATURE_SCHEME_V3
+                || schemeId == VERSION_APK_SIGNATURE_SCHEME_V31)) {
+            return apkContentDigests;
+        }
+        switch (schemeId) {
+            case VERSION_APK_SIGNATURE_SCHEME_V2:
+                for (V2SchemeSignerInfo signerInfo : result.getV2SchemeSigners()) {
+                    getContentDigests(signerInfo.getContentDigests(), apkContentDigests);
+                }
+                break;
+            case VERSION_APK_SIGNATURE_SCHEME_V3:
+                for (Result.V3SchemeSignerInfo signerInfo : result.getV3SchemeSigners()) {
+                    getContentDigests(signerInfo.getContentDigests(), apkContentDigests);
+                }
+                break;
+            case  VERSION_APK_SIGNATURE_SCHEME_V31:
+                for (Result.V3SchemeSignerInfo signerInfo : result.getV31SchemeSigners()) {
+                    getContentDigests(signerInfo.getContentDigests(), apkContentDigests);
+                }
+                break;
+        }
+        return apkContentDigests;
+    }
+
+    private static void getContentDigests(
+            List<ContentDigest> digests, Map<ContentDigestAlgorithm, byte[]> contentDigestsMap) {
+        for (ApkSigningBlockUtils.Result.SignerInfo.ContentDigest contentDigest :
+            digests) {
+            SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.findById(
+                    contentDigest.getSignatureAlgorithmId());
+            if (signatureAlgorithm == null) {
+                continue;
+            }
+            contentDigestsMap.put(signatureAlgorithm.getContentDigestAlgorithm(),
+                    contentDigest.getValue());
+        }
+    }
+
+    /**
+     * Checks whether a given {@code result} contains errors indicating that a signing certificate
+     * lineage is incorrect.
+     */
+    public static boolean containsLineageErrors(
+        Result result) {
+        if (!result.containsErrors()) {
+            return false;
+        }
+
+        return (result.getAllErrors().stream().map(i -> i.getIssue())
+                .anyMatch(error -> LINEAGE_RELATED_ISSUES.contains(error)));
+    }
+
+
+    /**
+     * Gets a lineage from the first signer from a given {@code result}.
+     * If the {@code result} contains errors related to the lineage incorrectness or there are no
+     * signers or certificates, it returns {@code null}.
+     * If the lineage is empty but there is a signer, it returns a 1-element lineage containing
+     * the signing key.
+     */
+    public static SigningCertificateLineage getLineageFromResult(
+        Result result, int sdkVersion, int schemeId)
+        throws CertificateEncodingException, InvalidKeyException, NoSuchAlgorithmException,
+        SignatureException {
+        if (!(schemeId == VERSION_APK_SIGNATURE_SCHEME_V3
+                        || schemeId == VERSION_APK_SIGNATURE_SCHEME_V31)
+                || containsLineageErrors(result)) {
+            return null;
+        }
+        List<V3SchemeSignerInfo> signersInfo =
+                schemeId == VERSION_APK_SIGNATURE_SCHEME_V3 ?
+                        result.getV3SchemeSigners() : result.getV31SchemeSigners();
+        if (signersInfo.isEmpty()) {
+            return null;
+        }
+        V3SchemeSignerInfo firstSignerInfo = signersInfo.get(0);
+        SigningCertificateLineage lineage = firstSignerInfo.mSigningCertificateLineage;
+        if (lineage == null && firstSignerInfo.getCertificate() != null) {
+            try {
+                lineage = new SigningCertificateLineage.Builder(
+                        new SignerConfig.Builder(
+                                /* privateKey= */ null, firstSignerInfo.getCertificate())
+                                .build()).build();
+            } catch (Exception e) {
+                return null;
+            }
+        }
+        return lineage;
+    }
+
+    /**
      * Obtains the APK content digest(s) and adds them to the provided {@code
      * sigSchemeApkContentDigests}, returning an {@code ApkSigningBlockUtils.Result} that can be
      * merged with a {@code Result} to notify the client of any errors.
@@ -888,16 +1047,48 @@ public class ApkVerifier {
             Map<Integer, Map<ContentDigestAlgorithm, byte[]>> sigSchemeApkContentDigests,
             int apkSigSchemeVersion, int minSdkVersion)
             throws IOException, NoSuchAlgorithmException {
+        return getApkContentDigests(apk, zipSections, foundApkSigSchemeIds, supportedSchemeNames,
+                sigSchemeApkContentDigests, apkSigSchemeVersion, minSdkVersion, mMaxSdkVersion);
+    }
+
+
+    /**
+     * Obtains the APK content digest(s) and adds them to the provided {@code
+     * sigSchemeApkContentDigests}, returning an {@code ApkSigningBlockUtils.Result} that can be
+     * merged with a {@code Result} to notify the client of any errors.
+     *
+     * <p>Note, this method currently only supports signature scheme V2 and V3; to obtain the
+     * content digests for V1 signatures use {@link
+     * #getApkContentDigestFromV1SigningScheme(List, DataSource, ApkUtils.ZipSections)}. If a
+     * signature scheme version other than V2 or V3 is provided a {@code null} value will be
+     * returned.
+     */
+    private static ApkSigningBlockUtils.Result getApkContentDigests(DataSource apk,
+            ApkUtils.ZipSections zipSections, Set<Integer> foundApkSigSchemeIds,
+            Map<Integer, String> supportedSchemeNames,
+            Map<Integer, Map<ContentDigestAlgorithm, byte[]>> sigSchemeApkContentDigests,
+            int apkSigSchemeVersion, int minSdkVersion, int maxSdkVersion)
+            throws IOException, NoSuchAlgorithmException {
         if (!(apkSigSchemeVersion == VERSION_APK_SIGNATURE_SCHEME_V2
-                || apkSigSchemeVersion == VERSION_APK_SIGNATURE_SCHEME_V3)) {
+                || apkSigSchemeVersion == VERSION_APK_SIGNATURE_SCHEME_V3
+                || apkSigSchemeVersion == VERSION_APK_SIGNATURE_SCHEME_V31)) {
             return null;
         }
         ApkSigningBlockUtils.Result result = new ApkSigningBlockUtils.Result(apkSigSchemeVersion);
         SignatureInfo signatureInfo;
         try {
-            int sigSchemeBlockId = apkSigSchemeVersion == VERSION_APK_SIGNATURE_SCHEME_V3
-                    ? V3SchemeConstants.APK_SIGNATURE_SCHEME_V3_BLOCK_ID
-                    : V2SchemeConstants.APK_SIGNATURE_SCHEME_V2_BLOCK_ID;
+            int sigSchemeBlockId;
+            switch (apkSigSchemeVersion) {
+                case VERSION_APK_SIGNATURE_SCHEME_V31:
+                    sigSchemeBlockId = V3SchemeConstants.APK_SIGNATURE_SCHEME_V31_BLOCK_ID;
+                    break;
+                case VERSION_APK_SIGNATURE_SCHEME_V3:
+                    sigSchemeBlockId = V3SchemeConstants.APK_SIGNATURE_SCHEME_V3_BLOCK_ID;
+                    break;
+                default:
+                    sigSchemeBlockId =
+                        V2SchemeConstants.APK_SIGNATURE_SCHEME_V2_BLOCK_ID;
+            }
             signatureInfo = ApkSigningBlockUtils.findSignature(apk, zipSections,
                     sigSchemeBlockId, result);
         } catch (ApkSigningBlockUtils.SignatureNotFoundException e) {
@@ -909,7 +1100,7 @@ public class ApkVerifier {
         if (apkSigSchemeVersion == VERSION_APK_SIGNATURE_SCHEME_V2) {
             V2SchemeVerifier.parseSigners(signatureInfo.signatureBlock,
                     contentDigestsToVerify, supportedSchemeNames,
-                    foundApkSigSchemeIds, minSdkVersion, mMaxSdkVersion, result);
+                    foundApkSigSchemeIds, minSdkVersion, maxSdkVersion, result);
         } else {
             V3SchemeVerifier.parseSigners(signatureInfo.signatureBlock,
                     contentDigestsToVerify, result);
@@ -1262,7 +1453,7 @@ public class ApkVerifier {
 
         private void mergeFrom(ApkSigResult source) {
             switch (source.signatureSchemeVersion) {
-                case ApkSigningBlockUtils.VERSION_SOURCE_STAMP:
+                case VERSION_SOURCE_STAMP:
                     mSourceStampVerified = source.verified;
                     if (!source.mSigners.isEmpty()) {
                         mSourceStampInfo = new SourceStampInfo(source.mSigners.get(0));
@@ -1276,14 +1467,23 @@ public class ApkVerifier {
         }
 
         private void mergeFrom(ApkSigningBlockUtils.Result source) {
+            if (source == null) {
+                return;
+            }
+            if (source.containsErrors()) {
+                mErrors.addAll(source.getErrors());
+            }
+            if (source.containsWarnings()) {
+                mWarnings.addAll(source.getWarnings());
+            }
             switch (source.signatureSchemeVersion) {
-                case ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V2:
+                case VERSION_APK_SIGNATURE_SCHEME_V2:
                     mVerifiedUsingV2Scheme = source.verified;
                     for (ApkSigningBlockUtils.Result.SignerInfo signer : source.signers) {
                         mV2SchemeSigners.add(new V2SchemeSignerInfo(signer));
                     }
                     break;
-                case ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V3:
+                case VERSION_APK_SIGNATURE_SCHEME_V3:
                     mVerifiedUsingV3Scheme = source.verified;
                     for (ApkSigningBlockUtils.Result.SignerInfo signer : source.signers) {
                         mV3SchemeSigners.add(new V3SchemeSignerInfo(signer));
@@ -1293,20 +1493,20 @@ public class ApkVerifier {
                         mSigningCertificateLineage = source.signingCertificateLineage;
                     }
                     break;
-                case ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V31:
+                case VERSION_APK_SIGNATURE_SCHEME_V31:
                     mVerifiedUsingV31Scheme = source.verified;
                     for (ApkSigningBlockUtils.Result.SignerInfo signer : source.signers) {
                         mV31SchemeSigners.add(new V3SchemeSignerInfo(signer));
                     }
                     mSigningCertificateLineage = source.signingCertificateLineage;
                     break;
-                case ApkSigningBlockUtils.VERSION_APK_SIGNATURE_SCHEME_V4:
+                case VERSION_APK_SIGNATURE_SCHEME_V4:
                     mVerifiedUsingV4Scheme = source.verified;
                     for (ApkSigningBlockUtils.Result.SignerInfo signer : source.signers) {
                         mV4SchemeSigners.add(new V4SchemeSignerInfo(signer));
                     }
                     break;
-                case ApkSigningBlockUtils.VERSION_SOURCE_STAMP:
+                case VERSION_SOURCE_STAMP:
                     mSourceStampVerified = source.verified;
                     if (!source.signers.isEmpty()) {
                         mSourceStampInfo = new SourceStampInfo(source.signers.get(0));
@@ -1358,6 +1558,16 @@ public class ApkVerifier {
                     }
                 }
             }
+            if (!mV31SchemeSigners.isEmpty()) {
+                for (V3SchemeSignerInfo signer : mV31SchemeSigners) {
+                    if (signer.containsErrors()) {
+                        return true;
+                    }
+                    if (mWarningsAsErrors && !signer.getWarnings().isEmpty()) {
+                        return true;
+                    }
+                }
+            }
             if (mSourceStampInfo != null) {
                 if (mSourceStampInfo.containsErrors()) {
                     return true;
@@ -1398,6 +1608,14 @@ public class ApkVerifier {
             }
             if (!mV3SchemeSigners.isEmpty()) {
                 for (V3SchemeSignerInfo signer : mV3SchemeSigners) {
+                    errors.addAll(signer.mErrors);
+                    if (mWarningsAsErrors) {
+                        errors.addAll(signer.getWarnings());
+                    }
+                }
+            }
+            if (!mV31SchemeSigners.isEmpty()) {
+                for (V3SchemeSignerInfo signer : mV31SchemeSigners) {
                     errors.addAll(signer.mErrors);
                     if (mWarningsAsErrors) {
                         errors.addAll(signer.getWarnings());
@@ -1588,6 +1806,7 @@ public class ApkVerifier {
             private final int mMinSdkVersion;
             private final int mMaxSdkVersion;
             private final boolean mRotationTargetsDevRelease;
+            private final SigningCertificateLineage mSigningCertificateLineage;
 
             private V3SchemeSignerInfo(ApkSigningBlockUtils.Result.SignerInfo result) {
                 mIndex = result.index;
@@ -1597,6 +1816,7 @@ public class ApkVerifier {
                 mContentDigests = result.contentDigests;
                 mMinSdkVersion = result.minSdkVersion;
                 mMaxSdkVersion = result.maxSdkVersion;
+                mSigningCertificateLineage = result.signingCertificateLineage;
                 mRotationTargetsDevRelease = result.additionalAttributes.stream().mapToInt(
                         attribute -> attribute.getId()).anyMatch(
                         attrId -> attrId == V3SchemeConstants.ROTATION_ON_DEV_RELEASE_ATTR_ID);
@@ -1671,6 +1891,16 @@ public class ApkVerifier {
              */
             public boolean getRotationTargetsDevRelease() {
                 return mRotationTargetsDevRelease;
+            }
+
+            /**
+             * Returns the {@link SigningCertificateLineage} for this signer; when an APK has
+             * SDK targeted signing configs, the lineage of each signer could potentially contain
+             * a subset of the full signing lineage and / or different capabilities for each signer
+             * in the lineage.
+             */
+            public SigningCertificateLineage getSigningCertificateLineage() {
+                return mSigningCertificateLineage;
             }
         }
 
@@ -1764,6 +1994,7 @@ public class ApkVerifier {
 
             private final List<IssueWithParams> mErrors;
             private final List<IssueWithParams> mWarnings;
+            private final List<IssueWithParams> mInfoMessages;
 
             private final SourceStampVerificationStatus mSourceStampVerificationStatus;
 
@@ -1776,6 +2007,8 @@ public class ApkVerifier {
                         result.getErrors());
                 mWarnings = ApkVerificationIssueAdapter.getIssuesFromVerificationIssues(
                         result.getWarnings());
+                mInfoMessages = ApkVerificationIssueAdapter.getIssuesFromVerificationIssues(
+                        result.getInfoMessages());
                 if (mErrors.isEmpty() && mWarnings.isEmpty()) {
                     mSourceStampVerificationStatus = SourceStampVerificationStatus.STAMP_VERIFIED;
                 } else {
@@ -1790,6 +2023,7 @@ public class ApkVerifier {
                 mCertificateLineage = Collections.emptyList();
                 mErrors = Collections.emptyList();
                 mWarnings = Collections.emptyList();
+                mInfoMessages = Collections.emptyList();
                 mSourceStampVerificationStatus = sourceStampVerificationStatus;
                 mTimestamp = 0;
             }
@@ -1816,12 +2050,28 @@ public class ApkVerifier {
                 return !mErrors.isEmpty();
             }
 
+            /**
+             * Returns {@code true} if any info messages were encountered during verification of
+             * this source stamp.
+             */
+            public boolean containsInfoMessages() {
+                return !mInfoMessages.isEmpty();
+            }
+
             public List<IssueWithParams> getErrors() {
                 return mErrors;
             }
 
             public List<IssueWithParams> getWarnings() {
                 return mWarnings;
+            }
+
+            /**
+             * Returns a {@code List} of {@link IssueWithParams} representing info messages
+             * that were encountered during verification of the source stamp.
+             */
+            public List<IssueWithParams> getInfoMessages() {
+                return mInfoMessages;
             }
 
             /**
@@ -1851,6 +2101,16 @@ public class ApkVerifier {
          * APK is not JAR-signed.
          */
         JAR_SIG_NO_SIGNATURES("No JAR signatures"),
+
+        /**
+         * APK signature scheme v1 has exceeded the maximum number of jar signers.
+         * <ul>
+         * <li>Parameter 1: maximum allowed signers ({@code Integer})</li>
+         * <li>Parameter 2: total number of signers ({@code Integer})</li>
+         * </ul>
+         */
+        JAR_SIG_MAX_SIGNATURES_EXCEEDED(
+                "APK Signature Scheme v1 only supports a maximum of %1$d signers, found %2$d"),
 
         /**
          * APK does not contain any entries covered by JAR signatures.
@@ -2292,6 +2552,16 @@ public class ApkVerifier {
         V2_SIG_MISSING_APK_SIG_REFERENCED(
                 "APK Signature Scheme v2 signature %1$s indicates the APK is signed using %2$s but "
                         + "no such signature was found. Signature stripped?"),
+
+        /**
+         * APK signature scheme v2 has exceeded the maximum number of signers.
+         * <ul>
+         * <li>Parameter 1: maximum allowed signers ({@code Integer})</li>
+         * <li>Parameter 2: total number of signers ({@code Integer})</li>
+         * </ul>
+         */
+        V2_SIG_MAX_SIGNATURES_EXCEEDED(
+                "APK Signature Scheme V2 only supports a maximum of %1$d signers, found %2$d"),
 
         /**
          * APK Signature Scheme v2 signature contains no signers.

@@ -59,6 +59,13 @@ class Replace(str):
       cur[key] = val
 
 
+class ReplaceIfEqual(str):
+  def apply(self, obj, old_val, new_val):
+    cur, key = follow_path(obj, self)
+    if cur and cur[key] == int(old_val):
+      cur[key] = new_val
+
+
 class Remove(str):
   def apply(self, obj):
     cur, key = follow_path(obj, self)
@@ -75,6 +82,14 @@ class AppendList(str):
       raise ValueError(self + " should be a array.")
     cur[key].extend(args)
 
+# A JSONDecoder that supports line comments start with //
+class JSONWithCommentsDecoder(json.JSONDecoder):
+  def __init__(self, **kw):
+    super().__init__(**kw)
+
+  def decode(self, s: str):
+    s = '\n'.join(l for l in s.split('\n') if not l.lstrip(' ').startswith('//'))
+    return super().decode(s)
 
 def main():
   parser = argparse.ArgumentParser()
@@ -91,6 +106,11 @@ def main():
                       help='replace value of the key specified by path. If path doesn\'t exist, no op.',
                       metavar=('path', 'value'),
                       nargs=2, dest='patch', action='append')
+  parser.add_argument("-se", "--replace-if-equal", type=ReplaceIfEqual,
+                      help='replace value of the key specified by path to new_value if it\'s equal to old_value.' +
+                      'If path doesn\'t exist or the value is not equal to old_value, no op.',
+                      metavar=('path', 'old_value', 'new_value'),
+                      nargs=3, dest='patch', action='append')
   parser.add_argument("-r", "--remove", type=Remove,
                       help='remove the key specified by path. If path doesn\'t exist, no op.',
                       metavar='path',
@@ -103,9 +123,9 @@ def main():
 
   if args.input:
     with open(args.input) as f:
-      obj = json.load(f, object_pairs_hook=collections.OrderedDict)
+      obj = json.load(f, object_pairs_hook=collections.OrderedDict, cls=JSONWithCommentsDecoder)
   else:
-    obj = json.load(sys.stdin, object_pairs_hook=collections.OrderedDict)
+    obj = json.load(sys.stdin, object_pairs_hook=collections.OrderedDict, cls=JSONWithCommentsDecoder)
 
   for p in args.patch:
     p[0].apply(obj, *p[1:])

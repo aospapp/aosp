@@ -18,6 +18,7 @@ package android.device.collectors;
 
 import android.device.collectors.annotations.OptionClass;
 import android.os.Bundle;
+
 import androidx.annotation.VisibleForTesting;
 
 import com.android.helpers.HeapDumpHelper;
@@ -25,11 +26,11 @@ import com.android.helpers.HeapDumpHelper;
 import org.junit.runner.Description;
 
 import java.util.Arrays;
-import java.util.function.Function;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -47,12 +48,14 @@ public class HeapDumpListener extends BaseCollectionListener<String> {
     @VisibleForTesting static final String ITERATION_SEPARATOR = ",";
     @VisibleForTesting static final String ENABLE_ITERATION_IDS = "enable-iteration-ids";
     @VisibleForTesting static final String ITERATION_ALL_ENABLE = "iteration-all-enable";
+    @VisibleForTesting static final String ENABLE_NATIVE_HEAPDUMP = "enable-native-heapdump";
     @VisibleForTesting static final String PROCESS_NAMES_KEY = "heapdump-process-names";
     @VisibleForTesting static final String PROCESS_SEPARATOR = ",";
     Map<String, Integer> mTestIterationCount = new HashMap<String, Integer>();
     Set<Integer> mValidIterationIds;
     boolean mIsDisabled = false;
     boolean mIsEnabledForAll = false;
+
     private HeapDumpHelper mHeapHelper = new HeapDumpHelper();
 
     public HeapDumpListener() {
@@ -72,6 +75,10 @@ public class HeapDumpListener extends BaseCollectionListener<String> {
 
         mIsEnabledForAll =
                 Boolean.parseBoolean(args.getString(ITERATION_ALL_ENABLE, String.valueOf(false)));
+
+        boolean isNativeHeapDumpEnabled =
+                Boolean.parseBoolean(args.getString(ENABLE_NATIVE_HEAPDUMP, String.valueOf(false)));
+        if (isNativeHeapDumpEnabled) mHeapHelper.enableNativeHeapDump();
 
         String testOutputDir = args.getString(OUTPUT_DIR_KEY, DEFAULT_OUTPUT_DIR);
 

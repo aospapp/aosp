@@ -19,12 +19,12 @@ package android.media.audio.cts;
 import static org.testng.Assert.assertThrows;
 
 import android.media.AudioFormat;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Parcel;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.NonMainlineTest;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioFormatTest extends CtsAndroidTestCase {
 
     // -----------------------------------------------------------------
@@ -192,6 +192,9 @@ public class AudioFormatTest extends CtsAndroidTestCase {
             AudioFormat.ENCODING_MPEGH_LC_L4,
             AudioFormat.ENCODING_DTS_UHD,
             AudioFormat.ENCODING_DRA,
+            AudioFormat.ENCODING_DTS_HD_MA,
+            AudioFormat.ENCODING_DTS_UHD_P1,
+            AudioFormat.ENCODING_DTS_UHD_P2,
         };
         for (int encoding : encodings) {
             final AudioFormat format = new AudioFormat.Builder()
@@ -214,6 +217,50 @@ public class AudioFormatTest extends CtsAndroidTestCase {
             2 /* channels */ * 4 /* bytes per sample */, formatPcmFloat.getFrameSizeInBytes());
     }
 
+    // Test case 8: Check setting valid encodings
+    public void testValidEncodings() throws Exception {
+        int[] encodings = {
+            AudioFormat.ENCODING_DEFAULT,
+            AudioFormat.ENCODING_PCM_16BIT,
+            AudioFormat.ENCODING_PCM_8BIT,
+            AudioFormat.ENCODING_PCM_FLOAT,
+            AudioFormat.ENCODING_AC3,
+            AudioFormat.ENCODING_E_AC3,
+            AudioFormat.ENCODING_DTS,
+            AudioFormat.ENCODING_DTS_HD,
+            AudioFormat.ENCODING_MP3,
+            AudioFormat.ENCODING_AAC_LC,
+            AudioFormat.ENCODING_AAC_HE_V1,
+            AudioFormat.ENCODING_AAC_HE_V2,
+            AudioFormat.ENCODING_IEC61937,
+            AudioFormat.ENCODING_DOLBY_TRUEHD,
+            AudioFormat.ENCODING_AAC_ELD,
+            AudioFormat.ENCODING_AAC_XHE,
+            AudioFormat.ENCODING_AC4,
+            AudioFormat.ENCODING_E_AC3_JOC,
+            AudioFormat.ENCODING_DOLBY_MAT,
+            AudioFormat.ENCODING_OPUS,
+            AudioFormat.ENCODING_PCM_24BIT_PACKED,
+            AudioFormat.ENCODING_PCM_32BIT,
+            AudioFormat.ENCODING_MPEGH_BL_L3,
+            AudioFormat.ENCODING_MPEGH_BL_L4,
+            AudioFormat.ENCODING_MPEGH_LC_L3,
+            AudioFormat.ENCODING_MPEGH_LC_L4,
+            AudioFormat.ENCODING_DTS_UHD_P1,
+            AudioFormat.ENCODING_DRA,
+            AudioFormat.ENCODING_DTS_HD_MA,
+            AudioFormat.ENCODING_DTS_UHD_P2,
+            AudioFormat.ENCODING_DSD,
+        };
+        for (int encoding : encodings) {
+            final AudioFormat format = new AudioFormat.Builder()
+                    .setEncoding(encoding)
+                    .setSampleRate(44100)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                    .build();
+        }
+    }
+
     /**
      * Check whether the bits in a are all present in b.
      *
@@ -234,6 +281,7 @@ public class AudioFormatTest extends CtsAndroidTestCase {
                 {AudioFormat.CHANNEL_OUT_QUAD, 4},
                 {AudioFormat.CHANNEL_OUT_SURROUND, 4},
                 {AudioFormat.CHANNEL_OUT_5POINT1, 6},
+                {AudioFormat.CHANNEL_OUT_6POINT1, 7},
                 {AudioFormat.CHANNEL_OUT_5POINT1POINT2, 8},
                 {AudioFormat.CHANNEL_OUT_7POINT1_SURROUND, 8},
                 {AudioFormat.CHANNEL_OUT_7POINT1POINT2, 10},
@@ -264,6 +312,8 @@ public class AudioFormatTest extends CtsAndroidTestCase {
                 AudioFormat.CHANNEL_OUT_5POINT1POINT2));
         assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_5POINT1,
                 AudioFormat.CHANNEL_OUT_5POINT1POINT4));
+        assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_5POINT1,
+                AudioFormat.CHANNEL_OUT_6POINT1));
         // Note CHANNEL_OUT_5POINT1POINT2 not a subset of CHANNEL_OUT_5POINT1POINT4
         assertTrue(subsetOf(AudioFormat.CHANNEL_OUT_7POINT1_SURROUND,
                 AudioFormat.CHANNEL_OUT_7POINT1POINT2));

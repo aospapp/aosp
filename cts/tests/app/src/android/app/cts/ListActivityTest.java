@@ -24,6 +24,7 @@ import android.view.View;
 import android.view.ViewTreeObserver;
 import android.widget.ArrayAdapter;
 import android.widget.ListAdapter;
+
 import junit.framework.Assert;
 
 import java.util.concurrent.Semaphore;
@@ -55,29 +56,6 @@ public class ListActivityTest extends ActivityInstrumentationTestCase2<MockListA
         });
         assertEquals(listAdapter, mActivity.getListAdapter());
         assertEquals(listAdapter, mActivity.getListView().getAdapter());
-    }
-
-    public void testSelection() throws Throwable {
-        final ListAdapter listAdapter = new ArrayAdapter<String>(mActivity,
-                android.R.layout.simple_list_item_1,
-                new String[] { "Alpha", "Bravo", "Charlie", "Delta", "Echo"});
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mActivity.setListAdapter(listAdapter);
-            }
-        });
-        assertEquals(0, mActivity.getSelectedItemPosition());
-        assertEquals(0, mActivity.getSelectedItemId());
-
-        runOnMainAndDrawSync(getInstrumentation(), mActivity.getListView(), new Runnable() {
-            @Override
-            public void run() {
-                mActivity.setSelection(2);
-            }
-        });
-        assertEquals(2, mActivity.getSelectedItemPosition());
-        assertEquals(2, mActivity.getSelectedItemId());
     }
 
     public void testItemClick() throws Throwable {

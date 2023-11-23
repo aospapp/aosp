@@ -22,16 +22,14 @@
  *  Reader/Writer mode.
  *
  ******************************************************************************/
-#include <string.h>
-
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
 #include <log/log.h>
-
-#include "nfc_target.h"
+#include <string.h>
 
 #include "nci_hmsgs.h"
 #include "nfc_api.h"
+#include "nfc_target.h"
 #include "rw_api.h"
 #include "rw_int.h"
 
@@ -60,7 +58,6 @@ static tNFC_STATUS rw_t2t_read_ndef_last_block(void);
 static void rw_t2t_update_attributes(void);
 static void rw_t2t_update_lock_attributes(void);
 static bool rw_t2t_is_lock_res_byte(uint16_t index);
-static bool rw_t2t_is_read_only_byte(uint16_t index);
 static tNFC_STATUS rw_t2t_write_ndef_first_block(uint16_t msg_len,
                                                  bool b_update_len);
 static tNFC_STATUS rw_t2t_write_ndef_next_block(uint16_t block,
@@ -598,6 +595,8 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
             } else {
               LOG(ERROR) << StringPrintf("Underflow p_t2t->bytes_count!");
               android_errorWriteLog(0x534e4554, "120506143");
+              failed = true;
+              break;
             }
             if ((tlvtype == TAG_LOCK_CTRL_TLV) || (tlvtype == TAG_NDEF_TLV)) {
               if (p_t2t->num_lockbytes > 0) {
@@ -662,6 +661,8 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
             } else {
               LOG(ERROR) << StringPrintf("bytes_count underflow!");
               android_errorWriteLog(0x534e4554, "120506143");
+              failed = true;
+              break;
             }
             if ((tlvtype == TAG_MEM_CTRL_TLV) || (tlvtype == TAG_NDEF_TLV)) {
               p_t2t->tlv_value[2 - p_t2t->bytes_count] = p_data[offset];
@@ -705,6 +706,8 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
             } else {
               LOG(ERROR) << StringPrintf("bytes_count underflow!");
               android_errorWriteLog(0x534e4554, "120506143");
+              failed = true;
+              break;
             }
             if (tlvtype == TAG_PROPRIETARY_TLV) {
               found = true;
@@ -718,6 +721,10 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
         }
         offset++;
         break;
+      default:
+        LOG(ERROR) << StringPrintf("Unknown p_t2t->substate=%d",
+                                   p_t2t->substate);
+        failed = true;
     }
   }
 
@@ -728,7 +735,8 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
   /* If not found and not failed, read next block and search tlv */
   if (!found && !failed) {
     if (p_t2t->work_offset >=
-        (p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] * T2T_TMS_TAG_FACTOR + T2T_FIRST_DATA_BLOCK * T2T_BLOCK_LEN)) {
+        (p_t2t->tag_hdr[T2T_CC2_TMS_BYTE] * T2T_TMS_TAG_FACTOR +
+         T2T_FIRST_DATA_BLOCK * T2T_BLOCK_LEN)) {
       if (((tlvtype == TAG_LOCK_CTRL_TLV) && (p_t2t->num_lockbytes > 0)) ||
           ((tlvtype == TAG_MEM_CTRL_TLV) && (p_t2t->num_mem_tlvs > 0))) {
         found = true;
@@ -736,7 +744,8 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
         failed = true;
       }
     } else {
-      if (rw_t2t_read((uint16_t)(p_t2t->work_offset / T2T_BLOCK_LEN) ) != NFC_STATUS_OK)
+      if (rw_t2t_read((uint16_t)(p_t2t->work_offset / T2T_BLOCK_LEN)) !=
+          NFC_STATUS_OK)
         failed = true;
     }
   }
@@ -758,17 +767,8 @@ static void rw_t2t_handle_tlv_detect_rsp(uint8_t* p_data) {
     } else if (tlvtype == TAG_NDEF_TLV) {
       rw_t2t_extract_default_locks_info();
 
-      if (failed) {
-        rw_t2t_ntf_tlv_detect_complete(NFC_STATUS_FAILED);
-      } else {
-        /* NDEF present,Send command to read the dynamic lock bytes */
-        status = rw_t2t_read_locks();
-        if (status != NFC_STATUS_CONTINUE) {
-          /* If unable to read a lock/all locks read, notify upper layer */
-          rw_t2t_update_lock_attributes();
-          rw_t2t_ntf_tlv_detect_complete(status);
-        }
-      }
+      status = failed ? NFC_STATUS_FAILED : NFC_STATUS_OK;
+      rw_t2t_ntf_tlv_detect_complete(status);
     } else {
       /* Notify Memory/ Proprietary tlv detect result */
       status = failed ? NFC_STATUS_FAILED : NFC_STATUS_OK;
@@ -956,7 +956,6 @@ tNFC_STATUS rw_t2t_read_ndef_last_block(void) {
 
   return status;
 }
-
 
 /*******************************************************************************
 **
@@ -1403,7 +1402,6 @@ static uint16_t rw_t2t_get_ndef_max_size(void) {
   /* Starting from NDEF Message offset find the first locked data byte */
   while (offset < tag_size) {
     if (rw_t2t_is_lock_res_byte((uint16_t)offset) == false) {
-      if (rw_t2t_is_read_only_byte((uint16_t)offset) == true) break;
       p_t2t->max_ndef_msg_len++;
     }
     offset++;
@@ -1892,10 +1890,11 @@ static void rw_t2t_handle_format_tag_rsp(uint8_t* p_data) {
         next_block = T2T_FIRST_DATA_BLOCK;
         p = p_t2t->ndef_final_block;
       } else {
-        addr = (uint16_t)(
-            ((uint16_t)p_t2t->tag_data[2] << 8 | p_t2t->tag_data[3]) *
-                ((uint16_t)p_t2t->tag_data[4] << 8 | p_t2t->tag_data[5]) +
-            T2T_STATIC_SIZE);
+        addr = (uint16_t)(((uint16_t)p_t2t->tag_data[2] << 8 |
+                           p_t2t->tag_data[3]) *
+                              ((uint16_t)p_t2t->tag_data[4] << 8 |
+                               p_t2t->tag_data[5]) +
+                          T2T_STATIC_SIZE);
         locked_area = ((uint16_t)p_t2t->tag_data[2] << 8 | p_t2t->tag_data[3]) *
                       ((uint16_t)p_t2t->tag_data[6]);
 
@@ -1916,7 +1915,8 @@ static void rw_t2t_handle_format_tag_rsp(uint8_t* p_data) {
       UINT8_TO_BE_STREAM(p, TAG_NDEF_TLV);
       UINT8_TO_BE_STREAM(p, 0);
 
-      if (((p_ret = t2t_tag_init_data(p_t2t->tag_hdr[0], false, 0)) != nullptr) &&
+      if (((p_ret = t2t_tag_init_data(p_t2t->tag_hdr[0], false, 0)) !=
+           nullptr) &&
           (!p_ret->b_otp)) {
         UINT8_TO_BE_STREAM(p, TAG_TERMINATOR_TLV);
       } else
@@ -1966,7 +1966,7 @@ static void rw_t2t_update_attributes(void) {
   uint16_t offset_in_seg;
   uint16_t block_boundary;
   uint8_t num_internal_bytes;
-  uint8_t num_bytes;
+  uint16_t num_bytes;
 
   /* Prepare attr for the current segment */
   memset(p_t2t->attr, 0, RW_T2T_SEGMENT_SIZE * sizeof(uint8_t));
@@ -2365,48 +2365,6 @@ static bool rw_t2t_is_lock_res_byte(uint16_t index) {
 
   return ((p_t2t->attr[index / 8] & rw_t2t_mask_bits[index % 8]) == 0) ? false
                                                                        : true;
-}
-
-/*******************************************************************************
-**
-** Function         rw_t2t_is_read_only_byte
-**
-** Description      This function will check if the tag index passed as
-**                  argument is a locked and return
-**                  TRUE or FALSE
-**
-** Parameters:      index, the index of the byte in the tag
-**
-**
-** Returns          TRUE, if the specified index in the tag is a locked or
-**                        reserved or otp byte
-**                  FALSE, otherwise
-**
-*******************************************************************************/
-static bool rw_t2t_is_read_only_byte(uint16_t index) {
-  tRW_T2T_CB* p_t2t = &rw_cb.tcb.t2t;
-
-  p_t2t->segment = (uint8_t)(index / RW_T2T_SEGMENT_BYTES);
-
-  if (p_t2t->lock_attr_seg != p_t2t->segment) {
-    /* Update lock attributes for the current segment */
-    rw_t2t_update_lock_attributes();
-    p_t2t->lock_attr_seg = p_t2t->segment;
-  }
-
-  index = index % RW_T2T_SEGMENT_BYTES;
-  /* Every bit in p_t2t->lock_attr indicates one specific byte of the tag is a
-   * read only byte or read write byte
-   * So, each array element in p_t2t->lock_attr covers two blocks of the tag as
-   * T2 block size is 4 and array element size is 8
-   * Find the block and offset for the index (passed as argument) and Check if
-   * the offset bit in
-   * p_t2t->lock_attr[block/2] is set or not. If the bit is set then it is a
-   * read only byte, otherwise read write byte */
-
-  return ((p_t2t->lock_attr[index / 8] & rw_t2t_mask_bits[index % 8]) == 0)
-             ? false
-             : true;
 }
 
 /*******************************************************************************

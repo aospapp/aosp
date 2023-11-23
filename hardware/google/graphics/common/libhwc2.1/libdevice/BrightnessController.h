@@ -65,6 +65,8 @@ public:
     int processEnhancedHbm(bool on);
     int processDisplayBrightness(float bl, const nsecs_t vsyncNs, bool waitPresent = false);
     int processLocalHbm(bool on);
+    int processDimBrightness(bool on);
+    bool isDbmSupported() { return mDbmSupported; }
     int applyPendingChangeViaSysfs(const nsecs_t vsyncNs);
     bool validateLayerBrightness(float brightness);
 
@@ -88,7 +90,7 @@ public:
      */
     float getSdrDimRatioForInstantHbm();
 
-    void onClearDisplay();
+    void onClearDisplay(bool needModeClear);
 
     /**
      * apply brightness change on drm path.
@@ -97,6 +99,7 @@ public:
     int prepareFrameCommit(ExynosDisplay& display,
                            const DrmConnector& connector,
                            ExynosDisplayDrmInterface::DrmModeAtomicReq& drmReq,
+                           const bool mixedComposition,
                            bool& ghbmSync, bool& lhbmSync, bool& blSync);
 
     bool isGhbmSupported() { return mGhbmSupported; }
@@ -111,8 +114,13 @@ public:
         std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
         return mLhbm.get();
     }
-    int checkSysfsStatus(const char *file, const std::string &expectedValue,
+    int checkSysfsStatus(const std::string& file, const std::vector<std::string>& expectedValue,
                          const nsecs_t timeoutNs);
+    bool fileExists(const std::string& file) {
+        struct stat sb;
+        return stat(file.c_str(), &sb) == 0;
+    }
+    void resetLhbmState();
 
     uint32_t getBrightnessLevel() {
         std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
@@ -135,6 +143,25 @@ public:
 
     void dump(String8 &result);
 
+    void setOutdoorVisibility(LbeState state);
+
+    int updateCabcMode();
+
+    const std::string GetPanelSysfileByIndex(const char *file_pattern) {
+        String8 nodeName;
+        nodeName.appendFormat(file_pattern, mPanelIndex);
+        return nodeName.c_str();
+    }
+
+    const std::string GetPanelRefreshRateSysfile() {
+        String8 nodeName;
+        nodeName.appendFormat(kRefreshrateFileNode,
+                              mPanelIndex == 0           ? "primary"
+                                      : mPanelIndex == 1 ? "secondary"
+                                                         : "unknown");
+        return nodeName.c_str();
+    }
+
     struct BrightnessTable {
         float mBriStart;
         float mBriEnd;
@@ -154,16 +181,39 @@ public:
 
     const BrightnessTable *getBrightnessTable() { return mBrightnessTable; }
 
+    /*
+     * WARNING: This enum is parsed by Battery Historian. Add new values, but
+     *  do not modify/remove existing ones. Alternatively, consult with the
+     *  Battery Historian team (b/239640926).
+     */
     enum class BrightnessRange : uint32_t {
         NORMAL = 0,
-        HBM,
+        HBM = 1,
         MAX,
     };
 
+    /*
+     * WARNING: This enum is parsed by Battery Historian. Add new values, but
+     *  do not modify/remove existing ones. Alternatively, consult with the
+     *  Battery Historian team (b/239640926).
+     */
     enum class HbmMode {
         OFF = 0,
-        ON_IRC_ON,
-        ON_IRC_OFF,
+        ON_IRC_ON = 1,
+        ON_IRC_OFF = 2,
+    };
+
+    /*
+     * LHBM command need take a couple of frames to become effective
+     * DISABLED - finish sending disabling command to panel
+     * ENABLED - panel finishes boosting brightness to the peak value
+     * ENABLING - finish sending enabling command to panel (panel begins boosting brightness)
+     * Note: the definition should be consistent with kernel driver
+     */
+    enum class LhbmMode {
+        DISABLED = 0,
+        ENABLED = 1,
+        ENABLING = 2,
     };
 
     /*
@@ -171,36 +221,60 @@ public:
      * NORMAL- enable dimming
      * HBM-    enable dimming only for hbm transition
      * NONE-   disable dimming
+     *
+     * WARNING: This enum is parsed by Battery Historian. Add new values, but
+     *  do not modify/remove existing ones. Alternatively, consult with the
+     *  Battery Historian team (b/239640926).
      */
     enum class BrightnessDimmingUsage {
         NORMAL = 0,
-        HBM,
+        HBM = 1,
         NONE,
     };
 
     static constexpr const char *kLocalHbmModeFileNode =
                 "/sys/class/backlight/panel%d-backlight/local_hbm_mode";
+    static constexpr const char* kDimBrightnessFileNode =
+            "/sys/class/backlight/panel%d-backlight/dim_brightness";
+    static constexpr const char* kRefreshrateFileNode =
+            "/sys/devices/platform/exynos-drm/%s-panel/refresh_rate";
+
 private:
+    // sync brightness change for mixed composition when there is more than 50% luminance change.
+    // The percentage is calculated as:
+    //        (big_lumi - small_lumi) / small_lumi
+    // For mixed composition, if remove brightness animations, the minimum brightness jump is
+    // between nbm peak and hbm peak. 50% will cover known panels
+    static constexpr float kBrightnessSyncThreshold = 0.5f;
     // Worst case for panel with brightness range 2 nits to 1000 nits.
     static constexpr float kGhbmMinDimRatio = 0.002;
     static constexpr int32_t kHbmDimmingTimeUs = 5000000;
     static constexpr const char *kGlobalHbmModeFileNode =
                 "/sys/class/backlight/panel%d-backlight/hbm_mode";
+    static constexpr const char* kDimmingUsagePropName =
+            "vendor.display.%d.brightness.dimming.usage";
+    static constexpr const char* kDimmingHbmTimePropName =
+            "vendor.display.%d.brightness.dimming.hbm_time";
 
     int queryBrightness(float brightness, bool* ghbm = nullptr, uint32_t* level = nullptr,
                         float *nits = nullptr);
     void initBrightnessTable(const DrmDevice& device, const DrmConnector& connector);
     void initBrightnessSysfs();
+    void initCabcSysfs();
     void initDimmingUsage();
     int applyBrightnessViaSysfs(uint32_t level);
+    int applyCabcModeViaSysfs(uint8_t mode);
     int updateStates() REQUIRES(mBrightnessMutex);
     void dimmingThread();
     void processDimmingOff();
 
     void parseHbmModeEnums(const DrmProperty& property);
 
+    void printBrightnessStates(const char* path)  REQUIRES(mBrightnessMutex);
+
     bool mLhbmSupported = false;
     bool mGhbmSupported = false;
+    bool mDbmSupported = false;
     bool mBrightnessIntfSupported = false;
     BrightnessTable mBrightnessTable[toUnderlying(BrightnessRange::MAX)];
 
@@ -221,6 +295,7 @@ private:
     CtrlValue<bool> mLhbm GUARDED_BY(mBrightnessMutex);
     CtrlValue<bool> mSdrDim GUARDED_BY(mBrightnessMutex);
     CtrlValue<bool> mPrevSdrDim GUARDED_BY(mBrightnessMutex);
+    CtrlValue<bool> mDimBrightnessReq GUARDED_BY(mBrightnessMutex);
 
     // Indicating if the last LHBM on has changed the brightness level
     bool mLhbmBrightnessAdj = false;
@@ -251,11 +326,30 @@ private:
     // sysfs path
     std::ofstream mBrightnessOfs;
     uint32_t mMaxBrightness = 0; // read from sysfs
+    std::ofstream mCabcModeOfs;
+    bool mCabcSupport = false;
+    uint32_t mDimBrightness = 0;
 
     // Note IRC or dimming is not in consideration for now.
     float mDisplayWhitePointNits = 0;
+    float mPrevDisplayWhitePointNits = 0;
 
     std::function<void(void)> mUpdateDcLhbm;
+
+    // state for control CABC state
+    enum class CabcMode {
+        OFF = 0,
+        CABC_UI_MODE,
+        CABC_STILL_MODE,
+        CABC_MOVIE_MODE,
+    };
+
+    static constexpr const char* kLocalCabcModeFileNode =
+            "/sys/class/backlight/panel%d-backlight/cabc_mode";
+    std::recursive_mutex mCabcModeMutex;
+    bool mOutdoorVisibility GUARDED_BY(mCabcModeMutex) = false;
+    bool isHdrLayerOn() { return mHdrLayerState.get() == HdrLayerState::kHdrLarge; }
+    CtrlValue<CabcMode> mCabcMode GUARDED_BY(mCabcModeMutex);
 };
 
 #endif // _BRIGHTNESS_CONTROLLER_H_

@@ -1,22 +1,19 @@
-"""
-Copyright (C) 2021 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2021 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("//build/bazel/rules:proto_file_utils.bzl", "proto_file_utils")
-load("@bazel_skylib//lib:paths.bzl", "paths")
-load(":library.bzl", "java_library")
+load(":rules.bzl", "java_library")
 
 def _java_proto_sources_gen_rule_impl(ctx):
     out_flags = []
@@ -30,17 +27,20 @@ def _java_proto_sources_gen_rule_impl(ctx):
             out_flags.append(ctx.attr.out_format)
 
     srcs = []
+    proto_infos = []
+
     for dep in ctx.attr.deps:
-        proto_info = dep[ProtoInfo]
-        out_jar = _generate_java_proto_action(
-            proto_info = proto_info,
-            protoc = ctx.executable._protoc,
-            ctx = ctx,
-            out_flags = out_flags,
-            plugin_executable = plugin_executable,
-            out_arg = out_arg,
-        )
-        srcs.append(out_jar)
+        proto_infos.append(dep[ProtoInfo])
+
+    out_jar = _generate_java_proto_action(
+        proto_infos = proto_infos,
+        protoc = ctx.executable._protoc,
+        ctx = ctx,
+        out_flags = out_flags,
+        plugin_executable = plugin_executable,
+        out_arg = out_arg,
+    )
+    srcs.append(out_jar)
 
     return [
         DefaultInfo(files = depset(direct = srcs)),
@@ -76,14 +76,14 @@ If not provided, defaults to full protos.
 )
 
 def _generate_java_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         plugin_executable,
         out_arg,
         out_flags):
     return proto_file_utils.generate_jar_proto_action(
-        proto_info,
+        proto_infos,
         protoc,
         ctx,
         out_flags,
@@ -96,9 +96,10 @@ def _java_proto_library(
         name,
         deps = [],
         plugin = None,
-        target_compatible_with = [],
         out_format = None,
-        proto_dep = None):
+        proto_dep = None,
+        sdk_version = "core_current",
+        **kwargs):
     proto_sources_name = name + "_proto_gen"
 
     _java_proto_sources_gen(
@@ -106,6 +107,7 @@ def _java_proto_library(
         deps = deps,
         plugin = plugin,
         out_format = out_format,
+        tags = ["manual"],
     )
 
     if proto_dep:
@@ -117,70 +119,61 @@ def _java_proto_library(
         name = name,
         srcs = [proto_sources_name],
         deps = deps,
-        target_compatible_with = target_compatible_with,
+        sdk_version = sdk_version,
+        **kwargs
     )
 
 def java_nano_proto_library(
         name,
-        deps = [],
         plugin = "//external/protobuf:protoc-gen-javanano",
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-java-nano",
+        **kwargs
     )
 
 def java_micro_proto_library(
         name,
-        deps = [],
         plugin = "//external/protobuf:protoc-gen-javamicro",
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-java-micro",
+        **kwargs
     )
 
 def java_lite_proto_library(
         name,
-        deps = [],
         plugin = None,
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         out_format = "lite",
         proto_dep = "//external/protobuf:libprotobuf-java-lite",
+        **kwargs
     )
 
 def java_stream_proto_library(
         name,
-        deps = [],
         plugin = "//frameworks/base/tools/streaming_proto:protoc-gen-javastream",
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
+        **kwargs
     )
 
 def java_proto_library(
         name,
-        deps = [],
         plugin = None,
-        target_compatible_with = []):
+        **kwargs):
     _java_proto_library(
         name,
-        deps = deps,
         plugin = plugin,
-        target_compatible_with = target_compatible_with,
         proto_dep = "//external/protobuf:libprotobuf-java-full",
+        **kwargs
     )

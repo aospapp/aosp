@@ -27,7 +27,6 @@
 #include <brillo/secure_blob.h>
 
 #include "bsdiff/constants.h"
-#include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/filesystem_interface.h"
 #include "update_engine/update_metadata.pb.h"
 
@@ -58,6 +57,9 @@ struct PostInstallConfig {
 struct VerityConfig {
   // Whether the verity config is empty.
   bool IsEmpty() const;
+
+  // Clears this config, subsequent calls to "IsEmpty" will return true.
+  void Clear();
 
   // The extent for data covered by verity hash tree.
   Extent hash_tree_data_extent;
@@ -258,6 +260,10 @@ struct PayloadGenerationConfig {
 
   // Whether to enable zucchini ops
   bool enable_zucchini = true;
+
+  std::string security_patch_level;
+
+  uint32_t max_threads = 0;
 
   std::vector<bsdiff::CompressorType> compressors{
       bsdiff::CompressorType::kBZ2, bsdiff::CompressorType::kBrotli};

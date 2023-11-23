@@ -30,18 +30,20 @@ from aidegen.lib import errors
 from atest import module_info
 
 
-# pylint: disable=too-many-arguments
+# pylint: disable=unused-argument
 # pylint: disable=protected-access
 class AidegenCommonUtilUnittests(unittest.TestCase):
     """Unit tests for common_util.py"""
 
-    _TEST_XML_CONTENT = """<application><component name="ProjectJdkTable">
+    _TEST_XML_CONTENT = """\
+<application><component name="ProjectJdkTable">
 
     <jdk version="2">     <name value="JDK_OTHER" />
       <type value="JavaSDK" />    </jdk>  </component>
 </application>
 """
-    _SAMPLE_XML_CONTENT = """<application>
+    _SAMPLE_XML_CONTENT = """\
+<application>
   <component name="ProjectJdkTable">
     <jdk version="2">
       <name value="JDK_OTHER"/>
@@ -89,7 +91,6 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         mock_get_root.return_value = '/a'
         self.assertEqual(('b/c', '/a/b/c'),
                          common_util.get_related_paths(mod_info, 'b/c'))
-
 
     @mock.patch('os.getcwd')
     @mock.patch.object(common_util, 'is_android_root')
@@ -251,13 +252,13 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
     @mock.patch('builtins.open', create=True)
     def test_read_file_content(self, mock_open):
         """Test read_file_content handling."""
-        expacted_data1 = 'Data1'
+        expected_data1 = 'Data1'
         file_a = 'fileA'
         mock_open.side_effect = [
-            mock.mock_open(read_data=expacted_data1).return_value
+            mock.mock_open(read_data=expected_data1).return_value
         ]
-        self.assertEqual(expacted_data1, common_util.read_file_content(file_a))
-        mock_open.assert_called_once_with(file_a, encoding='utf8')
+        self.assertEqual(expected_data1, common_util.read_file_content(file_a))
+        mock_open.assert_called_once_with(file_a, 'r', encoding='utf8')
 
     @mock.patch('os.getenv')
     @mock.patch.object(common_util, 'get_android_root_dir')
@@ -291,13 +292,14 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
         """ Test replace the user home path to a constant string."""
         mock_expanduser.return_value = '/usr/home/a'
         test_string = '/usr/home/a/test/dir'
-        expect_string = '$USER_HOME$/test/dir'
+        expected_string = '$USER_HOME$/test/dir'
         result_path = common_util.remove_user_home_path(test_string)
-        self.assertEqual(result_path, expect_string)
+        self.assertEqual(result_path, expected_string)
 
     def test_io_error_handle(self):
         """Test io_error_handle handling."""
         err = "It's an IO error."
+
         def some_io_error_func():
             raise IOError(err)
         with self.assertRaises(IOError) as context:
@@ -474,7 +476,6 @@ class AidegenCommonUtilUnittests(unittest.TestCase):
                          common_util.determine_language_ide(lang, ide))
 
 
-# pylint: disable=unused-argument
 def parse_rule(self, name, text):
     """A test function for test_check_args."""
 

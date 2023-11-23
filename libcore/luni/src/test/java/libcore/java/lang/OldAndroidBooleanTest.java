@@ -24,9 +24,9 @@ import junit.framework.TestCase;
 public class OldAndroidBooleanTest extends TestCase {
 
     public void testBoolean() throws Exception {
-        Boolean a = new Boolean(true);
+        Boolean a = Boolean.valueOf(true);
         Boolean b = new Boolean("True");
-        Boolean c = new Boolean(false);
+        Boolean c = Boolean.valueOf(false);
         Boolean d = new Boolean("Yes");
 
         assertEquals(a, b);

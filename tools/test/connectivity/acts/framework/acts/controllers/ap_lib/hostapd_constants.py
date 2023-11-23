@@ -16,6 +16,8 @@
 
 import itertools
 
+from enum import Enum, auto, unique
+
 BAND_2G = '2g'
 BAND_5G = '5g'
 CHANNEL_BANDWIDTH_20MHZ = 20
@@ -534,6 +536,15 @@ UTF_8_SSID = {'utf8_ssid': 1}
 
 ENABLE_RRM_BEACON_REPORT = {'rrm_beacon_report': 1}
 ENABLE_RRM_NEIGHBOR_REPORT = {'rrm_neighbor_report': 1}
+
+# Wireless Network Management (AKA 802.11v) features.
+ENABLE_WNM_TIME_ADVERTISEMENT = {'time_advertisement': 2, 'time_zone': 'EST5'}
+ENABLE_WNM_SLEEP_MODE = {'wnm_sleep_mode': 1}
+ENABLE_WNM_BSS_TRANSITION_MANAGEMENT = {'bss_transition': 1}
+ENABLE_WNM_PROXY_ARP = {'proxy_arp': 1}
+ENABLE_WNM_IPV6_NEIGHBOR_ADVERTISEMENT_MULTICAST_TO_UNICAST = {
+    'na_mcast_to_ucast': 1
+}
 
 VENDOR_IE = {
     'correct_length_beacon': {
@@ -1387,3 +1398,13 @@ ALL_CHANNELS_5G = {
 }
 
 ALL_CHANNELS = {**ALL_CHANNELS_2G, **ALL_CHANNELS_5G}
+
+
+@unique
+class WnmFeature(Enum):
+    """Wireless Network Management (AKA 802.11v) features hostapd supports."""
+    TIME_ADVERTISEMENT = auto()
+    WNM_SLEEP_MODE = auto()
+    BSS_TRANSITION_MANAGEMENT = auto()
+    PROXY_ARP = auto()
+    IPV6_NEIGHBOR_ADVERTISEMENT_MULTICAST_TO_UNICAST = auto()

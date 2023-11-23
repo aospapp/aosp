@@ -42,21 +42,6 @@ public class NfcDialogs {
                 .create();
     }
 
-    static AlertDialog createNdefPushNotEnabledDialog(final Context context) {
-        return new AlertDialog.Builder(context)
-                .setIcon(android.R.drawable.ic_dialog_alert)
-                .setTitle(R.string.ndef_push_not_enabled)
-                .setMessage(R.string.ndef_push_not_enabled_message)
-                .setPositiveButton(R.string.ndef_push_settings, new DialogInterface.OnClickListener() {
-                    @Override
-                    public void onClick(DialogInterface dialog, int which) {
-                        Intent intent = new Intent(Settings.ACTION_NFCSHARING_SETTINGS);
-                        context.startActivity(intent);
-                    }
-                })
-                .create();
-    }
-
     public static AlertDialog createHceTapReaderDialog(final Context context, String message) {
         String baseString = context.getString(R.string.nfc_hce_tap_reader_message);
         return new AlertDialog.Builder(context)

@@ -17,12 +17,14 @@ package android.platform.test.rule;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.os.Trace;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
 
 import java.io.IOException;
+import java.lang.Class;
 
 import org.junit.AssumptionViolatedException;
 import org.junit.rules.TestRule;
@@ -39,22 +41,34 @@ public class TestWatcher implements TestRule {
 
     private UiDevice mDevice;
 
+    private Class clz = this.getClass();
+
     public Statement apply(final Statement base, final Description description) {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
                 try {
+                    Trace.beginSection(clz.getSimpleName() + ":starting");
                     starting(description);
+                    Trace.endSection();
                     base.evaluate();
+                    Trace.beginSection(clz.getSimpleName() + ":succeeded");
                     succeeded(description);
+                    Trace.endSection();
                 } catch (AssumptionViolatedException e) {
+                    Trace.beginSection(clz.getSimpleName() + ":skipped");
                     skipped(e, description);
+                    Trace.endSection();
                     throw e;
                 } catch (Throwable e) {
+                    Trace.beginSection(clz.getSimpleName() + ":failed");
                     failed(e, description);
+                    Trace.endSection();
                     throw e;
                 } finally {
+                    Trace.beginSection(clz.getSimpleName() + ":finished");
                     finished(description);
+                    Trace.endSection();
                 }
             }
         };

@@ -59,7 +59,7 @@ fake_library_linking_strategy_cc_defaults {
         "bp2build_bar",
     ],
 
-    soong_config_variables:{
+    soong_config_variables: {
         fake_library_linking_strategy: {
             prefer_static: {
                 static_libs: [
@@ -93,7 +93,11 @@ fake_library_linking_strategy_cc_defaults {
 // Experimental "stub" adbd for bp2build development
 cc_binary {
     name: "bp2build_adbd",
-    defaults: ["adbd_defaults", "host_adbd_supported", "fake_libadbd_binary_dependencies"],
+    defaults: [
+        "adbd_defaults",
+        "host_adbd_supported",
+        "fake_libadbd_binary_dependencies",
+    ],
     srcs: [
         "main.cpp",
     ],

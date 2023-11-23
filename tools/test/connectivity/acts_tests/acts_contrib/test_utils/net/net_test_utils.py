@@ -34,8 +34,6 @@ from acts_contrib.test_utils.tel.tel_test_utils import get_operator_name
 from acts_contrib.test_utils.tel.tel_test_utils import verify_http_connection
 
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
-from scapy.config import conf
-from scapy.compat import plain_str
 
 VPN_CONST = cconst.VpnProfile
 VPN_TYPE = cconst.VpnProfileType
@@ -572,6 +570,8 @@ def get_if_list():
         A list of the latest network interfaces. For example:
         ['cvd-ebr', ..., 'eno1', 'enx4afa19a8dde1', 'lo', 'wlxd03745d68d88']
     """
+    from scapy.config import conf
+    from scapy.compat import plain_str
 
     # Get ifconfig output
     result = job.run([conf.prog.ifconfig])
@@ -619,6 +619,8 @@ def enable_iface(iface):
     Args:
         iface: network interface that need to enable
     """
+    from scapy.compat import plain_str
+
     result = job.run("sudo ifconfig %s up" % (iface), ignore_status=True)
     if result.exit_status:
         raise asserts.fail(

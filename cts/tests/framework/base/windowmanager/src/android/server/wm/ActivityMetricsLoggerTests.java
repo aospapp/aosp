@@ -62,6 +62,7 @@ import android.app.Activity;
 import android.content.ComponentName;
 import android.metrics.LogMaker;
 import android.metrics.MetricsReader;
+import android.os.Process;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.CommandSession.ActivitySessionClient;
@@ -98,6 +99,9 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
     private static final String LAUNCH_STATE_HOT = "HOT";
     private static final String LAUNCH_STATE_RELAUNCH = "RELAUNCH";
     private static final int EVENT_WM_ACTIVITY_LAUNCH_TIME = 30009;
+    private static final int APP_TRANSITION_STARTING_WINDOW = 1;
+    private static final int APP_TRANSITION_WINDOWS_DRAWN = 2;
+    private static final int APP_TRANSITION_TIMEOUT = 3;
     private final MetricsReader mMetricsReader = new MetricsReader();
     private long mPreUptimeMs;
     private LogSeparator mLogSeparator;
@@ -128,11 +132,12 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
 
         final long postUptimeMs = SystemClock.uptimeMillis();
         assertMetricsLogs(TEST_ACTIVITY, APP_TRANSITION, metricsLog, mPreUptimeMs, postUptimeMs);
-        assertTransitionIsStartingWindow(metricsLog);
+        assertTransitionStartReason(metricsLog);
         final int windowsDrawnDelayMs =
                 (int) metricsLog.getTaggedData(APP_TRANSITION_WINDOWS_DRAWN_DELAY_MS);
         final String expectedLog =
-                "Displayed " + TEST_ACTIVITY.flattenToShortString()
+                "Displayed " + TEST_ACTIVITY.flattenToShortString()  + " for user "
+                        + Process.myUserHandle().getIdentifier()
                         + ": " + formatDuration(windowsDrawnDelayMs);
         assertLogsContain(deviceLogs, expectedLog);
         assertEventLogsContainsLaunchTime(eventLogs, TEST_ACTIVITY, windowsDrawnDelayMs);
@@ -161,11 +166,26 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
                 windowsDrawnDelayMs,  lessThanOrEqualTo(testElapsedTimeMs));
     }
 
-    private void assertTransitionIsStartingWindow(LogMaker log) {
-        assertEquals("transition should be started because of starting window",
-                1 /* APP_TRANSITION_STARTING_WINDOW */, log.getSubtype());
-        assertNotNull("log should have starting window delay",
-                log.getTaggedData(APP_TRANSITION_STARTING_WINDOW_DELAY_MS));
+    private void assertTransitionStartReason(LogMaker log) {
+        if (isLeanBack()) return;
+
+        final int transitionStartReason = log.getSubtype();
+        switch (transitionStartReason) {
+            case APP_TRANSITION_STARTING_WINDOW:
+                assertNotNull("Transition started by starting window should include delay time",
+                        log.getTaggedData(APP_TRANSITION_STARTING_WINDOW_DELAY_MS));
+                break;
+            case APP_TRANSITION_WINDOWS_DRAWN:
+                // It is fine if the activity is drawn faster than the starting window.
+                StateLogger.logAlways("APP_TRANSITION_WINDOWS_DRAWN");
+                break;
+            case APP_TRANSITION_TIMEOUT:
+                // There might be other issues in system, but it isn't in the scope of this test.
+                StateLogger.logE("APP_TRANSITION_TIMEOUT");
+                break;
+            default:
+                fail("Unexpected transition start reason " + transitionStartReason);
+        }
     }
 
     private void assertEventLogsContainsLaunchTime(List<Event> events, ComponentName componentName,
@@ -291,8 +311,12 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
         final String startTestActivityCmd = "am start -W " + TEST_ACTIVITY.flattenToShortString();
         SystemUtil.runShellCommand(startTestActivityCmd);
 
-        // Launch another task and make sure a configuration change triggers relaunch.
-        launchAndWaitForActivity(SECOND_ACTIVITY);
+        mWmState.computeState();
+        // On multiple screen devices, tasks may be launched in different task display areas. Make
+        // sure the tasks will be launched in the same TDA.
+        int targetDisplayAreaId = mWmState.getTaskDisplayAreaFeatureId(TEST_ACTIVITY);
+
+        launchAndWaitForActivity(SECOND_ACTIVITY, targetDisplayAreaId);
         separateTestJournal();
 
         final FontScaleSession fontScaleSession = createManagedFontScaleSession();
@@ -356,7 +380,7 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
         metricsLog = waitForMetricsLog(THIRD_ACTIVITY, APP_TRANSITION);
         assertMetricsLogs(THIRD_ACTIVITY, APP_TRANSITION, metricsLog, mPreUptimeMs,
                 postUptimeMs);
-        assertTransitionIsStartingWindow(metricsLog);
+        assertTransitionStartReason(metricsLog);
     }
 
     @Test
@@ -392,7 +416,7 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
         final LogMaker metricsLog = waitForMetricsLog(SECOND_ACTIVITY, APP_TRANSITION);
         final long postUptimeMs = SystemClock.uptimeMillis();
         assertMetricsLogs(SECOND_ACTIVITY, APP_TRANSITION, metricsLog, mPreUptimeMs, postUptimeMs);
-        assertTransitionIsStartingWindow(metricsLog);
+        assertTransitionStartReason(metricsLog);
     }
 
     /**
@@ -416,7 +440,8 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
      */
     @Test
     public void testConsecutiveLaunch() {
-        final String amStartOutput = executeShellCommand("am start --ez " + KEY_LAUNCH_ACTIVITY
+        final String amStartOutput = SystemUtil.runShellCommand(
+                "am start --ez " + KEY_LAUNCH_ACTIVITY
                 + " true --es " + KEY_TARGET_COMPONENT + " " + TEST_ACTIVITY.flattenToShortString()
                 + " -W " + LAUNCHING_ACTIVITY.flattenToShortString());
         assertLaunchComponentState(amStartOutput, TEST_ACTIVITY, LAUNCH_STATE_COLD);
@@ -435,12 +460,22 @@ public class ActivityMetricsLoggerTests extends ActivityManagerTestBase {
     }
 
     private void launchAndWaitForActivity(ComponentName activity) {
-        getLaunchActivityBuilder()
+        getLaunchActivityBuilder(activity)
+                .execute();
+    }
+
+    private void launchAndWaitForActivity(ComponentName activity, int targetDisplayAreaId) {
+        getLaunchActivityBuilder(activity)
+                .setLaunchTaskDisplayAreaFeatureId(targetDisplayAreaId)
+                .execute();
+    }
+
+    private LaunchActivityBuilder getLaunchActivityBuilder(ComponentName activity) {
+        return getLaunchActivityBuilder()
                 .setUseInstrumentation()
                 .setTargetActivity(activity)
                 .setWindowingMode(WINDOWING_MODE_FULLSCREEN)
-                .setWaitForLaunched(true)
-                .execute();
+                .setWaitForLaunched(true);
     }
 
     @NonNull

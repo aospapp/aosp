@@ -15,7 +15,6 @@
 #   limitations under the License.
 
 import re
-import sys
 import random
 import time
 
@@ -99,8 +98,8 @@ class WifiChaosTest(WifiBaseTest):
         hostname = ssid_dict[testcase_name]['host']
         if not testcase_name.startswith('test_'):
             testcase_name = 'test_%s' % testcase_name
-        test_case = test_tracker_info(uuid=test_tracker_uuid)(
-            lambda: base_test(ssid, hostname))
+        test_case = test_tracker_info(
+            uuid=test_tracker_uuid)(lambda: base_test(ssid, hostname))
         setattr(self, testcase_name, test_case)
         self.tests.append(testcase_name)
 
@@ -140,7 +139,8 @@ class WifiChaosTest(WifiBaseTest):
                 if dutils.lock_device(device_name, self.admin):
                     self.pcap_host = device_name
                     host = device['ip_address']
-                    self.log.info("Locked Packet Capture device: %s" % device_name)
+                    self.log.info("Locked Packet Capture device: %s" %
+                                  device_name)
                     locked_pcap = True
                     break
                 else:
@@ -149,7 +149,7 @@ class WifiChaosTest(WifiBaseTest):
         if not locked_pcap:
             return False
 
-        pcap_config = {'ssh_config':{'user':'root'} }
+        pcap_config = {'ssh_config': {'user': 'root'}}
         pcap_config['ssh_config']['host'] = host
 
         self.pcap = packet_capture.PacketCapture(pcap_config)
@@ -179,7 +179,6 @@ class WifiChaosTest(WifiBaseTest):
         if not dutils.unlock_device(self.pcap_host):
             self.log.warning("Failed to unlock %s PCAP. Check in datastore.")
 
-
     """Helper Functions"""
 
     def scan_and_connect_by_id(self, network, net_id):
@@ -190,8 +189,8 @@ class WifiChaosTest(WifiBaseTest):
 
         """
         ssid = network[WifiEnums.SSID_KEY]
-        wutils.start_wifi_connection_scan_and_ensure_network_found(self.dut,
-                                                                   ssid)
+        wutils.start_wifi_connection_scan_and_ensure_network_found(
+            self.dut, ssid)
         wutils.wifi_connect_by_id(self.dut, net_id)
 
     def run_ping(self, sec):
@@ -222,10 +221,10 @@ class WifiChaosTest(WifiBaseTest):
         2. Ensure that the device and AP did not crash (by checking that the
            device remains connected to the expected network).
         """
-        results = wutils.send_link_probes(
-            self.dut, NUM_LINK_PROBES, PROBE_DELAY_SEC)
+        results = wutils.send_link_probes(self.dut, NUM_LINK_PROBES,
+                                          PROBE_DELAY_SEC)
 
-        self.log.info("Link Probe results: %s" % (results,))
+        self.log.info("Link Probe results: %s" % (results, ))
 
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         expected = network[WifiEnums.SSID_KEY]
@@ -269,7 +268,8 @@ class WifiChaosTest(WifiBaseTest):
                 begin_time = time.time()
                 ssid = network[WifiEnums.SSID_KEY]
                 net_id = self.dut.droid.wifiAddNetwork(network)
-                asserts.assert_true(net_id != -1, "Add network %s failed" % network)
+                asserts.assert_true(net_id != -1,
+                                    "Add network %s failed" % network)
                 self.log.info("Connecting to %s" % ssid)
                 self.scan_and_connect_by_id(network, net_id)
                 self.run_ping(10)
@@ -279,7 +279,8 @@ class WifiChaosTest(WifiBaseTest):
                 time.sleep(WAIT_BEFORE_CONNECTION)
             except Exception as e:
                 self.log.error("Connection to %s network failed on the %d "
-                               "attempt with exception %s." % (ssid, attempt, e))
+                               "attempt with exception %s." %
+                               (ssid, attempt, e))
                 # TODO:(bmahadev) Uncomment after scan issue is fixed.
                 # self.dut.take_bug_report(ssid, begin_time)
                 # self.dut.cat_adb_log(ssid, begin_time)
@@ -299,7 +300,7 @@ class WifiChaosTest(WifiBaseTest):
         for item in ssid_info:
             # Skip over the router model part.
             if 'ch' in item and item != ssid_info[0]:
-                self.chan = re.search(r'(\d+)',item).group(0)
+                self.chan = re.search(r'(\d+)', item).group(0)
                 return
         raise signals.TestFailure("Channel information not found in SSID.")
 
@@ -341,8 +342,7 @@ class WifiChaosTest(WifiBaseTest):
         band = SINGLE_BAND
         if ('ssid_2g' in ap_info) and ('ssid_5g' in ap_info):
             band = DUAL_BAND
-        if (band == SINGLE_BAND) or (
-                band == DUAL_BAND and '5G' in ssid):
+        if (band == SINGLE_BAND) or (band == DUAL_BAND and '5G' in ssid):
             release_ap = True
 
         # Get AP RPM attributes and Turn ON AP.
@@ -356,8 +356,8 @@ class WifiChaosTest(WifiBaseTest):
 
         self.get_band_and_chan(ssid)
         self.pcap.configure_monitor_mode(self.band, self.chan)
-        self.pcap_procs = wutils.start_pcap(
-                self.pcap, self.band.lower(), self.test_name)
+        self.pcap_procs = wutils.start_pcap(self.pcap, self.band.lower(),
+                                            self.test_name)
         self.run_connect_disconnect(network, hostname, rpm_port, rpm_ip,
                                     release_ap)
 

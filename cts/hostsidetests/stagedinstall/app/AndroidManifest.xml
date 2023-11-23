@@ -19,6 +19,7 @@
 
     <queries>
         <package android:name="com.android.cts.ctsshim"/>
+        <package android:name="com.test.sdk1_1"/>
     </queries>
 
     <application>

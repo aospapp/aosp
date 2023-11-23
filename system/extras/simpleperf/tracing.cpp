@@ -21,7 +21,6 @@
 
 #include <map>
 #include <optional>
-#include <regex>
 #include <string>
 #include <vector>
 
@@ -31,6 +30,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
+#include "RegEx.h"
 #include "environment.h"
 #include "perf_event.h"
 #include "utils.h"
@@ -39,15 +39,6 @@ using android::base::Split;
 using android::base::StartsWith;
 
 namespace simpleperf {
-
-template <>
-void MoveFromBinaryFormat(std::string& data, const char*& p) {
-  data.clear();
-  while (*p != '\0') {
-    data.push_back(*p++);
-  }
-  p++;
-}
 
 const char TRACING_INFO_MAGIC[10] = {23, 8, 68, 't', 'r', 'a', 'c', 'i', 'n', 'g'};
 
@@ -78,12 +69,18 @@ static void AppendFile(std::vector<char>& data, const std::string& file,
   data.insert(data.end(), file.begin(), file.end());
 }
 
-static void DetachFile(const char*& p, std::string& file, uint32_t file_size_bytes = 8) {
-  uint64_t file_size = ConvertBytesToValue(p, file_size_bytes);
-  p += file_size_bytes;
-  file.clear();
-  file.insert(file.end(), p, p + file_size);
-  p += file_size;
+static std::string DetachFile(BinaryReader& reader, uint32_t file_size_bytes = 8) {
+  if (!reader.CheckLeftSize(file_size_bytes)) {
+    return "";
+  }
+  uint64_t file_size = ConvertBytesToValue(reader.head, file_size_bytes);
+  reader.head += file_size_bytes;
+  if (!reader.CheckLeftSize(file_size)) {
+    return "";
+  }
+  std::string result(reader.head, file_size);
+  reader.head += file_size;
+  return result;
 }
 
 static bool ReadTraceFsFile(const std::string& path, std::string* content,
@@ -119,7 +116,7 @@ class TracingFile {
   bool RecordKallsymsFile();
   bool RecordPrintkFormatsFile();
   std::vector<char> BinaryFormat() const;
-  void LoadFromBinary(const std::vector<char>& data);
+  bool LoadFromBinary(const std::vector<char>& data);
   void Dump(size_t indent) const;
   std::vector<TracingFormat> LoadTracingFormatsFromEventFiles() const;
   const std::string& GetKallsymsFile() const { return kallsyms_file; }
@@ -207,44 +204,44 @@ std::vector<char> TracingFile::BinaryFormat() const {
   return ret;
 }
 
-void TracingFile::LoadFromBinary(const std::vector<char>& data) {
-  const char* p = data.data();
-  const char* end = data.data() + data.size();
-  CHECK(memcmp(p, magic, sizeof(magic)) == 0);
-  p += sizeof(magic);
-  MoveFromBinaryFormat(version, p);
-  MoveFromBinaryFormat(endian, p);
-  MoveFromBinaryFormat(size_of_long, p);
-  MoveFromBinaryFormat(page_size, p);
-  std::string filename;
-  MoveFromBinaryFormat(filename, p);
-  CHECK_EQ(filename, "header_page");
-  DetachFile(p, header_page_file);
-  MoveFromBinaryFormat(filename, p);
-  CHECK_EQ(filename, "header_event");
-  DetachFile(p, header_event_file);
-  uint32_t count;
-  MoveFromBinaryFormat(count, p);
-  ftrace_format_files.resize(count);
-  for (uint32_t i = 0; i < count; ++i) {
-    DetachFile(p, ftrace_format_files[i]);
+bool TracingFile::LoadFromBinary(const std::vector<char>& data) {
+  BinaryReader reader(data.data(), data.size());
+  if (!reader.CheckLeftSize(sizeof(magic)) || memcmp(reader.head, magic, sizeof(magic)) != 0) {
+    return false;
   }
-  MoveFromBinaryFormat(count, p);
+  reader.head += sizeof(magic);
+  version = reader.ReadString();
+  reader.Read(endian);
+  reader.Read(size_of_long);
+  reader.Read(page_size);
+  if (reader.ReadString() != "header_page") {
+    return false;
+  }
+  header_page_file = DetachFile(reader);
+  if (reader.ReadString() != "header_event") {
+    return false;
+  }
+  header_event_file = DetachFile(reader);
+  uint32_t count = 0;
+  reader.Read(count);
+  ftrace_format_files.clear();
+  while (count-- > 0 && !reader.error) {
+    ftrace_format_files.emplace_back(DetachFile(reader));
+  }
+  reader.Read(count);
   event_format_files.clear();
-  for (uint32_t i = 0; i < count; ++i) {
-    std::string system;
-    MoveFromBinaryFormat(system, p);
-    uint32_t count_in_system;
-    MoveFromBinaryFormat(count_in_system, p);
-    for (uint32_t i = 0; i < count_in_system; ++i) {
-      std::string format;
-      DetachFile(p, format);
+  while (count-- > 0 && !reader.error) {
+    std::string system = reader.ReadString();
+    uint32_t count_in_system = 0;
+    reader.Read(count_in_system);
+    while (count_in_system-- > 0 && !reader.error) {
+      std::string format = DetachFile(reader);
       event_format_files.push_back(std::make_pair(system, std::move(format)));
     }
   }
-  DetachFile(p, kallsyms_file, 4);
-  DetachFile(p, printk_formats_file, 4);
-  CHECK_EQ(p, end);
+  kallsyms_file = DetachFile(reader, 4);
+  printk_formats_file = DetachFile(reader, 4);
+  return !reader.error && reader.head == reader.end;
 }
 
 void TracingFile::Dump(size_t indent) const {
@@ -286,14 +283,13 @@ static TracingField ParseTracingField(const std::string& s) {
   TracingField field;
   std::string name;
   std::string value;
-  std::regex re(R"((\w+):(.+?);)");
+  auto re = RegEx::Create(R"((\w+):(.+?);)");
 
-  std::sregex_iterator match_it(s.begin(), s.end(), re);
-  std::sregex_iterator match_end;
-  while (match_it != match_end) {
-    std::smatch match = *match_it++;
-    std::string name = match.str(1);
-    std::string value = match.str(2);
+  std::unique_ptr<RegExMatch> match = re->SearchAll(s);
+  while (match->IsValid()) {
+    std::string name = match->GetField(1);
+    std::string value = match->GetField(2);
+    match->MoveToNextMatch();
 
     if (name == "field") {
       std::string last_value_part = Split(value, " \t").back();
@@ -372,14 +368,18 @@ std::vector<TracingFormat> TracingFile::LoadTracingFormatsFromEventFiles() const
   return formats;
 }
 
-Tracing::Tracing(const std::vector<char>& data) {
-  tracing_file_ = new TracingFile;
-  tracing_file_->LoadFromBinary(data);
+std::unique_ptr<Tracing> Tracing::Create(const std::vector<char>& data) {
+  std::unique_ptr<Tracing> tracing(new Tracing);
+  if (!tracing->tracing_file_->LoadFromBinary(data)) {
+    LOG(ERROR) << "Failed to load tracing data";
+    return nullptr;
+  }
+  return tracing;
 }
 
-Tracing::~Tracing() {
-  delete tracing_file_;
-}
+Tracing::Tracing() : tracing_file_(new TracingFile) {}
+
+Tracing::~Tracing() {}
 
 void Tracing::Dump(size_t indent) {
   tracing_file_->Dump(indent);

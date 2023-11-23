@@ -16,25 +16,10 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-python_defaults {
-    name: "aidegen_functional_test_default",
-    pkg_path: "aidegen_functional_test",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
 python_binary_host {
     name: "aidegen_functional_test",
     suffix: "-dev",
-    defaults: ["aidegen_functional_test_default"],
+    pkg_path: "aidegen_functional_test",
     main: "aidegen_functional_test_main.py",
     srcs: [
         "**/*.py",

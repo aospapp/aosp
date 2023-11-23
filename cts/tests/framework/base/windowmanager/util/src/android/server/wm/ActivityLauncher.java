@@ -22,6 +22,7 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
 import static android.server.wm.second.Components.IMPLICIT_TARGET_SECOND_TEST_ACTION;
+import static android.window.DisplayAreaOrganizer.FEATURE_UNDEFINED;
 
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
@@ -141,6 +142,11 @@ public class ActivityLauncher {
      */
     public static final String KEY_WINDOWING_MODE = "windowing_mode";
 
+    /**
+     * Key for int extra, indicates the launch TaskDisplayArea feature id
+     */
+    public static final String KEY_TASK_DISPLAY_AREA_FEATURE_ID = "task_display_area_feature_id";
+
 
     /** Perform an activity launch configured by provided extras. */
     public static void launchActivityFromExtras(final Context context, Bundle extras) {
@@ -234,6 +240,16 @@ public class ActivityLauncher {
         if (intentFlags != 0) {
             newIntent.addFlags(intentFlags);
         }
+
+        final int launchTaskDisplayAreaFeatureId = extras
+                .getInt(KEY_TASK_DISPLAY_AREA_FEATURE_ID, FEATURE_UNDEFINED);
+        if (launchTaskDisplayAreaFeatureId != FEATURE_UNDEFINED) {
+            if (options == null) {
+                options = ActivityOptions.makeBasic();
+            }
+            options.setLaunchTaskDisplayAreaFeatureId(launchTaskDisplayAreaFeatureId);
+        }
+
         final Bundle optionsBundle = options != null ? options.toBundle() : null;
 
         final Context launchContext = getBoolean(extras, KEY_USE_APPLICATION_CONTEXT) ?

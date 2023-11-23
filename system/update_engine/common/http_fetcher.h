@@ -26,10 +26,11 @@
 #include <base/logging.h>
 #include <base/macros.h>
 #include <brillo/message_loops/message_loop.h>
+#include <brillo/secure_blob.h>
 
+#include "update_engine/common/constants.h"
+#include "update_engine/common/error_code.h"
 #include "update_engine/common/http_common.h"
-#include "update_engine/common/metrics_constants.h"
-#include "update_engine/common/proxy_resolver.h"
 
 // This class is a simple wrapper around an HTTP library (libcurl). We can
 // easily mock out this interface for testing.
@@ -46,12 +47,11 @@ class HttpFetcher {
   // |proxy_resolver| is the resolver that will be consulted for proxy
   // settings. It may be null, in which case direct connections will
   // be used. Does not take ownership of the resolver.
-  explicit HttpFetcher(ProxyResolver* proxy_resolver)
+  explicit HttpFetcher()
       : post_data_set_(false),
         http_response_code_(0),
         delegate_(nullptr),
         proxies_(1, kNoProxy),
-        proxy_resolver_(proxy_resolver),
         callback_(nullptr) {}
   virtual ~HttpFetcher();
 
@@ -73,11 +73,7 @@ class HttpFetcher {
   // Same without a specified Content-Type.
   void SetPostData(const void* data, size_t size);
 
-  // Proxy methods to set the proxies, then to pop them off.
-  void ResolveProxiesForUrl(const std::string& url,
-                            const base::Closure& callback);
-
-  void SetProxies(const std::deque<std::string>& proxies) {
+  virtual void SetProxies(const std::deque<std::string>& proxies) {
     proxies_ = proxies;
   }
   const std::string& GetCurrentProxy() const { return proxies_.front(); }
@@ -144,21 +140,14 @@ class HttpFetcher {
   // Get the total number of bytes downloaded by fetcher.
   virtual size_t GetBytesDownloaded() = 0;
 
-  ProxyResolver* proxy_resolver() const { return proxy_resolver_; }
-
  protected:
-  // Cancels a proxy resolution in progress. The callback passed to
-  // ResolveProxiesForUrl() will not be called. Returns whether there was a
-  // pending proxy resolution to be canceled.
-  bool CancelProxyResolution();
-
   // The URL we're actively fetching from
   std::string url_;
 
   // POST data for the transfer, and whether or not it was ever set
   bool post_data_set_;
   brillo::Blob post_data_;
-  HttpContentType post_content_type_;
+  HttpContentType post_content_type_{};
 
   // The server's HTTP response code from the last transfer. This
   // field should be set to 0 when a new transfer is initiated, and
@@ -175,12 +164,6 @@ class HttpFetcher {
   // Proxy servers
   std::deque<std::string> proxies_;
 
-  ProxyResolver* const proxy_resolver_;
-
-  // The ID of the idle callback, used when we have no proxy resolver.
-  brillo::MessageLoop::TaskId no_resolver_idle_id_{
-      brillo::MessageLoop::kTaskIdNull};
-
   // Callback for when we are resolving proxies
   std::unique_ptr<base::Closure> callback_;
 
@@ -191,10 +174,6 @@ class HttpFetcher {
   // Callback used to run the proxy resolver callback when there is no
   // |proxy_resolver_|.
   void NoProxyResolverCallback();
-
-  // Stores the ongoing proxy request id if there is one, otherwise
-  // kProxyRequestIdNull.
-  ProxyRequestId proxy_request_{kProxyRequestIdNull};
 
   DISALLOW_COPY_AND_ASSIGN(HttpFetcher);
 };

@@ -47,6 +47,56 @@ cc_binary {
 }
 
 cc_test {
+    name: "mel_aggregator_tests",
+    host_supported: true,
+
+    srcs: [
+        "mel_aggregator_tests.cpp"
+    ],
+
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libutils",
+    ],
+
+    static_libs: [
+        "libgmock",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+}
+
+cc_test {
+    name: "mel_processor_tests",
+    host_supported: true,
+
+    srcs: [
+        "mel_processor_tests.cpp"
+    ],
+
+    shared_libs: [
+        "libaudioutils",
+        "liblog",
+        "libutils",
+    ],
+
+    static_libs: [
+        "libgmock",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+}
+
+cc_test {
     name: "biquad_filter_tests",
     host_supported: true,
 
@@ -101,6 +151,26 @@ cc_test {
         "libutils", //for systemTime
     ],
     srcs: ["fdtostring_tests.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra",
+    ],
+}
+
+cc_test {
+    name: "hal_smoothness_tests",
+    host_supported: true,
+
+    srcs: [
+        "hal_smoothness_tests.cpp",
+    ],
+
+    static_libs: [
+        "libaudioutils",
+        "liblog",
+    ],
+
     cflags: [
         "-Wall",
         "-Werror",
@@ -480,6 +550,22 @@ cc_test {
             static_libs: ["libaudioutils"],
         },
     }
+}
+
+cc_test {
+    name: "spatializer_utils_tests",
+    host_supported: true,
+
+    shared_libs: [
+        "libaudioutils",
+        "libcutils",
+        "liblog",
+    ],
+    srcs: ["spatializer_utils_tests.cpp"],
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
 }
 
 cc_test {

@@ -31,6 +31,8 @@ import android.app.Instrumentation;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.provider.BaseColumns;
+import android.support.test.uiautomator.By;
+import android.support.test.uiautomator.UiDevice;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.View;
@@ -63,6 +65,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class SearchView_CursorTest {
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private Activity mActivity;
     private SearchView mSearchView;
 
@@ -149,6 +153,8 @@ public class SearchView_CursorTest {
     @Before
     public void setup() throws Throwable {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mSearchView = (SearchView) mActivity.findViewById(R.id.search_view);
 
@@ -212,13 +218,16 @@ public class SearchView_CursorTest {
         assertEquals(mSuggestionsAdapter, mSearchView.getSuggestionsAdapter());
 
         mActivityRule.runOnUiThread(() -> mSearchView.setQuery("Di", false));
-        mInstrumentation.waitForIdleSync();
+        PollingCheck.waitFor(() -> {
+            UiDevice uiDevice = UiDevice.getInstance(mInstrumentation);
+            return uiDevice.findObject(By.text("Dido")) != null;
+        });
         verify(mockQueryTextListener, times(1)).onQueryTextChange("Di");
 
         // Emulate click on the first suggestion - which should be Dido
         final int suggestionRowHeight = mActivity.getResources().getDimensionPixelSize(
                 R.dimen.search_view_suggestion_row_height);
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mSearchView,
+        mCtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, mSearchView,
                 mSearchView.getWidth() / 2, mSearchView.getHeight() + suggestionRowHeight / 2);
 
         // At this point we expect the click on the first suggestion to have activated a sequence
@@ -258,7 +267,7 @@ public class SearchView_CursorTest {
         mInstrumentation.waitForIdleSync();
         verify(mockQueryTextListener, times(1)).onQueryTextChange("Di");
 
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mSearchView, KeyEvent.KEYCODE_DPAD_DOWN,
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, mSearchView, KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_ENTER);
 
         // Verify that our spy suggestion listener was called.
@@ -271,7 +280,7 @@ public class SearchView_CursorTest {
         mInstrumentation.waitForIdleSync();
         verify(mockQueryTextListener, times(1)).onQueryTextChange("Bo");
 
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mSearchView, KeyEvent.KEYCODE_DPAD_DOWN,
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, mSearchView, KeyEvent.KEYCODE_DPAD_DOWN,
                 KeyEvent.KEYCODE_NUMPAD_ENTER);
 
         // Verify that our spy suggestion listener was called.

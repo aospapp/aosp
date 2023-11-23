@@ -23,6 +23,8 @@ java_library_static {
     ],
     libs: [
         "androidx.test.runner",
+        "androidx.test.uiautomator_uiautomator",
+        "uiautomator-helpers",
     ],
     min_sdk_version: "26",
 }

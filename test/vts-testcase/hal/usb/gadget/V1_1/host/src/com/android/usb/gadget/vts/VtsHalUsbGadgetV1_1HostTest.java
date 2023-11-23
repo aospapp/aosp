@@ -23,6 +23,8 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.BeforeClassWithInfo;
+import com.android.tradefed.util.RunInterruptedException;
+import com.android.tradefed.util.RunUtil;
 import com.google.common.base.Strings;
 import org.junit.Assert;
 import org.junit.Assume;
@@ -54,7 +56,7 @@ public final class VtsHalUsbGadgetV1_1HostTest extends BaseHostJUnit4Test {
                 testInfo.getDevice()
                         .executeShellCommand(String.format("lshal | grep \"%s\"", HAL_SERVICE))
                         .trim();
-        mHasService = !Strings.isNullOrEmpty(serviceFound);
+        mHasService = !Strings.isNullOrEmpty(serviceFound) && serviceFound.contains(HAL_SERVICE);
     }
 
     @Test
@@ -71,24 +73,24 @@ public final class VtsHalUsbGadgetV1_1HostTest extends BaseHostJUnit4Test {
             public void run() {
                 try {
                     mDevice.waitForDeviceNotAvailable(CONN_TIMEOUT);
-                    Thread.sleep(300);
+                    RunUtil.getDefault().sleep(300);
                     mDevice.waitForDeviceAvailable(CONN_TIMEOUT);
                     mReconnected = true;
                 } catch (DeviceNotAvailableException dnae) {
                     CLog.e("Device is not available");
-                } catch (InterruptedException ie) {
+                } catch (RunInterruptedException ie) {
                     CLog.w("Thread.sleep interrupted");
                 }
             }
         }).start();
 
-        Thread.sleep(100);
+        RunUtil.getDefault().sleep(100);
         String cmd = "svc usb resetUsbGadget";
         CLog.i("Invoke shell command [" + cmd + "]");
         long startTime = System.currentTimeMillis();
         mDevice.executeShellCommand("svc usb resetUsbGadget");
         while (!mReconnected && System.currentTimeMillis() - startTime < CONN_TIMEOUT) {
-            Thread.sleep(100);
+            RunUtil.getDefault().sleep(100);
         }
 
         Assert.assertTrue("usb not reconnect", mReconnected);

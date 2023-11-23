@@ -17,6 +17,7 @@
 package android.voicerecognition.cts;
 
 import static android.voicerecognition.cts.TestObjects.ERROR_CODE;
+import static android.voicerecognition.cts.TestObjects.LANGUAGE_DETECTION_BUNDLE;
 import static android.voicerecognition.cts.TestObjects.PARTIAL_RESULTS_BUNDLE;
 import static android.voicerecognition.cts.TestObjects.READY_FOR_SPEECH_BUNDLE;
 import static android.voicerecognition.cts.TestObjects.RESULTS_BUNDLE;
@@ -27,17 +28,22 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
 
+import android.content.AttributionSource;
 import android.content.Intent;
 import android.os.RemoteException;
+import android.speech.ModelDownloadListener;
 import android.speech.RecognitionService;
 import android.speech.SpeechRecognizer;
 import android.util.Log;
+import android.util.Pair;
 
 import androidx.annotation.NonNull;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,11 +52,23 @@ import java.util.function.Consumer;
 public class CtsRecognitionService extends RecognitionService {
     private static final String TAG = CtsRecognitionService.class.getSimpleName();
 
-    public static List<RecognizerMethod> sInvokedRecognizerMethods = new ArrayList<>();
-    public static Queue<CallbackMethod> sInstructedCallbackMethods = new ArrayDeque<>();
+    /** Map of the recognizer methods invoked, indexed by their id. */
+    public static Map<Integer, List<RecognizerMethod>> sInvokedRecognizerMethods = new HashMap<>();
+
+    /**
+     * Queue of instructions for callbacks on main tasks ({@link
+     * CtsRecognitionService#onStartListening}, {@link CtsRecognitionService#onStopListening},
+     * {@link CtsRecognitionService#onCancel}). Each instruction is a pair
+     * consisting of a recognizer id and the callback to be run on the recognizer's listener.
+     */
+    public static Queue<Pair<Integer, CallbackMethod>> sInstructedCallbackMethods =
+            new ArrayDeque<>();
+
     public static AtomicBoolean sIsActive = new AtomicBoolean(false);
     public static Queue<Consumer<SupportCallback>> sConsumerQueue = new ArrayDeque<>();
     public static List<Intent> sDownloadTriggers = new ArrayList<>();
+
+    static final int MAX_CONCURRENT_SESSIONS_COUNT = 3;
 
     private final Random mRandom = new Random();
 
@@ -59,9 +77,12 @@ public class CtsRecognitionService extends RecognitionService {
         sIsActive.set(true);
         assertThat(listener.getCallingUid()).isEqualTo(android.os.Process.myUid());
 
-        sInvokedRecognizerMethods.add(RecognizerMethod.RECOGNIZER_METHOD_START_LISTENING);
-
-        maybeRespond(listener);
+        int recognizerId = processInstructedCallback(listener);
+        if (recognizerId >= 0) {
+            sInvokedRecognizerMethods.putIfAbsent(recognizerId, new ArrayList<>());
+            sInvokedRecognizerMethods.get(recognizerId)
+                    .add(RecognizerMethod.RECOGNIZER_METHOD_START_LISTENING);
+        }
         sIsActive.set(false);
     }
 
@@ -70,26 +91,47 @@ public class CtsRecognitionService extends RecognitionService {
         sIsActive.set(true);
         assertThat(listener.getCallingUid()).isEqualTo(android.os.Process.myUid());
 
-        sInvokedRecognizerMethods.add(RecognizerMethod.RECOGNIZER_METHOD_STOP_LISTENING);
-
-        maybeRespond(listener);
+        int recognizerId = processInstructedCallback(listener);
+        if (recognizerId >= 0) {
+            sInvokedRecognizerMethods.putIfAbsent(recognizerId, new ArrayList<>());
+            sInvokedRecognizerMethods.get(recognizerId)
+                    .add(RecognizerMethod.RECOGNIZER_METHOD_STOP_LISTENING);
+        }
         sIsActive.set(false);
     }
 
     @Override
     public void onCheckRecognitionSupport(
             @NonNull Intent recognizerIntent,
+            @NonNull AttributionSource attributionSource,
             @NonNull SupportCallback supportCallback) {
         Consumer<SupportCallback> consumer = sConsumerQueue.poll();
         if (consumer == null) {
             supportCallback.onError(SpeechRecognizer.ERROR_CANNOT_CHECK_SUPPORT);
         } else {
+            assertThat(attributionSource.getUid()).isEqualTo(android.os.Process.myUid());
             consumer.accept(supportCallback);
         }
     }
 
     @Override
-    public void onTriggerModelDownload(@NonNull Intent recognizerIntent) {
+    public void onTriggerModelDownload(
+            @NonNull Intent recognizerIntent,
+            @NonNull AttributionSource attributionSource) {
+        assertThat(attributionSource.getUid()).isEqualTo(android.os.Process.myUid());
+        sDownloadTriggers.add(recognizerIntent);
+    }
+
+    @Override
+    public void onTriggerModelDownload(
+            @NonNull Intent recognizerIntent,
+            @NonNull AttributionSource attributionSource,
+            @NonNull ModelDownloadListener listener) {
+        assertThat(attributionSource.getUid()).isEqualTo(android.os.Process.myUid());
+        listener.onProgress(50);
+        listener.onScheduled();
+        listener.onSuccess();
+        listener.onError(0);
         sDownloadTriggers.add(recognizerIntent);
     }
 
@@ -98,20 +140,37 @@ public class CtsRecognitionService extends RecognitionService {
         sIsActive.set(true);
         assertThat(listener.getCallingUid()).isEqualTo(android.os.Process.myUid());
 
-        sInvokedRecognizerMethods.add(RecognizerMethod.RECOGNIZER_METHOD_CANCEL);
-
-        maybeRespond(listener);
+        int recognizerId = processInstructedCallback(listener);
+        if (recognizerId >= 0) {
+            sInvokedRecognizerMethods.putIfAbsent(recognizerId, new ArrayList<>());
+            sInvokedRecognizerMethods.get(recognizerId).add(
+                    RecognizerMethod.RECOGNIZER_METHOD_CANCEL);
+        }
         sIsActive.set(false);
     }
 
-    private void maybeRespond(Callback listener) {
+    @Override
+    public int getMaxConcurrentSessionsCount() {
+        return MAX_CONCURRENT_SESSIONS_COUNT;
+    }
+
+    /**
+     * Process the next callback instruction in the queue by callback on the given listener.
+     * Return the id of the corresponding recognizer object.
+     *
+     * @param listener listener on which the callback should be invoked
+     * @return the id of the corresponding recognizer
+     */
+    private int processInstructedCallback(Callback listener) {
         if (sInstructedCallbackMethods.isEmpty()) {
-            return;
+            return -1;
         }
 
-        CallbackMethod callbackMethod = sInstructedCallbackMethods.poll();
+        Pair<Integer, CallbackMethod> callbackInstruction = sInstructedCallbackMethods.poll();
+        int recognizerId = callbackInstruction.first;
+        CallbackMethod callbackMethod = callbackInstruction.second;
 
-        Log.i(TAG, "Responding with callback method " + callbackMethod.name());
+        Log.i(TAG, "Responding with " + callbackMethod.name() + ".");
 
         try {
             switch (callbackMethod) {
@@ -150,11 +209,20 @@ public class CtsRecognitionService extends RecognitionService {
                 case CALLBACK_METHOD_END_SEGMENTED_SESSION:
                     listener.endOfSegmentedSession();
                     break;
+                case CALLBACK_METHOD_LANGUAGE_DETECTION:
+                    listener.languageDetection(LANGUAGE_DETECTION_BUNDLE);
+                    break;
                 default:
                     fail();
             }
         } catch (RemoteException e) {
             fail();
         }
+
+        return recognizerId;
+    }
+
+    static int totalInvokedRecognizerMethodsCount() {
+        return sInvokedRecognizerMethods.values().stream().mapToInt(List::size).sum();
     }
 }

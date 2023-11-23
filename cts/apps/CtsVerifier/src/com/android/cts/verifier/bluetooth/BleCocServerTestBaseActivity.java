@@ -16,11 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
@@ -33,6 +29,12 @@ import android.os.Bundle;
 import android.util.Log;
 import android.widget.ListView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class BleCocServerTestBaseActivity extends PassFailButtons.Activity {
 
@@ -93,7 +95,7 @@ public class BleCocServerTestBaseActivity extends PassFailButtons.Activity {
         filter.addAction(BleCocServerService.BLE_ADVERTISE_UNSUPPORTED);
         filter.addAction(BleCocServerService.BLE_ADD_SERVICE_FAIL);
 
-        registerReceiver(mBroadcast, filter);
+        registerReceiver(mBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

@@ -221,6 +221,72 @@ typedef struct {
    wifi_peer_info peer_info[];           // per peer statistics
 } wifi_iface_stat;
 
+/* Various states for the link */
+typedef enum {
+  // Chip does not support reporting the state of the link.
+  WIFI_LINK_STATE_UNKNOWN = 0,
+  // Link has not been in use since last report. It is placed in power save. All
+  // management, control and data frames for the MLO connection are carried over
+  // other links. In this state the link will not listen to beacons even in DTIM
+  // period and does not perform any GTK/IGTK/BIGTK updates but remains
+  // associated.
+  WIFI_LINK_STATE_NOT_IN_USE = 1,
+  // Link is in use. In presence of traffic, it is set to be power active. When
+  // the traffic stops, the link will go into power save mode and will listen
+  // for beacons every DTIM period.
+  WIFI_LINK_STATE_IN_USE = 2,
+} wifi_link_state;
+
+/* Per link statistics */
+typedef struct {
+  u8 link_id;       // Identifier for the link.
+  wifi_link_state state; // State for the link.
+  wifi_radio radio; // Radio on which link stats are sampled.
+  u32 frequency;    // Frequency on which link is operating.
+  u32 beacon_rx;    // Beacon received count from connected AP on the link.
+  u64 average_tsf_offset;  // Average beacon offset encountered (beacon_TSF -
+                           // TBTT). The average_tsf_offset field is used so as
+                           // to calculate the typical beacon contention time on
+                           // the channel as well may be used to debug beacon
+                           // synchronization and related power consumption
+                           // issue.
+  u32 leaky_ap_detected;   // Indicate that this AP on the link typically leaks
+                           // packets beyond the driver guard time.
+  u32 leaky_ap_avg_num_frames_leaked;  // Average number of frame leaked by AP
+                                       // in the link after frame with PM bit
+                                       // set was ACK'ed by AP.
+  u32 leaky_ap_guard_time;  // Guard time currently in force (when implementing
+                            // IEEE power management based on frame control PM
+                            // bit), How long driver waits before shutting down
+                            // the radio and after receiving an ACK for a data
+                            // frame with PM bit set).
+  u32 mgmt_rx;  // Management frames received count from connected AP on the
+                // link (including Beacon).
+  u32 mgmt_action_rx;  // Action frames received count on the link.
+  u32 mgmt_action_tx;  // Action frames transmit count on the link.
+  wifi_rssi rssi_mgmt; // Access Point Beacon and Management frames RSSI
+                       // (averaged) on the link.
+  wifi_rssi rssi_data; // Access Point Data Frames RSSI (averaged) from
+                       // connected AP on the link.
+  wifi_rssi rssi_ack;  // Access Point ACK RSSI (averaged) from connected AP on
+                       // the links.
+  wifi_wmm_ac_stat ac[WIFI_AC_MAX];    // Per AC data packet statistics for the
+                                       // link.
+  u8 time_slicing_duty_cycle_percent;  // If this link is being served using
+                                       // time slicing on a radio with one or
+                                       // more links, then the duty cycle
+                                       // assigned to this link in %.
+  u32 num_peers;                       // Number of peers.
+  wifi_peer_info peer_info[];          // Peer statistics for the link.
+} wifi_link_stat;
+
+/* Multi link stats for interface  */
+typedef struct {
+  wifi_interface_handle iface;          // Wifi interface.
+  wifi_interface_link_layer_info info;  // Current state of the interface.
+  int num_links;                        // Number of links.
+  wifi_link_stat links[];               // Stats per link.
+} wifi_iface_ml_stat;
 /* configuration params */
 typedef struct {
    u32 mpdu_size_threshold;             // threshold to classify the pkts as short or long
@@ -234,10 +300,18 @@ typedef struct {
    Interface statistics (once started) reset and start afresh after each connection */
 wifi_error wifi_set_link_stats(wifi_interface_handle iface, wifi_link_layer_params params);
 
-/* callback for reporting link layer stats */
+/* Callbacks for reporting link layer stats. Only one of the callbacks needs to
+ * be called. */
 typedef struct {
-  void (*on_link_stats_results) (wifi_request_id id, wifi_iface_stat *iface_stat,
-         int num_radios, wifi_radio_stat *radio_stat);
+   /* Legacy: Single iface/link stats. */
+   void (*on_link_stats_results)(wifi_request_id id,
+                                 wifi_iface_stat *iface_stat, int num_radios,
+                                 wifi_radio_stat *radio_stat);
+   /* Multi link stats. */
+   void (*on_multi_link_stats_results)(wifi_request_id id,
+                                       wifi_iface_ml_stat *iface_ml_stat,
+                                       int num_radios,
+                                       wifi_radio_stat *radio_stat);
 } wifi_stats_result_handler;
 
 /* api to collect the link layer statistics for a given iface and all the radio stats */
@@ -266,4 +340,3 @@ wifi_error wifi_clear_link_stats(wifi_interface_handle iface,
 #endif /* __cplusplus */
 
 #endif /*__WIFI_HAL_STATS_ */
-

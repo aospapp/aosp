@@ -13,7 +13,22 @@
 
 <configuration description="List test modules of OnDevicePersonalization module. This is a placeholder xml instead of a runnable plan.">
     <option name="compatibility:include-filter"
-            value="CtsOnDevicePersonalizationTestCases android.ondevicepersonalization.cts.OnDevicePersonalizationServiceTest" />
+            value="FrameworkOnDevicePersonalizationTests" />
+    <option name="compatibility:include-filter"
+            value="OnDevicePersonalizationManagingServicesTests" />
+    <option name="compatibility:include-filter"
+            value="OnDevicePersonalizationPluginTests" />
+    <option name="compatibility:include-filter"
+            value="OnDevicePersonalizationSystemServiceImplTests" />
+    <option name="compatibility:include-filter"
+            value="OdpChronicleTests" />
+    <option name="compatibility:include-filter"
+            value="FederatedComputeServicesTests" />
 
-    <option name="compatibility:module-arg" value="CtsOnDevicePersonalizationTestCases:enable:true" />
+    <option name="compatibility:module-arg" value="FrameworkOnDevicePersonalizationTests:enable:true" />
+    <option name="compatibility:module-arg" value="OnDevicePersonalizationManagingServicesTests:enable:true" />
+    <option name="compatibility:module-arg" value="OnDevicePersonalizationPluginTests:enable:true" />
+    <option name="compatibility:module-arg" value="OnDevicePersonalizationSystemServiceImplTests:enable:true" />
+    <option name="compatibility:module-arg" value="OdpChronicleTests:enable:true" />
+    <option name="compatibility:module-arg" value="FederatedComputeServicesTests:enable:true" />
 </configuration>

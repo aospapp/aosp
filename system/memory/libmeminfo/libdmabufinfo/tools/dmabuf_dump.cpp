@@ -135,16 +135,12 @@ static void PrintDmaBufPerProcess(const std::vector<DmaBuffer>& bufs) {
 
     // Create a reverse map from pid to dmabufs
     std::unordered_map<pid_t, std::set<ino_t>> pid_to_inodes = {};
-    uint64_t total_size = 0;  // Total size of dmabufs in the system
-    uint64_t kernel_rss = 0;  // Total size of dmabufs NOT mapped or opened by a process
+    uint64_t userspace_size = 0;  // Size of userspace dmabufs in the system
     for (auto& buf : bufs) {
         for (auto pid : buf.pids()) {
             pid_to_inodes[pid].insert(buf.inode());
         }
-        total_size += buf.size();
-        if (buf.fdrefs().empty() && buf.maprefs().empty()) {
-            kernel_rss += buf.size();
-        }
+        userspace_size += buf.size();
     }
     // Create an inode to dmabuf map. We know inodes are unique..
     std::unordered_map<ino_t, DmaBuffer> inode_to_dmabuf;
@@ -161,12 +157,11 @@ static void PrintDmaBufPerProcess(const std::vector<DmaBuffer>& bufs) {
         printf("%22s %16s %16s %16s %16s\n", "Name", "Rss", "Pss", "nr_procs", "Inode");
         for (auto& inode : inodes) {
             DmaBuffer& buf = inode_to_dmabuf[inode];
-            uint64_t proc_pss = buf.Pss(pid);
             printf("%22s %13" PRIu64 " kB %13" PRIu64 " kB %16zu %16" PRIuMAX "\n",
                    buf.name().empty() ? "<unknown>" : buf.name().c_str(), buf.size() / 1024,
-                   proc_pss / 1024, buf.pids().size(), static_cast<uintmax_t>(buf.inode()));
+                   buf.Pss() / 1024, buf.pids().size(), static_cast<uintmax_t>(buf.inode()));
             rss += buf.size();
-            pss += proc_pss;
+            pss += buf.Pss();
         }
         printf("%22s %13" PRIu64 " kB %13" PRIu64 " kB %16s\n", "PROCESS TOTAL", rss / 1024,
                pss / 1024, "");
@@ -174,9 +169,21 @@ static void PrintDmaBufPerProcess(const std::vector<DmaBuffer>& bufs) {
         total_rss += rss;
         total_pss += pss;
     }
+
+    uint64_t kernel_rss = 0;  // Total size of dmabufs NOT mapped or opened by a process
+    if (android::dmabufinfo::GetDmabufTotalExportedKb(&kernel_rss)) {
+        kernel_rss *= 1024;  // KiB -> bytes
+        if (kernel_rss >= userspace_size)
+            kernel_rss -= userspace_size;
+        else
+            printf("Warning: Total dmabufs < userspace dmabufs\n");
+    } else {
+        printf("Warning: Could not get total exported dmabufs. Kernel size will be 0.\n");
+    }
     printf("dmabuf total: %" PRIu64 " kB kernel_rss: %" PRIu64 " kB userspace_rss: %" PRIu64
            " kB userspace_pss: %" PRIu64 " kB\n ",
-           total_size / 1024, kernel_rss / 1024, total_rss / 1024, total_pss / 1024);
+           (userspace_size + kernel_rss) / 1024, kernel_rss / 1024, total_rss / 1024,
+           total_pss / 1024);
 }
 
 static void DumpDmabufSysfsStats() {
@@ -193,7 +200,7 @@ static void DumpDmabufSysfsStats() {
     printf("\n\n----------------------- DMA-BUF per-buffer stats -----------------------\n");
     printf("    Dmabuf Inode |     Size(bytes) |             Exporter Name             |\n");
     for (const auto& buf : buffer_stats) {
-        printf("%16u |%16u | %16s \n", buf.inode, buf.size, buf.exp_name.c_str());
+        printf("%16lu |%" PRIu64 " | %16s \n", buf.inode, buf.size, buf.exp_name.c_str());
     }
 
     printf("\n\n----------------------- DMA-BUF exporter stats -----------------------\n");
@@ -261,8 +268,8 @@ int main(int argc, char* argv[]) {
             exit(EXIT_FAILURE);
         }
     } else {
-        if (!ReadDmaBufs(&bufs)) {
-            fprintf(stderr, "Failed to ReadDmaBufs, check logcat for info\n");
+        if (!ReadProcfsDmaBufs(&bufs)) {
+            fprintf(stderr, "Failed to ReadProcfsDmaBufs, check logcat for info\n");
             exit(EXIT_FAILURE);
         }
     }

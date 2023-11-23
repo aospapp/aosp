@@ -1,5 +1,5 @@
 {
-  "presubmit-large": [
+  "presubmit": [
     {
       "name": "CtsBluetoothTestCases"
     }
@@ -7,6 +7,82 @@
   "hwasan-postsubmit": [
     {
       "name": "CtsBluetoothTestCases"
+    }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "CtsBluetoothTestCases",
+      "options": [
+        {
+          // TODO(b/255288185)
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testCloseProfileProxy"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testGetAllGroupIds"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testGetConnectedDevices"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testGetDevicesMatchingConnectionStates"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testGetGroupUuidMapByDevice"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testLockUnlockGroup"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothCsipSetCoordinatorTest#testTestLockCallback"
+        },
+        {
+          // TODO(b/171462068)
+          "exclude-filter": "android.bluetooth.cts.LeL2capSocketTest#testOpenInsecureLeL2capServerSocketOnce"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.LeL2capSocketTest#testOpenInsecureLeL2capServerSocketRepeatedly"
+        },
+        {
+          // TODO(b/202542782)
+          "exclude-filter": "android.bluetooth.cts.BluetoothLeScanTest#testBasicBleScan"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BasicAdapterTest#test_enableDisable"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BasicAdapterTest#test_getBondedDevices"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BasicAdapterTest#test_getName"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BasicAdapterTest#test_listenUsingRfcommWithServiceRecord"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.HearingAidProfileTest#test_getConnectionState"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.HearingAidProfileTest#test_getConnectionStateChangedIntent"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.HearingAidProfileTest#test_getProxyServiceConnect"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.HearingAidProfileTest#test_getDevicesMatchingConnectionStates"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.LeL2capSocketTest#testOpenSecureLeL2capServerSocketOnce"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.LeL2capSocketTest#testOpenSecureLeL2capServerSocketRepeatedly"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BluetoothLeScanTest#testScanFilter"
+        },
+        {
+          "exclude-filter": "android.bluetooth.cts.BasicAdapterTest#test_setName_getName"
+        }
+      ]
     }
   ]
 }

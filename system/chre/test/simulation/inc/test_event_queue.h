@@ -88,9 +88,10 @@ class TestEventQueue : public NonCopyable {
 
   //! Block until the event happens.
   void waitForEvent(uint16_t eventType) {
+    LOGD("Waiting for event type 0x%" PRIx16, eventType);
     while (true) {
       auto event = mQueue.pop();
-      LOGD("Got event type 0x%" PRIx16, eventType);
+      LOGD("Got event type 0x%" PRIx16, event.type);
       ASSERT_NE(event.type, CHRE_EVENT_SIMULATION_TEST_TIMEOUT)
           << "Timeout waiting for event " << eventType;
       memoryFree(event.data);
@@ -104,9 +105,10 @@ class TestEventQueue : public NonCopyable {
   template <class T>
   void waitForEvent(uint16_t eventType, T *data) {
     static_assert(std::is_trivial<T>::value);
+    LOGD("Waiting for event type 0x%" PRIx16, eventType);
     while (true) {
       auto event = mQueue.pop();
-      LOGD("Got event type 0x%" PRIx16, eventType);
+      LOGD("Got event type 0x%" PRIx16, event.type);
       ASSERT_NE(event.type, CHRE_EVENT_SIMULATION_TEST_TIMEOUT)
           << "Timeout waiting for event " << eventType;
       if (event.type == eventType) {

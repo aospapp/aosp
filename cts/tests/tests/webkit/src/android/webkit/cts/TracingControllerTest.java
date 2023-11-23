@@ -18,28 +18,43 @@ package android.webkit.cts;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.TracingConfig;
 import android.webkit.TracingController;
 import android.webkit.WebView;
-import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
+
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
-public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class TracingControllerTest {
 
     public static class TracingReceiver extends OutputStream {
         private int mChunkCount;
@@ -106,43 +121,45 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
     private static final int EXECUTOR_TIMEOUT = 10; // timeout of executor shutdown in seconds
     private static final String EXECUTOR_THREAD_PREFIX = "TracingExecutorThread";
     private WebViewOnUiThread mOnUiThread;
-    private ExecutorService singleThreadExecutor;
+    private ExecutorService mSingleThreadExecutor;
 
-    public TracingControllerTest() throws Exception {
-        super("android.webkit.cts", WebViewCtsActivity.class);
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
+
+    @Before
+    public void setUp() throws Exception {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+        mActivityScenarioRule.getScenario().onActivity(activity -> {
+            WebViewCtsActivity webViewCtsActivity = (WebViewCtsActivity) activity;
+            WebView webview = webViewCtsActivity.getWebView();
+            if (webview != null) {
+                mOnUiThread = new WebViewOnUiThread(webview);
+            }
+        });
+        mSingleThreadExecutor = Executors.newSingleThreadExecutor(getCustomThreadFactory());
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        WebView webview = getActivity().getWebView();
-        if (webview == null) return;
-        mOnUiThread = new WebViewOnUiThread(webview);
-        singleThreadExecutor = Executors.newSingleThreadExecutor(getCustomThreadFactory());
-    }
-
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         // make sure to stop everything and clean up
-        ensureTracingStopped();
-        if (singleThreadExecutor != null) {
-            singleThreadExecutor.shutdown();
-            if (!singleThreadExecutor.awaitTermination(EXECUTOR_TIMEOUT, TimeUnit.SECONDS)) {
+        if (NullWebViewUtils.isWebViewAvailable()) {
+            ensureTracingStopped();
+        }
+
+        if (mSingleThreadExecutor != null) {
+            mSingleThreadExecutor.shutdown();
+            if (!mSingleThreadExecutor.awaitTermination(EXECUTOR_TIMEOUT, TimeUnit.SECONDS)) {
                 fail("Failed to shutdown executor");
             }
         }
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
-        super.tearDown();
     }
 
     private void ensureTracingStopped() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        TracingController.getInstance().stop(null, singleThreadExecutor);
+        TracingController.getInstance().stop(null, mSingleThreadExecutor);
         Callable<Boolean> tracingStopped = new Callable<Boolean>() {
             @Override
             public Boolean call() {
@@ -166,14 +183,12 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
 
     // Test that callbacks are invoked and tracing data is returned on the correct thread
     // (via executor). Tracing start/stop and webview loading happens on the UI thread.
+    @Test
     public void testTracingControllerCallbacksOnUI() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final TracingReceiver tracingReceiver = new TracingReceiver();
 
         WebkitUtils.onMainThreadSync(() -> {
-            runTracingTestWithCallbacks(tracingReceiver, singleThreadExecutor);
+            runTracingTestWithCallbacks(tracingReceiver, mSingleThreadExecutor);
         });
         PollingCheck.check("Tracing did not complete", POLLING_TIMEOUT, tracingReceiver.getCompleteCallable());
         assertThat(tracingReceiver.getNbChunks(), greaterThan(0));
@@ -185,35 +200,26 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
     // Test that callbacks are invoked and tracing data is returned on the correct thread
     // (via executor). Tracing start/stop happens on the testing thread; webview loading
     // happens on the UI thread.
+    @Test
     public void testTracingControllerCallbacks() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         final TracingReceiver tracingReceiver = new TracingReceiver();
-        runTracingTestWithCallbacks(tracingReceiver, singleThreadExecutor);
+        runTracingTestWithCallbacks(tracingReceiver, mSingleThreadExecutor);
         PollingCheck.check("Tracing did not complete", POLLING_TIMEOUT, tracingReceiver.getCompleteCallable());
         assertThat(tracingReceiver.getNbChunks(), greaterThan(0));
         assertThat(tracingReceiver.getOutputStream().size(), greaterThan(0));
     }
 
     // Test that tracing stop has no effect if tracing has not been started.
+    @Test
     public void testTracingStopFalseIfNotTracing() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         TracingController tracingController = TracingController.getInstance();
-        assertFalse(tracingController.stop(null, singleThreadExecutor));
+        assertFalse(tracingController.stop(null, mSingleThreadExecutor));
         assertFalse(tracingController.isTracing());
     }
 
     // Test that tracing cannot be started if already tracing.
+    @Test
     public void testTracingCannotStartIfAlreadyTracing() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         TracingController tracingController = TracingController.getInstance();
         TracingConfig config = new TracingConfig.Builder().build();
 
@@ -225,16 +231,13 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
             // as expected
             return;
         }
-        assertTrue(tracingController.stop(null, singleThreadExecutor));
+        assertTrue(tracingController.stop(null, mSingleThreadExecutor));
         fail("Tracing start should throw an exception when attempting to start while already tracing");
     }
 
     // Test that tracing cannot be invoked with excluded categories.
+    @Test
     public void testTracingInvalidCategoriesPatternExclusion() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         TracingController tracingController = TracingController.getInstance();
         TracingConfig config = new TracingConfig.Builder()
                 .addCategories("android_webview","-blink")
@@ -251,11 +254,8 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
     }
 
     // Test that tracing cannot be invoked with categories containing commas.
+    @Test
     public void testTracingInvalidCategoriesPatternComma() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         TracingController tracingController = TracingController.getInstance();
         TracingConfig config = new TracingConfig.Builder()
                 .addCategories("android_webview, blink")
@@ -272,11 +272,8 @@ public class TracingControllerTest extends ActivityInstrumentationTestCase2<WebV
     }
 
     // Test that tracing cannot start with a configuration that is null.
+    @Test
     public void testTracingWithNullConfig() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         TracingController tracingController = TracingController.getInstance();
         try {
             tracingController.start(null);

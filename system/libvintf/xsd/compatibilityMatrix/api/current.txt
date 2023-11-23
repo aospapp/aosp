@@ -52,11 +52,13 @@ package compatibility.matrix {
     method public java.util.List<java.lang.String> getFqname();
     method public String getName();
     method public String getOptional();
+    method public boolean getUpdatableViaApex();
     method public java.util.List<java.lang.String> getVersion();
     method public java.util.List<compatibility.matrix.Interface> get_interface();
     method public void setFormat(String);
     method public void setName(String);
     method public void setOptional(String);
+    method public void setUpdatableViaApex(boolean);
   }
 
   public class Interface {

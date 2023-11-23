@@ -130,7 +130,7 @@ public class BypassDatabaseOperationsTest extends ScopedStorageBaseDeviceTest {
     }
 
     @Before
-    public void setupExternalStorage() {
+    public void setupExternalStorage() throws Exception {
         super.setupExternalStorage(mVolumeName);
         Log.i(TAG, "Using volume : " + mVolumeName);
     }

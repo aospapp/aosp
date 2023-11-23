@@ -24,6 +24,7 @@ tools/tradefederation/core/res/config/native-benchmark.xml
 CtsAnimationTestCases:AnimatorTest
 CtsSampleDeviceTestCases:SampleDeviceTest#testSharedPreferences
 CtsSampleDeviceTestCases:android.sample.cts.SampleDeviceReportLogTest
+pts-bot:PAN/GN/MISC/UUID/BV-01-C
 
 
 ###[Test Finder: QUALIFIED_CLASS, Test Runner:AtestTradefedTestRunner]###

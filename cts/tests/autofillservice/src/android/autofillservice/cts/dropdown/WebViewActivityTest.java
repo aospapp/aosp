@@ -37,10 +37,11 @@ import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequ
 import android.autofillservice.cts.testcore.MyAutofillCallback;
 import android.autofillservice.cts.testcore.OneTimeTextWatcher;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.ViewStructure.HtmlInfo;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Assume;
 import org.junit.Ignore;

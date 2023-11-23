@@ -23,11 +23,12 @@ import static org.junit.Assert.fail;
 import android.app.PendingIntent;
 import android.car.Car;
 import android.car.content.pm.CarPackageManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.content.Intent;
 import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -38,7 +39,7 @@ import org.junit.runner.RunWith;
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Instant apps cannot see other packages")
-public class CarPackageManagerTest extends CarApiTestBase {
+public final class CarPackageManagerTest extends AbstractCarTestCase {
 
     private CarPackageManager mCarPm;
     private static String TAG = CarPackageManagerTest.class.getSimpleName();
@@ -46,9 +47,15 @@ public class CarPackageManagerTest extends CarApiTestBase {
     /** Name of the meta-data attribute for the automotive application XML resource */
     private static final String METADATA_ATTRIBUTE = "android.car.application";
 
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
+
     @Before
     public void setUp() throws Exception {
-        super.setUp();
         mCarPm = (CarPackageManager) getCar().getCarManager(Car.PACKAGE_SERVICE);
     }
 

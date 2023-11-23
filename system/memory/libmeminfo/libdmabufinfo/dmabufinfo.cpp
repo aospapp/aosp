@@ -23,6 +23,7 @@
 #include <unistd.h>
 
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,8 +56,8 @@ static FdInfoResult ReadDmaBufFdInfo(pid_t pid, int fd, std::string* name, std::
                              const std::string& procfs_path) {
     std::string fdinfo =
             ::android::base::StringPrintf("%s/%d/fdinfo/%d", procfs_path.c_str(), pid, fd);
-    auto fp = std::unique_ptr<FILE, decltype(&fclose)>{fopen(fdinfo.c_str(), "re"), fclose};
-    if (fp == nullptr) {
+    std::ifstream fp(fdinfo);
+    if (!fp) {
         if (errno == ENOENT) {
             return NOT_FOUND;
         }
@@ -64,45 +65,43 @@ static FdInfoResult ReadDmaBufFdInfo(pid_t pid, int fd, std::string* name, std::
         return ERROR;
     }
 
-    char* line = nullptr;
-    size_t len = 0;
-    while (getline(&line, &len, fp.get()) > 0) {
+    for (std::string file_line; getline(fp, file_line);) {
+        const char* line = file_line.c_str();
         switch (line[0]) {
             case 'c':
                 if (strncmp(line, "count:", 6) == 0) {
-                    char* c = line + 6;
+                    const char* c = line + 6;
                     *count = strtoull(c, nullptr, 10);
                 }
                 break;
             case 'e':
                 if (strncmp(line, "exp_name:", 9) == 0) {
-                    char* c = line + 9;
+                    const char* c = line + 9;
                     *exporter = ::android::base::Trim(c);
                     *is_dmabuf_file = true;
                 }
                 break;
             case 'n':
                 if (strncmp(line, "name:", 5) == 0) {
-                    char* c = line + 5;
-                    *name = ::android::base::Trim(std::string(c));
+                    const char* c = line + 5;
+                    *name = ::android::base::Trim(c);
                 }
                 break;
             case 's':
                 if (strncmp(line, "size:", 5) == 0) {
-                    char* c = line + 5;
+                    const char* c = line + 5;
                     *size = strtoull(c, nullptr, 10);
                 }
                 break;
             case 'i':
                 if (strncmp(line, "ino:", 4) == 0) {
-                    char* c = line + 4;
+                    const char* c = line + 4;
                     *inode = strtoull(c, nullptr, 10);
                 }
                 break;
         }
     }
 
-    free(line);
     return OK;
 }
 
@@ -203,14 +202,11 @@ bool ReadDmaBufMapRefs(pid_t pid, std::vector<DmaBuffer>* dmabufs,
                               const std::string& procfs_path,
                               const std::string& dmabuf_sysfs_path) {
     std::string mapspath = ::android::base::StringPrintf("%s/%d/maps", procfs_path.c_str(), pid);
-    auto fp = std::unique_ptr<FILE, decltype(&fclose)>{fopen(mapspath.c_str(), "re"), fclose};
-    if (fp == nullptr) {
-        LOG(ERROR) << "Failed to open maps for pid: " << pid;
+    std::ifstream fp(mapspath);
+    if (!fp) {
+        LOG(ERROR) << "Failed to open " << mapspath << " for pid: " << pid;
         return false;
     }
-
-    char* line = nullptr;
-    size_t len = 0;
 
     // Process the map if it is dmabuf. Add map reference to existing object in 'dmabufs'
     // if it was already found. If it wasn't create a new one and append it to 'dmabufs'
@@ -231,55 +227,31 @@ bool ReadDmaBufMapRefs(pid_t pid, std::vector<DmaBuffer>* dmabufs,
         // We have a new buffer, but unknown count and name and exporter name
         // Try to lookup exporter name in sysfs
         std::string exporter;
-        if (!ReadBufferExporter(mapinfo.inode, &exporter, dmabuf_sysfs_path)) {
+        bool sysfs_stats = ReadBufferExporter(mapinfo.inode, &exporter, dmabuf_sysfs_path);
+        if (!sysfs_stats) {
             exporter = "<unknown>";
         }
-        DmaBuffer& dbuf = dmabufs->emplace_back(mapinfo.inode, mapinfo.end - mapinfo.start, 0,
-                                                exporter, "<unknown>");
+
+        // Using the VMA range as the size of the buffer can be misleading,
+        // due to partially mapped buffers or VMAs that extend beyond the
+        // buffer size.
+        //
+        // Attempt to retrieve the real buffer size from sysfs.
+        uint64_t size = 0;
+        if (!sysfs_stats || !ReadBufferSize(mapinfo.inode, &size, dmabuf_sysfs_path)) {
+            size = mapinfo.end - mapinfo.start;
+        }
+
+        DmaBuffer& dbuf = dmabufs->emplace_back(mapinfo.inode, size, 0, exporter, "<unknown>");
         dbuf.AddMapRef(pid);
     };
 
-    while (getline(&line, &len, fp.get()) > 0) {
-        if (!::android::procinfo::ReadMapFileContent(line, account_dmabuf)) {
-            LOG(ERROR) << "Failed to parse maps for pid: " << pid;
+    for (std::string line; getline(fp, line);) {
+        if (!::android::procinfo::ReadMapFileContent(line.data(), account_dmabuf)) {
+            LOG(ERROR) << "Failed to parse " << mapspath << " for pid: " << pid;
             return false;
         }
     }
-
-    free(line);
-    return true;
-}
-
-bool ReadDmaBufInfo(std::vector<DmaBuffer>* dmabufs, const std::string& path) {
-    auto fp = std::unique_ptr<FILE, decltype(&fclose)>{fopen(path.c_str(), "re"), fclose};
-    if (fp == nullptr) {
-        LOG(ERROR) << "Failed to open dmabuf info from debugfs";
-        return false;
-    }
-
-    char* line = nullptr;
-    size_t len = 0;
-    dmabufs->clear();
-    while (getline(&line, &len, fp.get()) > 0) {
-        // The new dmabuf bufinfo format adds inode number and a name at the end
-        // We are looking for lines as follows:
-        // size     flags       mode        count  exp_name ino         name
-        // 01048576 00000002    00000007    00000001    ion 00018758    CAMERA
-        // 01048576 00000002    00000007    00000001    ion 00018758
-        uint64_t size, count, inode;
-        char* exporter_name = nullptr;
-        char* name = nullptr;
-        int matched = sscanf(line, "%" SCNu64 "%*x %*x %" SCNu64 " %ms %" SCNu64 " %ms", &size,
-                             &count, &exporter_name, &inode, &name);
-        if (matched < 4) {
-            continue;
-        }
-        dmabufs->emplace_back((ino_t)inode, size, count, exporter_name, matched > 4 ? name : "");
-        free(exporter_name);
-        free(name);
-    }
-
-    free(line);
 
     return true;
 }
@@ -302,7 +274,7 @@ bool ReadDmaBufInfo(pid_t pid, std::vector<DmaBuffer>* dmabufs, bool read_fdrefs
     return true;
 }
 
-bool ReadDmaBufs(std::vector<DmaBuffer>* bufs) {
+bool ReadProcfsDmaBufs(std::vector<DmaBuffer>* bufs) {
     bufs->clear();
 
     std::unique_ptr<DIR, int (*)(DIR*)> dir(opendir("/proc"), closedir);

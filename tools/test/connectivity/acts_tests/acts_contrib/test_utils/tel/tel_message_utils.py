@@ -159,6 +159,12 @@ def message_test(
     verify_caller_func = None
     verify_callee_func = None
 
+    if long_msg:
+      for ad in [ad_mo, ad_mt]:
+        ad.root_adb()
+        # set max sms length to 10000 for long sms test
+        ad.adb.shell("settings put global sms_outgoing_check_max_count 10000")
+
     if mo_rat:
         mo_phone_setup_argv = (
             log,

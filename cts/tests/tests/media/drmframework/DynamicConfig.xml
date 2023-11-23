@@ -45,6 +45,6 @@
         <value>http://redirector.gvt1.com/videoplayback?id=c80658495af60617&amp;itag=17&amp;source=youtube&amp;ip=0.0.0.0&amp;ipbits=0&amp;expire=19000000000&amp;sparams=ip,ipbits,expire,id,itag,source&amp;signature=70E979A621001201BC18622BDBF914FA870BDA40.6E78890B80F4A33A18835F775B1FF64F0A4D0003&amp;key=ik0&amp;user=android-device-test</value>
     </entry>
     <entry key="media_files_url">
-    <value>https://storage.googleapis.com/android_media/cts/tests/tests/media/drmframework/CtsMediaDrmFrameworkTestCases-1.0.zip</value>
+    <value>https://dl.google.com/android/xts/cts/tests/tests/media/drmframework/CtsMediaDrmFrameworkTestCases-2.1.zip</value>
     </entry>
 </dynamicConfig>

@@ -22,18 +22,18 @@
 #error "LOG_TAG is not defined!"
 #endif
 
+#include <log/log.h>
+#include <sys/ioctl.h>
+#include <time.h>
+#include <unistd.h>
+
 #include <cerrno>
 #include <cstring>
 
-#include <unistd.h>
-#include <log/log.h>
-#include <time.h>
-#include <sys/ioctl.h>
-
 #ifdef __GNUC__
-#  define __UNUSED__ __attribute__((__unused__))
+#define __UNUSED__ __attribute__((__unused__))
 #else
-#  define __UNUSED__
+#define __UNUSED__
 #endif
 
 #ifndef ALOGERR
@@ -41,14 +41,16 @@
 #endif
 
 #define V4L2_CID_JPEG_SEC_COMP_QUALITY (V4L2_CID_JPEG_CLASS_BASE + 20)
-#define V4L2_CID_JPEG_QTABLES2         (V4L2_CID_JPEG_CLASS_BASE + 22)
-#define V4L2_CID_JPEG_HWFC_ENABLE      (V4L2_CID_JPEG_CLASS_BASE + 25)
+#define V4L2_CID_JPEG_QTABLES2 (V4L2_CID_JPEG_CLASS_BASE + 22)
+#define V4L2_CID_JPEG_HWFC_ENABLE (V4L2_CID_JPEG_CLASS_BASE + 25)
+#define V4L2_CID_JPEG_PADDING (V4L2_CID_JPEG_CLASS_BASE + 26)
+#define V4L2_CID_JPEG_SEC_PADDING (V4L2_CID_JPEG_CLASS_BASE + 27)
 
-#define TO_MAIN_SIZE(val)   ((val) & 0xFFFF)
-#define TO_THUMB_SIZE(val)  (((val) & 0xFFFF) << 16)
+#define TO_MAIN_SIZE(val) ((val)&0xFFFF)
+#define TO_THUMB_SIZE(val) (((val)&0xFFFF) << 16)
 #define TO_IMAGE_SIZE(main, thumb) (TO_MAIN_SIZE(main) | TO_THUMB_SIZE(thumb))
 
-#define PTR_TO_ULONG(ptr)   reinterpret_cast<unsigned long>(ptr)
+#define PTR_TO_ULONG(ptr) reinterpret_cast<unsigned long>(ptr)
 #define PTR_DIFF(ptr1, ptr2) (reinterpret_cast<size_t>(ptr2) - reinterpret_cast<size_t>(ptr1))
 
 #define ARRSIZE(v) (sizeof(v) / sizeof(v[0]))
@@ -74,10 +76,10 @@ static inline T max(T val1, T val2) {
 
 class CStopWatch {
     timespec m_tBegin;
+
 public:
     CStopWatch(bool start = false) {
-        if (start)
-            Start();
+        if (start) Start();
     }
     bool Start();
     unsigned long GetElapsed();

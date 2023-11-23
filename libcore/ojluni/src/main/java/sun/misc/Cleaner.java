@@ -115,6 +115,24 @@ public class Cleaner
         this.thunk = thunk;
     }
 
+    // BEGIN Android-added: Support for timeout reporting.
+    /**
+     * Is q our placeholder queue?
+     * @hide
+     */
+    public static boolean isCleanerQueue(ReferenceQueue q) {
+      return q == dummyQueue;
+    }
+
+    /**
+     * Retrieve thunk.
+     * @hide
+     */
+    public Runnable getThunk() {
+      return thunk;
+    }
+    // END Android-added: Support for Timeout reoprting.
+
     /**
      * Creates a new cleaner.
      *

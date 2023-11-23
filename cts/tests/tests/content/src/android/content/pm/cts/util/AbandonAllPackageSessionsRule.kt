@@ -32,10 +32,12 @@ class AbandonAllPackageSessionsRule : TestRule {
             } finally {
                 val packageInstaller = InstrumentationRegistry.getInstrumentation()
                         .getContext().packageManager.packageInstaller
-                packageInstaller.mySessions.forEach {
-                    try {
-                        packageInstaller.abandonSession(it.sessionId)
-                    } catch (ignored: Exception) {
+                if (packageInstaller != null) {
+                    packageInstaller.mySessions.forEach {
+                        try {
+                            packageInstaller.abandonSession(it.sessionId)
+                        } catch (ignored: Exception) {
+                        }
                     }
                 }
             }

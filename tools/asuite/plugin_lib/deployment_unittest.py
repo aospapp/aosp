@@ -22,7 +22,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from deployment import PluginDeployment
+from plugin_lib.deployment import PluginDeployment
 
 
 # pylint: disable=protected-access

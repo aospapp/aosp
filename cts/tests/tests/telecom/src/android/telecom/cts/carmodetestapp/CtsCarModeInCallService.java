@@ -36,6 +36,7 @@ public class CtsCarModeInCallService extends InCallService {
     private static boolean sIsServiceUnbound = false;
     private static CtsCarModeInCallService sInstance = null;
     private int mCallCount = 0;
+    private static CountDownLatch sCallAddedLatch = new CountDownLatch(1);
     private static CountDownLatch sBoundLatch = new CountDownLatch(1);
     private static CountDownLatch sUnboundLatch = new CountDownLatch(1);
     private List<Call> mCalls = new ArrayList<>();
@@ -65,6 +66,7 @@ public class CtsCarModeInCallService extends InCallService {
         Log.i(TAG, "onCallAdded - " + call);
         mCallCount++;
         mCalls.add(call);
+        sCallAddedLatch.countDown();
     }
 
     @Override
@@ -72,6 +74,7 @@ public class CtsCarModeInCallService extends InCallService {
         Log.i(TAG, "onCallRemoved - " + call);
         mCallCount--;
         mCalls.remove(call);
+        sCallAddedLatch = new CountDownLatch(1);
     }
 
     public static boolean isBound() {
@@ -103,9 +106,21 @@ public class CtsCarModeInCallService extends InCallService {
         }
     }
 
+    public Call getLastCall() {
+        if (!mCalls.isEmpty()) {
+            return mCalls.get(mCalls.size() - 1);
+        }
+        return null;
+    }
+
     public static boolean checkBindStatus(boolean bind) {
         Log.i(TAG, "checking latch status: service " + (bind ? "bound" : "not bound"));
         return bind ? checkLatch(sBoundLatch) : checkLatch(sUnboundLatch);
+    }
+
+    public static boolean checkCallAddedStatus() {
+        Log.i(TAG, "checking latch status: call added");
+        return checkLatch(sCallAddedLatch);
     }
 
     private static boolean checkLatch(CountDownLatch latch) {

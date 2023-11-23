@@ -1,6 +1,6 @@
 /*
  *
- *  Copyright (C) 2013-2018, 2021 NXP
+ *  Copyright (C) 2013-2018, 2021-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -51,11 +51,18 @@ typedef struct phNxpNciHal_Sem {
 
 } phNxpNciHal_Sem_t;
 
+typedef enum {
+  PRINT_UNKNOWN = 0x00,
+  PRINT_SEND = 0x01,
+  PRINT_RECV,
+  PRINT_DEBUG
+} tNFC_printType;
+
 /* Semaphore helper macros */
-#define SEM_WAIT(cb_data)            \
-  ((sem_wait(&((cb_data).sem)) == 0) \
-       ? 0                           \
-       : (errno == EINTR) ? sem_wait(&((cb_data).sem)) : -1)
+#define SEM_WAIT(cb_data)                                         \
+  ((sem_wait(&((cb_data).sem)) == 0) ? 0                          \
+   : (errno == EINTR)                ? sem_wait(&((cb_data).sem)) \
+                                     : -1)
 
 #define SEM_POST(p_cb_data) sem_post(&((p_cb_data)->sem))
 
@@ -92,6 +99,7 @@ void phNxpNciHal_releaseall_cb_data(void);
 void phNxpNciHal_print_packet(const char* pString, const uint8_t* p_data,
                               uint16_t len);
 void phNxpNciHal_emergency_recovery(uint8_t status);
+tNFC_printType getPrintType(const char* pString);
 
 /* Lock unlock helper macros */
 /* Lock unlock helper macros */

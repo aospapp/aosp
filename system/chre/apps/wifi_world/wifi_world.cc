@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 #include <cmath>
 
@@ -22,6 +21,7 @@
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/nanoapp/wifi.h"
 #include "chre/util/time.h"
+#include "chre_api/chre.h"
 
 using chre::kOneMillisecondInNanoseconds;
 using chre::Nanoseconds;

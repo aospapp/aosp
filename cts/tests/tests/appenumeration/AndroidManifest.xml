@@ -16,7 +16,8 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.appenumeration.cts">
+          xmlns:tools="http://schemas.android.com/tools"
+          package="android.appenumeration.cts">
     <!-- Use specific package names instead of QUERY_ALL_PACKAGES to let AppEnumerationTests
          live with default visibility -->
     <queries>
@@ -25,9 +26,25 @@
         <package android:name="android.appenumeration.noapi.shareduid" />
         <package android:name="android.appenumeration.queries.activity.action" />
         <package android:name="android.appenumeration.queries.nothing" />
+        <package android:name="android.appenumeration.queries.pkg.hasprovider" />
         <package android:name="android.appenumeration.stub" />
+        <package android:name="android.appenumeration.stub.shareduid" />
+        <package android:name="com.android.cts.ctsshim" />
+        <package android:name="com.android.cts.mockspellchecker" />
+        <package android:name="android.inputmethodservice.cts.ime1" />
+        <package android:name="com.android.cts.norestart" />
     </queries>
+
+    <permission android:name="android.appenumeration.cts.permission.TEST_PERMISSION"
+                android:protectionLevel="signature" />
+
+    <!-- It's merged from Harrier library. Remove it since this test should not hold it. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:node="remove" />
+
     <application>
+        <service android:name="android.appenumeration.cts.TestPmComponentDiscoveryService"
+                 android:exported="false"/>
+
       <uses-library android:name="android.test.runner" />
     </application>
 

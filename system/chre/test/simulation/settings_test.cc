@@ -189,9 +189,9 @@ TEST_F(TestBase, WifiSettingsTest) {
   waitForEvent(CHRE_EVENT_WIFI_NAN_SESSION_TERMINATED);
   waitForEvent(CHRE_EVENT_SETTING_CHANGED_WIFI_AVAILABLE);
 
+  gExpectedWifiSettingState = CHRE_USER_SETTING_STATE_ENABLED;
   EventLoopManagerSingleton::get()->getSettingManager().postSettingChange(
       Setting::WIFI_AVAILABLE, true /* enabled */);
-  gExpectedWifiSettingState = CHRE_USER_SETTING_STATE_ENABLED;
   waitForEvent(CHRE_EVENT_SETTING_CHANGED_WIFI_AVAILABLE);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
   ASSERT_TRUE(

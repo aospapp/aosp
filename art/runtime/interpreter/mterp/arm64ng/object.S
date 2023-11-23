@@ -19,7 +19,7 @@
    mov     x0, xSELF
    ldr     x1, [sp]
    mov     x2, xPC
-   bl      nterp_get_class_or_allocate_object
+   bl      nterp_get_class
    mov     x1, x0
    b       1b
 
@@ -90,7 +90,7 @@
    mov     x0, xSELF
    ldr     x1, [sp]
    mov     x2, xPC
-   bl      nterp_get_class_or_allocate_object
+   bl      nterp_get_class
    mov     x1, x0
    b       1b
 
@@ -466,6 +466,7 @@
 4:
    ldr     lr, [xSELF, #THREAD_ALLOC_OBJECT_ENTRYPOINT_OFFSET]
    blr     lr
+   dmb     ishst                       // need fence for making object's class visible
 1:
    lsr     w1, wINST, #8               // w1 <- A
    SET_VREG_OBJECT w0, w1              // fp[A] <- value
@@ -476,7 +477,7 @@
    mov     x0, xSELF
    ldr     x1, [sp]
    mov     x2, xPC
-   bl      nterp_get_class_or_allocate_object
+   bl      nterp_allocate_object
    b       1b
 3:
    bl      art_quick_read_barrier_mark_reg00

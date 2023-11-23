@@ -22,6 +22,7 @@ import android.cts.statsdatom.lib.ConfigUtils;
 import android.cts.statsdatom.lib.DeviceUtils;
 import android.cts.statsdatom.lib.ReportUtils;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.os.AtomsProto.Atom;
@@ -41,6 +42,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -81,7 +83,7 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
      * The command to stop a custom performance collection in CarWatchdog.
      */
     private static final String STOP_CUSTOM_PERF_COLLECTION_CMD =
-            "dumpsys android.automotive.watchdog.ICarWatchdog/default --stop_perf > /dev/null";
+            "dumpsys android.automotive.watchdog.ICarWatchdog/default --stop_perf";
 
     /**
      * The command to reset I/O overuse counters in the adb shell, which clears any previous
@@ -117,6 +119,9 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
     private static final String APPLY_DISABLE_DISPLAY_POWER_POLICY_CMD =
             "cmd car_service apply-power-policy cts_car_watchdog_disable_display";
 
+    private static final String START_CUSTOM_COLLECTION_SUCCESS_MSG =
+            "Successfully started custom perf collection";
+
     private static final long FIFTY_MEGABYTES = 1024 * 1024 * 50;
     private static final long TWO_HUNDRED_MEGABYTES = 1024 * 1024 * 200;
 
@@ -128,7 +133,14 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
     private static final Pattern FOREGROUND_BYTES_PATTERN = Pattern.compile(
             "foregroundModeBytes = (\\d+)");
 
-    private static final long WATCHDOG_ACTION_TIMEOUT_MS = 15_000;
+    private static final int BUILD_VERSION_CODE_TIRAMISU = 33;
+
+    // System event performance data collections are extended for at least 30 seconds after
+    // receiving the corresponding system event completion notification. During these periods
+    // (on <= Android T releases), a custom collection cannot be started. Thus, retry starting
+    // custom collection for at least twice this duration.
+    private static final long START_CUSTOM_COLLECTION_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(60);
+    private static final long WATCHDOG_ACTION_TIMEOUT_MS = 30_000;
 
     private boolean mDidModifyDateTime;
     private long mOriginalForegroundBytes;
@@ -153,7 +165,7 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
                 GET_IO_OVERUSE_FOREGROUNG_BYTES_CMD));
         executeCommand("%s %d", SET_IO_OVERUSE_FOREGROUNG_BYTES_CMD, TWO_HUNDRED_MEGABYTES);
         executeCommand("logcat -c");
-        executeCommand(START_CUSTOM_PERF_COLLECTION_CMD);
+        startCustomCollection();
         executeCommand(RESET_RESOURCE_OVERUSE_CMD);
     }
 
@@ -379,5 +391,21 @@ public class CarWatchdogHostTest extends CarHostJUnit4TestCase {
         LocalDateTime now = LocalDateTime.parse(executeCommand("date +%%FT%%T").trim());
         executeCommand("date %s", now.plusHours(1));
         CLog.d(TAG, "DateTime changed from %s to %s", now, now.plusHours(1));
+    }
+
+    private void startCustomCollection() throws Exception {
+        if (ApiLevelUtil.isAfter(getDevice(), BUILD_VERSION_CODE_TIRAMISU)) {
+            String result = executeCommand(START_CUSTOM_PERF_COLLECTION_CMD);
+            assertWithMessage("Custom collection start message").that(result)
+                    .contains(START_CUSTOM_COLLECTION_SUCCESS_MSG);
+            return;
+        }
+        // TODO(b/261869056): Remove the polling check once it is safe to remove.
+        PollingCheck.check("Failed to start custom collect performance data collection",
+                START_CUSTOM_COLLECTION_TIMEOUT_MS,
+                () -> {
+                    String result = executeCommand(START_CUSTOM_PERF_COLLECTION_CMD);
+                    return result.contains(START_CUSTOM_COLLECTION_SUCCESS_MSG) || result.isEmpty();
+                });
     }
 }

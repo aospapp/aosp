@@ -16,9 +16,7 @@
 
 package android.device.collectors;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.MockitoAnnotations.initMocks;
 
 import android.app.Instrumentation;
@@ -32,7 +30,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 
 /**
  * Android Unit tests for {@link DumpsysMeminfoListener}.
@@ -42,8 +39,8 @@ import org.mockito.Mock;
 @RunWith(AndroidJUnit4.class)
 public class DumpsysMeminfoListenerTest {
 
-    @Mock private DumpsysMeminfoHelper mDumpsysMeminfoHelper;
-    @Mock private Instrumentation mInstrumentation;
+    private DumpsysMeminfoHelper mDumpsysMeminfoHelper;
+    private Instrumentation mInstrumentation;
 
     private Description mRunDesc;
 
@@ -55,20 +52,48 @@ public class DumpsysMeminfoListenerTest {
 
     @Test
     public void testListener_noProcessNames() throws Exception {
+        mDumpsysMeminfoHelper = new DumpsysMeminfoHelper();
         DumpsysMeminfoListener listener = initListener(new Bundle(), mDumpsysMeminfoHelper);
-        listener.testRunStarted(mRunDesc);
-        verify(mDumpsysMeminfoHelper, never()).setUp(any());
+        listener.setupAdditionalArgs();
+        assertTrue(mDumpsysMeminfoHelper.getProcessNames().length == 0);
     }
 
     @Test
     public void testListener_withProcessNames() throws Exception {
+        mDumpsysMeminfoHelper = new DumpsysMeminfoHelper();
         Bundle bundle = new Bundle();
         bundle.putString(
                 DumpsysMeminfoListener.PROCESS_NAMES_KEY,
                 String.join(DumpsysMeminfoListener.PROCESS_SEPARATOR, "process1", "process2"));
         DumpsysMeminfoListener listener = initListener(bundle, mDumpsysMeminfoHelper);
-        listener.testRunStarted(mRunDesc);
-        verify(mDumpsysMeminfoHelper).setUp("process1", "process2");
+        listener.setupAdditionalArgs();
+        assertTrue(mDumpsysMeminfoHelper.getProcessNames()[0].equalsIgnoreCase("process1"));
+        assertTrue(mDumpsysMeminfoHelper.getProcessNames()[1].equalsIgnoreCase("process2"));
+    }
+
+    @Test
+    public void testListener_withProcessNameObjectNames() throws Exception {
+        mDumpsysMeminfoHelper = new DumpsysMeminfoHelper();
+        Bundle bundle = new Bundle();
+        String objNames =
+                String.join(
+                        DumpsysMeminfoListener.OBJECT_SEPARATOR,
+                        String.join(
+                                DumpsysMeminfoListener.OBJECT_SPACE_SEPARATOR, "Parcel", "memory"),
+                        "View");
+        String processObjNames1 =
+                String.join(DumpsysMeminfoListener.PROCESS_OBJECT_SEPARATOR, "process1", objNames);
+        String processObjNames2 =
+                String.join(DumpsysMeminfoListener.PROCESS_OBJECT_SEPARATOR, "process2", objNames);
+        String processDetailsStr =
+                String.join(
+                        DumpsysMeminfoListener.PROCESS_SEPARATOR,
+                        processObjNames1,
+                        processObjNames2);
+        bundle.putString(DumpsysMeminfoListener.PROCESS_NAMES_OBJECT_NAMES_KEY, processDetailsStr);
+        DumpsysMeminfoListener listener = initListener(bundle, mDumpsysMeminfoHelper);
+        listener.setupAdditionalArgs();
+        assertTrue(mDumpsysMeminfoHelper.getProcessObjectNamesMap().size() == 2);
     }
 
     private DumpsysMeminfoListener initListener(Bundle bundle, DumpsysMeminfoHelper helper) {

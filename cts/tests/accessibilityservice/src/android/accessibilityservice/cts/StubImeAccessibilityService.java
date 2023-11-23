@@ -21,7 +21,9 @@ import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.InputMethod;
 import android.view.inputmethod.EditorInfo;
 
+import androidx.annotation.MainThread;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.concurrent.CountDownLatch;
 
@@ -47,6 +49,20 @@ public class StubImeAccessibilityService extends InstrumentedAccessibilityServic
 
     public void setOnStartInputCallback(OnStartInputCallback callback) {
         mOnStartInputCallback = callback;
+    }
+
+    @FunctionalInterface
+    public interface OnUpdateSelectionCallback {
+        void onUpdateSelection(int oldSelStart, int oldSelEnd, int newSelStart, int newSelEnd,
+                int candidatesStart, int candidatesEnd);
+    }
+
+    @Nullable
+    private OnUpdateSelectionCallback mOnUpdateSelectionCallback = null;
+
+    @MainThread
+    public void setOnUpdateSelectionCallback(@Nullable OnUpdateSelectionCallback listener) {
+        mOnUpdateSelectionCallback = listener;
     }
 
     public void setStartInputCountDownLatch(CountDownLatch latch) {
@@ -78,6 +94,10 @@ public class StubImeAccessibilityService extends InstrumentedAccessibilityServic
                 StubImeAccessibilityService.this.selEnd = newSelEnd;
                 mSelectionChangeLatch.countDown();
                 mSelectionChangeLatch = null;
+            }
+            if (mOnUpdateSelectionCallback != null) {
+                mOnUpdateSelectionCallback.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart,
+                        newSelEnd, candidatesStart, candidatesEnd);
             }
         }
 

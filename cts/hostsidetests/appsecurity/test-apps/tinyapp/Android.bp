@@ -231,6 +231,24 @@ android_test_helper_app {
     sdk_version: "current",
 }
 
+// This is the first companion package signed using the V3 signature scheme
+// with a rotated key and part of a sharedUid. The capabilities of this lineage
+// prevent the previous signing key from joining the sharedUserId.
+android_test_helper_app {
+    name: "v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid-companion",
+    manifest: "AndroidManifest-companion-shareduid.xml",
+    certificate: ":ec-p256_2",
+    additional_certificates: [":ec-p256"],
+    lineage: ":ec-p256-por_1_2-no-shUid-cap",
+    srcs: ["src/**/*.java"],
+    // resource_dirs is the default value: ["res"]
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    sdk_version: "current",
+}
+
 // This is the companion package signed using the V3 signature scheme with
 // a rotated key and part of a shareduid. The signing lineage begins
 // with a key that is not in any of the other lineages and is intended
@@ -277,6 +295,24 @@ android_test_helper_app {
     name: "v3-ec-p256-1-sharedUid-companion2",
     manifest: "AndroidManifest-companion2-shareduid.xml",
     certificate: ":ec-p256",
+    srcs: ["src/**/*.java"],
+    // resource_dirs is the default value: ["res"]
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    sdk_version: "current",
+}
+
+// This is the second companion package signed using the V3 signature scheme
+// with a rotated key and part of a sharedUid. The capabilities of this lineage
+// prevent the previous signing key from joining the sharedUserId.
+android_test_helper_app {
+    name: "v3-ec-p256-with-por_1_2-no-shUid-cap-sharedUid-companion2",
+    manifest: "AndroidManifest-companion2-shareduid.xml",
+    certificate: ":ec-p256_2",
+    additional_certificates: [":ec-p256"],
+    lineage: ":ec-p256-por_1_2-no-shUid-cap",
     srcs: ["src/**/*.java"],
     // resource_dirs is the default value: ["res"]
     test_suites: [

@@ -113,6 +113,9 @@ class LteCellConfig(base_cell.BaseCellConfig):
         self.drx_long_cycle = None
         self.drx_long_cycle_offset = None
 
+    def __str__(self):
+        return str(vars(self))
+
     def configure(self, parameters):
         """ Configures an LTE cell using a dictionary of parameters.
 

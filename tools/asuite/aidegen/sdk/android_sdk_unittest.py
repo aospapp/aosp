@@ -39,6 +39,7 @@ class AndroidSDKUnittests(unittest.TestCase):
         """Test initialize the attributes."""
         self.assertEqual(self.sdk.max_api_level, 0)
         self.assertEqual(self.sdk.max_code_name, None)
+        self.assertEqual(self.sdk.max_folder_name, None)
         self.assertEqual(self.sdk.platform_mapping, {})
         self.assertEqual(self.sdk.android_sdk_path, None)
 
@@ -98,6 +99,37 @@ class AndroidSDKUnittests(unittest.TestCase):
         }
         code_name = self.sdk._parse_max_code_name()
         self.assertEqual(code_name, 'Q')
+
+    def test_get_max_folder_name(self):
+        """Test _get_max_folder_name."""
+        self.sdk._max_api_level = 29
+        self.sdk._max_code_name = '29'
+        self.sdk._platform_mapping = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            },
+            'android-28': {
+                'api_level': 28,
+                'code_name': '28',
+            },
+        }
+        max_folder_name = self.sdk._get_max_folder_name()
+        self.assertEqual(max_folder_name, 'android-29')
+
+        self.sdk._max_code_name = 'Q'
+        self.sdk._platform_mapping = {
+            'android-29': {
+                'api_level': 29,
+                'code_name': '29',
+            },
+            'android-Q': {
+                'api_level': 29,
+                'code_name': 'Q',
+            },
+        }
+        max_folder_name = self.sdk._get_max_folder_name()
+        self.assertEqual(max_folder_name, 'android-Q')
 
     @mock.patch.object(common_util, 'read_file_content')
     def test_parse_api_info(self, mock_read_file):

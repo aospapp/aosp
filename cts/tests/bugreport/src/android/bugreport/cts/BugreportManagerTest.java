@@ -34,10 +34,11 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import static org.junit.Assume.assumeFalse;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import static org.junit.Assume.assumeFalse;
 import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
@@ -87,6 +88,20 @@ public class BugreportManagerTest {
         int expected_mode = BugreportParams.BUGREPORT_MODE_FULL;
         BugreportParams bp = new BugreportParams(expected_mode);
         assertThat(bp.getMode()).isEqualTo(expected_mode);
+    }
+
+    @Test
+    public void testBugreportParams_getFlags() throws Exception {
+        {
+            BugreportParams bp = new BugreportParams(BugreportParams.BUGREPORT_MODE_FULL);
+            assertThat(bp.getFlags()).isEqualTo(0);
+        }
+        {
+            BugreportParams bp = new BugreportParams(BugreportParams.BUGREPORT_MODE_FULL,
+                    BugreportParams.BUGREPORT_FLAG_USE_PREDUMPED_UI_DATA);
+            assertThat(bp.getFlags())
+                    .isEqualTo(BugreportParams.BUGREPORT_FLAG_USE_PREDUMPED_UI_DATA);
+        }
     }
 
     @LargeTest
@@ -237,7 +252,7 @@ public class BugreportManagerTest {
         } else {
             intentFilter = new IntentFilter(INTENT_BUGREPORT_FINISHED);
         }
-        mContext.registerReceiver(br, intentFilter);
+        mContext.registerReceiver(br, intentFilter, Context.RECEIVER_EXPORTED_UNAUDITED);
         final BugreportParams params = new BugreportParams(type);
         mBugreportManager.requestBugreport(params, "" /* shareTitle */, "" /* shareDescription */);
 

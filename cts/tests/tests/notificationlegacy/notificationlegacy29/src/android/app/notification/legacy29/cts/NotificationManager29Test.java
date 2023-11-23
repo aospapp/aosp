@@ -33,6 +33,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.UiAutomation;
+import android.app.stubs.shared.NotificationHelper;
 import android.content.Context;
 import android.content.Intent;
 import android.os.ParcelFileDescriptor;
@@ -40,7 +41,6 @@ import android.os.Process;
 import android.permission.PermissionManager;
 import android.permission.cts.PermissionUtils;
 import android.service.notification.StatusBarNotification;
-import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -64,10 +64,12 @@ import java.io.InputStream;
 @RunWith(AndroidJUnit4.class)
 public class NotificationManager29Test {
     final String TAG = "LegacyNoManTest29";
+    private static final String PKG = "android.app.notification.legacy29.cts";
 
     final String NOTIFICATION_CHANNEL_ID = "LegacyNoManTest29";
     private NotificationManager mNotificationManager;
     private Context mContext;
+    NotificationHelper mHelper;
 
     @Before
     public void setUp() throws Exception {
@@ -77,10 +79,12 @@ public class NotificationManager29Test {
                 Context.NOTIFICATION_SERVICE);
         mNotificationManager.createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
+        mHelper = new NotificationHelper(mContext);
     }
 
     @After
     public void tearDown() throws Exception {
+        mHelper.disableListener(PKG);
         // Use test API to prevent PermissionManager from killing the test process when revoking
         // permission.
         SystemUtil.runWithShellPermissionIdentity(
@@ -125,43 +129,20 @@ public class NotificationManager29Test {
         }
     }
 
-    private StatusBarNotification findPostedNotification(int id) {
-        // notification is a bit asynchronous so it may take a few ms to appear in
-        // getActiveNotifications()
-        // we will check for it for up to 500ms before giving up
-        StatusBarNotification n = null;
-        for (int tries = 5; tries--> 0;) {
-            final StatusBarNotification[] sbns = mNotificationManager.getActiveNotifications();
-            for (StatusBarNotification sbn : sbns) {
-                Log.d(TAG, "Found " + sbn.getKey());
-                if (sbn.getId() == id) {
-                    n = sbn;
-                    break;
-                }
-            }
-            if (n != null) break;
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ex) {
-                // pass
-            }
-        }
-        return n;
-    }
-
     private PendingIntent getPendingIntent() {
         return PendingIntent.getActivity(
-                mContext, 0, new Intent(mContext, this.getClass()), PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                mContext, 0, new Intent(mContext, this.getClass()), PendingIntent.FLAG_IMMUTABLE);
     }
 
 
     @Test
-    public void testPostFullScreenIntent_noPermission() {
+    public void testPostFullScreenIntent_noPermission() throws Exception {
+        assertNotNull(mHelper.enableListener(PKG));
         // no permission? no full screen intent
         int id = 6000;
         final Notification notification =
                 new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                        .setSmallIcon(android.R.id.icon)
+                        .setSmallIcon(android.R.drawable.sym_def_app_icon)
                         .setWhen(System.currentTimeMillis())
                         .setFullScreenIntent(getPendingIntent(), true)
                         .setContentText("This is #FSI notification")
@@ -169,7 +150,8 @@ public class NotificationManager29Test {
                         .build();
         mNotificationManager.notify(id, notification);
 
-        StatusBarNotification n = findPostedNotification(id);
+        StatusBarNotification n = mHelper.findPostedNotification(
+                null, id, NotificationHelper.SEARCH_TYPE.POSTED);
         assertNotNull(n);
         assertNull(n.getNotification().fullScreenIntent);
     }

@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <jni.h>
+
 #include "AudioSource.h"
 
 //TODO - Probably wrap the JNI handling in a class with a pointer held in the Java Object
@@ -29,6 +29,20 @@ JNIEXPORT void JNICALL
 Java_org_hyphonate_megaaudio_player_NativeAudioSource_initN(
         JNIEnv *env, jobject thiz, jlong native_source_ptr, jint num_frames, jint num_chans) {
     sAudioBuffer = new float[num_frames * num_chans];
+}
+
+JNIEXPORT void JNICALL
+Java_org_hyphonate_megaaudio_player_NativeAudioSource_setSampleRateN(
+        JNIEnv *env, jobject thiz, jlong native_source_ptr, jint sample_rate) {
+    AudioSource* audioSource = (AudioSource*)native_source_ptr;
+    audioSource->setSampleRate(sample_rate);
+}
+
+JNIEXPORT void JNICALL
+Java_org_hyphonate_megaaudio_player_NativeAudioSource_setFreqN(
+        JNIEnv *env, jobject thiz, jlong native_source_ptr, jfloat freq) {
+    AudioSource* audioSource = (AudioSource*)native_source_ptr;
+    audioSource->setFreq(freq);
 }
 
 JNIEXPORT void JNICALL

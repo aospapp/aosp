@@ -18,6 +18,7 @@
 """report_sample.py: report samples in the same format as `perf script`.
 """
 
+import sys
 from simpleperf_report_lib import ReportLib
 from simpleperf_utils import BaseArgumentParser, flatten_arg_list, ReportLibOptions
 from typing import List, Set, Optional
@@ -88,8 +89,13 @@ def main():
     parser.add_argument('--show_tracing_data', action='store_true', help='print tracing data.')
     parser.add_argument('--header', action='store_true',
                         help='Show metadata header, like perf script --header')
+    parser.add_argument('-o', '--output_file', default='', help="""
+        The path of the generated report.  Default is stdout.""")
     parser.add_report_lib_options()
     args = parser.parse_args()
+    # If the output file has been set, redirect stdout.
+    if args.output_file != '' and args.output_file != '-':
+        sys.stdout = open(file=args.output_file, mode='w')
     report_sample(
         record_file=args.record_file,
         symfs_dir=args.symfs,

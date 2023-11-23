@@ -113,6 +113,8 @@ public class NearbyDevicesPermissionTest {
     @Test
     @CddTest(requirement="7.4.3/C-6-1")
     public void testRequestBluetoothPermission30_Default() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_30);
         assertScanBluetoothResult(Result.EMPTY);
     }
@@ -120,6 +122,8 @@ public class NearbyDevicesPermissionTest {
     @Test
     @CddTest(requirement="7.4.3/C-6-1")
     public void testRequestBluetoothPermission30_GrantLocation() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_30);
         grantPermission(TEST_APP_PKG, ACCESS_FINE_LOCATION);
         grantPermission(TEST_APP_PKG, ACCESS_BACKGROUND_LOCATION);
@@ -136,6 +140,8 @@ public class NearbyDevicesPermissionTest {
     @Test
     @CddTest(requirement="7.4.3/C-6-1")
     public void testRequestBluetoothPermission31_GrantNearby() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_31);
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
         grantPermission(TEST_APP_PKG, BLUETOOTH_SCAN);
@@ -154,6 +160,8 @@ public class NearbyDevicesPermissionTest {
     @Test
     @CddTest(requirement="7.4.3/C-6-1")
     public void testRequestBluetoothPermission31_GrantNearby_GrantLocation() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_31);
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
         grantPermission(TEST_APP_PKG, BLUETOOTH_SCAN);
@@ -172,6 +180,8 @@ public class NearbyDevicesPermissionTest {
     @Test
     @CddTest(requirement="7.4.3/C-6-1")
     public void testRequestBluetoothPermissionNeverForLocation31_GrantNearby() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_NEVER_FOR_LOCATION_31);
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
         grantPermission(TEST_APP_PKG, BLUETOOTH_SCAN);
@@ -191,6 +201,8 @@ public class NearbyDevicesPermissionTest {
     @CddTest(requirement="7.4.3/C-6-1")
     public void testRequestBluetoothPermissionNeverForLocation31_GrantNearby_GrantLocation()
             throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_NEVER_FOR_LOCATION_31);
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
         grantPermission(TEST_APP_PKG, BLUETOOTH_SCAN);
@@ -201,6 +213,8 @@ public class NearbyDevicesPermissionTest {
 
     @Test
     public void testRequestBluetoothPermission31_OnBehalfOfDisavowingApp() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_31);
         install(APK_BLUETOOTH_NEVER_FOR_LOCATION_NO_PROVIDER);
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
@@ -217,6 +231,8 @@ public class NearbyDevicesPermissionTest {
      */
     @Test
     public void testRequestBluetoothPermission_Default_Upgrade() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_30);
         assertScanBluetoothResult(Result.EMPTY);
 
@@ -237,6 +253,8 @@ public class NearbyDevicesPermissionTest {
      */
     @Test
     public void testRequestBluetoothPermission_GrantLocation_Upgrade() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_30);
         grantPermission(TEST_APP_PKG, ACCESS_FINE_LOCATION);
         grantPermission(TEST_APP_PKG, ACCESS_BACKGROUND_LOCATION);
@@ -254,6 +272,8 @@ public class NearbyDevicesPermissionTest {
      */
     @Test
     public void testRequestBluetoothPermission_Downgrade() throws Throwable {
+        assumeTrue(supportsBluetoothLe());
+
         install(APK_BLUETOOTH_31);
         grantPermission(TEST_APP_PKG, BLUETOOTH_CONNECT);
         grantPermission(TEST_APP_PKG, BLUETOOTH_SCAN);
@@ -287,6 +307,10 @@ public class NearbyDevicesPermissionTest {
 
     private boolean supportsBluetooth() {
         return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+    }
+
+    private boolean supportsBluetoothLe() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
     }
 
     private void enableTestMode() {

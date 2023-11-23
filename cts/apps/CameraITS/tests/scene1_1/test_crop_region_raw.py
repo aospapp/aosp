@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os.path
 
 from mobly import test_runner
@@ -27,10 +28,10 @@ import image_processing_utils
 import its_session_utils
 import target_exposure_utils
 
-CROP_FULL_ERROR_THRESHOLD = 3  # pixels
-CROP_REGION_ERROR_THRESHOLD = 0.01  # reltol
-DIFF_THRESH = 0.05  # reltol
-NAME = os.path.splitext(os.path.basename(__file__))[0]
+_CROP_FULL_ERROR_THRESHOLD = 3  # pixels
+_CROP_REGION_ERROR_THRESHOLD = 0.01  # reltol
+_DIFF_THRESH = 0.05  # reltol
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
 
 
 class CropRegionRawTest(its_base_test.ItsBaseTest):
@@ -44,6 +45,7 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # Check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -54,7 +56,8 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Calculate the active sensor region for a full (non-cropped) image.
       a = props['android.sensor.info.activeArraySize']
@@ -102,16 +105,15 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
       # need to perfectly match the one that was requested.
       imgs = {}
       for s, cap, cr_expected, err_delta in [
-          ('yuv_full', cap1_yuv, full_region, CROP_FULL_ERROR_THRESHOLD),
-          ('raw_full', cap1_raw, full_region, CROP_FULL_ERROR_THRESHOLD),
-          ('yuv_crop', cap2_yuv, crop_region, CROP_REGION_ERROR_THRESHOLD),
-          ('raw_crop', cap2_raw, crop_region, CROP_REGION_ERROR_THRESHOLD)]:
+          ('yuv_full', cap1_yuv, full_region, _CROP_FULL_ERROR_THRESHOLD),
+          ('raw_full', cap1_raw, full_region, _CROP_FULL_ERROR_THRESHOLD),
+          ('yuv_crop', cap2_yuv, crop_region, _CROP_REGION_ERROR_THRESHOLD),
+          ('raw_crop', cap2_raw, crop_region, _CROP_REGION_ERROR_THRESHOLD)]:
 
         # Convert the capture to RGB and dump to a file.
         img = image_processing_utils.convert_capture_to_rgb_image(cap,
                                                                   props=props)
-        image_processing_utils.write_image(
-            img, '%s_%s.jpg' % (os.path.join(log_path, NAME), s))
+        image_processing_utils.write_image(img, f'{name_with_log_path}_{s}.jpg')
         imgs[s] = img
 
         # Get the crop region that is reported in the capture result.
@@ -124,9 +126,9 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
         # Test that the reported crop region is the same as the expected
         # one, for a non-cropped capture, and is close to the expected one,
         # for a cropped capture.
-        ex = CROP_FULL_ERROR_THRESHOLD
-        ey = CROP_FULL_ERROR_THRESHOLD
-        if np.isclose(err_delta, CROP_REGION_ERROR_THRESHOLD, rtol=0.01):
+        ex = _CROP_FULL_ERROR_THRESHOLD
+        ey = _CROP_FULL_ERROR_THRESHOLD
+        if math.isclose(err_delta, _CROP_REGION_ERROR_THRESHOLD, rel_tol=0.01):
           ex = aw * err_delta
           ey = ah * err_delta
         logging.debug('error X, Y: %.2f, %.2f', ex, ey)
@@ -168,7 +170,7 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
 
       for s, img in imgs2.items():
         image_processing_utils.write_image(
-            img, '%s_comp_%s.jpg' % (os.path.join(log_path, NAME), s))
+            img, f'{name_with_log_path}_comp_{s}.jpg')
 
       # Compute diffs between images of the same type.
       # The raw_crop and raw_full shots should be identical (since the crop
@@ -179,12 +181,12 @@ class CropRegionRawTest(its_base_test.ItsBaseTest):
       logging.debug('YUV diff (crop vs. non-crop): %.3f', diff_yuv)
       logging.debug('RAW diff (crop vs. non-crop): %.3f', diff_raw)
 
-      if diff_yuv <= DIFF_THRESH:
-        raise AssertionError('YUV diff too small! '
-                             f'diff_yuv: {diff_yuv:.3f}, THRESH: {DIFF_THRESH}')
-      if diff_raw >= DIFF_THRESH:
-        raise AssertionError('RAW diff too big! '
-                             f'diff_raw: {diff_raw:.3f}, THRESH: {DIFF_THRESH}')
+      if diff_yuv <= _DIFF_THRESH:
+        raise AssertionError('YUV diff too small! diff_yuv: '
+                             f'{diff_yuv:.3f}, THRESH: {_DIFF_THRESH}')
+      if diff_raw >= _DIFF_THRESH:
+        raise AssertionError('RAW diff too big! diff_raw: '
+                             f'{diff_raw:.3f}, THRESH: {_DIFF_THRESH}')
 
 if __name__ == '__main__':
   test_runner.main()

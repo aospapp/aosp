@@ -60,7 +60,7 @@ public class DirectActionsSession extends VoiceInteractionSession {
             VisibleActivityCallback.super.onVisible(activityInfo);
             Log.v(TAG, "onVisible : " + activityInfo);
             broadcastVisibleActivityCallback(Utils.VISIBLE_ACTIVITY_CALLBACK_ONVISIBLE_INTENT,
-                    true);
+                    activityInfo.getActivityId().getTaskId());
         }
 
         @Override
@@ -68,7 +68,7 @@ public class DirectActionsSession extends VoiceInteractionSession {
             VisibleActivityCallback.super.onInvisible(activityId);
             Log.v(TAG, "onInvisible : " + activityId);
             broadcastVisibleActivityCallback(Utils.VISIBLE_ACTIVITY_CALLBACK_ONINVISIBLE_INTENT,
-                    true);
+                    activityId.getTaskId());
         }
     };
 
@@ -302,11 +302,11 @@ public class DirectActionsSession extends VoiceInteractionSession {
                 "unregisterVisibleActivityCallbackInternal(): " + Utils.toBundleString(outResult));
     }
 
-    private void broadcastVisibleActivityCallback(String intentName, boolean result) {
+    private void broadcastVisibleActivityCallback(String intentName, int taskId) {
         final Intent intent = new Intent(intentName)
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND | Intent.FLAG_RECEIVER_REGISTERED_ONLY)
-                .putExtra(Utils.VISIBLE_ACTIVITY_KEY_RESULT, result);
-        Log.v(TAG, "broadcast intent = " + intent + ", result = " + result);
+                .putExtra(Utils.VOICE_INTERACTION_KEY_TASKID, taskId);
+        Log.v(TAG, "broadcast intent = " + intent + ", taskId = " + taskId);
         getContext().sendBroadcast(intent);
     }
 }

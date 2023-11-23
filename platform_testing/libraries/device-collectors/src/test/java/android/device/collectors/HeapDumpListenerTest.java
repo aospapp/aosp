@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verify;
 
 import android.app.Instrumentation;
 import android.os.Bundle;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.helpers.HeapDumpHelper;
@@ -177,6 +178,20 @@ public final class HeapDumpListenerTest {
         collector.testRunStarted(RUN_DESCRIPTION);
         collector.testStarted(Description.createTestDescription("run$1", "test_two"));
         verify(mHelper, times(1)).startCollecting("run_test_two_1");
+    }
+
+    /** Test to verify native heap dump flag is parsed correctly. */
+    @Test
+    public void testNativeHeapDumpFlag() throws Exception {
+        Bundle nativeHeapDumpBundle = new Bundle();
+        nativeHeapDumpBundle.putString(
+                HeapDumpListener.ENABLE_NATIVE_HEAPDUMP, String.valueOf(true));
+        HeapDumpListener collector = new HeapDumpListener(nativeHeapDumpBundle, mHelper);
+        collector.setInstrumentation(mInstrumentation);
+
+        collector.testRunStarted(RUN_DESCRIPTION);
+        collector.testStarted(Description.createTestDescription("run$1", "test_two"));
+        verify(mHelper, times(1)).enableNativeHeapDump();
     }
 
     /** Test to verify per test run heapdump collection. */

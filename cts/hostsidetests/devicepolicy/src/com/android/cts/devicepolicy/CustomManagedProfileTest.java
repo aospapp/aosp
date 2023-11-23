@@ -26,7 +26,7 @@ import org.junit.Test;
 
 // We need multi user to be supported in order to create a profile of the user owner.
 @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
-public class CustomManagedProfileTest extends BaseDevicePolicyTest {
+public final class CustomManagedProfileTest extends BaseDevicePolicyTest {
 
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
     private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";

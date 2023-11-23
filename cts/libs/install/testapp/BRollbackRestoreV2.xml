@@ -24,7 +24,7 @@
 
     <application android:label="Test App B2"
         android:rollbackDataPolicy="restore">
-        <receiver android:name="com.android.cts.install.lib.testapp.ProcessUserData"
+        <receiver android:name="com.android.cts.install.lib.testapp.ProcessBroadcast"
              android:exported="true"/>
         <activity android:name="com.android.cts.install.lib.testapp.MainActivity"
              android:exported="true">

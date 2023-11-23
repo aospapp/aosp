@@ -60,6 +60,7 @@ import java.util.List;
  */
 @AppModeFull(reason = "Requires android.permission.MANAGE_ACTIVITY_TASKS")
 @Presubmit
+@android.server.wm.annotation.Group2
 public class DialogFrameTests extends ParentChildTestBase<DialogFrameTestActivity> {
 
     private static final ComponentName DIALOG_FRAME_TEST_ACTIVITY = new ComponentName(

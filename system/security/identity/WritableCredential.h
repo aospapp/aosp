@@ -45,7 +45,8 @@ class WritableCredential : public BnWritableCredential {
 
     // Used when updating a credential
     void setAttestationCertificate(const vector<uint8_t>& attestationCertificate);
-    void setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey);
+    void setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey,
+                                        int64_t minValidTimeMillis);
 
     // Used by Credential::update()
     void setCredentialToReloadWhenUpdated(sp<Credential> credential);
@@ -69,6 +70,7 @@ class WritableCredential : public BnWritableCredential {
     vector<uint8_t> attestationCertificate_;
     int keyCount_ = 0;
     int maxUsesPerKey_ = 1;
+    int64_t minValidTimeMillis_ = 0;
 
     sp<Credential> credentialToReloadWhenUpdated_;
 

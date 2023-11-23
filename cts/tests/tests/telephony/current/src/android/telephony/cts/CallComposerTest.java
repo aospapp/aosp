@@ -26,9 +26,11 @@ import android.net.Uri;
 import android.os.OutcomeReceiver;
 import android.os.ParcelFileDescriptor;
 import android.os.ParcelUuid;
+import android.telephony.ims.cts.ImsUtils;
 import android.os.UserHandle;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.cts.util.TelephonyUtils;
 import android.util.Pair;
 
 import androidx.annotation.NonNull;
@@ -69,6 +71,9 @@ public class CallComposerTest {
 
     @Before
     public void setUp() throws Exception {
+        if (!ImsUtils.shouldTestImsCall()) {
+            return;
+        }
         mContext = InstrumentationRegistry.getContext();
         overrideDefaultDialer();
         mPreviousTestMode = Boolean.parseBoolean(
@@ -80,6 +85,9 @@ public class CallComposerTest {
 
     @After
     public void tearDown() throws Exception {
+        if (!ImsUtils.shouldTestImsCall()) {
+            return;
+        }
         restoreDefaultDialer();
         TelephonyUtils.executeShellCommand(InstrumentationRegistry.getInstrumentation(),
                 "cmd phone callcomposer test-mode "
@@ -89,6 +97,9 @@ public class CallComposerTest {
 
     @Test
     public void testUploadPictureWithFile() throws Exception {
+        if (!ImsUtils.shouldTestImsCall()) {
+            return;
+        }
         Path testFile = mContext.getFilesDir().toPath().resolve(TEST_FILE_NAME);
         byte[] imageData = getSamplePictureAsBytes();
         Files.write(testFile, imageData);
@@ -99,6 +110,9 @@ public class CallComposerTest {
 
     @Test
     public void testUploadPictureAsStream() throws Exception {
+        if (!ImsUtils.shouldTestImsCall()) {
+            return;
+        }
         byte[] imageData = getSamplePictureAsBytes();
         ByteArrayInputStream inputStream = new ByteArrayInputStream(imageData);
 
@@ -108,6 +122,9 @@ public class CallComposerTest {
 
     @Test
     public void testExcessivelyLargePictureAsFile() throws Exception {
+        if (!ImsUtils.shouldTestImsCall()) {
+            return;
+        }
         int targetSize = (int) TelephonyManager.getMaximumCallComposerPictureSize() + 1;
         byte[] imageData = getSamplePictureAsBytes();
         byte[] paddedData = new byte[targetSize];
@@ -121,6 +138,9 @@ public class CallComposerTest {
 
     @Test
     public void testExcessivelyLargePictureAsStream() throws Exception {
+        if (!ImsUtils.shouldTestImsCall()) {
+            return;
+        }
         int targetSize = (int) TelephonyManager.getMaximumCallComposerPictureSize() + 1;
         byte[] imageData = getSamplePictureAsBytes();
         byte[] paddedData = new byte[targetSize];

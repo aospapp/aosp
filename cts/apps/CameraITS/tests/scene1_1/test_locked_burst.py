@@ -24,17 +24,17 @@ import capture_request_utils
 import image_processing_utils
 import its_session_utils
 
-BURST_LEN = 8
-COLORS = ['R', 'G', 'B']
-FPS_MAX_DIFF = 2.0
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-PATCH_H = 0.1  # center 10%
-PATCH_W = 0.1
-PATCH_X = 0.5 - PATCH_W
-PATCH_Y = 0.5 - PATCH_H
-SPREAD_THRESH_MANUAL_SENSOR = 0.01
-SPREAD_THRESH = 0.03
-VALUE_THRESH = 0.1
+_BURST_LEN = 8
+_COLORS = ('R', 'G', 'B')
+_FPS_MAX_DIFF = 2.0
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W
+_PATCH_Y = 0.5 - _PATCH_H
+_SPREAD_THRESH_MANUAL_SENSOR = 0.01
+_SPREAD_THRESH = 0.03
+_VALUE_THRESH = 0.1
 
 
 class LockedBurstTest(its_base_test.ItsBaseTest):
@@ -46,7 +46,7 @@ class LockedBurstTest(its_base_test.ItsBaseTest):
   """
 
   def test_locked_burst(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -82,13 +82,14 @@ class LockedBurstTest(its_base_test.ItsBaseTest):
       r_means = []
       g_means = []
       b_means = []
-      caps = cam.do_capture([req]*BURST_LEN, fmt)
+      caps = cam.do_capture([req]*_BURST_LEN, fmt)
+      name_with_log_path = os.path.join(log_path, _NAME)
       for i, cap in enumerate(caps):
         img = image_processing_utils.convert_capture_to_rgb_image(cap)
-        image_processing_utils.write_image(img, '%s_frame%d.jpg' % (
-            os.path.join(log_path, NAME), i))
+        image_processing_utils.write_image(
+            img, f'{name_with_log_path}_frame{i}.jpg')
         patch = image_processing_utils.get_image_patch(
-            img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+            img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
         means = image_processing_utils.compute_image_means(patch)
         r_means.append(means[0])
         g_means.append(means[1])
@@ -96,18 +97,18 @@ class LockedBurstTest(its_base_test.ItsBaseTest):
 
       # Assert center patch brightness & similarity
       for i, means in enumerate([r_means, g_means, b_means]):
-        plane = COLORS[i]
+        plane = _COLORS[i]
         min_means = min(means)
         spread = max(means) - min_means
         logging.debug('%s patch mean spread %.5f. means = %s',
                       plane, spread, str(means))
-        for j in range(BURST_LEN):
-          if min_means <= VALUE_THRESH:
+        for j in range(_BURST_LEN):
+          if min_means <= _VALUE_THRESH:
             raise AssertionError(f'{plane} frame {j} too dark! mean: '
-                                 f'{min_means:.5f}, THRESH: {VALUE_THRESH}')
-          threshold = SPREAD_THRESH
+                                 f'{min_means:.5f}, THRESH: {_VALUE_THRESH}')
+          threshold = _SPREAD_THRESH
           if camera_properties_utils.manual_sensor(props):
-            threshold = SPREAD_THRESH_MANUAL_SENSOR
+            threshold = _SPREAD_THRESH_MANUAL_SENSOR
           if spread >= threshold:
             raise AssertionError(f'{plane} center patch spread: {spread:.5f}, '
                                  f'THRESH: {threshold:.2f}')

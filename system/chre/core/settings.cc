@@ -22,6 +22,7 @@
 #include "chre/platform/log.h"
 #include "chre/util/macros.h"
 #include "chre/util/nested_data_ptr.h"
+#include "chre/util/system/event_callbacks.h"
 
 #include "chre_api/chre/user_settings.h"
 

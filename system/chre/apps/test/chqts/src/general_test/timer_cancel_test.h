@@ -17,8 +17,9 @@
 #ifndef _GTS_NANOAPPS_GENERAL_TEST_TIMER_CANCEL_TEST_H_
 #define _GTS_NANOAPPS_GENERAL_TEST_TIMER_CANCEL_TEST_H_
 
-#include <chre.h>
 #include <general_test/test.h>
+
+#include "chre_api/chre.h"
 
 namespace general_test {
 

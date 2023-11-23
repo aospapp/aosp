@@ -22,7 +22,7 @@ import android.security.metrics.KeystoreAtomPayload;
  * Encapsulates a particular atom object of type KeystoreAtomPayload its count. Note that
  * the field: count is only relevant for the atom types that are stored in the
  * in-memory metrics store. E.g. count field is not relevant for the atom types such as StorageStats
- * and RkpPoolStats that are not stored in the metrics store.
+ * that are not stored in the metrics store.
  * @hide
  */
 @RustDerive(Clone=true, Eq=true, PartialEq=true, Ord=true, PartialOrd=true, Hash=true)

@@ -67,6 +67,9 @@ TEST(stat_cmd, rN_event) {
   } else if (GetTargetArch() == ARCH_X86_32 || GetTargetArch() == ARCH_X86_64) {
     // As in volume 3 chapter 19 of the Intel manual, 0x00c0 is the event number for instruction.
     event_number = 0x00c0;
+  } else if (GetTargetArch() == ARCH_RISCV64) {
+    //  RISCV_PMU_INSTRET = 1
+    event_number = 0x1;
   } else {
     GTEST_LOG_(INFO) << "Omit arch " << GetTargetArch();
     return;
@@ -83,6 +86,8 @@ TEST(stat_cmd, pmu_event) {
     event_string = "cpu/instructions/";
   } else if (GetTargetArch() == ARCH_ARM64) {
     event_string = "armv8_pmuv3/inst_retired/";
+  } else if (GetTargetArch() == ARCH_RISCV64) {
+    event_string = "cpu/instructions/";
   } else {
     GTEST_LOG_(INFO) << "Omit arch " << GetTargetArch();
     return;
@@ -228,12 +233,12 @@ TEST(stat_cmd, sample_speed_should_be_zero) {
   ASSERT_TRUE(set.AddEventType("cpu-cycles"));
   set.AddMonitoredProcesses({getpid()});
   ASSERT_TRUE(set.OpenEventFiles({-1}));
-  std::vector<EventAttrWithId> attrs = set.GetEventAttrWithId();
+  const EventAttrIds& attrs = set.GetEventAttrWithId();
   ASSERT_GT(attrs.size(), 0u);
   for (auto& attr : attrs) {
-    ASSERT_EQ(attr.attr->sample_period, 0u);
-    ASSERT_EQ(attr.attr->sample_freq, 0u);
-    ASSERT_EQ(attr.attr->freq, 0u);
+    ASSERT_EQ(attr.attr.sample_period, 0u);
+    ASSERT_EQ(attr.attr.sample_freq, 0u);
+    ASSERT_EQ(attr.attr.freq, 0u);
   }
 }
 

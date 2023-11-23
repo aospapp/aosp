@@ -29,6 +29,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.modules.utils.build.SdkLevel;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import org.junit.After;
 import org.junit.Before;
@@ -40,6 +41,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Device-side helper app for obtaining shared libraries.
@@ -51,6 +53,11 @@ import java.util.Locale;
 public class SharedLibraryInfoDeviceTest {
 
     private static final String TAG = "SharedLibraryInfoDeviceTest";
+    private static final Set<String> T_PLUS_EXCLUDES = ImmutableSet.of(
+            // This shared library's code is added to the bootclasspath in T+ by the
+            // AdServices mainline module.
+            "android.ext.adservices"
+        );
 
     private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     private final Context context = instrumentation.getTargetContext();
@@ -76,7 +83,7 @@ public class SharedLibraryInfoDeviceTest {
 
         ImmutableList.Builder<String> content = ImmutableList.builder();
         for (SharedLibraryInfo sharedLibrary : sharedLibraries) {
-            if (!sharedLibrary.isNative()) {
+            if (!canSafelyIgnoreSharedLibrary(sharedLibrary)) {
                 content.add(String.format(Locale.US, "%s %d %d %s",
                         sharedLibrary.getName(),
                         sharedLibrary.getType(),
@@ -90,6 +97,16 @@ public class SharedLibraryInfoDeviceTest {
         Log.i(TAG, String.format("Writing details about %d shared libraries to %s",
                 lines.size(), detailsFilepath));
         Files.write(detailsFilepath, lines);
+    }
+
+    private boolean canSafelyIgnoreSharedLibrary(SharedLibraryInfo sharedLibrary) {
+        if (sharedLibrary.isNative()) {
+            return true;
+        }
+        if (SdkLevel.isAtLeastT()) {
+            return T_PLUS_EXCLUDES.contains(sharedLibrary.getName());
+        }
+        return false;
     }
 
 }

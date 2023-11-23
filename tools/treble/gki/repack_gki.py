@@ -17,13 +17,14 @@ def main():
       help='JSON keyfile containing credentials. '
       '(Default: Use default credential file)')
   parser.add_argument(
-      '--ramdisk_build_id',
-      required=True,
-      help='Download from the specified build.')
+      '--bootimg_build_id', help='Download from the specified build.')
   parser.add_argument(
-      '--ramdisk_target',
-      required=True,
-      help='Name of the ramdisk target from the ramdisk branch.')
+      '--ramdisk_build_id', help='DEPRECATED. Use --bootimg_build_id instead.')
+  parser.add_argument(
+      '--bootimg_target',
+      help='Name of the bootimg target from the bootimg branch.')
+  parser.add_argument(
+      '--ramdisk_target', help='DEPRECATED. Use --bootimg_target instead.')
   parser.add_argument(
       '--kernel_build_id',
       required=True,
@@ -50,15 +51,18 @@ def main():
   if not os.path.exists(args.out_dir):
     os.makedirs(args.out_dir)
 
+  bootimg_build_id = args.bootimg_build_id or args.ramdisk_build_id
+  bootimg_target = args.bootimg_target or args.ramdisk_target
+
   with tempfile.TemporaryDirectory() as tmp_bootimg_dir, \
       tempfile.TemporaryDirectory() as tmp_kernel_dir:
     # Fetch boot images.
     repack_gki_lib.fetch_bootimg(
         client=client,
         out_dir=tmp_bootimg_dir,
-        build_id=args.ramdisk_build_id,
+        build_id=bootimg_build_id,
         kernel_version=args.kernel_version,
-        target=args.ramdisk_target,
+        target=bootimg_target,
     )
 
     # Fetch kernel artifacts.
@@ -84,6 +88,7 @@ def main():
     copy_kernel_file(kernel_dir, 'System.map')
     copy_kernel_file(kernel_dir, 'abi_symbollist')
     copy_kernel_file(kernel_dir, 'vmlinux')
+    copy_kernel_file(kernel_dir, 'vmlinux.symvers')
     copy_kernel_file(kernel_dir, 'Image',
                      'kernel-{}'.format(args.kernel_version))
     copy_kernel_file(kernel_dir, 'Image.lz4',
@@ -99,6 +104,8 @@ def main():
                      'kernel-{}-lz4-allsyms'.format(args.kernel_version))
     copy_kernel_file(kernel_debug_dir, 'Image.gz',
                      'kernel-{}-gz-allsyms'.format(args.kernel_version))
+    copy_kernel_file(kernel_debug_dir, 'vmlinux', 'vmlinux-allsyms')
+    copy_kernel_file(kernel_debug_dir, 'vmlinux.symvers', 'vmlinux.symvers-allsyms')
 
     # Repack individual boot images using the fetched kernel artifacts,
     # then save to the out dir.
@@ -113,24 +120,20 @@ def main():
                                   args.kernel_version)
     shutil.copy(img_zip_path, args.out_dir)
 
-    # Replace kernels within the target_files.zip and save to the out dir.
-    # TODO(b/209035444): GSI target_files does not yet include a 5.15 boot.img.
-    if args.kernel_version != '5.15':
-      target_files_zip_name = [
-          f for f in os.listdir(tmp_bootimg_dir) if '-target_files-' in f
-      ][0]
-      target_files_zip_path = os.path.join(tmp_bootimg_dir, target_files_zip_name)
-      repack_gki_lib.replace_target_files_zip_kernels(target_files_zip_path,
-                                                      kernel_out_dir,
-                                                      args.kernel_version)
-      shutil.copy(target_files_zip_path, args.out_dir)
+    target_files_zip_name = [
+        f for f in os.listdir(tmp_bootimg_dir) if '-target_files-' in f
+    ][0]
+    target_files_zip_path = os.path.join(tmp_bootimg_dir, target_files_zip_name)
+    repack_gki_lib.replace_target_files_zip_kernels(target_files_zip_path,
+                                                    kernel_out_dir,
+                                                    args.kernel_version)
+    shutil.copy(target_files_zip_path, args.out_dir)
 
-    # Copy otatools.zip from the ramdisk build, used for GKI signing.
+    # Copy otatools.zip from the bootimg build, used for GKI signing.
     shutil.copy(os.path.join(tmp_bootimg_dir, 'otatools.zip'), args.out_dir)
 
     # Write prebuilt-info.txt using the prebuilt artifact build IDs.
     data = {
-        'ramdisk-build-id': int(args.ramdisk_build_id),
         'kernel-build-id': int(args.kernel_build_id),
     }
     with open(os.path.join(kernel_out_dir, 'prebuilt-info.txt'), 'w') as f:

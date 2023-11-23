@@ -20,6 +20,7 @@
 #include "base/arena_allocator.h"
 #include "base/arena_bit_vector.h"
 #include "base/bit_vector-inl.h"
+#include "base/macros.h"
 #include "base/scoped_arena_allocator.h"
 #include "base/scoped_arena_containers.h"
 #include "base/stl_util.h"
@@ -28,7 +29,7 @@
 #include "nodes.h"
 #include "optimizing/optimizing_compiler_stats.h"
 
-namespace art {
+namespace art HIDDEN {
 
 enum class LoadStoreAnalysisType {
   kBasic,
@@ -170,14 +171,16 @@ class HeapLocation : public ArenaObject<kArenaAllocLSA> {
                size_t offset,
                HInstruction* index,
                size_t vector_length,
-               int16_t declaring_class_def_index)
+               int16_t declaring_class_def_index,
+               bool is_vec_op)
       : ref_info_(ref_info),
         type_(DataType::ToSigned(type)),
         offset_(offset),
         index_(index),
         vector_length_(vector_length),
         declaring_class_def_index_(declaring_class_def_index),
-        has_aliased_locations_(false) {
+        has_aliased_locations_(false),
+        is_vec_op_(is_vec_op) {
     DCHECK(ref_info != nullptr);
     DCHECK((offset == kInvalidFieldOffset && index != nullptr) ||
            (offset != kInvalidFieldOffset && index == nullptr));
@@ -188,6 +191,7 @@ class HeapLocation : public ArenaObject<kArenaAllocLSA> {
   size_t GetOffset() const { return offset_; }
   HInstruction* GetIndex() const { return index_; }
   size_t GetVectorLength() const { return vector_length_; }
+  bool IsVecOp() const { return is_vec_op_; }
 
   // Returns the definition of declaring class' dex index.
   // It's kDeclaringClassDefIndexForArrays for an array element.
@@ -226,11 +230,12 @@ class HeapLocation : public ArenaObject<kArenaAllocLSA> {
   // Declaring class's def's dex index.
   // Invalid when this HeapLocation is not field access.
   const int16_t declaring_class_def_index_;
-
   // Has aliased heap locations in the method, due to either the
   // reference is aliased or the array element is aliased via different
   // index names.
   bool has_aliased_locations_;
+  // Whether this HeapLocation represents a vector operation.
+  bool is_vec_op_;
 
   DISALLOW_COPY_AND_ASSIGN(HeapLocation);
 };
@@ -253,8 +258,6 @@ class HeapLocationCollector : public HGraphVisitor {
         heap_locations_(allocator->Adapter(kArenaAllocLSA)),
         aliasing_matrix_(allocator, kInitialAliasingMatrixBitVectorSize, true, kArenaAllocLSA),
         has_heap_stores_(false),
-        has_volatile_(false),
-        has_monitor_operations_(false),
         lse_type_(lse_type) {
     aliasing_matrix_.ClearAllBits();
   }
@@ -319,7 +322,8 @@ class HeapLocationCollector : public HGraphVisitor {
                                  field->GetFieldOffset().SizeValue(),
                                  nullptr,
                                  HeapLocation::kScalar,
-                                 field->GetDeclaringClassDefIndex());
+                                 field->GetDeclaringClassDefIndex(),
+                                 /*is_vec_op=*/false);
   }
 
   size_t GetArrayHeapLocation(HInstruction* instruction) const {
@@ -328,10 +332,10 @@ class HeapLocationCollector : public HGraphVisitor {
     HInstruction* index = instruction->InputAt(1);
     DataType::Type type = instruction->GetType();
     size_t vector_length = HeapLocation::kScalar;
+    const bool is_vec_op = instruction->IsVecStore() || instruction->IsVecLoad();
     if (instruction->IsArraySet()) {
       type = instruction->AsArraySet()->GetComponentType();
-    } else if (instruction->IsVecStore() ||
-               instruction->IsVecLoad()) {
+    } else if (is_vec_op) {
       HVecOperation* vec_op = instruction->AsVecOperation();
       type = vec_op->GetPackedType();
       vector_length = vec_op->GetVectorLength();
@@ -343,19 +347,12 @@ class HeapLocationCollector : public HGraphVisitor {
                                  HeapLocation::kInvalidFieldOffset,
                                  index,
                                  vector_length,
-                                 HeapLocation::kDeclaringClassDefIndexForArrays);
+                                 HeapLocation::kDeclaringClassDefIndexForArrays,
+                                 is_vec_op);
   }
 
   bool HasHeapStores() const {
     return has_heap_stores_;
-  }
-
-  bool HasVolatile() const {
-    return has_volatile_;
-  }
-
-  bool HasMonitorOps() const {
-    return has_monitor_operations_;
   }
 
   // Find and return the heap location index in heap_locations_.
@@ -373,7 +370,8 @@ class HeapLocationCollector : public HGraphVisitor {
                                size_t offset,
                                HInstruction* index,
                                size_t vector_length,
-                               int16_t declaring_class_def_index) const {
+                               int16_t declaring_class_def_index,
+                               bool is_vec_op) const {
     DataType::Type lookup_type = DataType::ToSigned(type);
     for (size_t i = 0; i < heap_locations_.size(); i++) {
       HeapLocation* loc = heap_locations_[i];
@@ -382,7 +380,8 @@ class HeapLocationCollector : public HGraphVisitor {
           loc->GetOffset() == offset &&
           loc->GetIndex() == index &&
           loc->GetVectorLength() == vector_length &&
-          loc->GetDeclaringClassDefIndex() == declaring_class_def_index) {
+          loc->GetDeclaringClassDefIndex() == declaring_class_def_index &&
+          loc->IsVecOp() == is_vec_op) {
         return i;
       }
     }
@@ -527,22 +526,20 @@ class HeapLocationCollector : public HGraphVisitor {
                                size_t offset,
                                HInstruction* index,
                                size_t vector_length,
-                               int16_t declaring_class_def_index) {
+                               int16_t declaring_class_def_index,
+                               bool is_vec_op) {
     HInstruction* original_ref = HuntForOriginalReference(ref);
     ReferenceInfo* ref_info = GetOrCreateReferenceInfo(original_ref);
     size_t heap_location_idx = FindHeapLocationIndex(
-        ref_info, type, offset, index, vector_length, declaring_class_def_index);
+        ref_info, type, offset, index, vector_length, declaring_class_def_index, is_vec_op);
     if (heap_location_idx == kHeapLocationNotFound) {
-      HeapLocation* heap_loc = new (allocator_)
-          HeapLocation(ref_info, type, offset, index, vector_length, declaring_class_def_index);
+      HeapLocation* heap_loc = new (allocator_) HeapLocation(
+          ref_info, type, offset, index, vector_length, declaring_class_def_index, is_vec_op);
       heap_locations_.push_back(heap_loc);
     }
   }
 
   void VisitFieldAccess(HInstruction* ref, const FieldInfo& field_info) {
-    if (field_info.IsVolatile()) {
-      has_volatile_ = true;
-    }
     DataType::Type type = field_info.GetFieldType();
     const uint16_t declaring_class_def_index = field_info.GetDeclaringClassDefIndex();
     const size_t offset = field_info.GetFieldOffset().SizeValue();
@@ -551,19 +548,22 @@ class HeapLocationCollector : public HGraphVisitor {
                             offset,
                             nullptr,
                             HeapLocation::kScalar,
-                            declaring_class_def_index);
+                            declaring_class_def_index,
+                            /*is_vec_op=*/false);
   }
 
   void VisitArrayAccess(HInstruction* array,
                         HInstruction* index,
                         DataType::Type type,
-                        size_t vector_length) {
+                        size_t vector_length,
+                        bool is_vec_op) {
     MaybeCreateHeapLocation(array,
                             type,
                             HeapLocation::kInvalidFieldOffset,
                             index,
                             vector_length,
-                            HeapLocation::kDeclaringClassDefIndexForArrays);
+                            HeapLocation::kDeclaringClassDefIndexForArrays,
+                            is_vec_op);
   }
 
   void VisitPredicatedInstanceFieldGet(HPredicatedInstanceFieldGet* instruction) override {
@@ -597,7 +597,7 @@ class HeapLocationCollector : public HGraphVisitor {
     HInstruction* array = instruction->InputAt(0);
     HInstruction* index = instruction->InputAt(1);
     DataType::Type type = instruction->GetType();
-    VisitArrayAccess(array, index, type, HeapLocation::kScalar);
+    VisitArrayAccess(array, index, type, HeapLocation::kScalar, /*is_vec_op=*/false);
     CreateReferenceInfoForReferenceType(instruction);
   }
 
@@ -605,7 +605,7 @@ class HeapLocationCollector : public HGraphVisitor {
     HInstruction* array = instruction->InputAt(0);
     HInstruction* index = instruction->InputAt(1);
     DataType::Type type = instruction->GetComponentType();
-    VisitArrayAccess(array, index, type, HeapLocation::kScalar);
+    VisitArrayAccess(array, index, type, HeapLocation::kScalar, /*is_vec_op=*/false);
     has_heap_stores_ = true;
   }
 
@@ -613,7 +613,7 @@ class HeapLocationCollector : public HGraphVisitor {
     HInstruction* array = instruction->InputAt(0);
     HInstruction* index = instruction->InputAt(1);
     DataType::Type type = instruction->GetPackedType();
-    VisitArrayAccess(array, index, type, instruction->GetVectorLength());
+    VisitArrayAccess(array, index, type, instruction->GetVectorLength(), /*is_vec_op=*/true);
     CreateReferenceInfoForReferenceType(instruction);
   }
 
@@ -621,7 +621,7 @@ class HeapLocationCollector : public HGraphVisitor {
     HInstruction* array = instruction->InputAt(0);
     HInstruction* index = instruction->InputAt(1);
     DataType::Type type = instruction->GetPackedType();
-    VisitArrayAccess(array, index, type, instruction->GetVectorLength());
+    VisitArrayAccess(array, index, type, instruction->GetVectorLength(), /*is_vec_op=*/true);
     has_heap_stores_ = true;
   }
 
@@ -637,18 +637,12 @@ class HeapLocationCollector : public HGraphVisitor {
     CreateReferenceInfoForReferenceType(instruction);
   }
 
-  void VisitMonitorOperation(HMonitorOperation* monitor ATTRIBUTE_UNUSED) override {
-    has_monitor_operations_ = true;
-  }
-
   ScopedArenaAllocator* allocator_;
   ScopedArenaVector<ReferenceInfo*> ref_info_array_;   // All references used for heap accesses.
   ScopedArenaVector<HeapLocation*> heap_locations_;    // All heap locations.
   ArenaBitVector aliasing_matrix_;    // aliasing info between each pair of locations.
   bool has_heap_stores_;    // If there is no heap stores, LSE acts as GVN with better
                             // alias analysis and won't be as effective.
-  bool has_volatile_;       // If there are volatile field accesses.
-  bool has_monitor_operations_;    // If there are monitor operations.
   LoadStoreAnalysisType lse_type_;
 
   DISALLOW_COPY_AND_ASSIGN(HeapLocationCollector);

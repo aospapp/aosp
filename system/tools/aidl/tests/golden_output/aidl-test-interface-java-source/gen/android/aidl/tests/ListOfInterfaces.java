@@ -80,6 +80,22 @@ public class ListOfInterfaces implements android.os.Parcelable
       {
         return this;
       }
+      /** @hide */
+      public static java.lang.String getDefaultTransactionName(int transactionCode)
+      {
+        switch (transactionCode)
+        {
+          default:
+          {
+            return null;
+          }
+        }
+      }
+      /** @hide */
+      public java.lang.String getTransactionName(int transactionCode)
+      {
+        return this.getDefaultTransactionName(transactionCode);
+      }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
         java.lang.String descriptor = DESCRIPTOR;
@@ -114,6 +130,11 @@ public class ListOfInterfaces implements android.os.Parcelable
         {
           return DESCRIPTOR;
         }
+      }
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 0;
       }
     }
     public static final java.lang.String DESCRIPTOR = "android$aidl$tests$ListOfInterfaces$IEmptyInterface".replace('$', '.');
@@ -158,6 +179,26 @@ public class ListOfInterfaces implements android.os.Parcelable
       @Override public android.os.IBinder asBinder()
       {
         return this;
+      }
+      /** @hide */
+      public static java.lang.String getDefaultTransactionName(int transactionCode)
+      {
+        switch (transactionCode)
+        {
+          case TRANSACTION_methodWithInterfaces:
+          {
+            return "methodWithInterfaces";
+          }
+          default:
+          {
+            return null;
+          }
+        }
+      }
+      /** @hide */
+      public java.lang.String getTransactionName(int transactionCode)
+      {
+        return this.getDefaultTransactionName(transactionCode);
       }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
@@ -254,6 +295,11 @@ public class ListOfInterfaces implements android.os.Parcelable
         }
       }
       static final int TRANSACTION_methodWithInterfaces = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 0;
+      }
     }
     public static final java.lang.String DESCRIPTOR = "android$aidl$tests$ListOfInterfaces$IMyInterface".replace('$', '.');
     public java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> methodWithInterfaces(android.aidl.tests.ListOfInterfaces.IEmptyInterface iface, android.aidl.tests.ListOfInterfaces.IEmptyInterface nullable_iface, java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> iface_list_in, java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> iface_list_out, java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> iface_list_inout, java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> nullable_iface_list_in, java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> nullable_iface_list_out, java.util.List<android.aidl.tests.ListOfInterfaces.IEmptyInterface> nullable_iface_list_inout) throws android.os.RemoteException;

@@ -114,7 +114,7 @@ class MANAGED String final : public Object {
   // Computes and returns the hash code.
   int32_t ComputeHashCode() REQUIRES_SHARED(Locks::mutator_lock_);
 
-  int32_t GetUtfLength() REQUIRES_SHARED(Locks::mutator_lock_);
+  int32_t GetModifiedUtf8Length() REQUIRES_SHARED(Locks::mutator_lock_);
 
   uint16_t CharAt(int32_t index) REQUIRES_SHARED(Locks::mutator_lock_);
 
@@ -138,6 +138,14 @@ class MANAGED String final : public Object {
                                                          Handle<ByteArray> array,
                                                          int32_t offset,
                                                          int32_t high_byte,
+                                                         gc::AllocatorType allocator_type)
+      REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
+
+  template <bool kIsInstrumented = true>
+  ALWAYS_INLINE static ObjPtr<String> AllocFromUtf16ByteArray(Thread* self,
+                                                         int32_t char_count,
+                                                         Handle<ByteArray> array,
+                                                         int32_t offset,
                                                          gc::AllocatorType allocator_type)
       REQUIRES_SHARED(Locks::mutator_lock_) REQUIRES(!Roles::uninterruptible_);
 
@@ -189,7 +197,14 @@ class MANAGED String final : public Object {
 
   bool Equals(const char* modified_utf8) REQUIRES_SHARED(Locks::mutator_lock_);
 
-  bool Equals(ObjPtr<String> that) REQUIRES_SHARED(Locks::mutator_lock_);
+  bool Equals(ObjPtr<mirror::String> that) REQUIRES_SHARED(Locks::mutator_lock_) {
+    return Equals(that.Ptr());
+  }
+
+  // A version that takes a mirror::String pointer instead of ObjPtr as it's being
+  // called by the runtime app image code which can encode mirror::String at 64bit
+  // addresses (ObjPtr only works with 32bit pointers).
+  bool Equals(mirror::String* that) REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a modified UTF-8 encoded std::string from a java/lang/String object.
   std::string ToModifiedUtf8() REQUIRES_SHARED(Locks::mutator_lock_);
@@ -207,6 +222,12 @@ class MANAGED String final : public Object {
       REQUIRES(!Roles::uninterruptible_);
 
   void GetChars(int32_t start, int32_t end, Handle<CharArray> array, int32_t index)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void FillBytesLatin1(Handle<ByteArray> array, int32_t index)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  void FillBytesUTF16(Handle<ByteArray> array, int32_t index)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   template<VerifyObjectFlags kVerifyFlags = kDefaultVerifyFlags>

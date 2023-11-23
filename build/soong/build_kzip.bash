@@ -36,7 +36,7 @@ export KYTHE_JAVA_SOURCE_BATCH_SIZE KYTHE_KZIP_ENCODING
 declare -r out="${OUT_DIR:-out}"
 
 # Build extraction files for C++ and Java. Build `merge_zips` which we use later.
-build/soong/soong_ui.bash --build-mode --all-modules --dir=$PWD -k merge_zips xref_cxx xref_java
+build/soong/soong_ui.bash --build-mode --all-modules --dir=$PWD -k merge_zips xref_cxx xref_java xref_rust
 
 # Build extraction file for Go the files in build/{blueprint,soong} directories.
 declare -r abspath_out=$(realpath "${out}")
@@ -44,16 +44,23 @@ declare -r go_extractor=$(realpath prebuilts/build-tools/linux-x86/bin/go_extrac
 declare -r go_root=$(realpath prebuilts/go/linux-x86)
 declare -r source_root=$PWD
 
-# TODO(asmundak): Until b/182183061 is fixed, default corpus has to be specified 
-# in the rules file. Generate this file on the fly with corpus value set from the
-# environment variable.
-for dir in blueprint soong; do
-  (cd "build/$dir";
+# For the Go code, we invoke the extractor directly. The two caveats are that
+# the extractor's rewrite rules are generated on the fly as they depend on the
+# value of XREF_CORPUS, and that the name of the kzip file is derived from the
+# directory name by replacing '/' with '_'.
+# Go extractor should succeed.
+declare -ar go_modules=(build/blueprint build/soong
+  build/make/tools/canoninja build/make/tools/compliance build/make/tools/rbcrun)
+set -e
+for dir in "${go_modules[@]}"; do
+  (cd "$dir";
+   outfile=$(echo "$dir" | sed -r 's|/|_|g;s|(.*)|\1.go.kzip|');
    KYTHE_ROOT_DIRECTORY="${source_root}" "$go_extractor" --goroot="$go_root" \
    --rules=<(printf '[{"pattern": "(.*)","vname": {"path": "@1@", "corpus":"%s"}}]' "${XREF_CORPUS}") \
-   --canonicalize_package_corpus --output "${abspath_out}/soong/build_${dir}.go.kzip" ./...
+   --canonicalize_package_corpus --output "${abspath_out}/soong/$outfile" ./...
   )
 done
+set +e
 
 declare -r kzip_count=$(find "$out" -name '*.kzip' | wc -l)
 (($kzip_count>100000)) || { printf "Too few kzip files were generated: %d\n" $kzip_count; exit 1; }

@@ -152,7 +152,7 @@ class JvmtiWeakTable : public art::gc::SystemWeakHolder {
 
     // Performance optimization: To avoid multiple table updates, ensure that during GC we
     // only update once. See the comment on the implementation of GetTagSlowPath.
-    if (art::kUseReadBarrier &&
+    if (art::gUseReadBarrier &&
         self != nullptr &&
         self->GetIsGcMarking() &&
         !update_since_last_sweep_) {
@@ -211,13 +211,13 @@ class JvmtiWeakTable : public art::gc::SystemWeakHolder {
   };
 
   using TagAllocator = JvmtiAllocator<std::pair<const art::GcRoot<art::mirror::Object>, T>>;
-  std::unordered_map<art::GcRoot<art::mirror::Object>,
-                     T,
-                     HashGcRoot,
-                     EqGcRoot,
-                     TagAllocator> tagged_objects_
-      GUARDED_BY(allow_disallow_lock_)
-      GUARDED_BY(art::Locks::mutator_lock_);
+  using TagMap = std::unordered_map<art::GcRoot<art::mirror::Object>,
+                                    T,
+                                    HashGcRoot,
+                                    EqGcRoot,
+                                    TagAllocator>;
+
+  TagMap tagged_objects_ GUARDED_BY(allow_disallow_lock_) GUARDED_BY(art::Locks::mutator_lock_);
   // To avoid repeatedly scanning the whole table, remember if we did that since the last sweep.
   bool update_since_last_sweep_;
 };

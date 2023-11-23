@@ -241,12 +241,12 @@ void IptablesRestoreController::maybeLogStderr(const std::unique_ptr<IptablesPro
         return;
     }
 
-    ALOGE("iptables error:\n");
-    ALOGE("------- COMMAND -------\n");
-    ALOGE("%s\n", command.c_str());
-    ALOGE("-------  ERROR -------\n");
+    ALOGE("iptables error:");
+    ALOGE("------- COMMAND -------");
+    ALOGE("%s", command.c_str());
+    ALOGE("-------  ERROR -------");
     ALOGE("%s", process->errBuf.c_str());
-    ALOGE("----------------------\n");
+    ALOGE("----------------------");
     process->errBuf.clear();
 }
 

@@ -20,10 +20,11 @@
 
 #include <fcntl.h>
 
-#include <functional>
+#include <hwbinder/IPCThreadState.h>
 #include <log/log.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
+#include <functional>
 
 namespace android {
 namespace hidl {
@@ -53,6 +54,13 @@ TokenManager::TokenManager() {
     ReadRandomBytes(mKey.data(), mKey.size());
 }
 
+static void noteTmUsage(const char* action, size_t size) {
+    using android::hardware::IPCThreadState;
+    const auto& self = IPCThreadState::self();
+    ALOGI("TokenManager tokens count %s by (uid: %d, pid: %d), now: %zu", action,
+          self->getCallingUid(), self->getCallingPid(), size);
+}
+
 // Methods from ::android::hidl::token::V1_0::ITokenManager follow.
 Return<void> TokenManager::createToken(const sp<IBase>& store, createToken_cb hidl_cb) {
     TokenInterface interface = generateToken(store);
@@ -76,6 +84,7 @@ Return<void> TokenManager::createToken(const sp<IBase>& store, createToken_cb hi
     }
 
     mMap[id] = interface;
+    noteTmUsage("added", mMap.size());
 
     hidl_cb(interface.token);
     return Void();
@@ -113,6 +122,8 @@ Return<bool> TokenManager::unregister(const hidl_vec<uint8_t> &token) {
     }
 
     mMap.erase(it);
+    noteTmUsage("removed", mMap.size());
+
     return true;
 }
 

@@ -50,6 +50,8 @@ public class CpuFeatures {
 
     public static native boolean isArm64Cpu();
 
+    public static native boolean isRiscv64Cpu();
+
     public static native boolean isX86_64Cpu();
 
     public static native int getHwCaps();

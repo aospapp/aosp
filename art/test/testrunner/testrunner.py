@@ -354,8 +354,13 @@ def find_extra_device_arguments(target):
 
 def get_device_name():
   """
-  Gets the value of ro.product.name from remote device.
+  Gets the value of ro.product.name from remote device (unless running on a VM).
   """
+  if env.ART_TEST_ON_VM:
+    return subprocess.Popen(f"{env.ART_SSH_CMD} uname -a".split(),
+                            stdout = subprocess.PIPE,
+                            universal_newlines=True).stdout.read().strip()
+
   proc = subprocess.Popen(['adb', 'shell', 'getprop', 'ro.product.name'],
                           stderr=subprocess.STDOUT,
                           stdout = subprocess.PIPE,
@@ -581,7 +586,9 @@ def run_tests(tests):
       temp_path = tempfile.mkdtemp(dir=env.ART_HOST_TEST_DIR)
       options_test = '--temp-path {} '.format(temp_path) + options_test
 
-      run_test_sh = env.ANDROID_BUILD_TOP + '/art/test/run-test'
+      # Run the run-test script using the prebuilt python.
+      python3_bin = env.ANDROID_BUILD_TOP + "/prebuilts/build-tools/path/linux-x86/python3"
+      run_test_sh = python3_bin + ' ' + env.ANDROID_BUILD_TOP + '/art/test/run-test'
       command = ' '.join((run_test_sh, options_test, ' '.join(extra_arguments[target]), test))
       return executor.submit(run_test, command, test, variant_set, test_name)
 
@@ -665,9 +672,12 @@ def run_test(command, test, test_variant, test_name):
       test_start_time = time.monotonic()
       if verbose:
         print_text("Starting %s at %s\n" % (test_name, test_start_time))
+      env = dict(os.environ)
+      env["FULL_TEST_NAME"] = test_name
       if gdb or gdb_dex2oat:
         proc = _popen(
           args=command.split(),
+          env=env,
           stderr=subprocess.STDOUT,
           universal_newlines=True,
           start_new_session=True
@@ -675,6 +685,7 @@ def run_test(command, test, test_variant, test_name):
       else:
         proc = _popen(
           args=command.split(),
+          env=env,
           stderr=subprocess.STDOUT,
           stdout = subprocess.PIPE,
           universal_newlines=True,
@@ -704,7 +715,7 @@ def run_test(command, test, test_variant, test_name):
     failed_tests.append((test_name, 'Timed out in %d seconds' % timeout))
 
     # HACK(b/142039427): Print extra backtraces on timeout.
-    if "-target-" in test_name:
+    if "-target-" in test_name and not env.ART_TEST_ON_VM:
       for i in range(8):
         proc_name = "dalvikvm" + test_name[-2:]
         pidof = subprocess.run(["adb", "shell", "pidof", proc_name], stdout=subprocess.PIPE)
@@ -1064,8 +1075,11 @@ def parse_test_name(test_name):
 
 
 def get_target_cpu_count():
-  adb_command = 'adb shell cat /sys/devices/system/cpu/present'
-  cpu_info_proc = subprocess.Popen(adb_command.split(), stdout=subprocess.PIPE)
+  if env.ART_TEST_ON_VM:
+    command = f"{env.ART_SSH_CMD} cat /sys/devices/system/cpu/present"
+  else:
+    command = 'adb shell cat /sys/devices/system/cpu/present'
+  cpu_info_proc = subprocess.Popen(command.split(), stdout=subprocess.PIPE)
   cpu_info = cpu_info_proc.stdout.read()
   if type(cpu_info) is bytes:
     cpu_info = cpu_info.decode('utf-8')
@@ -1104,7 +1118,9 @@ def parse_option():
   global csv_result
 
   parser = argparse.ArgumentParser(description="Runs all or a subset of the ART test suite.")
-  parser.add_argument('-t', '--test', action='append', dest='tests', help='name(s) of the test(s)')
+  parser.add_argument('tests', action='extend', nargs="*", help='name(s) of the test(s)')
+  parser.add_argument('-t', '--test', action='append', dest='tests', help='name(s) of the test(s)'
+      ' (deprecated: use positional arguments at the end without any option instead)')
   global_group = parser.add_argument_group('Global options',
                                            'Options that affect all tests being run')
   global_group.add_argument('-j', type=int, dest='n_thread', help="""Number of CPUs to use.
@@ -1225,26 +1241,31 @@ def parse_option():
   if options['run_all']:
     run_all_configs = True
 
-  return tests
+  return tests or RUN_TEST_SET
 
 def main():
   gather_test_info()
-  user_requested_tests = parse_option()
+  tests = parse_option()
   setup_test_env()
   gather_disabled_test_info()
   if build:
-    build_targets = ''
-    if 'host' in _user_input_variants['target']:
-      build_targets += 'test-art-host-run-test-dependencies '
-    if 'target' in _user_input_variants['target']:
-      build_targets += 'test-art-target-run-test-dependencies '
-    if 'jvm' in _user_input_variants['target']:
-      build_targets += 'test-art-host-run-test-dependencies '
+    build_targets = []
+    # Build only the needed shards (depending on the selected tests).
+    shards = set(re.search("(\d\d)-", t).group(1) for t in tests)
+    if any("hiddenapi" in t for t in tests):
+      shards.add("HiddenApi")  # Include special HiddenApi shard.
+    for mode in ['host', 'target', 'jvm']:
+      if mode in _user_input_variants['target']:
+        build_targets += ['test-art-{}-run-test-dependencies'.format(mode)]
+        if len(shards) >= 100:
+          build_targets += ["art-run-test-{}-data".format(mode)]  # Build all.
+        else:
+          build_targets += ["art-run-test-{}-data-shard{}".format(mode, s) for s in shards]
     build_command = env.ANDROID_BUILD_TOP + '/build/soong/soong_ui.bash --make-mode'
-    build_command += ' DX='
+    build_command += ' D8='
     if dist:
       build_command += ' dist'
-    build_command += ' ' + build_targets
+    build_command += ' ' + ' '.join(build_targets)
     print_text('Build command: %s\n' % build_command)
     if subprocess.call(build_command.split()):
       # Debugging for b/62653020
@@ -1252,10 +1273,7 @@ def main():
         shutil.copyfile(env.SOONG_OUT_DIR + '/build.ninja', env.DIST_DIR + '/soong.ninja')
       sys.exit(1)
 
-  if user_requested_tests:
-    run_tests(user_requested_tests)
-  else:
-    run_tests(RUN_TEST_SET)
+  run_tests(tests)
 
   print_analysis()
   close_csv_file()

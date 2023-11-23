@@ -25,3 +25,26 @@ cc_binary {
   ],
   init_rc: ["mtectrl.rc"],
 }
+
+cc_test {
+  name: "mtectrl_test",
+  srcs: ["mtectrl_test.cc"],
+  test_suites: ["general-tests"],
+  // shell cannot use /system/bin/mtectrl
+  require_root: true,
+  shared_libs: [
+    "libbootloader_message",
+    "libbase",
+  ],
+  static_libs: [
+    "libgmock",
+  ]
+}
+
+java_test_host {
+    name: "mtectrl_end_to_end_test",
+    libs: ["tradefed"],
+    static_libs: ["frameworks-base-hostutils", "cts-install-lib-host"],
+    srcs:  ["src/com/android/tests/mtectrl/MtectrlEndToEndTest.java"],
+    test_suites: ["general-tests"],
+}

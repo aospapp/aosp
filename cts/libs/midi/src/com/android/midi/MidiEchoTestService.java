@@ -28,6 +28,7 @@ import android.os.IBinder;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.Collection;
 
 /**
  * Virtual MIDI Device that copies its input to its output.
@@ -78,15 +79,16 @@ public class MidiEchoTestService extends MidiDeviceService {
     public static MidiDeviceInfo findEchoDevice(Context context) {
         MidiManager midiManager =
                 (MidiManager) context.getSystemService(Context.MIDI_SERVICE);
-        MidiDeviceInfo[] infos = midiManager.getDevices();
+        Collection<MidiDeviceInfo> infos = midiManager.getDevicesForTransport(
+                MidiManager.TRANSPORT_MIDI_BYTE_STREAM);
         MidiDeviceInfo echoInfo = null;
         for (MidiDeviceInfo info : infos) {
             Bundle properties = info.getProperties();
-            String manufacturer = (String) properties.get(
+            String manufacturer = properties.getString(
                     MidiDeviceInfo.PROPERTY_MANUFACTURER);
 
             if (TEST_MANUFACTURER.equals(manufacturer)) {
-                String product = (String) properties.get(
+                String product = properties.getString(
                         MidiDeviceInfo.PROPERTY_PRODUCT);
                 if (ECHO_PRODUCT.equals(product)) {
                     echoInfo = info;

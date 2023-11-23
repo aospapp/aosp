@@ -17,9 +17,9 @@
 #ifndef CHRE_CROSS_VALIDATOR_MANAGER_H_
 #define CHRE_CROSS_VALIDATOR_MANAGER_H_
 
-#include <chre.h>
 #include <pb_encode.h>
 
+#include "chre_api/chre.h"
 #include "chre_cross_validation_sensor.nanopb.h"
 
 #include "chre/util/optional.h"
@@ -352,18 +352,6 @@ class Manager {
   void sendInfoResponse(
       uint16_t hostEndpoint,
       const chre_cross_validation_sensor_SensorInfoResponse &infoResponse);
-
-  /**
-   * Sends the provided message to the host.
-   *
-   * @param hostEndpoint The endpoint to send the message to.
-   * @param messageType The type of message being sent to the host.
-   * @param fields The fields of the provided struct that should be encoded.
-   * @param srcStruct The struct that should be encoded prior to sending to the
-   *     host.
-   */
-  void sendMessageToHost(uint16_t hostEndpoint, uint16_t messageType,
-                         const pb_field_t fields[], const void *srcStruct);
 
   /**
    * Determine if nanoapp is ready to process new sensor data.

@@ -48,9 +48,14 @@ android_test_helper_app {
     jni_libs: [
         "libCtsMediaMetricsHostTestAppJni",
     ],
+    libs: [
+        "CtsMediaHostTestCommon",
+    ],
     static_libs: [
         "androidx.test.rules",
+        "collector-device-lib",
         "compatibility-device-util-axt",
+        "cts-midi-lib",
         "truth-prebuilt",
     ],
     sdk_version: "test_current",

@@ -14,7 +14,6 @@
 #   limitations under the License.
 
 import queue
-import re
 import threading
 import time
 
@@ -23,8 +22,9 @@ from acts import asserts
 
 MSG = "Test message "
 PKTS = 5
-
 """ Methods for android.system.Os based sockets """
+
+
 def open_android_socket(ad, domain, sock_type, ip, port):
     """ Open TCP or UDP using android.system.Os class
 
@@ -43,6 +43,7 @@ def open_android_socket(ad, domain, sock_type, ip, port):
     asserts.assert_true(fd_key, "Failed to open socket")
     return fd_key
 
+
 def close_android_socket(ad, fd_key):
     """ Close socket
 
@@ -53,12 +54,9 @@ def close_android_socket(ad, fd_key):
     status = ad.droid.closeSocket(fd_key)
     asserts.assert_true(status, "Failed to close socket")
 
-def listen_accept_android_socket(client,
-                                 server,
-                                 client_fd,
-                                 server_fd,
-                                 server_ip,
-                                 server_port):
+
+def listen_accept_android_socket(client, server, client_fd, server_fd,
+                                 server_ip, server_port):
     """ Listen, accept TCP sockets
 
     Args:
@@ -75,12 +73,9 @@ def listen_accept_android_socket(client,
     asserts.assert_true(sock, "Failed to accept socket")
     return sock
 
-def send_recv_data_android_sockets(client,
-                                   server,
-                                   client_fd,
-                                   server_fd,
-                                   server_ip,
-                                   server_port):
+
+def send_recv_data_android_sockets(client, server, client_fd, server_fd,
+                                   server_ip, server_port):
     """ Send TCP or UDP data over android os sockets from client to server.
         Verify that server received the data.
 
@@ -95,7 +90,7 @@ def send_recv_data_android_sockets(client,
     send_list = []
     recv_list = []
 
-    for _ in range(1, PKTS+1):
+    for _ in range(1, PKTS + 1):
         msg = MSG + " %s" % _
         send_list.append(msg)
         client.log.info("Sending message: %s" % msg)
@@ -108,7 +103,10 @@ def send_recv_data_android_sockets(client,
     asserts.assert_true(send_list and recv_list and send_list == recv_list,
                         "Send and recv information is incorrect")
 
+
 """ Methods for java.net.DatagramSocket based sockets """
+
+
 def open_datagram_socket(ad, ip, port):
     """ Open datagram socket
 
@@ -125,6 +123,7 @@ def open_datagram_socket(ad, ip, port):
     asserts.assert_true(socket_key, "Failed to open datagram socket")
     return socket_key
 
+
 def close_datagram_socket(ad, socket_key):
     """ Close datagram socket
 
@@ -134,12 +133,9 @@ def close_datagram_socket(ad, socket_key):
     status = ad.droid.closeDatagramSocket(socket_key)
     asserts.assert_true(status, "Failed to close datagram socket")
 
-def send_recv_data_datagram_sockets(client,
-                                    server,
-                                    client_sock,
-                                    server_sock,
-                                    server_ip,
-                                    server_port):
+
+def send_recv_data_datagram_sockets(client, server, client_sock, server_sock,
+                                    server_ip, server_port):
     """ Send data over datagram socket from dut_a to dut_b.
         Verify that dut_b received the data.
 
@@ -154,13 +150,11 @@ def send_recv_data_datagram_sockets(client,
     send_list = []
     recv_list = []
 
-    for _ in range(1, PKTS+1):
+    for _ in range(1, PKTS + 1):
         msg = MSG + " %s" % _
         send_list.append(msg)
         client.log.info("Sending message: %s" % msg)
-        client.droid.sendDataOverDatagramSocket(client_sock,
-                                                msg,
-                                                server_ip,
+        client.droid.sendDataOverDatagramSocket(client_sock, msg, server_ip,
                                                 server_port)
         recv_msg = server.droid.recvDataOverDatagramSocket(server_sock)
         server.log.info("Received message: %s" % recv_msg)
@@ -170,28 +164,26 @@ def send_recv_data_datagram_sockets(client,
     asserts.assert_true(send_list and recv_list and send_list == recv_list,
                         "Send and recv information is incorrect")
 
+
 """ Utils methods for java.net.Socket based sockets """
+
+
 def _accept_socket(server, server_ip, server_port, server_sock, q):
     sock = server.droid.acceptTcpSocket(server_sock)
     server.log.info("Server socket: %s" % sock)
     q.put(sock)
 
+
 def _client_socket(client, server_ip, server_port, client_ip, client_port, q):
     time.sleep(0.5)
-    sock = client.droid.openTcpSocket(server_ip,
-                                      server_port,
-                                      client_ip,
+    sock = client.droid.openTcpSocket(server_ip, server_port, client_ip,
                                       client_port)
     client.log.info("Client socket: %s" % sock)
     q.put(sock)
 
-def open_connect_socket(client,
-                        server,
-                        client_ip,
-                        server_ip,
-                        client_port,
-                        server_port,
-                        server_sock):
+
+def open_connect_socket(client, server, client_ip, server_ip, client_port,
+                        server_port, server_sock):
     """ Open tcp socket and connect to server
 
     Args:
@@ -208,12 +200,12 @@ def open_connect_socket(client,
     """
     sq = queue.Queue()
     cq = queue.Queue()
-    s = threading.Thread(target = _accept_socket,
-                         args = (server, server_ip, server_port, server_sock,
-                                 sq))
-    c = threading.Thread(target = _client_socket,
-                         args = (client, server_ip, server_port, client_ip,
-                                 client_port, cq))
+    s = threading.Thread(target=_accept_socket,
+                         args=(server, server_ip, server_port, server_sock,
+                               sq))
+    c = threading.Thread(target=_client_socket,
+                         args=(client, server_ip, server_port, client_ip,
+                               client_port, cq))
     s.start()
     c.start()
     c.join()
@@ -224,6 +216,7 @@ def open_connect_socket(client,
     asserts.assert_true(client_sock and server_sock, "Failed to open sockets")
 
     return client_sock, server_sock
+
 
 def open_server_socket(server, server_ip, server_port):
     """ Open tcp server socket
@@ -238,6 +231,7 @@ def open_server_socket(server, server_ip, server_port):
     asserts.assert_true(sock, "Failed to open server socket")
     return sock
 
+
 def close_socket(ad, socket):
     """ Close socket
 
@@ -248,6 +242,7 @@ def close_socket(ad, socket):
     status = ad.droid.closeTcpSocket(socket)
     asserts.assert_true(status, "Failed to socket")
 
+
 def close_server_socket(ad, socket):
     """ Close server socket
 
@@ -257,6 +252,7 @@ def close_server_socket(ad, socket):
     """
     status = ad.droid.closeTcpServerSocket(socket)
     asserts.assert_true(status, "Failed to socket")
+
 
 def shutdown_socket(ad, socket):
     """ Shutdown socket
@@ -269,6 +265,7 @@ def shutdown_socket(ad, socket):
     asserts.assert_true(fd, "Failed to get FileDescriptor key")
     status = ad.droid.shutdownFileDescriptor(fd)
     asserts.assert_true(status, "Failed to shutdown socket")
+
 
 def send_recv_data_sockets(client, server, client_sock, server_sock):
     """ Send data over TCP socket from client to server.
@@ -283,7 +280,7 @@ def send_recv_data_sockets(client, server, client_sock, server_sock):
     send_list = []
     recv_list = []
 
-    for _ in range(1, PKTS+1):
+    for _ in range(1, PKTS + 1):
         msg = MSG + " %s" % _
         send_list.append(msg)
         client.log.info("Sending message: %s" % msg)

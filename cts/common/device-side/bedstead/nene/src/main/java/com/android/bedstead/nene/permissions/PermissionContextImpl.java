@@ -128,7 +128,8 @@ public final class PermissionContextImpl implements PermissionContextModifier {
 
         if (TestApis.packages().instrumented().isInstantApp()) {
             throw new NeneException(
-                    "Tests which use withoutPermission must not run as instant apps");
+                    "Tests which use withoutPermission must not run as instant apps. If you are"
+                            + "using DeviceState, use the @RequireNotInstantApp annotation.");
         }
 
         mDeniedPermissions.addAll(Arrays.asList(permissions));

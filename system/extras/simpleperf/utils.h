@@ -37,6 +37,10 @@
 
 namespace simpleperf {
 
+static constexpr size_t kKilobyte = 1024;
+static constexpr size_t kMegabyte = 1024 * kKilobyte;
+static constexpr uint64_t kGigabyte = 1024 * kMegabyte;
+
 static inline uint64_t AlignDown(uint64_t value, uint64_t alignment) {
   return value & ~(alignment - 1);
 }
@@ -148,6 +152,81 @@ void MoveToBinaryFormat(const T* data_p, size_t n, char*& p) {
   p += size;
 }
 
+// Read info from binary data.
+struct BinaryReader {
+ public:
+  BinaryReader(const char* head, size_t size) : head(head), end(head + size), error(false) {}
+
+  size_t LeftSize() const { return end - head; }
+
+  bool CheckLeftSize(size_t size) {
+    if (UNLIKELY(error)) {
+      return false;
+    }
+    if (UNLIKELY(LeftSize() < size)) {
+      error = true;
+      return false;
+    }
+    return true;
+  }
+
+  void Move(size_t size) {
+    if (CheckLeftSize(size)) {
+      head += size;
+    }
+  }
+
+  template <class T>
+  void Read(T& data) {
+    static_assert(std::is_standard_layout<T>::value, "not standard layout");
+    if (UNLIKELY(error)) {
+      return;
+    }
+    if (UNLIKELY(LeftSize() < sizeof(T))) {
+      error = true;
+    } else {
+      memcpy(&data, head, sizeof(T));
+      head += sizeof(T);
+    }
+  }
+
+  template <class T>
+  void Read(T* data_p, size_t n) {
+    static_assert(std::is_standard_layout<T>::value, "not standard layout");
+    if (UNLIKELY(error)) {
+      return;
+    }
+    size_t size;
+    if (UNLIKELY(__builtin_mul_overflow(n, sizeof(T), &size) || LeftSize() < size)) {
+      error = true;
+    } else {
+      memcpy(data_p, head, size);
+      head += size;
+    }
+  }
+
+  // Read a string ending with '\0'.
+  std::string ReadString() {
+    if (UNLIKELY(error)) {
+      return "";
+    }
+    std::string result;
+    while (head < end && *head != '\0') {
+      result.push_back(*head++);
+    }
+    if (LIKELY(head < end && *head == '\0')) {
+      head++;
+      return result;
+    }
+    error = true;
+    return "";
+  }
+
+  const char* head;
+  const char* end;
+  bool error;
+};
+
 void PrintIndented(size_t indent, const char* fmt, ...);
 void FprintIndented(FILE* fp, size_t indent, const char* fmt, ...);
 
@@ -177,6 +256,9 @@ std::string GetSimpleperfVersion();
 
 std::optional<std::set<int>> GetCpusFromString(const std::string& s);
 std::optional<std::set<pid_t>> GetTidsFromString(const std::string& s, bool check_if_exists);
+std::optional<std::set<pid_t>> GetPidsFromStrings(const std::vector<std::string>& strs,
+                                                  bool check_if_exists,
+                                                  bool support_progress_name_regex);
 
 template <typename T>
 std::optional<std::set<T>> ParseUintVector(const std::string& s) {
@@ -199,6 +281,14 @@ static inline void HashCombine(size_t& seed, const T& val) {
 }
 
 size_t SafeStrlen(const char* s, const char* end);
+
+struct OverflowResult {
+  bool overflow = false;
+  uint64_t value = 0;
+};
+
+OverflowResult SafeAdd(uint64_t a, uint64_t b);
+void OverflowSafeAdd(uint64_t& dest, uint64_t add);
 
 }  // namespace simpleperf
 

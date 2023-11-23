@@ -1526,6 +1526,20 @@ class ComputeClientTest(driver_test_lib.BaseDriverTest):
                                              disk=self.DISK)
         self.assertTrue(self.compute_client.CheckDiskExists(self.DISK, self.ZONE))
 
+    def testGetGCEHostName(self):
+        """Test GetGCEHostName."""
+        instance_name = "instance_name"
+        project = "fake-project"
+        zone = "fake-zone"
+        expected = "nic0.instance_name.fake-zone.c.fake-project.internal.gcpnode.com"
+        self.assertEqual(expected, gcompute_client.GetGCEHostName(
+                             project, instance_name, zone))
+
+        project = "test.com:project"
+        expected = "nic0.instance_name.fake-zone.c.project.test.com.internal.gcpnode.com"
+        self.assertEqual(expected, gcompute_client.GetGCEHostName(
+                             project, instance_name, zone))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -102,11 +102,9 @@ class Transformer(object):
 
     def on_begin(self):
         """A function called before the transform loop begins."""
-        pass
 
     def on_end(self):
         """A function called after the transform loop has ended."""
-        pass
 
 
 class SourceTransformer(Transformer):

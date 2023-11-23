@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_OPERATION_H_
 #define SYSTEM_KEYMASTER_OPERATION_H_
 
+#include <utility>
+
 #include <assert.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -93,7 +95,8 @@ class Operation {
   public:
     explicit Operation(keymaster_purpose_t purpose, AuthorizationSet&& hw_enforced,
                        AuthorizationSet&& sw_enforced)
-        : purpose_(purpose), hw_enforced_(move(hw_enforced)), sw_enforced_(move(sw_enforced)) {}
+        : purpose_(purpose), hw_enforced_(std::move(hw_enforced)),
+          sw_enforced_(std::move(sw_enforced)) {}
     virtual ~Operation() {}
 
     Operation(const Operation&) = delete;

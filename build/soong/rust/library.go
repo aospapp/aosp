@@ -246,10 +246,6 @@ func (library *libraryDecorator) autoDep(ctx android.BottomUpMutatorContext) aut
 		return rlibAutoDep
 	} else if library.dylib() || library.shared() {
 		return dylibAutoDep
-	} else if ctx.BazelConversionMode() {
-		// In Bazel conversion mode, we are currently ignoring the deptag, so we just need to supply a
-		// compatible tag in order to add the dependency.
-		return rlibAutoDep
 	} else {
 		panic(fmt.Errorf("autoDep called on library %q that has no enabled variants.", ctx.ModuleName()))
 	}
@@ -271,84 +267,94 @@ var _ compiler = (*libraryDecorator)(nil)
 var _ libraryInterface = (*libraryDecorator)(nil)
 var _ exportedFlagsProducer = (*libraryDecorator)(nil)
 
-// rust_library produces all rust variants.
+// rust_library produces all Rust variants (rust_library_dylib and
+// rust_library_rlib).
 func RustLibraryFactory() android.Module {
 	module, library := NewRustLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyRust()
 	return module.Init()
 }
 
-// rust_ffi produces all ffi variants.
+// rust_ffi produces all FFI variants (rust_ffi_shared and
+// rust_ffi_static).
 func RustFFIFactory() android.Module {
 	module, library := NewRustLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyFFI()
 	return module.Init()
 }
 
-// rust_library_dylib produces a dylib.
+// rust_library_dylib produces a Rust dylib (Rust crate type "dylib").
 func RustLibraryDylibFactory() android.Module {
 	module, library := NewRustLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyDylib()
 	return module.Init()
 }
 
-// rust_library_rlib produces an rlib.
+// rust_library_rlib produces an rlib (Rust crate type "rlib").
 func RustLibraryRlibFactory() android.Module {
 	module, library := NewRustLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyRlib()
 	return module.Init()
 }
 
-// rust_ffi_shared produces a shared library.
+// rust_ffi_shared produces a shared library (Rust crate type
+// "cdylib").
 func RustFFISharedFactory() android.Module {
 	module, library := NewRustLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyShared()
 	return module.Init()
 }
 
-// rust_ffi_static produces a static library.
+// rust_ffi_static produces a static library (Rust crate type
+// "staticlib").
 func RustFFIStaticFactory() android.Module {
 	module, library := NewRustLibrary(android.HostAndDeviceSupported)
 	library.BuildOnlyStatic()
 	return module.Init()
 }
 
-// rust_library_host produces all rust variants.
+// rust_library_host produces all Rust variants for the host
+// (rust_library_dylib_host and rust_library_rlib_host).
 func RustLibraryHostFactory() android.Module {
 	module, library := NewRustLibrary(android.HostSupported)
 	library.BuildOnlyRust()
 	return module.Init()
 }
 
-// rust_ffi_host produces all FFI variants.
+// rust_ffi_host produces all FFI variants for the host
+// (rust_ffi_static_host and rust_ffi_shared_host).
 func RustFFIHostFactory() android.Module {
 	module, library := NewRustLibrary(android.HostSupported)
 	library.BuildOnlyFFI()
 	return module.Init()
 }
 
-// rust_library_dylib_host produces a dylib.
+// rust_library_dylib_host produces a dylib for the host (Rust crate
+// type "dylib").
 func RustLibraryDylibHostFactory() android.Module {
 	module, library := NewRustLibrary(android.HostSupported)
 	library.BuildOnlyDylib()
 	return module.Init()
 }
 
-// rust_library_rlib_host produces an rlib.
+// rust_library_rlib_host produces an rlib for the host (Rust crate
+// type "rlib").
 func RustLibraryRlibHostFactory() android.Module {
 	module, library := NewRustLibrary(android.HostSupported)
 	library.BuildOnlyRlib()
 	return module.Init()
 }
 
-// rust_ffi_static_host produces a static library.
+// rust_ffi_static_host produces a static library for the host (Rust
+// crate type "staticlib").
 func RustFFIStaticHostFactory() android.Module {
 	module, library := NewRustLibrary(android.HostSupported)
 	library.BuildOnlyStatic()
 	return module.Init()
 }
 
-// rust_ffi_shared_host produces an shared library.
+// rust_ffi_shared_host produces an shared library for the host (Rust
+// crate type "cdylib").
 func RustFFISharedHostFactory() android.Module {
 	module, library := NewRustLibrary(android.HostSupported)
 	library.BuildOnlyShared()
@@ -474,8 +480,9 @@ func (library *libraryDecorator) compilerFlags(ctx ModuleContext, flags Flags) F
 	return flags
 }
 
-func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) android.Path {
-	var outputFile, ret android.ModuleOutPath
+func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps PathDeps) buildOutput {
+	var outputFile android.ModuleOutPath
+	var ret buildOutput
 	var fileName string
 	srcPath := library.srcPath(ctx, deps)
 
@@ -487,19 +494,19 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 	if library.rlib() {
 		fileName = library.getStem(ctx) + ctx.toolchain().RlibSuffix()
 		outputFile = android.PathForModuleOut(ctx, fileName)
-		ret = outputFile
+		ret.outputFile = outputFile
 	} else if library.dylib() {
 		fileName = library.getStem(ctx) + ctx.toolchain().DylibSuffix()
 		outputFile = android.PathForModuleOut(ctx, fileName)
-		ret = outputFile
+		ret.outputFile = outputFile
 	} else if library.static() {
 		fileName = library.getStem(ctx) + ctx.toolchain().StaticLibSuffix()
 		outputFile = android.PathForModuleOut(ctx, fileName)
-		ret = outputFile
+		ret.outputFile = outputFile
 	} else if library.shared() {
 		fileName = library.sharedLibFilename(ctx)
 		outputFile = android.PathForModuleOut(ctx, fileName)
-		ret = outputFile
+		ret.outputFile = outputFile
 	}
 
 	if !library.rlib() && !library.static() && library.stripper.NeedsStrip(ctx) {
@@ -513,7 +520,7 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 
 	flags.RustFlags = append(flags.RustFlags, deps.depFlags...)
 	flags.LinkFlags = append(flags.LinkFlags, deps.depLinkFlags...)
-	flags.LinkFlags = append(flags.LinkFlags, deps.linkObjects...)
+	flags.LinkFlags = append(flags.LinkFlags, deps.linkObjects.Strings()...)
 
 	if library.dylib() {
 		// We need prefer-dynamic for now to avoid linking in the static stdlib. See:
@@ -524,18 +531,19 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 
 	// Call the appropriate builder for this library type
 	if library.rlib() {
-		TransformSrctoRlib(ctx, srcPath, deps, flags, outputFile)
+		ret.kytheFile = TransformSrctoRlib(ctx, srcPath, deps, flags, outputFile).kytheFile
 	} else if library.dylib() {
-		TransformSrctoDylib(ctx, srcPath, deps, flags, outputFile)
+		ret.kytheFile = TransformSrctoDylib(ctx, srcPath, deps, flags, outputFile).kytheFile
 	} else if library.static() {
-		TransformSrctoStatic(ctx, srcPath, deps, flags, outputFile)
+		ret.kytheFile = TransformSrctoStatic(ctx, srcPath, deps, flags, outputFile).kytheFile
 	} else if library.shared() {
-		TransformSrctoShared(ctx, srcPath, deps, flags, outputFile)
+		ret.kytheFile = TransformSrctoShared(ctx, srcPath, deps, flags, outputFile).kytheFile
 	}
 
 	if library.rlib() || library.dylib() {
 		library.flagExporter.exportLinkDirs(deps.linkDirs...)
 		library.flagExporter.exportLinkObjects(deps.linkObjects...)
+		library.flagExporter.exportLibDeps(deps.LibDeps...)
 	}
 
 	if library.static() || library.shared() {
@@ -572,7 +580,7 @@ func (library *libraryDecorator) compile(ctx ModuleContext, flags Flags, deps Pa
 	return ret
 }
 
-func (library *libraryDecorator) srcPath(ctx ModuleContext, deps PathDeps) android.Path {
+func (library *libraryDecorator) srcPath(ctx ModuleContext, _ PathDeps) android.Path {
 	if library.sourceProvider != nil {
 		// Assume the first source from the source provider is the library entry point.
 		return library.sourceProvider.Srcs()[0]

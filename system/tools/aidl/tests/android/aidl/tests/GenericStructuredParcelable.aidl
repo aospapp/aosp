@@ -17,6 +17,7 @@
 package android.aidl.tests;
 
 @JavaDerive(toString=true)
+@RustDerive(PartialEq=true, Eq=true, Clone=true, Copy=true)
 parcelable GenericStructuredParcelable<T, U, B> {
     int a;
     int b;

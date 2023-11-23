@@ -458,6 +458,11 @@ class context<MetaList<MetaParam<ParamsNames, ParamTypes>...>, Numeric> {
     };
 
   public:
+    explicit context(Numeric mm2px) {
+        mm2px_ = mm2px;
+        dp2px_ = (mm2px * 25.4) / 160.0; /* 1dp = 1/160th of an inch */
+    }
+
     context(Numeric mm2px, Numeric dp2px) : mm2px_(mm2px), dp2px_(dp2px) {}
 
     context(const context&) = default;

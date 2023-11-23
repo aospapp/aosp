@@ -18,8 +18,8 @@ package android.hardware.devicestate.cts;
 
 import static android.hardware.devicestate.DeviceStateManager.MAXIMUM_DEVICE_STATE;
 import static android.hardware.devicestate.DeviceStateManager.MINIMUM_DEVICE_STATE;
-import static android.hardware.devicestate.cts.DeviceStateUtils.assertValidState;
-import static android.hardware.devicestate.cts.DeviceStateUtils.runWithControlDeviceStatePermission;
+import static android.server.wm.DeviceStateUtils.assertValidState;
+import static android.server.wm.DeviceStateUtils.runWithControlDeviceStatePermission;
 import static android.view.Display.DEFAULT_DISPLAY;
 
 import static org.junit.Assert.assertEquals;
@@ -36,10 +36,13 @@ import android.content.Context;
 import android.content.res.Resources;
 import android.hardware.devicestate.DeviceStateManager;
 import android.hardware.devicestate.DeviceStateRequest;
+import android.server.wm.jetpack.utils.ExtensionUtil;
+import android.server.wm.jetpack.utils.Version;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Test;
@@ -58,11 +61,15 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
 
     private static final int INVALID_DEVICE_STATE = -1;
 
+    /** Vendor extension version. Some API behaviors are only available in newer version. */
+    private static final Version WM_EXTENSION_VERSION = ExtensionUtil.getExtensionVersion();
+
     /**
      * Tests that {@link DeviceStateManager#getSupportedStates()} returns at least one state and
      * that none of the returned states are in the range
      * [{@link #MINIMUM_DEVICE_STATE}, {@link #MAXIMUM_DEVICE_STATE}].
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#getSupportedStates"})
     @Test
     public void testValidSupportedStates() throws Exception {
         final int[] supportedStates = getDeviceStateManager().getSupportedStates();
@@ -79,6 +86,9 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * DeviceStateRequest.Callback)} is successful and results in a registered callback being
      * triggered with a value equal to the requested state.
      */
+    @ApiTest(apis = {
+            "android.hardware.devicestate.DeviceStateManager#getSupportedStates",
+            "android.hardware.devicestate.DeviceStateManager#requestState"})
     @Test
     public void testRequestAllSupportedStates() throws Throwable {
         final ArgumentCaptor<Integer> intAgumentCaptor = ArgumentCaptor.forClass(Integer.class);
@@ -92,11 +102,28 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
             final DeviceStateRequest request
                     = DeviceStateRequest.newBuilder(supportedStates[i]).build();
 
-            runWithRequestActive(request, () -> {
+            runWithRequestActive(request, false, () -> {
                 verify(callback, atLeastOnce()).onStateChanged(intAgumentCaptor.capture());
                 assertEquals(intAgumentCaptor.getValue().intValue(), request.getState());
             });
         }
+    }
+
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestBaseStateOverride"})
+    @Test
+    public void testRequestBaseState() throws Throwable {
+        final ArgumentCaptor<Integer> intAgumentCaptor = ArgumentCaptor.forClass(Integer.class);
+        final DeviceStateManager.DeviceStateCallback callback =
+                mock(DeviceStateManager.DeviceStateCallback.class);
+        final DeviceStateManager manager = getDeviceStateManager();
+
+        manager.registerCallback(Runnable::run, callback);
+
+        DeviceStateRequest request = DeviceStateRequest.newBuilder(0).build();
+        runWithRequestActive(request, true, () -> {
+            verify(callback, atLeastOnce()).onStateChanged(intAgumentCaptor.capture());
+            assertEquals(intAgumentCaptor.getValue().intValue(), request.getState());
+        });
     }
 
     /**
@@ -104,6 +131,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * DeviceStateRequest.Callback)} throws an {@link java.lang.IllegalArgumentException} if
      * supplied with a state above {@link MAXIMUM_DEVICE_STATE}.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestState"})
     @Test(expected = IllegalArgumentException.class)
     public void testRequestStateTooLarge() throws Throwable {
         final DeviceStateManager manager = getDeviceStateManager();
@@ -117,6 +145,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * DeviceStateRequest.Callback)} throws an {@link java.lang.IllegalArgumentException} if
      * supplied with a state below {@link MINIMUM_DEVICE_STATE}.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestState"})
     @Test(expected = IllegalArgumentException.class)
     public void testRequestStateTooSmall() throws Throwable {
         final DeviceStateManager manager = getDeviceStateManager();
@@ -130,6 +159,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * DeviceStateRequest.Callback)} is not successful and results in a failure to change the
      * state of the device due to the state requested not being available for apps to request.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestState"})
     @Test
     public void testRequestStateFailsAsTopApp_ifStateNotDefinedAsAvailableForAppsToRequest()
             throws IllegalArgumentException {
@@ -175,8 +205,10 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * DeviceStateRequest.Callback)} is successful and results in a registered callback being
      * triggered with a value equal to the requested state.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestState"})
     @Test
-    public void testRequestStateSucceedsAsTopApp_ifStateDefinedAsAvailableForAppsToRequest() {
+    public void testRequestStateSucceedsAsTopApp_ifStateDefinedAsAvailableForAppsToRequest()
+            throws Throwable {
         final DeviceStateManager manager = getDeviceStateManager();
         final int[] supportedStates = manager.getSupportedStates();
 
@@ -209,7 +241,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
         // checks that we were able to find a valid state to request.
         assumeTrue(nextState != INVALID_DEVICE_STATE);
 
-        activity.requestDeviceStateChange(nextState);
+        runWithControlDeviceStatePermission(() -> activity.requestDeviceStateChange(nextState));
 
         PollingCheck.waitFor(TIMEOUT, () -> callback.mCurrentState == nextState);
 
@@ -223,6 +255,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * Tests that calling {@link DeviceStateManager#requestState} is unsuccessful and results in a
      * failure to update the state of the device as expected since the activity is backgrounded.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestState"})
     @Test
     public void testRequestStateFailsAsBackgroundApp() throws IllegalArgumentException {
         final DeviceStateManager manager = getDeviceStateManager();
@@ -268,8 +301,9 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * Tests that calling {@link DeviceStateManager#cancelStateRequest} is successful and results
      * in a registered callback being triggered with a value equal to the base state.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#cancelStateRequest"})
     @Test
-    public void testCancelStateRequestFromNewActivity() throws IllegalArgumentException {
+    public void testCancelStateRequestFromNewActivity() throws Throwable {
         final DeviceStateManager manager = getDeviceStateManager();
         final int[] supportedStates = manager.getSupportedStates();
         // We want to verify that the app can change device state
@@ -292,7 +326,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
                 DEFAULT_DISPLAY
         );
 
-        DeviceStateTestActivity activity = activitySession.getActivity();
+        final DeviceStateTestActivity activity = activitySession.getActivity();
 
         int originalState = callback.mCurrentState;
 
@@ -303,7 +337,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
         // checks that we were able to find a valid state to request.
         assumeTrue(nextState != INVALID_DEVICE_STATE);
 
-        activity.requestDeviceStateChange(nextState);
+        runWithControlDeviceStatePermission(() -> activity.requestDeviceStateChange(nextState));
 
         PollingCheck.waitFor(TIMEOUT, () -> callback.mCurrentState == nextState);
 
@@ -322,8 +356,8 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
         // and launching the second activity.
         assertEquals(nextState, callback.mCurrentState);
 
-        activity = secondActivitySession.getActivity();
-        activity.cancelOverriddenState();
+        final DeviceStateTestActivity activity2 = secondActivitySession.getActivity();
+        activity2.cancelOverriddenState();
 
         PollingCheck.waitFor(TIMEOUT, () -> callback.mCurrentState == originalState);
 
@@ -445,6 +479,7 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * {@link android.Manifest.permission.CONTROL_DEVICE_STATE} permission held.
      */
     @Test(expected = SecurityException.class)
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#requestState"})
     public void testRequestStateWithoutPermission() {
         final DeviceStateManager manager = getDeviceStateManager();
         final int[] states = manager.getSupportedStates();
@@ -457,20 +492,20 @@ public class DeviceStateManagerTests extends DeviceStateManagerTestBase {
      * {@link java.lang.SecurityException} without the
      * {@link android.Manifest.permission.CONTROL_DEVICE_STATE} permission held.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#cancelStateRequest"})
     @Test(expected = SecurityException.class)
     public void testCancelOverrideRequestWithoutPermission() throws Throwable {
         final DeviceStateManager manager = getDeviceStateManager();
         final int[] states = manager.getSupportedStates();
         final DeviceStateRequest request = DeviceStateRequest.newBuilder(states[0]).build();
-        runWithRequestActive(request, () -> {
-            manager.cancelStateRequest();
-        });
+        runWithRequestActive(request, false, manager::cancelStateRequest);
     }
 
     /**
      * Tests that callbacks added with {@link DeviceStateManager#registerDeviceStateCallback()} are
      * supplied with an initial callback that contains the state at the time of registration.
      */
+    @ApiTest(apis = {"android.hardware.devicestate.DeviceStateManager#registerCallback"})
     @Test
     public void testRegisterCallbackSuppliesInitialValue() throws InterruptedException {
         final ArgumentCaptor<int[]> intArrayAgumentCaptor = ArgumentCaptor.forClass(int[].class);

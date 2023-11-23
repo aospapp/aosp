@@ -21,11 +21,16 @@ import android.os.NewUserResponse;
 import android.os.UserHandle;
 import android.os.UserManager;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 
 public final class NewUserResponseTest {
 
     @Test
+    @ApiTest(apis = {"android.os.NewUserResponse#isSuccessful",
+            "android.os.NewUserResponse#getUser",
+            "android.os.NewUserResponse#getOperationResult"})
     public void testNewUserResponseSuccessful() {
         UserHandle userHandle = UserHandle.of(100);
 
@@ -35,9 +40,15 @@ public final class NewUserResponseTest {
         assertThat(response.isSuccessful()).isTrue();
         assertThat(response.getUser()).isEqualTo(userHandle);
         assertThat(response.getOperationResult()).isEqualTo(UserManager.USER_OPERATION_SUCCESS);
+        assertThat(response.toString()).isEqualTo(
+                "NewUserResponse{mUser=UserHandle{100}, mOperationResult="
+                        + UserManager.USER_OPERATION_SUCCESS + '}');
     }
 
     @Test
+    @ApiTest(apis = {"android.os.NewUserResponse#isSuccessful",
+            "android.os.NewUserResponse#getUser",
+            "android.os.NewUserResponse#getOperationResult"})
     public void testNewUserResponseUnsuccessful() {
         NewUserResponse response = new NewUserResponse(/* user= */ null,
                 UserManager.USER_OPERATION_ERROR_UNKNOWN);
@@ -46,5 +57,7 @@ public final class NewUserResponseTest {
         assertThat(response.getUser()).isNull();
         assertThat(response.getOperationResult())
                 .isEqualTo(UserManager.USER_OPERATION_ERROR_UNKNOWN);
+        assertThat(response.toString()).isEqualTo("NewUserResponse{mUser=null, mOperationResult="
+                + UserManager.USER_OPERATION_ERROR_UNKNOWN + '}');
     }
 }

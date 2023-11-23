@@ -26,7 +26,7 @@ from acloud.internal.lib import utils
 
 logger = logging.getLogger(__name__)
 
-_SSH_CMD = ("-i %(rsa_key_file)s -o LogLevel=ERROR "
+_SSH_CMD = ("-i %(rsa_key_file)s -o LogLevel=ERROR -o ControlPath=none "
             "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no")
 _SSH_IDENTITY = "-l %(login_user)s %(ip_addr)s"
 _SSH_CMD_MAX_RETRY = 5
@@ -94,7 +94,7 @@ def _SshCall(cmd, timeout=None):
     return process.returncode
 
 
-def _SshLogOutput(cmd, timeout=None, show_output=False):
+def _SshLogOutput(cmd, timeout=None, show_output=False, hide_error_msg=False):
     """Runs a single SSH command while logging its output and processes its return code.
 
     Output is streamed to the log at the debug level for more interactive debugging.
@@ -106,6 +106,7 @@ def _SshLogOutput(cmd, timeout=None, show_output=False):
         cmd: String of the full SSH command to run, including the SSH binary and its arguments.
         timeout: Optional integer, number of seconds to give.
         show_output: Boolean, True to show command output in screen.
+        hide_error_msg: Boolean, True to hide error message.
 
     Raises:
         errors.DeviceConnectionError: Failed to connect to the GCE instance.
@@ -125,7 +126,7 @@ def _SshLogOutput(cmd, timeout=None, show_output=False):
         timer.start()
     stdout, _ = process.communicate()
     if stdout:
-        if show_output or process.returncode != 0:
+        if (show_output or process.returncode != 0) and not hide_error_msg:
             print(stdout.strip(), file=sys.stderr)
         else:
             # fetch_cvd and launch_cvd can be noisy, so left at debug
@@ -133,12 +134,11 @@ def _SshLogOutput(cmd, timeout=None, show_output=False):
     if timeout:
         timer.cancel()
     if process.returncode == 255:
-        raise errors.DeviceConnectionError(
-            "Failed to send command to instance (%(ssh_cmd)s)\n"
-            "Error message: %(error_message)s" % {
-                "ssh_cmd": cmd,
-                "error_message": _GetErrorMessage(stdout)}
-        )
+        error_msg = (f"Failed to send command to instance {cmd}\n"
+                     f"Error message: {_GetErrorMessage(stdout)}")
+        if constants.ERROR_MSG_SSO_INVALID in stdout:
+            raise errors.SshConnectFail(error_msg)
+        raise errors.DeviceConnectionError(error_msg)
     if process.returncode != 0:
         if constants.ERROR_MSG_VNC_NOT_SUPPORT in stdout:
             raise errors.LaunchCVDFail(constants.ERROR_MSG_VNC_NOT_SUPPORT)
@@ -239,13 +239,22 @@ class Ssh():
         _user: String of user login into the instance.
         _ssh_private_key_path: Path to the private key file.
         _extra_args_ssh_tunnel: String, extra args for ssh or scp.
+        _report_internal_ip: Boolean, True to use internal ip.
+        _gce_hostname: String, the hostname for ssh connect.
     """
     def __init__(self, ip, user, ssh_private_key_path,
-                 extra_args_ssh_tunnel=None, report_internal_ip=False):
+                 extra_args_ssh_tunnel=None, report_internal_ip=False,
+                 gce_hostname=None):
         self._ip = ip.internal if report_internal_ip else ip.external
         self._user = user
         self._ssh_private_key_path = ssh_private_key_path
         self._extra_args_ssh_tunnel = extra_args_ssh_tunnel
+        if gce_hostname:
+            self._ip = gce_hostname
+            self._extra_args_ssh_tunnel = None
+            logger.debug(
+                "To connect with hostname, erase the extra_args_ssh_tunnel: %s",
+                extra_args_ssh_tunnel)
 
     def Run(self, target_command, timeout=None, show_output=False,
             retry=_SSH_CMD_MAX_RETRY):
@@ -330,11 +339,11 @@ class Ssh():
         """
         remote_cmd = [self.GetBaseCmd(constants.SSH_BIN)]
         remote_cmd.append("uptime")
-
-        if _SshCallWait(" ".join(remote_cmd), timeout) == 0:
-            return
-        raise errors.DeviceConnectionError(
-            "Ssh isn't ready in the remote instance.")
+        try:
+            _SshLogOutput(" ".join(remote_cmd), timeout, hide_error_msg=True)
+        except subprocess.CalledProcessError as e:
+            raise errors.DeviceConnectionError(
+                "Ssh isn't ready in the remote instance.") from e
 
     @utils.TimeExecute(function_description="Waiting for SSH server")
     def WaitForSsh(self, timeout=None, max_retry=_SSH_CMD_MAX_RETRY):

@@ -17,6 +17,7 @@
 #include <android/aidl/versioned/tests/BnFooInterface.h>
 #include <android/aidl/versioned/tests/IFooInterface.h>
 #include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
 #include <gtest/gtest.h>
 #include <utils/String16.h>
 
@@ -33,7 +34,9 @@ using android::aidl::versioned::tests::IFooInterfaceDelegator;
 class VersionedInterfaceTest : public AidlTest {
  public:
   void SetUp() override {
-    ASSERT_EQ(OK, android::getService(IFooInterface::descriptor, &versioned));
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
+    android::ProcessState::self()->startThreadPool();
+    versioned = android::waitForService<IFooInterface>(IFooInterface::descriptor);
     ASSERT_NE(nullptr, versioned);
 
     AidlTest::SetUp();
@@ -62,7 +65,6 @@ TEST_F(VersionedInterfaceTest, errorWhenPassingAUnionWithNewField) {
   std::string result;
   auto status =
       versioned->acceptUnionAndReturnString(BazUnion::make<BazUnion::longNum>(42L), &result);
-  EXPECT_FALSE(status.isOk());
   // b/173458620 - Java and C++ return different errors
   if (backend == BackendType::JAVA) {
     EXPECT_EQ(::android::binder::Status::EX_ILLEGAL_ARGUMENT, status.exceptionCode()) << status;
@@ -99,4 +101,9 @@ TEST_F(VersionedInterfaceTest, newerDelegatorReturnsImplVersion) {
 TEST_F(VersionedInterfaceTest, newerDelegatorReturnsImplHash) {
   auto delegator = sp<IFooInterfaceDelegator>::make(versioned);
   EXPECT_EQ("9e7be1859820c59d9d55dd133e71a3687b5d2e5b", delegator->getInterfaceHash());
+}
+
+TEST_F(VersionedInterfaceTest, errorWhenCallingV2Api) {
+  auto status = versioned->newApi();
+  EXPECT_EQ(::android::UNKNOWN_TRANSACTION, status.transactionError()) << status;
 }

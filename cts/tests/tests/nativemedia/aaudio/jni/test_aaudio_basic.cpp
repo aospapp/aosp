@@ -31,8 +31,8 @@ enum {
     PARAM_DIRECTION,
 };
 
-class TestAAudioBasic : public ::testing::Test,
-                         public ::testing::WithParamInterface<TestAAudioBasicParams> {
+class TestAAudioBasic : public AAudioCtsBase,
+                        public ::testing::WithParamInterface<TestAAudioBasicParams> {
 
 protected:
     static void testConfiguration(aaudio_performance_mode_t perfMode,

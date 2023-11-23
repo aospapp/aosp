@@ -3,7 +3,7 @@ Current folder comprises of files necessary for testing media extractor, media m
 
 The aim of these tests is not solely to verify the CDD requirements but also to test components, their plugins and their interactions with media framework.
 
-The test vectors used by the test suite is available at [link](https://storage.googleapis.com/android_media/cts/tests/media/CtsMediaV2TestCases-2.4.zip) and is downloaded automatically while running tests. Manual installation of these can be done using copy_media.sh script in this directory.
+The test vectors used by the test suite is available at [link](https://dl.google.com/android/xts/cts/tests/media/CtsMediaV2TestCases-3.4.zip) and is downloaded automatically while running tests. Manual installation of these can be done using copy_media.sh script in this directory.
 
 All Big Buck Bunny(bbb) test vectors are of 8-bit format. They are downloaded from [link](https://peach.blender.org/download/) and resampled according to the test requirements.
 All Cosmos Laundromat(cosmat) test vectors are of 10-bit format. They are downloaded from [link](https://media.xiph.org/) and resampled according to the test requirements.
@@ -37,12 +37,12 @@ atest CtsMediaV2TestCases -- --module-arg CtsMediaV2TestCases:instrumentation-ar
 ```
 
 #### Select codecs by type
-To select codecs by type, *mime-sel* can be passed to media codec tests to select one or more codecs.
+To select codecs by type, *media-type-sel* can be passed to media codec tests to select one or more codecs.
 
 Example: To limit media codec decoder tests to mp3 and vorbis decoder
 
 ```sh
-atest android.mediav2.cts.CodecDecoderTest -- --module-arg  CtsMediaV2TestCases:instrumentation-arg:mime-sel:=mp3,vorbis
+atest android.mediav2.cts.CodecDecoderTest -- --module-arg  CtsMediaV2TestCases:instrumentation-arg:media-type-sel:=mp3,vorbis
 ```
 
 #### Select extractors by type

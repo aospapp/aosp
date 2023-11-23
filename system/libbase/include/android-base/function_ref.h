@@ -87,40 +87,47 @@ class function_ref<Ret(Args...)> final {
   constexpr function_ref(const function_ref& other) noexcept = default;
   constexpr function_ref& operator=(const function_ref&) noexcept = default;
 
-  template <class Callable, class = std::enable_if_t<
-                                std::is_invocable_r<Ret, Callable, Args...>::value &&
-                                !std::is_same_v<function_ref, std::remove_reference_t<Callable>>>>
-  function_ref(Callable&& c) noexcept
-      : mTypeErasedFunction([](const function_ref* self, Args... args) -> Ret {
-          // Generate a lambda that remembers the type of the passed
-          // |Callable|.
-          return (*reinterpret_cast<std::remove_reference_t<Callable>*>(self->mCallable))(
-              std::forward<Args>(args)...);
-        }),
-        mCallable(reinterpret_cast<intptr_t>(&c)) {}
+  using RawFunc = Ret(Args...);
+
+  function_ref(RawFunc* funcptr) noexcept { *this = funcptr; }
 
   template <class Callable, class = std::enable_if_t<
-                                std::is_invocable_r<Ret, Callable, Args...>::value &&
+                                std::is_invocable_r_v<Ret, Callable, Args...> &&
+                                !std::is_same_v<function_ref, std::remove_reference_t<Callable>>>>
+  function_ref(Callable&& c) noexcept {
+    *this = std::forward<Callable>(c);
+  }
+
+  function_ref& operator=(RawFunc* funcptr) noexcept {
+    mTypeErasedFunction = [](uintptr_t funcptr, Args... args) -> Ret {
+      return (reinterpret_cast<RawFunc*>(funcptr))(std::forward<Args>(args)...);
+    };
+    mCallable = reinterpret_cast<uintptr_t>(funcptr);
+    return *this;
+  }
+
+  template <class Callable, class = std::enable_if_t<
+                                std::is_invocable_r_v<Ret, Callable, Args...> &&
                                 !std::is_same_v<function_ref, std::remove_reference_t<Callable>>>>
   function_ref& operator=(Callable&& c) noexcept {
-    mTypeErasedFunction = [](const function_ref* self, Args... args) -> Ret {
+    mTypeErasedFunction = [](uintptr_t callable, Args... args) -> Ret {
       // Generate a lambda that remembers the type of the passed
       // |Callable|.
-      return (*reinterpret_cast<std::remove_reference_t<Callable>*>(self->mCallable))(
+      return (*reinterpret_cast<std::remove_reference_t<Callable>*>(callable))(
           std::forward<Args>(args)...);
     };
-    mCallable = reinterpret_cast<intptr_t>(&c);
+    mCallable = reinterpret_cast<uintptr_t>(&c);
     return *this;
   }
 
   Ret operator()(Args... args) const {
-    return mTypeErasedFunction(this, std::forward<Args>(args)...);
+    return mTypeErasedFunction(mCallable, std::forward<Args>(args)...);
   }
 
  private:
-  using TypeErasedFunc = Ret(const function_ref*, Args...);
+  using TypeErasedFunc = Ret(uintptr_t, Args...);
   TypeErasedFunc* mTypeErasedFunction;
-  intptr_t mCallable;
+  uintptr_t mCallable;
 };
 
 }  // namespace android::base

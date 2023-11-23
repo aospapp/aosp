@@ -188,6 +188,8 @@ class AppHelper {
     return "arm64-v8a";
 #elif defined(__arm__)
     return "armeabi-v7a";
+#elif defined(__riscv)
+    return "riscv64";
 #else
 #error "unrecognized ABI"
 #endif

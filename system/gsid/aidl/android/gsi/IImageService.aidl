@@ -130,7 +130,12 @@ interface IImageService {
     void removeAllImages();
 
     /**
-     * Remove all images that were marked as disabled in recovery.
+     * Mark an image as disabled.
+     */
+    void disableImage(@utf8InCpp String name);
+
+    /**
+     * Remove all images that were marked as disabled.
      */
     void removeDisabledImages();
 

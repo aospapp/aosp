@@ -57,12 +57,12 @@ const ElementType &FixedSizeVector<ElementType, kCapacity>::front() const {
 
 template <typename ElementType, size_t kCapacity>
 ElementType *FixedSizeVector<ElementType, kCapacity>::data() {
-  return reinterpret_cast<ElementType *>(mData);
+  return mData.data();
 }
 
 template <typename ElementType, size_t kCapacity>
 const ElementType *FixedSizeVector<ElementType, kCapacity>::data() const {
-  return reinterpret_cast<const ElementType *>(mData);
+  return mData.data();
 }
 
 template <typename ElementType, size_t kCapacity>
@@ -91,6 +91,14 @@ void FixedSizeVector<ElementType, kCapacity>::push_back(
   CHRE_ASSERT(!full());
   if (!full()) {
     new (&data()[mSize++]) ElementType(element);
+  }
+}
+
+template <typename ElementType, size_t kCapacity>
+void FixedSizeVector<ElementType, kCapacity>::push_back(ElementType &&element) {
+  CHRE_ASSERT(!full());
+  if (!full()) {
+    new (&data()[mSize++]) ElementType(std::move(element));
   }
 }
 

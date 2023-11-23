@@ -57,6 +57,20 @@ bool IsScanTypeSupported(int scan_type, const WiphyFeatures& wiphy_features) {
   return {};
 }
 
+int convertStdErrNumToScanStatus(int errNum) {
+    switch(errNum) {
+    case EINVAL:
+      return IWifiScannerImpl::SCAN_STATUS_FAILED_INVALID_ARGS;
+    case EBUSY:
+      return IWifiScannerImpl::SCAN_STATUS_FAILED_BUSY;
+    case ENODEV:
+      return IWifiScannerImpl::SCAN_STATUS_FAILED_NODEV;
+    default:
+      return IWifiScannerImpl::SCAN_STATUS_FAILED_GENERIC;
+  }
+  return {};
+}
+
 constexpr const int kPercentNetworksWithFreq = 30;
 constexpr const int32_t kPnoScanDefaultFreqs2G[] = {2412, 2417, 2422, 2427, 2432, 2437, 2447, 2452,
     2457, 2462};
@@ -143,10 +157,10 @@ Status ScannerImpl::getMaxSsidsPerScan(int32_t* out_max_ssids_per_scan) {
   return Status::ok();
 }
 
-Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
-                         bool* out_success) {
+Status ScannerImpl::scanRequest(const SingleScanSettings& scan_settings,
+                         int* status) {
   if (!CheckIsValid()) {
-    *out_success = false;
+    *status = IWifiScannerImpl::SCAN_STATUS_FAILED_GENERIC;
     return Status::ok();
   }
 
@@ -190,19 +204,33 @@ Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
 
   int error_code = 0;
   if (!scan_utils_->Scan(interface_index_, request_random_mac, scan_type,
-                         scan_settings.enable_6ghz_rnr_, ssids, freqs, &error_code)) {
+                         scan_settings.enable_6ghz_rnr_, ssids, freqs,
+                         scan_settings.vendor_ies_, &error_code)) {
     if (error_code == ENODEV) {
         nodev_counter_ ++;
         LOG(WARNING) << "Scan failed with error=nodev. counter=" << nodev_counter_;
     }
     CHECK(error_code != ENODEV || nodev_counter_ <= 3)
         << "Driver is in a bad state, restarting wificond";
-    *out_success = false;
+    *status = convertStdErrNumToScanStatus(error_code);
     return Status::ok();
   }
   nodev_counter_ = 0;
   scan_started_ = true;
-  *out_success = true;
+  *status = IWifiScannerImpl::SCAN_STATUS_SUCCESS;
+  return Status::ok();
+
+}
+Status ScannerImpl::scan(const SingleScanSettings& scan_settings,
+                         bool* out_success) {
+
+  int status = 0;
+  scanRequest(scan_settings, &status);
+  if (status == IWifiScannerImpl::SCAN_STATUS_SUCCESS) {
+    *out_success = true;
+  } else {
+    *out_success = false;
+  }
   return Status::ok();
 }
 
@@ -437,7 +465,7 @@ void ScannerImpl::OnScanResultsReady(uint32_t interface_index, bool aborted,
     // TODO: Pass other parameters back once we find framework needs them.
     if (aborted) {
       LOG(WARNING) << "Scan aborted";
-      scan_event_handler_->OnScanFailed();
+      scan_event_handler_->OnScanRequestFailed(IWifiScannerImpl::SCAN_STATUS_FAILED_ABORT);
     } else {
       scan_event_handler_->OnScanResultReady();
     }
@@ -471,18 +499,18 @@ SchedScanIntervalSetting ScannerImpl::GenerateIntervalSetting(
   bool support_num_scan_plans = scan_capabilities_.max_num_scan_plans >= 2;
   bool support_scan_plan_interval =
       scan_capabilities_.max_scan_plan_interval * 1000 >=
-          pno_settings.interval_ms_ * PnoSettings::kSlowScanIntervalMultiplier;
+          pno_settings.interval_ms_ * pno_settings.scan_interval_multiplier_;
   bool support_scan_plan_iterations =
       scan_capabilities_.max_scan_plan_iterations >=
-                  PnoSettings::kFastScanIterations;
+                  pno_settings.scan_iterations_;
 
   uint32_t fast_scan_interval =
       static_cast<uint32_t>(pno_settings.interval_ms_);
   if (support_num_scan_plans && support_scan_plan_interval &&
       support_scan_plan_iterations) {
     return SchedScanIntervalSetting{
-        {{fast_scan_interval, PnoSettings::kFastScanIterations}},
-        fast_scan_interval * PnoSettings::kSlowScanIntervalMultiplier};
+        {{fast_scan_interval, pno_settings.scan_iterations_}},
+        fast_scan_interval * pno_settings.scan_interval_multiplier_};
   } else {
     // Device doesn't support the provided scan plans.
     // Specify single interval instead.

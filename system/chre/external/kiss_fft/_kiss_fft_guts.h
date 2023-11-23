@@ -42,17 +42,18 @@ struct kiss_fft_state{
    C_ADDTO( res , a)    : res += a
  * */
 #ifdef FIXED_POINT
+#include <stdint.h>
 #if (FIXED_POINT==32)
 # define FRACBITS 31
 # define SAMPPROD int64_t
-#define SAMP_MAX 2147483647
+#define SAMP_MAX INT32_MAX
+#define SAMP_MIN INT32_MIN
 #else
 # define FRACBITS 15
-# define SAMPPROD int32_t 
-#define SAMP_MAX 32767
+# define SAMPPROD int32_t
+#define SAMP_MAX INT16_MAX
+#define SAMP_MIN INT16_MIN
 #endif
-
-#define SAMP_MIN -SAMP_MAX
 
 #if defined(CHECK_OVERFLOW)
 #ifdef CHRE_KISS_FFT_CAN_USE_STDIO

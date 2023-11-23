@@ -28,7 +28,7 @@ from aidegen.lib import project_info
 
 
 # pylint: disable=protected-access
-# pylint: disable=invalid-name
+# pylint: disable=too-many-arguments
 class AidegenNativeUtilUnittests(unittest.TestCase):
     """Unit tests for native_util.py"""
 
@@ -127,7 +127,6 @@ class AidegenNativeUtilUnittests(unittest.TestCase):
             cc_mod_info, targets)
         result = (new_parent, new_targets)
         self.assertEqual(result, expected)
-
 
     def test_filter_out_modules(self):
         """Test _filter_out_modules with conditions."""

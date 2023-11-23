@@ -25,12 +25,12 @@ import android.content.pm.ApplicationInfo;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class AppComponentFactoryTest {
@@ -45,6 +45,7 @@ public class AppComponentFactoryTest {
         InputStream is = AppComponentFactoryTest.class.getClassLoader().getResourceAsStream(
                 SECONDARY_APK_RESOURCE);
         FileOutputStream os = new FileOutputStream(outFile);
+        outFile.setReadOnly();
         final byte[] buffer = new byte[4096];
         int n;
         while ((n = is.read(buffer)) >= 0) {

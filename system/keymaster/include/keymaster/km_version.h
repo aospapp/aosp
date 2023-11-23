@@ -32,6 +32,7 @@ enum class KmVersion {
     KEYMASTER_4_1 = 41,
     KEYMINT_1 = 100,
     KEYMINT_2 = 200,
+    KEYMINT_3 = 300,
 };
 
 };  // namespace keymaster

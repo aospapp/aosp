@@ -30,6 +30,8 @@ java_test_helper_library {
         "androidx.annotation_annotation",
         "androidx.autofill_autofill",
         "compatibility-device-util-axt",
+        "cts_window_jetpack_utils",
+        "cts_window-extensions",
     ],
 }
 
@@ -39,7 +41,7 @@ android_test_helper_app {
     optimize: {
         enabled: false,
     },
-    sdk_version: "current",
+    sdk_version: "test_current",
     min_sdk_version: "19",
     // tag this module as a cts test artifact
     test_suites: [

@@ -19,6 +19,7 @@
 
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <application android:label="CTS Alarm Test Helper"
                  android:debuggable="true">
@@ -42,7 +43,10 @@
         <receiver android:name="android.alarmmanager.alarmtestapp.cts.common.RequestReceiver"
                   android:exported="true"/>
         <service android:name="android.alarmmanager.alarmtestapp.cts.common.TestService"
-                 android:exported="false" />
+                 android:foregroundServiceType="specialUse"
+                 android:exported="false" >
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
+        </service>
     </application>
 
 </manifest>

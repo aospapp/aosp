@@ -29,6 +29,9 @@ android_test {
         "guava",
         "mockito-target",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt"
+    ],
     test_suites: ["device-tests"],
 }

@@ -40,6 +40,7 @@
 #include <vintf/fcm_exclude.h>
 #include <vintf/parse_string.h>
 #include <vintf/parse_xml.h>
+#include "constants-private.h"
 #include "utils.h"
 
 using android::kver::KernelRelease;
@@ -134,6 +135,8 @@ struct StaticRuntimeInfo : public RuntimeInfo {
         }
         return OK;
     }
+
+    void setIsMainline(bool value) { mIsMainline = value; }
 };
 
 struct StubRuntimeInfo : public RuntimeInfo {
@@ -236,6 +239,8 @@ bool parseKernelVersionOrRelease(const std::string& s, StaticRuntimeInfo* ret) {
     // 5.4.42
     if (parse(s, &ret->kernelVersion)) {
         ret->kernelLevel = Level::UNSPECIFIED;
+        ret->setIsMainline(false);
+        LOG(INFO) << "\"" << s << "\" is not a mainline kernel.";
         return true;
     }
     LOG(INFO) << "Cannot parse \"" << s << "\" as kernel version, parsing as GKI kernel release.";
@@ -246,6 +251,8 @@ bool parseKernelVersionOrRelease(const std::string& s, StaticRuntimeInfo* ret) {
         ret->kernelVersion = KernelVersion{kernelRelease->version(), kernelRelease->patch_level(),
                                            kernelRelease->sub_level()};
         ret->kernelLevel = RuntimeInfo::gkiAndroidReleaseToLevel(kernelRelease->android_release());
+        ret->setIsMainline(false);
+        LOG(INFO) << "\"" << s << "\" is not a mainline kernel.";
         return true;
     }
     LOG(INFO) << "Cannot parse \"" << s << "\" as GKI kernel release, parsing as kernel release";
@@ -255,6 +262,11 @@ bool parseKernelVersionOrRelease(const std::string& s, StaticRuntimeInfo* ret) {
     // substr handles pos == npos case
     if (parse(s.substr(0, pos), &ret->kernelVersion)) {
         ret->kernelLevel = Level::UNSPECIFIED;
+
+        bool isMainline = RuntimeInfo::kernelReleaseIsMainline(s);
+        ret->setIsMainline(isMainline);
+        LOG(INFO) << "\"" << s << "\" is" << (isMainline ? "" : " not") << " a mainline kernel.";
+
         return true;
     }
 
@@ -429,6 +441,7 @@ static constexpr const char* gCheckMissingHalsSuggestion{
 
 android::base::Result<void> checkAllFiles(const Dirmap& dirmap, const Properties& props,
                                           std::shared_ptr<StaticRuntimeInfo> runtimeInfo) {
+    auto hostFileSystem = std::make_unique<HostFileSystem>(dirmap, UNKNOWN_ERROR);
     auto hostPropertyFetcher = std::make_unique<PresetPropertyFetcher>();
     hostPropertyFetcher->setProperties(props);
 
@@ -437,7 +450,7 @@ android::base::Result<void> checkAllFiles(const Dirmap& dirmap, const Properties
 
     auto vintfObject =
         VintfObject::Builder()
-            .setFileSystem(std::make_unique<HostFileSystem>(dirmap, UNKNOWN_ERROR))
+            .setFileSystem(std::move(hostFileSystem))
             .setPropertyFetcher(std::move(hostPropertyFetcher))
             .setRuntimeInfoFactory(std::make_unique<StaticRuntimeInfoFactory>(runtimeInfo))
             .build();
@@ -488,68 +501,72 @@ android::base::Result<void> checkAllFiles(const Dirmap& dirmap, const Properties
     }
 }
 
-int checkDirmaps(const Dirmap& dirmap, const Properties& props) {
+// Checks consistency of VINTF metadata for a single partition.
+// For now it supports either /system or /vendor.
+int checkOne(const Dirmap& dirmap, const Properties& props) {
+    if (dirmap.count("/system") + dirmap.count("/vendor") != 1) {
+        LOG(ERROR) << "ERROR: --check-one requires either --dirmap /system or --dirmap /vendor";
+        return EX_SOFTWARE;
+    }
+
+    auto hostFileSystem = std::make_unique<HostFileSystem>(dirmap, NAME_NOT_FOUND);
     auto hostPropertyFetcher = std::make_unique<PresetPropertyFetcher>();
     hostPropertyFetcher->setProperties(props);
-    auto exitCode = EX_OK;
-    for (auto&& [prefix, mappedPath] : dirmap) {
-        auto vintfObject =
-            VintfObject::Builder()
-                .setFileSystem(std::make_unique<HostFileSystem>(dirmap, NAME_NOT_FOUND))
-                .setPropertyFetcher(std::move(hostPropertyFetcher))
-                .setRuntimeInfoFactory(std::make_unique<StaticRuntimeInfoFactory>(nullptr))
-                .build();
 
-        if (android::base::StartsWith(prefix, "/system")) {
-            LOG(INFO) << "Checking system manifest.";
-            auto manifest = vintfObject->getFrameworkHalManifest();
-            if (!manifest) {
-                LOG(ERROR) << "ERROR: Cannot fetch system manifest.";
-                exitCode = EX_SOFTWARE;
-            }
-            LOG(INFO) << "Checking system matrix.";
-            auto matrix = vintfObject->getFrameworkCompatibilityMatrix();
-            if (!matrix) {
-                LOG(ERROR) << "ERROR: Cannot fetch system matrix.";
-                exitCode = EX_SOFTWARE;
-            }
-            auto res = vintfObject->checkMissingHalsInMatrices(HidlInterfaceMetadata::all(),
-                                                               AidlInterfaceMetadata::all(),
-                                                               ShouldCheckMissingHalsInFcm);
-            if (!res.ok()) {
-                LOG(ERROR) << "ERROR: " << res.error() << gCheckMissingHalsSuggestion;
-                exitCode = EX_SOFTWARE;
-            }
+    auto vintfObject =
+        VintfObject::Builder()
+            .setFileSystem(std::move(hostFileSystem))
+            .setPropertyFetcher(std::move(hostPropertyFetcher))
+            .setRuntimeInfoFactory(std::make_unique<StaticRuntimeInfoFactory>(nullptr))
+            .build();
 
-            res = vintfObject->checkMatrixHalsHasDefinition(HidlInterfaceMetadata::all(),
-                                                            AidlInterfaceMetadata::all());
-            if (!res.ok()) {
-                LOG(ERROR) << "ERROR: " << res.error();
-                exitCode = EX_SOFTWARE;
-            }
-            continue;
+    if (dirmap.count("/system")) {
+        LOG(INFO) << "Checking system manifest.";
+        auto manifest = vintfObject->getFrameworkHalManifest();
+        if (!manifest) {
+            LOG(ERROR) << "ERROR: Cannot fetch system manifest.";
+            return EX_SOFTWARE;
+        }
+        LOG(INFO) << "Checking system matrix.";
+        auto matrix = vintfObject->getFrameworkCompatibilityMatrix();
+        if (!matrix) {
+            LOG(ERROR) << "ERROR: Cannot fetch system matrix.";
+            return EX_SOFTWARE;
+        }
+        auto res = vintfObject->checkMissingHalsInMatrices(HidlInterfaceMetadata::all(),
+                                                           AidlInterfaceMetadata::all(),
+                                                           ShouldCheckMissingHalsInFcm);
+        if (!res.ok()) {
+            LOG(ERROR) << "ERROR: " << res.error() << gCheckMissingHalsSuggestion;
+            return EX_SOFTWARE;
         }
 
-        if (android::base::StartsWith(prefix, "/vendor")) {
-            LOG(INFO) << "Checking vendor manifest.";
-            auto manifest = vintfObject->getDeviceHalManifest();
-            if (!manifest) {
-                LOG(ERROR) << "ERROR: Cannot fetch vendor manifest.";
-                exitCode = EX_SOFTWARE;
-            }
-            LOG(INFO) << "Checking vendor matrix.";
-            auto matrix = vintfObject->getDeviceCompatibilityMatrix();
-            if (!matrix) {
-                LOG(ERROR) << "ERROR: Cannot fetch vendor matrix.";
-                exitCode = EX_SOFTWARE;
-            }
-            continue;
+        res = vintfObject->checkMatrixHalsHasDefinition(HidlInterfaceMetadata::all(),
+                                                        AidlInterfaceMetadata::all());
+        if (!res.ok()) {
+            LOG(ERROR) << "ERROR: " << res.error();
+            return EX_SOFTWARE;
         }
-
-        LOG(ERROR) << "ERROR: --check-one does not work with --dirmap " << prefix;
-        exitCode = EX_SOFTWARE;
+        return EX_OK;
     }
-    return exitCode;
+
+    if (dirmap.count("/vendor")) {
+        LOG(INFO) << "Checking vendor manifest.";
+        auto manifest = vintfObject->getDeviceHalManifest();
+        if (!manifest) {
+            LOG(ERROR) << "ERROR: Cannot fetch vendor manifest.";
+            return EX_SOFTWARE;
+        }
+        LOG(INFO) << "Checking vendor matrix.";
+        auto matrix = vintfObject->getDeviceCompatibilityMatrix();
+        if (!matrix) {
+            LOG(ERROR) << "ERROR: Cannot fetch vendor matrix.";
+            return EX_SOFTWARE;
+        }
+        return EX_OK;
+    }
+
+    __builtin_unreachable();
 }
 
 void Logger(android::base::LogId, android::base::LogSeverity severity, const char* /*tag*/,
@@ -583,18 +600,19 @@ int main(int argc, char** argv) {
         return usage(argv[0]);
     }
 
+    auto dirmap = getDirmap(iterateValues(args, DIR_MAP));
+    auto properties = getProperties(iterateValues(args, PROPERTY));
     if (!iterateValues(args, DUMP_FILE_LIST).empty()) {
-        for (const auto& file : dumpFileList()) {
+        auto it = properties.find("ro.boot.product.hardware.sku");
+        const std::string sku = it == properties.end() ? "" : it->second;
+        for (const auto& file : dumpFileList(sku)) {
             std::cout << file << std::endl;
         }
         return 0;
     }
 
-    auto dirmap = getDirmap(iterateValues(args, DIR_MAP));
-    auto properties = getProperties(iterateValues(args, PROPERTY));
-
     if (!iterateValues(args, CHECK_ONE).empty()) {
-        return checkDirmaps(dirmap, properties);
+        return checkOne(dirmap, properties);
     }
 
     auto checkCompat = iterateValues(args, CHECK_COMPAT);

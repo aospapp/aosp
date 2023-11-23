@@ -30,14 +30,10 @@ extern struct exynos_hwc_control exynosHWCControl;
 
 using namespace SOC_VERSION;
 
-ExynosExternalDisplay::ExynosExternalDisplay(uint32_t index, ExynosDevice *device)
-    :   ExynosDisplay(index, device)
-{
+ExynosExternalDisplay::ExynosExternalDisplay(uint32_t index, ExynosDevice* device,
+                                             const std::string& displayName)
+      : ExynosDisplay(HWC_DISPLAY_EXTERNAL, index, device, displayName) {
     DISPLAY_LOGD(eDebugExternalDisplay, "");
-
-    mType = HWC_DISPLAY_EXTERNAL;
-    mIndex = index;
-    mDisplayId = getDisplayId(mType, mIndex);
 
     mDisplayControl.cursorSupport = true;
 
@@ -102,7 +98,8 @@ void ExynosExternalDisplay::closeExternalDisplay()
 
     setVsyncEnabledInternal(HWC2_VSYNC_DISABLE);
 
-    if (mPowerModeState != (hwc2_power_mode_t)HWC_POWER_MODE_OFF) {
+    if (mPowerModeState.has_value() &&
+        (*mPowerModeState != (hwc2_power_mode_t)HWC_POWER_MODE_OFF)) {
         if (mDisplayInterface->setPowerMode(HWC_POWER_MODE_OFF) < 0) {
             DISPLAY_LOGE("%s: set powermode ioctl failed errno : %d", __func__, errno);
             return;
@@ -276,7 +273,8 @@ int32_t ExynosExternalDisplay::canSkipValidate() {
         return SKIP_ERR_DISP_NOT_CONNECTED;
 
     if ((mSkipStartFrame > (SKIP_EXTERNAL_FRAME - 1)) && (mEnabled == false) &&
-        (mPowerModeState == (hwc2_power_mode_t)HWC_POWER_MODE_NORMAL))
+        (mPowerModeState.has_value() &&
+         (*mPowerModeState == (hwc2_power_mode_t)HWC_POWER_MODE_NORMAL)))
         return SKIP_ERR_DISP_NOT_POWER_ON;
 
     if (checkRotate() || (mIsSkipFrame) ||
@@ -309,7 +307,7 @@ int32_t ExynosExternalDisplay::presentDisplay(
             ret = HWC2_ERROR_NOT_VALIDATED;
         }
         mRenderingState = RENDERING_STATE_PRESENTED;
-        mDevice->onRefresh();
+        mDevice->onRefresh(mDisplayId);
         return ret;
     }
 
@@ -348,7 +346,7 @@ int32_t ExynosExternalDisplay::presentDisplay(
          */
         setGeometryChanged(GEOMETRY_DISPLAY_FORCE_VALIDATE);
 
-        mDevice->onRefresh();
+        mDevice->onRefresh(mDisplayId);
 
         return HWC2_ERROR_NONE;
     }
@@ -544,7 +542,7 @@ void ExynosExternalDisplay::handleHotplugEvent()
                 closeExternalDisplay();
             }
             hotplug();
-            mDevice->onRefresh();
+            mDevice->onRefresh(mDisplayId);
         }
     }
 

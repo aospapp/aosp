@@ -16,9 +16,9 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test_helper_app {
-    name: "CtsIntentResolutionTestApp",
-    defaults: ["cts_defaults"],
+java_defaults {
+    name: "intent_test_app_defaults",
+    srcs: ["src/**/*.java"],
     sdk_version: "current",
     // tag this module as a cts test artifact
     test_suites: [
@@ -28,17 +28,22 @@ android_test_helper_app {
     min_sdk_version: "29",
 }
 
+android_test_helper_app {
+    name: "CtsIntentResolutionTestApp",
+    defaults: [
+        "cts_defaults",
+        "intent_test_app_defaults",
+    ],
+    additional_manifests: ["provider.xml"],
+}
+
 // Same app but with lower target SDK version and different package_name
 android_test_helper_app {
     name: "CtsIntentResolutionTestAppApi30",
-    package_name: "android.content.cts.IntentResolutionTestApi30",
-    defaults: ["cts_defaults"],
-    sdk_version: "current",
-    target_sdk_version: "30",
-    // tag this module as a cts test artifact
-    test_suites: [
-        "cts",
-        "general-tests",
+    defaults: [
+        "cts_defaults",
+        "intent_test_app_defaults",
     ],
-    min_sdk_version: "29",
+    package_name: "android.content.cts.IntentResolutionTestApi30",
+    target_sdk_version: "30",
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2023 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,23 +16,58 @@
 
 package android.platform.helpers;
 
-import android.os.SystemClock;
 import android.app.Instrumentation;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
+import android.platform.helpers.exceptions.UnknownUiException;
+import android.platform.spectatio.exceptions.MissingUiElementException;
 
-public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements IAutoAppGridHelper {
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
 
-    private static final int UI_RESPONSE_WAIT_MS = 5000;
+/** Helper class for functional test for App Grid test */
+public class AppGridHelperImpl extends AbstractStandardAppHelper implements IAutoAppGridHelper {
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private ScrollDirection mScrollDirection;
 
     public AppGridHelperImpl(Instrumentation instr) {
         super(instr);
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(AutomotiveConfigConstants.APP_LIST_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_GRID_SCROLL_BACKWARD_BUTTON);
+        mForwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_GRID_SCROLL_FORWARD_BUTTON);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_LIST_SCROLL_ELEMENT);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(AutomotiveConfigConstants.APP_LIST_SCROLL_DIRECTION));
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.APP_GRID_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.APP_GRID_PACKAGE);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getLauncherName() {
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
     }
 
     /**
@@ -43,8 +78,10 @@ public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements 
     @Override
     public void open() {
         if (!isAppInForeground()) {
-            executeShellCommand(getApplicationConfig(AutoConfigConstants.OPEN_APP_GRID_COMMAND));
-            SystemClock.sleep(UI_RESPONSE_WAIT_MS);
+            getSpectatioUiUtil()
+                    .executeShellCommand(
+                            getCommandFromConfig(AutomotiveConfigConstants.OPEN_APP_GRID_COMMAND));
+            getSpectatioUiUtil().wait5Seconds();
         }
     }
 
@@ -55,12 +92,9 @@ public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements 
      */
     @Override
     public boolean isAppInForeground() {
-        return (findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.APP_GRID,
-                                AutoConfigConstants.APP_GRID_VIEW,
-                                AutoConfigConstants.APP_GRID_VIEW_ID))
-                != null);
+        BySelector appGridViewIdSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_GRID_VIEW_ID);
+        return getSpectatioUiUtil().hasUiElement(appGridViewIdSelector);
     }
 
     /**
@@ -71,59 +105,174 @@ public class AppGridHelperImpl extends AbstractAutoStandardAppHelper implements 
     @Override
     public void exit() {
         if (isAppInForeground()) {
-            mDevice.pressHome();
+            getSpectatioUiUtil().pressHome();
         }
     }
 
     @Override
     public void openApp(String appName) {
-        UiObject2 app = scrollAndFindUiObject(By.text(appName));
-        if (app != null) {
-            clickAndWaitForIdleScreen(app);
-        } else {
-            throw new IllegalStateException(String.format("App %s cannot be found", appName));
-        }
+        BySelector appNameSelector = By.text(appName);
+
+        UiObject2 app =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        appNameSelector,
+                        String.format("Scroll on app grid to find %s", appName));
+
+        validateUiObject(app, String.format("Given app %s", appName));
+        getSpectatioUiUtil().clickAndWait(app);
+        getSpectatioUiUtil().wait5Seconds();
     }
 
     /** {@inherticDoc} */
     @Override
-    public boolean isTop() {
-        if (isAppInForeground()) {
-            UiObject2 pageUp =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.APP_GRID,
-                                    AutoConfigConstants.APP_GRID_VIEW,
-                                    AutoConfigConstants.UP_BUTTON));
-            if (pageUp != null) {
-                return !pageUp.isEnabled();
-            } else {
-                // Number of apps fits in one page, at top by default
-                return true;
+    public boolean isAtBeginning() {
+        boolean isAtBeginning = false;
+        try {
+            if (isAppInForeground()) {
+                UiObject2 pageUp = getSpectatioUiUtil().findUiObject(mBackwardButtonSelector);
+                if (pageUp != null) {
+                    isAtBeginning = !pageUp.isEnabled();
+                } else {
+                    boolean isScrollable =
+                            getSpectatioUiUtil()
+                                    .findUiObject(mScrollableElementSelector)
+                                    .isScrollable();
+                    if (isScrollable) {
+                        isAtBeginning =
+                                !getSpectatioUiUtil()
+                                        .scrollBackward(
+                                                mScrollableElementSelector,
+                                                (mScrollDirection == ScrollDirection.VERTICAL));
+                        if (!isAtBeginning) {
+                            // To place the scroll in previous position
+                            getSpectatioUiUtil()
+                                    .scrollForward(
+                                            mScrollableElementSelector,
+                                            (mScrollDirection == ScrollDirection.VERTICAL));
+                        }
+                    } else {
+                        // Number of apps fits in one page, at top by default
+                        isAtBeginning = true;
+                    }
+                }
             }
-        } else {
+            return isAtBeginning;
+        } catch (MissingUiElementException ex) {
             throw new IllegalStateException("App grid is not open.");
         }
     }
 
     /** {@inherticDoc} */
     @Override
-    public boolean isBottom() {
-        if (isAppInForeground()) {
-            UiObject2 pageDown =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.APP_GRID,
-                                    AutoConfigConstants.APP_GRID_VIEW,
-                                    AutoConfigConstants.DOWN_BUTTON));
-            if (pageDown != null) {
-                return !pageDown.isEnabled();
-            } else {
-                // Number of apps fits in one page, at bottom by default
-                return true;
+    public boolean isAtEnd() {
+        boolean isAtEnd = false;
+        try {
+            if (isAppInForeground()) {
+                UiObject2 pageDown = getSpectatioUiUtil().findUiObject(mForwardButtonSelector);
+                if (pageDown != null) {
+                    isAtEnd = !pageDown.isEnabled();
+                } else {
+                    boolean isScrollable =
+                            getSpectatioUiUtil()
+                                    .findUiObject(mScrollableElementSelector)
+                                    .isScrollable();
+                    if (isScrollable) {
+                        isAtEnd =
+                                !getSpectatioUiUtil()
+                                        .scrollForward(
+                                                mScrollableElementSelector,
+                                                (mScrollDirection == ScrollDirection.VERTICAL));
+                        if (!isAtEnd) {
+                            // To place the scroll in previous position
+                            getSpectatioUiUtil()
+                                    .scrollBackward(
+                                            mScrollableElementSelector,
+                                            (mScrollDirection == ScrollDirection.VERTICAL));
+                        }
+                    } else {
+                        // Number of apps fits in one page, at top by default
+                        isAtEnd = true;
+                    }
+                }
             }
-        } else {
+            return isAtEnd;
+        } catch (MissingUiElementException ex) {
             throw new IllegalStateException("App grid is not open.");
+        }
+    }
+
+    @Override
+    public boolean scrollBackward() {
+        return mScrollUtility.scrollBackward(
+                mScrollAction,
+                mScrollDirection,
+                mBackwardButtonSelector,
+                mScrollableElementSelector,
+                String.format("Scroll backward on app grid"));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void scrollToBeginning() {
+        mScrollUtility.scrollToBeginning(
+                mScrollAction,
+                mScrollDirection,
+                mBackwardButtonSelector,
+                mScrollableElementSelector,
+                "Scroll to beginning of app grid");
+    }
+
+    @Override
+    public boolean scrollForward() {
+        return mScrollUtility.scrollForward(
+                mScrollAction,
+                mScrollDirection,
+                mForwardButtonSelector,
+                mScrollableElementSelector,
+                String.format("Scroll forward on app grid"));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getScreenBlockingMessage(String appName) {
+        BySelector screenBlockingSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.BLOCKING_SCREEN);
+        UiObject2 screenBlocking = getSpectatioUiUtil().findUiObject(screenBlockingSelector);
+        validateUiObject(
+                screenBlocking,
+                String.format("Screen Blocking message when opening %s app", appName));
+        BySelector screenBlockingMessageSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.BLOCKING_MESSAGE);
+        UiObject2 screenBlockingMessage =
+                getSpectatioUiUtil().findUiObject(screenBlockingMessageSelector);
+        validateUiObject(
+                screenBlockingMessage,
+                String.format("Screen Blocking message for %s app", appName));
+        return getSpectatioUiUtil().getTextForUiElement(screenBlockingMessage);
+    }
+
+    /** To verify if given package is in Foreground */
+    @Override
+    public boolean checkPackageInForeground(String packageName) {
+        String foregroundPackage = getPackageFromConfig(packageName);
+        return getSpectatioUiUtil().hasPackageInForeground(foregroundPackage);
+    }
+
+    @Override
+    public void goToHomePage() {
+        getSpectatioUiUtil().pressHome();
+        getSpectatioUiUtil().wait1Second();
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
         }
     }
 }

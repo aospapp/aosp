@@ -79,6 +79,7 @@ cc_binary_host {
 
 cc_binary {
     name: "fdt_apply_overlay",
+    host_supported: true,
     cflags: libufdt_tests_cflags,
     srcs: [
         "fdt_overlay_test_app.c",
@@ -89,6 +90,15 @@ cc_binary {
         "libufdt_sysdeps",
     ],
     required: ["dtc"],
+    target: {
+        host: {
+            stl: "none",
+            dist: {
+                targets: ["dist_files"],
+                dir: "libufdt",
+            },
+        },
+    },
 }
 
 cc_binary_host {

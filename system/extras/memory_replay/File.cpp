@@ -29,6 +29,7 @@
 #include <ziparchive/zip_archive.h>
 
 #include "Alloc.h"
+#include "AllocParser.h"
 #include "File.h"
 
 std::string ZipGetContents(const char* filename) {

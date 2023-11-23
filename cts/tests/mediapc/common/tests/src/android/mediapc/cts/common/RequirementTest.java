@@ -22,6 +22,8 @@ import static org.junit.Assert.assertThrows;
 
 import android.os.Build;
 
+import com.android.compatibility.common.util.DeviceReportLog;
+
 import org.junit.Test;
 
 public class RequirementTest {
@@ -197,9 +199,10 @@ public class RequirementTest {
     @Test
     public void writeLogAndCheck_UnsetMeasurement() {
         TestReq testReq = TestReq.create();
+        DeviceReportLog testLog = new DeviceReportLog("test", "test");
 
         assertThrows(
             IllegalStateException.class,
-            () -> testReq.writeLogAndCheck("writeLogAndCheck_UnsetMeasurement"));
+            () -> testReq.writeLogAndCheck(testLog, "writeLogAndCheck_UnsetMeasurement"));
     }
 }

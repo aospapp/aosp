@@ -20,12 +20,17 @@ import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assume.assumeNotNull;
+import static org.junit.Assume.assumeTrue;
+
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.ActivityManager;
 import android.app.ActivityManager.RunningServiceInfo;
 import android.app.AppOpsManager;
 import android.app.GameManager;
+import android.app.GameModeConfiguration;
 import android.app.GameState;
 import android.app.job.JobInfo;
 import android.app.job.JobScheduler;
@@ -50,6 +55,7 @@ import android.location.GnssStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.media.MediaDrm;
 import android.media.MediaPlayer;
 import android.net.ConnectivityManager;
 import android.net.Network;
@@ -58,10 +64,12 @@ import android.net.NetworkRequest;
 import android.net.cts.util.CtsNetUtils;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
+import android.os.PerformanceHintManager;
 import android.os.PowerManager;
 import android.os.Process;
 import android.os.RemoteException;
@@ -79,23 +87,26 @@ import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.PropertyUtil;
 import com.android.compatibility.common.util.ShellIdentityUtils;
+
+import libcore.javax.net.ssl.TestSSLContext;
+import libcore.javax.net.ssl.TestSSLSocketPair;
 
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
+
+import javax.net.ssl.SSLSocket;
 
 public class AtomTests {
     private static final String TAG = AtomTests.class.getSimpleName();
@@ -103,6 +114,7 @@ public class AtomTests {
     private static final String MY_PACKAGE_NAME = "com.android.server.cts.device.statsdatom";
 
     private static final Map<String, Integer> APP_OPS_ENUM_MAP = new ArrayMap<>();
+
     static {
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_COARSE_LOCATION, 0);
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_FINE_LOCATION, 1);
@@ -225,6 +237,37 @@ public class AtomTests {
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_ESTABLISH_VPN_MANAGER, 118);
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_ACCESS_RESTRICTED_SETTINGS, 119);
         APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_RECEIVE_AMBIENT_TRIGGER_AUDIO, 120);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_RECEIVE_EXPLICIT_USER_INTERACTION_AUDIO, 121);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_RUN_USER_INITIATED_JOBS, 122);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_READ_MEDIA_VISUAL_USER_SELECTED, 123);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_SYSTEM_EXEMPT_FROM_SUSPENSION, 124);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_SYSTEM_EXEMPT_FROM_DISMISSIBLE_NOTIFICATIONS, 125);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_READ_WRITE_HEALTH_DATA, 126);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_FOREGROUND_SERVICE_SPECIAL_USE, 127);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS, 128);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_SYSTEM_EXEMPT_FROM_HIBERNATION, 129);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_SYSTEM_EXEMPT_FROM_ACTIVITY_BG_START_RESTRICTION,
+                130);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_CAPTURE_CONSENTLESS_BUGREPORT_ON_USERDEBUG_BUILD,
+                131);
+        // Op 132 was deprecated
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_USE_FULL_SCREEN_INTENT, 133);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_CAMERA_SANDBOXED, 134);
+        APP_OPS_ENUM_MAP.put(AppOpsManager.OPSTR_RECORD_AUDIO_SANDBOXED, 135);
+    }
+
+    @Test
+    public void testTlsHandshake() throws Exception {
+        TestSSLContext context = TestSSLContext.create();
+        SSLSocket[] sockets = TestSSLSocketPair.connect(context, null, null);
+
+        if (sockets.length < 2) {
+            return;
+        }
+        sockets[0].getOutputStream().write(42);
+        Assert.assertEquals(42, sockets[1].getInputStream().read());
+        sockets[0].close();
+        sockets[1].close();
     }
 
     @Test
@@ -251,7 +294,7 @@ public class AtomTests {
     public void testBleScanOpportunistic() {
         ScanSettings scanSettings = new ScanSettings.Builder()
                 .setScanMode(ScanSettings.SCAN_MODE_OPPORTUNISTIC).build();
-        performBleScan(scanSettings, null,false);
+        performBleScan(scanSettings, null, false);
     }
 
     @Test
@@ -279,10 +322,12 @@ public class AtomTests {
                 public void onScanResult(int callbackType, ScanResult result) {
                     Log.v(TAG, "called onScanResult");
                 }
+
                 @Override
                 public void onScanFailed(int errorCode) {
                     Log.v(TAG, "called onScanFailed");
                 }
+
                 @Override
                 public void onBatchScanResults(List<ScanResult> results) {
                     Log.v(TAG, "called onBatchScanResults");
@@ -328,11 +373,11 @@ public class AtomTests {
     }
 
     private static void writeSliceByBleScanStateChangedAtom(int atomId, int firstUid,
-                                                            boolean field2, boolean field3,
-                                                            boolean field4) {
+            boolean field2, boolean field3,
+            boolean field4) {
         final StatsEvent.Builder builder = StatsEvent.newBuilder()
                 .setAtomId(atomId)
-                .writeAttributionChain(new int[] {firstUid}, new String[] {"tag1"})
+                .writeAttributionChain(new int[]{firstUid}, new String[]{"tag1"})
                 .writeBoolean(field2)
                 .writeBoolean(field3)
                 .writeBoolean(field4)
@@ -375,7 +420,8 @@ public class AtomTests {
     }
 
 
-    private static void performBleScan(ScanSettings scanSettings, List<ScanFilter> scanFilters, boolean waitForResult) {
+    private static void performBleScan(ScanSettings scanSettings, List<ScanFilter> scanFilters,
+            boolean waitForResult) {
         performBleAction((bluetoothAdapter, bleScanner) -> {
             CountDownLatch resultsLatch = new CountDownLatch(1);
             ScanCallback scanCallback = new ScanCallback() {
@@ -384,10 +430,12 @@ public class AtomTests {
                     Log.v(TAG, "called onScanResult");
                     resultsLatch.countDown();
                 }
+
                 @Override
                 public void onScanFailed(int errorCode) {
                     Log.v(TAG, "called onScanFailed");
                 }
+
                 @Override
                 public void onBatchScanResults(List<ScanResult> results) {
                     Log.v(TAG, "called onBatchScanResults");
@@ -423,15 +471,18 @@ public class AtomTests {
                 sleep(2_000);
                 cd.close();
             }
+
             @Override
             public void onClosed(CameraDevice cd) {
                 latch.countDown();
                 Log.i(TAG, "CameraDevice " + cd.getId() + " closed");
             }
+
             @Override
             public void onDisconnected(CameraDevice cd) {
                 Log.w(TAG, "CameraDevice  " + cd.getId() + " disconnected");
             }
+
             @Override
             public void onError(CameraDevice cd, int error) {
                 Log.e(TAG, "CameraDevice " + cd.getId() + "had error " + error);
@@ -455,7 +506,7 @@ public class AtomTests {
         boolean foundFlash = false;
         for (int i = 0; i < cameraIds.length; i++) {
             String id = cameraIds[i];
-            if(cam.getCameraCharacteristics(id).get(CameraCharacteristics.FLASH_INFO_AVAILABLE)) {
+            if (cam.getCameraCharacteristics(id).get(CameraCharacteristics.FLASH_INFO_AVAILABLE)) {
                 cam.setTorchMode(id, true);
                 sleep(500);
                 cam.setTorchMode(id, false);
@@ -463,7 +514,7 @@ public class AtomTests {
                 break;
             }
         }
-        if(!foundFlash) {
+        if (!foundFlash) {
             Log.e(TAG, "No flashlight found on device");
         }
     }
@@ -518,7 +569,7 @@ public class AtomTests {
 
         for (int i = 0; i < opsList.length; i++) {
             String op = opsList[i];
-            if (TextUtils.isEmpty(op)) {
+            if (TextUtils.isEmpty(op) || op.startsWith("android:deprecated")) {
                 // Operation removed/deprecated
                 continue;
             }
@@ -526,7 +577,8 @@ public class AtomTests {
             for (int j = 0; j < noteCount; j++) {
                 try {
                     noteAppOp(appOpsManager, opsList[i]);
-                } catch (SecurityException e) {}
+                } catch (SecurityException e) {
+                }
             }
         }
     }
@@ -564,12 +616,15 @@ public class AtomTests {
             public void onLocationChanged(Location location) {
                 Log.v(TAG, "onLocationChanged: location has been obtained");
             }
+
             public void onProviderDisabled(String provider) {
                 Log.w(TAG, "onProviderDisabled " + provider);
             }
+
             public void onProviderEnabled(String provider) {
                 Log.w(TAG, "onProviderEnabled " + provider);
             }
+
             public void onStatusChanged(String provider, int status, Bundle extras) {
                 Log.w(TAG, "onStatusChanged " + provider + " " + status);
             }
@@ -736,6 +791,23 @@ public class AtomTests {
     }
 
     @Test
+    public void testScheduledJob_CancelledJob() throws Exception {
+        final ComponentName name = new ComponentName(MY_PACKAGE_NAME,
+                StatsdJobService.class.getName());
+
+        Context context = InstrumentationRegistry.getContext();
+        JobScheduler js = context.getSystemService(JobScheduler.class);
+        assertWithMessage("JobScheduler service not available").that(js).isNotNull();
+
+        JobInfo.Builder builder = new JobInfo.Builder(1, name);
+        builder.setMinimumLatency(60_000L);
+        JobInfo job = builder.build();
+
+        js.schedule(job);
+        js.cancel(1);
+    }
+
+    @Test
     public void testScheduledJobPriority() throws Exception {
         final ComponentName name =
                 new ComponentName(MY_PACKAGE_NAME, StatsdJobService.class.getName());
@@ -813,10 +885,10 @@ public class AtomTests {
     }
 
     private static void writeSliceByWakelockStateChangedAtom(int atomId, int firstUid,
-                                                            int field2, String field3) {
+            int field2, String field3) {
         final StatsEvent.Builder builder = StatsEvent.newBuilder()
                 .setAtomId(atomId)
-                .writeAttributionChain(new int[] {firstUid}, new String[] {"tag1"})
+                .writeAttributionChain(new int[]{firstUid}, new String[]{"tag1"})
                 .writeInt(field2)
                 .writeString(field3)
                 .usePooledBuffer();
@@ -836,8 +908,13 @@ public class AtomTests {
     }
 
     @Test
-    public void testWifiLockHighPerf() {
+    public void testWifiLockHighPerf() throws Exception {
         Context context = InstrumentationRegistry.getContext();
+        boolean wifiConnected = isWifiConnected(context);
+        Assert.assertTrue(
+                "Wifi is not connected. The test expects Wifi to be connected before the run",
+                wifiConnected);
+
         WifiManager wm = context.getSystemService(WifiManager.class);
         WifiManager.WifiLock lock =
                 wm.createWifiLock(WifiManager.WIFI_MODE_FULL_HIGH_PERF, "StatsdCTSWifiLock");
@@ -847,14 +924,12 @@ public class AtomTests {
     }
 
     @Test
-    public void testWifiLockLowLatency() {
+    public void testWifiConnected() throws Exception {
         Context context = InstrumentationRegistry.getContext();
-        WifiManager wm = context.getSystemService(WifiManager.class);
-        WifiManager.WifiLock lock =
-                wm.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "StatsdCTSWifiLock");
-        lock.acquire();
-        sleep(500);
-        lock.release();
+        boolean wifiConnected = isWifiConnected(context);
+        Assert.assertTrue(
+                "Wifi is not connected. The test expects Wifi to be connected before the run",
+                wifiConnected);
     }
 
     @Test
@@ -902,7 +977,7 @@ public class AtomTests {
     @Test
     public void testSimpleCpu() {
         long timestamp = System.currentTimeMillis();
-        for (int i = 0; i < 10000; i ++) {
+        for (int i = 0; i < 10000; i++) {
             timestamp += i;
         }
         Log.i(TAG, "The answer is " + timestamp);
@@ -952,6 +1027,61 @@ public class AtomTests {
         // Non chained all null
         StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_ATOM_REPORTED, appInfo.uid, null,
                 0, 0, 0f, null, true, StatsLogStatsdCts.TEST_ATOM_REPORTED__STATE__OFF, null, null,
+                null, null, null, null, null);
+    }
+
+    @Test
+    public void testWriteExtensionTestAtom() throws Exception {
+        Context context = InstrumentationRegistry.getTargetContext();
+        ApplicationInfo appInfo = context.getPackageManager()
+                .getApplicationInfo(context.getPackageName(), 0);
+        int[] uids = {1234, appInfo.uid};
+        String[] tags = {"tag1", "tag2"};
+        byte[] testAtomNestedMsg = {8, 1, 8, 2, 8, 3}; // Corresponds to 1, 2, 3.
+
+        int[] int32Array = {3, 6};
+        long[] int64Array = {1000L, 1002L};
+        float[] floatArray = {0.3f, 0.09f};
+        String[] stringArray = {"str1", "str2"};
+        boolean[] boolArray = {true, false};
+        int[] enumArray = {StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__OFF,
+                StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__ON};
+
+        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED, uids, tags, 42,
+                Long.MAX_VALUE, 3.14f, "This is a basic test!", false,
+                StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__ON, testAtomNestedMsg,
+                int32Array,
+                int64Array, floatArray, stringArray, boolArray, enumArray);
+
+        // All nulls. Should get dropped since cts app is not in the attribution chain.
+        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED, null, null, 0, 0,
+                0f, null,
+                false, StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__ON, null, null, null,
+                null,
+                null, null, null);
+
+        // Null tag in attribution chain.
+        int[] uids2 = {9999, appInfo.uid};
+        String[] tags2 = {"tag9999", null};
+        StatsLogStatsdCts.write(StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED, uids2, tags2, 100,
+                Long.MIN_VALUE, -2.5f, "Test null uid", true,
+                StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__UNKNOWN, testAtomNestedMsg,
+                int32Array,
+                int64Array, floatArray, stringArray, boolArray, enumArray);
+
+        // Non chained non-null
+        StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED,
+                appInfo.uid,
+                "tag1", -256, -1234567890L, 42.01f, "Test non chained", true,
+                StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__OFF, testAtomNestedMsg,
+                new int[0],
+                new long[0], new float[0], new String[0], new boolean[0], new int[0]);
+
+        // Non chained all null
+        StatsLogStatsdCts.write_non_chained(StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED,
+                appInfo.uid, null,
+                0, 0, 0f, null, true, StatsLogStatsdCts.TEST_EXTENSION_ATOM_REPORTED__STATE__OFF,
+                null, null,
                 null, null, null, null, null);
     }
 
@@ -1140,28 +1270,100 @@ public class AtomTests {
     }
 
     @Test
-    public void testLoadingApks() throws Exception {
-        final Context context = InstrumentationRegistry.getContext();
-        final ApplicationInfo appInfo = context.getPackageManager()
-                .getApplicationInfo(context.getPackageName(), 0);
-        final String codePath = appInfo.sourceDir;
-        final String apkDir = codePath.substring(0, codePath.lastIndexOf('/'));
-        for (String apkName : new File(apkDir).list()) {
-            final String apkPath = apkDir + "/" + apkName;
-            if (new File(apkPath).isFile()) {
+    public void testGameState() throws Exception {
+        Context context = InstrumentationRegistry.getContext();
+        GameManager gameManager = context.getSystemService(GameManager.class);
+        gameManager.setGameState(new GameState(true, GameState.MODE_CONTENT, 1, 2));
+    }
+
+    @Test
+    public void testSetGameMode() throws Exception {
+        Context context = InstrumentationRegistry.getContext();
+        GameManager gameManager = context.getSystemService(GameManager.class);
+        assertNotNull(gameManager);
+        assertNotNull(context.getPackageName());
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(gameManager,
+                (gm) -> gm.setGameMode(context.getPackageName(),
+                        GameManager.GAME_MODE_PERFORMANCE), "android.permission.MANAGE_GAME_MODE");
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(gameManager,
+                (gm) -> gm.setGameMode(context.getPackageName(),
+                        GameManager.GAME_MODE_BATTERY), "android.permission.MANAGE_GAME_MODE");
+    }
+
+    @Test
+    public void testUpdateCustomGameModeConfiguration() throws Exception {
+        Context context = InstrumentationRegistry.getContext();
+        GameManager gameManager = context.getSystemService(GameManager.class);
+        assertNotNull(gameManager);
+        assertNotNull(context.getPackageName());
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(gameManager,
+                (gm) -> gm.updateCustomGameModeConfiguration(context.getPackageName(),
+                        new GameModeConfiguration.Builder()
+                                .setScalingFactor(0.5f)
+                                .setFpsOverride(30).build()));
+        ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn(gameManager,
+                (gm) -> gm.updateCustomGameModeConfiguration(context.getPackageName(),
+                        new GameModeConfiguration.Builder()
+                                .setScalingFactor(0.9f)
+                                .setFpsOverride(60).build()));
+    }
+
+    @Test
+    public void testCreateHintSession() throws Exception {
+        final long targetNs = 16666666L;
+        final int firstApiLevel = PropertyUtil.getFirstApiLevel();
+        Context context = InstrumentationRegistry.getContext();
+        PerformanceHintManager phm = context.getSystemService(PerformanceHintManager.class);
+
+        assertNotNull(phm);
+
+        // If the device does not support ADPF hint session,
+        // getPreferredUpdateRateNanos() returns -1.
+        // We only test the devices supporting it and will check
+        // if assumption fails in PerformanceHintManagerStatsTests#testCreateHintSessionStatsd
+        assumeTrue(phm.getPreferredUpdateRateNanos() != -1);
+
+        PerformanceHintManager.Session session =
+                phm.createHintSession(new int[]{Process.myPid()}, targetNs);
+
+        if (firstApiLevel < Build.VERSION_CODES.S) {
+            assumeNotNull(session);
+        } else {
+            assertNotNull(session);
+        }
+    }
+
+    @Test
+    public void testMediaDrmAtoms() throws Exception {
+        UUID clearKeyUuid = new UUID(0xe2719d58a985b3c9L, 0x781ab030af78d30eL);
+        byte[] sid = null;
+        final int OEM_ERROR = 123;
+        final int ERROR_CONTEXT = 456;
+        final int ANDROID_U = 14;
+        try (MediaDrm drm = new MediaDrm(clearKeyUuid)) {
+            if (getClearkeyVersionInt(drm) >= ANDROID_U) {
+                drm.setPropertyString("oemError", Integer.toString(OEM_ERROR));
+                drm.setPropertyString("errorContext", Integer.toString(ERROR_CONTEXT));
+            }
+            for (int i = 0; i < 2; i++) {
+                // Mock error is set per-session
+                drm.setPropertyString("drmErrorTest", "lostState");
+                sid = drm.openSession();
+                Assert.assertNotNull("null session id", sid);
                 try {
-                    Files.readAllBytes(Paths.get(apkPath));
-                } catch (IOException ignored) {
-                    // Probably hitting pages that we are intentionally blocking
+                    drm.closeSession(sid);
+                } catch (MediaDrm.MediaDrmStateException e) {
+                    Log.d(TAG, "expected for lost state");
                 }
             }
         }
     }
 
-    @Test
-    public void testGameState() throws Exception {
-        Context context = InstrumentationRegistry.getContext();
-        GameManager gameManager = context.getSystemService(GameManager.class);
-        gameManager.setGameState(new GameState(true, GameState.MODE_CONTENT, 1, 2));
+    private int getClearkeyVersionInt(MediaDrm drm) {
+        try {
+            return Integer.parseInt(drm.getPropertyString("version"));
+        } catch (Exception e) {
+            return Integer.MIN_VALUE;
+        }
     }
 }

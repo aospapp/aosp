@@ -28,9 +28,9 @@
 #include <log/log_time.h>
 #include <log/logprint.h>
 
-#include "ChattyLogBuffer.h"
 #include "LogBuffer.h"
 #include "LogStatistics.h"
+#include "PruneList.h"
 #include "RecordedLogMessage.h"
 #include "SerializedLogBuffer.h"
 #include "SimpleLogBuffer.h"
@@ -161,7 +161,6 @@ class PrintInteresting : public Operation {
   public:
     PrintInteresting(log_time first_log_timestamp)
         : stats_simple_{false, false, first_log_timestamp},
-          stats_chatty_{false, false, first_log_timestamp},
           stats_serialized_{false, true, first_log_timestamp} {}
 
     void Begin() override {
@@ -173,17 +172,8 @@ class PrintInteresting : public Operation {
                "overhead,simple_crash_overhead,simple_stats_overhead,simple_security_overhead,"
                "simple_kernel_overhead,simple_main_range,simple_radio_range,simple_events_range,"
                "simple_system_range,simple_crash_range,simple_stats_range,simple_security_range,"
-               "simple_kernel_range,chatty_main_lines,chatty_radio_lines,chatty_events_lines,"
-               "chatty_system_lines,chatty_crash_lines,chatty_stats_lines,chatty_security_lines,"
-               "chatty_"
-               "kernel_lines,chatty_main_size,chatty_radio_size,chatty_events_size,chatty_system_"
-               "size,chatty_crash_size,chatty_stats_size,chatty_security_size,chatty_kernel_size,"
-               "chatty_main_overhead,chatty_radio_overhead,chatty_events_overhead,chatty_system_"
-               "overhead,chatty_crash_overhead,chatty_stats_overhead,chatty_security_overhead,"
-               "chatty_kernel_overhead,chatty_main_range,chatty_radio_range,chatty_events_range,"
-               "chatty_system_range,chatty_crash_range,chatty_stats_range,chatty_security_range,"
-               "chatty_kernel_range,serialized_main_lines,serialized_radio_lines,serialized_events_"
-               "lines,serialized_"
+               "simple_kernel_range,"
+               "serialized_main_lines,serialized_radio_lines,serialized_events_lines,serialized_"
                "system_lines,serialized_crash_lines,serialized_stats_lines,serialized_security_"
                "lines,serialized_"
                "kernel_lines,serialized_main_size,serialized_radio_size,serialized_events_size,"
@@ -205,16 +195,11 @@ class PrintInteresting : public Operation {
         simple_log_buffer_.Log(static_cast<log_id_t>(meta.log_id), meta.realtime, meta.uid,
                                meta.pid, meta.tid, msg, meta.msg_len);
 
-        chatty_log_buffer_.Log(static_cast<log_id_t>(meta.log_id), meta.realtime, meta.uid,
-                               meta.pid, meta.tid, msg, meta.msg_len);
-
         serialized_log_buffer_.Log(static_cast<log_id_t>(meta.log_id), meta.realtime, meta.uid,
                                    meta.pid, meta.tid, msg, meta.msg_len);
 
         if (num_message_ % 10000 == 0) {
-            printf("%" PRIu64 ",%s,%s,%s\n", num_message_,
-                   stats_simple_.ReportInteresting().c_str(),
-                   stats_chatty_.ReportInteresting().c_str(),
+            printf("%" PRIu64 ",%s,%s\n", num_message_, stats_simple_.ReportInteresting().c_str(),
                    stats_serialized_.ReportInteresting().c_str());
         }
 
@@ -231,9 +216,6 @@ class PrintInteresting : public Operation {
     LogStatistics stats_simple_;
     SimpleLogBuffer simple_log_buffer_{&reader_list_, &tags_, &stats_simple_};
 
-    LogStatistics stats_chatty_;
-    ChattyLogBuffer chatty_log_buffer_{&reader_list_, &tags_, &prune_list_, &stats_chatty_};
-
     LogStatistics stats_serialized_;
     SerializedLogBuffer serialized_log_buffer_{&reader_list_, &tags_, &stats_serialized_};
 };
@@ -244,10 +226,6 @@ class SingleBufferOperation : public Operation {
         if (!strcmp(buffer, "simple")) {
             stats_.reset(new LogStatistics{false, false, first_log_timestamp});
             log_buffer_.reset(new SimpleLogBuffer(&reader_list_, &tags_, stats_.get()));
-        } else if (!strcmp(buffer, "chatty")) {
-            stats_.reset(new LogStatistics{false, false, first_log_timestamp});
-            log_buffer_.reset(
-                    new ChattyLogBuffer(&reader_list_, &tags_, &prune_list_, stats_.get()));
         } else if (!strcmp(buffer, "serialized")) {
             stats_.reset(new LogStatistics{false, true, first_log_timestamp});
             log_buffer_.reset(new SerializedLogBuffer(&reader_list_, &tags_, stats_.get()));

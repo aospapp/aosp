@@ -41,7 +41,6 @@ public class BaseContextCrossProfileTest implements IDeviceTest {
 
     /** Whether multi-user is supported. */
     protected boolean mSupportsMultiUser;
-    protected boolean mIsSplitSystemUser;
     protected int mInitialUserId;
     protected int mPrimaryUserId;
 
@@ -53,7 +52,6 @@ public class BaseContextCrossProfileTest implements IDeviceTest {
     @Before
     public void setUp() throws Exception {
         mSupportsMultiUser = getDevice().getMaxNumberOfUsersSupported() > 1;
-        mIsSplitSystemUser = checkIfSplitSystemUser();
         mPrimaryUserId = getDevice().getPrimaryUserId();
         setFixedUsers();
         removeTestUsers();
@@ -194,13 +192,5 @@ public class BaseContextCrossProfileTest implements IDeviceTest {
                 getDevice().removeUser(userId);
             }
         }
-    }
-
-    private boolean checkIfSplitSystemUser() throws DeviceNotAvailableException {
-        final String commandOuput = getDevice().executeShellCommand(
-                "getprop ro.fw.system_user_split");
-        return "y".equals(commandOuput) || "yes".equals(commandOuput)
-                || "1".equals(commandOuput) || "true".equals(commandOuput)
-                || "on".equals(commandOuput);
     }
 }

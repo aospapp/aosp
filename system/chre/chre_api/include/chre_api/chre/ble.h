@@ -52,6 +52,8 @@ extern "C" {
 
 //! CHRE BLE supports batching of scan results, either through Android-specific
 //! HCI (OCF: 0x156), or by the CHRE framework, internally.
+//! @since v1.7 Platforms with this capability must also support flushing scan
+//! results during a batched scan.
 #define CHRE_BLE_CAPABILITIES_SCAN_RESULT_BATCHING UINT32_C(1 << 1)
 
 //! CHRE BLE scan supports best-effort hardware filtering. If filtering is
@@ -62,6 +64,9 @@ extern "C" {
 //! If only one nanoapp is requesting BLE scans and there are no BLE scans from
 //! the AP, only filtered results will be provided to the nanoapp.
 #define CHRE_BLE_CAPABILITIES_SCAN_FILTER_BEST_EFFORT UINT32_C(1 << 2)
+
+//! CHRE BLE supports reading the RSSI of a specified LE-ACL connection handle.
+#define CHRE_BLE_CAPABILITIES_READ_RSSI UINT32_C(1 << 3)
 /** @} */
 
 /**
@@ -83,6 +88,11 @@ extern "C" {
 
 //! CHRE BLE supports RSSI filters
 #define CHRE_BLE_FILTER_CAPABILITIES_RSSI UINT32_C(1 << 1)
+
+//! CHRE BLE supports Manufacturer Data filters (Corresponding HCI OCF: 0x0157,
+//! Sub-command: 0x06)
+//! @since v1.8
+#define CHRE_BLE_FILTER_CAPABILITIES_MANUFACTURER_DATA UINT32_C(1 << 6)
 
 //! CHRE BLE supports Service Data filters (Corresponding HCI OCF: 0x0157,
 //! Sub-command: 0x07)
@@ -121,6 +131,52 @@ extern "C" {
  * Provides results of a BLE scan.
  */
 #define CHRE_EVENT_BLE_ADVERTISEMENT CHRE_BLE_EVENT_ID(1)
+
+/**
+ * nanoappHandleEvent argument: struct chreAsyncResult
+ *
+ * Indicates that a flush request made via chreBleFlushAsync() is complete, and
+ * all batched advertisements resulting from the flush have been delivered via
+ * preceding CHRE_EVENT_BLE_ADVERTISEMENT events.
+ *
+ * @since v1.7
+ */
+#define CHRE_EVENT_BLE_FLUSH_COMPLETE CHRE_BLE_EVENT_ID(2)
+
+/**
+ * nanoappHandleEvent argument: struct chreBleReadRssiEvent
+ *
+ * Provides the RSSI of an LE ACL connection following a call to
+ * chreBleReadRssiAsync().
+ *
+ * @since v1.8
+ */
+#define CHRE_EVENT_BLE_RSSI_READ CHRE_BLE_EVENT_ID(3)
+
+/**
+ * nanoappHandleEvent argument: struct chreBatchCompleteEvent
+ *
+ * This event is generated if the platform enabled batching, and when all
+ * events in a single batch has been delivered (for example, batching
+ * CHRE_EVENT_BLE_ADVERTISEMENT events if the platform has
+ * CHRE_BLE_CAPABILITIES_SCAN_RESULT_BATCHING enabled, and a non-zero
+ * reportDelayMs in chreBleStartScanAsync() was accepted).
+ *
+ * If the nanoapp receives a CHRE_EVENT_BLE_SCAN_STATUS_CHANGE with a non-zero
+ * reportDelayMs and enabled set to true, then this event must be generated.
+ *
+ * @since v1.8
+ */
+#define CHRE_EVENT_BLE_BATCH_COMPLETE CHRE_BLE_EVENT_ID(4)
+
+/**
+ * nanoappHandleEvent argument: struct chreBleScanStatus
+ *
+ * This event is generated when the values in chreBleScanStatus changes.
+ *
+ * @since v1.8
+ */
+#define CHRE_EVENT_BLE_SCAN_STATUS_CHANGE CHRE_BLE_EVENT_ID(5)
 
 // NOTE: Do not add new events with ID > 15
 /** @} */
@@ -199,12 +255,21 @@ extern "C" {
 /** @} */
 
 /**
+ * The maximum amount of time allowed to elapse between the call to
+ * chreBleFlushAsync() and when CHRE_EVENT_BLE_FLUSH_COMPLETE is delivered to
+ * the nanoapp on a successful flush.
+ */
+#define CHRE_BLE_FLUSH_COMPLETE_TIMEOUT_NS (5 * CHRE_NSEC_PER_SEC)
+
+/**
  * Indicates a type of request made in this API. Used to populate the resultType
  * field of struct chreAsyncResult sent with CHRE_EVENT_BLE_ASYNC_RESULT.
  */
 enum chreBleRequestType {
   CHRE_BLE_REQUEST_TYPE_START_SCAN = 1,
   CHRE_BLE_REQUEST_TYPE_STOP_SCAN = 2,
+  CHRE_BLE_REQUEST_TYPE_FLUSH = 3,      //!< @since v1.7
+  CHRE_BLE_REQUEST_TYPE_READ_RSSI = 4,  //!< @since v1.8
 };
 
 /**
@@ -241,7 +306,19 @@ enum chreBleScanMode {
  */
 enum chreBleAdType {
   //! Service Data with 16-bit UUID
+  //! @deprecated as of v1.8
+  //! TODO(b/285207430): Remove this enum once CHRE has been updated.
   CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16 = 0x16,
+
+  //! Service Data with 16-bit UUID
+  //! @since v1.8 CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16 was renamed
+  //! CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE to reflect that nanoapps
+  //! compiled against v1.8+ should use OTA format for service data filters.
+  CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE = 0x16,
+
+  //! Manufacturer Specific Data
+  //! @since v1.8
+  CHRE_BLE_AD_TYPE_MANUFACTURER_DATA = 0xff,
 };
 
 /**
@@ -257,19 +334,43 @@ enum chreBleAdType {
  * as defined in the Bluetooth spec Assigned Numbers, Generic Access Profile
  * (ref: https://www.bluetooth.com/specifications/assigned-numbers/). This
  * generic structure is used by the Advertising Packet Content Filter
- * (APCF) HCI generic AD type sub-command 0x08 (ref:
+ * (APCF) HCI generic AD type sub-command 0x09 (ref:
  * https://source.android.com/devices/bluetooth/hci_requirements#le_apcf_command).
  *
  * Note that the CHRE implementation may not support every kind of filter that
  * can be represented by this structure. Use chreBleGetFilterCapabilities() to
  * discover supported filtering capabilities at runtime.
  *
- * For example, to filter on a 16 bit service data UUID of 0xFE2C, the following
+ * @since v1.8 The data and dataMask must be in OTA format. The nanoapp support
+ * library will handle converting the data and dataMask values to the correct
+ * format if a pre v1.8 version of CHRE is running.
+ *
+ * NOTE: CHRE versions 1.6 and 1.7 expect the 2-byte UUID prefix in
+ * CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16 to be given as big-endian. This
+ * was corrected in v1.8 to match the OTA format and Bluetooth specification,
+ * which uses little-endian. This enum has been removed and replaced with
+ * CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE to ensure that nanoapps
+ * compiled against v1.8 and later specify their UUID filter using
+ * little-endian. Nanoapps compiled against v1.7 or earlier should continue to
+ * use big-endian, as CHRE must provide cross-version compatibility for all
+ * possible version combinations.
+ *
+ * Example 1: To filter on a 16 bit service data UUID of 0xFE2C, the following
  * settings would be used:
  *   type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16
  *   len = 2
- *   data = {0xFE, 0x2C}
+ *   data = {0x2C, 0xFE}
  *   dataMask = {0xFF, 0xFF}
+ *
+ * Example 2: To filter for manufacturer data of 0x12, 0x34 from Google (0x00E0),
+ * the following settings would be used:
+ *   type = CHRE_BLE_AD_TYPE_MANUFACTURER_DATA
+ *   len = 4
+ *   data = {0xE0, 0x00, 0x12, 0x34}
+ *   dataMask = {0xFF, 0xFF, 0xFF, 0xFF}
+ *
+ * Refer to "Supplement to the Bluetooth Core Specification for details (v9,
+ * Part A, Section 1.4)" for details regarding the manufacturer data format.
  */
 struct chreBleGenericFilter {
   //! Acceptable values among enum chreBleAdType
@@ -282,10 +383,10 @@ struct chreBleGenericFilter {
   uint8_t len;
 
   //! Used in combination with dataMask to filter an advertisement
-  char data[CHRE_BLE_DATA_LEN_MAX];
+  uint8_t data[CHRE_BLE_DATA_LEN_MAX];
 
   //! Used in combination with data to filter an advertisement
-  char dataMask[CHRE_BLE_DATA_LEN_MAX];
+  uint8_t dataMask[CHRE_BLE_DATA_LEN_MAX];
 };
 
 /**
@@ -427,11 +528,13 @@ struct chreBleAdvertisingReport {
   //! device).
   uint8_t directAddress[CHRE_BLE_ADDRESS_LEN];
 
-  //! Length of data field. Acceptable range is [0, 31] for legacy and
-  //! [0, 229] for extended advertisements.
+  //! Length of data field. Acceptable range is [0, 62] for legacy and
+  //! [0, 255] for extended advertisements.
   uint16_t dataLength;
 
-  //! dataLength bytes of data, or null if dataLength is 0
+  //! dataLength bytes of data, or null if dataLength is 0. This represents
+  //! the ADV_IND payload, optionally concatenated with SCAN_RSP, as indicated
+  //! by eventTypeAndDataStatus.
   const uint8_t *data;
 
   //! Reserved for future use; set to 0
@@ -451,6 +554,42 @@ struct chreBleAdvertisementEvent {
 
   //! Array of length numReports
   const struct chreBleAdvertisingReport *reports;
+};
+
+/**
+ * The RSSI read on a particular LE connection handle, based on the parameters
+ * in BT Core Spec v5.3, Vol 4, Part E, Section 7.5.4, Read RSSI command
+ */
+struct chreBleReadRssiEvent {
+  //! Structure which contains the cookie associated with the original request,
+  //! along with an error code that indicates request success or failure.
+  struct chreAsyncResult result;
+
+  //! The handle upon which CHRE attempted to read RSSI.
+  uint16_t connectionHandle;
+
+  //! The RSSI of the last packet received on this connection, if valid
+  //! (-127 to 20)
+  int8_t rssi;
+};
+
+/**
+ * Describes the current status of the BLE request in the platform.
+ *
+ * @since v1.8
+ */
+struct chreBleScanStatus {
+  //! The currently configured report delay in the scan configuration.
+  //! If enabled is false, this value does not have meaning.
+  uint32_t reportDelayMs;
+
+  //! True if the BLE scan is currently enabled. This can be set to false
+  //! if BLE scan was temporarily disabled (e.g. BT subsystem is down,
+  //! or due to user settings).
+  bool enabled;
+
+  //! Reserved for future use - set to zero.
+  uint8_t reserved[3];
 };
 
 /**
@@ -552,8 +691,18 @@ static inline uint8_t chreBleGetEventTypeAndDataStatus(uint8_t eventType,
  * The scan results will be delivered asynchronously via the CHRE event
  * CHRE_EVENT_BLE_ADVERTISEMENT.
  *
- * If the Bluetooth setting is disabled at the Android level, CHRE is expected
- * to return a result with CHRE_ERROR_FUNCTION_DISABLED.
+ * If CHRE_USER_SETTING_BLE_AVAILABLE is disabled, CHRE is expected to return an
+ * async result with error CHRE_ERROR_FUNCTION_DISABLED. If this setting is
+ * enabled, the Bluetooth subsystem may still be powered down in the scenario
+ * where the main Bluetooth toggle is disabled, but the Bluetooth scanning
+ * setting is enabled, and there is no request for BLE to be enabled at the
+ * Android level. In this scenario, CHRE will return an async result with error
+ * CHRE_ERROR_FUNCTION_DISABLED.
+ *
+ * To ensure that Bluetooth remains powered on in this settings configuration so
+ * that a nanoapp can scan, the nanoapp's Android host entity should use the
+ * BluetoothAdapter.enableBLE() API to register this request with the Android
+ * Bluetooth stack.
  *
  * If chreBleStartScanAsync() is called while a previous scan has been started,
  * the previous scan will be stopped first and replaced with the new scan.
@@ -566,6 +715,9 @@ static inline uint8_t chreBleGetEventTypeAndDataStatus(uint8_t eventType,
  * Number of matches per filter: MATCH_NUM_MAX_ADVERTISEMENT
  * Legacy-only: false
  * PHY type: PHY_LE_ALL_SUPPORTED
+ *
+ * For v1.8 and greater, a CHRE_EVENT_BLE_SCAN_STATUS_CHANGE will be generated
+ * if the values in chreBleScanStatus changes as a result of this call.
  *
  * @param mode Scanning mode selected among enum chreBleScanMode
  * @param reportDelayMs Maximum requested batching delay in ms. 0 indicates no
@@ -595,6 +747,81 @@ bool chreBleStartScanAsync(enum chreBleScanMode mode, uint32_t reportDelayMs,
 bool chreBleStopScanAsync(void);
 
 /**
+ * Requests to immediately deliver batched scan results. The nanoapp must
+ * have an active BLE scan request. If a request is accepted, it will be treated
+ * as though the reportDelayMs has expired for a batched scan. Upon accepting
+ * the request, CHRE works to immediately deliver scan results currently kept in
+ * batching memory, if any, via regular CHRE_EVENT_BLE_ADVERTISEMENT events,
+ * followed by a CHRE_EVENT_BLE_FLUSH_COMPLETE event.
+ *
+ * If the underlying system fails to complete the flush operation within
+ * CHRE_BLE_FLUSH_COMPLETE_TIMEOUT_NS, CHRE will send a
+ * CHRE_EVENT_BLE_FLUSH_COMPLETE event with CHRE_ERROR_TIMEOUT.
+ *
+ * If multiple flush requests are made prior to flush completion, then the
+ * requesting nanoapp will receive all batched samples existing at the time of
+ * the latest flush request. In this case, the number of
+ * CHRE_EVENT_BLE_FLUSH_COMPLETE events received must equal the number of flush
+ * requests made.
+ *
+ * If chreBleStopScanAsync() is called while a flush operation is in progress,
+ * it is unspecified whether the flush operation will complete successfully or
+ * return an error, such as CHRE_ERROR_FUNCTION_DISABLED, but in any case,
+ * CHRE_EVENT_BLE_FLUSH_COMPLETE must still be delivered. The same applies if
+ * the Bluetooth user setting is disabled during a flush operation.
+ *
+ * If called while running on a CHRE API version below v1.7, this function
+ * returns false and has no effect.
+ *
+ * @param cookie An opaque value that will be included in the chreAsyncResult
+ *               sent as a response to this request.
+ *
+ * @return True to indicate the request was accepted. False otherwise.
+ *
+ * @since v1.7
+ */
+bool chreBleFlushAsync(const void *cookie);
+
+/**
+ * Requests to read the RSSI of a peer device on the given LE connection
+ * handle.
+ *
+ * If the request is accepted, the response will be delivered in a
+ * CHRE_EVENT_BLE_RSSI_READ event with the same cookie.
+ *
+ * The request may be rejected if resources are not available to service the
+ * request (such as if too many outstanding requests already exist). If so, the
+ * client may retry later.
+ *
+ * Note that the connectionHandle is valid only while the connection remains
+ * active. If a peer device disconnects then reconnects, the handle may change.
+ * BluetoothDevice#getConnectionHandle() can be used from the Android framework
+ * to get the latest handle upon reconnection.
+ *
+ * @param connectionHandle
+ * @param cookie An opaque value that will be included in the chreAsyncResult
+ *               embedded in the response to this request.
+ * @return True if the request has been accepted and dispatched to the
+ *         controller. False otherwise.
+ *
+ * @since v1.8
+ *
+ */
+bool chreBleReadRssiAsync(uint16_t connectionHandle, const void *cookie);
+
+/**
+ * Retrieves the current state of the BLE scan on the platform.
+ *
+ * @param status A non-null pointer to where the scan status will be
+ *               populated.
+ *
+ * @return True if the status was obtained successfully.
+ *
+ * @since v1.8
+ */
+bool chreBleGetScanStatus(struct chreBleScanStatus *status);
+
+/**
  * Definitions for handling unsupported CHRE BLE scenarios.
  */
 #else  // defined(CHRE_NANOAPP_USES_BLE) || !defined(CHRE_IS_NANOAPP_BUILD)
@@ -608,6 +835,12 @@ bool chreBleStopScanAsync(void);
 
 #define chreBleStopScanAsync(...) \
   CHRE_BUILD_ERROR(CHRE_BLE_PERM_ERROR_STRING "chreBleStopScanAsync")
+
+#define chreBleFlushAsync(...) \
+  CHRE_BUILD_ERROR(CHRE_BLE_PERM_ERROR_STRING "chreBleFlushAsync")
+
+#define chreBleReadRssiAsync(...) \
+  CHRE_BUILD_ERROR(CHRE_BLE_PERM_ERROR_STRING "chreBleReadRssiAsync")
 
 #endif  // defined(CHRE_NANOAPP_USES_BLE) || !defined(CHRE_IS_NANOAPP_BUILD)
 

@@ -96,6 +96,11 @@ class CSuiteHarness(contextlib.AbstractContextManager):
 
     # Set the environment variable that TradeFed requires to find test modules.
     env['ANDROID_TARGET_OUT_TESTCASES'] = self._testcases_dir
+    jdk17_path = '/jdk/jdk17/linux-x86'
+    if os.path.isdir(jdk17_path):
+      env['JAVA_HOME'] = jdk17_path
+      java_path = jdk17_path + '/bin'
+      env['PATH'] = java_path + ':' + env['PATH']
 
     return _run_command([self._launcher_binary] + flags, env=env)
 
@@ -192,7 +197,7 @@ def _run_command(args, check=False, **kwargs) -> subprocess.CompletedProcess:
 
   # Log the command-line for debugging failed tests. Note that we convert
   # tokens to strings for _shlex_join.
-  env_str = ['env', '-i'] + ['%s=%s' % (k, v) for k, v in env.items()]
+  env_str = ['env', '-i'] + [f'{k}={v}' for k, v in env.items()]
   args_str = [str(t) for t in args]
 
   # Override some defaults. Note that 'check' deviates from this pattern to
@@ -225,9 +230,9 @@ def _get_test_file(name: Text) -> pathlib.Path:
   test_file = test_dir.joinpath(name)
 
   if not test_file.exists():
-    raise RuntimeError('Unable to find the file `%s` in the test execution dir '
-                       '`%s`; are you missing a data dependency in the build '
-                       'module?' % (name, test_dir))
+    raise RuntimeError(f'Unable to find the file `{name}` in the test '
+                       'execution dir `{test_dir}`; are you missing a data '
+                       'dependency in the build module?')
 
   return test_file
 

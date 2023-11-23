@@ -15,31 +15,29 @@
  */
 package android.media.drmframework.cts;
 
+import static org.junit.Assert.assertThat;
+import static org.junit.matchers.JUnitMatchers.containsString;
+
 import android.content.pm.PackageManager;
 import android.media.MediaDrm;
 import android.media.cts.ConnectionStatus;
 import android.media.cts.IConnectionStatus;
-import android.media.cts.MediaCodecBlockModelHelper;
-import android.media.cts.Utils;
 import android.net.Uri;
 import android.os.Build;
+import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.FlakyTest;
 import android.platform.test.annotations.Presubmit;
-import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.view.Surface;
+
 import androidx.test.filters.SdkSuppress;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.MediaUtils;
-import com.google.android.collect.Lists;
 
+import java.io.File;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.UUID;
-
-import static org.junit.Assert.assertThat;
-import static org.junit.matchers.JUnitMatchers.containsString;
 
 /**
  * Tests MediaDrm NDK APIs. ClearKey system uses a subset of NDK APIs,
@@ -53,12 +51,11 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerDrmTestBase {
     private static final int VIDEO_WIDTH_CENC = 1280;
     private static final int VIDEO_HEIGHT_CENC = 720;
     private static final String ISO_BMFF_VIDEO_MIME_TYPE = "video/avc";
-    private static final String ISO_BMFF_AUDIO_MIME_TYPE = "audio/avc";
-    private static final String CENC_AUDIO_PATH =
-            "/clear/h264/llama/llama_aac_audio.mp4";
-
-    private static final String CENC_CLEARKEY_VIDEO_PATH =
-            "/clearkey/llama_h264_main_720p_8000.mp4";
+    private static final String MEDIA_DIR = WorkDir.getMediaDirString();
+    private static final Uri CENC_AUDIO_URL =
+            Uri.fromFile(new File(MEDIA_DIR + "llama_aac_audio.mp4"));
+    private static final Uri CENC_VIDEO_URL =
+            Uri.fromFile(new File(MEDIA_DIR + "llama_h264_main_720p_8000.mp4"));
 
     private static final int UUID_BYTE_SIZE = 16;
     private static final UUID COMMON_PSSH_SCHEME_UUID =
@@ -150,7 +147,7 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerDrmTestBase {
     public void testPssh() throws Exception {
         // The test uses a canned PSSH that contains the common box UUID.
         assertTrue(testPsshNative(uuidByteArray(COMMON_PSSH_SCHEME_UUID),
-                Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH).toString()));
+                CENC_VIDEO_URL.toString()));
     }
 
     @Presubmit
@@ -274,16 +271,6 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerDrmTestBase {
         params.surface.release();
     }
 
-    private ArrayList<Integer> intVersion(String version) {
-        String versions[] = version.split("\\.");
-
-        ArrayList<Integer> versionNumbers = Lists.newArrayList();
-        for (String subVersion : versions) {
-            versionNumbers.add(Integer.parseInt(subVersion));
-        }
-        return versionNumbers;
-    }
-
     private static native boolean isCryptoSchemeSupportedNative(final byte[] uuid);
 
     private static native boolean testClearKeyPlaybackNative(final byte[] uuid,
@@ -305,32 +292,31 @@ public class NativeMediaDrmClearkeyTest extends MediaPlayerDrmTestBase {
 
     public void testClearKeyPlaybackCenc() throws Exception {
         testClearKeyPlayback(
-            COMMON_PSSH_SCHEME_UUID,
-            ISO_BMFF_VIDEO_MIME_TYPE,
-            Uri.parse(Utils.getMediaPath() + CENC_AUDIO_PATH),
-            Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH),
-            VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
+                COMMON_PSSH_SCHEME_UUID,
+                ISO_BMFF_VIDEO_MIME_TYPE,
+                CENC_AUDIO_URL,
+                CENC_VIDEO_URL,
+                VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
     }
 
     @FlakyTest(bugId = 173646795)
     @Presubmit
     public void testClearKeyPlaybackCenc2() throws Exception {
         testClearKeyPlayback(
-            CLEARKEY_SCHEME_UUID,
-            ISO_BMFF_VIDEO_MIME_TYPE,
-            Uri.parse(Utils.getMediaPath() + CENC_AUDIO_PATH),
-            Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH),
-            VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
+                CLEARKEY_SCHEME_UUID,
+                ISO_BMFF_VIDEO_MIME_TYPE,
+                CENC_AUDIO_URL,
+                CENC_VIDEO_URL,
+                VIDEO_WIDTH_CENC, VIDEO_HEIGHT_CENC);
     }
 
-    // TODO(b/208938664) Change this sdk version suppression to T once it's defined to number (33).
-    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.S_V2)
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU)
     public void testClearKeyGetKeyRequest() throws Exception {
         PlaybackParams params = new PlaybackParams();
         params.surface = mActivity.getSurfaceHolder().getSurface();
         params.mimeType = ISO_BMFF_VIDEO_MIME_TYPE;
-        params.audioUrl = Uri.parse(Utils.getMediaPath() + CENC_AUDIO_PATH).toString();
-        params.videoUrl = Uri.parse(Utils.getMediaPath() + CENC_CLEARKEY_VIDEO_PATH).toString();
+        params.audioUrl = CENC_AUDIO_URL.toString();
+        params.videoUrl = CENC_VIDEO_URL.toString();
         boolean status = testGetKeyRequestNative(
                 uuidByteArray(CLEARKEY_SCHEME_UUID),
                 params);

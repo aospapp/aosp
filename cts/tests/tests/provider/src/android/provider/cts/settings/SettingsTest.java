@@ -39,6 +39,7 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
 import android.provider.Settings;
@@ -60,11 +61,15 @@ import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class SettingsTest {
+
+    private static final int sUserId = Process.myUserHandle().getIdentifier();
+
     @BeforeClass
     public static void setUp() throws Exception {
         final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
-        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
-                "appops set " + packageName + " android:write_settings allow");
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .executeShellCommand("appops set --user " + sUserId + " " + packageName
+                        + " android:write_settings allow");
 
         // Wait a beat to persist the change
         SystemClock.sleep(500);
@@ -73,8 +78,9 @@ public class SettingsTest {
     @AfterClass
     public static void tearDown() throws Exception {
         final String packageName = InstrumentationRegistry.getTargetContext().getPackageName();
-        InstrumentationRegistry.getInstrumentation().getUiAutomation().executeShellCommand(
-                "appops set " + packageName + " android:write_settings default");
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .executeShellCommand("appops set --user " + sUserId + " " + packageName
+                        + " android:write_settings default");
     }
 
     @Test
@@ -269,8 +275,8 @@ public class SettingsTest {
         try {
             for (int i = 0; i < 20; i++) {
                 final int expectedValue = i % 2;
-                SystemUtil.runShellCommand(getInstrumentation(), "settings put system "
-                        +  Settings.System.VIBRATE_WHEN_RINGING + " " + expectedValue);
+                SystemUtil.runShellCommand(getInstrumentation(), "settings put --user " + sUserId
+                        + " system " +  Settings.System.VIBRATE_WHEN_RINGING + " " + expectedValue);
                 final int actualValue = Settings.System.getInt(getContext().getContentResolver(),
                         Settings.System.VIBRATE_WHEN_RINGING);
                 assertSame("Settings write must be atomic", expectedValue, actualValue);
@@ -291,8 +297,9 @@ public class SettingsTest {
                 final int unexpectedValue = (i + 1) % 2;
                 Settings.System.putInt(getInstrumentation().getContext().getContentResolver(),
                         Settings.System.VIBRATE_WHEN_RINGING, expectedValue);
-                SystemUtil.runShellCommand(getInstrumentation(), "settings put system "
-                        +  Settings.System.VIBRATE_WHEN_RINGING + " " + unexpectedValue);
+                SystemUtil.runShellCommand(getInstrumentation(), "settings put --user " + sUserId
+                        + " system " +  Settings.System.VIBRATE_WHEN_RINGING + " "
+                        + unexpectedValue);
                 Settings.System.putInt(getInstrumentation().getContext().getContentResolver(),
                         Settings.System.VIBRATE_WHEN_RINGING, expectedValue);
                 final int actualValue = Settings.System.getInt(getContext().getContentResolver(),
@@ -327,14 +334,14 @@ public class SettingsTest {
             final int anotherValue = initialValue == 1 ? 0 : 1;
             Settings.System.putInt(getInstrumentation().getContext().getContentResolver(),
                     Settings.System.VIBRATE_WHEN_RINGING, anotherValue);
-            SystemUtil.runShellCommand(getInstrumentation(), "settings put system "
-                    +  Settings.System.VIBRATE_WHEN_RINGING + " " + initialValue);
+            SystemUtil.runShellCommand(getInstrumentation(), "settings put --user " + sUserId
+                    + " system " +  Settings.System.VIBRATE_WHEN_RINGING + " " + initialValue);
             Settings.System.putInt(getInstrumentation().getContext().getContentResolver(),
                     Settings.System.VIBRATE_WHEN_RINGING, anotherValue);
             Settings.System.getInt(getContext().getContentResolver(),
                     Settings.System.VIBRATE_WHEN_RINGING);
-            SystemUtil.runShellCommand(getInstrumentation(), "settings put system "
-                    +  Settings.System.VIBRATE_WHEN_RINGING + " " + initialValue);
+            SystemUtil.runShellCommand(getInstrumentation(), "settings put --user " + sUserId
+                    + " system " +  Settings.System.VIBRATE_WHEN_RINGING + " " + initialValue);
 
             uriChangeCount.await(30000, TimeUnit.MILLISECONDS);
 

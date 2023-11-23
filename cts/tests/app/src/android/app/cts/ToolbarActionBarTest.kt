@@ -21,16 +21,14 @@ import android.view.KeyEvent
 import android.view.Window
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
-
 import com.android.compatibility.common.util.PollingCheck
-
 import java.util.concurrent.atomic.AtomicBoolean
-
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Before
+import org.junit.BeforeClass
 import org.junit.Rule
 import org.junit.Test
 
@@ -106,5 +104,15 @@ public class ToolbarActionBarTest {
         }
         PollingCheck.waitFor { !menuIsVisible.get() }
         PollingCheck.waitFor { !activity.getToolbar().isOverflowMenuShowing() }
+    }
+
+    companion object {
+        @BeforeClass
+        @JvmStatic
+        fun pressHome() {
+            // Press HOME key so that any UI that is showing, such as notification shade,
+            // will be hidden.
+            InstrumentationRegistry.getInstrumentation().sendKeyDownUpSync(KeyEvent.KEYCODE_HOME)
+        }
     }
 }

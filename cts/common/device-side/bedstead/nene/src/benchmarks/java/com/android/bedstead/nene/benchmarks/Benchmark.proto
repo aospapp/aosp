@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package com.android.bedstead.nene.benchmarks;
+
+option java_multiple_files = true;
+option java_outer_classname = "BenchmarkProtos";
+
+// Describes all relevant info about a specific benchmark.
+message BenchmarkMetadata {
+  // The unique, human-readable name of the benchmark.
+  string name = 1;
+}
+
+// Describes results obtained from running a benchmark.
+message BenchmarkResult {
+  // The benchmark's metadata.
+  BenchmarkMetadata metadata = 1;
+
+  // Describes statistical runtime metrics obtained from running a benchmark multiple times.
+  // All runtimes are in milliseconds.
+  message RuntimeMetrics {
+    // The minimum runtime from the set of runs.
+    double minimum = 1;
+    // The maximum runtime from the set of runs.
+    double maximum = 2;
+    // The median runtime from the set of runs.
+    double median = 3;
+    // The mean runtime from the set of runs.
+    double mean = 4;
+    // The standard deviation of the runtimes from the set of runs.
+    double standardDeviation = 5;
+  }
+  // Runtime metrics for the benchmark.
+  RuntimeMetrics runtimeMetrics = 2;
+}

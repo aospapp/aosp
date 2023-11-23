@@ -4,6 +4,9 @@
       "name": "ApexTestCases"
     },
     {
+      "name": "ApexServiceTestCases"
+    },
+    {
       "name": "MicrodroidHostTestCases"
     }
   ],

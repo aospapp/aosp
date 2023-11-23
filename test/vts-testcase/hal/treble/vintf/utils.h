@@ -16,19 +16,20 @@
 
 #ifndef VTS_TREBLE_VINTF_TEST_UTILS_H_
 #define VTS_TREBLE_VINTF_TEST_UTILS_H_
-#include <map>
-#include <optional>
-#include <set>
-#include <string>
-#include <vector>
-
 #include <android/hidl/manager/1.0/IServiceManager.h>
+#include <gtest/gtest.h>
 #include <hidl-hash/Hash.h>
 #include <hidl-util/FQName.h>
 #include <hidl/HidlSupport.h>
 #include <procpartition/procpartition.h>
 #include <vintf/VintfObject.h>
 #include <vintf/parse_string.h>
+
+#include <map>
+#include <optional>
+#include <set>
+#include <string>
+#include <vector>
 
 namespace android {
 namespace vintf {
@@ -47,6 +48,7 @@ using android::procpartition::Partition;
 using android::vintf::HalManifest;
 using android::vintf::Level;
 using android::vintf::ManifestHal;
+using android::vintf::ManifestInstance;
 using android::vintf::RuntimeInfo;
 using android::vintf::SchemaType;
 using android::vintf::to_string;
@@ -59,17 +61,76 @@ using std::endl;
 using std::map;
 using std::multimap;
 using std::optional;
+using std::ostream;
 using std::set;
 using std::string;
-
 using std::vector;
 
-using HidlVerifyFn = std::function<void(
-    const FQName& fq_name, const string& instance_name, Transport)>;
-using AidlVerifyFn =
-    std::function<void(const std::string& package, uint64_t version,
-                       const std::string& name, const std::string& instance,
-                       const std::optional<std::string>& updatable_via_apex)>;
+// Wrapper of ManifestInstance that hides details irrelevant to HIDL.
+struct HidlInstance : private ManifestInstance {
+ public:
+  HidlInstance(const ManifestInstance& other);
+  HidlInstance(const HidlInstance&) = default;
+  HidlInstance(HidlInstance&&) = default;
+  FQName fq_name() const {
+    return FQName{package(), to_string(version()), interface()};
+  }
+  string instance_name() const { return instance(); };
+  Transport transport() const { return ManifestInstance::transport(); }
+
+  string test_case_name() const;
+};
+ostream& operator<<(ostream& os, const HidlInstance& val);
+
+// Wrapper of ManifestInstance that hides details irrelevant to AIDL.
+struct AidlInstance : private ManifestInstance {
+ public:
+  AidlInstance(const ManifestInstance& other);
+  AidlInstance(const AidlInstance&) = default;
+  AidlInstance(AidlInstance&&) = default;
+  string package() const { return ManifestInstance::package(); }
+  uint64_t version() const { return ManifestInstance::version().minorVer; }
+  string interface() const { return ManifestInstance::interface(); }
+  string instance() const { return ManifestInstance::instance(); }
+  std::optional<string> updatable_via_apex() const {
+    return ManifestInstance::updatableViaApex();
+  }
+
+  string test_case_name() const;
+};
+ostream& operator<<(ostream& os, const AidlInstance& val);
+
+struct NativeInstance : private ManifestInstance {
+ public:
+  NativeInstance(const ManifestInstance& other);
+  NativeInstance(const NativeInstance&) = default;
+  NativeInstance(NativeInstance&&) = default;
+
+  string package() const { return ManifestInstance::package(); }
+  uint64_t minor_version() const {
+    return ManifestInstance::version().minorVer;
+  }
+  uint64_t major_version() const {
+    return ManifestInstance::version().majorVer;
+  }
+  string interface() const { return ManifestInstance::interface(); }
+  string instance() const { return ManifestInstance::instance(); }
+
+  string test_case_name() const;
+};
+ostream& operator<<(ostream& os, const NativeInstance& val);
+
+// Sanitize a string so it can be used as a test case name.
+std::string SanitizeTestCaseName(std::string original);
+
+// Print test case name for SingleHidlTest and SingleAidlTest
+template <typename Test>
+std::string GetTestCaseSuffix(
+    const ::testing::TestParamInfo<typename Test::ParamType>& info) {
+  const auto& instance = std::get<0>(info.param);
+  return instance.test_case_name() + "_" + std::to_string(info.index);
+}
+
 using HashCharArray = hidl_array<unsigned char, 32>;
 using HalManifestPtr = std::shared_ptr<const HalManifest>;
 using MatrixPtr = std::shared_ptr<const CompatibilityMatrix>;

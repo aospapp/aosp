@@ -28,10 +28,33 @@ cc_test {
     ],
 
     cflags: [
-        "-Werror",
         "-Wall",
+        "-Werror",
     ],
 
     test_suites: ["device-tests"],
 
+}
+
+cc_test {
+    name: "EffectParamWrapper_tests",
+
+    shared_libs: [
+        "libbase",
+        "liblog",
+        "libutils",
+    ],
+
+    header_libs: ["libmedia_headers"],
+
+    srcs: [
+        "EffectParamWrapper_tests.cpp",
+    ],
+
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    test_suites: ["device-tests"],
 }

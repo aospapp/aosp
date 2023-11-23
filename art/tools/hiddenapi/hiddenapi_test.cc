@@ -106,7 +106,6 @@ class HiddenApiTest : public CommonRuntimeTest {
   }
 
   std::unique_ptr<const DexFile> OpenDex(const ScratchFile& file) {
-    ArtDexFileLoader dex_loader;
     std::string error_msg;
 
     File fd(file.GetFilename(), O_RDONLY, /* check_usage= */ false);
@@ -115,9 +114,9 @@ class HiddenApiTest : public CommonRuntimeTest {
       UNREACHABLE();
     }
 
-    std::unique_ptr<const DexFile> dex_file(dex_loader.OpenDex(
-        fd.Release(), /* location= */ file.GetFilename(), /* verify= */ true,
-        /* verify_checksum= */ true, /* mmap_shared= */ false, &error_msg));
+    ArtDexFileLoader dex_loader(fd.Release(), file.GetFilename());
+    std::unique_ptr<const DexFile> dex_file(dex_loader.Open(
+        /* verify= */ true, /* verify_checksum= */ true, /* mmap_shared= */ false, &error_msg));
     if (dex_file.get() == nullptr) {
       LOG(FATAL) << "Open failed for '" << file.GetFilename() << "' " << error_msg;
       UNREACHABLE();
@@ -143,7 +142,7 @@ class HiddenApiTest : public CommonRuntimeTest {
     std::map<std::string, std::string> flags;
 
     for (std::string line; std::getline(ifs, line);) {
-      std::size_t comma = line.find(",");
+      std::size_t comma = line.find(',');
       if (comma == std::string::npos) {
         flags.emplace(line, "");
       } else {

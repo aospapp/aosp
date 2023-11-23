@@ -25,8 +25,8 @@ import android.view.inputmethod.TextSnapshot;
 import android.view.inputmethod.cts.util.InputConnectionTestUtils;
 
 import androidx.annotation.NonNull;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,14 +81,26 @@ public final class TextSnapshotTest {
                 InputType.TYPE_TEXT_FLAG_CAP_WORDS);
     }
 
+    @Test
+    public void testTextSnapshotNotEquals() {
+        final TextSnapshot textSnapshot1 =
+                new TextSnapshot(new SurroundingText("hello", 5, 5, 0), -1, -1, 0);
+        final TextSnapshot textSnapshot2 =
+                new TextSnapshot(new SurroundingText("hello", 5, 5, 0), -1, -1, 0);
+        assertThat(textSnapshot1).isNotEqualTo(textSnapshot2);
+    }
+
     private static SurroundingText surroundingText(@NonNull String formatString, int offset) {
         final CharSequence text = InputConnectionTestUtils.formatString(formatString);
         final int selectionStart = Selection.getSelectionStart(text);
         assertThat(selectionStart).isGreaterThan(-1);
         final int selectionEnd = Selection.getSelectionEnd(text);
         assertThat(selectionEnd).isGreaterThan(-1);
-        return new SurroundingText(text.subSequence(offset, text.length() - offset),
-                selectionStart - offset, selectionEnd - offset, offset);
+        return new SurroundingText(
+                text.subSequence(offset, text.length() - offset),
+                selectionStart - offset,
+                selectionEnd - offset,
+                offset);
     }
 
     private static void verify(@NonNull SurroundingText surroundingText, int compositionStart,

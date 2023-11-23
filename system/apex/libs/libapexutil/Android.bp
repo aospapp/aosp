@@ -19,38 +19,41 @@ package {
 }
 
 cc_defaults {
-  name: "libapexutil-deps",
-  static_libs: [
-    "libbase",
-    "liblog",
-    "libprotobuf-cpp-lite",
-    "lib_apex_manifest_proto_lite",
-  ],
+    name: "libapexutil-deps",
+    shared_libs: [
+        "libbase",
+    ],
+    static_libs: [
+        "liblog_for_runtime_apex",
+        "libprotobuf-cpp-lite",
+        "lib_apex_manifest_proto_lite",
+    ],
 }
 
 cc_library_static {
-  name: "libapexutil",
-  defaults: ["libapexutil-deps"],
-  export_include_dirs: ["."],
-  srcs: ["apexutil.cpp"],
-  host_supported: true,
-  apex_available: [
-      "//apex_available:platform",
-      "com.android.runtime",
-  ],
+    name: "libapexutil",
+    defaults: ["libapexutil-deps"],
+    export_include_dirs: ["."],
+    srcs: [ "apexutil.cpp" ],
+    host_supported: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.runtime",
+    ],
+    visibility: ["//system/linkerconfig"],
 }
 
 cc_test {
-  name: "libapexutil_tests",
-  srcs: ["*_test.cpp"],
-  defaults: ["libapexutil-deps"],
-  static_libs: [
-    "libapexutil",
-    "libgmock",
-  ],
-  test_suites: [
-    "device-tests",
-    "general-tests",
-  ],
-  host_supported: true,
+    name: "libapexutil_tests",
+    srcs: ["*_test.cpp"],
+    defaults: ["libapexutil-deps"],
+    static_libs: [
+        "libapexutil",
+        "libgmock",
+    ],
+    test_suites: [
+        "device-tests",
+        "general-tests",
+    ],
+    host_supported: true,
 }

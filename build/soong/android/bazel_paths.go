@@ -32,14 +32,14 @@ import (
 // There is often a similar method for Bazel as there is for Soong path handling and should be used
 // in similar circumstances
 //
-// Bazel                                Soong
-//
-// BazelLabelForModuleSrc               PathForModuleSrc
-// BazelLabelForModuleSrcExcludes       PathForModuleSrcExcludes
-// BazelLabelForModuleDeps              n/a
-// tbd                                  PathForSource
-// tbd                                  ExistentPathsForSources
-// PathForBazelOut                      PathForModuleOut
+//   Bazel                                Soong
+//   ==============================================================
+//   BazelLabelForModuleSrc               PathForModuleSrc
+//   BazelLabelForModuleSrcExcludes       PathForModuleSrcExcludes
+//   BazelLabelForModuleDeps              n/a
+//   tbd                                  PathForSource
+//   tbd                                  ExistentPathsForSources
+//   PathForBazelOut                      PathForModuleOut
 //
 // Use cases:
 //  * Module contains a property (often tagged `android:"path"`) that expects paths *relative to the
@@ -68,7 +68,7 @@ import (
 //   cannot be resolved,the function will panic. This is often due to the dependency not being added
 //   via an AddDependency* method.
 
-// A minimal context interface to check if a module should be converted by bp2build,
+// BazelConversionContext is a minimal context interface to check if a module should be converted by bp2build,
 // with functions containing information to match against allowlists and denylists.
 // If a module is deemed to be convertible by bp2build, then it should rely on a
 // BazelConversionPathContext for more functions for dep/path features.
@@ -202,28 +202,38 @@ func BazelLabelForModuleSrcExcludes(ctx BazelConversionPathContext, paths, exclu
 	return labels
 }
 
-// Returns true if a prefix + components[:i] + /Android.bp exists
-// TODO(b/185358476) Could check for BUILD file instead of checking for Android.bp file, or ensure BUILD is always generated?
-func directoryHasBlueprint(fs pathtools.FileSystem, prefix string, components []string, componentIndex int) bool {
-	blueprintPath := prefix
-	if blueprintPath != "" {
-		blueprintPath = blueprintPath + "/"
-	}
-	blueprintPath = blueprintPath + strings.Join(components[:componentIndex+1], "/")
-	blueprintPath = blueprintPath + "/Android.bp"
-	if exists, _, _ := fs.Exists(blueprintPath); exists {
+// Returns true if a prefix + components[:i] is a package boundary.
+//
+// A package boundary is determined by a BUILD file in the directory. This can happen in 2 cases:
+//
+//  1. An Android.bp exists, which bp2build will always convert to a sibling BUILD file.
+//  2. An Android.bp doesn't exist, but a checked-in BUILD/BUILD.bazel file exists, and that file
+//     is allowlisted by the bp2build configuration to be merged into the symlink forest workspace.
+func isPackageBoundary(config Config, prefix string, components []string, componentIndex int) bool {
+	prefix = filepath.Join(prefix, filepath.Join(components[:componentIndex+1]...))
+	if exists, _, _ := config.fs.Exists(filepath.Join(prefix, "Android.bp")); exists {
 		return true
-	} else {
-		return false
+	} else if config.Bp2buildPackageConfig.ShouldKeepExistingBuildFileForDir(prefix) {
+		if exists, _, _ := config.fs.Exists(filepath.Join(prefix, "BUILD")); exists {
+			return true
+		} else if exists, _, _ := config.fs.Exists(filepath.Join(prefix, "BUILD.bazel")); exists {
+			return true
+		}
 	}
+
+	return false
 }
 
 // Transform a path (if necessary) to acknowledge package boundaries
 //
 // e.g. something like
-//   async_safe/include/async_safe/CHECK.h
+//
+//	async_safe/include/async_safe/CHECK.h
+//
 // might become
-//   //bionic/libc/async_safe:include/async_safe/CHECK.h
+//
+//	//bionic/libc/async_safe:include/async_safe/CHECK.h
+//
 // if the "async_safe" directory is actually a package and not just a directory.
 //
 // In particular, paths that extend into packages are transformed into absolute labels beginning with //.
@@ -238,17 +248,37 @@ func transformSubpackagePath(ctx BazelConversionPathContext, path bazel.Label) b
 		newPath.Label = path.Label
 		return newPath
 	}
-
-	newLabel := ""
+	if strings.HasPrefix(path.Label, "./") {
+		// Drop "./" for consistent handling of paths.
+		// Specifically, to not let "." be considered a package boundary.
+		// Say `inputPath` is `x/Android.bp` and that file has some module
+		// with `srcs=["y/a.c", "z/b.c"]`.
+		// And say the directory tree is:
+		//     x
+		//     ├── Android.bp
+		//     ├── y
+		//     │   ├── a.c
+		//     │   └── Android.bp
+		//     └── z
+		//         └── b.c
+		// Then bazel equivalent labels in srcs should be:
+		//   //x/y:a.c, x/z/b.c
+		// The above should still be the case if `x/Android.bp` had
+		//   srcs=["./y/a.c", "./z/b.c"]
+		// However, if we didn't strip "./", we'd get
+		//   //x/./y:a.c, //x/.:z/b.c
+		path.Label = strings.TrimPrefix(path.Label, "./")
+	}
 	pathComponents := strings.Split(path.Label, "/")
-	foundBlueprint := false
+	newLabel := ""
+	foundPackageBoundary := false
 	// Check the deepest subdirectory first and work upwards
 	for i := len(pathComponents) - 1; i >= 0; i-- {
 		pathComponent := pathComponents[i]
 		var sep string
-		if !foundBlueprint && directoryHasBlueprint(ctx.Config().fs, ctx.ModuleDir(), pathComponents, i) {
+		if !foundPackageBoundary && isPackageBoundary(ctx.Config(), ctx.ModuleDir(), pathComponents, i) {
 			sep = ":"
-			foundBlueprint = true
+			foundPackageBoundary = true
 		} else {
 			sep = "/"
 		}
@@ -258,7 +288,7 @@ func transformSubpackagePath(ctx BazelConversionPathContext, path bazel.Label) b
 			newLabel = pathComponent + sep + newLabel
 		}
 	}
-	if foundBlueprint {
+	if foundPackageBoundary {
 		// Ensure paths end up looking like //bionic/... instead of //./bionic/...
 		moduleDir := ctx.ModuleDir()
 		if strings.HasPrefix(moduleDir, ".") {
@@ -303,20 +333,21 @@ func RootToModuleRelativePaths(ctx BazelConversionPathContext, paths Paths) []ba
 // directory and Bazel target labels, excluding those included in the excludes argument (which
 // should already be expanded to resolve references to Soong-modules). Valid elements of paths
 // include:
-// * filepath, relative to local module directory, resolves as a filepath relative to the local
-//   source directory
-// * glob, relative to the local module directory, resolves as filepath(s), relative to the local
-//    module directory. Because Soong does not have a concept of crossing package boundaries, the
-//    glob as computed by Soong may contain paths that cross package-boundaries that would be
-//    unknowingly omitted if the glob were handled by Bazel. To allow identification and detect
-//    (within Bazel) use of paths that cross package boundaries, we expand globs within Soong rather
-//    than converting Soong glob syntax to Bazel glob syntax. **Invalid for excludes.**
-// * other modules using the ":name{.tag}" syntax. These modules must implement SourceFileProducer
-//    or OutputFileProducer. These resolve as a Bazel label for a target. If the Bazel target is in
-//    the local module directory, it will be returned relative to the current package (e.g.
-//    ":<target>"). Otherwise, it will be returned as an absolute Bazel label (e.g.
-//    "//path/to/dir:<target>"). If the reference to another module cannot be resolved,the function
-//    will panic.
+//   - filepath, relative to local module directory, resolves as a filepath relative to the local
+//     source directory
+//   - glob, relative to the local module directory, resolves as filepath(s), relative to the local
+//     module directory. Because Soong does not have a concept of crossing package boundaries, the
+//     glob as computed by Soong may contain paths that cross package-boundaries that would be
+//     unknowingly omitted if the glob were handled by Bazel. To allow identification and detect
+//     (within Bazel) use of paths that cross package boundaries, we expand globs within Soong rather
+//     than converting Soong glob syntax to Bazel glob syntax. **Invalid for excludes.**
+//   - other modules using the ":name{.tag}" syntax. These modules must implement SourceFileProducer
+//     or OutputFileProducer. These resolve as a Bazel label for a target. If the Bazel target is in
+//     the local module directory, it will be returned relative to the current package (e.g.
+//     ":<target>"). Otherwise, it will be returned as an absolute Bazel label (e.g.
+//     "//path/to/dir:<target>"). If the reference to another module cannot be resolved,the function
+//     will panic.
+//
 // Properties passed as the paths or excludes argument must have been annotated with struct tag
 // `android:"path"` so that dependencies on other modules will have already been handled by the
 // path_deps mutator.
@@ -424,6 +455,9 @@ func samePackage(label1, label2 string) bool {
 func bp2buildModuleLabel(ctx BazelConversionContext, module blueprint.Module) string {
 	moduleName := ctx.OtherModuleName(module)
 	moduleDir := ctx.OtherModuleDir(module)
+	if moduleDir == Bp2BuildTopLevel {
+		moduleDir = ""
+	}
 	return fmt.Sprintf("//%s:%s", moduleDir, moduleName)
 }
 
@@ -449,23 +483,51 @@ func (p BazelOutPath) objPathWithExt(ctx ModuleOutPathContext, subdir, ext strin
 	return PathForModuleObj(ctx, subdir, pathtools.ReplaceExtension(p.path, ext))
 }
 
-// PathForBazelOut returns a Path representing the paths... under an output directory dedicated to
-// bazel-owned outputs.
-func PathForBazelOut(ctx PathContext, paths ...string) BazelOutPath {
-	execRootPathComponents := append([]string{"execroot", "__main__"}, paths...)
-	execRootPath := filepath.Join(execRootPathComponents...)
-	validatedExecRootPath, err := validatePath(execRootPath)
+// PathForBazelOutRelative returns a BazelOutPath representing the path under an output directory dedicated to
+// bazel-owned outputs. Calling .Rel() on the result will give the input path as relative to the given
+// relativeRoot.
+func PathForBazelOutRelative(ctx PathContext, relativeRoot string, path string) BazelOutPath {
+	validatedPath, err := validatePath(filepath.Join("execroot", "__main__", path))
 	if err != nil {
 		reportPathError(ctx, err)
 	}
+	var relativeRootPath string
+	if pathComponents := strings.SplitN(path, "/", 4); len(pathComponents) >= 3 &&
+		pathComponents[0] == "bazel-out" && pathComponents[2] == "bin" {
+		// If the path starts with something like: bazel-out/linux_x86_64-fastbuild-ST-b4ef1c4402f9/bin/
+		// make it relative to that folder. bazel-out/volatile-status.txt is an example
+		// of something that starts with bazel-out but is not relative to the bin folder
+		relativeRootPath = filepath.Join("execroot", "__main__", pathComponents[0], pathComponents[1], pathComponents[2], relativeRoot)
+	} else {
+		relativeRootPath = filepath.Join("execroot", "__main__", relativeRoot)
+	}
 
-	outputPath := OutputPath{basePath{"", ""},
+	var relPath string
+	if relPath, err = filepath.Rel(relativeRootPath, validatedPath); err != nil || strings.HasPrefix(relPath, "../") {
+		// We failed to make this path relative to execroot/__main__, fall back to a non-relative path
+		// One case where this happens is when path is ../bazel_tools/something
+		relativeRootPath = ""
+		relPath = validatedPath
+	}
+
+	outputPath := OutputPath{
+		basePath{"", ""},
 		ctx.Config().soongOutDir,
-		ctx.Config().BazelContext.OutputBase()}
+		ctx.Config().BazelContext.OutputBase(),
+	}
 
 	return BazelOutPath{
-		OutputPath: outputPath.withRel(validatedExecRootPath),
+		// .withRel() appends its argument onto the current path, and only the most
+		// recently appended part is returned by outputPath.rel().
+		// So outputPath.rel() will return relPath.
+		OutputPath: outputPath.withRel(relativeRootPath).withRel(relPath),
 	}
+}
+
+// PathForBazelOut returns a BazelOutPath representing the path under an output directory dedicated to
+// bazel-owned outputs.
+func PathForBazelOut(ctx PathContext, path string) BazelOutPath {
+	return PathForBazelOutRelative(ctx, "", path)
 }
 
 // PathsForBazelOut returns a list of paths representing the paths under an output directory
@@ -476,4 +538,56 @@ func PathsForBazelOut(ctx PathContext, paths []string) Paths {
 		outs = append(outs, PathForBazelOut(ctx, p))
 	}
 	return outs
+}
+
+// BazelStringOrLabelFromProp splits a Soong module property that can be
+// either a string literal, path (with android:path tag) or a module reference
+// into separate bazel string or label attributes. Bazel treats string and label
+// attributes as distinct types, so this function categorizes a string property
+// into either one of them.
+//
+// e.g. apex.private_key = "foo.pem" can either refer to:
+//
+// 1. "foo.pem" in the current directory -> file target
+// 2. "foo.pem" module -> rule target
+// 3. "foo.pem" file in a different directory, prefixed by a product variable handled
+// in a bazel macro. -> string literal
+//
+// For the first two cases, they are defined using the label attribute. For the third case,
+// it's defined with the string attribute.
+func BazelStringOrLabelFromProp(
+	ctx TopDownMutatorContext,
+	propToDistinguish *string) (bazel.LabelAttribute, bazel.StringAttribute) {
+
+	var labelAttr bazel.LabelAttribute
+	var strAttr bazel.StringAttribute
+
+	if propToDistinguish == nil {
+		// nil pointer
+		return labelAttr, strAttr
+	}
+
+	prop := String(propToDistinguish)
+	if SrcIsModule(prop) != "" {
+		// If it's a module (SrcIsModule will return the module name), set the
+		// resolved label to the label attribute.
+		labelAttr.SetValue(BazelLabelForModuleDepSingle(ctx, prop))
+	} else {
+		// Not a module name. This could be a string literal or a file target in
+		// the current dir. Check if the path exists:
+		path := ExistentPathForSource(ctx, ctx.ModuleDir(), prop)
+
+		if path.Valid() && parentDir(path.String()) == ctx.ModuleDir() {
+			// If it exists and the path is relative to the current dir, resolve the bazel label
+			// for the _file target_ and set it to the label attribute.
+			//
+			// Resolution is necessary because this could be a file in a subpackage.
+			labelAttr.SetValue(BazelLabelForModuleSrcSingle(ctx, prop))
+		} else {
+			// Otherwise, treat it as a string literal and assign to the string attribute.
+			strAttr.Value = propToDistinguish
+		}
+	}
+
+	return labelAttr, strAttr
 }

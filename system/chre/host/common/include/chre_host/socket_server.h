@@ -81,6 +81,10 @@ class SocketServer {
    */
   bool sendToClientById(const void *data, size_t length, uint16_t clientId);
 
+  void shutdownServer() {
+    sSignalReceived = true;
+  }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(SocketServer);
 
@@ -119,7 +123,6 @@ class SocketServer {
   void serviceSocket();
 
   static std::atomic<bool> sSignalReceived;
-  static void signalHandler(int signal);
 };
 
 }  // namespace chre

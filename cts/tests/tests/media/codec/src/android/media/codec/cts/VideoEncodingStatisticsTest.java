@@ -21,14 +21,12 @@ import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
-import android.media.cts.MediaCodecWrapper;
 import android.media.cts.MediaHeavyPresubmitTest;
 import android.media.cts.TestArgs;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
-import androidx.test.platform.app.InstrumentationRegistry;
-
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.MediaUtils;
 
 import org.junit.Assume;
@@ -42,8 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import static org.junit.Assert.assertEquals;
 
 /**
  * Verification test for video encoding statistics.
@@ -101,7 +97,7 @@ public class VideoEncodingStatisticsTest extends VideoCodecTestBase {
         return argsList;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}:{1}:{2})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{2}")
     public static Collection<Object[]> input() {
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 {AVC_MIME, VIDEO_ControlRateConstant},
@@ -200,6 +196,9 @@ public class VideoEncodingStatisticsTest extends VideoCodecTestBase {
         }
     }
 
+    @ApiTest(apis = {"MediaCodecInfo.CodecCapabilities#FEATURE_EncodingStatistics",
+            "android.media.MediaFormat#KEY_VIDEO_ENCODING_STATISTICS_LEVEL",
+            "android.media.MediaFormat#KEY_VIDEO_QP_AVERAGE"})
     @Test
     public void testEncodingStatisticsAvgQp() throws Exception {
        testEncStatRateAvgQp(mCodecName, mCodecMimeType, mBitRateMode);

@@ -20,7 +20,28 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Marks that the test is valid only when running against system user. */
+/**
+ * Marks that the test is valid only when running against system user.
+ *
+ * <p>Note that this annotation is only used to skip tests from running when TradeFed
+ * module-parameter {@code secondary_user} is applied (and consequently also for {@code atest
+ * testName --user-type secondary_user}).
+ *
+ * <p>Tests that are run in secondary user for any other reason will be unaffected by this parameter
+ * and will therefore not be skipped.
+ *
+ * <p>For example, tests annotated with this will <b>not</b> be skipped if:
+ *
+ * <ul>
+ *   <li>you manually switch to a secondary user prior to running the test
+ *   <li>the device is running in Headless System User Mode (HSUM)
+ * </ul>
+ *
+ * <p>Because some devices (such as HSUM devices) do run their tests in secondary users, this
+ * annotation should be avoided; instead, tests should handle their underlying assumptions
+ * themselves, skipping tests based on the properties of the user in which the test is running (such
+ * as whether the user is an Admin user).
+ */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface SystemUserOnly {

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2020 NXP
+ *  Copyright 2018-2020,2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ using ::android::wp;
 using android::base::StringPrintf;
 using ::android::hardware::hidl_array;
 using ::android::hardware::hidl_death_recipient;
+using ::android::hardware::hidl_handle;
 using ::android::hardware::hidl_memory;
 using ::android::hardware::hidl_string;
 using ::android::hardware::hidl_vec;
@@ -47,13 +48,16 @@ using ::android::hardware::secure_element::V1_0::LogicalChannelResponse;
 using ::android::hardware::secure_element::V1_0::SecureElementStatus;
 using ::android::hardware::secure_element::V1_2::ISecureElement;
 using ::android::hidl::base::V1_0::IBase;
-
 #ifndef DEFAULT_BASIC_CHANNEL
 #define DEFAULT_BASIC_CHANNEL 0x00
 #endif
 
 struct VirtualISO : public ISecureElement, public hidl_death_recipient {
   VirtualISO();
+  // Methods from ::android::hidl::base::V1_0::IBase follow.
+  Return<void> debug(const hidl_handle& handle,
+                     const hidl_vec<hidl_string>& options) override;
+
   Return<void> init(
       const sp<
           ::android::hardware::secure_element::V1_0::ISecureElementHalCallback>&

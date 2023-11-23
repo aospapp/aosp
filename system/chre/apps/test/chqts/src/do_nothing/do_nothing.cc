@@ -23,7 +23,7 @@
 
 #include <cstdint>
 
-#include <chre.h>
+#include "chre_api/chre.h"
 
 extern "C" void nanoappHandleEvent(uint32_t /* senderInstanceId */,
                                    uint16_t /* eventType */,

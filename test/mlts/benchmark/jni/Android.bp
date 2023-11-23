@@ -65,7 +65,6 @@ cc_library_static {
 
 cc_library {
     name: "librandom_graph_test_jni",
-    defaults: ["neuralnetworks_float16"],
     srcs: [
         "random_graph_test_jni.cpp",
     ],

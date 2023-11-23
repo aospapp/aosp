@@ -60,6 +60,19 @@ void Section::WriteConfig(ConfigWriter& writer) {
   }
 }
 
+static bool ShouldFailOnMissingDeps(const BaseContext& ctx,
+                                    const Namespace& ns) {
+  if (!ctx.IsStrictMode()) {
+    return false;
+  }
+  // When generating for a target apex, "--strict" is applied to only the namespace
+  // for the apex to avoid failing due to missing deps in other namespaces
+  if (!ctx.GetTargetApex().empty()) {
+    return ns.GetName() == "default" || ns.GetName() == ctx.GetTargetApex();
+  }
+  return true;
+}
+
 // Resolve() resolves require/provide constraints between namespaces.
 // When foo.AddProvides({"libfoo.so"}) and bar.AddRequires({"libfoo.so"}),
 // then Resolve() creates a linke between foo and bar:
@@ -68,30 +81,26 @@ void Section::WriteConfig(ConfigWriter& writer) {
 // When a referenced lib is not provided by existing namespaces,
 // it searches the lib in available apexes <apex_providers>
 // and available aliases <lib_providers>, If found, new namespace is added.
-Result<void> Section::Resolve(const BaseContext& ctx,
-                              const LibProviders& lib_providers) {
+void Section::Resolve(const BaseContext& ctx,
+                      const LibProviders& lib_providers) {
   // libs provided by existing namespaces
   std::unordered_map<std::string, std::string> providers;
   for (auto& ns : namespaces_) {
     for (const auto& lib : ns.GetProvides()) {
       if (auto iter = providers.find(lib); iter != providers.end()) {
-        return Errorf("duplicate: {} is provided by {} and {} in [{}]",
-                      lib,
-                      iter->second,
-                      ns.GetName(),
-                      name_);
+        LOG(FATAL) << fmt::format(
+            "duplicate: {} is provided by {} and {} in [{}]",
+            lib,
+            iter->second,
+            ns.GetName(),
+            name_);
       }
       providers[lib] = ns.GetName();
     }
   }
 
   // libs provided by apexes
-  std::unordered_map<std::string, ApexInfo> apex_providers;
-  for (const auto& apex : ctx.GetApexModules()) {
-    for (const auto& lib : apex.provide_libs) {
-      apex_providers[lib] = apex;
-    }
-  }
+  const auto& apex_providers = ctx.GetApexModuleMap();
 
   // add a new namespace if not found
   auto add_namespace = [&](auto name, auto builder) {
@@ -127,26 +136,27 @@ Result<void> Section::Resolve(const BaseContext& ctx,
       if (auto it = providers.find(lib); it != providers.end()) {
         ns.GetLink(it->second).AddSharedLib(lib);
       } else if (auto it = apex_providers.find(lib); it != apex_providers.end()) {
-        ns.GetLink(it->second.namespace_name).AddSharedLib(lib);
+        const auto& apex_info = it->second.get();
+        ns.GetLink(apex_info.namespace_name).AddSharedLib(lib);
         // Add a new namespace for the apex
-        add_namespace(it->second.namespace_name, [&]() {
-          return ctx.BuildApexNamespace(it->second, false);
+        add_namespace(apex_info.namespace_name, [&]() {
+          return ctx.BuildApexNamespace(apex_info, false);
         });
       } else if (auto it = lib_providers.find(lib); it != lib_providers.end()) {
-        // Alias is expanded to <shared_libs>.
-        // For example, ":vndk" is expanded to the list of VNDK-Core/VNDK-Sp libraries
-        ns.GetLink(it->second.ns).AddSharedLib(it->second.shared_libs);
-        // Add a new namespace for the alias
-        add_namespace(it->second.ns, it->second.ns_builder);
-      } else if (ctx.IsStrictMode()) {
-        return Errorf(
+        for (const auto& provider : it->second) {
+          // Alias is expanded to <shared_libs>.
+          // For example, ":vndk" is expanded to the list of VNDK-Core/VNDK-Sp libraries
+          ns.GetLink(provider.ns).AddSharedLib(provider.shared_libs);
+          // Add a new namespace for the alias
+          add_namespace(provider.ns, provider.ns_builder);
+        }
+      } else if (ShouldFailOnMissingDeps(ctx, ns)) {
+        LOG(FATAL) << fmt::format(
             "not found: {} is required by {} in [{}]", lib, ns.GetName(), name_);
       }
     }
     iter++;
   } while (iter != namespaces_.end());
-
-  return {};
 }
 
 Namespace* Section::GetNamespace(const std::string& namespace_name) {

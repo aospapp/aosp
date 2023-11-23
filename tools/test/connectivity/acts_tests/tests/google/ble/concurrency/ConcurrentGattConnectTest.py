@@ -21,7 +21,6 @@ peripherals.
 
 from queue import Empty
 import concurrent.futures
-import threading
 import time
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_constants import ble_scan_settings_modes
@@ -82,7 +81,6 @@ class ConcurrentGattConnectTest(BluetoothBaseTest):
     def setup_class(self):
         super(BluetoothBaseTest, self).setup_class()
         self.pri_dut = self.android_devices[0]
-
 
         # Create 5 advertisements from different android devices
         for i in range(1, self.max_connections + 1):

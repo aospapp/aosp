@@ -16,12 +16,14 @@
 
 package android.net.wifi.cts;
 
+import android.app.UiAutomation;
 import android.content.Context;
 import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.os.WorkSource;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
+
+import androidx.test.platform.app.InstrumentationRegistry;
 
 @AppModeFull(reason = "Cannot get WifiManager in instant app mode")
 public class WifiLockTest extends WifiJUnit3TestBase {
@@ -49,44 +51,49 @@ public class WifiLockTest extends WifiJUnit3TestBase {
         }
         WifiManager wm = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
         WifiLock wl = wm.createWifiLock(lockType, WIFI_TAG);
-
-        wl.setReferenceCounted(true);
-        wl.setWorkSource(new WorkSource());
-        assertFalse(wl.isHeld());
-        wl.acquire();
-        assertTrue(wl.isHeld());
-        wl.release();
-        assertFalse(wl.isHeld());
-        wl.acquire();
-        wl.acquire();
-        assertTrue(wl.isHeld());
-        wl.release();
-        assertTrue(wl.isHeld());
-        wl.release();
-        assertFalse(wl.isHeld());
-        assertNotNull(wl.toString());
+        UiAutomation uiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try {
+            uiAutomation.adoptShellPermissionIdentity();
+            wl.setReferenceCounted(true);
+            wl.setWorkSource(new WorkSource());
+            assertFalse(wl.isHeld());
+            wl.acquire();
+            assertTrue(wl.isHeld());
             wl.release();
-            fail("should throw out exception because release is called"
-                    +" a greater number of times than acquire");
-        } catch (RuntimeException e) {
-            // expected
-        }
+            assertFalse(wl.isHeld());
+            wl.acquire();
+            wl.acquire();
+            assertTrue(wl.isHeld());
+            wl.release();
+            assertTrue(wl.isHeld());
+            wl.release();
+            assertFalse(wl.isHeld());
+            assertNotNull(wl.toString());
+            try {
+                wl.release();
+                fail("should throw out exception because release is called"
+                        + " a greater number of times than acquire");
+            } catch (RuntimeException e) {
+                // expected
+            }
 
-        wl = wm.createWifiLock(lockType, WIFI_TAG);
-        wl.setReferenceCounted(false);
-        assertFalse(wl.isHeld());
-        wl.acquire();
-        assertTrue(wl.isHeld());
-        wl.release();
-        assertFalse(wl.isHeld());
-        wl.acquire();
-        wl.acquire();
-        assertTrue(wl.isHeld());
-        wl.release();
-        assertFalse(wl.isHeld());
-        assertNotNull(wl.toString());
-        // releasing again after release: but ignored for non-referenced locks
-        wl.release();
+            wl = wm.createWifiLock(lockType, WIFI_TAG);
+            wl.setReferenceCounted(false);
+            assertFalse(wl.isHeld());
+            wl.acquire();
+            assertTrue(wl.isHeld());
+            wl.release();
+            assertFalse(wl.isHeld());
+            wl.acquire();
+            wl.acquire();
+            assertTrue(wl.isHeld());
+            wl.release();
+            assertFalse(wl.isHeld());
+            assertNotNull(wl.toString());
+            // releasing again after release: but ignored for non-referenced locks
+            wl.release();
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
+        }
     }
 }

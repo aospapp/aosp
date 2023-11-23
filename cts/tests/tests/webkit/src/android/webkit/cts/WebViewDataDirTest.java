@@ -16,22 +16,48 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.fail;
+
 import android.content.Context;
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.CookieManager;
 import android.webkit.WebView;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.LargeTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
 
-public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@LargeTest
+@RunWith(AndroidJUnit4.class)
+public class WebViewDataDirTest {
+
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
 
     private static final String ALTERNATE_DIR_NAME = "test";
     private static final String COOKIE_URL = "https://www.webviewdatadirtest.com/";
     private static final String COOKIE_VALUE = "foo=main";
     private static final String SET_COOKIE_PARAMS = "; Max-Age=86400";
 
-    public WebViewDataDirTest() throws Exception {
-        super("android.webkit.cts", WebViewCtsActivity.class);
+    private WebViewCtsActivity mActivity;
+
+    @Before
+    public void setUp() throws Exception {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+        mActivityScenarioRule.getScenario().onActivity(activity -> {
+            mActivity = (WebViewCtsActivity) activity;
+        });
     }
 
     static class TestDisableThenUseImpl extends TestProcessClient.TestRunnable {
@@ -45,34 +71,25 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         }
     }
 
+    @Test
     public void testDisableThenUse() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        try (TestProcessClient process = TestProcessClient.createProcessA(getActivity())) {
+        try (TestProcessClient process = TestProcessClient.createProcessA(mActivity)) {
             process.run(TestDisableThenUseImpl.class);
         }
     }
 
+    @Test
     public void testUseThenDisable() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        assertNotNull(getActivity().getWebView());
+        assertNotNull(mActivity.getWebView());
         try {
             WebView.disableWebView();
             fail("didn't throw IllegalStateException");
         } catch (IllegalStateException e) {}
     }
 
+    @Test
     public void testUseThenChangeDir() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        assertNotNull(getActivity().getWebView());
+        assertNotNull(mActivity.getWebView());
         try {
             WebView.setDataDirectorySuffix(ALTERNATE_DIR_NAME);
             fail("didn't throw IllegalStateException");
@@ -89,12 +106,9 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         }
     }
 
+    @Test
     public void testInvalidDir() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
-        try (TestProcessClient process = TestProcessClient.createProcessA(getActivity())) {
+        try (TestProcessClient process = TestProcessClient.createProcessA(mActivity)) {
             process.run(TestInvalidDirImpl.class);
         }
     }
@@ -109,14 +123,11 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         }
     }
 
+    @Test
     public void testSameDirTwoProcesses() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
+        assertNotNull(mActivity.getWebView());
 
-        assertNotNull(getActivity().getWebView());
-
-        try (TestProcessClient processA = TestProcessClient.createProcessA(getActivity())) {
+        try (TestProcessClient processA = TestProcessClient.createProcessA(mActivity)) {
             processA.run(TestDefaultDirDisallowed.class);
         }
     }
@@ -131,18 +142,15 @@ public class WebViewDataDirTest extends ActivityInstrumentationTestCase2<WebView
         }
     }
 
+    @Test
     public void testCookieJarsSeparate() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         CookieManager cm = CookieManager.getInstance();
         cm.setCookie(COOKIE_URL, COOKIE_VALUE + SET_COOKIE_PARAMS);
         cm.flush();
         String cookie = cm.getCookie(COOKIE_URL);
         assertEquals("wrong cookie in default cookie jar", COOKIE_VALUE, cookie);
 
-        try (TestProcessClient processA = TestProcessClient.createProcessA(getActivity())) {
+        try (TestProcessClient processA = TestProcessClient.createProcessA(mActivity)) {
             processA.run(TestCookieInAlternateDir.class);
         }
     }

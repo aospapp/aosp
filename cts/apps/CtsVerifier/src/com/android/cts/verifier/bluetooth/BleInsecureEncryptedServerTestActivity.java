@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.content.BroadcastReceiver;
@@ -57,7 +59,7 @@ public class BleInsecureEncryptedServerTestActivity extends PassFailButtons.Acti
         filter.addAction(BleEncryptedServerService.INTENT_BLUETOOTH_DISABLED);
         filter.addAction(BleServerService.BLE_OPEN_FAIL);
         filter.addAction(BleServerService.BLE_ADVERTISE_UNSUPPORTED);
-        registerReceiver(mBroadcast, filter);
+        registerReceiver(mBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

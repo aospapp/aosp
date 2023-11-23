@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <keymaster/UniquePtr.h>
 
 #include <hardware/keymaster_defs.h>
@@ -692,18 +694,18 @@ class AuthProxy {
         : hw_enforced_(hw_enforced), sw_enforced_(sw_enforced) {}
 
     template <typename... ARGS> bool Contains(ARGS&&... args) const {
-        return hw_enforced_.Contains(forward<ARGS>(args)...) ||
-               sw_enforced_.Contains(forward<ARGS>(args)...);
+        return hw_enforced_.Contains(std::forward<ARGS>(args)...) ||
+               sw_enforced_.Contains(std::forward<ARGS>(args)...);
     }
 
     template <typename... ARGS> bool GetTagValue(ARGS&&... args) const {
-        return hw_enforced_.GetTagValue(forward<ARGS>(args)...) ||
-               sw_enforced_.GetTagValue(forward<ARGS>(args)...);
+        return hw_enforced_.GetTagValue(std::forward<ARGS>(args)...) ||
+               sw_enforced_.GetTagValue(std::forward<ARGS>(args)...);
     }
 
     template <typename... ARGS> bool GetTagCount(ARGS&&... args) const {
-        return hw_enforced_.GetTagCount(forward<ARGS>(args)...) ||
-               sw_enforced_.GetTagCount(forward<ARGS>(args)...);
+        return hw_enforced_.GetTagCount(std::forward<ARGS>(args)...) ||
+               sw_enforced_.GetTagCount(std::forward<ARGS>(args)...);
     }
 
     AuthProxyIterator begin() const { return AuthProxyIterator(hw_enforced_, sw_enforced_); }

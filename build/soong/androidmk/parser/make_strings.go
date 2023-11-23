@@ -38,10 +38,10 @@ import (
 // For example, "$(FOO)/bar/baz" will be represented as the
 // following lists:
 //
-// {
-//   Strings: ["", "/bar/baz"],
-//   Variables: ["FOO"]
-// }
+//	{
+//	  Strings: ["", "/bar/baz"],
+//	  Variables: ["FOO"]
+//	}
 type MakeString struct {
 	StringPos Pos
 	Strings   []string
@@ -234,10 +234,10 @@ func (ms *MakeString) splitNFunc(n int, splitFunc func(s string, n int) []string
 		if n != 0 {
 			split := splitFunc(s, n)
 			if n != -1 {
-				if len(split) > n {
+				if len(split) > n || len(split) == 0 {
 					panic("oops!")
 				} else {
-					n -= len(split)
+					n -= len(split) - 1
 				}
 			}
 			curMs.appendString(split[0])
@@ -279,7 +279,7 @@ func (ms *MakeString) TrimRightOne() {
 
 func (ms *MakeString) EndsWith(ch rune) bool {
 	s := ms.Strings[len(ms.Strings)-1]
-	return s[len(s)-1] == uint8(ch)
+	return len(s) > 0 && s[len(s)-1] == uint8(ch)
 }
 
 func (ms *MakeString) ReplaceLiteral(input string, output string) {

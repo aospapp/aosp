@@ -94,14 +94,14 @@ def compute_patch_means(cap, props, file_name):
   return image_processing_utils.compute_image_means(patch)
 
 
-def create_plots(idx, raw_means, yuv_means, log_path):
+def create_plots(idx, raw_means, yuv_means, name_with_log_path):
   """Create plots from data.
 
   Args:
     idx: capture request indices for x-axis.
     raw_means: array of RAW capture RGB converted means.
     yuv_means: array of YUV capture RGB converted means.
-    log_path: path to save files.
+    name_with_log_path: file name & path to save files.
   """
 
   pylab.clf()
@@ -111,11 +111,11 @@ def create_plots(idx, raw_means, yuv_means, log_path):
     pylab.plot(idx, [ch[i] for ch in raw_means], '-'+'rgb'[i]+'o', label='RAW',
                alpha=0.7)
   pylab.ylim([0, 1])
-  pylab.title('%s' % _NAME)
+  pylab.title(_NAME)
   pylab.xlabel('requests')
   pylab.ylabel('RGB means')
   pylab.legend(loc='lower right', numpoints=1, fancybox=True)
-  matplotlib.pyplot.savefig('%s_plot_means.png' % os.path.join(log_path, _NAME))
+  matplotlib.pyplot.savefig(f'{name_with_log_path}_plot_means.png')
 
 
 class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
@@ -144,10 +144,12 @@ class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
           camera_properties_utils.per_frame_control(props) and
           not camera_properties_utils.mono_camera(props))
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Create reqs & do caps
       settings, reqs, out_surfaces = create_requests(cam, props, log_path)
@@ -162,12 +164,11 @@ class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
       yuv_means = []
       for i in range(len(reqs)):
         sens, sens_boost = settings[i]
-        raw_file_name = '%s_raw_s=%04d_boost=%04d.jpg' % (
-            os.path.join(log_path, _NAME), sens, sens_boost)
+        sens_and_boost = f's={sens:04d}_boost={sens_boost:04d}'
+        raw_file_name = f'{name_with_log_path}_raw_{sens_and_boost}.jpg'
         raw_means.append(compute_patch_means(raw_caps[i], props, raw_file_name))
 
-        yuv_file_name = '%s_yuv_s=%04d_boost=%04d.jpg' % (
-            os.path.join(log_path, _NAME), sens, sens_boost)
+        yuv_file_name = f'{name_with_log_path}_yuv_{sens_and_boost}.jpg'
         yuv_means.append(compute_patch_means(yuv_caps[i], props, yuv_file_name))
 
         logging.debug('s=%d, s_boost=%d: raw_means %s, yuv_means %s',
@@ -175,7 +176,7 @@ class PostRawSensitivityBoost(its_base_test.ItsBaseTest):
       cap_idxs = range(len(reqs))
 
       # Create plots
-      create_plots(cap_idxs, raw_means, yuv_means, log_path)
+      create_plots(cap_idxs, raw_means, yuv_means, name_with_log_path)
 
       # RAW asserts
       for step in range(1, len(reqs)):

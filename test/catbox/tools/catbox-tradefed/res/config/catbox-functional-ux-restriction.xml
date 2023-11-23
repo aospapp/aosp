@@ -29,5 +29,5 @@
   <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:no-rerun:true" />
 
   <!-- Tests -->
-  <option name="compatibility:include-filter" value="AndroidAutomotiveUxRestrictionTests" />
+  <option name="compatibility:include-filter" value="AndroidAutomotiveUxRestrictionTests android.platform.tests.UxRestrictionTest" />
 </configuration>

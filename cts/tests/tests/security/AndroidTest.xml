@@ -20,6 +20,7 @@
     <!-- CtsDeviceInfo target API is 23; instant app requires target API >= 26. -->
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsDeviceInfo.apk" />
@@ -52,6 +53,16 @@
         <option name="cleanup" value="true" />
         <option name="push" value="RolePermissionOverrideTestApp.apk->/data/local/tmp/cts/security/RolePermissionOverrideTestApp.apk" />
         <option name="push" value="SplitBluetoothPermissionTestApp.apk->/data/local/tmp/cts/security/SplitBluetoothPermissionTestApp.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert1.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert1.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert1Dup.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert1Dup.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert2.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert2.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert3.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert3.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert4.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert4.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert12.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert12.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert12Dup.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert12Dup.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert123.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert123.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert34.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert34.apk" />
+        <option name="push" value="CtsPermissionBackupAppCert4History124.apk->/data/local/tmp/cts/security/CtsPermissionBackupAppCert4History124.apk" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
@@ -61,4 +72,9 @@
         <option name="test-timeout" value="900000" />
         <option name="hidden-api-checks" value="false" />
     </test>
+
+    <target_preparer class="android.cts.backup.BackupPreparer">
+        <option name="enable-backup-if-needed" value="true" />
+        <option name="select-local-transport" value="true" />
+    </target_preparer>
 </configuration>

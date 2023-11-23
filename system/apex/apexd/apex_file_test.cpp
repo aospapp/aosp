@@ -241,7 +241,7 @@ TEST(ApexFileTest, CannotVerifyApexVerityForCompressedApex) {
       ::testing::HasSubstr("Cannot verify ApexVerity of compressed APEX"));
 }
 
-TEST(ApexFileTest, DISABLED_DecompressCompressedApex) {
+TEST(ApexFileTest, DecompressCompressedApex) {
   const std::string file_path =
       kTestDataDir + "com.android.apex.compressed.v1.capex";
   Result<ApexFile> apex_file = ApexFile::Open(file_path);
@@ -262,13 +262,18 @@ TEST(ApexFileTest, DISABLED_DecompressCompressedApex) {
   ASSERT_RESULT_OK(exists);
   ASSERT_TRUE(*exists) << decompression_file_path << " does not exist";
 
-  // Assert that decompressed apex is same as original apex
-  const std::string original_apex_file_path =
-      kTestDataDir + "com.android.apex.compressed.v1_original.apex";
-  auto comparison_result =
-      CompareFiles(original_apex_file_path, decompression_file_path);
-  ASSERT_RESULT_OK(comparison_result);
-  ASSERT_TRUE(*comparison_result);
+  // Assert properties on the decompressed APEX.
+  auto decompressed_apex_file = ApexFile::Open(decompression_file_path);
+  ASSERT_RESULT_OK(decompressed_apex_file);
+  ASSERT_EQ(apex_file->GetBundledPublicKey(),
+            decompressed_apex_file->GetBundledPublicKey());
+  ASSERT_EQ(apex_file->GetManifest().name(),
+            decompressed_apex_file->GetManifest().name());
+  ASSERT_EQ(apex_file->GetManifest().version(),
+            decompressed_apex_file->GetManifest().version());
+  auto verity_status = decompressed_apex_file->VerifyApexVerity(
+      decompressed_apex_file->GetBundledPublicKey());
+  ASSERT_RESULT_OK(verity_status);
 }
 
 TEST(ApexFileTest, DecompressFailForNormalApex) {

@@ -16,6 +16,8 @@
 
 #include <keymaster/key_blob_utils/auth_encrypted_key_blob.h>
 
+#include <utility>
+
 #include <openssl/digest.h>
 #include <openssl/evp.h>
 #include <openssl/hkdf.h>
@@ -139,7 +141,7 @@ KmErrorOr<EncryptedKey> AesGcmEncryptKey(const AuthorizationSet& hw_enforced,   
     EncryptedKey retval;
     retval.format = format;
     retval.ciphertext = KeymasterKeyBlob(ciphertext_len);
-    retval.nonce = move(nonce);
+    retval.nonce = std::move(nonce);
     retval.tag = Buffer(kAesGcmTagLength);
 
     if (!(EVP_EncryptInit_ex(ctx.get(), EVP_aes_256_gcm(), nullptr /* engine */, kek->peek_read(),

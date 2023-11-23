@@ -20,6 +20,6 @@ import android.media.cts.WorkDirBase;
 
 class WorkDir extends WorkDirBase {
     public static final String getMediaDirString() {
-        return getMediaDirString("CtsMediaExtractorTestCases-1.0");
+        return getMediaDirString("CtsMediaExtractorTestCases-2.1");
     }
 }

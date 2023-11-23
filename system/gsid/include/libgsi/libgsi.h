@@ -24,8 +24,6 @@
 namespace android {
 namespace gsi {
 
-static constexpr char kGsiServiceName[] = "gsiservice";
-
 #define DSU_METADATA_PREFIX "/metadata/gsi/dsu/"
 
 // These files need to be globally readable so that fs_mgr_fstab, which is

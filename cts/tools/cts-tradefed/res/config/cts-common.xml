@@ -39,6 +39,11 @@
         <option name="teardown-command" value="settings put global package_verifier_enable 1"/>
     </target_preparer>
 
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="settings put global verifier_engprod 1" />
+        <option name="teardown-command" value="settings put global verifier_engprod 0"/>
+    </target_preparer>
+
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.PropertyCheck">
         <option name="property-name" value="ro.build.type" />
         <option name="expected-value" value="user"/> <!-- Device should have user build -->

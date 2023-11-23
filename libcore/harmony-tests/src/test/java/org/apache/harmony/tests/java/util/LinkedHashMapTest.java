@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -150,7 +150,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         m.put(null, "test");
         assertEquals("Failed with null key", "test", m.get(null));
         assertNull("Failed with missing key matching null hash", m
-                .get(new Integer(0)));
+                .get(Integer.valueOf(0)));
     }
 
     /**
@@ -164,13 +164,13 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
                 "VALUE", hm.get("KEY"));
 
         LinkedHashMap m = new LinkedHashMap();
-        m.put(new Short((short) 0), "short");
+        m.put(Short.valueOf((short) 0), "short");
         m.put(null, "test");
-        m.put(new Integer(0), "int");
+        m.put(Integer.valueOf(0), "int");
         assertEquals("Failed adding to bucket containing null", "short", m.get(
-                new Short((short) 0)));
+                Short.valueOf((short) 0)));
         assertEquals("Failed adding to bucket containing null2", "int", m.get(
-                new Integer(0)));
+                Integer.valueOf(0)));
     }
 
 
@@ -196,7 +196,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         hm2.putAll(hm);
         for (int i = 0; i < 1000; i++)
             assertTrue("Failed to clear all elements", hm2.get(
-                    new Integer(i).toString()).equals((new Integer(i))));
+                    Integer.valueOf(i).toString()).equals((Integer.valueOf(i))));
     }
 
     /**
@@ -266,9 +266,9 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         assertNull("Failed with null key", m.keySet().iterator().next());
 
         Map map = new LinkedHashMap(101);
-        map.put(new Integer(1), "1");
-        map.put(new Integer(102), "102");
-        map.put(new Integer(203), "203");
+        map.put(Integer.valueOf(1), "1");
+        map.put(Integer.valueOf(102), "102");
+        map.put(Integer.valueOf(203), "203");
         Iterator it = map.keySet().iterator();
         Integer remove1 = (Integer) it.next();
         it.hasNext();
@@ -276,7 +276,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         Integer remove2 = (Integer) it.next();
         it.remove();
         ArrayList list = new ArrayList(Arrays.asList(new Integer[] {
-                new Integer(1), new Integer(102), new Integer(203) }));
+                Integer.valueOf(1), Integer.valueOf(102), Integer.valueOf(203) }));
         list.remove(remove1);
         list.remove(remove2);
         assertTrue("Wrong result", it.next().equals(list.get(0)));
@@ -285,15 +285,15 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
                 list.get(0)));
 
         Map map2 = new LinkedHashMap(101);
-        map2.put(new Integer(1), "1");
-        map2.put(new Integer(4), "4");
+        map2.put(Integer.valueOf(1), "1");
+        map2.put(Integer.valueOf(4), "4");
         Iterator it2 = map2.keySet().iterator();
         Integer remove3 = (Integer) it2.next();
         Integer next;
         if (remove3.intValue() == 1)
-            next = new Integer(4);
+            next = Integer.valueOf(4);
         else
-            next = new Integer(1);
+            next = Integer.valueOf(1);
         it2.hasNext();
         it2.remove();
         assertTrue("Wrong result 2", it2.next().equals(next));
@@ -321,10 +321,10 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         new Support_UnmodifiableCollectionTest(
                 "Test Returned Collection From LinkedHashMap.values()", values)
                 .runTest();
-        values.remove(new Integer(0));
+        values.remove(Integer.valueOf(0));
         assertTrue(
                 "Removing from the values collection should remove from the original map",
-                !myLinkedHashMap.containsValue(new Integer(0)));
+                !myLinkedHashMap.containsValue(Integer.valueOf(0)));
 
     }
 
@@ -335,10 +335,10 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         // Test for method java.lang.Object
         // java.util.LinkedHashMap.remove(java.lang.Object)
         int size = hm.size();
-        Integer y = new Integer(9);
+        Integer y = Integer.valueOf(9);
         Integer x = ((Integer) hm.remove(y.toString()));
-        assertTrue("Remove returned incorrect value", x.equals(new Integer(9)));
-        assertNull("Failed to remove given key", hm.get(new Integer(9)));
+        assertTrue("Remove returned incorrect value", x.equals(Integer.valueOf(9)));
+        assertNull("Failed to remove given key", hm.get(Integer.valueOf(9)));
         assertTrue("Failed to decrement size", hm.size() == (size - 1));
         assertNull("Remove of non-existent key returned non-null", hm
                 .remove("LCLCLC"));
@@ -346,7 +346,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         LinkedHashMap m = new LinkedHashMap();
         m.put(null, "test");
         assertNull("Failed with same hash as null",
-                m.remove(new Integer(0)));
+                m.remove(Integer.valueOf(0)));
         assertEquals("Failed with null key", "test", m.remove(null));
     }
 
@@ -482,7 +482,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         m.put(null, "test");
         assertTrue("Failed with null key", m.containsKey(null));
         assertTrue("Failed with missing key matching null hash", !m
-                .containsKey(new Integer(0)));
+                .containsKey(Integer.valueOf(0)));
     }
 
     /**
@@ -492,9 +492,9 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         // Test for method boolean
         // java.util.LinkedHashMap.containsValue(java.lang.Object)
         assertTrue("Returned false for valid value", hm
-                .containsValue(new Integer(875)));
+                .containsValue(Integer.valueOf(875)));
         assertTrue("Returned true for invalid valie", !hm
-                .containsValue(new Integer(-9)));
+                .containsValue(Integer.valueOf(-9)));
     }
 
     /**
@@ -523,7 +523,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         int sz = 100;
         LinkedHashMap lhm = new LinkedHashMap();
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
+            Integer ii = Integer.valueOf(i);
             lhm.put(ii, ii.toString());
         }
 
@@ -538,7 +538,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
 
         LinkedHashMap lruhm = new LinkedHashMap(200, .75f, true);
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
+            Integer ii = Integer.valueOf(i);
             lruhm.put(ii, ii.toString());
         }
 
@@ -555,7 +555,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         /* fetch the even numbered entries to affect traversal order */
         int p = 0;
         for (i = 0; i < sz; i += 2) {
-            String ii = (String) lruhm.get(new Integer(i));
+            String ii = (String) lruhm.get(Integer.valueOf(i));
             p = p + Integer.parseInt(ii);
         }
         assertEquals("invalid sum of even numbers", 2450, p);
@@ -585,7 +585,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         int sz = 100;
         LinkedHashMap lhm = new LinkedHashMap();
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
+            Integer ii = Integer.valueOf(i);
             lhm.put(ii, ii.toString());
         }
 
@@ -599,7 +599,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
 
         LinkedHashMap lruhm = new LinkedHashMap(200, .75f, true);
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
+            Integer ii = Integer.valueOf(i);
             lruhm.put(ii, ii.toString());
         }
 
@@ -614,7 +614,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         /* fetch the even numbered entries to affect traversal order */
         int p = 0;
         for (i = 0; i < sz; i += 2) {
-            String ii = (String) lruhm.get(new Integer(i));
+            String ii = (String) lruhm.get(Integer.valueOf(i));
             p = p + Integer.parseInt(ii);
         }
         assertEquals("invalid sum of even numbers", 2450, p);
@@ -641,8 +641,8 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         int sz = 100;
         LinkedHashMap lhm = new LinkedHashMap();
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
-            lhm.put(ii, new Integer(i * 2));
+            Integer ii = Integer.valueOf(i);
+            lhm.put(ii, Integer.valueOf(i * 2));
         }
 
         Collection s1 = lhm.values();
@@ -655,8 +655,8 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
 
         LinkedHashMap lruhm = new LinkedHashMap(200, .75f, true);
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
-            lruhm.put(ii, new Integer(i * 2));
+            Integer ii = Integer.valueOf(i);
+            lruhm.put(ii, Integer.valueOf(i * 2));
         }
 
         Collection s3 = lruhm.values();
@@ -670,7 +670,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         // fetch the even numbered entries to affect traversal order
         int p = 0;
         for (i = 0; i < sz; i += 2) {
-            Integer ii = (Integer) lruhm.get(new Integer(i));
+            Integer ii = (Integer) lruhm.get(Integer.valueOf(i));
             p = p + ii.intValue();
         }
         assertTrue("invalid sum of even numbers", p == 2450 * 2);
@@ -697,8 +697,8 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         int sz = 10;
         CacheMap lhm = new CacheMap();
         for (i = 0; i < sz; i++) {
-            Integer ii = new Integer(i);
-            lhm.put(ii, new Integer(i * 2));
+            Integer ii = Integer.valueOf(i);
+            lhm.put(ii, Integer.valueOf(i * 2));
         }
 
         Collection s1 = lhm.values();
@@ -926,7 +926,7 @@ public class LinkedHashMapTest extends junit.framework.TestCase {
         objArray = new Object[hmSize];
         objArray2 = new Object[hmSize];
         for (int i = 0; i < objArray.length; i++) {
-            objArray[i] = new Integer(i);
+            objArray[i] = Integer.valueOf(i);
             objArray2[i] = objArray[i].toString();
         }
 

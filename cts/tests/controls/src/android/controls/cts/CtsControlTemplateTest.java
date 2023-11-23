@@ -60,7 +60,8 @@ public class CtsControlTemplateTest {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         mIcon = Icon.createWithResource(PACKAGE_NAME, TEST_ICON_ID);
         mControlButton = new ControlButton(true, TEST_ACTION_DESCRIPTION);
-        mPendingIntent = PendingIntent.getActivity(context, 1, new Intent(), PendingIntent.FLAG_MUTABLE_UNAUDITED);
+        mPendingIntent = PendingIntent.getActivity(context, 1,
+                new Intent().setPackage(context.getPackageName()), PendingIntent.FLAG_MUTABLE);
     }
 
     @Test

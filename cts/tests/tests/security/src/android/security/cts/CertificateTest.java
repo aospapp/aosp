@@ -16,11 +16,25 @@
 
 package android.security.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import android.content.Context;
+import android.content.pm.PackageManager;
+
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import android.content.pm.PackageManager;
-import android.test.AndroidTestCase;
 import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.MessageDigest;
@@ -36,12 +50,23 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class CertificateTest extends AndroidTestCase {
+@RunWith(Parameterized.class)
+public class CertificateTest {
+    @Parameter
+    public String mApexCertsEnabled;
+
+    @Parameters(name = "{0}")
+    public static Object[] data() {
+        return new Object[] {"true", "false"};
+    }
+
     // The directory for CA root certificates trusted by WFA (WiFi Alliance)
     private static final String DIR_OF_CACERTS_FOR_WFA =
             "/apex/com.android.wifi/etc/security/cacerts_wfa";
 
+    @Test
     public void testNoRemovedCertificates() throws Exception {
+        System.setProperty("system.certs.enabled", mApexCertsEnabled);
         Set<String> expectedCertificates = new HashSet<String>(
                 Arrays.asList(CertificateData.CERTIFICATE_DATA));
         Set<String> deviceCertificates = getDeviceCertificates();
@@ -67,7 +92,9 @@ public class CertificateTest extends AndroidTestCase {
      *
      * <p>For questions, comments, and code reviews please contact security@android.com.
      */
+    @Test
     public void testNoAddedCertificates() throws Exception {
+        System.setProperty("system.certs.enabled", mApexCertsEnabled);
         Set<String> expectedCertificates = new HashSet<String>(
                 Arrays.asList(CertificateData.CERTIFICATE_DATA));
         Set<String> deviceCertificates = getDeviceCertificates();
@@ -75,7 +102,9 @@ public class CertificateTest extends AndroidTestCase {
         assertEquals("Unknown CA certificates", Collections.EMPTY_SET, deviceCertificates);
     }
 
+    @Test
     public void testBlockCertificates() throws Exception {
+        System.setProperty("system.certs.enabled", mApexCertsEnabled);
         Set<String> blockCertificates = new HashSet<String>();
         blockCertificates.add("C0:60:ED:44:CB:D8:81:BD:0E:F8:6C:0B:A2:87:DD:CF:81:67:47:8C");
 
@@ -90,6 +119,7 @@ public class CertificateTest extends AndroidTestCase {
      *
      * For questions, comments, and code reviews please contact security@android.com.
      */
+    @Test
     public void testNoRemovedWfaCertificates() throws Exception {
         if (!isWifiSupported()) {
             return;
@@ -101,6 +131,7 @@ public class CertificateTest extends AndroidTestCase {
         assertEquals("Missing WFA CA certificates", Collections.EMPTY_SET, expectedCertificates);
     }
 
+    @Test
     public void testNoAddedWfaCertificates() throws Exception {
         if (!isWifiSupported()) {
             return;
@@ -113,7 +144,9 @@ public class CertificateTest extends AndroidTestCase {
     }
 
     private boolean isWifiSupported() {
-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI);
+        Context context;
+        context = InstrumentationRegistry.getInstrumentation().getContext();
+        return context.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WIFI);
     }
 
     private KeyStore createWfaKeyStore() throws CertificateException, IOException,

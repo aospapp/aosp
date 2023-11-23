@@ -21,6 +21,7 @@ package {
 cc_test_library {
     name: "libmegaaudio_jni",
     srcs: [
+        "common/Globals.cpp",
         "common/OboeStream.cpp",
         "common/StreamBase.cpp",
         "player/BlipAudioSource.cpp",
@@ -42,6 +43,8 @@ cc_test_library {
     include_dirs: [
         "cts/apps/CtsVerifier/jni/megaaudio/common",
         "external/oboe/include",
+        "external/oboe/src",
+        "frameworks/av/media/libaaudio/include/",
     ],
     shared_libs: [
         "liblog",

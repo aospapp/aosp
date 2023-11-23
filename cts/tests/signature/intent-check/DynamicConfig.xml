@@ -27,6 +27,7 @@
     Bug: 150153196 android.intent.action.PACKAGE_UNSUSPENDED_MANUALLY (system in API 30)
     Bug: 186495404 android.intent.action.REBOOT_READY
     Bug: 218245704 android.intent.action.ACTION_PACKAGE_CHANGED (fixed in TTS 20220209)
+    Bug: 237978237 android.intent.action.REMOTE_COPY
 -->
 <dynamicConfig>
     <entry key ="intent_whitelist">
@@ -42,5 +43,6 @@
       <value>android.intent.action.PACKAGE_UNSUSPENDED_MANUALLY</value>
       <value>android.intent.action.REBOOT_READY</value>
       <value>android.intent.action.ACTION_PACKAGE_CHANGED</value>
+      <value>android.intent.action.REMOTE_COPY</value>
     </entry>
 </dynamicConfig>

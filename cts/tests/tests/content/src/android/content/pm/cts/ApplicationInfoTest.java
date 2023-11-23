@@ -71,7 +71,11 @@ public class ApplicationInfoTest {
     private static final String NO_APPLICATION_PACKAGE_NAME =
             "android.content.cts.emptytestapp.stub";
 
-    private ApplicationInfo mApplicationInfo;
+    private static final String SAMPLE_APK_BASE = "/data/local/tmp/cts/content/";
+
+    private static final String STUB_PACKAGE_APK = SAMPLE_APK_BASE
+            + "CtsSyncAccountAccessStubs.apk";
+
     private String mPackageName;
 
     @Before
@@ -95,116 +99,125 @@ public class ApplicationInfoTest {
 
     @Test
     public void testWriteToParcel() throws NameNotFoundException {
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName,
-                PackageManager.ApplicationInfoFlags.of(0));
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
+                mPackageName, PackageManager.ApplicationInfoFlags.of(0));
 
         Parcel p = Parcel.obtain();
-        mApplicationInfo.writeToParcel(p, 0);
+        applicationInfo.writeToParcel(p, 0);
 
         p.setDataPosition(0);
         ApplicationInfo info = ApplicationInfo.CREATOR.createFromParcel(p);
-        assertEquals(mApplicationInfo.taskAffinity, info.taskAffinity);
-        assertEquals(mApplicationInfo.permission, info.permission);
-        assertEquals(mApplicationInfo.processName, info.processName);
-        assertEquals(mApplicationInfo.className, info.className);
-        assertEquals(mApplicationInfo.theme, info.theme);
-        assertEquals(mApplicationInfo.flags, info.flags);
-        assertEquals(mApplicationInfo.sourceDir, info.sourceDir);
-        assertEquals(mApplicationInfo.publicSourceDir, info.publicSourceDir);
-        assertEquals(mApplicationInfo.sharedLibraryFiles, info.sharedLibraryFiles);
-        assertEquals(mApplicationInfo.dataDir, info.dataDir);
-        assertEquals(mApplicationInfo.uid, info.uid);
-        assertEquals(mApplicationInfo.enabled, info.enabled);
-        assertEquals(mApplicationInfo.manageSpaceActivityName, info.manageSpaceActivityName);
-        assertEquals(mApplicationInfo.descriptionRes, info.descriptionRes);
+        assertEquals(applicationInfo.taskAffinity, info.taskAffinity);
+        assertEquals(applicationInfo.permission, info.permission);
+        assertEquals(applicationInfo.processName, info.processName);
+        assertEquals(applicationInfo.className, info.className);
+        assertEquals(applicationInfo.theme, info.theme);
+        assertEquals(applicationInfo.flags, info.flags);
+        assertEquals(applicationInfo.sourceDir, info.sourceDir);
+        assertEquals(applicationInfo.publicSourceDir, info.publicSourceDir);
+        assertEquals(applicationInfo.sharedLibraryFiles, info.sharedLibraryFiles);
+        assertEquals(applicationInfo.dataDir, info.dataDir);
+        assertEquals(applicationInfo.uid, info.uid);
+        assertEquals(applicationInfo.enabled, info.enabled);
+        assertEquals(applicationInfo.manageSpaceActivityName, info.manageSpaceActivityName);
+        assertEquals(applicationInfo.descriptionRes, info.descriptionRes);
     }
 
     @Test
     public void testToString() {
-        mApplicationInfo = new ApplicationInfo();
-        assertNotNull(mApplicationInfo.toString());
+        ApplicationInfo applicationInfo = new ApplicationInfo();
+        assertNotNull(applicationInfo.toString());
     }
 
     @Test
     public void testDescribeContents() throws NameNotFoundException {
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName,
-               PackageManager.ApplicationInfoFlags.of(0));
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
+                mPackageName, PackageManager.ApplicationInfoFlags.of(0));
 
-        assertEquals(0, mApplicationInfo.describeContents());
+        assertEquals(0, applicationInfo.describeContents());
     }
 
     @Test
     public void testDump() {
-        mApplicationInfo = new ApplicationInfo();
+        ApplicationInfo applicationInfo = new ApplicationInfo();
 
         StringBuilder sb = new StringBuilder();
         assertEquals(0, sb.length());
         StringBuilderPrinter p = new StringBuilderPrinter(sb);
 
         String prefix = "";
-        mApplicationInfo.dump(p, prefix);
+        applicationInfo.dump(p, prefix);
         assertNotNull(sb.toString());
         assertTrue(sb.length() > 0);
     }
 
     @Test
     public void testLoadDescription() throws NameNotFoundException {
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName,
-                PackageManager.ApplicationInfoFlags.of(0));
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
+                mPackageName, PackageManager.ApplicationInfoFlags.of(0));
 
-        assertNull(mApplicationInfo.loadDescription(getContext().getPackageManager()));
+        assertNull(applicationInfo.loadDescription(getContext().getPackageManager()));
 
-        mApplicationInfo.descriptionRes = R.string.hello_world;
+        applicationInfo.descriptionRes = R.string.hello_world;
         assertEquals(getContext().getResources().getString(R.string.hello_world),
-                mApplicationInfo.loadDescription(getContext().getPackageManager()));
+                applicationInfo.loadDescription(getContext().getPackageManager()));
     }
 
     @Test
     public void verifyOwnInfo() throws NameNotFoundException {
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName,
-                PackageManager.ApplicationInfoFlags.of(0));
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
+                mPackageName, PackageManager.ApplicationInfoFlags.of(0));
 
-        assertEquals("Android TestCase", mApplicationInfo.nonLocalizedLabel);
-        assertEquals(R.drawable.size_48x48, mApplicationInfo.icon);
-        assertEquals("android.content.cts.MockApplication", mApplicationInfo.name);
+        assertEquals("Android TestCase", applicationInfo.nonLocalizedLabel);
+        assertEquals(R.drawable.size_48x48, applicationInfo.icon);
+        assertEquals("android.content.cts.MockApplication", applicationInfo.name);
         int flags = FLAG_MULTIARCH | FLAG_SUPPORTS_RTL;
-        assertEquals(flags, mApplicationInfo.flags & flags);
-        assertEquals(CATEGORY_PRODUCTIVITY, mApplicationInfo.category);
+        assertEquals(flags, applicationInfo.flags & flags);
+        assertEquals(CATEGORY_PRODUCTIVITY, applicationInfo.category);
+    }
+
+    private void installPackage(String apkPath) {
+        assertEquals("Success\n", SystemUtil.runShellCommand(
+                "pm install -t " + apkPath));
     }
 
     @Test
     public void verifyDefaultValues() throws NameNotFoundException {
+        // Make sure we install the original version of com.android.cts.stub.
+        installPackage(STUB_PACKAGE_APK);
+
         // The application "com.android.cts.stub" does not have any attributes set
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
                 SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, PackageManager.ApplicationInfoFlags.of(0));
         int currentUserId = Process.myUserHandle().getIdentifier();
 
-        assertNull(mApplicationInfo.className);
-        assertNull(mApplicationInfo.permission);
-        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, mApplicationInfo.packageName);
-        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, mApplicationInfo.processName);
-        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, mApplicationInfo.taskAffinity);
-        assertTrue(UserHandle.isApp(mApplicationInfo.uid));
-        assertEquals(0, mApplicationInfo.theme);
-        assertEquals(0, mApplicationInfo.requiresSmallestWidthDp);
-        assertEquals(0, mApplicationInfo.compatibleWidthLimitDp);
-        assertEquals(0, mApplicationInfo.largestWidthLimitDp);
-        assertNotNull(mApplicationInfo.sourceDir);
-        assertEquals(mApplicationInfo.sourceDir, mApplicationInfo.publicSourceDir);
-        assertNull(mApplicationInfo.splitSourceDirs);
-        assertArrayEquals(mApplicationInfo.splitSourceDirs, mApplicationInfo.splitPublicSourceDirs);
+        assertNull(applicationInfo.className);
+        assertNull(applicationInfo.permission);
+        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, applicationInfo.packageName);
+        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, applicationInfo.processName);
+        assertEquals(SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME, applicationInfo.taskAffinity);
+        assertTrue(UserHandle.isApp(applicationInfo.uid));
+        assertEquals(0, applicationInfo.theme);
+        assertEquals(0, applicationInfo.requiresSmallestWidthDp);
+        assertEquals(0, applicationInfo.compatibleWidthLimitDp);
+        assertEquals(0, applicationInfo.largestWidthLimitDp);
+        assertNotNull(applicationInfo.sourceDir);
+        assertEquals(applicationInfo.sourceDir, applicationInfo.publicSourceDir);
+        assertNull(applicationInfo.splitSourceDirs);
+        assertArrayEquals(applicationInfo.splitSourceDirs, applicationInfo.splitPublicSourceDirs);
         assertEquals("/data/user/" + currentUserId + "/" + SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME,
-                mApplicationInfo.dataDir);
+                applicationInfo.dataDir);
         assertEquals("/data/user_de/" + currentUserId + "/" + SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME,
-                mApplicationInfo.deviceProtectedDataDir);
+                applicationInfo.deviceProtectedDataDir);
         assertEquals("/data/user/" + currentUserId + "/" + SYNC_ACCOUNT_ACCESS_STUB_PACKAGE_NAME,
-                mApplicationInfo.credentialProtectedDataDir);
-        assertNull(mApplicationInfo.sharedLibraryFiles);
-        assertTrue(mApplicationInfo.enabled);
-        assertNull(mApplicationInfo.manageSpaceActivityName);
-        assertEquals(0, mApplicationInfo.descriptionRes);
-        assertEquals(0, mApplicationInfo.uiOptions);
-        assertEquals(CATEGORY_UNDEFINED, mApplicationInfo.category);
+                applicationInfo.credentialProtectedDataDir);
+        assertNull(applicationInfo.sharedLibraryFiles);
+        assertTrue(applicationInfo.enabled);
+        assertNull(applicationInfo.manageSpaceActivityName);
+        assertEquals(0, applicationInfo.descriptionRes);
+        assertEquals(0, applicationInfo.uiOptions);
+        assertEquals(CATEGORY_UNDEFINED, applicationInfo.category);
+        assertFalse(applicationInfo.hasFragileUserData());
     }
 
     @Test(expected=IllegalArgumentException.class)
@@ -228,9 +241,9 @@ public class ApplicationInfoTest {
 
     @Test
     public void testDirectBootUnawareAppCategoryIsAccessibility() throws Exception {
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
                 DIRECT_BOOT_UNAWARE_PACKAGE_NAME, PackageManager.ApplicationInfoFlags.of(0));
-        assertEquals(CATEGORY_ACCESSIBILITY, mApplicationInfo.category);
+        assertEquals(CATEGORY_ACCESSIBILITY, applicationInfo.category);
     }
 
     @Test
@@ -253,12 +266,12 @@ public class ApplicationInfoTest {
         // Make sure ApplicationInfo.writeToParcel() doesn't do the "squashing",
         // because Parcel.allowSquashing() isn't called.
 
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName,
-                PackageManager.ApplicationInfoFlags.of(0));
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
+                mPackageName, PackageManager.ApplicationInfoFlags.of(0));
 
         final Parcel p = Parcel.obtain();
-        mApplicationInfo.writeToParcel(p, 0);
-        mApplicationInfo.writeToParcel(p, 0);
+        applicationInfo.writeToParcel(p, 0);
+        applicationInfo.writeToParcel(p, 0);
 
         // Don't call Parcel.allowSquashing()
 
@@ -268,16 +281,16 @@ public class ApplicationInfoTest {
 
         p.recycle();
 
-        assertNotSame(mApplicationInfo, copy1);
+        assertNotSame(applicationInfo, copy1);
 
         // writeToParcel() doesn't do the squashing, so copy1 and copy2 will be different.
         assertNotSame(copy1, copy2);
 
         // Check several fields to make sure they're properly copied.
-        assertEquals(mApplicationInfo.packageName, copy2.packageName);
+        assertEquals(applicationInfo.packageName, copy2.packageName);
         assertEquals(copy1.packageName, copy2.packageName);
 
-        assertEquals(mApplicationInfo.flags, copy2.flags);
+        assertEquals(applicationInfo.flags, copy2.flags);
         assertEquals(copy1.flags, copy2.flags);
     }
 
@@ -286,15 +299,15 @@ public class ApplicationInfoTest {
         // Make sure ApplicationInfo.writeToParcel() does the "squashing", after
         // Parcel.allowSquashing() is called.
 
-        mApplicationInfo = getContext().getPackageManager().getApplicationInfo(mPackageName,
-                PackageManager.ApplicationInfoFlags.of(0));
+        ApplicationInfo applicationInfo = getContext().getPackageManager().getApplicationInfo(
+                mPackageName, PackageManager.ApplicationInfoFlags.of(0));
 
         final Parcel p = Parcel.obtain();
 
         final boolean prevSquashing = p.allowSquashing(); // Allow squashing.
 
-        mApplicationInfo.writeToParcel(p, 0);
-        mApplicationInfo.writeToParcel(p, 0);
+        applicationInfo.writeToParcel(p, 0);
+        applicationInfo.writeToParcel(p, 0);
 
         p.setDataPosition(0);
         final ApplicationInfo copy1 = ApplicationInfo.CREATOR.createFromParcel(p);
@@ -302,7 +315,7 @@ public class ApplicationInfoTest {
 
         p.recycle();
 
-        assertNotSame(mApplicationInfo, copy1);
+        assertNotSame(applicationInfo, copy1);
         assertSame(copy1, copy2); //
 
         p.restoreAllowSquashing(prevSquashing);
@@ -365,7 +378,7 @@ public class ApplicationInfoTest {
             String[] info = packages[i].split("\\.apk=");
             if (info.length != 2) continue; // Package info need include direction and name.
             if (info[0] != null
-                    && (info[0].startsWith(partition) || info[0].startsWith(system + partition))) {
+                    && (info[0].startsWith(partition + "/") || info[0].startsWith(system + partition + "/"))) {
                 return info[1]; // Package name.
             }
         }

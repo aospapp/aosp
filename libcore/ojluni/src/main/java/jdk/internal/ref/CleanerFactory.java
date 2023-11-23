@@ -25,14 +25,7 @@
 
 package jdk.internal.ref;
 
-import dalvik.system.ZygoteHooks;
-
-import jdk.internal.misc.InnocuousThread;
-
 import java.lang.ref.Cleaner;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
-import java.util.concurrent.ThreadFactory;
 
 /**
  * CleanerFactory provides a Cleaner for use within system modules.
@@ -41,14 +34,12 @@ import java.util.concurrent.ThreadFactory;
 public final class CleanerFactory {
 
     /* The common Cleaner. */
+    // Android-changed: objects registered in the system cleaner are cleaned
+    // by the finalizer daemon thread, not in a InnocuousThread.
+    /*
     private final static Cleaner commonCleaner = Cleaner.create(new ThreadFactory() {
         @Override
         public Thread newThread(Runnable r) {
-            // Android-added: Fail immediately if we try this in the zygote, where we are
-            // not allowed to create additional threads.
-            if (ZygoteHooks.inZygote()) {
-                throw new AssertionError("Erroneously trying to create Cleaner in zygote");
-            }
             return AccessController.doPrivileged(new PrivilegedAction<>() {
                 @Override
                 public Thread run() {
@@ -59,6 +50,8 @@ public final class CleanerFactory {
             });
         }
     });
+    */
+    private static final Cleaner commonCleaner = Cleaner.createSystemCleaner();
 
     /**
      * Cleaner for use within system modules.

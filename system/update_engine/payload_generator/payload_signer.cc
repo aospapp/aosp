@@ -28,17 +28,14 @@
 #include <brillo/data_encoding.h>
 #include <openssl/err.h>
 #include <openssl/pem.h>
+#include <unistd.h>
 
 #include "update_engine/common/constants.h"
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/delta_performer.h"
-#include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_metadata.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
-#include "update_engine/payload_generator/delta_diff_generator.h"
-#include "update_engine/payload_generator/payload_file.h"
 #include "update_engine/update_metadata.pb.h"
 
 using std::string;
@@ -122,45 +119,35 @@ bool AddSignatureBlobToPayload(const string& payload_path,
   DeltaArchiveManifest manifest;
   TEST_AND_RETURN_FALSE(payload_metadata.GetManifest(payload, &manifest));
 
-  // Is there already a signature op in place?
-  if (manifest.has_signatures_size()) {
-    // The signature op is tied to the size of the signature blob, but not it's
-    // contents. We don't allow the manifest to change if there is already an op
-    // present, because that might invalidate previously generated
-    // hashes/signatures.
-    if (manifest.signatures_size() != payload_signature.size()) {
-      LOG(ERROR) << "Attempt to insert different signature sized blob. "
-                 << "(current:" << manifest.signatures_size()
-                 << "new:" << payload_signature.size() << ")";
-      return false;
-    }
-
-    LOG(INFO) << "Matching signature sizes already present.";
-  } else {
-    // Updates the manifest to include the signature operation.
-    PayloadSigner::AddSignatureToManifest(
-        payload.size() - metadata_size - metadata_signature_size,
-        payload_signature.size(),
-        &manifest);
-
-    // Updates the payload to include the new manifest.
-    string serialized_manifest;
-    TEST_AND_RETURN_FALSE(manifest.AppendToString(&serialized_manifest));
-    LOG(INFO) << "Updated protobuf size: " << serialized_manifest.size();
-    payload.erase(payload.begin() + manifest_offset,
-                  payload.begin() + metadata_size);
-    payload.insert(payload.begin() + manifest_offset,
-                   serialized_manifest.begin(),
-                   serialized_manifest.end());
-
-    // Updates the protobuf size.
-    uint64_t size_be = htobe64(serialized_manifest.size());
-    memcpy(&payload[kProtobufSizeOffset], &size_be, sizeof(size_be));
-    metadata_size = serialized_manifest.size() + manifest_offset;
-
-    LOG(INFO) << "Updated payload size: " << payload.size();
-    LOG(INFO) << "Updated metadata size: " << metadata_size;
+  // Erase existing signatures.
+  if (manifest.has_signatures_offset()) {
+    payload.resize(manifest.signatures_offset() + metadata_size +
+                   metadata_signature_size);
   }
+
+  // Updates the manifest to include the signature operation.
+  PayloadSigner::AddSignatureToManifest(
+      payload.size() - metadata_size - metadata_signature_size,
+      payload_signature.size(),
+      &manifest);
+
+  // Updates the payload to include the new manifest.
+  string serialized_manifest;
+  TEST_AND_RETURN_FALSE(manifest.AppendToString(&serialized_manifest));
+  LOG(INFO) << "Updated protobuf size: " << serialized_manifest.size();
+  payload.erase(payload.begin() + manifest_offset,
+                payload.begin() + metadata_size);
+  payload.insert(payload.begin() + manifest_offset,
+                 serialized_manifest.begin(),
+                 serialized_manifest.end());
+
+  // Updates the protobuf size.
+  uint64_t size_be = htobe64(serialized_manifest.size());
+  memcpy(&payload[kProtobufSizeOffset], &size_be, sizeof(size_be));
+  metadata_size = serialized_manifest.size() + manifest_offset;
+
+  LOG(INFO) << "Updated payload size: " << payload.size();
+  LOG(INFO) << "Updated metadata size: " << metadata_size;
   uint64_t signatures_offset =
       metadata_size + metadata_signature_size + manifest.signatures_offset();
   LOG(INFO) << "Signature Blob Offset: " << signatures_offset;

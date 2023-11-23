@@ -15,13 +15,10 @@
 #   limitations under the License.
 """Audio Analysis tool to analyze wave file and detect artifacts."""
 
-import argparse
 import collections
 import json
 import logging
-import math
 import numpy
-import os
 import pprint
 import subprocess
 import tempfile
@@ -48,12 +45,10 @@ DEFAULT_NOISE_AMPLITUDE_THRESHOLD = 0.5
 
 class WaveFileException(Exception):
     """Error in WaveFile."""
-    pass
 
 
 class WaveFormatExtensibleException(Exception):
     """Wave file is in WAVE_FORMAT_EXTENSIBLE format which is not supported."""
-    pass
 
 
 class WaveFile(object):
@@ -166,25 +161,21 @@ class WaveFile(object):
         """Reads in samples in wave file."""
         self._binary = self._wave_reader.readframes(self._n_frames)
         format_str = 'S%d_LE' % self._sample_width_bits
-        self.raw_data = audio_data.AudioRawData(
-            binary=self._binary,
-            channel=self._n_channels,
-            sample_format=format_str)
+        self.raw_data = audio_data.AudioRawData(binary=self._binary,
+                                                channel=self._n_channels,
+                                                sample_format=format_str)
 
 
 class QualityCheckerError(Exception):
     """Error in QualityChecker."""
-    pass
 
 
 class CompareFailure(QualityCheckerError):
     """Exception when frequency comparison fails."""
-    pass
 
 
 class QualityFailure(QualityCheckerError):
     """Exception when quality check fails."""
-    pass
 
 
 class QualityChecker(object):
@@ -241,9 +232,10 @@ class QualityChecker(object):
             # Ignore high frequencies above the threshold.
             spectral = [(f, c) for (f, c) in spectral if f < ignore_high_freq]
 
-            logging.info('Channel %d spectral after ignoring high frequencies '
-                         'above %f:\n%s', channel_idx, ignore_high_freq,
-                         pprint.pformat(spectral))
+            logging.info(
+                'Channel %d spectral after ignoring high frequencies '
+                'above %f:\n%s', channel_idx, ignore_high_freq,
+                pprint.pformat(spectral))
 
             try:
                 if check_quality:
@@ -423,7 +415,6 @@ class QualityChecker(object):
 
 class CheckQualityError(Exception):
     """Error in check_quality main function."""
-    pass
 
 
 def read_audio_file(filename, channel, bit_width, rate):
@@ -450,19 +441,21 @@ def read_audio_file(filename, channel, bit_width, rate):
         binary = None
         with open(filename, 'rb') as f:
             binary = f.read()
-        raw_data = audio_data.AudioRawData(
-            binary=binary, channel=channel, sample_format='S%d_LE' % bit_width)
+        raw_data = audio_data.AudioRawData(binary=binary,
+                                           channel=channel,
+                                           sample_format='S%d_LE' % bit_width)
     else:
-        raise CheckQualityError(
-            'File format for %s is not supported' % filename)
+        raise CheckQualityError('File format for %s is not supported' %
+                                filename)
 
     return raw_data, rate
 
 
-def get_quality_params(
-        quality_block_size_secs, quality_frequency_error_threshold,
-        quality_delay_amplitude_threshold, quality_noise_amplitude_threshold,
-        quality_burst_amplitude_threshold):
+def get_quality_params(quality_block_size_secs,
+                       quality_frequency_error_threshold,
+                       quality_delay_amplitude_threshold,
+                       quality_noise_amplitude_threshold,
+                       quality_burst_amplitude_threshold):
     """Gets quality parameters in arguments.
 
     Args:
@@ -535,15 +528,15 @@ def quality_analysis(
 
     checker = QualityChecker(raw_data, rate)
 
-    quality_params = get_quality_params(
-        quality_block_size_secs, quality_frequency_error_threshold,
-        quality_delay_amplitude_threshold, quality_noise_amplitude_threshold,
-        quality_burst_amplitude_threshold)
+    quality_params = get_quality_params(quality_block_size_secs,
+                                        quality_frequency_error_threshold,
+                                        quality_delay_amplitude_threshold,
+                                        quality_noise_amplitude_threshold,
+                                        quality_burst_amplitude_threshold)
 
-    checker.do_spectral_analysis(
-        ignore_high_freq=ignore_high_freq,
-        check_quality=(not spectral_only),
-        quality_params=quality_params)
+    checker.do_spectral_analysis(ignore_high_freq=ignore_high_freq,
+                                 check_quality=(not spectral_only),
+                                 quality_params=quality_params)
 
     checker.dump(output_file)
 

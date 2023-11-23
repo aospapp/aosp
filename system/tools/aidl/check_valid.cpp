@@ -23,6 +23,7 @@ namespace android {
 namespace aidl {
 
 using TypePredicate = std::function<bool(const AidlTypeSpecifier&)>;
+using DefinedTypePredicate = std::function<bool(const AidlDefinedType&)>;
 
 namespace {
 bool IsListOf(const AidlTypeSpecifier& type, TypePredicate pred) {
@@ -40,6 +41,7 @@ bool IsInterface(const AidlTypeSpecifier& type) {
 struct CheckTypeVisitor : AidlVisitor {
   bool success = true;
   std::vector<TypePredicate> checkers;
+  std::vector<DefinedTypePredicate> defined_checkers;
 
   void Visit(const AidlTypeSpecifier& type) override {
     for (auto& checker : checkers) {
@@ -48,8 +50,23 @@ struct CheckTypeVisitor : AidlVisitor {
       }
     }
   }
+  void Visit(const AidlInterface& t) override { CheckDefinedType(t); }
+  void Visit(const AidlEnumDeclaration& t) override { CheckDefinedType(t); }
+  void Visit(const AidlStructuredParcelable& t) override { CheckDefinedType(t); }
+  void Visit(const AidlUnionDecl& t) override { CheckDefinedType(t); }
+  void Visit(const AidlParcelable& t) override { CheckDefinedType(t); }
 
   void Check(TypePredicate checker) { checkers.push_back(std::move(checker)); }
+  void Check(DefinedTypePredicate checker) { defined_checkers.push_back(std::move(checker)); }
+
+ private:
+  void CheckDefinedType(const AidlDefinedType& type) {
+    for (auto& checker : defined_checkers) {
+      if (!checker(type)) {
+        success = false;
+      }
+    }
+  }
 };
 
 bool CheckValid(const AidlDocument& doc, const Options& options) {
@@ -77,6 +94,74 @@ bool CheckValid(const AidlDocument& doc, const Options& options) {
                        << ". Current min_sdk_version is " << min_sdk_version << ".";
       return false;
     }
+    return true;
+  });
+
+  // Check all nested types for potential #include cycles that would contain
+  // them. The algorithm performs a depth-first search on a graph with the
+  // following properties:
+  //
+  // * Graph nodes are top-level (non-nested) types, under the assumption that
+  //   there is a 1:1 mapping between top-level types and included headers. This
+  //   implies that a cycle between these types will be equivalent to a cycle
+  //   between headers.
+  //
+  // * Each edge U -> V represents a "declare V before U" relationship between
+  //   types. This means that V.h needs to be included by U.h, or the V type
+  //   needs to be forward-declared before U. For any type U, its neighbors
+  //   are all nodes V such that U or its nested types have a reference to V
+  //   or any type nested in it.
+  //
+  // * The algorithm tries to find a cycle containing start_type. Such a
+  //   cycle exists if the following hold true:
+  //   * There exists a path from start_type to another top-level type T
+  //     (different from start_type)
+  //   * There is a back edge from T to start_type which closes the cycle
+  v.Check([&](const AidlDefinedType& start_type) {
+    if (start_type.GetParentType() == nullptr) {
+      return true;
+    }
+
+    std::set<const AidlDefinedType*> visited;
+    std::function<bool(const AidlDefinedType*)> dfs = [&](const AidlDefinedType* type) {
+      if (!visited.insert(type).second) {
+        // Already visited
+        return false;
+      }
+
+      for (const auto& t : Collect<AidlTypeSpecifier>(*type)) {
+        auto defined_type = t->GetDefinedType();
+        if (!defined_type) {
+          // Skip primitive/builtin types
+          continue;
+        }
+
+        auto top_type = defined_type->GetRootType();
+        if (top_type == type) {
+          // Skip type references within the same top-level type
+          continue;
+        }
+
+        if (defined_type == &start_type) {
+          // Found a cycle back to the starting nested type
+          return true;
+        }
+
+        if (dfs(top_type)) {
+          // Found a cycle while visiting the top type for the next node
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    bool has_cycle = dfs(start_type.GetRootType());
+    if (has_cycle) {
+      AIDL_ERROR(start_type) << "has cyclic references to nested types.";
+      return false;
+    }
+
     return true;
   });
 

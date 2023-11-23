@@ -31,6 +31,11 @@ public:
     virtual Result startStream() override;
     virtual Result stopStream() override;
 
+    // Oboe-specific
+    oboe::StreamState getState() const;
+
+    int getLastErrorCallbackResult();
+
     StreamBase::Result getTimeStamp(oboe::FrameTimestamp* timeStamp);
 
 protected:

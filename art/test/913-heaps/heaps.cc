@@ -191,6 +191,12 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
         return 0;
       }
 
+      // Ignore system classes, which may come from the JIT compiling a method
+      // in these classes.
+      if (reference_kind == JVMTI_HEAP_REFERENCE_SYSTEM_CLASS) {
+        return 0;
+      }
+
       // Only check tagged objects.
       if (tag == 0) {
         return JVMTI_VISIT_OBJECTS;
@@ -260,6 +266,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferences(
 
     std::vector<std::string> GetLines() const {
       std::vector<std::string> ret;
+      ret.reserve(lines_.size());
       for (const std::unique_ptr<Elem>& e : lines_) {
         ret.push_back(e->Print());
       }
@@ -586,7 +593,7 @@ extern "C" JNIEXPORT jobjectArray JNICALL Java_art_Test913_followReferencesStrin
                                             void* user_data) {
       FindStringCallbacks* p = reinterpret_cast<FindStringCallbacks*>(user_data);
       if (*tag_ptr != 0) {
-        size_t utf_byte_count = ti::CountUtf8Bytes(value, value_length);
+        size_t utf_byte_count = ti::CountModifiedUtf8BytesInUtf16(value, value_length);
         std::unique_ptr<char[]> mod_utf(new char[utf_byte_count + 1]);
         memset(mod_utf.get(), 0, utf_byte_count + 1);
         ti::ConvertUtf16ToModifiedUtf8(mod_utf.get(), utf_byte_count, value, value_length);

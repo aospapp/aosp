@@ -36,10 +36,10 @@ license {
     visibility: [":__subpackages__"],
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
-        "SPDX-license-identifier-GPL-with-classpath-exception",
+        "SPDX-license-identifier-GPL-2.0-with-classpath-exception",
     ],
     license_text: [
-        "NOTICE",
+        "LICENSE",
     ],
 }
 
@@ -111,13 +111,13 @@ art_cc_library {
     shared_libs: [
         "libart",
         "libart-compiler",
-        "libart-dexlayout",
         "libdexfile",
         "libartbase",
     ],
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
+        "test_broken_com.android.art",
     ],
 }
 
@@ -130,7 +130,6 @@ art_cc_library {
     shared_libs: [
         "libartd",
         "libartd-compiler",
-        "libartd-dexlayout",
         "libdexfiled",
         "libartbased",
     ],

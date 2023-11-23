@@ -14,19 +14,25 @@
 # limitations under the License.
 
 COMPATIBILITY_TESTCASES_OUT_mts := $(HOST_OUT)/mts/android-mts/testcases
+COMPATIBILITY_TESTCASES_OUT_INCLUDE_MODULE_FOLDER_mts := true
 
 mts_modules :=
 mts_modules += \
                adbd \
                adservices \
+               adservices-cts-only \
+               adservices-unittest-only \
                appsearch \
                art \
                bluetooth \
                cellbroadcast \
+               configinfrastructure \
                conscrypt \
+               cronet \
                dnsresolver \
                documentsui \
                extservices \
+               healthfitness \
                ipsec \
                mainline-infra \
                media \
@@ -35,6 +41,7 @@ mts_modules += \
                neuralnetworks \
                ondevicepersonalization \
                permission \
+               rkpd \
                scheduling \
                sdkextensions \
                statsd \

@@ -61,6 +61,7 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
 
     @Override
     public void setUp() throws Exception {
+        if (!supportedHardware()) return;
         super.setUp();
 
         final PackageManager pm = getInstrumentation().getContext().getPackageManager();
@@ -91,6 +92,7 @@ abstract class DocumentsClientTestCase extends InstrumentationTestCase {
 
     @Override
     public void tearDown() throws Exception {
+        if (!supportedHardware()) return;
         super.tearDown();
         mActivity.finish();
 

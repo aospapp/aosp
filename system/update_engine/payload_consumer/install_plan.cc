@@ -26,7 +26,6 @@
 #include <base/strings/stringprintf.h>
 
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/update_metadata.pb.h"
 
 using std::string;

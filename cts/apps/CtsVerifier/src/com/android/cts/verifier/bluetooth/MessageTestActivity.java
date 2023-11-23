@@ -16,9 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
-import com.android.cts.verifier.TestResult;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -39,6 +37,10 @@ import android.widget.ListView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
+import com.android.cts.verifier.TestResult;
 
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -131,7 +133,7 @@ class MessageTestActivity extends PassFailButtons.Activity {
 
         mPairingActionReceiver = new PairingActionReceiver();
         IntentFilter intentFilter = new IntentFilter(ACTION_PAIRING_REQUEST);
-        registerReceiver(mPairingActionReceiver, intentFilter);
+        registerReceiver(mPairingActionReceiver, intentFilter, RECEIVER_EXPORTED);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (!mServer) {

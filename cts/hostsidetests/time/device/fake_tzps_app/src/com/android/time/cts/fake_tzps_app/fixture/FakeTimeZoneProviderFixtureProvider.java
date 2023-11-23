@@ -15,11 +15,22 @@
  */
 package com.android.time.cts.fake_tzps_app.fixture;
 
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.DEPENDENCY_STATUS_BLOCKED_BY_ENVIRONMENT;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.DEPENDENCY_STATUS_BLOCKED_BY_SETTINGS;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.DEPENDENCY_STATUS_NOT_APPLICABLE;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.DEPENDENCY_STATUS_OK;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.DEPENDENCY_STATUS_TEMPORARILY_UNAVAILABLE;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.OPERATION_STATUS_FAILED;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.OPERATION_STATUS_NOT_APPLICABLE;
+import static android.app.time.cts.shell.FakeTimeZoneProviderAppShellHelper.OPERATION_STATUS_OK;
+
 import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.service.timezone.TimeZoneProviderStatus;
+import android.text.TextUtils;
 
 import com.android.time.cts.fake_tzps_app.tzps.FakeTimeZoneProviderService;
 
@@ -40,11 +51,21 @@ public class FakeTimeZoneProviderFixtureProvider extends ContentProvider {
     private static final String CALL_RESULT_KEY_GET_STATE_STATE = "state";
     private static final String METHOD_REPORT_PERMANENT_FAILURE = "perm_fail";
     private static final String METHOD_REPORT_UNCERTAIN = "uncertain";
+    private static final String METHOD_REPORT_UNCERTAIN_LEGACY = "uncertain_legacy";
     private static final String METHOD_REPORT_SUCCESS = "success";
+    private static final String METHOD_REPORT_SUCCESS_LEGACY = "success_legacy";
     private static final String METHOD_PING = "ping";
 
     /** Suggestion time zone IDs. A single string, comma separated, may be empty. */
     private static final String CALL_EXTRA_KEY_SUGGESTION_ZONE_IDS = "zone_ids";
+    /** A provider's location detection status. */
+    private static final String CALL_EXTRA_KEY_LOCATION_DETECTION_STATUS =
+            "location_detection_status";
+    /** A provider's connectivity status. */
+    private static final String CALL_EXTRA_KEY_CONNECTIVITY_STATUS = "connectivity_status";
+    /** A provider's time zone resolution status. */
+    private static final String CALL_EXTRA_KEY_TIME_ZONE_RESOLUTION_STATUS =
+            "time_zone_resolution_status";
 
     @Override
     public boolean onCreate() {
@@ -107,13 +128,25 @@ public class FakeTimeZoneProviderFixtureProvider extends ContentProvider {
                 break;
             }
             case METHOD_REPORT_UNCERTAIN: {
-                provider.fakeReportUncertain();
+                TimeZoneProviderStatus status = getTimeZoneProviderStatus(extras);
+                provider.fakeReportUncertain(status);
+                break;
+            }
+            case METHOD_REPORT_UNCERTAIN_LEGACY: {
+                provider.fakeReportUncertainLegacy();
                 break;
             }
             case METHOD_REPORT_SUCCESS: {
                 String zoneIdsString = extras.getString(CALL_EXTRA_KEY_SUGGESTION_ZONE_IDS);
                 List<String> zoneIds = Arrays.asList(zoneIdsString.split(","));
-                provider.fakeReportSuggestion(zoneIds);
+                TimeZoneProviderStatus status = getTimeZoneProviderStatus(extras);
+                provider.fakeReportSuggestion(zoneIds, status);
+                break;
+            }
+            case METHOD_REPORT_SUCCESS_LEGACY: {
+                String zoneIdsString = extras.getString(CALL_EXTRA_KEY_SUGGESTION_ZONE_IDS);
+                List<String> zoneIds = Arrays.asList(zoneIdsString.split(","));
+                provider.fakeReportSuggestionLegacy(zoneIds);
                 break;
             }
             default: {
@@ -121,5 +154,62 @@ public class FakeTimeZoneProviderFixtureProvider extends ContentProvider {
             }
         }
         return result;
+    }
+
+    private static TimeZoneProviderStatus getTimeZoneProviderStatus(Bundle extras) {
+        String locationDetectionStatusString =
+                extras.getString(CALL_EXTRA_KEY_LOCATION_DETECTION_STATUS);
+        int locationDetectionStatus =
+                parseDependencyStatus(locationDetectionStatusString);
+        String connectivityStatusString =
+                extras.getString(CALL_EXTRA_KEY_CONNECTIVITY_STATUS);
+        int connectivityStatus =
+                parseDependencyStatus(connectivityStatusString);
+        String timeZoneResolutionStatusString =
+                extras.getString(CALL_EXTRA_KEY_TIME_ZONE_RESOLUTION_STATUS);
+        int timeZoneResolutionStatus =
+                parseOperationStatus(timeZoneResolutionStatusString);
+        TimeZoneProviderStatus status = new TimeZoneProviderStatus.Builder()
+                .setLocationDetectionDependencyStatus(locationDetectionStatus)
+                .setConnectivityDependencyStatus(connectivityStatus)
+                .setTimeZoneResolutionOperationStatus(timeZoneResolutionStatus)
+                .build();
+        return status;
+    }
+
+    private static int parseDependencyStatus(String dependencyStatusString) {
+        if (TextUtils.isEmpty(dependencyStatusString)) {
+            throw new IllegalArgumentException("Missing DependencyStatus");
+        }
+        switch (dependencyStatusString) {
+            case DEPENDENCY_STATUS_NOT_APPLICABLE:
+                return TimeZoneProviderStatus.DEPENDENCY_STATUS_NOT_APPLICABLE;
+            case DEPENDENCY_STATUS_OK:
+                return TimeZoneProviderStatus.DEPENDENCY_STATUS_OK;
+            case DEPENDENCY_STATUS_TEMPORARILY_UNAVAILABLE:
+                return TimeZoneProviderStatus.DEPENDENCY_STATUS_TEMPORARILY_UNAVAILABLE;
+            case DEPENDENCY_STATUS_BLOCKED_BY_ENVIRONMENT:
+                return TimeZoneProviderStatus.DEPENDENCY_STATUS_BLOCKED_BY_ENVIRONMENT;
+            case DEPENDENCY_STATUS_BLOCKED_BY_SETTINGS:
+                return TimeZoneProviderStatus.DEPENDENCY_STATUS_BLOCKED_BY_SETTINGS;
+            default:
+                throw new IllegalArgumentException(dependencyStatusString);
+        }
+    }
+
+    private static int parseOperationStatus(String operationStatusString) {
+        if (TextUtils.isEmpty(operationStatusString)) {
+            throw new IllegalArgumentException("Missing OperationStatus");
+        }
+        switch (operationStatusString) {
+            case OPERATION_STATUS_NOT_APPLICABLE:
+                return TimeZoneProviderStatus.OPERATION_STATUS_NOT_APPLICABLE;
+            case OPERATION_STATUS_OK:
+                return TimeZoneProviderStatus.OPERATION_STATUS_OK;
+            case OPERATION_STATUS_FAILED:
+                return TimeZoneProviderStatus.OPERATION_STATUS_FAILED;
+            default:
+                throw new IllegalArgumentException(operationStatusString);
+        }
     }
 }

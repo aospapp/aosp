@@ -279,7 +279,8 @@ public class ProviderTestUtils {
                     // file creation fails, we ignore and let `dd` command create it instead.
                 }
 
-                executeShellCommand(String.format("dd bs=1 if=%s skip=%d count=%d of=%s",
+                executeShellCommand(String.format(
+                        "dd bs=4K if=%s iflag=skip_bytes,count_bytes skip=%d count=%d of=%s",
                         source.getAbsolutePath(), skip, count, file.getAbsolutePath()));
 
                 // Force sync to try updating other views

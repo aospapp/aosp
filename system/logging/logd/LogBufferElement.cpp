@@ -38,8 +38,7 @@ LogBufferElement::LogBufferElement(log_id_t log_id, log_time realtime, uid_t uid
       sequence_(sequence),
       realtime_(realtime),
       msg_len_(len),
-      log_id_(log_id),
-      dropped_(false) {
+      log_id_(log_id) {
     msg_ = new char[len];
     memcpy(msg_, msg, len);
 }
@@ -51,14 +50,9 @@ LogBufferElement::LogBufferElement(const LogBufferElement& elem)
       sequence_(elem.sequence_),
       realtime_(elem.realtime_),
       msg_len_(elem.msg_len_),
-      log_id_(elem.log_id_),
-      dropped_(elem.dropped_) {
-    if (dropped_) {
-        tag_ = elem.GetTag();
-    } else {
-        msg_ = new char[msg_len_];
-        memcpy(msg_, elem.msg_, msg_len_);
-    }
+      log_id_(elem.log_id_) {
+    msg_ = new char[msg_len_];
+    memcpy(msg_, elem.msg_, msg_len_);
 }
 
 LogBufferElement::LogBufferElement(LogBufferElement&& elem) noexcept
@@ -68,20 +62,13 @@ LogBufferElement::LogBufferElement(LogBufferElement&& elem) noexcept
       sequence_(elem.sequence_),
       realtime_(elem.realtime_),
       msg_len_(elem.msg_len_),
-      log_id_(elem.log_id_),
-      dropped_(elem.dropped_) {
-    if (dropped_) {
-        tag_ = elem.GetTag();
-    } else {
-        msg_ = elem.msg_;
-        elem.msg_ = nullptr;
-    }
+      log_id_(elem.log_id_) {
+    msg_ = elem.msg_;
+    elem.msg_ = nullptr;
 }
 
 LogBufferElement::~LogBufferElement() {
-    if (!dropped_) {
-        delete[] msg_;
-    }
+    delete[] msg_;
 }
 
 uint32_t LogBufferElement::GetTag() const {
@@ -89,12 +76,6 @@ uint32_t LogBufferElement::GetTag() const {
     if (!IsBinary(log_id())) {
         return 0;
     }
-
-    // Dropped messages store the tag in place of msg_.
-    if (dropped_) {
-        return tag_;
-    }
-
     return MsgToTag(msg(), msg_len());
 }
 
@@ -111,27 +92,9 @@ LogStatisticsElement LogBufferElement::ToLogStatisticsElement() const {
             .realtime = realtime(),
             .msg = msg(),
             .msg_len = msg_len(),
-            .dropped_count = dropped_count(),
             .log_id = log_id(),
             .total_len = static_cast<uint16_t>(element_in_list_size + msg_len()),
     };
-}
-
-uint16_t LogBufferElement::SetDropped(uint16_t value) {
-    if (dropped_) {
-        return dropped_count_ = value;
-    }
-
-    // The tag information is saved in msg_ data, which is in a union with tag_, used after dropped_
-    // is set to true. Therefore we save the tag value aside, delete msg_, then set tag_ to the tag
-    // value in its place.
-    auto old_tag = GetTag();
-    delete[] msg_;
-    msg_ = nullptr;
-
-    tag_ = old_tag;
-    dropped_ = true;
-    return dropped_count_ = value;
 }
 
 // caller must own and free character string
@@ -179,95 +142,7 @@ char* android::tidToName(pid_t tid) {
     return retval;
 }
 
-// assumption: msg_ == NULL
-size_t LogBufferElement::PopulateDroppedMessage(char*& buffer, LogStatistics* stats,
-                                                bool lastSame) {
-    static const char tag[] = "chatty";
-
-    if (!__android_log_is_loggable_len(ANDROID_LOG_INFO, tag, strlen(tag),
-                                       ANDROID_LOG_VERBOSE)) {
-        return 0;
-    }
-
-    static const char format_uid[] = "uid=%u%s%s %s %u line%s";
-    const char* name = stats->UidToName(uid_);
-    const char* commName = android::tidToName(tid_);
-    if (!commName && (tid_ != pid_)) {
-        commName = android::tidToName(pid_);
-    }
-    if (!commName) {
-        commName = stats->PidToName(pid_);
-    }
-    if (name && name[0] && commName && (name[0] == commName[0])) {
-        size_t len = strlen(name + 1);
-        if (!strncmp(name + 1, commName + 1, len)) {
-            if (commName[len + 1] == '\0') {
-                free(const_cast<char*>(commName));
-                commName = nullptr;
-            } else {
-                free(const_cast<char*>(name));
-                name = nullptr;
-            }
-        }
-    }
-    if (name) {
-        char* buf = nullptr;
-        int result = asprintf(&buf, "(%s)", name);
-        if (result != -1) {
-            free(const_cast<char*>(name));
-            name = buf;
-        }
-    }
-    if (commName) {
-        char* buf = nullptr;
-        int result = asprintf(&buf, " %s", commName);
-        if (result != -1) {
-            free(const_cast<char*>(commName));
-            commName = buf;
-        }
-    }
-    // identical to below to calculate the buffer size required
-    const char* type = lastSame ? "identical" : "expire";
-    size_t len = snprintf(nullptr, 0, format_uid, uid_, name ? name : "", commName ? commName : "",
-                          type, dropped_count(), (dropped_count() > 1) ? "s" : "");
-
-    size_t hdrLen;
-    if (IsBinary(log_id())) {
-        hdrLen = sizeof(android_log_event_string_t);
-    } else {
-        hdrLen = 1 + sizeof(tag);
-    }
-
-    buffer = static_cast<char*>(calloc(1, hdrLen + len + 1));
-    if (!buffer) {
-        free(const_cast<char*>(name));
-        free(const_cast<char*>(commName));
-        return 0;
-    }
-
-    size_t retval = hdrLen + len;
-    if (IsBinary(log_id())) {
-        android_log_event_string_t* event =
-            reinterpret_cast<android_log_event_string_t*>(buffer);
-
-        event->header.tag = htole32(CHATTY_LOG_TAG);
-        event->type = EVENT_TYPE_STRING;
-        event->length = htole32(len);
-    } else {
-        ++retval;
-        buffer[0] = ANDROID_LOG_INFO;
-        strcpy(buffer + 1, tag);
-    }
-
-    snprintf(buffer + hdrLen, len + 1, format_uid, uid_, name ? name : "", commName ? commName : "",
-             type, dropped_count(), (dropped_count() > 1) ? "s" : "");
-    free(const_cast<char*>(name));
-    free(const_cast<char*>(commName));
-
-    return retval;
-}
-
-bool LogBufferElement::FlushTo(LogWriter* writer, LogStatistics* stats, bool lastSame) {
+bool LogBufferElement::FlushTo(LogWriter* writer) {
     struct logger_entry entry = {};
 
     entry.hdr_size = sizeof(struct logger_entry);
@@ -277,21 +152,7 @@ bool LogBufferElement::FlushTo(LogWriter* writer, LogStatistics* stats, bool las
     entry.uid = uid_;
     entry.sec = realtime_.tv_sec;
     entry.nsec = realtime_.tv_nsec;
+    entry.len = msg_len_;
 
-    char* buffer = nullptr;
-    const char* msg;
-    if (dropped_) {
-        entry.len = PopulateDroppedMessage(buffer, stats, lastSame);
-        if (!entry.len) return true;
-        msg = buffer;
-    } else {
-        msg = msg_;
-        entry.len = msg_len_;
-    }
-
-    bool retval = writer->Write(entry, msg);
-
-    if (buffer) free(buffer);
-
-    return retval;
+    return writer->Write(entry, msg_);
 }

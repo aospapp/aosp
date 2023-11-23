@@ -22,7 +22,7 @@
 #include "arch/instruction_set.h"
 #include "utils/arm64/managed_register_arm64.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace arm64 {
 
 static constexpr ManagedRegister kXArgumentRegisters[] = {
@@ -172,6 +172,10 @@ ManagedRegister Arm64JniCallingConvention::IntReturnRegister() const {
 
 ManagedRegister Arm64ManagedRuntimeCallingConvention::MethodRegister() {
   return Arm64ManagedRegister::FromXRegister(X0);
+}
+
+ManagedRegister Arm64ManagedRuntimeCallingConvention::ArgumentRegisterForMethodExitHook() {
+  return Arm64ManagedRegister::FromXRegister(X4);
 }
 
 bool Arm64ManagedRuntimeCallingConvention::IsCurrentParamInRegister() {

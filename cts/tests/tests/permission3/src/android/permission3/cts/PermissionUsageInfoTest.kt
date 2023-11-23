@@ -17,7 +17,7 @@
 package android.permission3.cts
 
 import android.content.Intent
-import android.support.test.uiautomator.By
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
 import org.junit.Assume.assumeFalse
 import org.junit.Before

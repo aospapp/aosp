@@ -287,9 +287,11 @@ TEST_F(WakeupControllerTest, addInterface) {
     const uint32_t kMark = 0x12345678;
     const uint32_t kMask = 0x0F0F0F0F;
     const char kExpected[] =
-        "*mangle\n-A wakeupctrl_mangle_INPUT -i test:prefix"
-        " -j NFLOG --nflog-prefix wlan8 --nflog-group 3 --nflog-threshold 8"
-        " -m mark --mark 0x12345678/0x0f0f0f0f -m limit --limit 10/s\nCOMMIT\n";
+        "*mangle\n"
+        "-A wakeupctrl_mangle_INPUT -i test:prefix"
+        " -m mark --mark 0x12345678/0x0f0f0f0f -m limit --limit 10/s"
+        " -j NFLOG --nflog-prefix wlan8 --nflog-group 3 --nflog-threshold 8\n"
+        "COMMIT\n";
     EXPECT_CALL(mIptables, execute(V4V6, kExpected, _)).WillOnce(Return(0));
     EXPECT_OK(mController.addInterface(kPrefix, kIfName, kMark, kMask));
 }
@@ -300,9 +302,11 @@ TEST_F(WakeupControllerTest, delInterface) {
     const uint32_t kMark = 0x12345678;
     const uint32_t kMask = 0xF0F0F0F0;
     const char kExpected[] =
-        "*mangle\n-D wakeupctrl_mangle_INPUT -i test:prefix"
-        " -j NFLOG --nflog-prefix wlan8 --nflog-group 3 --nflog-threshold 8"
-        " -m mark --mark 0x12345678/0xf0f0f0f0 -m limit --limit 10/s\nCOMMIT\n";
+        "*mangle\n"
+        "-D wakeupctrl_mangle_INPUT -i test:prefix"
+        " -m mark --mark 0x12345678/0xf0f0f0f0 -m limit --limit 10/s"
+        " -j NFLOG --nflog-prefix wlan8 --nflog-group 3 --nflog-threshold 8\n"
+        "COMMIT\n";
     EXPECT_CALL(mIptables, execute(V4V6, kExpected, _)).WillOnce(Return(0));
     EXPECT_OK(mController.delInterface(kPrefix, kIfName, kMark, kMask));
 }

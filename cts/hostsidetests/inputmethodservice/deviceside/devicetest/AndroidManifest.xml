@@ -19,6 +19,13 @@
      package="android.inputmethodservice.cts.devicetest"
      android:targetSandboxVersion="2">
 
+    <queries>
+        <intent>
+            <action android:name="android.view.InputMethod" />
+        </intent>
+        <package android:name="android.inputmethodservice.cts.provider" />
+    </queries>
+
     <application android:label="CtsInputMethodServiceDeviceTests"
          android:icon="@mipmap/ic_launcher"
          android:allowBackup="false"

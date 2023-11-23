@@ -38,8 +38,8 @@ public class Main {
     }
 
     {
-      Method m = c.getMethod("liveness", int.class);
-      Object[] arguments = { 42 };
+      Method m = c.getMethod("liveness", int.class, int.class);
+      Object[] arguments = { 42, 42 };
       System.out.println(m.invoke(null, arguments));
     }
 
@@ -58,6 +58,18 @@ public class Main {
     {
       Method m = c.getMethod("licm2", int.class);
       Object[] arguments = { 42 };
+      System.out.println(m.invoke(null, arguments));
+    }
+
+    {
+      Method m = c.getMethod("testDoNotInlineIrreducible", int.class);
+      Object[] arguments = { 42 };
+      System.out.println(m.invoke(null, arguments));
+    }
+
+    {
+      Method m = c.getMethod("testDoNotInlineIrreducible", int.class);
+      Object[] arguments = { 0 };
       System.out.println(m.invoke(null, arguments));
     }
   }

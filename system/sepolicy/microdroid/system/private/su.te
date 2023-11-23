@@ -1,9 +1,4 @@
-userdebug_or_eng(`
-  typeattribute su coredomain;
+typeattribute su coredomain;
 
-  domain_auto_trans(shell, su_exec, su)
-
-  # su is also permissive to permit setenforce.
-  permissive su;
-
-')
+# su is also permissive to permit setenforce.
+permissive su;

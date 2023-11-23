@@ -20,17 +20,17 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import android.content.pm.UserInfo;
-import android.platform.helpers.AutoConfigConstants;
-import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.MultiUserHelper;
+import android.platform.helpers.SettingsConstants;
 import android.platform.scenario.multiuser.MultiUserConstants;
 import android.util.Log;
+
 import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.After;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -51,11 +51,6 @@ public class DeleteGuestSelfNotAllowed {
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
     }
 
-    @BeforeClass
-    public static void exitSuw() {
-        AutoUtility.exitSuw();
-    }
-
     @After
     public void goBackToHomeScreen() {
         mSettingHelper.get().goBackToSettingsScreen();
@@ -71,7 +66,7 @@ public class DeleteGuestSelfNotAllowed {
         boolean IsDeleteAllowed = true;
         // try to delete self - runtime exception encountered
         try {
-            mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
+            mSettingHelper.get().openSetting(SettingsConstants.PROFILE_ACCOUNT_SETTINGS);
             mUsersHelper.get().deleteCurrentUser();
         } catch (RuntimeException err) {
             Log.v(

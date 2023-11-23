@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <utility>
 
 namespace keymaster {
 
@@ -228,7 +229,7 @@ keymaster_error_t Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::Gener
     AuthorizationSet* sw_enforced,            //
     CertificateChain* cert_chain) const {
     if (legacy_support_.RequiresSoftwareDigesting(key_description)) {
-        return software_digest_factory_.GenerateKey(key_description, move(attest_key),
+        return software_digest_factory_.GenerateKey(key_description, std::move(attest_key),
                                                     issuer_subject, key_blob, hw_enforced,
                                                     sw_enforced, cert_chain);
     } else {
@@ -252,7 +253,7 @@ keymaster_error_t Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::Gener
             }
         }
 
-        return passthrough_factory_.GenerateKey(mutable_key_description, move(attest_key),
+        return passthrough_factory_.GenerateKey(mutable_key_description, std::move(attest_key),
                                                 issuer_subject, key_blob, hw_enforced, sw_enforced,
                                                 cert_chain);
     }
@@ -268,8 +269,8 @@ keymaster_error_t Keymaster1ArbitrationFactory<EcdsaKeymaster1KeyFactory>::LoadK
     }
     bool requires_software_digesting =
         legacy_support_.RequiresSoftwareDigesting(digest, AuthProxy(hw_enforced, sw_enforced));
-    auto rc = software_digest_factory_.LoadKey(move(key_material), additional_params,
-                                               move(hw_enforced), move(sw_enforced), key);
+    auto rc = software_digest_factory_.LoadKey(std::move(key_material), additional_params,
+                                               std::move(hw_enforced), std::move(sw_enforced), key);
     if (rc != KM_ERROR_OK) return rc;
     if (!requires_software_digesting) {
         (*key)->key_factory() = &passthrough_factory_;
@@ -287,8 +288,8 @@ keymaster_error_t Keymaster1ArbitrationFactory<RsaKeymaster1KeyFactory>::LoadKey
     }
     bool requires_software_digesting =
         legacy_support_.RequiresSoftwareDigesting(digest, AuthProxy(hw_enforced, sw_enforced));
-    auto rc = software_digest_factory_.LoadKey(move(key_material), additional_params,
-                                               move(hw_enforced), move(sw_enforced), key);
+    auto rc = software_digest_factory_.LoadKey(std::move(key_material), additional_params,
+                                               std::move(hw_enforced), std::move(sw_enforced), key);
     if (rc != KM_ERROR_OK) return rc;
     if (!requires_software_digesting) {
         (*key)->key_factory() = &passthrough_factory_;

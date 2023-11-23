@@ -400,6 +400,10 @@ class WifiWakeTest(WifiBaseTest):
         self.ap_b_off()
         wutils.wait_for_disconnect(self.dut, DISCONNECT_TIMEOUT_SEC)
         self.log.info("Wifi Disconnected")
+
+        if self.dut.model in self.user_params["google_pixel_watch_models"]:
+            wutils.disable_wear_wifimediator(self.dut, True)
+
         self.do_location_scan(2)
         time.sleep(LAST_DISCONNECT_TIMEOUT_SEC * 1.2)
         wutils.wifi_toggle_state(self.dut, new_state=False)
@@ -410,6 +414,9 @@ class WifiWakeTest(WifiBaseTest):
         self.ap_b_on()
         self.ap_a_atten.set_atten(30)
         self.ap_b_atten.set_atten(0)
+
+        if self.dut.model in self.user_params["google_pixel_watch_models"]:
+            wutils.disable_wear_wifimediator(self.dut, False)
 
         self.do_location_scan(
             SCANS_REQUIRED_TO_FIND_SSID, self.ap_b[wutils.WifiEnums.SSID_KEY])

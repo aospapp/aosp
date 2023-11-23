@@ -150,7 +150,7 @@ struct CmdlineParserArgumentInfo {
     for (auto cname : names_) {
       std::string_view name = cname;
       if (using_blanks_) {
-        name = name.substr(0, name.find("_"));
+        name = name.substr(0, name.find('_'));
       }
       auto& os = vios.Stream();
       auto print_once = [&]() {
@@ -485,6 +485,7 @@ struct CmdlineParseArgument : CmdlineParseArgumentAny {
 
       // Error case: Fail, telling the user what the allowed values were.
       std::vector<std::string> allowed_values;
+      allowed_values.reserve(argument_info_.names_.size());
       for (auto&& arg_name : argument_info_.names_) {
         allowed_values.push_back(arg_name);
       }

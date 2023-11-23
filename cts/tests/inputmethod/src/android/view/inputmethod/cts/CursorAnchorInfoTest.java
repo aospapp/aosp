@@ -26,19 +26,33 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.graphics.text.LineBreakConfig;
+import android.os.LocaleList;
 import android.os.Parcel;
 import android.text.TextUtils;
 import android.view.inputmethod.CursorAnchorInfo;
 import android.view.inputmethod.CursorAnchorInfo.Builder;
 import android.view.inputmethod.EditorBoundsInfo;
+import android.view.inputmethod.TextAppearanceInfo;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 @SmallTest
 @RunWith(AndroidJUnit4.class)
@@ -88,7 +102,33 @@ public class CursorAnchorInfoTest {
         FLAG_HAS_INVISIBLE_REGION | FLAG_IS_RTL,
     };
 
+    private final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
+
     @Test
+    @ApiTest(
+            apis = {
+                    "android.view.inputmethod.CursorAnchorInfo#getComposingText",
+                    "android.view.inputmethod.CursorAnchorInfo#getEditorBoundsInfo",
+                    "android.view.inputmethod.CursorAnchorInfo#getInsertionMarkerFlags",
+                    "android.view.inputmethod.CursorAnchorInfo#getInsertionMarkerHorizontal",
+                    "android.view.inputmethod.CursorAnchorInfo#getInsertionMarkerTop",
+                    "android.view.inputmethod.CursorAnchorInfo#getInsertionMarkerBaseline",
+                    "android.view.inputmethod.CursorAnchorInfo#getInsertionMarkerBottom",
+                    "android.view.inputmethod.CursorAnchorInfo#getSelectionStart",
+                    "android.view.inputmethod.CursorAnchorInfo#getSelectionEnd",
+                    "android.view.inputmethod.CursorAnchorInfo#getMatrix",
+                    "android.view.inputmethod.CursorAnchorInfo#getVisibleLineBounds",
+                    "android.view.inputmethod.CursorAnchorInfo#getTextAppearanceInfo",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#build",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setComposingText",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setEditorBoundsInfo",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setMatrix",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setInsertionMarkerLocation",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setSelectinRange",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setVisibleLineBounds",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setTextAppearanceInfo",
+            }
+    )
     public void testBuilder() {
         final int selectionStart = 30;
         final int selectionEnd = 40;
@@ -108,18 +148,23 @@ public class CursorAnchorInfoTest {
                 new EditorBoundsInfo.Builder().setEditorBounds(MANY_BOUNDS[0])
                         .setHandwritingBounds(MANY_BOUNDS[1]).build();
 
+        final TextAppearanceInfo textAppearanceInfo = createTextAppearanceInfoBuilder().build();
+
         final Builder builder = new Builder();
         builder.setSelectionRange(selectionStart, selectionEnd)
                 .setComposingText(composingTextStart, composingText)
                 .setInsertionMarkerLocation(insertionMarkerHorizontal, insertionMarkerTop,
                         insertionMarkerBaseline, insertionMarkerBottom, insertionMarkerFlags)
                 .setMatrix(transformMatrix)
-                .setEditorBoundsInfo(boundsInfo);
+                .setEditorBoundsInfo(boundsInfo)
+                .setTextAppearanceInfo(textAppearanceInfo);
+
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF bounds = MANY_BOUNDS[i];
             final int flags = MANY_FLAGS_ARRAY[i];
             builder.addCharacterBounds(i, bounds.left, bounds.top, bounds.right, bounds.bottom,
                     flags);
+            builder.addVisibleLineBounds(bounds.left, bounds.top, bounds.right, bounds.bottom);
         }
 
         final CursorAnchorInfo info = builder.build();
@@ -134,6 +179,7 @@ public class CursorAnchorInfoTest {
         assertEquals(insertionMarkerBottom, info.getInsertionMarkerBottom(), EPSILON);
         assertEquals(transformMatrix, info.getMatrix());
         assertEquals(boundsInfo, info.getEditorBoundsInfo());
+        assertEquals(Arrays.asList(MANY_BOUNDS), info.getVisibleLineBounds());
         assertEquals(MANY_BOUNDS[0],
                 info.getEditorBoundsInfo().getEditorBounds());
         assertEquals(MANY_BOUNDS[1],
@@ -150,6 +196,8 @@ public class CursorAnchorInfoTest {
         }
         assertEquals(0, info.getCharacterBoundsFlags(-1));
         assertEquals(0, info.getCharacterBoundsFlags(MANY_BOUNDS.length + 1));
+        assertEquals(textAppearanceInfo, info.getTextAppearanceInfo());
+        assertTextAppearanceInfoContentsEqual(info.getTextAppearanceInfo());
 
         // Make sure that the builder can reproduce the same object.
         final CursorAnchorInfo info2 = builder.build();
@@ -163,6 +211,7 @@ public class CursorAnchorInfoTest {
         assertEquals(insertionMarkerBaseline, info2.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(insertionMarkerBottom, info2.getInsertionMarkerBottom(), EPSILON);
         assertEquals(boundsInfo, info2.getEditorBoundsInfo());
+        assertEquals(Arrays.asList(MANY_BOUNDS), info2.getVisibleLineBounds());
         assertEquals(transformMatrix, info2.getMatrix());
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF expectedBounds = MANY_BOUNDS[i];
@@ -176,6 +225,8 @@ public class CursorAnchorInfoTest {
         }
         assertEquals(0, info2.getCharacterBoundsFlags(-1));
         assertEquals(0, info2.getCharacterBoundsFlags(MANY_BOUNDS.length + 1));
+        assertEquals(textAppearanceInfo, info2.getTextAppearanceInfo());
+        assertTextAppearanceInfoContentsEqual(info2.getTextAppearanceInfo());
         assertEquals(info, info2);
         assertEquals(info.hashCode(), info2.hashCode());
 
@@ -191,6 +242,7 @@ public class CursorAnchorInfoTest {
         assertEquals(insertionMarkerBaseline, info3.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(insertionMarkerBottom, info3.getInsertionMarkerBottom(), EPSILON);
         assertEquals(boundsInfo, info3.getEditorBoundsInfo());
+        assertEquals(Arrays.asList(MANY_BOUNDS), info3.getVisibleLineBounds());
         assertEquals(transformMatrix, info3.getMatrix());
         for (int i = 0; i < MANY_BOUNDS.length; i++) {
             final RectF expectedBounds = MANY_BOUNDS[i];
@@ -204,6 +256,8 @@ public class CursorAnchorInfoTest {
         }
         assertEquals(0, info3.getCharacterBoundsFlags(-1));
         assertEquals(0, info3.getCharacterBoundsFlags(MANY_BOUNDS.length + 1));
+        assertEquals(textAppearanceInfo, info3.getTextAppearanceInfo());
+        assertTextAppearanceInfoContentsEqual(info3.getTextAppearanceInfo());
         assertEquals(info.hashCode(), info3.hashCode());
 
         builder.reset();
@@ -218,10 +272,23 @@ public class CursorAnchorInfoTest {
         assertEquals(Float.NaN, uninitializedInfo.getInsertionMarkerBaseline(), EPSILON);
         assertEquals(Float.NaN, uninitializedInfo.getInsertionMarkerBottom(), EPSILON);
         assertEquals(null, uninitializedInfo.getEditorBoundsInfo());
+        assertEquals(new ArrayList<>(), uninitializedInfo.getVisibleLineBounds());
         assertEquals(new Matrix(), uninitializedInfo.getMatrix());
+        assertEquals(null, uninitializedInfo.getTextAppearanceInfo());
     }
 
     @Test
+    @ApiTest(
+            apis = {
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#build",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setComposingText",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setMatrix",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setInsertionMarkerLocation",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setSelectinRange",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setVisibleLineBounds",
+                    "android.view.inputmethod.CursorAnchorInfo.Builder#setTextAppearanceInfo",
+            }
+    )
     public void testEquality() {
         final Matrix matrix1 = new Matrix();
         matrix1.setTranslate(10.0f, 20.0f);
@@ -251,6 +318,8 @@ public class CursorAnchorInfoTest {
         final float insertionMarkerTop2 = 200.1f;
         final float insertionMarkerBaseline2 = 210.4f;
         final float insertionMarkerBottom2 = 211.0f;
+        final List<RectF> visibleLineBounds1 = Arrays.asList(MANY_BOUNDS[0], MANY_BOUNDS[1]);
+        final List<RectF> visibleLineBounds2 = Arrays.asList(MANY_BOUNDS[2], MANY_BOUNDS[3]);
 
         // Default instance should be equal.
         assertEquals(new Builder().build(), new Builder().build());
@@ -377,6 +446,49 @@ public class CursorAnchorInfoTest {
                         insertionMarkerHorizontal1, insertionMarkerTop1,
                         insertionMarkerBaseline1, insertionMarkerBottom1,
                         insertionMarkerFlags2).build());
+        {
+            CursorAnchorInfo.Builder builder1 = new Builder().setMatrix(matrix1);
+            for (RectF rectF : visibleLineBounds1) {
+                builder1.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+            }
+
+            CursorAnchorInfo.Builder builder2 = new Builder().setMatrix(matrix1);
+            for (RectF rectF : visibleLineBounds1) {
+                builder2.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+            }
+
+            assertEquals(builder1.build(), builder2.build());
+        }
+        {
+            CursorAnchorInfo.Builder builder1 = new Builder().setMatrix(matrix1);
+            for (RectF rectF : visibleLineBounds1) {
+                builder1.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+            }
+
+            CursorAnchorInfo.Builder builder2 = new Builder().setMatrix(matrix1);
+            for (RectF rectF : visibleLineBounds2) {
+                builder2.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+            }
+
+            assertNotEquals(builder1.build(), builder2.build());
+        }
+        {
+            TextAppearanceInfo.Builder appearanceBuilder1 = createTextAppearanceInfoBuilder();
+            TextAppearanceInfo.Builder appearanceBuilder2 = createTextAppearanceInfoBuilder();
+            TextAppearanceInfo.Builder appearanceBuilder3 = createTextAppearanceInfoBuilder();
+            appearanceBuilder3.setTextSize(30f);
+
+            TextAppearanceInfo textAppearanceInfo1 = appearanceBuilder1.build();
+            TextAppearanceInfo textAppearanceInfo2 = appearanceBuilder2.build();
+            TextAppearanceInfo textAppearanceInfo3 = appearanceBuilder3.build();
+
+            assertEquals(new Builder().setTextAppearanceInfo(textAppearanceInfo1).build(),
+                    new Builder().setTextAppearanceInfo(textAppearanceInfo1).build());
+            assertEquals(new Builder().setTextAppearanceInfo(textAppearanceInfo1).build(),
+                    new Builder().setTextAppearanceInfo(textAppearanceInfo2).build());
+            assertNotEquals(new Builder().setTextAppearanceInfo(textAppearanceInfo1).build(),
+                    new Builder().setTextAppearanceInfo(textAppearanceInfo3).build());
+        }
     }
 
     @Test
@@ -457,6 +569,41 @@ public class CursorAnchorInfoTest {
     }
 
     @Test
+    @ApiTest(apis = "android.view.inputmethod.CursorAnchorInfo.Builder#setVisibleLineBounds")
+    public void testMatrixIsRequiredForVisibleLineBounds() {
+        final List<RectF> visibleLineBounds = Arrays.asList(MANY_BOUNDS);
+        final Matrix transformMatrix = new Matrix();
+
+        final Builder builder = new Builder();
+        try {
+            // Should succeed as coordinate transformation matrix is not required if no
+            // positional information is specified.
+            builder.build();
+        } catch (IllegalArgumentException ex) {
+            fail();
+        }
+
+        for (RectF rectF: visibleLineBounds) {
+            builder.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+        }
+        try {
+            // Should fail since visible line bounds requires coordinates transformation matrix.
+            builder.build();
+            fail();
+        } catch (IllegalArgumentException ex) {
+        }
+
+        builder.setMatrix(transformMatrix);
+        try {
+            // Should succeed as coordinate transformation matrix is provided.
+            builder.build();
+        } catch (IllegalArgumentException ex) {
+            fail();
+        }
+    }
+
+    @Test
+    @ApiTest(apis = "android.view.inputmethod.CursorAnchorInfo.Builder#addCharacterBounds")
     public void testBuilderAddCharacterBounds() {
         // A negative index should be rejected.
         try {
@@ -464,6 +611,44 @@ public class CursorAnchorInfoTest {
             fail();
         } catch (IllegalArgumentException ex) {
         }
+    }
+
+    @Test
+    @ApiTest(apis = "android.view.inputmethod.CursorAnchorInfo.Builder#clearVisibleLineBounds")
+    public void testBuilderClearVisibleLineBounds() {
+        CursorAnchorInfo.Builder builder = new Builder().setMatrix(Matrix.IDENTITY_MATRIX);
+        for (RectF rectF: MANY_BOUNDS) {
+            builder.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+        }
+
+        // Making sure visible line bounds are added correctly.
+        assertEquals(Arrays.asList(MANY_BOUNDS), builder.build().getVisibleLineBounds());
+
+        builder.clearVisibleLineBounds();
+        // No visible line bounds is returned after clearVisibleLineBounds is called.
+        assertEquals(Collections.emptyList(), builder.build().getVisibleLineBounds());
+
+        // Add more line bounds and verify again.
+        List<RectF> rectFs = Arrays.asList(MANY_BOUNDS[1], MANY_BOUNDS[0]);
+
+        for (RectF rectF: rectFs) {
+            builder.addVisibleLineBounds(rectF.left, rectF.top, rectF.right, rectF.bottom);
+        }
+        assertEquals(rectFs, builder.build().getVisibleLineBounds());
+    }
+
+    @Test
+    @ApiTest(apis = {"android.view.inputmethod.CursorAnchorInfo#getTextAppearanceInfo",
+            "android.view.inputmethod.CursorAnchorInfo.Builder#setTextAppearanceInfo"})
+    public void testTextAppearanceInfoWithEmptyEditText() {
+        TextAppearanceInfo textAppearanceInfo = new TextAppearanceInfo.Builder().build();
+        CursorAnchorInfo.Builder builder = new Builder().setTextAppearanceInfo(textAppearanceInfo);
+        CursorAnchorInfo info1 = builder.build();
+        CursorAnchorInfo info2 = builder.build();
+        CursorAnchorInfo info3 = cloneViaParcel(info2);
+        assertEquals(textAppearanceInfo, info1.getTextAppearanceInfo());
+        assertEquals(textAppearanceInfo, info2.getTextAppearanceInfo());
+        assertEquals(textAppearanceInfo, info3.getTextAppearanceInfo());
     }
 
     private static CursorAnchorInfo cloneViaParcel(CursorAnchorInfo src) {
@@ -478,5 +663,59 @@ public class CursorAnchorInfoTest {
                 parcel.recycle();
             }
         }
+    }
+
+    private TextAppearanceInfo.Builder createTextAppearanceInfoBuilder() {
+        TextAppearanceInfo.Builder builder = new TextAppearanceInfo.Builder()
+                .setTextSize(16.5f)
+                .setTextLocales(LocaleList.forLanguageTags("en,ja"))
+                .setSystemFontFamilyName("sans-serif")
+                .setTextFontWeight(10)
+                .setTextStyle(Typeface.ITALIC)
+                .setAllCaps(true)
+                .setShadowDx(2.0f)
+                .setShadowDy(2.0f)
+                .setShadowRadius(2.0f)
+                .setShadowColor(Color.GRAY)
+                .setElegantTextHeight(true)
+                .setFallbackLineSpacing(true)
+                .setLetterSpacing(5.0f)
+                .setFontFeatureSettings("smcp")
+                .setFontVariationSettings("'wdth' 1.0")
+                .setLineBreakStyle(LineBreakConfig.LINE_BREAK_STYLE_LOOSE)
+                .setLineBreakWordStyle(LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE)
+                .setTextScaleX(1.5f)
+                .setHighlightTextColor(Color.YELLOW)
+                .setTextColor(Color.RED)
+                .setHintTextColor(Color.GREEN)
+                .setLinkTextColor(Color.BLUE);
+        return builder;
+    }
+
+    private void assertTextAppearanceInfoContentsEqual(TextAppearanceInfo textAppearanceInfo) {
+        assertEquals(textAppearanceInfo.getTextSize(), 16.5f, EPSILON);
+        assertEquals(textAppearanceInfo.getTextLocales(), LocaleList.forLanguageTags("en,ja"));
+        assertEquals(textAppearanceInfo.getSystemFontFamilyName(), "sans-serif");
+        assertEquals(textAppearanceInfo.getTextFontWeight(), 10);
+        assertEquals(textAppearanceInfo.getTextStyle(), Typeface.ITALIC);
+        assertTrue(textAppearanceInfo.isAllCaps());
+        assertEquals(textAppearanceInfo.getShadowRadius(), 2.0f, EPSILON);
+        assertEquals(textAppearanceInfo.getShadowDx(), 2.0f, EPSILON);
+        assertEquals(textAppearanceInfo.getShadowDy(), 2.0f, EPSILON);
+        assertEquals(textAppearanceInfo.getShadowColor(), Color.GRAY);
+        assertTrue(textAppearanceInfo.isElegantTextHeight());
+        assertTrue(textAppearanceInfo.isFallbackLineSpacing());
+        assertEquals(textAppearanceInfo.getLetterSpacing(), 5.0f, EPSILON);
+        assertEquals(textAppearanceInfo.getFontFeatureSettings(), "smcp");
+        assertEquals(textAppearanceInfo.getFontVariationSettings(), "'wdth' 1.0");
+        assertEquals(textAppearanceInfo.getLineBreakStyle(),
+                LineBreakConfig.LINE_BREAK_STYLE_LOOSE);
+        assertEquals(textAppearanceInfo.getLineBreakWordStyle(),
+                LineBreakConfig.LINE_BREAK_WORD_STYLE_PHRASE);
+        assertEquals(textAppearanceInfo.getTextScaleX(), 1.5f, EPSILON);
+        assertEquals(textAppearanceInfo.getHighlightTextColor(), Color.YELLOW);
+        assertEquals(textAppearanceInfo.getTextColor(), Color.RED);
+        assertEquals(textAppearanceInfo.getHintTextColor(), Color.GREEN);
+        assertEquals(textAppearanceInfo.getLinkTextColor(), Color.BLUE);
     }
 }

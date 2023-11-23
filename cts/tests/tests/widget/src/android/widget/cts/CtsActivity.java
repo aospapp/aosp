@@ -18,9 +18,30 @@ package android.widget.cts;
 
 import android.app.Activity;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Stub activity for helping test. It's an empty activity.
  */
 public class CtsActivity extends Activity {
+    private CountDownLatch mResumed = new CountDownLatch(1);
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        mResumed.countDown();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        mResumed = new CountDownLatch(1);
+    }
+
+    public boolean waitUntilResumed(long timeoutInMs) throws InterruptedException {
+        return mResumed.await(timeoutInMs, TimeUnit.MILLISECONDS);
+    }
 }

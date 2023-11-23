@@ -17,7 +17,7 @@ import json
 import os
 import subprocess
 
-_SUPPORTED_ARCHS = ['arm', 'arm64', 'x86', 'x86_64', 'mips', 'mips64']
+_SUPPORTED_ARCHS = ['arm', 'arm64', 'x86', 'x86_64', 'mips', 'mips64', 'riscv64']
 
 # Syscalls that are currently explicitly allowed in CTS
 _SYSCALLS_ALLOWED_IN_CTS = {
@@ -93,7 +93,11 @@ def create_syscall_name_to_number_map(arch, names):
       'mips64': {
           'uapi_class': 'asm-mips',
           'extra_cflags': ['-D_MIPS_SIM=_MIPS_SIM_ABI64'],
-      }
+      },
+      'riscv64': {
+          'uapi_class': 'asm-riscv64',
+          'extra_cflags': [],
+      },
   }
 
   # Run preprocessor over the __NR_syscall symbols, including unistd.h,

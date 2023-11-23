@@ -155,6 +155,11 @@ int DrmConnector::Init() {
       ALOGE("Could not get panel_idle_support property\n");
   }
 
+  ret = drm_->GetConnectorProperty(*this, "vrr_switch_duration", &vrr_switch_duration_);
+  if (ret) {
+    ALOGE("Could not get vrr_switch_duration property\n");
+  }
+
   properties_.push_back(&dpms_property_);
   properties_.push_back(&crtc_id_property_);
   properties_.push_back(&edid_property_);
@@ -176,6 +181,7 @@ int DrmConnector::Init() {
   properties_.push_back(&lhbm_on_);
   properties_.push_back(&mipi_sync_);
   properties_.push_back(&panel_idle_support_);
+  properties_.push_back(&vrr_switch_duration_);
 
   return 0;
 }
@@ -389,6 +395,10 @@ int DrmConnector::ResetLpMode() {
 
 const DrmProperty &DrmConnector::panel_idle_support() const {
     return panel_idle_support_;
+}
+
+const DrmProperty &DrmConnector::vrr_switch_duration() const {
+  return vrr_switch_duration_;
 }
 
 DrmEncoder *DrmConnector::encoder() const {

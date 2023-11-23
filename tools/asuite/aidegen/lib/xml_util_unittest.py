@@ -25,7 +25,6 @@ from aidegen.lib import common_util
 from aidegen.lib import xml_util
 
 
-# pylint: disable=protected-access
 class XMLUtilUnittests(unittest.TestCase):
     """Unit tests for xml_util.py"""
 

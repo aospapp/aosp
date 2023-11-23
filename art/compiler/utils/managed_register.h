@@ -20,9 +20,10 @@
 #include <type_traits>
 #include <vector>
 
+#include "base/macros.h"
 #include "base/value_object.h"
 
-namespace art {
+namespace art HIDDEN {
 
 namespace arm {
 class ArmManagedRegister;
@@ -30,6 +31,10 @@ class ArmManagedRegister;
 namespace arm64 {
 class Arm64ManagedRegister;
 }  // namespace arm64
+
+namespace riscv64 {
+class Riscv64ManagedRegister;
+}  // namespace riscv64
 
 namespace x86 {
 class X86ManagedRegister;
@@ -50,6 +55,7 @@ class ManagedRegister : public ValueObject {
 
   constexpr arm::ArmManagedRegister AsArm() const;
   constexpr arm64::Arm64ManagedRegister AsArm64() const;
+  constexpr riscv64::Riscv64ManagedRegister AsRiscv64() const;
   constexpr x86::X86ManagedRegister AsX86() const;
   constexpr x86_64::X86_64ManagedRegister AsX86_64() const;
 

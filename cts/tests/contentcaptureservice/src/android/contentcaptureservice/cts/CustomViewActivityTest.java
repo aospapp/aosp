@@ -55,6 +55,7 @@ import com.android.compatibility.common.util.DoubleVisitor;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -442,7 +443,7 @@ public class CustomViewActivityTest extends
         assertRightActivity(session, session.id, activity);
 
 
-        final int additionalEvents = 3;
+        final int additionalEvents = 5;
         final List<ContentCaptureEvent> events = activity.assertInitialViewsAppeared(session,
                 additionalEvents);
 
@@ -452,8 +453,62 @@ public class CustomViewActivityTest extends
         new EventsAssertor(events)
                 .assertVirtualViewAppeared(mainSession, customViewId, 1, "child1")
                 .assertVirtualViewAppeared(mainSession, customViewId, 2, "child2")
-                .assertVirtualViewsDisappeared(customViewId, mainSession, 2, 1);
+                .assertViewTreeStarted()
+                .assertVirtualViewsDisappeared(customViewId, mainSession, 2, 1)
+                .assertViewTreeFinished();
         // TODO(b/122315042): assert other views disappeared
+    }
+
+    @Test
+    public void testVirtualView_batchAppear() throws Exception {
+        final CtsContentCaptureService service = enableService();
+        final ActivityWatcher watcher = startWatcher();
+
+        final CountDownLatch asyncLatch = setAsyncDelegate((customView, structure) -> {
+            Log.d(TAG, "delegate running on " + Thread.currentThread());
+            final AutofillId customViewId = customView.getAutofillId();
+            Log.d(TAG, "customViewId: " + customViewId);
+            final ContentCaptureSession session = customView.getContentCaptureSession();
+
+            final ViewStructure child1 = session.newVirtualViewStructure(customViewId, 1);
+            child1.setText("child1");
+            final AutofillId child1Id = child1.getAutofillId();
+            assertThat(session.newAutofillId(customViewId, 1)).isEqualTo(child1Id);
+
+            final ViewStructure child2 = session.newVirtualViewStructure(customViewId, 2);
+            child2.setText("child2");
+            final AutofillId child2Id = child2.getAutofillId();
+            assertThat(session.newAutofillId(customViewId, 2)).isEqualTo(child2Id);
+            Log.d(TAG, "nofifying children appeared");
+            final List<ViewStructure> appearedNodes = new ArrayList<>();
+            appearedNodes.add(child1);
+            appearedNodes.add(child2);
+            session.notifyViewsAppeared(appearedNodes);
+        });
+
+        final CustomViewActivity activity = launchActivity();
+        watcher.waitFor(RESUMED);
+        await(asyncLatch, "async onProvide");
+        activity.finish();
+        watcher.waitFor(DESTROYED);
+
+        final Session session = service.getOnlyFinishedSession();
+        Log.v(TAG, "session id: " + session.id);
+
+        assertRightActivity(session, session.id, activity);
+
+        final int additionalEvents = 4;
+        final List<ContentCaptureEvent> events = activity.assertInitialViewsAppeared(session,
+                additionalEvents);
+
+        final AutofillId customViewId = activity.mCustomView.getAutofillId();
+        final ContentCaptureSession mainSession = activity.mCustomView.getContentCaptureSession();
+
+        new EventsAssertor(events)
+                .assertViewTreeStarted()
+                .assertVirtualViewAppeared(mainSession, customViewId, 1, "child1")
+                .assertVirtualViewAppeared(mainSession, customViewId, 2, "child2")
+                .assertViewTreeFinished();
     }
 
     @Test

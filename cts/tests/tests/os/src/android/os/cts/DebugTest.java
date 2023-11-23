@@ -45,9 +45,8 @@ public class DebugTest extends AndroidTestCase {
     }
 
     public void testPrintLoadedClasses() {
-        Debug.printLoadedClasses(Debug.SHOW_FULL_DETAIL);
-        Debug.printLoadedClasses(Debug.SHOW_CLASSLOADER);
-        Debug.printLoadedClasses(Debug.SHOW_INITIALIZED);
+        // TODO(b/279710302): Update the test to verify the output.
+        Debug.printLoadedClasses(Debug.SHOW_CLASSLOADER | Debug.SHOW_INITIALIZED);
     }
 
     public void testStartMethodTracing() throws InterruptedException {
@@ -363,5 +362,10 @@ public class DebugTest extends AndroidTestCase {
         checkNumber(summary_system);
         checkNumber(summary_total_pss);
         checkNumber(summary_total_swap);
+    }
+
+    public void testEnableEmulatorTraceOutput() {
+        // The API is no-op and deprecated.
+        Debug.enableEmulatorTraceOutput();
     }
 }

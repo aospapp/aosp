@@ -25,15 +25,14 @@ import unittest
 
 from unittest import mock
 
-import atest_error
-import constants
-import module_info
-import test_runner_handler
-import unittest_constants as uc
+from atest import atest_error
+from atest import module_info
+from atest import test_runner_handler
+from atest import unittest_constants as uc
 
-from metrics import metrics
-from test_finders import test_info
-from test_runners import test_runner_base as tr_base
+from atest.metrics import metrics
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as tr_base
 
 FAKE_TR_NAME_A = 'FakeTestRunnerA'
 FAKE_TR_NAME_B = 'FakeTestRunnerB'
@@ -51,8 +50,7 @@ MODULE_INFO_B = test_info.TestInfo(MODULE_NAME_B, FAKE_TR_NAME_B, set())
 MODULE_INFO_B_AGAIN = test_info.TestInfo(MODULE_NAME_B_AGAIN, FAKE_TR_NAME_B,
                                          set())
 BAD_TESTINFO = test_info.TestInfo('bad_name', MISSING_TR_NAME, set())
-BUILD_TOP_DIR = tempfile.TemporaryDirectory().name
-PRODUCT_OUT_DIR = os.path.join(BUILD_TOP_DIR, 'out/target/product/vsoc_x86_64')
+
 
 class FakeTestRunnerA(tr_base.TestRunnerBase):
     """Fake test runner A."""
@@ -66,7 +64,7 @@ class FakeTestRunnerA(tr_base.TestRunnerBase):
     def host_env_check(self):
         pass
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos):
         return FAKE_TR_A_REQS
 
     def generate_run_commands(self, test_infos, extra_args, port=None):
@@ -81,7 +79,7 @@ class FakeTestRunnerB(FakeTestRunnerA):
     def run_tests(self, test_infos, extra_args, reporter):
         return 1
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos):
         return FAKE_TR_B_REQS
 
 
@@ -94,7 +92,7 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
     }
 
     def setUp(self):
-        mock.patch('test_runner_handler._get_test_runners',
+        mock.patch('atest.test_runner_handler._get_test_runners',
                    return_value=self._TEST_RUNNERS).start()
 
     def tearDown(self):
@@ -126,15 +124,14 @@ class TestRunnerHandlerUnittests(unittest.TestCase):
             test_runner_handler.get_test_runner_reqs(empty_module_info,
                                                      test_infos))
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/',
-                                    constants.ANDROID_PRODUCT_OUT:PRODUCT_OUT_DIR})
     @mock.patch.object(metrics, 'RunnerFinishEvent')
     def test_run_all_tests(self, _mock_runner_finish):
         """Test that the return value as we expected."""
         results_dir = ""
         extra_args = {}
         mod_info = module_info.ModuleInfo(
-            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE))
+            module_file=os.path.join(uc.TEST_DATA_DIR, uc.JSON_FILE),
+            index_dir=tempfile.NamedTemporaryFile().name)
         # Tests both run_tests return 0
         test_infos = [MODULE_INFO_A, MODULE_INFO_A_AGAIN]
         self.assertEqual(

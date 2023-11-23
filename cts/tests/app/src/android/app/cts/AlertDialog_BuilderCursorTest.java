@@ -16,12 +16,18 @@
 
 package android.app.cts;
 
-import static org.mockito.Mockito.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
-import android.app.Instrumentation;
-import android.app.stubs.DialogStubActivity;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -30,22 +36,23 @@ import android.content.DialogInterface.OnMultiChoiceClickListener;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteCursor;
 import android.database.sqlite.SQLiteDatabase;
-import android.test.ActivityInstrumentationTestCase2;
-import android.test.suitebuilder.annotation.MediumTest;
 import android.widget.ListView;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.MediumTest;
 
-import com.android.compatibility.common.util.WindowUtil;
+import org.junit.After;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 
 @MediumTest
-public class AlertDialog_BuilderCursorTest
-        extends ActivityInstrumentationTestCase2<DialogStubActivity> {
+@RunWith(JUnit4.class)
+public final class AlertDialog_BuilderCursorTest extends AlertDialog_BuilderTestBase {
+
     private Builder mBuilder;
-    private Context mContext;
-    private Instrumentation mInstrumentation;
     private AlertDialog mDialog;
     private ListView mListView;
 
@@ -86,44 +93,37 @@ public class AlertDialog_BuilderCursorTest
             valuesToUpdate.put(CHECKED_COLUMN_NAME, isChecked ? 1 : 0);
             mDatabase.update("test", valuesToUpdate,
                     TEXT_COLUMN_NAME + " = ?",
-                    new String[] { mCursor.getString(1) } );
+                    new String[]{mCursor.getString(1)});
             mCursor.requery();
             mCheckedTracker[which] = isChecked;
         }
     }
 
-    public AlertDialog_BuilderCursorTest() {
-        super("android.app.stubs", DialogStubActivity.class);
-    }
-
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         mBuilder = null;
-        mInstrumentation = getInstrumentation();
-        mContext = getActivity();
-
-        WindowUtil.waitForFocus(getActivity());
+        mInstrumentation.setInTouchMode(false);
 
         mListView = null;
         mDialog = null;
 
         // Local test data for the tests
-        mTextContent = new String[] { "Adele", "Beyonce", "Ciara", "Dido" };
-        mCheckedContent = new boolean[] { false, false, true, false };
+        mTextContent = new String[]{"Adele", "Beyonce", "Ciara", "Dido"};
+        mCheckedContent = new boolean[]{false, false, true, false};
 
         // Two projections - one with "checked" column and one without
-        mProjectionWithChecked = new String[] {
+        mProjectionWithChecked = new String[]{
                 "_id",                       // 0
                 TEXT_COLUMN_NAME,            // 1
                 CHECKED_COLUMN_NAME          // 2
         };
-        mProjectionWithoutChecked = new String[] {
+        mProjectionWithoutChecked = new String[]{
                 "_id",                       // 0
                 TEXT_COLUMN_NAME             // 1
         };
 
-        File dbDir = mContext.getDir("tests", Context.MODE_PRIVATE);
+        File dbDir = mDialogActivity.getDir("tests", Context.MODE_PRIVATE);
         mDatabaseFile = new File(dbDir, "database_alert_dialog_test.db");
         if (mDatabaseFile.exists()) {
             mDatabaseFile.delete();
@@ -141,8 +141,8 @@ public class AlertDialog_BuilderCursorTest
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mCursor != null) {
             // Close the cursor on the UI thread as the list view in the alert dialog
             // will get notified of any change to the underlying cursor.
@@ -158,24 +158,26 @@ public class AlertDialog_BuilderCursorTest
         if (mDatabaseFile != null) {
             mDatabaseFile.delete();
         }
-
-        super.tearDown();
     }
 
-    public void testSetCursor() throws Throwable {
+    @Test
+    public void testSetCursor() {
         // Use a projection without "checked" column
         mCursor = mDatabase.query("test", mProjectionWithoutChecked,
                 null, null, null, null, null);
         assertNotNull(mCursor);
 
-        runTestOnUiThread(
-                () -> {
-                    mBuilder = new Builder(mContext);
-                    mBuilder.setCursor(mCursor, mOnClickListener, TEXT_COLUMN_NAME);
-                    mDialog = mBuilder.show();
-                    mListView = mDialog.getListView();
-                    mListView.performItemClick(null, 0, 0);
-                });
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new Builder(activity);
+            mBuilder.setCursor(mCursor, mOnClickListener, TEXT_COLUMN_NAME);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+        });
+
+        if (mListView.isInTouchMode()) {
+            reAttachListViewAdapter(mListView);
+        }
+        mActivityRule.getScenario().onActivity(unused -> mListView.performItemClick(null, 0, 0));
         mInstrumentation.waitForIdleSync();
         final SQLiteCursor selected = (SQLiteCursor) mListView.getSelectedItem();
         assertEquals(mCursor.getString(1), selected.getString(1));
@@ -183,20 +185,21 @@ public class AlertDialog_BuilderCursorTest
         verifyNoMoreInteractions(mOnClickListener);
     }
 
-    public void testSetSingleChoiceItemsWithParamCursor() throws Throwable {
+    @Test
+    public void testSetSingleChoiceItemsWithParamCursor() {
         // Use a projection without "checked" column
         mCursor = mDatabase.query("test", mProjectionWithoutChecked,
                 null, null, null, null, null);
         assertNotNull(mCursor);
 
-        runTestOnUiThread(
-                () -> {
-                    mBuilder = new Builder(mContext);
-                    mBuilder.setSingleChoiceItems(mCursor, 0, TEXT_COLUMN_NAME, mOnClickListener);
-                    mDialog = mBuilder.show();
-                    mListView = mDialog.getListView();
-                    mListView.performItemClick(null, 0, 0);
-                });
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new Builder(activity);
+            mBuilder.setSingleChoiceItems(mCursor, 0, TEXT_COLUMN_NAME, mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+            mListView.performItemClick(null, 0, 0);
+        });
+
         mInstrumentation.waitForIdleSync();
         final SQLiteCursor selected = (SQLiteCursor) mListView.getSelectedItem();
         assertEquals(mCursor.getString(1), selected.getString(1));
@@ -204,7 +207,8 @@ public class AlertDialog_BuilderCursorTest
         verifyNoMoreInteractions(mOnClickListener);
     }
 
-    public void testSetMultiChoiceItemsWithParamCursor() throws Throwable {
+    @Test
+    public void testSetMultiChoiceItemsWithParamCursor() {
         mCursor = mDatabase.query("test", mProjectionWithChecked,
                 null, null, null, null, null);
         assertNotNull(mCursor);
@@ -212,15 +216,16 @@ public class AlertDialog_BuilderCursorTest
         final boolean[] checkedTracker = mCheckedContent.clone();
         final OnMultiChoiceClickListener mockMultiChoiceClickListener =
                 spy(new MultiChoiceClickListener(checkedTracker));
-        runTestOnUiThread(
-                () -> {
-                    mBuilder = new Builder(mContext);
-                    mBuilder.setMultiChoiceItems(mCursor, CHECKED_COLUMN_NAME, TEXT_COLUMN_NAME,
-                            mockMultiChoiceClickListener);
-                    mDialog = mBuilder.show();
-                    mListView = mDialog.getListView();
-                    mListView.performItemClick(null, 0, 0);
-                });
+
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new Builder(activity);
+            mBuilder.setMultiChoiceItems(mCursor, CHECKED_COLUMN_NAME, TEXT_COLUMN_NAME,
+                    mockMultiChoiceClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+            mListView.performItemClick(null, 0, 0);
+        });
+
         mInstrumentation.waitForIdleSync();
 
         SQLiteCursor selected = (SQLiteCursor) mListView.getSelectedItem();
@@ -232,7 +237,7 @@ public class AlertDialog_BuilderCursorTest
         assertTrue(checkedTracker[2]);
         assertFalse(checkedTracker[3]);
 
-        runTestOnUiThread(() -> mListView.performItemClick(null, 1, 1));
+        mActivityRule.getScenario().onActivity(a -> mListView.performItemClick(null, 1, 1));
         mInstrumentation.waitForIdleSync();
 
         selected = (SQLiteCursor) mListView.getSelectedItem();

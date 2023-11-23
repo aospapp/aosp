@@ -10,13 +10,13 @@ import android.net.Uri;
 import android.os.OutcomeReceiver;
 import android.os.ParcelFileDescriptor;
 import android.provider.CallLog;
-import android.support.test.uiautomator.UiDevice;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 import android.util.Pair;
 import android.view.KeyEvent;
 
 import androidx.annotation.NonNull;
+import androidx.test.uiautomator.UiDevice;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;

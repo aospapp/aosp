@@ -29,6 +29,7 @@ python2
 python3-scapy
 strace
 systemd-sysv
+systemd-timesyncd
 tcpdump
 traceroute
 udev

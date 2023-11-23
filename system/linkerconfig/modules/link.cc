@@ -17,6 +17,7 @@
 #include "linkerconfig/link.h"
 
 #include "linkerconfig/log.h"
+#include "linkerconfig/stringutil.h"
 
 namespace android {
 namespace linkerconfig {
@@ -41,7 +42,7 @@ void Link::WriteConfig(ConfigWriter& writer) const {
   if (allow_all_shared_libs_) {
     writer.WriteLine(prefix + "allow_all_shared_libs = true");
   } else if (!shared_libs_.empty()) {
-    writer.WriteVars(prefix + "shared_libs", shared_libs_);
+    writer.WriteVar(prefix + "shared_libs", MergeLibs(shared_libs_));
   } else {
     LOG(WARNING) << "Ignored empty shared libs link from " << origin_namespace_
                  << " to " << target_namespace_;

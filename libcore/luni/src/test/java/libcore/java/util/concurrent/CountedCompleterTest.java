@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package libcore.java.util.concurrent;
@@ -73,7 +73,7 @@ public class CountedCompleterTest {
             }
 
             public Integer getRawResult() {
-                return new Integer(ai.intValue());
+                return Integer.valueOf(ai.intValue());
             }
 
             protected void setRawResult(Integer val) {

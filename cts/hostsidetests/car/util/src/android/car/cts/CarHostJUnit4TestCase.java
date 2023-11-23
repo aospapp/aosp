@@ -151,9 +151,7 @@ public abstract class CarHostJUnit4TestCase extends BaseHostJUnit4Test {
      * Returns whether device is in headless system user mode.
      */
     boolean isHeadlessSystemUserMode() throws Exception {
-        String result = getDevice()
-                .executeShellCommand("getprop ro.fw.mu.headless_system_user").trim();
-        return Boolean.valueOf(result);
+        return getDevice().isHeadlessSystemUserMode();
     }
 
     /**

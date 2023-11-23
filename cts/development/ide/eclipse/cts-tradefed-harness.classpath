@@ -24,10 +24,10 @@
 	<classpathentry kind="src" path="cts/common/host-side/util/tests/src"/>
 	<classpathentry kind="lib" path="external/mockito/lib/byte-buddy-1.6.9.jar"/>
 	<classpathentry kind="lib" path="external/mockito/lib/byte-buddy-agent-1.6.9.jar"/>
+	<classpathentry kind="lib" path="out/target/common/obj/JAVA_LIBRARIES/apache-commons-compress_intermediates/classes.jar"/>
 	<classpathentry kind="lib" path="out/target/common/obj/JAVA_LIBRARIES/bouncycastle_intermediates/classes-jarjar.jar"/>
 	<classpathentry kind="lib" path="out/target/common/obj/JAVA_LIBRARIES/conscrypt_intermediates/classes-jarjar.jar"/>
 	<classpathentry kind="lib" path="out/target/common/obj/JAVA_LIBRARIES/okhttp_intermediates/classes-jarjar.jar"/>
-	<classpathentry kind="lib" path="prebuilts/misc/common/commons-compress/commons-compress-prebuilt.jar"/>
 	<classpathentry kind="lib" path="prebuilts/misc/common/ddmlib/ddmlib-prebuilt.jar"/>
 	<classpathentry kind="lib" path="prebuilts/misc/common/devtools-annotations/devtools-annotations-prebuilt.jar"/>
 	<classpathentry kind="lib" path="prebuilts/misc/common/json/json-prebuilt.jar"/>

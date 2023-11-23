@@ -38,8 +38,8 @@ using testing::Eq;
 using testing::Optional;
 
 TEST_F(AidlTest, NestedService) {
-  sp<INestedService> nestedService;
-  EXPECT_EQ(android::OK, android::getService(INestedService::descriptor, &nestedService));
+  sp<INestedService> nestedService =
+      android::waitForService<INestedService>(INestedService::descriptor);
   ASSERT_NE(nullptr, nestedService);
 
   ParcelableWithNested p;

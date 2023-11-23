@@ -27,3 +27,29 @@ python_binary_host {
     srcs: ["SELinuxNeverallowTestGen.py"],
     libs: ["SELinuxNeverallowTestFrame"],
 }
+
+sh_test_host {
+    name: "seamendc-test",
+    src: "seamendc-test.sh",
+    data_bins: [
+        "seamendc",
+        "secilc",
+        "searchpolicy",
+    ],
+    data: [
+        ":sepolicy-cil-files",
+        ":libsepolwrap",
+    ],
+}
+
+filegroup {
+    name: "sepolicy-cil-files",
+    srcs: [
+        ":plat_sepolicy.cil",
+        ":plat_pub_versioned.cil",
+        ":system_ext_sepolicy.cil",
+        ":product_sepolicy.cil",
+        ":vendor_sepolicy.cil",
+        ":odm_sepolicy.cil",
+    ],
+}

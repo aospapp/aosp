@@ -332,6 +332,7 @@ TEST_P(VibratorAidl, ChangeVibrationAmplitude) {
         sleep(1);
         EXPECT_EQ(Status::EX_NONE, vibrator->setAmplitude(1.0f).exceptionCode());
         sleep(1);
+        EXPECT_TRUE(vibrator->off().isOk());
     }
 }
 
@@ -443,7 +444,7 @@ TEST_P(VibratorAidl, ComposeValidPrimitives) {
 
             effect.delayMs = std::rand() % (maxDelay + 1);
             effect.primitive = primitive;
-            effect.scale = static_cast<float>(std::rand()) / RAND_MAX;
+            effect.scale = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
             composite.emplace_back(effect);
 
             if (composite.size() == maxSize) {
@@ -601,10 +602,11 @@ TEST_P(VibratorAidl, ComposeCallback) {
             EXPECT_EQ(Status::EX_NONE, vibrator->compose(composite, callback).exceptionCode())
                 << toString(primitive);
 
-            //TODO(b/187207798): revert back to conservative timeout values once
-            //latencies have been fixed
-            EXPECT_EQ(completionFuture.wait_for(duration * 4), std::future_status::ready)
-                << toString(primitive);
+            // TODO(b/261130361): Investigate why latency from driver and hardware will cause test
+            // to fail when wait duration is ~40ms or less.
+            EXPECT_EQ(completionFuture.wait_for(duration + std::chrono::milliseconds(50)),
+                      std::future_status::ready)
+                    << toString(primitive);
             end = high_resolution_clock::now();
 
             elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

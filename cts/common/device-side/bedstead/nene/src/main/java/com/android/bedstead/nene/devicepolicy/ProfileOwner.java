@@ -79,13 +79,29 @@ public final class ProfileOwner extends DevicePolicyController {
     /** Sets whether the current profile is organization owned. */
     @TargetApi(TIRAMISU)
     public void setIsOrganizationOwned(boolean isOrganizationOwned) {
+        if (isOrganizationOwned() == isOrganizationOwned) {
+            return; // Nothing to do
+        }
+
         Versions.requireMinimumVersion(TIRAMISU);
 
         DevicePolicyManager devicePolicyManager =
                 TestApis.context().androidContextAsUser(mUser).getSystemService(
                         DevicePolicyManager.class);
-        devicePolicyManager.setProfileOwnerOnOrganizationOwnedDevice(mComponentName,
-                isOrganizationOwned);
+
+        UserReference user = TestApis.users().system();
+        boolean userSetupComplete = user.getSetupComplete();
+        try {
+            user.setSetupComplete(false);
+
+            try (PermissionContext p = TestApis.permissions().withPermission(
+                    MANAGE_PROFILE_AND_DEVICE_OWNERS)) {
+                devicePolicyManager.setProfileOwnerOnOrganizationOwnedDevice(mComponentName,
+                        isOrganizationOwned);
+            }
+        } finally {
+            user.setSetupComplete(userSetupComplete);
+        }
     }
 
     @Override
@@ -105,7 +121,7 @@ public final class ProfileOwner extends DevicePolicyController {
             devicePolicyManager.forceRemoveActiveAdmin(mComponentName, mUser.id());
         } catch (SecurityException e) {
             if (e.getMessage().contains("Attempt to remove non-test admin")
-                    && mPackage.appComponentFactory().equals(TEST_APP_APP_COMPONENT_FACTORY)
+                    && TEST_APP_APP_COMPONENT_FACTORY.equals(mPackage.appComponentFactory())
                     && user().parent() == null) {
                 removeTestApp();
             } else {
@@ -126,7 +142,7 @@ public final class ProfileOwner extends DevicePolicyController {
                     .validate(ShellCommandUtils::startsWithSuccess)
                     .execute();
         } catch (AdbException e) {
-            if (mPackage.appComponentFactory().equals(TEST_APP_APP_COMPONENT_FACTORY)
+            if (TEST_APP_APP_COMPONENT_FACTORY.equals(mPackage.appComponentFactory())
                     && user().parent() == null) {
                 // We can't see why it failed so we'll try the test app version
                 removeTestApp();

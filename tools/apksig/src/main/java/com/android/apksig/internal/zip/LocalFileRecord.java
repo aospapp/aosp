@@ -445,7 +445,13 @@ public class LocalFileRecord {
             throw new IOException(
                     cdRecord.getName() + " too large: " + cdRecord.getUncompressedSize());
         }
-        byte[] result = new byte[(int) cdRecord.getUncompressedSize()];
+        byte[] result = null;
+        try {
+            result = new byte[(int) cdRecord.getUncompressedSize()];
+        } catch (OutOfMemoryError e) {
+            throw new IOException(
+                    cdRecord.getName() + " too large: " + cdRecord.getUncompressedSize(), e);
+        }
         ByteBuffer resultBuf = ByteBuffer.wrap(result);
         ByteBufferSink resultSink = new ByteBufferSink(resultBuf);
         outputUncompressedData(

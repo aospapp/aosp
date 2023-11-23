@@ -22,7 +22,7 @@ from distutils.util import strtobool
 import ltp_test_cases
 from common import filter_utils
 
-def run(android_build_top, arch, n_bit, is_low_mem, is_hwasan, run_staging, output_file):
+def run(android_build_top: str, arch: str, n_bit: int, is_low_mem: bool, is_hwasan: bool, run_staging: bool, output_file: str):
 
     android_build_top = android_build_top
     ltp_tests = ltp_test_cases.LtpTestCases(
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     arg_parser.add_argument('--arch',
                             dest='arch',
                             type=str,
-                            choices=['arm', 'x86'],
+                            choices=['arm', 'riscv', 'x86'],
                             required=True,
                             help="Target device architecture")
     arg_parser.add_argument('--bitness',

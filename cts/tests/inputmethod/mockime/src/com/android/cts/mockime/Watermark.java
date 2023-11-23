@@ -32,7 +32,7 @@ public final class Watermark {
      *
      * <p>See Bug 174534092 about why we ended up having this.</p>
      */
-    private static final int TOLERANCE = 4;
+    private static final int TOLERANCE = 6;
 
     /**
      * A utility class that represents A8R8G8B bitmap as an integer array.

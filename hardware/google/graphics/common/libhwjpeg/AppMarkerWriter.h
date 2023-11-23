@@ -18,6 +18,8 @@
 #define __HARDWARE_SAMSUNG_SLSI_EXYNOS_APPMARKER_WRITER_H__
 
 #include <ExynosExif.h>
+
+#include "hwjpeg-internal.h"
 #include "include/hardware/exynos/ExynosExif.h"
 
 #define JPEG_MAX_SEGMENT_SIZE ((1 << 16) - 1)
@@ -33,10 +35,9 @@
 #define IFD_COUNT_SIZE 4
 #define IFD_VALOFF_SIZE 4
 
-#define IFD_FIELD_SIZE \
-            (IFD_TAG_SIZE + IFD_TYPE_SIZE + IFD_COUNT_SIZE + IFD_VALOFF_SIZE)
+#define IFD_FIELD_SIZE (IFD_TAG_SIZE + IFD_TYPE_SIZE + IFD_COUNT_SIZE + IFD_VALOFF_SIZE)
 
-#define EXTRA_APPMARKER_MIN 4
+#define EXTRA_APPMARKER_MIN 2
 #define EXTRA_APPMARKER_LIMIT 10
 
 #define MAX_GPS_PROCESSINGMETHOD_SIZE 108
@@ -49,8 +50,8 @@ class CAppMarkerWriter {
     char *m_pAppBase;
     char *m_pApp1End;
     size_t m_szMaxThumbSize; // Maximum available thumbnail stream size minus JPEG_MARKER_SIZE
-    uint16_t m_szApp1; // The size of APP1 segment without marker
-    uint16_t m_szApp11; // The size of APP11 segment without marker
+    uint16_t m_szApp1;       // The size of APP1 segment without marker
+    uint16_t m_szApp11;      // The size of APP11 segment without marker
     uint16_t m_n0thIFDFields;
     uint16_t m_n1stIFDFields;
     uint16_t m_nExifIFDFields;
@@ -76,6 +77,7 @@ class CAppMarkerWriter {
     char *WriteAPP1(char *base, bool reserve_thumbnail_space, bool updating = false);
     char *WriteAPPX(char *base, bool just_reserve);
     char *WriteAPP11(char *current, size_t dummy, size_t align);
+
 public:
     // dummy: number of dummy bytes written by the compressor of the main image
     // this dummy size should be added to the APP1 length. Howerver, this dummy area
@@ -84,7 +86,7 @@ public:
     CAppMarkerWriter();
     CAppMarkerWriter(char *base, exif_attribute_t *exif, debug_attribute_t *debug);
 
-    ~CAppMarkerWriter() { }
+    ~CAppMarkerWriter() {}
 
     void PrepareAppWriter(char *base, exif_attribute_t *exif, extra_appinfo_t *info);
 
@@ -100,15 +102,14 @@ public:
     // CalculateAPPSize() is valid after Write() is successful.
     size_t CalculateAPPSize(size_t thumblen = JPEG_MAX_SEGMENT_SIZE) {
         size_t appsize = 0;
-        if (m_szApp1 > 0)
-            appsize += m_szApp1 + JPEG_MARKER_SIZE;
+        if (m_szApp1 > 0) appsize += m_szApp1 + JPEG_MARKER_SIZE;
         if (m_pExtra) {
             for (int idx = 0; idx < m_pExtra->num_of_appmarker; idx++)
-                appsize += m_pExtra->appInfo[idx].dataSize +
-                           + JPEG_MARKER_SIZE + JPEG_SEGMENT_LENFIELD_SIZE;
+                appsize += m_pExtra->appInfo[idx].dataSize + +JPEG_MARKER_SIZE +
+                        JPEG_SEGMENT_LENFIELD_SIZE;
         }
         if (IsThumbSpaceReserved())
-            appsize += m_szMaxThumbSize + JPEG_APP1_OEM_RESERVED ;
+            appsize += m_szMaxThumbSize + JPEG_APP1_OEM_RESERVED;
         else
             appsize += min(m_szMaxThumbSize, thumblen);
 
@@ -117,7 +118,8 @@ public:
 
     char *GetApp1End() { return m_pApp1End; }
 
-    void Write(bool reserve_thumbnail_space, size_t dummy, size_t align, bool reserve_debug = false) {
+    void Write(bool reserve_thumbnail_space, size_t dummy, size_t align,
+               bool reserve_debug = false) {
         m_pApp1End = WriteAPP1(m_pAppBase, reserve_thumbnail_space);
         char *appXend = WriteAPPX(m_pApp1End, reserve_debug);
         char *app11end = WriteAPP11(appXend, dummy, align);
@@ -129,7 +131,7 @@ public:
 
     bool IsThumbSpaceReserved() {
         return PTR_DIFF(m_pAppBase, m_pApp1End) ==
-			(m_szApp1 + m_szMaxThumbSize + JPEG_APP1_OEM_RESERVED + JPEG_MARKER_SIZE);
+                (m_szApp1 + m_szMaxThumbSize + JPEG_APP1_OEM_RESERVED + JPEG_MARKER_SIZE);
     }
 
     void Finalize(size_t thumbsize);

@@ -22,8 +22,6 @@ parameter in the test config file.
 "beacon_loss_test_iterations": "5"
 """
 
-import os
-import uuid
 import time
 
 from acts import asserts
@@ -32,12 +30,12 @@ from acts import utils
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts.utils import rand_ascii_str
 
 
-class BeaconLossTest(AbstractDeviceWlanDeviceBaseTest):
+class BeaconLossTest(WifiBaseTest):
     # Default number of test iterations here.
     # Override using parameter in config file.
     # Eg: "beacon_loss_test_iterations": "10"

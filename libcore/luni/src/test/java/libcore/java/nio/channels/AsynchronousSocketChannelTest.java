@@ -323,7 +323,7 @@ public class AsynchronousSocketChannelTest extends TestCaseWithRules {
         // Connect
         FutureLikeCompletionHandler<Void> connectCompletionHandler =
             new FutureLikeCompletionHandler<>();
-        Object attachment = new Integer(1);
+        Object attachment = Integer.valueOf(1);
         asc.connect(ss.getLocalSocketAddress(), attachment, connectCompletionHandler);
         connectCompletionHandler.get(1000);
         assertNotNull(asc.getRemoteAddress());
@@ -382,7 +382,7 @@ public class AsynchronousSocketChannelTest extends TestCaseWithRules {
         // Connect
         FutureLikeCompletionHandler<Void> connectCompletionHandler =
             new FutureLikeCompletionHandler<>();
-        Object attachment = new Integer(1);
+        Object attachment = Integer.valueOf(1);
         asc.connect(ss.getLocalSocketAddress(), attachment, connectCompletionHandler);
         connectCompletionHandler.get(1000);
         assertNotNull(asc.getRemoteAddress());

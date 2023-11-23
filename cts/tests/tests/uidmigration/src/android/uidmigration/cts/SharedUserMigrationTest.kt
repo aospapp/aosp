@@ -87,6 +87,11 @@ class SharedUserMigrationTest {
         assertTrue(pkgs.sameAs(Const.INSTALL_TEST_PKG2))
         pkgInfo = mPm.getPackageInfo(Const.INSTALL_TEST_PKG, FLAG_ZERO)
         assertNull(pkgInfo.sharedUserId)
+        // Upgrading an APK with sharedUserMaxSdkVersion set should not change its UID.
+        assertTrue(installPackage(InstallTest.APK4))
+        val newPkgInfo = mPm.getPackageInfo(Const.INSTALL_TEST_PKG, FLAG_ZERO)
+        assertNull(newPkgInfo.sharedUserId)
+        assertEquals(pkgInfo.applicationInfo.uid, newPkgInfo.applicationInfo.uid)
     }
 
     private fun testBestEffort(uid: Int) {

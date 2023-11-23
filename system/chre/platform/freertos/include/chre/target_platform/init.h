@@ -40,6 +40,14 @@ namespace freertos {
 BaseType_t init();
 
 /**
+ * This function initializes the and starts the logger so it's ready to accept
+ * logs. Spawns a (non-privileged) FreeRTOS task for sending logs to the host.
+ *
+ * @return pdPASS on success, a FreeRTOS error code otherwise.
+ */
+BaseType_t initLogger();
+
+/**
  * Delete the task spawned in the init function
  */
 void deinit();

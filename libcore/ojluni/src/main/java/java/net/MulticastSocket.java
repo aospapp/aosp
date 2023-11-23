@@ -570,7 +570,8 @@ class MulticastSocket extends DatagramSocket {
      *
      * @exception SocketException if there is an error in
      * the underlying protocol, such as a TCP error.
-     * @return the multicast {@code NetworkInterface} currently set
+     * @return the multicast {@code NetworkInterface} currently
+     * set or {@code null} when no interface is set.
      * @see #setNetworkInterface(NetworkInterface)
      * @since 1.4
      */

@@ -26,7 +26,9 @@
 
 package java.io;
 
+import java.io.ObjectStreamClass.RecordSupport;
 import java.io.ObjectStreamClass.WeakClassKey;
+import java.lang.invoke.MethodHandle;
 import java.lang.ref.ReferenceQueue;
 import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
@@ -1921,7 +1923,13 @@ public class ObjectInputStream
             handles.markException(passHandle, resolveEx);
         }
 
-        if (desc.isExternalizable()) {
+        final boolean isRecord = desc.isRecord();
+        if (isRecord) {
+            assert obj == null;
+            obj = readRecord(desc);
+            if (!unshared)
+                handles.setObject(passHandle, obj);
+        } else if (desc.isExternalizable()) {
             readExternalData((Externalizable) obj, desc);
         } else {
             readSerialData(obj, desc);
@@ -2008,6 +2016,42 @@ public class ObjectInputStream
          * externalizable data remains in the stream, a subsequent read will
          * most likely throw a StreamCorruptedException.
          */
+    }
+
+    /** Reads a record. */
+    private Object readRecord(ObjectStreamClass desc) throws IOException {
+        ObjectStreamClass.ClassDataSlot[] slots = desc.getClassDataLayout();
+        if (slots.length != 1) {
+            // skip any superclass stream field values
+            for (int i = 0; i < slots.length-1; i++) {
+                if (slots[i].hasData) {
+                    new FieldValues(slots[i].desc, true);
+                }
+            }
+        }
+
+        FieldValues fieldValues = new FieldValues(desc, true);
+
+        // get canonical record constructor adapted to take two arguments:
+        // - byte[] primValues
+        // - Object[] objValues
+        // and return Object
+        MethodHandle ctrMH = RecordSupport.deserializationCtr(desc);
+
+        try {
+            return (Object) ctrMH.invokeExact(fieldValues.primValues, fieldValues.objValues);
+        } catch (Exception e) {
+            InvalidObjectException ioe = new InvalidObjectException(e.getMessage());
+            ioe.initCause(e);
+            throw ioe;
+        } catch (Error e) {
+            throw e;
+        } catch (Throwable t) {
+            ObjectStreamException ose = new InvalidObjectException(
+                    "ReflectiveOperationException during deserialization");
+            ose.initCause(t);
+            throw ose;
+        }
     }
 
     /**
@@ -2212,6 +2256,156 @@ public class ObjectInputStream
     private static ClassLoader latestUserDefinedLoader() {
         // Android-changed: Use VMStack on Android.
         return VMStack.getClosestUserClassLoader();
+    }
+
+    /**
+     * Default GetField implementation.
+     */
+    private final class FieldValues extends GetField {
+
+        /** class descriptor describing serializable fields */
+        private final ObjectStreamClass desc;
+        /** primitive field values */
+        final byte[] primValues;
+        /** object field values */
+        final Object[] objValues;
+        /** object field value handles */
+        private final int[] objHandles;
+
+        /**
+         * Creates FieldValues object for reading fields defined in given
+         * class descriptor.
+         * @param desc the ObjectStreamClass to read
+         * @param recordDependencies if true, record the dependencies
+         *                           from current PassHandle and the object's read.
+         */
+        FieldValues(ObjectStreamClass desc, boolean recordDependencies) throws IOException {
+            this.desc = desc;
+
+            int primDataSize = desc.getPrimDataSize();
+            primValues = (primDataSize > 0) ? new byte[primDataSize] : null;
+            if (primDataSize > 0) {
+                bin.readFully(primValues, 0, primDataSize, false);
+            }
+
+            int numObjFields = desc.getNumObjFields();
+            objValues = (numObjFields > 0) ? new Object[numObjFields] : null;
+            objHandles = (numObjFields > 0) ? new int[numObjFields] : null;
+            if (numObjFields > 0) {
+                int objHandle = passHandle;
+                ObjectStreamField[] fields = desc.getFields(false);
+                int numPrimFields = fields.length - objValues.length;
+                for (int i = 0; i < objValues.length; i++) {
+                    ObjectStreamField f = fields[numPrimFields + i];
+                    // Android-changed: Use the equivalent readObject0(boolean) until this class
+                    // is upgraded to OpenJDK 11 version.
+                    // objValues[i] = readObject0(Object.class, f.isUnshared());
+                    objValues[i] = readObject0(f.isUnshared());
+                    objHandles[i] = passHandle;
+                    if (recordDependencies && f.getField() != null) {
+                        handles.markDependency(objHandle, passHandle);
+                    }
+                }
+                passHandle = objHandle;
+            }
+        }
+
+        public ObjectStreamClass getObjectStreamClass() {
+            return desc;
+        }
+
+        public boolean defaulted(String name) {
+            return (getFieldOffset(name, null) < 0);
+        }
+
+        public boolean get(String name, boolean val) {
+            int off = getFieldOffset(name, Boolean.TYPE);
+            return (off >= 0) ? Bits.getBoolean(primValues, off) : val;
+        }
+
+        public byte get(String name, byte val) {
+            int off = getFieldOffset(name, Byte.TYPE);
+            return (off >= 0) ? primValues[off] : val;
+        }
+
+        public char get(String name, char val) {
+            int off = getFieldOffset(name, Character.TYPE);
+            return (off >= 0) ? Bits.getChar(primValues, off) : val;
+        }
+
+        public short get(String name, short val) {
+            int off = getFieldOffset(name, Short.TYPE);
+            return (off >= 0) ? Bits.getShort(primValues, off) : val;
+        }
+
+        public int get(String name, int val) {
+            int off = getFieldOffset(name, Integer.TYPE);
+            return (off >= 0) ? Bits.getInt(primValues, off) : val;
+        }
+
+        public float get(String name, float val) {
+            int off = getFieldOffset(name, Float.TYPE);
+            return (off >= 0) ? Bits.getFloat(primValues, off) : val;
+        }
+
+        public long get(String name, long val) {
+            int off = getFieldOffset(name, Long.TYPE);
+            return (off >= 0) ? Bits.getLong(primValues, off) : val;
+        }
+
+        public double get(String name, double val) {
+            int off = getFieldOffset(name, Double.TYPE);
+            return (off >= 0) ? Bits.getDouble(primValues, off) : val;
+        }
+
+        public Object get(String name, Object val) {
+            int off = getFieldOffset(name, Object.class);
+            if (off >= 0) {
+                int objHandle = objHandles[off];
+                handles.markDependency(passHandle, objHandle);
+                return (handles.lookupException(objHandle) == null) ?
+                        objValues[off] : null;
+            } else {
+                return val;
+            }
+        }
+
+        // Android-removed: Remove unused methods until this class is upgraded to version 11 / 17.
+        /*
+        /** Throws ClassCastException if any value is not assignable. *
+        void defaultCheckFieldValues(Object obj) {
+            if (objValues != null)
+                desc.checkObjFieldValueTypes(obj, objValues);
+        }
+
+        private void defaultSetFieldValues(Object obj) {
+            if (primValues != null)
+                desc.setPrimFieldValues(obj, primValues);
+            if (objValues != null)
+                desc.setObjFieldValues(obj, objValues);
+        }
+        */
+
+        /**
+         * Returns offset of field with given name and type.  A specified type
+         * of null matches all types, Object.class matches all non-primitive
+         * types, and any other non-null type matches assignable types only.
+         * If no matching field is found in the (incoming) class
+         * descriptor but a matching field is present in the associated local
+         * class descriptor, returns -1.  Throws IllegalArgumentException if
+         * neither incoming nor local class descriptor contains a match.
+         */
+        private int getFieldOffset(String name, Class<?> type) {
+            ObjectStreamField field = desc.getField(name, type);
+            if (field != null) {
+                return field.getOffset();
+            } else if (desc.getLocalDesc().getField(name, type) != null) {
+                return -1;
+            } else {
+                throw new IllegalArgumentException("no such field " + name +
+                        " with type " + type);
+            }
+        }
     }
 
     /**

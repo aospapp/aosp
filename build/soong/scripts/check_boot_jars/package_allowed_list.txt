@@ -8,9 +8,11 @@ java\.beans
 java\.io
 java\.lang
 java\.lang\.annotation
+java\.lang\.constant
 java\.lang\.invoke
 java\.lang\.ref
 java\.lang\.reflect
+java\.lang\.runtime
 java\.math
 java\.net
 java\.nio
@@ -75,6 +77,7 @@ jdk\.internal\.misc
 jdk\.internal\.ref
 jdk\.internal\.reflect
 jdk\.internal\.util
+jdk\.internal\.util\.jar
 jdk\.internal\.vm\.annotation
 jdk\.net
 org\.w3c\.dom

@@ -84,6 +84,14 @@ func dumpMakeVars(ctx Context, config Config, goals, vars []string, write_soong_
 	ctx.BeginTrace(metrics.RunKati, "dumpvars")
 	defer ctx.EndTrace()
 
+	tool := ctx.Status.StartTool()
+	if write_soong_vars {
+		// only print this when write_soong_vars is true so that it's not printed when using
+		// the get_build_var command.
+		tool.Status("Running product configuration...")
+	}
+	defer tool.Finish()
+
 	cmd := Command(ctx, config, "dumpvars",
 		config.PrebuiltBuildTool("ckati"),
 		"-f", "build/make/core/config.mk",
@@ -108,7 +116,7 @@ func dumpMakeVars(ctx Context, config Config, goals, vars []string, write_soong_
 	}
 	cmd.StartOrFatal()
 	// TODO: error out when Stderr contains any content
-	status.KatiReader(ctx.Status.StartTool(), pipe)
+	status.KatiReader(tool, pipe)
 	cmd.WaitOrFatal()
 
 	ret := make(map[string]string, len(vars))
@@ -139,9 +147,10 @@ func dumpMakeVars(ctx Context, config Config, goals, vars []string, write_soong_
 var BannerVars = []string{
 	"PLATFORM_VERSION_CODENAME",
 	"PLATFORM_VERSION",
+	"PRODUCT_INCLUDE_TAGS",
+	"PRODUCT_SOURCE_ROOT_DIRS",
 	"TARGET_PRODUCT",
 	"TARGET_BUILD_VARIANT",
-	"TARGET_BUILD_TYPE",
 	"TARGET_BUILD_APPS",
 	"TARGET_BUILD_UNBUNDLED",
 	"TARGET_ARCH",
@@ -150,22 +159,12 @@ var BannerVars = []string{
 	"TARGET_2ND_ARCH",
 	"TARGET_2ND_ARCH_VARIANT",
 	"TARGET_2ND_CPU_VARIANT",
-	"HOST_ARCH",
-	"HOST_2ND_ARCH",
 	"HOST_OS",
 	"HOST_OS_EXTRA",
 	"HOST_CROSS_OS",
-	"HOST_CROSS_ARCH",
-	"HOST_CROSS_2ND_ARCH",
-	"HOST_BUILD_TYPE",
 	"BUILD_ID",
 	"OUT_DIR",
-	"AUX_OS_VARIANT_LIST",
-	"PRODUCT_SOONG_NAMESPACES",
-	"SOONG_SDK_SNAPSHOT_PREFER",
 	"SOONG_SDK_SNAPSHOT_TARGET_BUILD_RELEASE",
-	"SOONG_SDK_SNAPSHOT_USE_SOURCE_CONFIG_VAR",
-	"SOONG_SDK_SNAPSHOT_VERSION",
 }
 
 func Banner(make_vars map[string]string) string {
@@ -236,6 +235,13 @@ func runMakeProductConfig(ctx Context, config Config) {
 
 		// Not used, but useful to be in the soong.log
 		"BOARD_VNDK_VERSION",
+		"TARGET_BUILD_TYPE",
+		"HOST_ARCH",
+		"HOST_2ND_ARCH",
+		"HOST_CROSS_ARCH",
+		"HOST_CROSS_2ND_ARCH",
+		"HOST_BUILD_TYPE",
+		"PRODUCT_SOONG_NAMESPACES",
 
 		"DEFAULT_WARNING_BUILD_MODULE_TYPES",
 		"DEFAULT_ERROR_BUILD_MODULE_TYPES",
@@ -245,8 +251,6 @@ func runMakeProductConfig(ctx Context, config Config) {
 		"BUILD_BROKEN_USES_BUILD_EXECUTABLE",
 		"BUILD_BROKEN_USES_BUILD_FUZZ_TEST",
 		"BUILD_BROKEN_USES_BUILD_HEADER_LIBRARY",
-		"BUILD_BROKEN_USES_BUILD_HOST_DALVIK_JAVA_LIBRARY",
-		"BUILD_BROKEN_USES_BUILD_HOST_DALVIK_STATIC_JAVA_LIBRARY",
 		"BUILD_BROKEN_USES_BUILD_HOST_EXECUTABLE",
 		"BUILD_BROKEN_USES_BUILD_HOST_JAVA_LIBRARY",
 		"BUILD_BROKEN_USES_BUILD_HOST_PREBUILT",
@@ -295,4 +299,6 @@ func runMakeProductConfig(ctx Context, config Config) {
 	config.SetBuildBrokenDupRules(makeVars["BUILD_BROKEN_DUP_RULES"] == "true")
 	config.SetBuildBrokenUsesNetwork(makeVars["BUILD_BROKEN_USES_NETWORK"] == "true")
 	config.SetBuildBrokenNinjaUsesEnvVars(strings.Fields(makeVars["BUILD_BROKEN_NINJA_USES_ENV_VARS"]))
+	config.SetIncludeTags(strings.Fields(makeVars["PRODUCT_INCLUDE_TAGS"]))
+	config.SetSourceRootDirs(strings.Fields(makeVars["PRODUCT_SOURCE_ROOT_DIRS"]))
 }

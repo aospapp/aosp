@@ -21,12 +21,13 @@
     <option name="compatibility:include-filter" value="signed-CtsSecureElementAccessControlTestCases2" />
     <option name="compatibility:include-filter" value="signed-CtsSecureElementAccessControlTestCases3" />
     <option name="compatibility:include-filter" value="CtsCarrierApiTestCases" />
+    <option name="compatibility:include-filter" value="CtsHostsideNetworkTests" />
     <option name="compatibility:include-filter" value="CtsJobSchedulerTestCases" />
     <option name="compatibility:include-filter" value="CtsNetTestCases" />
     <option name="compatibility:include-filter" value="CtsNetTestCasesLegacyApi22" />
     <option name="compatibility:include-filter" value="CtsOmapiTestCases" />
     <option name="compatibility:include-filter" value="CtsPermissionTestCases" />
-    <option name="compatibility:include-filter" value="CtsPermission2TestCases" />
+    <option name="compatibility:include-filter" value="CtsPermissionPolicyTestCases" />
     <option name="compatibility:include-filter" value="CtsSecureElementAccessControlTestCases1" />
     <option name="compatibility:include-filter" value="CtsSecureElementAccessControlTestCases2" />
     <option name="compatibility:include-filter" value="CtsSecureElementAccessControlTestCases3" />
@@ -43,5 +44,5 @@
     <option name="compatibility:include-filter" value="CtsTetheringTest" />
     <option name="compatibility:include-filter" value="CtsUsageStatsTestCases" />
     <option name="compatibility:include-filter" value="CtsVcnTestCases" />
-
+    <option name="compatibility:include-filter" value="CtsDevicePolicySimTestCases" />
 </configuration>

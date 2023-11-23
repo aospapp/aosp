@@ -20,18 +20,22 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import android.media.cts.NonMediaMainlineTest;
 import android.media.Utils;
 import android.os.Handler;
 import android.os.HandlerThread;
+
 import androidx.test.runner.AndroidJUnit4;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@NonMediaMainlineTest
+import java.util.concurrent.Executor;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class UtilsTest {
     @Test

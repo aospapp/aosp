@@ -1,0 +1,48 @@
+# This is the netsim on Cuttlefish Cargo.toml file.
+#
+# Android.bp rules are used for Cuttlefish rust, but developers may
+# want to run clippy using cargo so we also have this Config.toml.cf
+#
+# We keep two Config files because Cargo fetches all optional
+# crates. Some of these crates are not part of the emulator build
+# environment.
+#
+# See:
+#
+#   https://github.com/rust-lang/cargo/issues/4544
+#
+# Usage:
+#
+#   cp Cargo.toml.cf Cargo.toml
+#   cargo run
+#
+[package]
+name = "netsim-cxx"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+crate-type = ["staticlib", "lib"]
+doctest = false
+test = false
+
+[dependencies]
+cxx = { version = ">=1.0.85", features = ["c++17"] }
+frontend-proto = { path = "../frontend-proto" }
+netsim-common = { path = "../netsim-common" }
+protobuf = "3.2.0"
+protobuf-json-mapping = "3.2.0"
+regex = "1.6.0"
+lazy_static = "1.4.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = {version = "1.25.0", features = ["full"]}
+nix = {version = "0.26.2", optional = true}
+
+[features]
+default = ["cuttlefish"]
+cuttlefish = ["dep:nix"]
+
+[build-dependencies]
+cxx-build = "1.0.92"

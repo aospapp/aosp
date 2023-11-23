@@ -75,11 +75,19 @@ public boolean lookingAt() { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public java.util.regex.Matcher appendReplacement(@libcore.util.NonNull java.lang.StringBuffer sb, @libcore.util.NonNull java.lang.String replacement) { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public java.util.regex.Matcher appendReplacement(@libcore.util.NonNull java.lang.StringBuilder sb, @libcore.util.NonNull java.lang.String replacement) { throw new RuntimeException("Stub!"); }
+
 @libcore.util.NonNull public java.lang.StringBuffer appendTail(@libcore.util.NonNull java.lang.StringBuffer sb) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public java.lang.StringBuilder appendTail(@libcore.util.NonNull java.lang.StringBuilder sb) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public java.lang.String replaceAll(@libcore.util.NonNull java.lang.String replacement) { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public java.lang.String replaceAll(@libcore.util.NonNull java.util.function.Function<@libcore.util.NonNull java.util.regex.MatchResult, @libcore.util.NonNull java.lang.String> replacer) { throw new RuntimeException("Stub!"); }
+
 @libcore.util.NonNull public java.lang.String replaceFirst(@libcore.util.NonNull java.lang.String replacement) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public java.lang.String replaceFirst(@libcore.util.NonNull java.util.function.Function<@libcore.util.NonNull java.util.regex.MatchResult, @libcore.util.NonNull java.lang.String> replacer) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public java.util.regex.Matcher region(int start, int end) { throw new RuntimeException("Stub!"); }
 
@@ -100,4 +108,6 @@ public boolean hasAnchoringBounds() { throw new RuntimeException("Stub!"); }
 public boolean hitEnd() { throw new RuntimeException("Stub!"); }
 
 public boolean requireEnd() { throw new RuntimeException("Stub!"); }
+
+public @libcore.util.NonNull java.util.stream.Stream<@libcore.util.NonNull java.util.regex.MatchResult> results() { throw new RuntimeException("Stub!"); }
 }

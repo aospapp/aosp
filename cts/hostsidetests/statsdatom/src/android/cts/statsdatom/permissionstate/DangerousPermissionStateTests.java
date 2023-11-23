@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.permissionstate;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -43,7 +44,7 @@ public class DangerousPermissionStateTests extends DeviceTestCase implements IBu
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -73,7 +74,7 @@ public class DangerousPermissionStateTests extends DeviceTestCase implements IBu
 
         // Pull a report
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         int testAppId = getAppId(DeviceUtils.getStatsdTestAppUid(getDevice()));
 
@@ -111,7 +112,7 @@ public class DangerousPermissionStateTests extends DeviceTestCase implements IBu
                 AtomsProto.Atom.DANGEROUS_PERMISSION_STATE_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<AtomsProto.DangerousPermissionState> fullDangerousPermissionState = new ArrayList<>();
         for (AtomsProto.Atom atom : ReportUtils.getGaugeMetricAtoms(getDevice())) {
@@ -130,7 +131,7 @@ public class DangerousPermissionStateTests extends DeviceTestCase implements IBu
 
             // Pull a report
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
             gaugeMetricDataList = ReportUtils.getGaugeMetricAtoms(getDevice());
             if (gaugeMetricDataList.size() > 0

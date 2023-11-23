@@ -6,15 +6,12 @@ type compos_key_helper_exec, exec_type, file_type, system_file_type;
 # Block crash dumps to ensure the secrets are not leaked.
 typeattribute compos_key_helper no_crash_dump_domain;
 
-# Allow using DICE binder service
-binder_use(compos_key_helper);
-allow compos_key_helper dice_node_service:service_manager find;
-binder_call(compos_key_helper, diced);
-allow compos_key_helper diced:diced { get_attestation_chain derive };
-
 # Communicate with compos via stdin/stdout pipes
 allow compos_key_helper compos:fd use;
 allow compos_key_helper compos:fifo_file { getattr read write };
 
 # Write to /dev/kmsg.
 allow compos_key_helper kmsg_device:chr_file rw_file_perms;
+
+# Communicate with microdroid manager to get DICE information
+unix_socket_connect(compos_key_helper, vm_payload_service, microdroid_manager)

@@ -68,6 +68,16 @@ constexpr char kJSON_RAW[] = R"(
                 "NONE"
             ],
             "Type": "Property"
+        },
+        {
+            "Name": "TestEnableProperty",
+            "Path": "vendor.pwhal.enable.test",
+            "Values": [
+                "0",
+                "1"
+            ],
+            "Type": "Property",
+            "ResetOnInit": true
         }
     ],
     "Actions": [
@@ -87,6 +97,7 @@ constexpr char kJSON_RAW[] = R"(
             "PowerHint": "LAUNCH",
             "Node": "CPUCluster0MinFreq",
             "Value": "1134000",
+            "EnableProperty": "vendor.pwhal.enable.no_exist",
             "Duration": 500
         },
         {
@@ -99,7 +110,14 @@ constexpr char kJSON_RAW[] = R"(
             "PowerHint": "LAUNCH",
             "Node": "CPUCluster1MinFreq",
             "Value": "1512000",
+            "EnableProperty": "vendor.pwhal.enable.test",
             "Duration": 2000
+        },
+        {
+            "PowerHint": "DISABLE_LAUNCH_ACT2",
+            "Node": "TestEnableProperty",
+            "Value": "0",
+            "Duration": 0
         },
         {
             "PowerHint": "MASK_LAUNCH_MODE",
@@ -410,7 +428,7 @@ TEST_F(HintManagerTest, HintStatsTest) {
 TEST_F(HintManagerTest, ParseNodesTest) {
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
-    EXPECT_EQ(3u, nodes.size());
+    EXPECT_EQ(4u, nodes.size());
     EXPECT_EQ("CPUCluster0MinFreq", nodes[0]->GetName());
     EXPECT_EQ("CPUCluster1MinFreq", nodes[1]->GetName());
     EXPECT_EQ(files_[0 + 2]->path, nodes[0]->GetPath());
@@ -503,7 +521,7 @@ TEST_F(HintManagerTest, ParsePropertyNodesEmptyValueTest) {
     json_doc_.replace(start_pos, from.length(), "");
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
-    EXPECT_EQ(3u, nodes.size());
+    EXPECT_EQ(4u, nodes.size());
     EXPECT_EQ("CPUCluster0MinFreq", nodes[0]->GetName());
     EXPECT_EQ("CPUCluster1MinFreq", nodes[1]->GetName());
     EXPECT_EQ(files_[0 + 2]->path, nodes[0]->GetPath());
@@ -546,7 +564,7 @@ TEST_F(HintManagerTest, ParseActionsTest) {
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
     std::unordered_map<std::string, Hint> actions = HintManager::ParseActions(json_doc_, nodes);
-    EXPECT_EQ(6u, actions.size());
+    EXPECT_EQ(7u, actions.size());
 
     EXPECT_EQ(2u, actions["INTERACTION"].node_actions.size());
     EXPECT_EQ(1u, actions["INTERACTION"].node_actions[0].node_index);
@@ -575,6 +593,7 @@ TEST_F(HintManagerTest, ParseActionsTest) {
     EXPECT_EQ(0u, actions["LAUNCH"].node_actions[2].value_index);
     EXPECT_EQ(std::chrono::milliseconds(2000).count(),
               actions["LAUNCH"].node_actions[2].timeout_ms.count());
+    EXPECT_EQ("vendor.pwhal.enable.test", actions["LAUNCH"].node_actions[2].enable_property);
 
     EXPECT_EQ(1u, actions["MASK_LAUNCH_MODE"].hint_actions.size());
     EXPECT_EQ(HintActionType::MaskHint, actions["MASK_LAUNCH_MODE"].hint_actions[0].type);
@@ -604,7 +623,7 @@ TEST_F(HintManagerTest, ParseActionDuplicateFileNodeTest) {
     json_doc_.replace(start_pos, from.length(), R"("Node": "CPUCluster1MinFreq")");
     std::vector<std::unique_ptr<Node>> nodes =
         HintManager::ParseNodes(json_doc_);
-    EXPECT_EQ(3u, nodes.size());
+    EXPECT_EQ(4u, nodes.size());
     auto actions = HintManager::ParseActions(json_doc_, nodes);
     EXPECT_EQ(0u, actions.size());
 }
@@ -615,7 +634,7 @@ TEST_F(HintManagerTest, ParseActionDuplicatePropertyNodeTest) {
     size_t start_pos = json_doc_.find(from);
     json_doc_.replace(start_pos, from.length(), R"("Node": "ModeProperty")");
     auto nodes = HintManager::ParseNodes(json_doc_);
-    EXPECT_EQ(3u, nodes.size());
+    EXPECT_EQ(4u, nodes.size());
     auto actions = HintManager::ParseActions(json_doc_, nodes);
     EXPECT_EQ(0u, actions.size());
 }
@@ -660,6 +679,7 @@ TEST_F(HintManagerTest, GetFromJSONTest) {
     _VerifyPathValue(files_[1 + 2]->path, "1134000");
     _VerifyPropertyValue(prop_, "LOW");
     // Do LAUNCH
+    _VerifyPropertyValue("vendor.pwhal.enable.test", "1");
     EXPECT_TRUE(hm->DoHint("LAUNCH"));
     std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
     _VerifyPathValue(files_[0 + 2]->path, "1134000");
@@ -681,6 +701,21 @@ TEST_F(HintManagerTest, GetFromJSONTest) {
     _VerifyPathValue(files_[0 + 2]->path, "384000");
     _VerifyPathValue(files_[1 + 2]->path, "384000");
     _VerifyPropertyValue(prop_, "NONE");
+
+    // Disable action[2] of LAUNCH
+    EXPECT_TRUE(hm->EndHint("LAUNCH"));
+    _VerifyPropertyValue("vendor.pwhal.enable.test", "1");
+    EXPECT_TRUE(hm->DoHint("DISABLE_LAUNCH_ACT2"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPropertyValue("vendor.pwhal.enable.test", "0");
+    EXPECT_TRUE(hm->DoHint("LAUNCH"));
+    std::this_thread::sleep_for(kSLEEP_TOLERANCE_MS);
+    _VerifyPathValue(files_[0 + 2]->path, "1134000");
+    // action[2] have no effect.
+    _VerifyPathValue(files_[1 + 2]->path, "384000");
+    _VerifyPropertyValue(prop_, "HIGH");
+    EXPECT_TRUE(hm->EndHint("LAUNCH"));
+    EXPECT_TRUE(hm->EndHint("DISABLE_LAUNCH_ACT2"));
 
     // Mask LAUNCH and do LAUNCH
     EXPECT_TRUE(hm->DoHint("MASK_LAUNCH_MODE"));

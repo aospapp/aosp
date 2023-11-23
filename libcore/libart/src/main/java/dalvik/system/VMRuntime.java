@@ -58,12 +58,11 @@ public final class VMRuntime {
     static {
         ABI_TO_INSTRUCTION_SET_MAP.put("armeabi", "arm");
         ABI_TO_INSTRUCTION_SET_MAP.put("armeabi-v7a", "arm");
-        ABI_TO_INSTRUCTION_SET_MAP.put("mips", "mips");
-        ABI_TO_INSTRUCTION_SET_MAP.put("mips64", "mips64");
         ABI_TO_INSTRUCTION_SET_MAP.put("x86", "x86");
         ABI_TO_INSTRUCTION_SET_MAP.put("x86_64", "x86_64");
         ABI_TO_INSTRUCTION_SET_MAP.put("arm64-v8a", "arm64");
         ABI_TO_INSTRUCTION_SET_MAP.put("arm64-v8a-hwasan", "arm64");
+        ABI_TO_INSTRUCTION_SET_MAP.put("riscv64", "riscv64");
     }
 
     /**
@@ -397,6 +396,38 @@ public final class VMRuntime {
     public synchronized void setDisabledCompatChanges(long[] disabledCompatChanges) {
         this.disabledCompatChanges = disabledCompatChanges;
         setDisabledCompatChangesNative(this.disabledCompatChanges);
+    }
+
+    @FastNative
+    private static native int getSdkVersionNative(int default_sdk_value);
+
+    /**
+     * A container to avoid initialized by the unstarted runtime.
+     *
+     * {@link #sdkVersion} needs a separate container because {@link VMRuntime} could be initialized
+     * in the unstarted runtime where the values of the system properties could be misleading.
+     */
+    private static class SdkVersionContainer {
+        // Similar to android.os.Build.VERSION.SDK_INT in the boot classpath, the default sdk is 0.
+        private static final int sdkVersion = getSdkVersionNative(/*default_sdk_value=*/0);
+    }
+
+    /**
+     * Gets the SDK version of the software currently running on this hardware
+     * device. This value never changes while a device is booted, but it may
+     * increase when the hardware manufacturer provides an OTA update.
+     * <p>
+     * Possible values are defined in {@link VersionCodes}.
+     *
+     * It's expected to use by the ART module. Please use android.os.Build.VERSION.SDK_INT if
+     * the usage is not in the ART module.
+     *
+     * @implNote This returns {@code "ro.build.version.sdk"} system property on Android
+     *
+     * @hide
+     */
+    public static int getSdkVersion() {
+        return SdkVersionContainer.sdkVersion;
     }
 
     /**
@@ -777,8 +808,10 @@ public final class VMRuntime {
     public native void runHeapTasks();
 
     /**
-     * Let the heap know of the new process state. This can change allocation and garbage collection
-     * behavior regarding trimming and compaction.
+     * Let the heap know of the new "jank perceptibility" process state. This can change allocation
+     * and garbage collection behavior regarding trimming and compaction. Should be called when it
+     * appears likely that process response time will remain invisible to the user for an extended
+     * period, and then again immediately after slow process response becomes user-visible again.
      *
      * @param state The state of the process, as defined in art/runtime/process_state.h.
      *
@@ -891,9 +924,7 @@ public final class VMRuntime {
      */
     @SystemApi(client = MODULE_LIBRARIES)
     public static boolean is64BitInstructionSet(String instructionSet) {
-        return "arm64".equals(instructionSet) ||
-                "x86_64".equals(instructionSet) ||
-                "mips64".equals(instructionSet);
+        return (instructionSet != null) && instructionSet.contains("64");
     }
 
     /**
@@ -1023,4 +1054,12 @@ public final class VMRuntime {
      */
     @SystemApi(client = MODULE_LIBRARIES)
     public static native boolean isValidClassLoaderContext(String encodedClassLoaderContext);
+
+    /**
+     * Returns the optimization status of the base APK loaded in this process. If called in a
+     * process without an APK, returns
+     *
+     * @hide
+     */
+    public static native DexFile.OptimizationInfo getBaseApkOptimizationInfo();
 }

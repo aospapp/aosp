@@ -19,7 +19,7 @@ fun openSslVersionToCMakeVersion(openSslVersion: String): CMakeCompatibleVersion
     )
 }
 
-val portVersion = "1.1.1l"
+val portVersion = "1.1.1s"
 val prefabVersion = openSslVersionToCMakeVersion(portVersion)
 
 group = "com.android.ndk.thirdparty"
@@ -28,6 +28,7 @@ version = "$portVersion${rootProject.extra.get("snapshotSuffix")}"
 plugins {
     id("maven-publish")
     id("com.android.ndkports.NdkPorts")
+    distribution
 }
 
 ndkPorts {
@@ -174,7 +175,24 @@ publishing {
 
     repositories {
         maven {
-            url = uri("${rootProject.buildDir}/repository")
+            url = uri("${project.buildDir}/repository")
         }
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from("${project.buildDir}/repository")
+            include("**/*.aar")
+            include("**/*.pom")
+        }
+    }
+}
+
+tasks {
+    distZip {
+        dependsOn("publish")
+        destinationDirectory.set(File(rootProject.buildDir, "distributions"))
     }
 }

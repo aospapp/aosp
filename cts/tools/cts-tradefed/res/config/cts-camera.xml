@@ -29,5 +29,6 @@
         value="CtsPermissionTestCases android.permission.cts.CameraPermissionTest"/>
     <option name="compatibility:include-filter"
         value="CtsPermissionTestCases android.permission.cts.Camera2PermissionTest"/>
+    <option name="compatibility:include-filter" value="CtsCameraApi25TestCases"/>
 
 </configuration>

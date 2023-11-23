@@ -26,13 +26,13 @@ import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaSyncEvent;
-import android.media.cts.NonMediaMainlineTest;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.After;
@@ -44,7 +44,7 @@ import java.io.IOException;
 
 
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 @SdkSuppress(minSdkVersion = 31, codeName = "S")
 public class AudioRecordSharedAudioTest {

@@ -23,9 +23,59 @@ import (
 	"strings"
 	"time"
 
+	"android/soong/shared"
 	"android/soong/ui/metrics"
 	"android/soong/ui/status"
 )
+
+const (
+	// File containing the environment state when ninja is executed
+	ninjaEnvFileName        = "ninja.environment"
+	ninjaLogFileName        = ".ninja_log"
+	ninjaWeightListFileName = ".ninja_weight_list"
+)
+
+func useNinjaBuildLog(ctx Context, config Config, cmd *Cmd) {
+	ninjaLogFile := filepath.Join(config.OutDir(), ninjaLogFileName)
+	data, err := os.ReadFile(ninjaLogFile)
+	var outputBuilder strings.Builder
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		// ninja log: <start>	<end>	<restat>	<name>	<cmdhash>
+		// ninja weight list: <name>,<end-start+1>
+		for _, line := range lines {
+			if strings.HasPrefix(line, "#") {
+				continue
+			}
+			fields := strings.Split(line, "\t")
+			path := fields[3]
+			start, err := strconv.Atoi(fields[0])
+			if err != nil {
+				continue
+			}
+			end, err := strconv.Atoi(fields[1])
+			if err != nil {
+				continue
+			}
+			outputBuilder.WriteString(path)
+			outputBuilder.WriteString(",")
+			outputBuilder.WriteString(strconv.Itoa(end-start+1) + "\n")
+		}
+	} else {
+		// If there is no ninja log file, just pass empty ninja weight list.
+		// Because it is still efficient with critical path calculation logic even without weight.
+		ctx.Verbosef("There is an error during reading ninja log, so ninja will use empty weight list: %s", err)
+	}
+
+	weightListFile := filepath.Join(config.OutDir(), ninjaWeightListFileName)
+
+	err = os.WriteFile(weightListFile, []byte(outputBuilder.String()), 0644)
+	if err == nil {
+		cmd.Args = append(cmd.Args, "-o", "usesweightlist="+weightListFile)
+	} else {
+		ctx.Panicf("Could not write ninja weight list file %s", err)
+	}
+}
 
 // Constructs and runs the Ninja command line with a restricted set of
 // environment variables. It's important to restrict the environment Ninja runs
@@ -77,6 +127,20 @@ func runNinjaForBuild(ctx Context, config Config) {
 		// Reads and executes a shell script from Kati that sets/unsets the
 		// environment Ninja runs in.
 		cmd.Environment.AppendFromKati(config.KatiEnvFile())
+	}
+
+	switch config.NinjaWeightListSource() {
+	case NINJA_LOG:
+		useNinjaBuildLog(ctx, config, cmd)
+	case EVENLY_DISTRIBUTED:
+		// pass empty weight list means ninja considers every tasks's weight as 1(default value).
+		cmd.Args = append(cmd.Args, "-o", "usesweightlist=/dev/null")
+	case EXTERNAL_FILE:
+		fallthrough
+	case HINT_FROM_SOONG:
+		// The weight list is already copied/generated.
+		ninjaWeightListPath := filepath.Join(config.OutDir(), ninjaWeightListFileName)
+		cmd.Args = append(cmd.Args, "-o", "usesweightlist="+ninjaWeightListPath)
 	}
 
 	// Allow both NINJA_ARGS and NINJA_EXTRA_ARGS, since both have been
@@ -186,6 +250,21 @@ func runNinjaForBuild(ctx Context, config Config) {
 		ctx.Verbosef("  %s", envVar)
 	}
 
+	// Write the env vars available during ninja execution to a file
+	ninjaEnvVars := cmd.Environment.AsMap()
+	data, err := shared.EnvFileContents(ninjaEnvVars)
+	if err != nil {
+		ctx.Panicf("Could not parse environment variables for ninja run %s", err)
+	}
+	// Write the file in every single run. This is fine because
+	// 1. It is not a dep of Soong analysis, so will not retrigger Soong analysis.
+	// 2. Is is fairly lightweight (~1Kb)
+	ninjaEnvVarsFile := shared.JoinPath(config.SoongOutDir(), ninjaEnvFileName)
+	err = os.WriteFile(ninjaEnvVarsFile, data, 0666)
+	if err != nil {
+		ctx.Panicf("Could not write ninja environment file %s", err)
+	}
+
 	// Poll the Ninja log for updates regularly based on the heartbeat
 	// frequency. If it isn't updated enough, then we want to surface the
 	// possibility that Ninja is stuck, to the user.
@@ -194,7 +273,7 @@ func runNinjaForBuild(ctx Context, config Config) {
 	ticker := time.NewTicker(ninjaHeartbeatDuration)
 	defer ticker.Stop()
 	ninjaChecker := &ninjaStucknessChecker{
-		logPath: filepath.Join(config.OutDir(), ".ninja_log"),
+		logPath: filepath.Join(config.OutDir(), ninjaLogFileName),
 	}
 	go func() {
 		for {

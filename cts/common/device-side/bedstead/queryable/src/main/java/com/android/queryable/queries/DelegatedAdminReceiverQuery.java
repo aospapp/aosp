@@ -25,8 +25,9 @@ import com.android.queryable.info.DelegatedAdminReceiverInfo;
 public interface DelegatedAdminReceiverQuery<E extends Queryable>
         extends Query<DelegatedAdminReceiverInfo>  {
 
-    static DelegatedAdminReceiverQuery<DelegatedAdminReceiverQuery<?>> delegatedAdminReceiver() {
-        return new DelegatedAdminReceiverQueryHelper<>();
+    /** Queries a {@link DelegatedAdminReceiver}. */
+    static DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase delegatedAdminReceiver() {
+        return new DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase();
     }
 
     BroadcastReceiverQuery<E> broadcastReceiver();

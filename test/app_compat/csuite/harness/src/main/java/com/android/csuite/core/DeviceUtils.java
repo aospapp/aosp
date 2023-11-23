@@ -30,15 +30,25 @@ import com.android.tradefed.util.IRunUtil;
 import com.android.tradefed.util.RunUtil;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.protobuf.InvalidProtocolBufferException;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /** A utility class that contains common methods to interact with the test device. */
 public class DeviceUtils {
@@ -56,12 +66,11 @@ public class DeviceUtils {
                     "data_app_native_crash",
                     "data_app_crash");
 
-    @VisibleForTesting
-    static final String LAUNCH_PACKAGE_COMMAND_TEMPLATE =
-            "monkey -p %s -c android.intent.category.LAUNCHER 1";
-
     private static final String VIDEO_PATH_ON_DEVICE_TEMPLATE = "/sdcard/screenrecord_%s.mp4";
-    @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS = 10 * 1000;
+
+    @VisibleForTesting
+    static final int WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS = 10 * 1000;
+
     @VisibleForTesting static final int WAIT_FOR_SCREEN_RECORDING_START_INTERVAL_MILLIS = 500;
 
     private final ITestDevice mDevice;
@@ -154,7 +163,8 @@ public class DeviceUtils {
                             .get()
                             .runCmdInBackground(
                                     String.format(
-                                                    "adb -s %s shell screenrecord %s",
+                                                    "adb -s %s shell screenrecord --time-limit 600"
+                                                            + " %s",
                                                     mDevice.getSerialNumber(), videoPath)
                                             .split("\\s+"));
         } catch (IOException ioException) {
@@ -182,10 +192,10 @@ public class DeviceUtils {
                 }
 
                 if (mClock.currentTimeMillis() - start
-                        > WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS) {
+                        > WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS) {
                     CLog.e(
                             "Screenrecord did not start within %s milliseconds.",
-                            WAIT_FOR_SCREEN_RECORDING_START_TIMEOUT_MILLIS);
+                            WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS);
                     break;
                 }
             }
@@ -193,7 +203,26 @@ public class DeviceUtils {
             action.run();
         } finally {
             if (recordingProcess != null) {
-                recordingProcess.destroy();
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS,
+                                "kill",
+                                "-SIGINT",
+                                Long.toString(recordingProcess.pid()));
+                try {
+                    recordingProcess.waitFor(
+                            WAIT_FOR_SCREEN_RECORDING_START_STOP_TIMEOUT_MILLIS,
+                            TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    recordingProcess.destroyForcibly();
+                }
+            }
+
+            CommandResult result = mDevice.executeShellV2Command("ls -sh " + videoPath);
+            if (result != null && result.getStatus() == CommandStatus.SUCCESS) {
+                CLog.d("Completed screenrecord %s, video size: %s", videoPath, result.getStdout());
             }
             // Try to pull, handle, and delete the video file from the device anyway.
             handler.handleScreenRecordFile(mDevice.pullFile(videoPath));
@@ -259,14 +288,167 @@ public class DeviceUtils {
      */
     public void launchPackage(String packageName)
             throws DeviceUtilsException, DeviceNotAvailableException {
-        CommandResult result =
+        CommandResult monkeyResult =
                 mDevice.executeShellV2Command(
-                        String.format(LAUNCH_PACKAGE_COMMAND_TEMPLATE, packageName));
-        if (result.getStatus() != CommandStatus.SUCCESS || result.getExitCode() != 0) {
+                        String.format(
+                                "monkey -p %s -c android.intent.category.LAUNCHER 1", packageName));
+        if (monkeyResult.getStatus() == CommandStatus.SUCCESS) {
+            return;
+        }
+        CLog.w(
+                "Continuing to attempt using am command to launch the package %s after the monkey"
+                        + " command failed: %s",
+                packageName, monkeyResult);
+
+        CommandResult pmResult =
+                mDevice.executeShellV2Command(String.format("pm dump %s", packageName));
+        if (pmResult.getStatus() != CommandStatus.SUCCESS || pmResult.getExitCode() != 0) {
+            if (isPackageInstalled(packageName)) {
+                throw new DeviceUtilsException(
+                        String.format(
+                                "The command to dump package info for %s failed: %s",
+                                packageName, pmResult));
+            } else {
+                throw new DeviceUtilsException(
+                        String.format("Package %s is not installed on the device.", packageName));
+            }
+        }
+
+        String activity = getLaunchActivity(pmResult.getStdout());
+
+        CommandResult amResult =
+                mDevice.executeShellV2Command(String.format("am start -n %s", activity));
+        if (amResult.getStatus() != CommandStatus.SUCCESS
+                || amResult.getExitCode() != 0
+                || amResult.getStdout().contains("Error")) {
             throw new DeviceUtilsException(
                     String.format(
-                            "The command to launch package %s failed: %s", packageName, result));
+                            "The command to start the package %s with activity %s failed: %s",
+                            packageName, activity, amResult));
         }
+    }
+
+    /**
+     * Extracts the launch activity from a pm dump output.
+     *
+     * <p>This method parses the package manager dump, extracts the activities and filters them
+     * based on the categories and actions defined in the Android framework. The activities are
+     * sorted based on these attributes, and the first activity that is either the main action or a
+     * launcher category is returned.
+     *
+     * @param pmDump the pm dump output to parse.
+     * @return a activity that can be used to launch the package.
+     * @throws DeviceUtilsException if the launch activity cannot be found in the
+     *     dump. @VisibleForTesting
+     */
+    @VisibleForTesting
+    String getLaunchActivity(String pmDump) throws DeviceUtilsException {
+        class Activity {
+            String mName;
+            int mIndex;
+            List<String> mActions = new ArrayList<>();
+            List<String> mCategories = new ArrayList<>();
+        }
+
+        Pattern activityNamePattern =
+                Pattern.compile(
+                        "([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+"
+                                + "\\/([a-zA-Z][a-zA-Z0-9_]*)*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+        Pattern actionPattern =
+                Pattern.compile(
+                        "Action:([^a-zA-Z0-9_\\.]*)([a-zA-Z][a-zA-Z0-9_]*"
+                                + "(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+        Pattern categoryPattern =
+                Pattern.compile(
+                        "Category:([^a-zA-Z0-9_\\.]*)([a-zA-Z][a-zA-Z0-9_]*"
+                                + "(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+
+        Matcher activityNameMatcher = activityNamePattern.matcher(pmDump);
+
+        List<Activity> activities = new ArrayList<>();
+        while (activityNameMatcher.find()) {
+            Activity activity = new Activity();
+            activity.mName = activityNameMatcher.group(0);
+            activity.mIndex = activityNameMatcher.start();
+            activities.add(activity);
+        }
+
+        int endIdx = pmDump.length();
+        ListIterator<Activity> iterator = activities.listIterator(activities.size());
+        while (iterator.hasPrevious()) {
+            Activity activity = iterator.previous();
+            Matcher actionMatcher =
+                    actionPattern.matcher(pmDump.substring(activity.mIndex, endIdx));
+            while (actionMatcher.find()) {
+                activity.mActions.add(actionMatcher.group(2));
+            }
+            Matcher categoryMatcher =
+                    categoryPattern.matcher(pmDump.substring(activity.mIndex, endIdx));
+            while (categoryMatcher.find()) {
+                activity.mCategories.add(categoryMatcher.group(2));
+            }
+            endIdx = activity.mIndex;
+        }
+
+        String categoryDefault = "android.intent.category.DEFAULT";
+        String categoryLauncher = "android.intent.category.LAUNCHER";
+        String actionMain = "android.intent.action.MAIN";
+
+        class AndroidActivityComparator implements Comparator<Activity> {
+            @Override
+            public int compare(Activity a1, Activity a2) {
+                if (a1.mCategories.contains(categoryLauncher)
+                        && !a2.mCategories.contains(categoryLauncher)) {
+                    return -1;
+                }
+                if (!a1.mCategories.contains(categoryLauncher)
+                        && a2.mCategories.contains(categoryLauncher)) {
+                    return 1;
+                }
+                if (a1.mActions.contains(actionMain) && !a2.mActions.contains(actionMain)) {
+                    return -1;
+                }
+                if (!a1.mActions.contains(actionMain) && a2.mActions.contains(actionMain)) {
+                    return 1;
+                }
+                if (a1.mCategories.contains(categoryDefault)
+                        && !a2.mCategories.contains(categoryDefault)) {
+                    return -1;
+                }
+                if (!a1.mCategories.contains(categoryDefault)
+                        && a2.mCategories.contains(categoryDefault)) {
+                    return 1;
+                }
+                return Integer.compare(a2.mCategories.size(), a1.mCategories.size());
+            }
+        }
+
+        Collections.sort(activities, new AndroidActivityComparator());
+        List<Activity> filteredActivities =
+                activities.stream()
+                        .filter(
+                                activity ->
+                                        activity.mActions.contains(actionMain)
+                                                || activity.mCategories.contains(categoryLauncher))
+                        .collect(Collectors.toList());
+        if (filteredActivities.isEmpty()) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "Cannot find an activity to launch the package. Number of activities"
+                                    + " parsed: %s",
+                            activities.size()));
+        }
+
+        Activity res = filteredActivities.get(0);
+
+        if (!res.mCategories.contains(categoryLauncher)) {
+            CLog.d("Activity %s is not specified with a LAUNCHER category.", res.mName);
+        }
+        if (!res.mActions.contains(actionMain)) {
+            CLog.d("Activity %s is not specified with a MAIN action.", res.mName);
+        }
+
+        return res.mName;
     }
 
     /**
@@ -334,6 +516,43 @@ public class DeviceUtils {
     }
 
     /**
+     * Checks whether a package is installed on the device.
+     *
+     * @param packageName The name of the package to check
+     * @return True if the package is installed on the device; false otherwise.
+     * @throws DeviceUtilsException If the adb shell command failed.
+     * @throws DeviceNotAvailableException If the device was lost.
+     */
+    public boolean isPackageInstalled(String packageName)
+            throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult commandResult =
+                executeShellCommandOrThrow(
+                        String.format("pm list packages %s", packageName),
+                        "Failed to execute pm command");
+
+        if (commandResult.getStdout() == null) {
+            throw new DeviceUtilsException(
+                    String.format(
+                            "Failed to get pm command output: %s", commandResult.getStdout()));
+        }
+
+        return Arrays.asList(commandResult.getStdout().split("\\r?\\n"))
+                .contains(String.format("package:%s", packageName));
+    }
+
+    private CommandResult executeShellCommandOrThrow(String command, String failureMessage)
+            throws DeviceUtilsException, DeviceNotAvailableException {
+        CommandResult commandResult = mDevice.executeShellV2Command(command);
+
+        if (commandResult.getStatus() != CommandStatus.SUCCESS) {
+            throw new DeviceUtilsException(
+                    String.format("%s; Command result: %s", failureMessage, commandResult));
+        }
+
+        return commandResult;
+    }
+
+    /**
      * Gets dropbox entries from the device filtered by the provided tags.
      *
      * @param tags Dropbox tags to query.
@@ -356,15 +575,23 @@ public class DeviceUtils {
                                     String.format(
                                             "adb -s %s shell dumpsys dropbox --proto %s > %s",
                                             mDevice.getSerialNumber(), tag, dumpFile));
+
             if (res.getStatus() != CommandStatus.SUCCESS) {
                 throw new IOException("Dropbox dump command failed: " + res);
             }
 
-            DropBoxManagerServiceDumpProto p =
-                    DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+            DropBoxManagerServiceDumpProto proto;
+            try {
+                proto = DropBoxManagerServiceDumpProto.parseFrom(Files.readAllBytes(dumpFile));
+            } catch (InvalidProtocolBufferException e) {
+                // If dumping proto format is not supported such as in Android 10, the command will
+                // still succeed with exit code 0 and output strings instead of protobuf bytes,
+                // causing parse error. In this case we fallback to dumping dropbox --print option.
+                return getDropboxEntriesFromStdout(tags);
+            }
             Files.delete(dumpFile);
 
-            for (Entry entry : p.getEntriesList()) {
+            for (Entry entry : proto.getEntriesList()) {
                 entries.add(
                         new DropboxEntry(entry.getTimeMs(), tag, entry.getData().toStringUtf8()));
             }
@@ -373,15 +600,98 @@ public class DeviceUtils {
         return entries;
     }
 
+    @VisibleForTesting
+    List<DropboxEntry> getDropboxEntriesFromStdout(Set<String> tags) throws IOException {
+        HashMap<String, DropboxEntry> entries = new HashMap<>();
+
+        // The first step is to read the entry names and timestamps from the --file dump option
+        // output because the --print dump option does not contain timestamps.
+        CommandResult res;
+        Path fileDumpFile = mTempFileSupplier.get();
+        res =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                6000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell dumpsys dropbox --file  > %s",
+                                        mDevice.getSerialNumber(), fileDumpFile));
+        if (res.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("Dropbox dump command failed: " + res);
+        }
+
+        String lastEntryName = null;
+        for (String line : Files.readAllLines(fileDumpFile)) {
+            if (DropboxEntry.isDropboxEntryName(line)) {
+                lastEntryName = line.trim();
+                entries.put(lastEntryName, DropboxEntry.fromEntryName(line));
+            } else if (DropboxEntry.isDropboxFilePath(line) && lastEntryName != null) {
+                entries.get(lastEntryName).parseTimeFromFilePath(line);
+            }
+        }
+        Files.delete(fileDumpFile);
+
+        // Then we get the entry data from the --print dump output. Entry names parsed from the
+        // --print dump output are verified against the entry names from the --file dump output to
+        // ensure correctness.
+        Path printDumpFile = mTempFileSupplier.get();
+        res =
+                mRunUtilProvider
+                        .get()
+                        .runTimedCmd(
+                                6000,
+                                "sh",
+                                "-c",
+                                String.format(
+                                        "adb -s %s shell dumpsys dropbox --print > %s",
+                                        mDevice.getSerialNumber(), printDumpFile));
+        if (res.getStatus() != CommandStatus.SUCCESS) {
+            throw new IOException("Dropbox dump command failed: " + res);
+        }
+
+        lastEntryName = null;
+        for (String line : Files.readAllLines(printDumpFile)) {
+            if (DropboxEntry.isDropboxEntryName(line)) {
+                lastEntryName = line.trim();
+            }
+
+            if (lastEntryName != null && entries.containsKey(lastEntryName)) {
+                entries.get(lastEntryName).addData(line);
+                entries.get(lastEntryName).addData("\n");
+            }
+        }
+        Files.delete(printDumpFile);
+
+        return entries.values().stream()
+                .filter(entry -> tags.contains(entry.getTag()))
+                .collect(Collectors.toList());
+    }
+
     /** A class that stores the information of a dropbox entry. */
     public static final class DropboxEntry {
-        private final long mTime;
-        private final String mTag;
-        private final String mData;
+        private long mTime;
+        private String mTag;
+        private final StringBuilder mData = new StringBuilder();
+        private static final Pattern ENTRY_NAME_PATTERN =
+                Pattern.compile(
+                        "\\d{4}\\-\\d{2}\\-\\d{2} \\d{2}:\\d{2}:\\d{2} .+ \\(.+, [0-9]+ .+\\)");
+        private static final Pattern DATE_PATTERN =
+                Pattern.compile("\\d{4}\\-\\d{2}\\-\\d{2} \\d{2}:\\d{2}:\\d{2}");
+        private static final Pattern FILE_NAME_PATTERN = Pattern.compile(" +/.+@[0-9]+\\..+");
 
         /** Returns the entrt's time stamp on device. */
         public long getTime() {
             return mTime;
+        }
+
+        private void addData(String data) {
+            mData.append(data);
+        }
+
+        private void parseTimeFromFilePath(String input) {
+            mTime = Long.parseLong(input.substring(input.indexOf('@') + 1, input.indexOf('.')));
         }
 
         /** Returns the entrt's tag. */
@@ -391,14 +701,36 @@ public class DeviceUtils {
 
         /** Returns the entrt's data. */
         public String getData() {
-            return mData;
+            return mData.toString();
         }
 
         @VisibleForTesting
         DropboxEntry(long time, String tag, String data) {
             mTime = time;
             mTag = tag;
-            mData = data;
+            addData(data);
+        }
+
+        private DropboxEntry() {
+            // Intentionally left blank;
+        }
+
+        private static DropboxEntry fromEntryName(String name) {
+            DropboxEntry entry = new DropboxEntry();
+            Matcher matcher = DATE_PATTERN.matcher(name);
+            if (!matcher.find()) {
+                throw new RuntimeException("Unexpected entry name: " + name);
+            }
+            entry.mTag = name.trim().substring(matcher.group().length()).trim().split(" ")[0];
+            return entry;
+        }
+
+        private static boolean isDropboxEntryName(String input) {
+            return ENTRY_NAME_PATTERN.matcher(input).find();
+        }
+
+        private static boolean isDropboxFilePath(String input) {
+            return FILE_NAME_PATTERN.matcher(input).find();
         }
     }
 

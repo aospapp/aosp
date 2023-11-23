@@ -24,6 +24,8 @@
 #include "linkerconfig/section.h"
 
 using android::linkerconfig::contents::SectionType;
+using android::linkerconfig::modules::LibProvider;
+using android::linkerconfig::modules::LibProviders;
 using android::linkerconfig::modules::Namespace;
 using android::linkerconfig::modules::Section;
 
@@ -52,14 +54,9 @@ Section BuildVendorSection(Context& ctx) {
     }
   }
 
-  android::linkerconfig::modules::LibProviders libs_providers = {};
+  LibProviders libs_providers = {};
   if (ctx.IsVndkAvailable()) {
-    libs_providers[":vndk"] = android::linkerconfig::modules::LibProvider{
-        "vndk",
-        std::bind(BuildVndkNamespace, ctx, VndkUserPartition::Vendor),
-        {Var("VNDK_SAMEPROCESS_LIBRARIES_VENDOR"),
-         Var("VNDK_CORE_LIBRARIES_VENDOR")},
-    };
+    libs_providers[":vndk"] = GetVndkProvider(ctx, VndkUserPartition::Vendor);
   }
 
   return BuildSection(

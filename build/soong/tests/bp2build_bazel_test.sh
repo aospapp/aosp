@@ -8,22 +8,82 @@ source "$(dirname "$0")/lib.sh"
 
 readonly GENERATED_BUILD_FILE_NAME="BUILD.bazel"
 
-function test_bp2build_null_build() {
+function test_bp2build_null_build {
   setup
   run_soong bp2build
-  local output_mtime1=$(stat -c "%y" out/soong/bp2build_workspace_marker)
+  local -r output_mtime1=$(stat -c "%y" out/soong/bp2build_workspace_marker)
 
   run_soong bp2build
-  local output_mtime2=$(stat -c "%y" out/soong/bp2build_workspace_marker)
+  local -r output_mtime2=$(stat -c "%y" out/soong/bp2build_workspace_marker)
 
   if [[ "$output_mtime1" != "$output_mtime2" ]]; then
     fail "Output bp2build marker file changed on null build"
   fi
 }
 
-test_bp2build_null_build
+# Tests that, if bp2build reruns due to a blueprint file changing, that
+# BUILD files whose contents are unchanged are not regenerated.
+function test_bp2build_unchanged {
+  setup
 
-function test_bp2build_null_build_with_globs() {
+  mkdir -p pkg
+  touch pkg/x.txt
+  cat > pkg/Android.bp <<'EOF'
+filegroup {
+    name: "x",
+    srcs: ["x.txt"],
+    bazel_module: {bp2build_available: true},
+  }
+EOF
+
+  run_soong bp2build
+  local -r buildfile_mtime1=$(stat -c "%y" out/soong/bp2build/pkg/BUILD.bazel)
+  local -r marker_mtime1=$(stat -c "%y" out/soong/bp2build_workspace_marker)
+
+  # Force bp2build to rerun by updating the timestamp of a blueprint file.
+  touch pkg/Android.bp
+
+  run_soong bp2build
+  local -r buildfile_mtime2=$(stat -c "%y" out/soong/bp2build/pkg/BUILD.bazel)
+  local -r marker_mtime2=$(stat -c "%y" out/soong/bp2build_workspace_marker)
+
+  if [[ "$marker_mtime1" == "$marker_mtime2" ]]; then
+    fail "Expected bp2build marker file to change"
+  fi
+  if [[ "$buildfile_mtime1" != "$buildfile_mtime2" ]]; then
+    fail "BUILD.bazel was updated even though contents are same"
+  fi
+}
+
+# Tests that blueprint files that are deleted are not present when the
+# bp2build tree is regenerated.
+function test_bp2build_deleted_blueprint {
+  setup
+
+  mkdir -p pkg
+  touch pkg/x.txt
+  cat > pkg/Android.bp <<'EOF'
+filegroup {
+    name: "x",
+    srcs: ["x.txt"],
+    bazel_module: {bp2build_available: true},
+  }
+EOF
+
+  run_soong bp2build
+  if [[ ! -e "./out/soong/bp2build/pkg/BUILD.bazel" ]]; then
+    fail "Expected pkg/BUILD.bazel to be generated"
+  fi
+
+  rm pkg/Android.bp
+
+  run_soong bp2build
+  if [[ -e "./out/soong/bp2build/pkg/BUILD.bazel" ]]; then
+    fail "Expected pkg/BUILD.bazel to be deleted"
+  fi
+}
+
+function test_bp2build_null_build_with_globs {
   setup
 
   mkdir -p foo/bar
@@ -36,21 +96,58 @@ EOF
   touch foo/bar/a.txt foo/bar/b.txt
 
   run_soong bp2build
-  local output_mtime1=$(stat -c "%y" out/soong/bp2build_workspace_marker)
+  local -r output_mtime1=$(stat -c "%y" out/soong/bp2build_workspace_marker)
 
   run_soong bp2build
-  local output_mtime2=$(stat -c "%y" out/soong/bp2build_workspace_marker)
+  local -r output_mtime2=$(stat -c "%y" out/soong/bp2build_workspace_marker)
 
   if [[ "$output_mtime1" != "$output_mtime2" ]]; then
     fail "Output bp2build marker file changed on null build"
   fi
 }
 
-test_bp2build_null_build_with_globs
-
-function test_bp2build_generates_all_buildfiles {
+function test_different_relative_outdir {
   setup
-  create_mock_bazel
+
+  mkdir -p a
+  touch a/g.txt
+  cat > a/Android.bp <<'EOF'
+filegroup {
+    name: "g",
+    srcs: ["g.txt"],
+    bazel_module: {bp2build_available: true},
+  }
+EOF
+
+  # A directory under $MOCK_TOP
+  outdir=out2
+  trap "rm -rf $outdir" EXIT
+  # Modify OUT_DIR in a subshell so it doesn't affect the top level one.
+  (export OUT_DIR=$outdir; run_soong bp2build && run_bazel build --config=bp2build --config=ci //a:g)
+}
+
+function test_different_absolute_outdir {
+  setup
+
+  mkdir -p a
+  touch a/g.txt
+  cat > a/Android.bp <<'EOF'
+filegroup {
+    name: "g",
+    srcs: ["g.txt"],
+    bazel_module: {bp2build_available: true},
+  }
+EOF
+
+  # A directory under /tmp/...
+  outdir=$(mktemp -t -d st.XXXXX)
+  trap 'rm -rf $outdir' EXIT
+  # Modify OUT_DIR in a subshell so it doesn't affect the top level one.
+  (export OUT_DIR=$outdir; run_soong bp2build && run_bazel build --config=bp2build --config=ci //a:g)
+}
+
+function _bp2build_generates_all_buildfiles {
+  setup
 
   mkdir -p foo/convertible_soong_module
   cat > foo/convertible_soong_module/Android.bp <<'EOF'
@@ -103,15 +200,172 @@ EOF
   fi
 
   # NOTE: We don't actually use the extra BUILD file for anything here
-  run_bazel build --package_path=out/soong/workspace //foo/...
+  run_bazel build --config=android --config=bp2build --config=ci //foo/...
 
-  local the_answer_file="bazel-out/android_target-fastbuild/bin/foo/convertible_soong_module/the_answer.txt"
+  local -r the_answer_file="$(find -L bazel-out -name the_answer.txt)"
   if [[ ! -f "${the_answer_file}" ]]; then
-    fail "Expected '${the_answer_file}' to be generated, but was missing"
+    fail "Expected the_answer.txt to be generated, but was missing"
   fi
   if ! grep 42 "${the_answer_file}"; then
     fail "Expected to find 42 in '${the_answer_file}'"
   fi
 }
 
-test_bp2build_generates_all_buildfiles
+function test_bp2build_generates_all_buildfiles {
+  _save_trap=$(trap -p EXIT)
+  trap '[[ $? -ne 0 ]] && echo Are you running this locally? Try changing --sandbox_tmpfs_path to something other than /tmp/ in build/bazel/linux.bazelrc.' EXIT
+  _bp2build_generates_all_buildfiles
+  eval "${_save_trap}"
+}
+
+function test_bp2build_symlinks_files {
+  setup
+  mkdir -p foo
+  touch foo/BLANK1
+  touch foo/BLANK2
+  touch foo/F2D
+  touch foo/BUILD
+
+  run_soong bp2build
+
+  if [[ -e "./out/soong/workspace/foo/BUILD" ]]; then
+    fail "./out/soong/workspace/foo/BUILD should be omitted"
+  fi
+  for file in BLANK1 BLANK2 F2D
+  do
+    if [[ ! -L "./out/soong/workspace/foo/$file" ]]; then
+      fail "./out/soong/workspace/foo/$file should exist"
+    fi
+  done
+  local -r BLANK1_BEFORE=$(stat -c %y "./out/soong/workspace/foo/BLANK1")
+
+  rm foo/BLANK2
+  rm foo/F2D
+  mkdir foo/F2D
+  touch foo/F2D/BUILD
+
+  run_soong bp2build
+
+  if [[ -e "./out/soong/workspace/foo/BUILD" ]]; then
+    fail "./out/soong/workspace/foo/BUILD should be omitted"
+  fi
+  local -r BLANK1_AFTER=$(stat -c %y "./out/soong/workspace/foo/BLANK1")
+  if [[ "$BLANK1_AFTER" != "$BLANK1_BEFORE" ]]; then
+    fail "./out/soong/workspace/foo/BLANK1 should be untouched"
+  fi
+  if [[  -e "./out/soong/workspace/foo/BLANK2" ]]; then
+    fail "./out/soong/workspace/foo/BLANK2 should be removed"
+  fi
+  if [[ -L "./out/soong/workspace/foo/F2D" ]] || [[ ! -d "./out/soong/workspace/foo/F2D" ]]; then
+    fail "./out/soong/workspace/foo/F2D should be a dir"
+  fi
+}
+
+function test_cc_correctness {
+  setup
+
+  mkdir -p a
+  cat > a/Android.bp <<EOF
+cc_object {
+  name: "qq",
+  srcs: ["qq.cc"],
+  bazel_module: {
+    bp2build_available: true,
+  },
+  stl: "none",
+  system_shared_libs: [],
+}
+EOF
+
+  cat > a/qq.cc <<EOF
+#include "qq.h"
+int qq() {
+  return QQ;
+}
+EOF
+
+  cat > a/qq.h <<EOF
+#define QQ 1
+EOF
+
+  run_soong bp2build
+
+  run_bazel build --config=android --config=bp2build --config=ci //a:qq
+  local -r output_mtime1=$(stat -c "%y" bazel-bin/a/_objs/qq/qq.o)
+
+  run_bazel build --config=android --config=bp2build --config=ci //a:qq
+  local -r output_mtime2=$(stat -c "%y" bazel-bin/a/_objs/qq/qq.o)
+
+  if [[ "$output_mtime1" != "$output_mtime2" ]]; then
+    fail "output changed on null build"
+  fi
+
+  cat > a/qq.h <<EOF
+#define QQ 2
+EOF
+
+  run_bazel build --config=android --config=bp2build --config=ci //a:qq
+  local -r output_mtime3=$(stat -c "%y" bazel-bin/a/_objs/qq/qq.o)
+
+  if [[ "$output_mtime1" == "$output_mtime3" ]]; then
+    fail "output not changed when included header changed"
+  fi
+}
+
+# Regression test for the following failure during symlink forest creation:
+#
+#   Cannot stat '/tmp/st.rr054/foo/bar/unresolved_symlink': stat /tmp/st.rr054/foo/bar/unresolved_symlink: no such file or directory
+#
+function test_bp2build_null_build_with_unresolved_symlink_in_source() {
+  setup
+
+  mkdir -p foo/bar
+  ln -s /tmp/non-existent foo/bar/unresolved_symlink
+  cat > foo/bar/Android.bp <<'EOF'
+filegroup {
+    name: "fg",
+    srcs: ["unresolved_symlink/non-existent-file.txt"],
+  }
+EOF
+
+  run_soong bp2build
+
+  dest=$(readlink -f out/soong/workspace/foo/bar/unresolved_symlink)
+  if [[ "$dest" != "/tmp/non-existent" ]]; then
+    fail "expected to plant an unresolved symlink out/soong/workspace/foo/bar/unresolved_symlink that resolves to /tmp/non-existent"
+  fi
+}
+
+# Smoke test to verify api_bp2build worksapce does not contain any errors
+function test_api_bp2build_empty_build() {
+  setup
+  run_soong api_bp2build
+  run_bazel build --config=android --config=api_bp2build //:empty
+}
+
+# Verify that an *_api_contribution target can refer to an api file from
+# another Bazel package.
+function test_api_export_from_another_bazel_package() {
+  setup
+  # Parent dir Android.bp
+  mkdir -p foo
+  cat > foo/Android.bp << 'EOF'
+cc_library {
+  name: "libfoo",
+  stubs: {
+    symbol_file: "api/libfoo.map.txt",
+  },
+}
+EOF
+  # Child dir Android.bp
+  mkdir -p foo/api
+  cat > foo/api/Android.bp << 'EOF'
+package{}
+EOF
+  touch foo/api/libfoo.map.txt
+  # Run test
+  run_soong api_bp2build
+  run_bazel build --config=android --config=api_bp2build //foo:libfoo.contribution
+}
+
+scan_and_run_tests

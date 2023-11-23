@@ -153,7 +153,6 @@ class SampleNormalizer(Transformer):
 
     def _transform_buffer(self, buffer):
         """_transform is overloaded, so this function can be left empty."""
-        pass
 
 
 class PacketReader(ParallelTransformer):

@@ -14,6 +14,7 @@
 
 //! This module implements IKeystoreAuthorization AIDL interface.
 
+use crate::ks_err;
 use crate::error::Error as KeystoreError;
 use crate::error::anyhow_error_to_cstring;
 use crate::globals::{ENFORCEMENTS, SUPER_KEY, DB, LEGACY_IMPORTER};
@@ -23,22 +24,22 @@ use crate::utils::{check_keystore_permission, watchdog as wd};
 use android_hardware_security_keymint::aidl::android::hardware::security::keymint::{
     HardwareAuthToken::HardwareAuthToken,
 };
-use android_security_authorization::binder::{BinderFeatures,ExceptionCode, Interface, Result as BinderResult,
-     Strong, Status as BinderStatus};
+use android_security_authorization::binder::{BinderFeatures, ExceptionCode, Interface, Result as BinderResult,
+    Strong, Status as BinderStatus};
 use android_security_authorization::aidl::android::security::authorization::{
     IKeystoreAuthorization::BnKeystoreAuthorization, IKeystoreAuthorization::IKeystoreAuthorization,
     LockScreenEvent::LockScreenEvent, AuthorizationTokens::AuthorizationTokens,
     ResponseCode::ResponseCode,
 };
 use android_system_keystore2::aidl::android::system::keystore2::{
-    ResponseCode::ResponseCode as KsResponseCode };
+    ResponseCode::ResponseCode as KsResponseCode};
 use anyhow::{Context, Result};
 use keystore2_crypto::Password;
 use keystore2_selinux as selinux;
 
 /// This is the Authorization error type, it wraps binder exceptions and the
 /// Authorization ResponseCode
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
     /// Wraps an IKeystoreAuthorization response code as defined by
     /// android.security.authorization AIDL interface specification.
@@ -126,7 +127,7 @@ impl AuthorizationManager {
 
     fn add_auth_token(&self, auth_token: &HardwareAuthToken) -> Result<()> {
         // Check keystore permission.
-        check_keystore_permission(KeystorePerm::AddAuth).context("In add_auth_token.")?;
+        check_keystore_permission(KeystorePerm::AddAuth).context(ks_err!())?;
 
         ENFORCEMENTS.add_auth_token(auth_token.clone());
         Ok(())
@@ -151,7 +152,7 @@ impl AuthorizationManager {
                 // This corresponds to the unlock() method in legacy keystore API.
                 // check permission
                 check_keystore_permission(KeystorePerm::Unlock)
-                    .context("In on_lock_screen_event: Unlock with password.")?;
+                    .context(ks_err!("Unlock with password."))?;
                 ENFORCEMENTS.set_device_locked(user_id, false);
 
                 let mut skm = SUPER_KEY.write().unwrap();
@@ -163,7 +164,7 @@ impl AuthorizationManager {
                         &password,
                     )
                 })
-                .context("In on_lock_screen_event: unlock_screen_lock_bound_key failed")?;
+                .context(ks_err!("unlock_screen_lock_bound_key failed"))?;
 
                 // Unlock super key.
                 if let UserState::Uninitialized = DB
@@ -175,7 +176,7 @@ impl AuthorizationManager {
                             &password,
                         )
                     })
-                    .context("In on_lock_screen_event: Unlock with password.")?
+                    .context(ks_err!("Unlock with password."))?
                 {
                     log::info!(
                         "In on_lock_screen_event. Trying to unlock when LSKF is uninitialized."
@@ -185,19 +186,17 @@ impl AuthorizationManager {
                 Ok(())
             }
             (LockScreenEvent::UNLOCK, None) => {
-                check_keystore_permission(KeystorePerm::Unlock)
-                    .context("In on_lock_screen_event: Unlock.")?;
+                check_keystore_permission(KeystorePerm::Unlock).context(ks_err!("Unlock."))?;
                 ENFORCEMENTS.set_device_locked(user_id, false);
                 let mut skm = SUPER_KEY.write().unwrap();
                 DB.with(|db| {
                     skm.try_unlock_user_with_biometric(&mut db.borrow_mut(), user_id as u32)
                 })
-                .context("In on_lock_screen_event: try_unlock_user_with_biometric failed")?;
+                .context(ks_err!("try_unlock_user_with_biometric failed"))?;
                 Ok(())
             }
             (LockScreenEvent::LOCK, None) => {
-                check_keystore_permission(KeystorePerm::Lock)
-                    .context("In on_lock_screen_event: Lock")?;
+                check_keystore_permission(KeystorePerm::Lock).context(ks_err!("Lock"))?;
                 ENFORCEMENTS.set_device_locked(user_id, true);
                 let mut skm = SUPER_KEY.write().unwrap();
                 DB.with(|db| {
@@ -211,8 +210,7 @@ impl AuthorizationManager {
             }
             _ => {
                 // Any other combination is not supported.
-                Err(Error::Rc(ResponseCode::INVALID_ARGUMENT))
-                    .context("In on_lock_screen_event: Unknown event.")
+                Err(Error::Rc(ResponseCode::INVALID_ARGUMENT)).context(ks_err!("Unknown event."))
             }
         }
     }
@@ -225,13 +223,12 @@ impl AuthorizationManager {
     ) -> Result<AuthorizationTokens> {
         // Check permission. Function should return if this failed. Therefore having '?' at the end
         // is very important.
-        check_keystore_permission(KeystorePerm::GetAuthToken)
-            .context("In get_auth_tokens_for_credstore.")?;
+        check_keystore_permission(KeystorePerm::GetAuthToken).context(ks_err!("GetAuthToken"))?;
 
         // If the challenge is zero, return error
         if challenge == 0 {
             return Err(Error::Rc(ResponseCode::INVALID_ARGUMENT))
-                .context("In get_auth_tokens_for_credstore. Challenge can not be zero.");
+                .context(ks_err!("Challenge can not be zero."));
         }
         // Obtain the auth token and the timestamp token from the enforcement module.
         let (auth_token, ts_token) =

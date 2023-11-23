@@ -33,6 +33,6 @@ android_test_helper_app {
         "androidx.test.rules",
         "cts-helpers-core",
         "cts-helpers-interfaces",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
 }

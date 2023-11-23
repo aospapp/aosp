@@ -36,6 +36,7 @@ cc_library_shared {
     include_dirs: ["system/media/audio/include"],
     shared_libs: [
         "libaaudio",
+        "libbinder_ndk",
         "liblog",
     ],
     static_libs: ["libbase_ndk"],

@@ -44,6 +44,11 @@ java_test_host {
     ],
     static_libs: [
         "CtsSecurityHostTestCases_StaticLibs",
+        "diffutils-prebuilt-jar",
+        "CompatChangeGatingTestBase",
+    ],
+    data: [
+        ":CtsZipValidateApp",
     ],
     // These two host cc_library_* modules cannot be wrapped as java_resources directly into
     // a .jar due to the "missing variant" issue, see b/197025344 for more details. This workaround
@@ -76,10 +81,15 @@ java_genrule_host {
         "checkfc",
         "property_info_checker",
         "searchpolicy",
+        "seamendc",
         "secilc",
         "sepolicy-analyze",
         "sepolicy_tests",
         "treble_sepolicy_tests",
+    ],
+    tool_files: [
+        ":apex_sepolicy-33.cil",
+        ":apex_sepolicy-33.decompiled.cil",
     ],
     out: ["CtsSecurityHostTestCases_StaticLibs.jar"],
     cmd: "$(location soong_zip) -jar -o $(location CtsSecurityHostTestCases_StaticLibs.jar) -j " +
@@ -87,8 +97,11 @@ java_genrule_host {
         "-f $(location checkfc) " +
         "-f $(location property_info_checker) " +
         "-f $(location searchpolicy) " +
+        "-f $(location seamendc) " +
         "-f $(location secilc) " +
         "-f $(location sepolicy-analyze) " +
         "-f $(location sepolicy_tests) " +
-        "-f $(location treble_sepolicy_tests) ",
+        "-f $(location treble_sepolicy_tests) " +
+        "-f $(location :apex_sepolicy-33.cil) " +
+        "-f $(location :apex_sepolicy-33.decompiled.cil)",
 }

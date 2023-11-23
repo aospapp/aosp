@@ -41,7 +41,7 @@ public class OutOfProcessLoginActivity extends Activity {
         Log.i(TAG, "onCreate(" + savedInstanceState + ")");
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.login_activity);
+        setContentView(R.layout.scrollable_login_activity);
 
         findViewById(R.id.login).setOnClickListener((v) -> finish());
 

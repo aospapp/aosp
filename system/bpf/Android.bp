@@ -28,9 +28,10 @@ cc_defaults {
     tidy_checks: [
         "android-*",
         "cert-*",
-        "clang-analyzer-security*",
         "-cert-err34-c",
         "clang-analyzer-security*",
+        // Many calls to snprintf/sscanf/memset/memcpy in libbpf.c have the following warning.
+        "-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling",
         // Disabling due to many unavoidable warnings from POSIX API usage.
         "-google-runtime-int",
     ],

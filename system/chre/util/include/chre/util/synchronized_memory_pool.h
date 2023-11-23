@@ -56,6 +56,13 @@ class SynchronizedMemoryPool : public NonCopyable {
    */
   size_t getFreeBlockCount();
 
+  /**
+   * @return true if this memory pool is full.
+   */
+  bool full() {
+    return getFreeBlockCount() == 0;
+  }
+
  private:
   //! The mutex used to guard access to this memory pool.
   Mutex mMutex;

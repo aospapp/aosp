@@ -65,9 +65,9 @@ void TestSplitReplaceOrReplaceXzOperation(InstallOperation::Type orig_type,
     test_utils::FillWithData(&part_data);
   } else {
     std::mt19937 gen(12345);
-    std::uniform_int_distribution<uint8_t> dis(0, 255);
+    std::uniform_int_distribution<uint16_t> dis(0, 255);
     for (uint32_t i = 0; i < part_size; i++)
-      part_data.push_back(dis(gen));
+      part_data.push_back(static_cast<uint8_t>(dis(gen)));
   }
   ASSERT_EQ(part_size, part_data.size());
   ScopedTempFile part_file("SplitReplaceOrReplaceXzTest_part.XXXXXX");
@@ -213,9 +213,9 @@ void TestMergeReplaceOrReplaceXzOperations(InstallOperation::Type orig_type,
     test_utils::FillWithData(&part_data);
   } else {
     std::mt19937 gen(12345);
-    std::uniform_int_distribution<uint8_t> dis(0, 255);
+    std::uniform_int_distribution<uint16_t> dis(0, 255);
     for (uint32_t i = 0; i < part_size; i++)
-      part_data.push_back(dis(gen));
+      part_data.push_back(static_cast<uint8_t>(dis(gen)));
   }
   ASSERT_EQ(part_size, part_data.size());
   ScopedTempFile part_file("MergeReplaceOrReplaceXzTest_part.XXXXXX");

@@ -75,6 +75,7 @@ import androidx.test.filters.MediumTest;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -219,7 +220,8 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
 
         final List<Pair<String, String>> observedTransitions =
                 getTransitionLog().getLog();
-        final List<Pair<String, String>> expectedTransitions = Arrays.asList(
+        final List<Pair<String, String>> expectedTransitions = new ArrayList<>();
+        Collections.addAll(expectedTransitions,
                 transition(CallbackTrackingActivity.class, ON_TOP_POSITION_LOST),
                 transition(CallbackTrackingActivity.class, ON_PAUSE),
                 transition(LaunchForResultActivity.class, ON_CREATE),
@@ -233,9 +235,18 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
                 transition(ResultActivity.class, ON_START),
                 transition(ResultActivity.class, ON_POST_CREATE),
                 transition(ResultActivity.class, ON_RESUME),
-                transition(ResultActivity.class, ON_TOP_POSITION_GAINED),
-                transition(LaunchForResultActivity.class, ON_STOP),
-                transition(CallbackTrackingActivity.class, ON_STOP));
+                transition(ResultActivity.class, ON_TOP_POSITION_GAINED));
+        if (ENABLE_SHELL_TRANSITIONS) {
+            // With shell-transition, all changes are collected and being part of the transition,
+            // so the trampoline activity (LaunchForResultActivity) will be in animating state and
+            // be stopped after the transition completed. Therefore, it won't be stopped
+            // prior than the CallbackTrackingActivity.
+            expectedTransitions.add(transition(CallbackTrackingActivity.class, ON_STOP));
+            expectedTransitions.add(transition(LaunchForResultActivity.class, ON_STOP));
+        } else {
+            expectedTransitions.add(transition(LaunchForResultActivity.class, ON_STOP));
+            expectedTransitions.add(transition(CallbackTrackingActivity.class, ON_STOP));
+        }
         assertEquals("Double launch sequence must match", expectedTransitions, observedTransitions);
     }
 
@@ -263,7 +274,8 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
                 ON_START, ON_POST_CREATE, ON_RESUME, ON_TOP_POSITION_GAINED);
         waitForActivityTransitions(TranslucentResultActivity.class, expectedTopActivitySequence);
 
-        assertEntireSequence(Arrays.asList(
+        final List<Pair<String, String>> expectedTransitions = new ArrayList<>();
+        Collections.addAll(expectedTransitions,
                 transition(CallbackTrackingActivity.class, ON_TOP_POSITION_LOST),
                 transition(CallbackTrackingActivity.class, ON_PAUSE),
                 transition(LaunchForResultActivity.class, ON_CREATE),
@@ -280,11 +292,22 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
                 transition(TranslucentResultActivity.class, ON_PAUSE),
                 transition(LaunchForResultActivity.class, ON_ACTIVITY_RESULT),
                 transition(LaunchForResultActivity.class, ON_RESUME),
-                transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED),
-                transition(TranslucentResultActivity.class, ON_STOP),
-                transition(TranslucentResultActivity.class, ON_DESTROY),
-                transition(CallbackTrackingActivity.class, ON_STOP)),
-                getTransitionLog(), "Double launch sequence must match");
+                transition(LaunchForResultActivity.class, ON_TOP_POSITION_GAINED));
+        if (ENABLE_SHELL_TRANSITIONS) {
+            // With shell-transition, all changes are collected and being part of the transition,
+            // so the TranslucentResultActivity will be in animating state and be stopped after
+            // the transition completed. Therefore, it won't be stopped prior than
+            // the CallbackTrackingActivity.
+            expectedTransitions.add(transition(CallbackTrackingActivity.class, ON_STOP));
+            expectedTransitions.add(transition(TranslucentResultActivity.class, ON_STOP));
+            expectedTransitions.add(transition(TranslucentResultActivity.class, ON_DESTROY));
+        } else {
+            expectedTransitions.add(transition(TranslucentResultActivity.class, ON_STOP));
+            expectedTransitions.add(transition(TranslucentResultActivity.class, ON_DESTROY));
+            expectedTransitions.add(transition(CallbackTrackingActivity.class, ON_STOP));
+        }
+        assertEntireSequence(expectedTransitions, getTransitionLog(),
+                "Double launch sequence must match");
     }
 
     @Test
@@ -484,6 +507,7 @@ public class ActivityLifecycleTopResumedStateTests extends ActivityLifecycleClie
         final Activity secondActivity = new Launcher(SingleTopActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
                 .launch();
+        waitAndAssertActivityStates(state(sideActivity, ON_STOP));
 
         // Tap on first activity to switch the focus
         getTransitionLog().clear();

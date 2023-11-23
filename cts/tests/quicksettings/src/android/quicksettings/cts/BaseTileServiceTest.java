@@ -18,13 +18,14 @@ package android.quicksettings.cts;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assume.assumeTrue;
 
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.ParcelFileDescriptor;
 import android.service.quicksettings.TileService;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
@@ -35,11 +36,18 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.systemui.dump.nano.SystemUIProtoDump;
+import com.android.systemui.qs.nano.QsTileState;
+import com.android.systemui.util.nano.ComponentNameProto;
+
+import com.google.protobuf.nano.InvalidProtocolBufferNanoException;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.runner.RunWith;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
 
 @RunWith(AndroidJUnit4.class)
@@ -47,13 +55,11 @@ public abstract class BaseTileServiceTest {
 
     protected abstract String getTag();
     protected abstract String getComponentName();
-    protected abstract TileService getTileServiceInstance();
-    protected abstract void waitForConnected(boolean state) throws InterruptedException;
-    protected abstract void waitForListening(boolean state) throws InterruptedException;
+    protected abstract String getTileServiceClassName();
     protected Context mContext;
 
-    final static String DUMP_COMMAND =
-            "dumpsys activity service com.android.systemui/.SystemUIService QSTileHost";
+    static final String PROTO_DUMP_COMMAND =
+            "dumpsys statusbar QSTileHost --proto";
 
     // Time between checks for state we expect.
     protected static final long CHECK_DELAY = 250;
@@ -70,6 +76,7 @@ public abstract class BaseTileServiceTest {
     @Before
     public void setUp() throws Exception {
         assumeTrue(TileService.isQuickSettingsSupported());
+        CurrentTestState.reset();
         mContext = InstrumentationRegistry.getContext();
         homeIntent = new Intent(Intent.ACTION_MAIN);
         homeIntent.addCategory(Intent.CATEGORY_HOME);
@@ -87,15 +94,13 @@ public abstract class BaseTileServiceTest {
     public void tearDown() throws Exception {
         expandSettings(false);
         toggleServiceAccess(getComponentName(), false);
-        waitForConnected(false);
-        assertNull(TestTileService.getInstance());
+        waitForTileAdded(false);
+        CurrentTestState.reset();
     }
 
     protected void startTileService() throws Exception {
         toggleServiceAccess(getComponentName(), true);
-        waitForConnected(true); // wait for service to be bound
-        mTileService = getTileServiceInstance();
-        assertNotNull(mTileService);
+        waitForTileAdded(true); // wait for service to be bound and added
     }
 
     protected void toggleServiceAccess(String componentName, boolean on) throws Exception {
@@ -137,5 +142,67 @@ public abstract class BaseTileServiceTest {
             }
         }
         return null;
+    }
+
+    protected final QsTileState findTileState() {
+        QsTileState[] tiles = getTilesStates();
+        for (int i = 0; i < tiles.length; i++) {
+            QsTileState tile = tiles[i];
+            if (tile.hasComponentName()) {
+                ComponentNameProto componentName = tile.getComponentName();
+                ComponentName c = ComponentName.createRelative(
+                        componentName.packageName, componentName.className);
+                if (c.flattenToString().equals(getComponentName())) {
+                    return tile;
+                }
+            }
+        }
+        return null;
+    }
+
+    protected final void waitForTileAdded(boolean state) throws InterruptedException {
+        int ct = 0;
+        while (CurrentTestState.isTileAdded() != state && (ct++ < CHECK_RETRIES)) {
+            Thread.sleep(CHECK_DELAY);
+        }
+        assertEquals(state, CurrentTestState.isTileAdded());
+        if (state) {
+            assertEquals(getTileServiceClassName(), CurrentTestState.getTileServiceClass());
+        }
+    }
+
+    protected final void waitForListening(boolean state) throws InterruptedException {
+        int ct = 0;
+        while (CurrentTestState.isListening() != state && (ct++ < CHECK_RETRIES)) {
+            Thread.sleep(CHECK_DELAY);
+        }
+        assertEquals(state, CurrentTestState.isListening());
+        mTileService = CurrentTestState.getCurrentInstance();
+    }
+
+    private QsTileState[] getTilesStates() {
+        try {
+            return SystemUIProtoDump.parseFrom(getProtoDump()).tiles;
+        } catch (InvalidProtocolBufferNanoException e) {
+            throw new IllegalStateException("Couldn't parse proto dump", e);
+        }
+    }
+
+    private byte[] getProtoDump() {
+        try {
+            ParcelFileDescriptor pfd = InstrumentationRegistry.getInstrumentation()
+                    .getUiAutomation().executeShellCommand(PROTO_DUMP_COMMAND);
+            byte[] buf = new byte[512];
+            int bytesRead;
+            FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(pfd);
+            ByteArrayOutputStream stdout = new ByteArrayOutputStream();
+            while ((bytesRead = fis.read(buf)) != -1) {
+                stdout.write(buf, 0, bytesRead);
+            }
+            fis.close();
+            return stdout.toByteArray();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

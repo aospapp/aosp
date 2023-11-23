@@ -23,6 +23,10 @@ import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.users.UserReference;
 
+import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 /**
@@ -63,6 +67,8 @@ public final class ShellCommand {
         @Nullable
         private byte[] mStdInBytes = null;
         @Nullable
+        private Duration mTimeout = null;
+        @Nullable
         private boolean mAllowEmptyOutput = false;
         @Nullable
         private Function<String, Boolean> mOutputSuccessChecker = null;
@@ -92,6 +98,15 @@ public final class ShellCommand {
             commandBuilder.append(" ").append(value);
             return this;
         }
+
+        /**
+         * Add a timeout to the execution of the command.
+         */
+        public Builder withTimeout(Duration timeout) {
+            mTimeout = timeout;
+            return this;
+        }
+
 
         /**
          * If {@code false} an error will be thrown if the command has no output.
@@ -145,6 +160,42 @@ public final class ShellCommand {
 
         /** See {@link ShellCommandUtils#executeCommand(java.lang.String)}. */
         public String execute() throws AdbException {
+            if (mTimeout == null) {
+                return executeSync();
+            }
+
+            AtomicReference<AdbException> adbException = new AtomicReference<>(null);
+            AtomicReference<String> result = new AtomicReference<>(null);
+
+            CountDownLatch latch = new CountDownLatch(1);
+
+            Thread thread = new Thread(() -> {
+                try {
+                    result.set(executeSync());
+                } catch (AdbException e) {
+                    adbException.set(e);
+                } finally {
+                    latch.countDown();
+                }
+            });
+            thread.start();
+
+            try {
+                if (!latch.await(mTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                    throw new AdbException("Command could not run in " + mTimeout, build(), "");
+                }
+            } catch (InterruptedException e) {
+                throw new AdbException("Interrupted while executing command", build(), "", e);
+            }
+
+            if (adbException.get() != null) {
+                throw adbException.get();
+            }
+
+            return result.get();
+        }
+
+        private String executeSync() throws AdbException {
             if (mOutputSuccessChecker != null) {
                 return ShellCommandUtils.executeCommandAndValidateOutput(
                         build(),

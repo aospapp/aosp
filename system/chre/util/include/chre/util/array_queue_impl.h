@@ -159,7 +159,7 @@ bool ArrayQueueCore<ElementType, StorageType>::remove(size_t index) {
 
     // Move all the elements before the one just popped to the next storage
     // space.
-    // TODO: optimize by comparing headLength to mSize/2.
+    // TODO(b/258557394): optimize by comparing headLength to half of mSize.
     // If headLength < mSize/2, pull heads towards tail.
     // Otherwise, pull tails towards head.
     for (size_t i = 0; i < headLength; ++i) {

@@ -1,4 +1,4 @@
-# CMD: Returns the maximum distance from a leaf for each module
+# CMD: Prints the longest distance each module has from a leaf in the module graph within the transitive closure of given module
 
 include "library";
 

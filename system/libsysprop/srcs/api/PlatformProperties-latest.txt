@@ -26,20 +26,6 @@ props {
     prop_name: "android.car.systemuser.bootuseroverrideid"
   }
   prop {
-    api_name: "number_pre_created_guests"
-    type: Integer
-    access: ReadWrite
-    scope: Internal
-    prop_name: "android.car.number_pre_created_guests"
-  }
-  prop {
-    api_name: "number_pre_created_users"
-    type: Integer
-    access: ReadWrite
-    scope: Internal
-    prop_name: "android.car.number_pre_created_users"
-  }
-  prop {
     api_name: "trusted_device_device_name_prefix"
     type: String
     scope: Internal
@@ -511,30 +497,6 @@ props {
     api_name: "vendor_vndk_version"
     type: String
     prop_name: "ro.vndk.version"
-  }
-}
-props {
-  module: "android.sysprop.VoldProperties"
-  prop {
-    api_name: "decrypt"
-    type: String
-    access: ReadWrite
-    scope: Internal
-    prop_name: "vold.decrypt"
-  }
-  prop {
-    api_name: "encrypt_progress"
-    type: String
-    access: ReadWrite
-    scope: Internal
-    prop_name: "vold.encrypt_progress"
-  }
-  prop {
-    api_name: "encrypt_time_remaining"
-    type: Integer
-    access: ReadWrite
-    scope: Internal
-    prop_name: "vold.encrypt_time_remaining"
   }
 }
 props {

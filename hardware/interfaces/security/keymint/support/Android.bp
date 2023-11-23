@@ -63,8 +63,15 @@ cc_library {
     defaults: [
         "keymint_use_latest_hal_aidl_ndk_shared",
     ],
+    static_libs: [
+        "android.hardware.security.rkp-V3-ndk",
+    ],
+    whole_static_libs: [
+        "libhwtrust_cxx",
+    ],
     shared_libs: [
         "libbase",
+        "libbinder_ndk",
         "libcppbor_external",
         "libcppcose_rkp",
         "libcrypto",
@@ -77,8 +84,10 @@ cc_test {
     name: "libkeymint_remote_prov_support_test",
     srcs: ["remote_prov_utils_test.cpp"],
     static_libs: [
+        "android.hardware.security.rkp-V3-ndk",
         "libgmock",
         "libgtest_main",
+        "libkeymint_remote_prov_support",
     ],
     defaults: [
         "keymint_use_latest_hal_aidl_ndk_shared",
@@ -90,6 +99,5 @@ cc_test {
         "libcrypto",
         "libjsoncpp",
         "libkeymaster_portable",
-        "libkeymint_remote_prov_support",
     ],
 }

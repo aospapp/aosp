@@ -29,7 +29,7 @@ struct CowOperation {
     CowCopy = android::snapshot::kCowCopyOp,
     CowReplace = android::snapshot::kCowReplaceOp,
   };
-  Type op;
+  Type op{};
   uint64_t src_block{};
   uint64_t dst_block{};
   uint64_t block_count{1};
@@ -53,5 +53,13 @@ std::vector<CowOperation> ConvertToCowOperations(
         ::chromeos_update_engine::InstallOperation>& operations,
     const ::google::protobuf::RepeatedPtrField<CowMergeOperation>&
         merge_operations);
+
+constexpr bool IsConsecutive(const CowOperation& op1, const CowOperation& op2) {
+  return op1.op == op2.op && op1.dst_block + op1.block_count == op2.dst_block &&
+         op1.src_block + op1.block_count == op2.src_block;
+}
+
+void push_back(std::vector<CowOperation>* converted, const CowOperation& op);
+
 }  // namespace chromeos_update_engine
 #endif

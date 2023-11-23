@@ -31,7 +31,7 @@ namespace chromeos_update_engine {
 
 class CachedFileDescriptorBase : public FileDescriptor {
  public:
-  CachedFileDescriptorBase(size_t cache_size) : cache_(cache_size) {}
+  explicit CachedFileDescriptorBase(size_t cache_size) : cache_(cache_size) {}
   ~CachedFileDescriptorBase() override = default;
 
   bool Open(const char* path, int flags, mode_t mode) override {
@@ -85,6 +85,8 @@ class UnownedCachedFileDescriptor final : public CachedFileDescriptorBase {
  public:
   UnownedCachedFileDescriptor(FileDescriptor* fd, size_t cache_size)
       : CachedFileDescriptorBase(cache_size), fd_(fd) {}
+  // used for EnocdeFEC
+  void SetFD(FileDescriptor* fd);
 
  protected:
   virtual FileDescriptor* GetFd() { return fd_; }

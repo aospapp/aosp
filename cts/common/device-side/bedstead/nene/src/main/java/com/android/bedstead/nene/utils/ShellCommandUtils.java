@@ -18,6 +18,7 @@ package com.android.bedstead.nene.utils;
 
 import static android.os.Build.VERSION_CODES.S;
 
+import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
@@ -29,10 +30,15 @@ import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.compatibility.common.util.FileUtils;
 
+import java.io.BufferedReader;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Utilities for interacting with adb shell commands.
@@ -41,7 +47,7 @@ import java.util.function.Function;
  */
 public final class ShellCommandUtils {
 
-    private static final String LOG_TAG = ShellCommandUtils.class.getName();
+    private static final String LOG_TAG = ShellCommandUtils.class.getSimpleName();
 
     private static final int OUT_DESCRIPTOR_INDEX = 0;
     private static final int IN_DESCRIPTOR_INDEX = 1;
@@ -78,6 +84,44 @@ public final class ShellCommandUtils {
         return executeCommand(command, /* allowEmptyOutput=*/ false, /* stdInBytes= */ null);
     }
 
+    /**
+     * Wraps executeShellCommandRwe to suppress NewApi warning for this method in isolation.
+     *
+     * This method was changed from TestApi -> public for API 34, so it's safe to call back to
+     * API 29, but the NewApi warning doesn't understand this.
+     */
+    @SuppressWarnings("NewApi") // executeShellCommandRwe was @TestApi back to API 29, now public
+    private static ParcelFileDescriptor[] executeShellCommandRwe(String command) {
+        return uiAutomation().executeShellCommandRwe(command);
+    }
+
+    /**
+     * Execute a shell command and receive a stream of lines.
+     *
+     * <p>Note that this will not deal with errors in the output.
+     *
+     * <p>Make sure you close the returned {@link StreamingShellOutput} after reading.
+     */
+    public static StreamingShellOutput executeCommandForStream(String command, byte[] stdInBytes)
+            throws AdbException {
+        try {
+            ParcelFileDescriptor[] fds = executeShellCommandRwe(command);
+            ParcelFileDescriptor fdOut = fds[OUT_DESCRIPTOR_INDEX];
+            ParcelFileDescriptor fdIn = fds[IN_DESCRIPTOR_INDEX];
+            ParcelFileDescriptor fdErr = fds[ERR_DESCRIPTOR_INDEX];
+
+            writeStdInAndClose(fdIn, stdInBytes);
+            fdErr.close();
+
+            FileInputStream fis = new ParcelFileDescriptor.AutoCloseInputStream(fdOut);
+            BufferedReader reader = new BufferedReader(new InputStreamReader(fis));
+
+            return new StreamingShellOutput(fis, reader.lines());
+        } catch (IOException e) {
+            throw new AdbException("Error executing command", command, e);
+        }
+    }
+
     static String executeCommand(String command, boolean allowEmptyOutput, byte[] stdInBytes)
             throws AdbException {
         logCommand(command, allowEmptyOutput, stdInBytes);
@@ -86,10 +130,8 @@ public final class ShellCommandUtils {
             return executeCommandPreS(command, allowEmptyOutput, stdInBytes);
         }
 
-        // TODO(scottjonathan): Add argument to force errors to stderr
         try {
-
-            ParcelFileDescriptor[] fds = uiAutomation().executeShellCommandRwe(command);
+            ParcelFileDescriptor[] fds = executeShellCommandRwe(command);
             ParcelFileDescriptor fdOut = fds[OUT_DESCRIPTOR_INDEX];
             ParcelFileDescriptor fdIn = fds[IN_DESCRIPTOR_INDEX];
             ParcelFileDescriptor fdErr = fds[ERR_DESCRIPTOR_INDEX];
@@ -127,7 +169,7 @@ public final class ShellCommandUtils {
         // TODO(scottjonathan): Add argument to force errors to stderr
         try {
 
-            ParcelFileDescriptor[] fds = uiAutomation().executeShellCommandRwe(command);
+            ParcelFileDescriptor[] fds = executeShellCommandRwe(command);
             ParcelFileDescriptor fdOut = fds[OUT_DESCRIPTOR_INDEX];
             ParcelFileDescriptor fdIn = fds[IN_DESCRIPTOR_INDEX];
             ParcelFileDescriptor fdErr = fds[ERR_DESCRIPTOR_INDEX];
@@ -209,6 +251,7 @@ public final class ShellCommandUtils {
         return !output.toUpperCase().startsWith("ERROR");
     }
 
+    @SuppressWarnings("NewApi")
     private static String executeCommandPreS(
             String command, boolean allowEmptyOutput, byte[] stdIn) throws AdbException {
         ParcelFileDescriptor[] fds = uiAutomation().executeShellCommandRw(command);
@@ -277,9 +320,39 @@ public final class ShellCommandUtils {
     }
 
     /**
+     * Get a {@link Instrumentation}.
+     */
+    public static Instrumentation instrumentation() {
+        return InstrumentationRegistry.getInstrumentation();
+    }
+
+    /**
      * Get a {@link UiAutomation}.
      */
     public static UiAutomation uiAutomation() {
-        return InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        return instrumentation().getUiAutomation();
+    }
+
+    /** Wrapper around {@link Stream} of lines output from a shell command. */
+    public static final class StreamingShellOutput implements AutoCloseable {
+
+        private final FileInputStream mFileInputStream;
+        private final Stream<String> mStream;
+
+        StreamingShellOutput(FileInputStream fileInputStream, Stream<String> stream) {
+            mFileInputStream = fileInputStream;
+            mStream = stream;
+        }
+
+        public Stream<String> stream() {
+            return mStream;
+        }
+
+
+        @Override
+        public void close() throws IOException {
+            mFileInputStream.close();
+            mStream.close();
+        }
     }
 }

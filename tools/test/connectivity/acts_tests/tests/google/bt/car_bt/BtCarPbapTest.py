@@ -16,7 +16,6 @@
 """Test script to test PBAP contact download between two devices which can run SL4A.
 """
 
-import os
 import time
 
 from acts.test_decorators import test_tracker_info
@@ -56,7 +55,8 @@ class BtCarPbapTest(BluetoothBaseTest):
         for device in self.android_devices:
             for permission in permissions_list:
                 device.adb.shell(
-                    "pm grant com.google.android.contacts {}".format(permission))
+                    "pm grant com.google.android.contacts {}".format(
+                        permission))
 
         # Pair the devices.
         # This call may block until some specified timeout in bt_test_utils.py.
@@ -113,7 +113,9 @@ class BtCarPbapTest(BluetoothBaseTest):
 
     def erase_all_contacts(self):
         try:
-            return all(bt_contacts_utils.erase_contacts(device) for device in self.android_devices)
+            return all(
+                bt_contacts_utils.erase_contacts(device)
+                for device in self.android_devices)
         finally:
             # Allow all content providers to synchronize.
             time.sleep(1)
@@ -129,8 +131,8 @@ class BtCarPbapTest(BluetoothBaseTest):
         bt_test_utils.connect_pri_to_sec(
             self.pce, self.pse,
             set([BtEnum.BluetoothProfile.PBAP_CLIENT.value]))
-        bt_contacts_utils.wait_for_phone_number_update_complete(self.pce,
-                                                                count)
+        bt_contacts_utils.wait_for_phone_number_update_complete(
+            self.pce, count)
         contacts_added = self.verify_contacts_match()
         self.pce.droid.bluetoothPbapClientDisconnect(
             self.pse.droid.bluetoothGetLocalAddress())
@@ -381,8 +383,8 @@ class BtCarPbapTest(BluetoothBaseTest):
         pse_call_log_count = self.pse.droid.callLogGetCount()
         self.log.info("Waiting for {} call logs to be transfered".format(
             pse_call_log_count))
-        bt_contacts_utils.wait_for_call_log_update_complete(self.pce,
-                                                            pse_call_log_count)
+        bt_contacts_utils.wait_for_call_log_update_complete(
+            self.pce, pse_call_log_count)
 
         if not bt_contacts_utils.get_and_compare_call_logs(
                 self.pse, self.pce, bt_contacts_utils.INCOMMING_CALL_TYPE):
@@ -427,14 +429,12 @@ class BtCarPbapTest(BluetoothBaseTest):
 
         bt_contacts_utils.generate_contact_list(self.contacts_destination_path,
                                                 PSE1_CONTACTS_FILE, 100)
-        bt_contacts_utils.import_device_contacts_from_vcf(self.pse,
-            self.contacts_destination_path,
-            PSE1_CONTACTS_FILE)
+        bt_contacts_utils.import_device_contacts_from_vcf(
+            self.pse, self.contacts_destination_path, PSE1_CONTACTS_FILE)
         bt_contacts_utils.generate_contact_list(self.contacts_destination_path,
                                                 PSE2_CONTACTS_FILE, 100)
-        bt_contacts_utils.import_device_contacts_from_vcf(self.pse2,
-            self.contacts_destination_path,
-            PSE2_CONTACTS_FILE)
+        bt_contacts_utils.import_device_contacts_from_vcf(
+            self.pse2, self.contacts_destination_path, PSE2_CONTACTS_FILE)
 
         self.pce.droid.bluetoothPbapClientDisconnect(
             self.pse.droid.bluetoothGetLocalAddress())
@@ -458,8 +458,9 @@ class BtCarPbapTest(BluetoothBaseTest):
         bt_contacts_utils.export_device_contacts_to_vcf(
             self.pce, self.contacts_destination_path, PCE_CONTACTS_FILE)
 
-        merged_file = open('{}{}'.format(self.contacts_destination_path,
-                                         MERGED_CONTACTS_FILE), 'w')
+        merged_file = open(
+            '{}{}'.format(self.contacts_destination_path,
+                          MERGED_CONTACTS_FILE), 'w')
         for contacts_file in [PSE1_CONTACTS_FILE, PSE2_CONTACTS_FILE]:
             infile = open(self.contacts_destination_path + contacts_file)
             merged_file.write(infile.read())
@@ -483,4 +484,3 @@ class BtCarPbapTest(BluetoothBaseTest):
         bt_contacts_utils.erase_contacts(self.pse)
         bt_contacts_utils.erase_contacts(self.pse2)
         return pse1_matches and pse2_matches and pse1andpse2_matches
-

@@ -20,17 +20,17 @@ import re
 from acloud import errors
 
 _CFG_KEY_CROSVM_BINARY = "crosvm_binary"
-_CFG_KEY_X_RES = "x_res"
-_CFG_KEY_Y_RES = "y_res"
-_CFG_KEY_DPI = "dpi"
+_CFG_KEY_DISPLAY_CONFIGS = "display_configs"
 _CFG_KEY_VIRTUAL_DISK_PATHS = "virtual_disk_paths"
 _CFG_KEY_INSTANCES = "instances"
 _CFG_KEY_ADB_IP_PORT = "adb_ip_and_port"
 _CFG_KEY_INSTANCE_DIR = "instance_dir"
+_CFG_KEY_ROOT_DIR = "root_dir"
 _CFG_KEY_VNC_PORT = "vnc_server_port"
 # The adb port field name changes from "host_port" to "adb_host_port".
 _CFG_KEY_ADB_PORT = "host_port"
 _CFG_KEY_ADB_HOST_PORT = "adb_host_port"
+_CFG_KEY_FASTBOOT_HOST_PORT = "fastboot_host_port"
 _CFG_KEY_ENABLE_WEBRTC = "enable_webrtc"
 # TODO(148648620): Check instance_home_[id] for backward compatible.
 _RE_LOCAL_INSTANCE_ID = re.compile(r".+(?:local-instance-|instance_home_)"
@@ -64,6 +64,14 @@ class CvdRuntimeConfig():
     {
     "memory_mb" : 4096,
     "cpus" : 2,
+    "display_configs" :
+    [
+        {
+            "dpi" : 160,
+            "x_res" : 1280,
+            "y_res" : 700
+        }
+    ],
     "dpi" : 320,
     "virtual_disk_paths" :
         [
@@ -84,6 +92,7 @@ class CvdRuntimeConfig():
             {
                 "adb_ip_and_port" : "0.0.0.0:6520",
                 "instance_dir" : "/path-to-instance-dir",
+                "webrtc_device_id" : "cvd-1",
                 "virtual_disk_paths" :
                 [
                     "/path-to-image"
@@ -99,7 +108,6 @@ class CvdRuntimeConfig():
     "webrtc_assets_dir" : "/home/vsoc-01/usr/share/webrtc/assets",
     "webrtc_binary" : "/home/vsoc-01/bin/webRTC",
     "webrtc_certs_dir" : "/home/vsoc-01/usr/share/webrtc/certs",
-    "webrtc_enable_adb_websocket" : false,
     "webrtc_public_ip" : "0.0.0.0",
     }
 
@@ -113,9 +121,11 @@ class CvdRuntimeConfig():
             config_path)
         self._config_dict = self._GetCuttlefishRuntimeConfig(config_path,
                                                              raw_data)
-        self._x_res = self._config_dict.get(_CFG_KEY_X_RES)
-        self._y_res = self._config_dict.get(_CFG_KEY_Y_RES)
-        self._dpi = self._config_dict.get(_CFG_KEY_DPI)
+        self._instances = self._config_dict.get(_CFG_KEY_INSTANCES)
+        # Old runtime config doesn't have "instances" information.
+        self._instance_ids = list(self._instances.keys()) if self._instances else ["1"]
+        self._display_configs = self._config_dict.get(_CFG_KEY_DISPLAY_CONFIGS, {})
+        self._root_dir = self._config_dict.get(_CFG_KEY_ROOT_DIR)
         crosvm_bin = self._config_dict.get(_CFG_KEY_CROSVM_BINARY)
         self._cvd_tools_path = (os.path.dirname(crosvm_bin)
                                 if crosvm_bin else None)
@@ -131,8 +141,7 @@ class CvdRuntimeConfig():
             _CFG_KEY_VIRTUAL_DISK_PATHS)
         self._enable_webrtc = self._config_dict.get(_CFG_KEY_ENABLE_WEBRTC)
         if not self._instance_dir:
-            ins_cfg = self._config_dict.get(_CFG_KEY_INSTANCES)
-            ins_dict = ins_cfg.get(self._instance_id)
+            ins_dict = self._instances.get(self._instance_id)
             if not ins_dict:
                 raise errors.ConfigError("instances[%s] property does not exist"
                                          " in: %s" %
@@ -142,7 +151,11 @@ class CvdRuntimeConfig():
             self._adb_port = (ins_dict.get(_CFG_KEY_ADB_PORT) or
                               ins_dict.get(_CFG_KEY_ADB_HOST_PORT))
             self._adb_ip_port = ins_dict.get(_CFG_KEY_ADB_IP_PORT)
+            self._fastboot_port = ins_dict.get(_CFG_KEY_FASTBOOT_HOST_PORT)
             self._virtual_disk_paths = ins_dict.get(_CFG_KEY_VIRTUAL_DISK_PATHS)
+            if not self._cvd_tools_path:
+                self._cvd_tools_path = os.path.dirname(
+                    ins_dict.get(_CFG_KEY_CROSVM_BINARY))
 
     @staticmethod
     def _GetCuttlefishRuntimeConfig(runtime_cf_config_path, raw_data=None):
@@ -180,19 +193,9 @@ class CvdRuntimeConfig():
         return self._cvd_tools_path
 
     @property
-    def x_res(self):
-        """Return x_res."""
-        return self._x_res
-
-    @property
-    def y_res(self):
-        """Return y_res."""
-        return self._y_res
-
-    @property
-    def dpi(self):
-        """Return dpi."""
-        return self._dpi
+    def display_configs(self):
+        """Return display_configs."""
+        return self._display_configs
 
     @property
     def adb_ip_port(self):
@@ -205,6 +208,11 @@ class CvdRuntimeConfig():
         return self._instance_dir
 
     @property
+    def root_dir(self):
+        """Return root_dir."""
+        return self._root_dir
+
+    @property
     def vnc_port(self):
         """Return vnc_port."""
         return self._vnc_port
@@ -213,6 +221,11 @@ class CvdRuntimeConfig():
     def adb_port(self):
         """Return adb_port."""
         return self._adb_port
+
+    @property
+    def fastboot_port(self):
+        """Return fastboot_port"""
+        return self._fastboot_port
 
     @property
     def config_path(self):
@@ -228,6 +241,16 @@ class CvdRuntimeConfig():
     def instance_id(self):
         """Return _instance_id"""
         return self._instance_id
+
+    @property
+    def instance_ids(self):
+        """Return _instance_ids"""
+        return self._instance_ids
+
+    @property
+    def instances(self):
+        """Return _instances"""
+        return self._instances
 
     @property
     def enable_webrtc(self):

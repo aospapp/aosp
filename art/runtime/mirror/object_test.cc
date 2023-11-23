@@ -50,6 +50,10 @@ namespace mirror {
 
 class ObjectTest : public CommonRuntimeTest {
  protected:
+  ObjectTest() {
+    use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+
   void AssertString(int32_t expected_utf16_length,
                     const char* utf8_in,
                     const char* utf16_expected_le,
@@ -420,10 +424,12 @@ TEST_F(ObjectTest, StaticFieldFromCode) {
   ASSERT_TRUE(field_id != nullptr);
   uint32_t field_idx = dex_file->GetIndexForFieldId(*field_id);
 
-  ArtField* field = FindFieldFromCode<StaticObjectRead, true>(field_idx, clinit, Thread::Current(),
-                                                              sizeof(HeapReference<Object>));
+  ArtField* field = FindFieldFromCode<StaticObjectRead>(field_idx,
+                                                        clinit,
+                                                        Thread::Current(),
+                                                        sizeof(HeapReference<Object>));
   ObjPtr<Object> s0 = field->GetObj(klass.Get());
-  EXPECT_TRUE(s0 != nullptr);
+  EXPECT_TRUE(s0 != nullptr) << field->PrettyField();
 
   Handle<CharArray> char_array(hs.NewHandle(CharArray::Alloc(soa.Self(), 0)));
   field->SetObj<false>(field->GetDeclaringClass(), char_array.Get());
@@ -522,7 +528,7 @@ TEST_F(ObjectTest, StringLength) {
   StackHandleScope<1> hs(soa.Self());
   Handle<String> string(hs.NewHandle(String::AllocFromModifiedUtf8(soa.Self(), "android")));
   EXPECT_EQ(string->GetLength(), 7);
-  EXPECT_EQ(string->GetUtfLength(), 7);
+  EXPECT_EQ(string->GetModifiedUtf8Length(), 7);
 }
 
 TEST_F(ObjectTest, DescriptorCompare) {

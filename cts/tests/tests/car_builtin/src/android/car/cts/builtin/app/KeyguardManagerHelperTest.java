@@ -16,9 +16,6 @@
 
 package android.car.cts.builtin.app;
 
-import static android.server.wm.UiDeviceUtils.pressUnlockButton;
-import static android.view.Display.DEFAULT_DISPLAY;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
@@ -46,19 +43,12 @@ public final class KeyguardManagerHelperTest extends ActivityManagerTestBase {
 
     @Test
     public void testIsKeyguardLocked() throws Exception {
+        assertThat(KeyguardManagerHelper.isKeyguardLocked()).isFalse();
         try (LockScreenSession lockScreenSession = createManagedLockScreenSession()) {
             lockScreenSession.setLockCredential().gotoKeyguard();
             assertThat(KeyguardManagerHelper.isKeyguardLocked()).isTrue();
-
-            unlockDevice();
-            lockScreenSession.enterAndConfirmLockCredential();
-            mWmState.waitAndAssertKeyguardGone();
-            assertThat(KeyguardManagerHelper.isKeyguardLocked()).isFalse();
         }
-    }
-
-    private void unlockDevice() {
-        touchAndCancelOnDisplayCenterSync(DEFAULT_DISPLAY);
-        pressUnlockButton();
+        // When LockScreenSession is closed, it'll unlock the keyguard automatically.
+        assertThat(KeyguardManagerHelper.isKeyguardLocked()).isFalse();
     }
 }

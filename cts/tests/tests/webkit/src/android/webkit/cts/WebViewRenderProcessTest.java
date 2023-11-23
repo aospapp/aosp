@@ -16,44 +16,78 @@
 
 package android.webkit.cts;
 
-import android.annotation.SuppressLint;
-import android.os.Build;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.webkit.WebViewRenderProcess;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
+
 import com.google.common.util.concurrent.SettableFuture;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.Future;
 
 @AppModeFull
-public class WebViewRenderProcessTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class WebViewRenderProcessTest extends SharedWebViewTest {
     private WebViewOnUiThread mOnUiThread;
 
-    public WebViewRenderProcessTest() {
-        super("com.android.cts.webkit", WebViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        final WebViewCtsActivity activity = getActivity();
-        WebView webView = activity.getWebView();
-        if (webView != null) {
-            mOnUiThread = new WebViewOnUiThread(webView);
+    @Before
+    public void setUp() throws Exception {
+        WebView webview = getTestEnvironment().getWebView();
+        if (webview != null) {
+            mOnUiThread = new WebViewOnUiThread(webview);
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
-        super.tearDown();
+    }
+
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((WebViewCtsActivity) activity).getWebView();
+                            builder.setHostAppInvoker(
+                                    SharedWebViewTestEnvironment.createHostAppInvoker(
+                                            activity))
+                                    .setWebView(webView);
+                        });
+
+        return builder.build();
     }
 
     private boolean terminateRenderProcessOnUiThread(
@@ -106,11 +140,8 @@ public class WebViewRenderProcessTest extends ActivityInstrumentationTestCase2<W
         return future;
     }
 
+    @Test
     public void testGetWebViewRenderProcess() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         final WebView webView = mOnUiThread.getWebView();
         final WebViewRenderProcess preStartRenderProcess = getRenderProcessOnUiThread(webView);
 

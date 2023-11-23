@@ -16,6 +16,7 @@
 
 package com.android.queryable.queries;
 
+import static com.android.queryable.annotations.IntegerQuery.DEFAULT_INT_QUERY_PARAMETERS_VALUE;
 import static com.android.queryable.util.ParcelableUtils.readNullableInt;
 import static com.android.queryable.util.ParcelableUtils.writeNullableInt;
 
@@ -23,6 +24,9 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
+
+import com.google.auto.value.AutoAnnotation;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -43,8 +47,27 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
 
     private final transient E mQuery;
 
-    IntegerQueryHelper() {
-        mQuery = (E) this;
+    public static final class IntegerQueryBase extends
+            QueryableBaseWithMatch<Integer, IntegerQueryHelper<IntegerQueryBase>> {
+        IntegerQueryBase() {
+            super();
+            setQuery(new IntegerQueryHelper<>(this));
+        }
+
+        IntegerQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<IntegerQueryHelper.IntegerQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public IntegerQueryHelper.IntegerQueryBase createFromParcel(Parcel in) {
+                        return new IntegerQueryHelper.IntegerQueryBase(in);
+                    }
+
+                    public IntegerQueryHelper.IntegerQueryBase[] newArray(int size) {
+                        return new IntegerQueryHelper.IntegerQueryBase[size];
+                    }
+                };
     }
 
     public IntegerQueryHelper(E query) {
@@ -104,6 +127,53 @@ public final class IntegerQueryHelper<E extends Queryable> implements IntegerQue
             mLessThanOrEqualToValue = Math.min(mLessThanOrEqualToValue, i);
         }
         return mQuery;
+    }
+
+    @Override
+    public E matchesAnnotation(com.android.queryable.annotations.IntegerQuery queryAnnotation) {
+        if (queryAnnotation.isEqualTo() != DEFAULT_INT_QUERY_PARAMETERS_VALUE) {
+            isEqualTo(queryAnnotation.isEqualTo());
+        }
+        if (queryAnnotation.isGreaterThan() != DEFAULT_INT_QUERY_PARAMETERS_VALUE) {
+            isGreaterThan(queryAnnotation.isGreaterThan());
+        }
+        if (queryAnnotation.isGreaterThanOrEqualTo() != DEFAULT_INT_QUERY_PARAMETERS_VALUE) {
+            isGreaterThanOrEqualTo(queryAnnotation.isGreaterThanOrEqualTo());
+        }
+        if (queryAnnotation.isLessThan() != DEFAULT_INT_QUERY_PARAMETERS_VALUE) {
+            isLessThan(queryAnnotation.isLessThan());
+        }
+        if (queryAnnotation.isLessThanOrEqualTo() != DEFAULT_INT_QUERY_PARAMETERS_VALUE) {
+            isLessThanOrEqualTo(queryAnnotation.isLessThanOrEqualTo());
+        }
+
+        return mQuery;
+    }
+
+    public com.android.queryable.annotations.IntegerQuery toAnnotation() {
+        return integerQuery(
+                mEqualToValue == null ? DEFAULT_INT_QUERY_PARAMETERS_VALUE : mEqualToValue,
+                mGreaterThanValue == null ? DEFAULT_INT_QUERY_PARAMETERS_VALUE : mGreaterThanValue,
+                mGreaterThanOrEqualToValue == null ? DEFAULT_INT_QUERY_PARAMETERS_VALUE : mGreaterThanOrEqualToValue,
+                mLessThanValue == null ? DEFAULT_INT_QUERY_PARAMETERS_VALUE : mLessThanValue,
+                mLessThanOrEqualToValue == null ? DEFAULT_INT_QUERY_PARAMETERS_VALUE : mLessThanOrEqualToValue);
+    }
+
+    @AutoAnnotation
+    private static com.android.queryable.annotations.IntegerQuery integerQuery(
+            int isEqualTo, int isGreaterThan, int isGreaterThanOrEqualTo, int isLessThan, int isLessThanOrEqualTo) {
+        return new AutoAnnotation_IntegerQueryHelper_integerQuery(
+                isEqualTo, isGreaterThan, isGreaterThanOrEqualTo, isLessThan, isLessThanOrEqualTo
+        );
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return mEqualToValue == null
+                && mGreaterThanValue == null
+                && mGreaterThanOrEqualToValue == null
+                && mLessThanValue == null
+                && mLessThanOrEqualToValue == null;
     }
 
     @Override

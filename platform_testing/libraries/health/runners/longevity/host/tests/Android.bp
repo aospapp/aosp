@@ -21,7 +21,7 @@ package {
 java_test_host {
     name: "LongevityHostLibTests",
     static_libs: [
-        "guavalib",
+        "guava",
         "junit-host",
         "longevity-host-lib",
         "mockito-host",

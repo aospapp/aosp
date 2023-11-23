@@ -34,6 +34,10 @@ android_test {
         "androidx.legacy_legacy-support-v4",
         "platform-test-annotations",
         "truth-prebuilt",
+        "cts-install-lib",
+        "kotlin-test",
+        "Nene",
+        "Harrier",
     ],
 
     test_suites: [
@@ -42,6 +46,13 @@ android_test {
     ],
     data: [
         ":CtsEmptyTestApp",
+        ":CtsEmptyTestAppV2",
+        ":CtsEmptyInstallerApp",
+        ":CtsEmptyTestApp_FullScreenIntent",
+    ],
+    java_resources: [
+        ":HelloWorldSdk1",
+        ":HelloWorldUsingSdk1",
     ],
     per_testcase_directory: true,
 }

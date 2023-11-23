@@ -18,12 +18,13 @@
 #define ART_COMPILER_OPTIMIZING_REFERENCE_TYPE_PROPAGATION_H_
 
 #include "base/arena_containers.h"
+#include "base/macros.h"
 #include "mirror/class-inl.h"
 #include "nodes.h"
 #include "obj_ptr.h"
 #include "optimization.h"
 
-namespace art {
+namespace art HIDDEN {
 
 /**
  * Propagates reference types to instructions.
@@ -31,7 +32,6 @@ namespace art {
 class ReferenceTypePropagation : public HOptimization {
  public:
   ReferenceTypePropagation(HGraph* graph,
-                           Handle<mirror::ClassLoader> class_loader,
                            Handle<mirror::DexCache> hint_dex_cache,
                            bool is_first_run,
                            const char* name = kReferenceTypePropagationPassName);
@@ -70,10 +70,6 @@ class ReferenceTypePropagation : public HOptimization {
                                       const ReferenceTypeInfo& b,
                                       HandleCache* handle_cache)
       REQUIRES_SHARED(Locks::mutator_lock_);
-
-  void ValidateTypes();
-
-  Handle<mirror::ClassLoader> class_loader_;
 
   // Note: hint_dex_cache_ is usually, but not necessarily, the dex cache associated with
   // graph_->GetDexFile(). Since we may look up also in other dex files, it's used only

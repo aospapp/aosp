@@ -15,28 +15,26 @@
  * limitations under the License.
  */
 
-#include <cstdio>
-
-#include <cstring>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mman.h>
-#include <fcntl.h>
-
-#include <linux/videodev2.h>
-
 #include <exynos-hwjpeg.h>
+#include <fcntl.h>
 #include <hwjpeglib-exynos.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#include <cstdio>
+#include <cstring>
 
 #include "hwjpeg-internal.h"
 
 #define ALOGERR(fmt, args...) ((void)ALOG(LOG_ERROR, LOG_TAG, fmt " [%s]", ##args, strerror(errno)))
 
-#define ROUND_DOWN(val, denom)  ((val) & ~((denom) - 1))
-#define ROUND_UP(val, denom)  ROUND_DOWN((val) + (denom) - 1, denom)
-#define TO_MASK(val) ((val) - 1)
+#define ROUND_DOWN(val, denom) ((val) & ~((denom)-1))
+#define ROUND_UP(val, denom) ROUND_DOWN((val) + (denom)-1, denom)
+#define TO_MASK(val) ((val)-1)
 
 class CJpegStreamParser {
 private:
@@ -51,18 +49,18 @@ private:
     size_t GetLength(unsigned char *addr);
     bool ParseFrame(unsigned char *addr);
 
-    off_t GetOffset(unsigned char *addr) {
+    ptrdiff_t GetOffset(unsigned char *addr) {
         unsigned long beg = reinterpret_cast<unsigned long>(m_pStreamBase);
         unsigned long cur = reinterpret_cast<unsigned long>(addr);
-        return static_cast<off_t>(cur - beg);
+        return static_cast<ptrdiff_t>(cur - beg);
     }
 
 public:
     unsigned char m_iHorizontalFactor;
     unsigned char m_iVerticalFactor;
 
-    CJpegStreamParser() : m_pStreamBase(NULL), m_nStreamSize(0) { }
-    ~CJpegStreamParser() { }
+    CJpegStreamParser() : m_pStreamBase(NULL), m_nStreamSize(0) {}
+    ~CJpegStreamParser() {}
 
     bool Parse(unsigned char *streambase, size_t length);
 
@@ -72,8 +70,7 @@ public:
     unsigned int GetNumComponents() { return m_nComponents; }
 };
 
-void CJpegStreamParser::Initialize()
-{
+void CJpegStreamParser::Initialize() {
     m_nComponents = 0;
     m_nWidth = 0;
     m_nHeight = 0;
@@ -81,14 +78,12 @@ void CJpegStreamParser::Initialize()
     m_iVerticalFactor = 1;
 }
 
-size_t CJpegStreamParser::GetLength(unsigned char *addr)
-{
+size_t CJpegStreamParser::GetLength(unsigned char *addr) {
     size_t len = static_cast<size_t>(*addr++) * 0x100;
     return len + *addr;
 }
 
-bool CJpegStreamParser::Parse(unsigned char *streambase, size_t length)
-{
+bool CJpegStreamParser::Parse(unsigned char *streambase, size_t length) {
     Initialize();
 
     m_pStreamBase = streambase;
@@ -117,6 +112,7 @@ bool CJpegStreamParser::Parse(unsigned char *streambase, size_t length)
         }
 
         unsigned char marker = *addr++;
+        filelen -= 2;
 
         if ((marker != 0xC4) && ((marker & 0xF0) == 0xC0)) { // SOFn
             if (marker != 0xC0) {
@@ -124,18 +120,17 @@ bool CJpegStreamParser::Parse(unsigned char *streambase, size_t length)
                 return false;
             }
 
-            if (filelen < GetLength(addr)) {
+            if (filelen < 2 || filelen < GetLength(addr)) {
                 ALOGE("Too small SOF0 segment");
                 return false;
             }
 
-            if (!ParseFrame(addr))
-                return false;
+            if (!ParseFrame(addr)) return false;
 
-            return true; // this is the successful exit point
+            return true;             // this is the successful exit point
         } else if (marker == 0xD9) { // EOI
             // This will not meet.
-            ALOGE("Unexpected EOI found at %lu\n", GetOffset(addr - 2));
+            ALOGE("Unexpected EOI found at %td\n", GetOffset(addr - 2));
             return false;
         } else {
             if ((marker == 0xCC) || (marker == 0xDC)) { // DAC and DNL
@@ -143,14 +138,19 @@ bool CJpegStreamParser::Parse(unsigned char *streambase, size_t length)
                 return false;
             }
 
-            if (filelen < GetLength(addr)) {
+            if (filelen < 2 || filelen < GetLength(addr)) {
                 ALOGE("Corrupted JPEG stream");
                 return false;
             }
         }
 
-        if (GetLength(addr) == 0) {
-            ALOGE("Invalid length 0 is read at offset %lu", GetOffset(addr));
+        if (filelen < 2 || GetLength(addr) == 0) {
+            ALOGE("Invalid length 0 is read at offset %td", GetOffset(addr));
+            return false;
+        }
+
+        if (filelen < GetLength(addr)) {
+            ALOGE("Corrupted JPEG Stream");
             return false;
         }
 
@@ -165,8 +165,7 @@ bool CJpegStreamParser::Parse(unsigned char *streambase, size_t length)
     return false;
 }
 
-bool CJpegStreamParser::ParseFrame(unsigned char *addr)
-{ // 2 bytes of length
+bool CJpegStreamParser::ParseFrame(unsigned char *addr) { // 2 bytes of length
     // 1 byte of bits per sample
     // 2 bytes of height
     // 2 bytes of width
@@ -217,7 +216,7 @@ bool CJpegStreamParser::ParseFrame(unsigned char *addr)
     return true;
 }
 
-class CLibhwjpegDecompressor: public hwjpeg_decompressor_struct {
+class CLibhwjpegDecompressor : public hwjpeg_decompressor_struct {
     enum {
         HWJPG_FLAG_NEED_MUNMAP = 1,
     };
@@ -231,6 +230,7 @@ class CLibhwjpegDecompressor: public hwjpeg_decompressor_struct {
     size_t m_nDummyBytes;
 
     CJpegStreamParser m_jpegStreamParser;
+
 public:
     CLibhwjpegDecompressor() : m_flags(0) {
         // members of hwjpeg_decompressor_struct
@@ -243,7 +243,7 @@ public:
         output_width = 0;
         output_height = 0;
         m_bPrepared = false;
-	m_pStreamBuffer = NULL;
+        m_pStreamBuffer = NULL;
 
         output_format = V4L2_PIX_FMT_RGB32;
 
@@ -290,8 +290,7 @@ public:
         m_nDummyBytes = 0;
 
         m_pStreamBuffer = reinterpret_cast<unsigned char *>(
-                mmap(NULL, m_nStreamLength,
-                    PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0));
+                mmap(NULL, m_nStreamLength, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0));
         if (m_pStreamBuffer == MAP_FAILED) {
             m_pStreamBuffer = NULL;
             close(fd);
@@ -332,8 +331,8 @@ public:
         m_nDummyBytes = dummybytes;
 
         m_pStreamBuffer = reinterpret_cast<unsigned char *>(
-                mmap(NULL, m_nStreamLength + m_nDummyBytes,
-                    PROT_READ | PROT_WRITE, MAP_SHARED, buffer, 0));
+                mmap(NULL, m_nStreamLength + m_nDummyBytes, PROT_READ | PROT_WRITE, MAP_SHARED,
+                     buffer, 0));
         if (m_pStreamBuffer == MAP_FAILED) {
             m_pStreamBuffer = NULL;
             ALOGERR("Failed to mmap %zu bytes of dmabuf fd %d", m_nStreamLength, buffer);
@@ -373,15 +372,13 @@ public:
     bool IsEnoughStreamBuffer() { return true; }
 };
 
-bool CLibhwjpegDecompressor::PrepareDecompression()
-{
+bool CLibhwjpegDecompressor::PrepareDecompression() {
     if (!m_hwjpeg) {
         ALOGE("device node is not opened!");
         return false;
     }
 
-    if ((scale_factor != 1) && (scale_factor != 2) &&
-            (scale_factor != 4) && (scale_factor != 8)) {
+    if ((scale_factor != 1) && (scale_factor != 2) && (scale_factor != 4) && (scale_factor != 8)) {
         ALOGE("Invalid downscaling factor %d", scale_factor);
         return false;
     }
@@ -391,8 +388,7 @@ bool CLibhwjpegDecompressor::PrepareDecompression()
         return false;
     }
 
-    if (!m_jpegStreamParser.Parse(m_pStreamBuffer, m_nStreamLength))
-        return false;
+    if (!m_jpegStreamParser.Parse(m_pStreamBuffer, m_nStreamLength)) return false;
 
     image_width = m_jpegStreamParser.GetWidth();
     image_height = m_jpegStreamParser.GetHeight();
@@ -401,9 +397,10 @@ bool CLibhwjpegDecompressor::PrepareDecompression()
     chroma_v_samp_factor = m_jpegStreamParser.m_iVerticalFactor;
 
     if (((image_width % (chroma_h_samp_factor * scale_factor)) != 0) ||
-            ((image_height % (chroma_v_samp_factor * scale_factor)) != 0)) {
-        ALOGE("Downscaling by factor %d of compressed image size %dx%d(chroma %d:%d) is not supported",
-                scale_factor, image_width, image_height, chroma_h_samp_factor, chroma_v_samp_factor);
+        ((image_height % (chroma_v_samp_factor * scale_factor)) != 0)) {
+        ALOGE("Downscaling by factor %d of compressed image size %dx%d(chroma %d:%d) is not "
+              "supported",
+              scale_factor, image_width, image_height, chroma_h_samp_factor, chroma_v_samp_factor);
         return false;
     }
 
@@ -416,7 +413,8 @@ bool CLibhwjpegDecompressor::PrepareDecompression()
     }
 
     if (!m_hwjpeg->SetImageFormat(output_format, output_width, output_height)) {
-        ALOGE("Failed to configure image format (%ux%u/%08X)", output_width, output_height, output_format);
+        ALOGE("Failed to configure image format (%ux%u/%08X)", output_width, output_height,
+              output_format);
         return false;
     }
 
@@ -425,8 +423,7 @@ bool CLibhwjpegDecompressor::PrepareDecompression()
     return true;
 }
 
-bool CLibhwjpegDecompressor::Decompress()
-{
+bool CLibhwjpegDecompressor::Decompress() {
     if (!m_bPrepared) {
         ALOGE("JPEG header is not parsed");
         return false;
@@ -447,77 +444,64 @@ bool CLibhwjpegDecompressor::Decompress()
     return true;
 }
 
-hwjpeg_decompress_ptr hwjpeg_create_decompress()
-{
+hwjpeg_decompress_ptr hwjpeg_create_decompress() {
     hwjpeg_decompress_ptr p = new CLibhwjpegDecompressor();
-    if (!p)
-        ALOGE("Failed to create decompress struct");
+    if (!p) ALOGE("Failed to create decompress struct");
     return p;
 }
 
-bool hwjpeg_file_src(hwjpeg_decompress_ptr cinfo, const char *path)
-{
+bool hwjpeg_file_src(hwjpeg_decompress_ptr cinfo, const char *path) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->SetStreamPath(path);
 }
 
-void hwjpeg_config_image_format(hwjpeg_decompress_ptr cinfo, __u32 v4l2_pix_fmt)
-{
+void hwjpeg_config_image_format(hwjpeg_decompress_ptr cinfo, __u32 v4l2_pix_fmt) {
     cinfo->output_format = v4l2_pix_fmt;
 }
 
-bool hwjpeg_dmabuf_src(hwjpeg_decompress_ptr cinfo, int infd, size_t insize, size_t dummybytes)
-{
+bool hwjpeg_dmabuf_src(hwjpeg_decompress_ptr cinfo, int infd, size_t insize, size_t dummybytes) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->SetStreamBuffer(infd, insize, dummybytes);
 }
 
-bool hwjpeg_mem_src(hwjpeg_decompress_ptr cinfo,
-        unsigned char *inbuffer, size_t insize, size_t dummybytes)
-{
+bool hwjpeg_mem_src(hwjpeg_decompress_ptr cinfo, unsigned char *inbuffer, size_t insize,
+                    size_t dummybytes) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->SetStreamBuffer(inbuffer, insize, dummybytes);
 }
 
-bool hwjpeg_mem_dst(hwjpeg_decompress_ptr cinfo,
-        unsigned char *outbuffer[], size_t outsize[], unsigned int num_buffers)
-{
+bool hwjpeg_mem_dst(hwjpeg_decompress_ptr cinfo, unsigned char *outbuffer[], size_t outsize[],
+                    unsigned int num_buffers) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->SetImageBuffer(outbuffer, outsize, num_buffers);
 }
 
-bool hwjpeg_dmabuf_dst(hwjpeg_decompress_ptr cinfo,
-        int outfd[], size_t outsize[], unsigned int num_buffers)
-{
+bool hwjpeg_dmabuf_dst(hwjpeg_decompress_ptr cinfo, int outfd[], size_t outsize[],
+                       unsigned int num_buffers) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->SetImageBuffer(outfd, outsize, num_buffers);
 }
 
-void hwjpeg_set_downscale_factor(hwjpeg_decompress_ptr cinfo, unsigned int factor)
-{
+void hwjpeg_set_downscale_factor(hwjpeg_decompress_ptr cinfo, unsigned int factor) {
     cinfo->scale_factor = factor;
 }
 
-bool hwjpeg_read_header(hwjpeg_decompress_ptr cinfo)
-{
+bool hwjpeg_read_header(hwjpeg_decompress_ptr cinfo) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->PrepareDecompression();
 }
 
-bool hwjpeg_start_decompress(hwjpeg_decompress_ptr cinfo)
-{
+bool hwjpeg_start_decompress(hwjpeg_decompress_ptr cinfo) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->Decompress();
 }
 
-void hwjpeg_destroy_decompress(hwjpeg_decompress_ptr cinfo)
-{
+void hwjpeg_destroy_decompress(hwjpeg_decompress_ptr cinfo) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     delete decomp;
 }
 
-bool hwjpeg_has_enough_stream_buffer(hwjpeg_decompress_ptr cinfo)
-{
+bool hwjpeg_has_enough_stream_buffer(hwjpeg_decompress_ptr cinfo) {
     CLibhwjpegDecompressor *decomp = reinterpret_cast<CLibhwjpegDecompressor *>(cinfo);
     return decomp->IsEnoughStreamBuffer();
 }

@@ -21,26 +21,43 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.info.ActivityInfo;
 
 import java.util.Objects;
 
 /** Implementation of {@link ActivityQuery}. */
-public final class ActivityQueryHelper<E extends Queryable> implements ActivityQuery<E> {
+public class ActivityQueryHelper<E extends Queryable> implements ActivityQuery<E> {
+
+    public static final class ActivityQueryBase extends
+            QueryableBaseWithMatch<ActivityInfo, ActivityQueryHelper<ActivityQueryBase>> {
+        ActivityQueryBase() {
+            super();
+            setQuery(new ActivityQueryHelper<>(this));
+        }
+
+        ActivityQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<ActivityQueryHelper.ActivityQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public ActivityQueryHelper.ActivityQueryBase createFromParcel(Parcel in) {
+                        return new ActivityQueryHelper.ActivityQueryBase(in);
+                    }
+
+                    public ActivityQueryHelper.ActivityQueryBase[] newArray(int size) {
+                        return new ActivityQueryHelper.ActivityQueryBase[size];
+                    }
+                };
+    }
 
     private final transient E mQuery;
     private final ClassQueryHelper<E> mActivityClassQueryHelper;
     private final BooleanQueryHelper<E> mExportedQueryHelper;
-    private final SetQueryHelper<E, IntentFilter, IntentFilterQuery<?>>
+    private final SetQueryHelper<E, IntentFilter>
             mIntentFiltersQueryHelper;
     private StringQueryHelper<E> mPermission;
-
-    ActivityQueryHelper() {
-        mQuery = (E) this;
-        mActivityClassQueryHelper = new ClassQueryHelper<>(mQuery);
-        mExportedQueryHelper = new BooleanQueryHelper<>(mQuery);
-        mIntentFiltersQueryHelper = new SetQueryHelper<>(mQuery);
-    }
 
     public ActivityQueryHelper(E query) {
         mQuery = query;
@@ -67,7 +84,7 @@ public final class ActivityQueryHelper<E extends Queryable> implements ActivityQ
     }
 
     @Override
-    public SetQuery<E, IntentFilter, IntentFilterQuery<?>> intentFilters() {
+    public SetQuery<E, IntentFilter> intentFilters() {
         return mIntentFiltersQueryHelper;
     }
 
@@ -77,6 +94,13 @@ public final class ActivityQueryHelper<E extends Queryable> implements ActivityQ
             mPermission = new StringQueryHelper<>(mQuery);
         }
         return mPermission;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mPermission)
+                && Queryable.isEmptyQuery(mActivityClassQueryHelper)
+                && Queryable.isEmptyQuery(mIntentFiltersQueryHelper);
     }
 
     @Override

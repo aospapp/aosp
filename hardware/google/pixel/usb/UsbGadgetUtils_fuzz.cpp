@@ -2,7 +2,7 @@
 #include <stdint.h>
 
 #include "fuzzer/FuzzedDataProvider.h"
-#include "include/pixelusb/UsbGadgetCommon.h"
+#include "hidl/include/pixelusb/UsbGadgetCommon.h"
 
 using ::android::hardware::google::pixel::usb::setVidPid;
 

@@ -653,7 +653,7 @@ public class CameraFormatsActivity extends PassFailButtons.Activity
                     rotation = (360 - rotation) % 360;  // de-compensate the mirror
                 }
 
-                if (rotation != 0) {
+                if (rotation != 0 && rotation != 180) {
                     Matrix transform = new Matrix();
                     mFormatView.setScaleType(ImageView.ScaleType.MATRIX);
                     Rect viewRect = mFormatView.getDrawable().getBounds();

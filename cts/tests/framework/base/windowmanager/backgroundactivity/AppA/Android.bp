@@ -16,22 +16,50 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
+android_test_helper_app {
     name: "CtsBackgroundActivityAppA",
     defaults: ["cts_support_defaults"],
 
     static_libs: [
         "cts-wm-app-base",
         "cts-background-activity-common",
+        "cts_window-sidecar",
+        "cts_window-extensions",
+        "cts_window_jetpack_utils",
     ],
 
     srcs: ["src/**/*.java"],
 
-    sdk_version: "test_current",
+    target_sdk_version: "current",
+
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
+    name: "CtsBackgroundActivityAppA33",
+    defaults: ["cts_support_defaults"],
+
+    static_libs: [
+        "cts-wm-app-base",
+        "cts-background-activity-common",
+        "cts_window-sidecar",
+        "cts_window-extensions",
+        "cts_window_jetpack_utils",
+    ],
+
+    srcs: ["src/**/*.java"],
+
+    target_sdk_version: "33",
 
     test_suites: [
         "cts",
         "general-tests",
     ],
 
+    aaptflags: [
+        "--rename-manifest-package android.server.wm.backgroundactivity.appa33",
+    ],
 }

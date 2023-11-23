@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os.path
 import matplotlib
 from matplotlib import pylab
@@ -40,44 +41,44 @@ _PATCH_Y = 0.5 - _PATCH_H/2
 _SNR_TOL = 3  # unit in dB
 
 
-def calc_rgb_snr(cap, frame, nr_mode, log_path):
+def calc_rgb_snr(cap, frame, nr_mode, name_with_log_path):
   """Calculate the RGB SNRs from a capture center patch.
 
   Args:
     cap: Camera capture object.
     frame: Integer frame number.
     nr_mode: Integer noise reduction mode index.
-    log_path: Text of locatoion to save images.
+    name_with_log_path: Test name with path for storage
 
   Returns:
     RGB SNRs.
   """
   img = image_processing_utils.decompress_jpeg_to_rgb_image(cap)
   if frame == 0:  # save 1st frame
-    image_processing_utils.write_image(img, '%s_high_gain_nr=%d_fmt=jpg.jpg' % (
-        os.path.join(log_path, _NAME), nr_mode))
+    image_processing_utils.write_image(
+        img, f'{name_with_log_path}_high_gain_nr={nr_mode}_fmt=jpg.jpg')
   patch = image_processing_utils.get_image_patch(
       img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
   return image_processing_utils.compute_image_snrs(patch)
 
 
-def create_plot(snrs, reprocess_format, log_path):
+def create_plot(snrs, reprocess_format, name_with_log_path):
   """create plot from data.
 
   Args:
     snrs: RGB SNR data from NR_MODES captures.
     reprocess_format: String of 'yuv' or 'private'.
-    log_path: String location for data.
+    name_with_log_path: Test name with path for storage.
   """
   pylab.figure(reprocess_format)
   for ch, color in enumerate(_COLORS):
     pylab.plot(_NR_MODES_LIST, snrs[ch], f'-{color.lower()}o')
-  pylab.title('%s (%s)' % (_NAME, reprocess_format))
-  pylab.xlabel('%s' % str(_NR_MODES)[1:-1])  # strip '{' '}' off string
+  pylab.title(f'{_NAME} ({reprocess_format})')
+  pylab.xlabel(f'{str(_NR_MODES)[1:-1]}')  # strip '{' '}' off string
   pylab.ylabel('SNR (dB)')
   pylab.xticks(_NR_MODES_LIST)
-  matplotlib.pyplot.savefig('%s_plot_%s_SNRs.png' % (
-      os.path.join(log_path, _NAME), reprocess_format))
+  matplotlib.pyplot.savefig(
+      f'{name_with_log_path}_plot_{reprocess_format}_SNRs.png')
 
 
 class ReprocessNoiseReductionTest(its_base_test.ItsBaseTest):
@@ -116,12 +117,14 @@ class ReprocessNoiseReductionTest(its_base_test.ItsBaseTest):
           (camera_properties_utils.yuv_reprocess(props) or
            camera_properties_utils.private_reprocess(props)))
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # Load chart for scene.
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
-      # If reprocessing is supported, ZSL NR mode must be avaiable.
+      # If reprocessing is supported, ZSL NR mode must be available.
       if not camera_properties_utils.noise_reduction_mode(
           props, _NR_MODES['ZSL']):
         raise KeyError('Reprocessing supported, so ZSL must be supported.')
@@ -160,7 +163,7 @@ class ReprocessNoiseReductionTest(its_base_test.ItsBaseTest):
               [req]*_NUM_FRAMES, out_surface, reprocess_format)
           for i in range(_NUM_FRAMES):
             rgb_snr_list.append(calc_rgb_snr(caps[i]['data'], i, nr_mode,
-                                             log_path))
+                                             name_with_log_path))
 
           r_snrs = [rgb[0] for rgb in rgb_snr_list]
           g_snrs = [rgb[1] for rgb in rgb_snr_list]
@@ -173,7 +176,7 @@ class ReprocessNoiseReductionTest(its_base_test.ItsBaseTest):
                 _COLORS[ch], rgb_avg_snrs[ch], min(x_snrs), max(x_snrs))
 
         # Plot data.
-        create_plot(snrs, reprocess_format, log_path)
+        create_plot(snrs, reprocess_format, name_with_log_path)
 
         # Assert proper behavior.
         if nr_modes_reported != list(_NR_MODES_LIST):
@@ -212,17 +215,17 @@ class ReprocessNoiseReductionTest(its_base_test.ItsBaseTest):
                                    f'TOL: {_SNR_TOL}')
 
             # ZSL ~ MIN
-            if not np.isclose(
+            if not math.isclose(
                 snrs[j][_NR_MODES['ZSL']], snrs[j][_NR_MODES['MIN']],
-                atol=_SNR_TOL):
+                abs_tol=_SNR_TOL):
               raise AssertionError(f'ZSL: {snrs[j][_NR_MODES["ZSL"]]:.2f}, '
                                    f'MIN: {snrs[j][_NR_MODES["MIN"]]:.2f}, '
                                    f'TOL: {_SNR_TOL}')
           else:
             # ZSL ~ OFF
-            if not np.isclose(
+            if not math.isclose(
                 snrs[j][_NR_MODES['ZSL']], snrs[j][_NR_MODES['OFF']],
-                atol=_SNR_TOL):
+                abs_tol=_SNR_TOL):
               raise AssertionError(f'ZSL: {snrs[j][_NR_MODES["ZSL"]]:.2f}, '
                                    f'OFF: {snrs[j][_NR_MODES["OFF"]]:.2f}, '
                                    f'TOL: {_SNR_TOL}')

@@ -639,7 +639,10 @@ struct chreSensorInfo {
  */
 struct chreSensorSamplingStatus {
     /**
-     * The interval, in nanoseconds, at which the sensor is now sampling.
+     * The interval, in nanoseconds, at which sensor data is being sampled at.
+     * This should be used by nanoapps to determine the rate at which samples
+     * will be generated and not to indicate what the sensor is truly sampling
+     * at since resampling may occur to limit incoming data.
      *
      * If this is CHRE_SENSOR_INTERVAL_DEFAULT, then a sampling interval
      * isn't meaningful for this sensor.
@@ -649,7 +652,7 @@ struct chreSensorSamplingStatus {
     uint64_t interval;
 
     /**
-     * The latency, in nanoseconds, at which the senor is now reporting.
+     * The latency, in nanoseconds, at which the sensor is now reporting.
      *
      * If this is CHRE_SENSOR_LATENCY_DEFAULT, then a latency
      * isn't meaningful for this sensor.
@@ -795,12 +798,17 @@ bool chreGetSensorInfo(uint32_t sensorHandle, struct chreSensorInfo *info);
  * CHRE_EVENT_SENSOR_SAMPLING_CHANGE event will trigger in this case, so it's
  * not necessary to poll for such a change.
  *
+ * This function must return a valid status if the provided sensor is being
+ * actively sampled by a nanoapp and a CHRE_EVENT_SENSOR_SAMPLING_CHANGE has
+ * been delivered indicating their request has taken effect. It is not required
+ * to return a valid status if no nanoapp is actively sampling the sensor.
+ *
  * @param sensorHandle  The sensor handle, as obtained from
  *     chreSensorFindDefault() or passed to nanoappHandleEvent().
- * @param status  If the sensor is valid, then this memory will be filled with
- *     the sampling status contents for this sensor.  This argument must be
- *     non-NULL.
- * @return true if the senor handle is valid and 'status' was filled in;
+ * @param status  If the sensor is actively enabled by a nanoapp, then this
+ *     memory must be filled with the sampling status contents for this sensor.
+ *     This argument must be non-NULL.
+ * @return true if the sensor handle is valid and 'status' was filled in;
  *     false otherwise.
  */
 bool chreGetSensorSamplingStatus(uint32_t sensorHandle,

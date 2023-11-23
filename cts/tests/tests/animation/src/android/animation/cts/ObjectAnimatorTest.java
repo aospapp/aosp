@@ -50,6 +50,7 @@ import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -78,6 +79,7 @@ public class ObjectAnimatorTest {
     private AnimationActivity mActivity;
     private ObjectAnimator mObjectAnimator;
     private long mDuration = 1000;
+    private float mDurationScale = 1f;
 
     @Rule
     public ActivityTestRule<AnimationActivity> mActivityRule =
@@ -85,10 +87,17 @@ public class ObjectAnimatorTest {
 
     @Before
     public void setup() {
+        mDurationScale = ValueAnimator.getDurationScale();
+        ValueAnimator.setDurationScale(1f);
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mInstrumentation.setInTouchMode(false);
         mActivity = mActivityRule.getActivity();
         mObjectAnimator = (ObjectAnimator) mActivity.createAnimatorWithDuration(mDuration);
+    }
+
+    @After
+    public void teardown() {
+        ValueAnimator.setDurationScale(mDurationScale);
     }
 
     @Test

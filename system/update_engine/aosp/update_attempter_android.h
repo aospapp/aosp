@@ -31,14 +31,14 @@
 #include "update_engine/client_library/include/update_engine/update_status.h"
 #include "update_engine/common/action_processor.h"
 #include "update_engine/common/boot_control_interface.h"
-#include "update_engine/common/clock.h"
+#include "update_engine/common/clock_interface.h"
 #include "update_engine/common/daemon_state_interface.h"
 #include "update_engine/common/download_action.h"
+#include "update_engine/common/error_code.h"
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/metrics_reporter_interface.h"
 #include "update_engine/common/network_selector_interface.h"
 #include "update_engine/common/prefs_interface.h"
-#include "update_engine/common/service_observer_interface.h"
 #include "update_engine/metrics_utils.h"
 #include "update_engine/payload_consumer/filesystem_verifier_action.h"
 #include "update_engine/payload_consumer/postinstall_runner_action.h"
@@ -168,8 +168,8 @@ class UpdateAttempterAndroid
   // |update_completed_marker_| is empty.
   [[nodiscard]] bool WriteUpdateCompletedMarker();
 
-  // Returns whether an update was completed in the current boot.
-  [[nodiscard]] bool UpdateCompletedOnThisBoot();
+  // Returns whether a slot switch was attempted in the current boot.
+  [[nodiscard]] bool UpdateCompletedOnThisBoot() const;
 
   // Prefs to use for metrics report
   // |kPrefsPayloadAttemptNumber|: number of update attempts for the current
@@ -234,6 +234,8 @@ class UpdateAttempterAndroid
   void RemoveCleanupPreviousUpdateCallback(
       CleanupSuccessfulUpdateCallbackInterface* callback);
 
+  bool IsProductionBuild();
+
   DaemonStateInterface* daemon_state_;
 
   // DaemonStateAndroid pointers.
@@ -247,9 +249,6 @@ class UpdateAttempterAndroid
   // TimeTicks to ensure that notifications are sent even if the system clock is
   // set back in the middle of an update.
   base::TimeTicks last_notify_time_;
-
-  // Only direct proxy supported.
-  DirectProxyResolver proxy_resolver_;
 
   // The processor for running Actions.
   std::unique_ptr<ActionProcessor> processor_;
@@ -281,6 +280,10 @@ class UpdateAttempterAndroid
 
   // The path to the zip file with X509 certificates.
   std::string update_certificates_path_{constants::kUpdateCertificatesPath};
+  ErrorCode last_error_{ErrorCode::kSuccess};
+
+  metrics_utils::PersistedValue<int64_t> metric_bytes_downloaded_;
+  metrics_utils::PersistedValue<int64_t> metric_total_bytes_downloaded_;
 
   DISALLOW_COPY_AND_ASSIGN(UpdateAttempterAndroid);
 };

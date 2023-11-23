@@ -31,7 +31,6 @@ from atest import module_info as amodule_info
 
 # pylint: disable=too-many-arguments
 # pylint: disable=protected-access
-# pylint: disable=invalid-name
 class ModuleDataUnittests(unittest.TestCase):
     """Unit tests for module_data.py"""
 
@@ -106,27 +105,27 @@ class ModuleDataUnittests(unittest.TestCase):
             unittest_constants.TEST_MODULE, unittest_constants.MODULE_INFO, 0)
         # Test for aapt2.srcjar
         test_aapt2_srcjar = 'a/aapt2.srcjar'
-        expect_result = 'a/aapt2'
+        expected_result = 'a/aapt2'
         r_dir = module_data._get_r_dir(test_aapt2_srcjar)
-        self.assertEqual(r_dir, expect_result)
+        self.assertEqual(r_dir, expected_result)
 
         # Test for R.srcjar
         test_r_jar = 'b/android/R.srcjar'
-        expect_result = 'b/aapt2/R'
+        expected_result = 'b/aapt2/R'
         r_dir = module_data._get_r_dir(test_r_jar)
-        self.assertEqual(r_dir, expect_result)
+        self.assertEqual(r_dir, expected_result)
 
         # Test the R.srcjar is not under the android folder.
         test_wrong_r_jar = 'b/test/R.srcjar'
-        expect_result = None
+        expected_result = None
         r_dir = module_data._get_r_dir(test_wrong_r_jar)
-        self.assertEqual(r_dir, expect_result)
+        self.assertEqual(r_dir, expected_result)
 
         # Test for the target file is not aapt2.srcjar or R.srcjar
         test_unknown_target = 'c/proto.srcjar'
-        expect_result = None
+        expected_result = None
         r_dir = module_data._get_r_dir(test_unknown_target)
-        self.assertEqual(r_dir, expect_result)
+        self.assertEqual(r_dir, expected_result)
 
     @mock.patch('os.path.exists')
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
@@ -141,16 +140,16 @@ class ModuleDataUnittests(unittest.TestCase):
                                                 test_module, 0)
         # Test the module is not APPS.
         module_data._collect_r_srcs_paths()
-        expect_result = []
-        self.assertEqual(module_data.r_java_paths, expect_result)
+        expected_result = []
+        self.assertEqual(module_data.r_java_paths, expected_result)
 
         # Test the module is not a target module.
         test_module['depth'] = 1
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 1)
         module_data._collect_r_srcs_paths()
-        expect_result = []
-        self.assertEqual(module_data.r_java_paths, expect_result)
+        expected_result = []
+        self.assertEqual(module_data.r_java_paths, expected_result)
 
         # Test the srcjar target doesn't exist.
         test_module['class'] = ['APPS']
@@ -158,8 +157,8 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_r_srcs_paths()
-        expect_result = []
-        self.assertEqual(module_data.r_java_paths, expect_result)
+        expected_result = []
+        self.assertEqual(module_data.r_java_paths, expected_result)
 
         # Test the srcjar target exists.
         test_module['srcjars'] = [('out/soong/.intermediates/packages/apps/'
@@ -167,58 +166,57 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_r_srcs_paths()
-        expect_result = [
+        expected_result = [
             'out/soong/.intermediates/packages/apps/test_aapt2/aapt2'
         ]
-        self.assertEqual(module_data.r_java_paths, expect_result)
+        self.assertEqual(module_data.r_java_paths, expected_result)
         mock_exists.return_value = False
         module_data._collect_r_srcs_paths()
-        expect_result = set([('out/soong/.intermediates/packages/apps/'
-                              'test_aapt2/aapt2.srcjar')])
-        self.assertEqual(module_data.build_targets, expect_result)
-
+        expected_result = {('out/soong/.intermediates/packages/apps/'
+                            'test_aapt2/aapt2.srcjar')}
+        self.assertEqual(module_data.build_targets, expected_result)
 
     def test_parse_source_path(self):
         """Test _parse_source_path."""
         # The package name of e.java is c.d.
         test_java = 'a/b/c/d/e.java'
         package_name = 'c.d'
-        expect_result = 'a/b'
+        expected_result = 'a/b'
         src_path = source_locator.ModuleData._parse_source_path(
             test_java, package_name)
-        self.assertEqual(src_path, expect_result)
+        self.assertEqual(src_path, expected_result)
 
         # The package name of e.java is c.d.
         test_java = 'a/b/c.d/e.java'
         package_name = 'c.d'
-        expect_result = 'a/b'
+        expected_result = 'a/b'
         src_path = source_locator.ModuleData._parse_source_path(
             test_java, package_name)
-        self.assertEqual(src_path, expect_result)
+        self.assertEqual(src_path, expected_result)
 
         # The package name of e.java is x.y.
         test_java = 'a/b/c/d/e.java'
         package_name = 'x.y'
-        expect_result = 'a/b/c/d'
+        expected_result = 'a/b/c/d'
         src_path = source_locator.ModuleData._parse_source_path(
             test_java, package_name)
-        self.assertEqual(src_path, expect_result)
+        self.assertEqual(src_path, expected_result)
 
         # The package name of f.java is c.d.
         test_java = 'a/b/c.d/e/c/d/f.java'
         package_name = 'c.d'
-        expect_result = 'a/b/c.d/e'
+        expected_result = 'a/b/c.d/e'
         src_path = source_locator.ModuleData._parse_source_path(
             test_java, package_name)
-        self.assertEqual(src_path, expect_result)
+        self.assertEqual(src_path, expected_result)
 
         # The package name of f.java is c.d.e.
         test_java = 'a/b/c.d/e/c.d/e/f.java'
         package_name = 'c.d.e'
-        expect_result = 'a/b/c.d/e'
+        expected_result = 'a/b/c.d/e'
         src_path = source_locator.ModuleData._parse_source_path(
             test_java, package_name)
-        self.assertEqual(src_path, expect_result)
+        self.assertEqual(src_path, expected_result)
 
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     def test_append_jar_file(self, mock_android_root_dir):
@@ -284,7 +282,6 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data._append_jar_from_installed(
             os.path.join(unittest_constants.MODULE_PATH, 'tests/'))
         self.assertEqual(module_data.jar_files, [])
-
 
     @mock.patch('aidegen.lib.common_util.get_android_root_dir')
     def test_set_jars_jarfile(self, mock_android_root_dir):
@@ -402,13 +399,13 @@ class ModuleDataUnittests(unittest.TestCase):
         srcjar_path = 'a/b/aapt2.srcjar'
         test_module = dict(unittest_constants.MODULE_INFO)
         test_module['srcjars'] = [srcjar_path]
-        expacted_result = [srcjar_path]
+        expected_result = [srcjar_path]
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_srcjar_path('R.java')
         self.assertEqual(module_data.srcjar_paths, [])
         module_data._collect_srcjar_path(srcjar_path)
-        self.assertEqual(module_data.srcjar_paths, expacted_result)
+        self.assertEqual(module_data.srcjar_paths, expected_result)
 
     @mock.patch('os.path.exists')
     def test_collect_all_srcjar_path(self, mock_exists):
@@ -421,7 +418,7 @@ class ModuleDataUnittests(unittest.TestCase):
             'a/b/aidl1.srcjar',
             'a/b/aidl2.srcjar'
         ]
-        expacted_result = [
+        expected_result = [
             'a/b/aidl0.srcjar',
             'a/b/aidl2.srcjar',
             'a/b/aidl1.srcjar'
@@ -429,17 +426,15 @@ class ModuleDataUnittests(unittest.TestCase):
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_all_srcjar_paths()
-        self.assertEqual(module_data.srcjar_paths, expacted_result)
-
+        self.assertEqual(module_data.srcjar_paths, expected_result)
 
         mock_exists.return_value = False
         test_module['srcjars'] = ['a/b/aidl0.srcjar']
-        expacted_result = set(['a/b/aidl0.srcjar'])
+        expected_result = {'a/b/aidl0.srcjar'}
         module_data = source_locator.ModuleData(unittest_constants.TEST_MODULE,
                                                 test_module, 0)
         module_data._collect_all_srcjar_paths()
-        self.assertEqual(module_data.build_targets, expacted_result)
-
+        self.assertEqual(module_data.build_targets, expected_result)
 
     def test_collect_missing_jars(self):
         """Test _collect_missing_jars."""

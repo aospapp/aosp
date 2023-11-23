@@ -26,6 +26,8 @@ namespace modules {
 class ConfigWriter {
  public:
   void WriteVars(const std::string& var, const std::vector<std::string>& values);
+  // Print `{var} = {value}` if value is not empty
+  void WriteVar(const std::string& var, const std::string& value);
   void WriteLine(const std::string& line);
   std::string ToString();
 

@@ -12,7 +12,8 @@ EOF
 }
 
 # Common kernel options
-OPTIONS=" ANDROID DEBUG_SPINLOCK DEBUG_ATOMIC_SLEEP DEBUG_MUTEXES DEBUG_RT_MUTEXES"
+OPTIONS=" ANDROID GKI_NET_XFRM_HACKS"
+OPTIONS="$OPTIONS DEBUG_SPINLOCK DEBUG_ATOMIC_SLEEP DEBUG_MUTEXES DEBUG_RT_MUTEXES"
 OPTIONS="$OPTIONS WARN_ALL_UNSEEDED_RANDOM IKCONFIG IKCONFIG_PROC"
 OPTIONS="$OPTIONS DEVTMPFS DEVTMPFS_MOUNT FHANDLE"
 OPTIONS="$OPTIONS IPV6 IPV6_ROUTER_PREF IPV6_MULTIPLE_TABLES IPV6_ROUTE_INFO"
@@ -64,12 +65,31 @@ OPTIONS="$OPTIONS BLK_DEV_UBD HOSTFS"
 # QEMU specific options
 OPTIONS="$OPTIONS PCI VIRTIO VIRTIO_PCI VIRTIO_BLK NET_9P NET_9P_VIRTIO 9P_FS"
 OPTIONS="$OPTIONS CRYPTO_DEV_VIRTIO SERIAL_8250 SERIAL_8250_PCI"
+OPTIONS="$OPTIONS SERIAL_8250_CONSOLE PCI_HOST_GENERIC SERIAL_AMBA_PL011"
+OPTIONS="$OPTIONS SERIAL_AMBA_PL011_CONSOLE"
 
 # Obsolete options present at some time in Android kernels
 OPTIONS="$OPTIONS IP_NF_TARGET_REJECT_SKERR IP6_NF_TARGET_REJECT_SKERR"
 
+# b/262323440 - UML *sometimes* seems to have issues with:
+#   UPSTREAM: hardening: Clarify Kconfig text for auto-var-init
+# which is in 4.14.~299/4.19.~266 LTS and which does:
+#   prompt "Initialize kernel stack variables at function entry"
+#   default GCC_PLUGIN_STRUCTLEAK_BYREF_ALL if COMPILE_TEST && GCC_PLUGINS
+#   default INIT_STACK_ALL_PATTERN if COMPILE_TEST && CC_HAS_AUTO_VAR_INIT_PATTERN
+# + default INIT_STACK_ALL_ZERO if CC_HAS_AUTO_VAR_INIT_PATTERN
+#   default INIT_STACK_NONE
+# and thus presumably switches from INIT_STACK_NONE to INIT_STACK_ALL_ZERO
+#
+# My guess it that this is triggering some sort of UML and/or compiler bug...
+# Let's just turn it off... we don't care that much.
+OPTIONS="$OPTIONS INIT_STACK_NONE"
+
 # These two break the flo kernel due to differences in -Werror on recent GCC.
 DISABLE_OPTIONS=" REISERFS_FS ANDROID_PMEM"
+
+# Disable frame size warning on arm64. GCC 10 generates >1k stack frames.
+DISABLE_OPTIONS="$DISABLE_OPTIONS FRAME_WARN"
 
 # How many TAP interfaces to create to provide the VM with real network access
 # via the host. This requires privileges (e.g., root access) on the host.
@@ -84,7 +104,7 @@ DISABLE_OPTIONS=" REISERFS_FS ANDROID_PMEM"
 NUMTAPINTERFACES=0
 
 # The root filesystem disk image we'll use.
-ROOTFS=${ROOTFS:-net_test.rootfs.20150203}
+ROOTFS=${ROOTFS:-net_test.rootfs.20221014}
 COMPRESSED_ROOTFS=$ROOTFS.xz
 URL=https://dl.google.com/dl/android/$COMPRESSED_ROOTFS
 
@@ -107,6 +127,12 @@ cmdline=
 nowrite=1
 nobuild=0
 norun=0
+
+KVER_MAJOR="$(sed -rn 's@^ *VERSION *= *([0-9]+)$@\1@p'    < "${KERNEL_DIR}/Makefile")"
+KVER_MINOR="$(sed -rn 's@^ *PATCHLEVEL *= *([0-9]+)$@\1@p' < "${KERNEL_DIR}/Makefile")"
+KVER_LEVEL="$(sed -rn 's@^ *SUBLEVEL *= *([0-9]+)$@\1@p'   < "${KERNEL_DIR}/Makefile")"
+KVER="${KVER_MAJOR}.${KVER_MINOR}.${KVER_LEVEL}"
+echo "Detected kernel version ${KVER}"
 
 if [[ -z "${DEFCONFIG:-}" ]]; then
   case "${ARCH}" in
@@ -400,7 +426,7 @@ else
 
   # Map the --readonly flag to a QEMU block device flag
   if ((nowrite > 0)); then
-    blockdevice=",readonly"
+    blockdevice=",readonly=on"
   else
     blockdevice=
   fi

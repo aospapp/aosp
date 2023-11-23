@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -141,9 +141,9 @@ public class OldCharacterTest extends TestCase {
     }
 
     public void test_toString() {
-        assertEquals("Incorrect String returned", "T", new Character('T').toString());
-        assertEquals("Incorrect String returned", "1", new Character('1').toString());
-        assertEquals("Incorrect String returned", "$", new Character('$').toString());
+        assertEquals("Incorrect String returned", "T", Character.valueOf('T').toString());
+        assertEquals("Incorrect String returned", "1", Character.valueOf('1').toString());
+        assertEquals("Incorrect String returned", "$", Character.valueOf('$').toString());
     }
 
     public void test_toString_char() {

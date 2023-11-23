@@ -33,12 +33,7 @@ python_test_host {
     ],
     auto_gen_config: true,
     version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         }
     },

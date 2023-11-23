@@ -20,9 +20,6 @@ import static org.mockito.Mockito.verify;
 
 import android.os.SystemClock;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -32,6 +29,9 @@ import org.junit.runners.JUnit4;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Unit tests for the platform-specific {@link TimeoutTerminator}.

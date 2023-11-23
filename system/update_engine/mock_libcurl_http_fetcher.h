@@ -25,9 +25,8 @@ namespace chromeos_update_engine {
 
 class MockLibcurlHttpFetcher : public LibcurlHttpFetcher {
  public:
-  MockLibcurlHttpFetcher(ProxyResolver* proxy_resolver,
-                         HardwareInterface* hardware)
-      : LibcurlHttpFetcher(proxy_resolver, hardware) {}
+  MockLibcurlHttpFetcher(HardwareInterface* hardware)
+      : LibcurlHttpFetcher(hardware) {}
 
   MOCK_METHOD0(GetHttpResponseCode, void());
 };

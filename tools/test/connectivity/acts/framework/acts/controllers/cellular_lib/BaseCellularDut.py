@@ -77,3 +77,11 @@ class BaseCellularDut():
 
         Will be deprecated and replaced by get_rx_tx_power_levels. """
         raise NotImplementedError()
+
+    def start_modem_logging(self):
+        """ Starts on-device log collection. """
+        raise NotImplementedError()
+
+    def stop_modem_logging(self):
+        """ Stops log collection and pulls logs. """
+        raise NotImplementedError()

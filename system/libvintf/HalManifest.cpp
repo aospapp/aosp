@@ -54,7 +54,10 @@ bool HalManifest::shouldAdd(const ManifestHal& hal, std::string* error) const {
     if (hal.isOverride()) {
         return true;
     }
-    return addingConflictingMajorVersion(hal, error);
+    if (!addingConflictingMajorVersion(hal, error)) {
+        return false;
+    }
+    return addingConflictingFqInstance(hal, error);
 }
 
 bool HalManifest::addingConflictingMajorVersion(const ManifestHal& hal, std::string* error) const {
@@ -93,7 +96,63 @@ bool HalManifest::addingConflictingMajorVersion(const ManifestHal& hal, std::str
                 ". Check whether or not multiple modules providing the same HAL are installed.";
         }
     }
+
     return success;
+}
+
+bool HalManifest::addingConflictingFqInstance(const ManifestHal& halToAdd,
+                                              std::string* error) const {
+    if (mSourceMetaVersion < kMetaVersionNoHalInterfaceInstance) {
+        return true;
+    }
+
+    auto existingHals = mHals.equal_range(halToAdd.name);
+
+    // Key: FqInstance with minor version 0
+    // Value: original HAL and FqInstance
+    std::map<FqInstance, std::tuple<const ManifestHal*, ManifestInstance>> existing;
+    for (auto it = existingHals.first; it != existingHals.second; ++it) {
+        const ManifestHal& existingHal = it->second;
+        bool success =
+            existingHal.forEachInstance([&existingHal, &existing](const auto& manifestInstance) {
+                auto versionZero = manifestInstance.version().withMinor(0);
+                auto key = manifestInstance.withVersion(versionZero).getFqInstance();
+                // Assume integrity on existingHals, so no check on emplace().second
+                existing.emplace(key, std::make_tuple(&existingHal, manifestInstance));
+                return true;  // continue
+            });
+        if (!success) {
+            return false;
+        }
+    }
+    return halToAdd.forEachInstance(
+        [&halToAdd, &existing, error](const auto& manifestInstanceToAdd) {
+            auto versionZero = manifestInstanceToAdd.version().withMinor(0);
+            auto key = manifestInstanceToAdd.withVersion(versionZero).getFqInstance();
+
+            auto&& [existingIt, inserted] =
+                existing.emplace(key, std::make_tuple(&halToAdd, manifestInstanceToAdd));
+            if (inserted) {
+                return true;  // continue
+            }
+
+            if (error) {
+                auto&& [existingHal, existingManifestInstance] = existingIt->second;
+                *error = "Conflicting FqInstance: ";
+                *error += existingManifestInstance.descriptionWithoutPackage();
+                if (!existingHal->fileName().empty()) {
+                    *error += " (from " + existingHal->fileName() + ")";
+                }
+                *error += " vs. " + manifestInstanceToAdd.descriptionWithoutPackage();
+                if (!halToAdd.fileName().empty()) {
+                    *error += " (from " + halToAdd.fileName() + ")";
+                }
+                *error +=
+                    ". Check whether or not multiple modules providing the same HAL are installed.";
+            }
+
+            return false;  // break and let addingConflictingFqInstance return false
+        });
 }
 
 // Remove elements from "list" if p(element) returns true.
@@ -118,7 +177,11 @@ void HalManifest::removeHals(const std::string& name, size_t majorVer) {
         removeIf(existingVersions, [majorVer](const auto& existingVersion) {
             return existingVersion.majorVer == majorVer;
         });
-        return existingVersions.empty();
+        auto& existingManifestInstances = existingHal.mManifestInstances;
+        removeIf(existingManifestInstances, [majorVer](const auto& existingManifestInstance) {
+            return existingManifestInstance.version().majorVer == majorVer;
+        });
+        return existingVersions.empty() && existingManifestInstances.empty();
     });
 }
 
@@ -133,6 +196,11 @@ bool HalManifest::add(ManifestHal&& halToAdd, std::string* error) {
         for (const Version& versionToAdd : halToAdd.versions) {
             removeHals(halToAdd.name, versionToAdd.majorVer);
         }
+        // If there are <fqname> tags, remove all existing major versions that causes a conflict.
+        halToAdd.forEachInstance([this, &halToAdd](const auto& manifestInstanceToAdd) {
+            removeHals(halToAdd.name, manifestInstanceToAdd.version().majorVer);
+            return true;  // continue
+        });
     }
 
     if (!shouldAdd(halToAdd, error)) {
@@ -301,9 +369,9 @@ std::set<std::string> HalManifest::checkUnusedHals(
         // If there is at least one match, do not consider it unused.
         if (manifestInstance.format() == HalFormat::HIDL) {
             auto range =
-                childrenMap.equal_range(manifestInstance.getFqInstance().getFqName().string());
+                childrenMap.equal_range(manifestInstance.getFqInstance().getFqNameString());
             for (auto it = range.first; it != range.second; ++it) {
-                FQName fqName;
+                details::FQName fqName;
                 CHECK(fqName.setTo(it->second));
                 if (mat.matchInstance(manifestInstance.format(), fqName.package(),
                                       fqName.getVersion(), fqName.name(),
@@ -318,6 +386,56 @@ std::set<std::string> HalManifest::checkUnusedHals(
         return true;
     });
 
+    return ret;
+}
+
+std::vector<std::string> HalManifest::checkApexHals(const CompatibilityMatrix& mat) const {
+    std::vector<std::string> ret;
+
+    // Validate any APEX-implemented HALs.
+    // Any HALs found within an APEX (hal.updatableViaApex()) must
+    // be declared as updatable-via-apex in the compatibility matrix (matrixHal.updatableViaApex).
+    //
+    //   hal.updatableViaApex == <any> AND matrixHal.updatableViaApex == true   # VALID
+    //   hal.updatableViaApex == <any> AND matrixHal.updatableViaApex == false  # INVALID
+    //   hal.updatableViaApex == "" (not updatable)                             # VALID
+    //
+    // Below check for INVALID case (hal.updatableViaApex == <any> && !matrixHal.updatableViaApex)
+
+    for (const auto& hal : getHals()) {
+        bool updatableViaApex =
+            hal.updatableViaApex().has_value() && !hal.updatableViaApex()->empty();
+
+        if (updatableViaApex) {
+            // Check every instance is contained in the matrix with an updatable apex attribute
+            (void)hal.forEachInstance([&mat, &ret](const auto& manifestInstance) {
+                LOG(DEBUG) << "Checking APEX HAL " << manifestInstance.description();
+                bool supported = false;
+                for (const auto& matrixHal : mat.getHals()) {
+                    if (matrixHal.updatableViaApex) {
+                        // Use false to break out of forEachInstance to indicate a matrix instance
+                        // that supports the manifest instance.
+                        supported = !matrixHal.forEachInstance([&manifestInstance](
+                                                                   const auto& matrixInstance) {
+                            if (matrixInstance.isSatisfiedBy(manifestInstance.getFqInstance())) {
+                                // break out of forEachInstance
+                                return false;
+                            }
+                            return true;
+                        });
+                        if (supported) {
+                            break;
+                        }
+                    }
+                }
+                if (!supported) {
+                    ret.push_back(manifestInstance.description());
+                }
+                // check all instances
+                return true;
+            });
+        }
+    }
     return ret;
 }
 
@@ -439,6 +557,17 @@ bool HalManifest::checkCompatibility(const CompatibilityMatrix& mat, std::string
                 .empty()) {
             return false;
         }
+        // Check APEX-implemented HALs are supported in matrix
+        auto unsupportedApexHals = checkApexHals(mat);
+        if (!unsupportedApexHals.empty()) {
+            if (error != nullptr) {
+                *error = "APEX-implemented HALs not supported in compatibility matrix:\n";
+                for (auto const& n : unsupportedApexHals) {
+                    *error += "\n" + n;
+                }
+            }
+            return false;
+        }
     }
 
     return true;
@@ -495,10 +624,6 @@ void HalManifest::setType(SchemaType type) {
 
 Level HalManifest::level() const {
     return mLevel;
-}
-
-Version HalManifest::getMetaVersion() const {
-    return kMetaVersion;
 }
 
 const Version &HalManifest::sepolicyVersion() const {
@@ -618,7 +743,7 @@ bool HalManifest::insertInstance(const FqInstance& fqInstance, Transport transpo
     hal.format = format;
     hal.transportArch = TransportArch(transport, arch);
     if (!hal.insertInstance(fqInstance, error)) return false;
-    return add(std::move(hal));
+    return add(std::move(hal), error);
 }
 
 bool HalManifest::empty() const {

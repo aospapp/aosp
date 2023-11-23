@@ -81,6 +81,6 @@ java_test {
     ],
     sdk_version: "current",
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }

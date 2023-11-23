@@ -36,6 +36,7 @@ class HelloWorldTest(base_test.BaseTestClass):
 
 
 if __name__ == '__main__':
+  # Pass test arguments after '--' to the test runner.
   index = sys.argv.index('--')
   sys.argv = sys.argv[:1] + sys.argv[index + 1:]
   test_runner.main()

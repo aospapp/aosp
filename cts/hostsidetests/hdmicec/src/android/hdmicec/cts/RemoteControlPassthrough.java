@@ -258,6 +258,11 @@ public final class RemoteControlPassthrough {
                     device,
                     CLASS,
                     "Short press KEYCODE_" + mUserControlPressKeys_20.get(userControlPressKey));
+            // KEYCODE_HOME pressing will let the activity HdmiCecKeyEventCapture be paused.
+            // Resume the activity after tesing for KEYCODE_HOME pressing.
+            if (userControlPressKey == HdmiCecConstants.CEC_KEYCODE_ROOT_MENU) {
+                device.executeShellCommand(START_COMMAND);
+            }
         }
     }
 
@@ -267,7 +272,7 @@ public final class RemoteControlPassthrough {
         userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_DOWN,"DPAD_DOWN");
         userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_LEFT,"DPAD_LEFT");
         userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_RIGHT,"DPAD_RIGHT");
-        userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_ROOT_MENU,"MENU");
+        userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_ROOT_MENU,"HOME");
         userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_SETUP_MENU,"SETTINGS");
         userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_CONTENTS_MENU,"TV_CONTENTS_MENU");
         userControlPressKeys.put(HdmiCecConstants.CEC_KEYCODE_BACK,"BACK");

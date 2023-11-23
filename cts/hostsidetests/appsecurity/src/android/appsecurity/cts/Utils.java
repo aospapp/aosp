@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.CollectingOutputReceiver;
 import com.android.ddmlib.Log;
@@ -30,6 +31,7 @@ import com.android.tradefed.result.TestRunResult;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class Utils {
@@ -84,7 +86,12 @@ public class Utils {
         RemoteAndroidTestRunner testRunner = new RemoteAndroidTestRunner(packageName,
                 "androidx.test.runner.AndroidJUnitRunner", device.getIDevice());
         // timeout_msec is the timeout per test for instrumentation
-        testRunner.addInstrumentationArg("timeout_msec", Long.toString(unit.toMillis(timeout)));
+        long testTimeoutMs = unit.toMillis(timeout);
+        testRunner.addInstrumentationArg("timeout_msec", Long.toString(testTimeoutMs));
+        // Similar logic as InstrumentationTest to ensure on host-side level that no-hanging can happen
+        long maxTimeToOutputMs = testTimeoutMs + testTimeoutMs / 10;
+        testRunner.setMaxTimeToOutputResponse(maxTimeToOutputMs, TimeUnit.MILLISECONDS);
+
         if (testClassName != null && testMethodName != null) {
             testRunner.setMethodName(testClassName, testMethodName);
         } else if (testClassName != null) {
@@ -168,7 +175,7 @@ public class Utils {
         }
         int[] users = new int[] { primary };
         for (Integer user : device.listUsers()) {
-            if ((user != USER_SYSTEM) && (user != primary)) {
+            if ((user != USER_SYSTEM) && !Objects.equals(user, primary)) {
                 users = Arrays.copyOf(users, users.length + 1);
                 users[users.length - 1] = user;
             }
@@ -182,11 +189,11 @@ public class Utils {
                 Log.d(LOG_TAG, "Yay, system is ready!");
                 // or is it really ready?
                 // guard against potential USB mode switch weirdness at boot
-                Thread.sleep(10 * 1000);
+                RunUtil.getDefault().sleep(10 * 1000);
                 return;
             }
             Log.d(LOG_TAG, "Waiting for system ready...");
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         throw new AssertionError("System failed to become ready!");
     }

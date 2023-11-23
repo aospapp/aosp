@@ -16,7 +16,6 @@
 #define LOG_TAG "RadioTest"
 
 #include "radio_aidl_hal_utils.h"
-#include <iostream>
 #include "VtsCoreUtil.h"
 #include "radio_config_utils.h"
 #include "radio_sim_utils.h"
@@ -85,11 +84,15 @@ bool isSsSsEnabled() {
     // Do not use checkSubstringInCommandOutput("getprop persist.radio.multisim.config", "")
     // until b/148904287 is fixed. We need exact matching instead of partial matching. (i.e.
     // by definition the empty string "" is a substring of any string).
-    return !isDsDsEnabled() && !isTsTsEnabled();
+    return !isDsDsEnabled() && !isTsTsEnabled() && !isDsDaEnabled();
 }
 
 bool isDsDsEnabled() {
     return testing::checkSubstringInCommandOutput("getprop persist.radio.multisim.config", "dsds");
+}
+
+bool isDsDaEnabled() {
+    return testing::checkSubstringInCommandOutput("getprop persist.radio.multisim.config", "dsda");
 }
 
 bool isTsTsEnabled() {
@@ -121,8 +124,8 @@ bool isServiceValidForDeviceConfiguration(std::string& serviceName) {
             ALOGI("%s instance is not valid for SSSS device.", serviceName.c_str());
             return false;
         }
-    } else if (isDsDsEnabled()) {
-        // Device is configured as DSDS.
+    } else if (isDsDsEnabled() || isDsDaEnabled()) {
+        // Device is configured as DSDS or DSDA.
         if (!stringEndsWith(serviceName, RADIO_SERVICE_SLOT1_NAME) &&
             !stringEndsWith(serviceName, RADIO_SERVICE_SLOT2_NAME)) {
             ALOGI("%s instance is not valid for DSDS device.", serviceName.c_str());
@@ -140,11 +143,25 @@ bool isServiceValidForDeviceConfiguration(std::string& serviceName) {
     return true;
 }
 
+void RadioServiceTest::SetUp() {
+    ALOGD("BEGIN %s#%s", ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name(),
+          ::testing::UnitTest::GetInstance()->current_test_info()->name());
+    count_ = 0;
+    serial = -1;
+}
+
+void RadioServiceTest::TearDown() {
+    count_ = 0;
+    serial = -1;
+    ALOGD("END %s#%s", ::testing::UnitTest::GetInstance()->current_test_info()->test_suite_name(),
+          ::testing::UnitTest::GetInstance()->current_test_info()->name());
+}
+
 /*
  * Notify that the response message is received.
  */
 void RadioServiceTest::notify(int receivedSerial) {
-    std::unique_lock<std::mutex> lock(mtx_);
+    std::lock_guard<std::mutex> lock(mtx_);
     if (serial == receivedSerial) {
         count_++;
         cv_.notify_one();

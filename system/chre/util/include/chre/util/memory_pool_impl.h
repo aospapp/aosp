@@ -17,10 +17,11 @@
 #ifndef CHRE_UTIL_MEMORY_POOL_IMPL_H_
 #define CHRE_UTIL_MEMORY_POOL_IMPL_H_
 
-#include "chre/util/memory_pool.h"
-
 #include <cinttypes>
 #include <utility>
+
+#include "chre/util/container_support.h"
+#include "chre/util/memory_pool.h"
 
 namespace chre {
 template <typename ElementType, size_t kSize>
@@ -51,14 +52,32 @@ ElementType *MemoryPool<ElementType, kSize>::allocate(Args &&... args) {
 
 template <typename ElementType, size_t kSize>
 void MemoryPool<ElementType, kSize>::deallocate(ElementType *element) {
-  uintptr_t elementAddress = reinterpret_cast<uintptr_t>(element);
-  uintptr_t baseAddress = reinterpret_cast<uintptr_t>(&blocks()[0].mElement);
-  size_t blockIndex = (elementAddress - baseAddress) / sizeof(MemoryPoolBlock);
+  size_t blockIndex;
+  CHRE_ASSERT(getBlockIndex(element, &blockIndex));
 
   blocks()[blockIndex].mElement.~ElementType();
   blocks()[blockIndex].mNextFreeBlockIndex = mNextFreeBlockIndex;
   mNextFreeBlockIndex = blockIndex;
   mFreeBlockCount++;
+}
+
+template <typename ElementType, size_t kSize>
+bool MemoryPool<ElementType, kSize>::containsAddress(ElementType *element) {
+  size_t temp;
+  return getBlockIndex(element, &temp);
+}
+
+template <typename ElementType, size_t kSize>
+bool MemoryPool<ElementType, kSize>::getBlockIndex(ElementType *element,
+                                                   size_t *indexOutput) {
+  uintptr_t elementAddress = reinterpret_cast<uintptr_t>(element);
+  uintptr_t baseAddress = reinterpret_cast<uintptr_t>(&blocks()[0].mElement);
+  *indexOutput = (elementAddress - baseAddress) / sizeof(MemoryPoolBlock);
+
+  return elementAddress >= baseAddress &&
+         elementAddress <=
+             reinterpret_cast<uintptr_t>(&blocks()[kSize - 1].mElement) &&
+         ((elementAddress - baseAddress) % sizeof(MemoryPoolBlock) == 0);
 }
 
 template <typename ElementType, size_t kSize>
@@ -69,7 +88,7 @@ size_t MemoryPool<ElementType, kSize>::getFreeBlockCount() const {
 template <typename ElementType, size_t kSize>
 typename MemoryPool<ElementType, kSize>::MemoryPoolBlock *
 MemoryPool<ElementType, kSize>::blocks() {
-  return reinterpret_cast<MemoryPoolBlock *>(mBlocks);
+  return mBlocks.data();
 }
 
 }  // namespace chre

@@ -55,7 +55,7 @@ class WifiCountrySoftApAcsTest(WifiBaseTest):
             self.openwrt.verify_wifi_status(timeout=60)
 
         req_params = []
-        opt_param = ["cnss_diag_file", "pixel_models"]
+        opt_param = []
 
         self.unpack_userparams(
             req_param_names=req_params, opt_param_names=opt_param)

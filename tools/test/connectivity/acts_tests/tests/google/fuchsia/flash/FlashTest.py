@@ -19,37 +19,29 @@ the Sponge test result properties. Uses the built in flashing tool for
 fuchsia_devices.
 """
 from acts import asserts
+from acts import signals
 from acts.base_test import BaseTestClass
-from acts.controllers.fuchsia_lib.base_lib import DeviceOffline
 from acts.utils import get_device
 
 MAX_FLASH_ATTEMPTS = 3
 
 
 class FlashTest(BaseTestClass):
+
     def setup_class(self):
         super().setup_class()
-        success_str = ("Congratulations! Fuchsia controllers have been "
-                       "initialized successfully!")
-        err_str = ("Sorry, please try verifying FuchsiaDevice is in your "
-                   "config file and try again.")
-        if len(self.fuchsia_devices) > 0:
-            self.log.info(success_str)
-        else:
-            raise signals.TestAbortClass("err_str")
+        self.failed_to_get_version = False
 
     def teardown_class(self):
-        try:
-            dut = get_device(self.fuchsia_devices, 'DUT')
-            version = dut.version()
-            self.record_data({'sponge_properties': {
-                'DUT_VERSION': version,
-            }})
-            self.log.info("DUT version found: {}".format(version))
-        except ValueError as err:
-            self.log.warn("Failed to determine DUT: %s" % err)
-        except DeviceOffline as err:
-            self.log.warn("Failed to get DUT's version: %s" % err)
+        # Verify that FlashTest successfully reported the DUT version. This is
+        # working around a flaw in ACTS where signals.TestAbortAll does not
+        # report any errors.
+        #
+        # TODO(http://b/253515812): This has been fixed in Mobly already. Remove
+        # teardown_class and change "TestError" to "abort_all" in
+        # test_flash_devices once we move to Mobly.
+        if self.failed_to_get_version:
+            asserts.abort_all('Failed to get DUT version')
 
         return super().teardown_class()
 
@@ -84,11 +76,14 @@ class FlashTest(BaseTestClass):
                     device.reboot(reboot_type='hard',
                                   testbed_pdus=self.pdu_devices)
 
-    def test_report_dut_version(self):
-        """Empty test to ensure the version of the DUT is reported in the Sponge
-        results in the case when flashing the device is not necessary.
-
-        Useful for when flashing the device is not necessary; specify ACTS to
-        only run this test from the test class.
-        """
-        pass
+        # Report the new Fuchsia version
+        try:
+            dut = get_device(self.fuchsia_devices, 'DUT')
+            version = dut.version()
+            self.record_data({'sponge_properties': {
+                'DUT_VERSION': version,
+            }})
+            self.log.info("DUT version found: {}".format(version))
+        except Exception as e:
+            self.failed_to_get_version = True
+            raise signals.TestError(f'Failed to get DUT version: {e}') from e

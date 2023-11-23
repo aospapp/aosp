@@ -36,6 +36,7 @@ extern "C" {
 
   bool CreateKeyId(const uint8_t* key_blob, size_t len, km_id_t* out_id);
 
+  // The salt parameter must be non-nullptr and point to 16 bytes of data.
   void generateKeyFromPassword(uint8_t* key, size_t key_len, const char* pw,
                                size_t pw_len, const uint8_t* salt);
 

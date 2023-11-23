@@ -14,8 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import ipaddress
-import itertools
 import random
 import time
 import re
@@ -29,11 +27,10 @@ from acts.controllers.ap_lib.hostapd_security import Security
 from acts.controllers.ap_lib.hostapd_utils import generate_random_password
 from acts.controllers.utils_lib.commands import ip
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 
-class Dhcpv4InteropFixture(AbstractDeviceWlanDeviceBaseTest):
+class Dhcpv4InteropFixture(WifiBaseTest):
     """Test helpers for validating DHCPv4 Interop
 
     Test Bed Requirement:
@@ -41,9 +38,6 @@ class Dhcpv4InteropFixture(AbstractDeviceWlanDeviceBaseTest):
     * One Access Point
     """
     access_point: AccessPoint
-
-    def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
 
     def setup_class(self):
         super().setup_class()
@@ -169,7 +163,7 @@ class Dhcpv4InteropFixture(AbstractDeviceWlanDeviceBaseTest):
             'seconds.' % (interface, timeout))
         timeout = time.time() + timeout
         while time.time() < timeout:
-            ip_addrs = self.dut.get_interface_ip_addresses(interface)
+            ip_addrs = self.dut.device.get_interface_ip_addresses(interface)
 
             if len(ip_addrs['ipv4_private']) > 0:
                 ip = ip_addrs['ipv4_private'][0]
@@ -203,11 +197,9 @@ class Dhcpv4InteropFixture(AbstractDeviceWlanDeviceBaseTest):
         self.log.debug('DHCP Configuration:\n' +
                        dhcp_conf.render_config_file() + "\n")
 
-        dhcp_logs_before = self.access_point.get_dhcp_logs()
+        dhcp_logs_before = self.access_point.get_dhcp_logs().split('\n')
         self.access_point.start_dhcp(dhcp_conf=dhcp_conf)
         self.connect(ap_params=ap_params)
-        dhcp_logs_after = self.access_point.get_dhcp_logs()
-        dhcp_logs = dhcp_logs_after.replace(dhcp_logs_before, '')
 
         # Typical log lines look like:
         # dhcpd[26695]: DHCPDISCOVER from f8:0f:f9:3d:ce:d1 via wlan1
@@ -220,6 +212,11 @@ class Dhcpv4InteropFixture(AbstractDeviceWlanDeviceBaseTest):
         except ConnectionError:
             self.log.warn(dhcp_logs)
             asserts.fail(f'DUT failed to get an IP address')
+
+        # Get updates to DHCP logs
+        dhcp_logs = self.access_point.get_dhcp_logs()
+        for line in dhcp_logs_before:
+            dhcp_logs = dhcp_logs.replace(line, '')
 
         expected_string = f'DHCPDISCOVER from'
         asserts.assert_equal(
@@ -351,6 +348,7 @@ class Dhcpv4InteropBasicTest(Dhcpv4InteropFixture):
 
 
 class Dhcpv4DuplicateAddressTest(Dhcpv4InteropFixture):
+
     def setup_test(self):
         super().setup_test()
         self.extra_addresses = []
@@ -361,7 +359,6 @@ class Dhcpv4DuplicateAddressTest(Dhcpv4InteropFixture):
         super().teardown_test()
         for ip in self.extra_addresses:
             self.ap_ip_cmd.remove_ipv4_address(self.ap_params['id'], ip)
-            pass
 
     def test_duplicate_address_assignment(self):
         """It's possible for a DHCP server to assign an address that already exists on the network.
@@ -442,30 +439,46 @@ class Dhcpv4InteropCombinatorialOptionsTest(Dhcpv4InteropFixture):
     OPT_NUM_DOMAIN_SEARCH = 119
     OPT_NUM_DOMAIN_NAME = 15
 
-    def setup_class(self):
-        super().setup_class()
+    def setup_generated_tests(self):
+        self._generate_dhcp_options()
+
+        test_args = []
+        for test in self.DHCP_OPTIONS:
+            for option_list in self.DHCP_OPTIONS[test]:
+                test_args.append(({
+                    'dhcp_options': option_list,
+                    'dhcp_parameters': {}
+                }, ))
+
+        self.generate_tests(test_logic=self.run_test_case_expect_dhcp_success,
+                            name_func=self.generate_test_name,
+                            arg_sets=test_args)
+
+    def generate_test_name(self, settings):
+        return settings["dhcp_options"]["test_name"]
+
+    def _generate_dhcp_options(self):
         self.DHCP_OPTIONS = {
             'domain-name-tests': [{
-                'domain-name':
-                '"example.invalid"',
-                'dhcp-parameter-request-list':
-                self.OPT_NUM_DOMAIN_NAME
+                'domain-name': '"example.invalid"',
+                'dhcp-parameter-request-list': self.OPT_NUM_DOMAIN_NAME,
+                'test_name': "test_domain_name_invalid_tld"
             }, {
-                'domain-name':
-                '"example.test"',
-                'dhcp-parameter-request-list':
-                self.OPT_NUM_DOMAIN_NAME
+                'domain-name': '"example.test"',
+                'dhcp-parameter-request-list': self.OPT_NUM_DOMAIN_NAME,
+                'test_name': "test_domain_name_valid_tld"
             }],
             'domain-search-tests': [{
                 'domain-search':
                 '"example.invalid"',
                 'dhcp-parameter-request-list':
-                self.OPT_NUM_DOMAIN_SEARCH
+                self.OPT_NUM_DOMAIN_SEARCH,
+                'test_name':
+                "test_domain_search_invalid_tld"
             }, {
-                'domain-search':
-                '"example.test"',
-                'dhcp-parameter-request-list':
-                self.OPT_NUM_DOMAIN_SEARCH
+                'domain-search': '"example.test"',
+                'dhcp-parameter-request-list': self.OPT_NUM_DOMAIN_SEARCH,
+                'test_name': "test_domain_search_valid_tld"
             }]
         }
 
@@ -496,45 +509,7 @@ class Dhcpv4InteropCombinatorialOptionsTest(Dhcpv4InteropFixture):
             'domain-search':
             long_dns_setting,
             'dhcp-parameter-request-list':
-            self.OPT_NUM_DOMAIN_SEARCH
+            self.OPT_NUM_DOMAIN_SEARCH,
+            'test_name':
+            "test_max_sized_message",
         })
-
-    def test_domain_names(self):
-        test_list = []
-        for option_list in self.DHCP_OPTIONS['domain-name-tests']:
-            test_list.append({
-                'dhcp_options': option_list,
-                'dhcp_parameters': {}
-            })
-        self.run_generated_testcases(self.run_test_case_expect_dhcp_success,
-                                     settings=test_list)
-
-    def test_search_domains(self):
-        test_list = []
-        for option_list in self.DHCP_OPTIONS['domain-search-tests']:
-            test_list.append({
-                'dhcp_options': option_list,
-                'dhcp_parameters': {}
-            })
-        self.run_generated_testcases(self.run_test_case_expect_dhcp_success,
-                                     settings=test_list)
-
-    def test_large_messages(self):
-        test_list = []
-        for option_list in self.DHCP_OPTIONS['max-message-size-tests']:
-            test_list.append({
-                'dhcp_options': option_list,
-                'dhcp_parameters': {}
-            })
-        self.run_generated_testcases(self.run_test_case_expect_dhcp_success,
-                                     settings=test_list)
-
-    def test_dns(self):
-        pass
-
-    def test_ignored_options_singularly(self):
-        pass
-
-    def test_all_combinations(self):
-        # TODO: test all the combinations above
-        pass

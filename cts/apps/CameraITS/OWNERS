@@ -1,3 +1,7 @@
-# Bug component: 41727
-include platform/frameworks/av:/camera/OWNERS
+# Bug component: 1181585
 portmannc@google.com
+ruchamk@google.com
+jpliu@google.com
+epeev@google.com
+etalvala@google.com
+shuzhenwang@google.com

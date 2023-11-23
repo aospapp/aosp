@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class AlwaysOnVpnMultiStageTest extends BaseDeviceAdminTest {
 
-    private final int MAX_NUMBER_OF_ATTEMPTS = 5;
+    private final int MAX_NUMBER_OF_ATTEMPTS = 10;
 
     public void testAlwaysOnSet() throws Exception {
         // Setup always-on vpn

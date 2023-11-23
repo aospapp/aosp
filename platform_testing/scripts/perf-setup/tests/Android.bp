@@ -27,6 +27,4 @@ android_test {
     certificate: "platform",
 
     test_config: "configs/perf-setup.xml",
-
-    test_suites: ["device-tests"],
 }

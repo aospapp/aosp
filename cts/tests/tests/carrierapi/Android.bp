@@ -41,6 +41,9 @@ android_test {
         "CtsCarrierApiTargetPrep",
         "cts-tradefed",
     ],
+    data: [
+        ":CtsCarrierApiTargetPrepApp",
+    ],
     // This APK must be signed to match the test SIM's carrier privilege rules.
     // Hard-code the CTS SIM's test key to ensure it is used regardless of build
     // environment.

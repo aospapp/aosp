@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include "android_keymaster_messages.h"
 #include <keymaster/android_keymaster_messages.h>
 #include <keymaster/authorization_set.h>
 
@@ -75,6 +76,7 @@ class AndroidKeymaster {
     void GenerateKey(const GenerateKeyRequest& request, GenerateKeyResponse* response);
     void GenerateRkpKey(const GenerateRkpKeyRequest& request, GenerateRkpKeyResponse* response);
     void GenerateCsr(const GenerateCsrRequest& request, GenerateCsrResponse* response);
+    void GenerateCsrV2(const GenerateCsrV2Request& request, GenerateCsrV2Response* response);
     void GetKeyCharacteristics(const GetKeyCharacteristicsRequest& request,
                                GetKeyCharacteristicsResponse* response);
     void ImportKey(const ImportKeyRequest& request, ImportKeyResponse* response);
@@ -100,6 +102,9 @@ class AndroidKeymaster {
     ConfigureVerifiedBootInfoResponse
     ConfigureVerifiedBootInfo(const ConfigureVerifiedBootInfoRequest& request);
     GetRootOfTrustResponse GetRootOfTrust(const GetRootOfTrustRequest& request);
+    GetHwInfoResponse GetHwInfo();
+    SetAttestationIdsResponse SetAttestationIds(const SetAttestationIdsRequest& request);
+    SetAttestationIdsKM3Response SetAttestationIdsKM3(const SetAttestationIdsKM3Request& request);
 
     bool has_operation(keymaster_operation_handle_t op_handle) const;
 

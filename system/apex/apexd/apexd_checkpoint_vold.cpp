@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "apexd"
-
 #include "apexd_checkpoint_vold.h"
 
 #include <android-base/logging.h>

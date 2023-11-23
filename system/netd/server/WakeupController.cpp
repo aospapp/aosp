@@ -205,14 +205,14 @@ Status WakeupController::execIptables(const std::string& action, const std::stri
                                       const std::string& prefix, uint32_t mark, uint32_t mask) {
     // NFLOG messages to batch before releasing to userspace
     constexpr int kBatch = 8;
-    // Max log message rate in packets/second
-    constexpr int kRateLimit = 10;
     const char kFormat[] =
-        "*mangle\n%s %s -i %s -j NFLOG --nflog-prefix %s --nflog-group %d --nflog-threshold %d"
-        " -m mark --mark 0x%08x/0x%08x -m limit --limit %d/s\nCOMMIT\n";
-    const auto cmd = StringPrintf(
-            kFormat, action.c_str(), WakeupController::LOCAL_MANGLE_INPUT, ifName.c_str(),
-            prefix.c_str(), NetlinkManager::NFLOG_WAKEUP_GROUP, kBatch, mark, mask, kRateLimit);
+        "*mangle\n"
+        "%s %s -i %s -m mark --mark 0x%08x/0x%08x -m limit --limit 10/s"
+        " -j NFLOG --nflog-prefix %s --nflog-group %d --nflog-threshold %d\n"
+        "COMMIT\n";
+    const auto cmd = StringPrintf(kFormat,
+            action.c_str(), WakeupController::LOCAL_MANGLE_INPUT, ifName.c_str(), mark, mask,
+            prefix.c_str(), NetlinkManager::NFLOG_WAKEUP_GROUP, kBatch);
 
     std::string out;
     auto rv = mIptables->execute(V4V6, cmd, &out);

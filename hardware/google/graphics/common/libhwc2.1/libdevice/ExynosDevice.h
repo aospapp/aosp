@@ -17,6 +17,7 @@
 #ifndef _EXYNOSDEVICE_H
 #define _EXYNOSDEVICE_H
 
+#include <aidl/android/hardware/graphics/composer3/OverlayProperties.h>
 #include <aidl/com/google/hardware/pixel/display/BnDisplay.h>
 #include <cutils/atomic.h>
 #include <displaycolor/displaycolor.h>
@@ -35,6 +36,7 @@
 #include <map>
 #include <thread>
 
+#include "ExynosDeviceInterface.h"
 #include "ExynosHWC.h"
 #include "ExynosHWCHelper.h"
 #include "ExynosHWCModule.h"
@@ -61,6 +63,7 @@ using HbmState = ::aidl::com::google::hardware::pixel::display::HbmState;
 using LbeState = ::aidl::com::google::hardware::pixel::display::LbeState;
 using PanelCalibrationStatus = ::aidl::com::google::hardware::pixel::display::PanelCalibrationStatus;
 
+using OverlayProperties = aidl::android::hardware::graphics::composer3::OverlayProperties;
 using namespace android;
 
 struct exynos_callback_info_t {
@@ -141,10 +144,8 @@ enum {
     GEOMETRY_ERROR_CASE                       = 1ULL << 63,
 };
 
-class ExynosDevice;
 class ExynosDisplay;
 class ExynosResourceManager;
-class ExynosDeviceInterface;
 
 class ExynosDevice {
     public:
@@ -153,6 +154,7 @@ class ExynosDevice {
          * Display list that managed by Device.
          */
         android::Vector< ExynosDisplay* > mDisplays;
+        std::map<uint32_t, ExynosDisplay *> mDisplayMap;
 
         int mNumVirtualDisplay;
 
@@ -174,6 +176,8 @@ class ExynosDevice {
         volatile int32_t mDRThreadStatus;
         std::atomic<bool> mDRLoopStatus;
         bool mPrimaryBlank;
+        std::mutex mDRWakeUpMutex;
+        std::condition_variable mDRWakeUpCondition;
 
         /**
          * Callback informations those are used by SurfaceFlinger.
@@ -204,7 +208,8 @@ class ExynosDevice {
         uint32_t mDisplayMode;
 
         // Variable for fence tracer
-        std::map<int, HwcFenceInfo> mFenceInfos;
+        std::map<int, HwcFenceInfo> mFenceInfos GUARDED_BY(mFenceMutex);
+        std::mutex mFenceMutex;
 
         /**
          * This will be initialized with differnt class
@@ -232,7 +237,7 @@ class ExynosDevice {
         /**
          * @param display
          */
-        ExynosDisplay* getDisplay(uint32_t display);
+        ExynosDisplay* getDisplay(uint32_t display) { return mDisplayMap[display]; }
 
         /**
          * Device Functions for HWC 2.0
@@ -278,7 +283,9 @@ class ExynosDevice {
                 int32_t descriptor, hwc2_callback_data_t callbackData, hwc2_function_pointer_t point);
         bool isCallbackAvailable(int32_t descriptor);
         void onHotPlug(uint32_t displayId, bool status);
-        void onRefresh();
+        void onRefresh(uint32_t displayId);
+        void onRefreshDisplays();
+
         void onVsync(uint32_t displayId, int64_t timestamp);
         bool onVsync_2_4(uint32_t displayId, int64_t timestamp, uint32_t vsyncPeriod);
         void onVsyncPeriodTimingChanged(uint32_t displayId,
@@ -292,10 +299,11 @@ class ExynosDevice {
         void setDisplayMode(uint32_t displayMode);
         bool checkDisplayConnection(uint32_t displayId);
         bool checkNonInternalConnection();
+        void getCapabilitiesLegacy(uint32_t *outCount, int32_t *outCapabilities);
         void getCapabilities(uint32_t *outCount, int32_t* outCapabilities);
         void setGeometryChanged(uint64_t changedBit) { mGeometryChanged|= changedBit;};
         void clearGeometryChanged();
-        void setDynamicRecomposition(unsigned int on);
+        void setDynamicRecomposition(uint32_t displayId, unsigned int on);
         bool canSkipValidate();
         bool validateFences(ExynosDisplay *display);
         void compareVsyncPeriod();
@@ -332,6 +340,13 @@ class ExynosDevice {
         int32_t registerHwc3Callback(uint32_t descriptor, hwc2_callback_data_t callbackData,
                                      hwc2_function_pointer_t point);
         void onVsyncIdle(hwc2_display_t displayId);
+        bool isDispOffAsyncSupported() { return mDisplayOffAsync; };
+        bool hasOtherDisplayOn(ExynosDisplay *display);
+        virtual int32_t getOverlaySupport([[maybe_unused]] OverlayProperties* caps){
+            return HWC2_ERROR_UNSUPPORTED;
+        }
+
+        void onRefreshRateChangedDebug(hwc2_display_t displayId, uint32_t vsyncPeriod);
 
     protected:
         void initDeviceInterface(uint32_t interfaceType);
@@ -345,29 +360,13 @@ class ExynosDevice {
         bool isCallbackRegisteredLocked(int32_t descriptor);
 
     public:
-        bool isLbeSupported();
-        void setLbeState(LbeState state);
-        void setLbeAmbientLight(int value);
-        LbeState getLbeState();
-
-        bool isLhbmSupported();
-        int32_t setLhbmState(bool enabled);
-        bool getLhbmState();
-        int setMinIdleRefreshRate(const int fps);
-        int setRefreshRateThrottle(const int delayMs);
-
-        bool isColorCalibratedByDevice();
-
-        PanelCalibrationStatus getPanelCalibrationStatus();
-
-    public:
         void enterToTUI() { mIsInTUI = true; };
         void exitFromTUI() { mIsInTUI = false; };
         bool isInTUI() { return mIsInTUI; };
 
     private:
-        bool mLbeSupported;
         bool mIsInTUI;
+        bool mDisplayOffAsync;
 };
 
 #endif //_EXYNOSDEVICE_H

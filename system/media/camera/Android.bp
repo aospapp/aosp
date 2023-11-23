@@ -67,7 +67,7 @@ cc_library_shared {
     local_include_dirs: ["include"],
 
     static_libs: [
-        "android.hardware.camera.metadata-V1-ndk",
+        "android.hardware.camera.metadata-V2-ndk",
     ],
 
     cflags: [

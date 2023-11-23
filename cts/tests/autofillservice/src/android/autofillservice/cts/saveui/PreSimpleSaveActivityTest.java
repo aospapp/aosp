@@ -43,11 +43,12 @@ import android.service.autofill.BatchUpdates;
 import android.service.autofill.CustomDescription;
 import android.service.autofill.RegexValidator;
 import android.service.autofill.Validator;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 import android.view.autofill.AutofillId;
 import android.widget.RemoteViews;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiObject2;
 
 import java.util.regex.Pattern;
 

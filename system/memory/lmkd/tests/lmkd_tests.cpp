@@ -38,10 +38,13 @@ using namespace android::base;
 #define LMKD_LOGCAT_MARKER "lowmemorykiller"
 #define LMKD_KILL_TEMPLATE "Kill \'[^']*\' \\\(%d\\)"
 #define LMKD_REAP_TEMPLATE "Process %d was reaped"
+#define LMKD_REAP_FAIL_TEMPLATE "process_mrelease %d failed"
 
 #define LMKD_KILL_LINE_START LMKD_LOGCAT_MARKER ": Kill"
 #define LMKD_REAP_LINE_START LMKD_LOGCAT_MARKER ": Process"
 #define LMKD_REAP_TIME_TEMPLATE LMKD_LOGCAT_MARKER ": Process %d was reaped in %ldms"
+#define LMKD_REAP_MRELESE_ERR_MARKER ": process_mrelease"
+#define LMKD_REAP_NO_PROCESS_TEMPLATE ": process_mrelease %d failed: No such process"
 
 #define ONE_MB (1 << 20)
 
@@ -161,6 +164,12 @@ class LmkdTest : public ::testing::Test {
                reap_pid == pid;
     }
 
+    static bool ParseReapNoProcess(const std::string& line, pid_t pid) {
+        int reap_pid;
+        return sscanf(line.c_str(), LMKD_REAP_NO_PROCESS_TEMPLATE, &reap_pid) == 1 &&
+               reap_pid == pid;
+    }
+
   private:
     int sock;
     uid_t uid;
@@ -187,8 +196,9 @@ TEST_F(LmkdTest, TargetReaping) {
         FAIL() << "Target process " << pid << " was not killed";
     }
 
-    std::string regex =
-            StringPrintf("((" LMKD_KILL_TEMPLATE ")|(" LMKD_REAP_TEMPLATE "))", pid, pid);
+    std::string regex = StringPrintf("((" LMKD_KILL_TEMPLATE ")|(" LMKD_REAP_TEMPLATE
+                                     ")|(" LMKD_REAP_FAIL_TEMPLATE "))",
+                                     pid, pid, pid);
     std::string logcat_out = ReadLogcat(LMKD_LOGCAT_MARKER ":I", regex);
 
     // find kill report
@@ -202,7 +212,18 @@ TEST_F(LmkdTest, TargetReaping) {
 
     // find reap duration report
     line_start = logcat_out.find(LMKD_REAP_LINE_START, line_end);
-    ASSERT_TRUE(line_start != std::string::npos) << "Reaping time report is not found";
+    if (line_start == std::string::npos) {
+        // Target might have exited before reaping started
+        line_start = logcat_out.find(LMKD_REAP_MRELESE_ERR_MARKER, line_end);
+
+        ASSERT_TRUE(line_start != std::string::npos) << "Reaping time report is not found";
+
+        line_end = logcat_out.find('\n', line_start);
+        line = logcat_out.substr(line_start, line_end == std::string::npos ? std::string::npos
+                                                                           : line_end - line_start);
+        ASSERT_TRUE(ParseReapNoProcess(line, pid)) << "Failed to reap the target " << pid;
+        return;
+    }
     line_end = logcat_out.find('\n', line_start);
     line = logcat_out.substr(
             line_start, line_end == std::string::npos ? std::string::npos : line_end - line_start);

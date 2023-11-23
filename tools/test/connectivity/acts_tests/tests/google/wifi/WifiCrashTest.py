@@ -15,8 +15,6 @@
 #   limitations under the License.
 
 import itertools
-import pprint
-import queue
 import time
 
 import acts.base_test
@@ -39,6 +37,7 @@ WIFI_VENDOR_EXT_HAL_DAEMON_KILL_SHELL_COMMAND = "killall vendor.google.wifi_ext@
 WIFI_VENDOR_HAL_DAEMON = "android.hardware.wifi@1.0-service"
 WIFI_VENDOR_HAL_DAEMON_KILL_SHELL_COMMAND = "killall android.hardware.wifi@1.0-service"
 
+
 class WifiCrashTest(WifiBaseTest):
     """Crash Tests for wifi stack.
 
@@ -46,6 +45,7 @@ class WifiCrashTest(WifiBaseTest):
     * One Android device
     * One Wi-Fi network visible to the device.
     """
+
     def __init__(self, configs):
         super().__init__(configs)
         self.enable_packet_log = True
@@ -57,8 +57,8 @@ class WifiCrashTest(WifiBaseTest):
         wutils.wifi_test_device_init(self.dut)
         req_params = []
         opt_param = ["reference_networks"]
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
 
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
@@ -87,8 +87,8 @@ class WifiCrashTest(WifiBaseTest):
             del self.user_params["reference_networks"]
 
     """Helper Functions"""
-
     """Tests"""
+
     @test_tracker_info(uuid="b87fd23f-9bfc-406b-a5b2-17ce6be6c780")
     def test_wifi_framework_crash_reconnect(self):
         """Connect to a network, crash framework, then ensure
@@ -185,5 +185,6 @@ class WifiCrashTest(WifiBaseTest):
         time.sleep(RECOVERY_TIMEOUT)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.network[WifiEnums.SSID_KEY]:
-            raise signals.TestFailure("Device did not connect to the"
-                                      " network after crashing wpa_supplicant.")
+            raise signals.TestFailure(
+                "Device did not connect to the"
+                " network after crashing wpa_supplicant.")

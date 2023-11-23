@@ -69,8 +69,10 @@ public class CrossProcessExceptionService extends Service {
                         throw new SecurityException("SE");
                     case "ARE":
                         final PendingIntent pi = PendingIntent.getActivity(
-                                CrossProcessExceptionService.this, 12, new Intent(),
-                                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                                CrossProcessExceptionService.this, 12,
+                                new Intent().setPackage(
+                                        CrossProcessExceptionService.this.getPackageName()),
+                                PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE);
                         throw new AuthenticationRequiredException(new FileNotFoundException("FNFE"), pi);
                     case "RE":
                         throw new RuntimeException("RE");

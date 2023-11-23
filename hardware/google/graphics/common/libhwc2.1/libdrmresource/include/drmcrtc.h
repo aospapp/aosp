@@ -70,6 +70,9 @@ class DrmCrtc {
   const DrmProperty &histogram_roi_property() const;
   const DrmProperty &histogram_weights_property() const;
   const DrmProperty &histogram_threshold_property() const;
+  const DrmProperty &histogram_position_property() const;
+
+  const DrmProperty &rcd_plane_id_property() const;
 
   const std::vector<DrmProperty *> &properties() const {
       return properties_;
@@ -110,6 +113,9 @@ class DrmCrtc {
   DrmProperty histogram_roi_property_;
   DrmProperty histogram_weights_property_;
   DrmProperty histogram_threshold_property_;
+  DrmProperty histogram_position_property_;
+
+  DrmProperty rcd_plane_id_property_;
 
   std::vector<DrmProperty *> properties_;
 };

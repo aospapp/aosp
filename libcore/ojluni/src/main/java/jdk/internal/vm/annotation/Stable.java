@@ -72,6 +72,9 @@ import java.lang.annotation.*;
  * are ignored.
  */
 @Target(ElementType.FIELD)
-@Retention(RetentionPolicy.RUNTIME)
+// Android-changed: SOURCE is enough, as we do not use the annotation in the
+// runtime
+// @Retention(RetentionPolicy.RUNTIME)
+@Retention(RetentionPolicy.SOURCE)
 public @interface Stable {
 }

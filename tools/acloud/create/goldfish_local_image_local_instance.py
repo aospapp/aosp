@@ -59,10 +59,6 @@ logger = logging.getLogger(__name__)
 _EMULATOR_BIN_NAME = "emulator"
 _EMULATOR_BIN_DIR_NAMES = ("bin64", "qemu")
 _SDK_REPO_EMULATOR_DIR_NAME = "emulator"
-# The pattern corresponds to the officially released GKI (Generic Kernel
-# Image). The names are boot-<kernel version>.img. Emulator has no boot.img.
-_BOOT_IMAGE_NAME_PATTERN = r"boot-[\d.]+\.img"
-_SYSTEM_IMAGE_NAME_PATTERN = r"system\.img"
 _NON_MIXED_BACKUP_IMAGE_EXT = ".bak-non-mixed"
 _BUILD_PROP_FILE_NAME = "build.prop"
 # Timeout
@@ -405,14 +401,10 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
             A pair of strings, the paths to kernel image and ramdisk image.
         """
         # Find generic boot image.
-        try:
-            boot_image_path = create_common.FindLocalImage(
-                kernel_search_path, _BOOT_IMAGE_NAME_PATTERN)
-            logger.info("Found boot image: %s", boot_image_path)
-        except errors.GetLocalImageError:
-            boot_image_path = None
-
+        boot_image_path = create_common.FindBootImage(kernel_search_path,
+                                                      raise_error=False)
         if boot_image_path:
+            logger.info("Found boot image: %s", boot_image_path)
             return goldfish_utils.MixWithBootImage(
                 os.path.join(instance_dir, "mix_kernel"),
                 self._FindImageDir(image_dir),
@@ -456,8 +448,7 @@ class GoldfishLocalImageLocalInstance(base_avd_create.BaseAVDCreate):
             image_dir = self._FindImageDir(avd_spec.local_image_dir)
             mixed_image = goldfish_utils.MixWithSystemImage(
                 os.path.join(instance_dir, "mix_disk"), image_dir,
-                create_common.FindLocalImage(avd_spec.local_system_image,
-                                             _SYSTEM_IMAGE_NAME_PATTERN),
+                create_common.FindSystemImage(avd_spec.local_system_image),
                 ota_tools.FindOtaTools(ota_tools_search_paths))
 
             # TODO(b/142228085): Use -system instead of modifying image_dir.

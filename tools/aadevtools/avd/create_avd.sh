@@ -84,8 +84,8 @@ if [[ ! -e "${AVD_IMG_DIR}" ]]; then
 fi
 
 ABI=$(ls "${AVD_IMG_DIR}")
-if [[ "${ABI}" != "x86" && "${ABI}" != "x86_64" ]]; then
-  echo "ERROR: AVD image zip file format incorrect as ${AVD_DIR} should contain x86 or x86_64 as: https://source.android.com/devices/automotive/start/avd#pack-an-avd-image-zip-file "
+if [[ "${ABI}" != "x86" && "${ABI}" != "x86_64" && "${ABI}" != "arm64" && "${ABI}" != "arm64-v8a" ]]; then
+  echo "ERROR: AVD image zip file format incorrect as ${AVD_DIR} should contain x86, x86_64, arm64 or arm64-v8a as: https://source.android.com/devices/automotive/start/avd#pack-an-avd-image-zip-file "
   exit
 fi
 echo "ABI=${ABI}"
@@ -154,6 +154,12 @@ exportVar "RAM" "4096"
 exportVar "HEAP" "576"
 exportVar "DATA" "6G"
 
+if [[ "${ABI}" == "arm64-v8a" ]]; then
+  HW_ARCH="arm64"
+else
+  HW_ARCH=${ABI}
+fi
+
 echo "avd.ini.encoding=UTF-8
 AvdId=${AVD_NAME}
 avd.ini.displayname=${AVD_NAME}
@@ -164,7 +170,7 @@ abi.type=${ABI}
 hw.arc=false
 hw.device.manufacturer=${MANUFACTURER}
 hw.device.name=${DEVICE_PROFILE_NAME}
-hw.cpu.arch=${ABI}
+hw.cpu.arch=${HW_ARCH}
 hw.cpu.ncore=${NCORE}
 hw.gpu.enabled=yes
 hw.gpu.mode=auto

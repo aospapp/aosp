@@ -33,7 +33,7 @@ import java.security.*;
 import java.security.cert.CertificateException;
 import java.util.zip.ZipEntry;
 
-import sun.misc.JarIndex;
+import jdk.internal.util.jar.JarIndex;
 import sun.security.util.ManifestDigester;
 import sun.security.util.ManifestEntryVerifier;
 import sun.security.util.SignatureFileVerifier;
@@ -85,6 +85,9 @@ class JarVerifier {
     /** the bytes for the manDig object */
     byte manifestRawBytes[] = null;
 
+    /** the manifest name this JarVerifier is created upon */
+    final String manifestName;
+
     /** controls eager signature validation */
     boolean eagerValidation;
 
@@ -94,7 +97,8 @@ class JarVerifier {
     /** collect -DIGEST-MANIFEST values for blacklist */
     private List<Object> manifestDigests;
 
-    public JarVerifier(byte rawBytes[]) {
+    public JarVerifier(String name, byte rawBytes[]) {
+        manifestName = name;
         manifestRawBytes = rawBytes;
         sigFileSigners = new Hashtable<>();
         verifiedSigners = new Hashtable<>();
@@ -901,5 +905,25 @@ class JarVerifier {
 
     static CodeSource getUnsignedCS(URL url) {
         return new VerifierCodeSource(null, url, (java.security.cert.Certificate[]) null);
+    }
+
+    /**
+     * Returns whether the name is trusted. Used by
+     * {@link Manifest#getTrustedAttributes(String)}.
+     */
+    boolean isTrustedManifestEntry(String name) {
+        // How many signers? MANIFEST.MF is always verified
+        CodeSigner[] forMan = verifiedSigners.get(manifestName);
+        if (forMan == null) {
+            return true;
+        }
+        // Check sigFileSigners first, because we are mainly dealing with
+        // non-file entries which will stay in sigFileSigners forever.
+        CodeSigner[] forName = sigFileSigners.get(name);
+        if (forName == null) {
+            forName = verifiedSigners.get(name);
+        }
+        // Returns trusted if all signers sign the entry
+        return forName != null && forName.length == forMan.length;
     }
 }

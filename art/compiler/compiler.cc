@@ -25,10 +25,10 @@
 #include "oat.h"
 #include "optimizing/optimizing_compiler.h"
 
-namespace art {
+namespace art HIDDEN {
 
 Compiler* Compiler::Create(const CompilerOptions& compiler_options,
-                           CompiledMethodStorage* storage,
+                           CompiledCodeStorage* storage,
                            Compiler::Kind kind) {
   // Check that oat version when runtime was compiled matches the oat version of the compiler.
   constexpr std::array<uint8_t, 4> compiler_oat_version = OatHeader::kOatVersion;

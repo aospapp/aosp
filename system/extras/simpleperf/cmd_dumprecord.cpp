@@ -15,6 +15,7 @@
  */
 
 #include <inttypes.h>
+#include <stdint.h>
 
 #include <map>
 #include <string>
@@ -25,6 +26,7 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
+#include "ETMBranchListFile.h"
 #include "ETMDecoder.h"
 #include "command.h"
 #include "dso.h"
@@ -177,6 +179,18 @@ ExtractFieldFn GetExtractFieldFunction(const TracingField& field) {
   return ExtractUnknownField;
 }
 
+class ETMThreadTreeForDumpCmd : public ETMThreadTree {
+ public:
+  ETMThreadTreeForDumpCmd(ThreadTree& thread_tree) : thread_tree_(thread_tree) {}
+
+  void DisableThreadExitRecords() override { thread_tree_.DisableThreadExitRecords(); }
+  const ThreadEntry* FindThread(int tid) override { return thread_tree_.FindThread(tid); }
+  const MapSet& GetKernelMaps() override { return thread_tree_.GetKernelMaps(); }
+
+ private:
+  ThreadTree& thread_tree_;
+};
+
 class DumpRecordCommand : public Command {
  public:
   DumpRecordCommand()
@@ -201,7 +215,7 @@ class DumpRecordCommand : public Command {
   void ProcessSampleRecord(const SampleRecord& r);
   void ProcessCallChainRecord(const CallChainRecord& r);
   SymbolInfo GetSymbolInfo(uint32_t pid, uint32_t tid, uint64_t ip, bool in_kernel);
-  void ProcessTracingData(const TracingDataRecord& r);
+  bool ProcessTracingData(const TracingDataRecord& r);
   bool DumpAuxData(const AuxRecord& aux);
   bool DumpFeatureSection();
 
@@ -211,6 +225,7 @@ class DumpRecordCommand : public Command {
 
   std::unique_ptr<RecordFileReader> record_file_reader_;
   std::unique_ptr<ETMDecoder> etm_decoder_;
+  std::unique_ptr<ETMThreadTree> etm_thread_tree_;
   ThreadTree thread_tree_;
 
   std::vector<EventInfo> events_;
@@ -305,11 +320,11 @@ void DumpRecordCommand::DumpFileHeader() {
 }
 
 void DumpRecordCommand::DumpAttrSection() {
-  std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
+  const EventAttrIds& attrs = record_file_reader_->AttrSection();
   for (size_t i = 0; i < attrs.size(); ++i) {
     const auto& attr = attrs[i];
     printf("attr %zu:\n", i + 1);
-    DumpPerfEventAttr(*attr.attr, 1);
+    DumpPerfEventAttr(attr.attr, 1);
     if (!attr.ids.empty()) {
       printf("  ids:");
       for (const auto& id : attr.ids) {
@@ -322,7 +337,9 @@ void DumpRecordCommand::DumpAttrSection() {
 
 bool DumpRecordCommand::DumpDataSection() {
   thread_tree_.ShowIpForUnknownSymbol();
-  record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_);
+  if (!record_file_reader_->LoadBuildIdAndFileFeatures(thread_tree_)) {
+    return false;
+  }
 
   auto record_callback = [&](std::unique_ptr<Record> r) { return ProcessRecord(r.get()); };
   return record_file_reader_->ReadDataSection(record_callback);
@@ -341,7 +358,8 @@ bool DumpRecordCommand::ProcessRecord(Record* r) {
       ProcessCallChainRecord(*static_cast<CallChainRecord*>(r));
       break;
     case PERF_RECORD_AUXTRACE_INFO: {
-      etm_decoder_ = ETMDecoder::Create(*static_cast<AuxTraceInfoRecord*>(r), thread_tree_);
+      etm_thread_tree_.reset(new ETMThreadTreeForDumpCmd(thread_tree_));
+      etm_decoder_ = ETMDecoder::Create(*static_cast<AuxTraceInfoRecord*>(r), *etm_thread_tree_);
       if (etm_decoder_) {
         etm_decoder_->EnableDump(etm_dump_option_);
       } else {
@@ -355,7 +373,7 @@ bool DumpRecordCommand::ProcessRecord(Record* r) {
     }
     case PERF_RECORD_TRACING_DATA:
     case SIMPLE_PERF_RECORD_TRACING_DATA: {
-      ProcessTracingData(*static_cast<TracingDataRecord*>(r));
+      res = ProcessTracingData(*static_cast<TracingDataRecord*>(r));
       break;
     }
   }
@@ -413,29 +431,41 @@ SymbolInfo DumpRecordCommand::GetSymbolInfo(uint32_t pid, uint32_t tid, uint64_t
 }
 
 bool DumpRecordCommand::DumpAuxData(const AuxRecord& aux) {
+  if (aux.data->aux_size > SIZE_MAX) {
+    LOG(ERROR) << "invalid aux size";
+    return false;
+  }
   size_t size = aux.data->aux_size;
   if (size > 0) {
-    std::unique_ptr<uint8_t[]> data(new uint8_t[size]);
-    if (!record_file_reader_->ReadAuxData(aux.Cpu(), aux.data->aux_offset, data.get(), size)) {
+    std::vector<uint8_t> data;
+    bool error = false;
+    if (!record_file_reader_->ReadAuxData(aux.Cpu(), aux.data->aux_offset, size, data, error)) {
+      return !error;
+    }
+    if (!etm_decoder_) {
+      LOG(ERROR) << "ETMDecoder isn't created";
       return false;
     }
-    return etm_decoder_->ProcessData(data.get(), size, !aux.Unformatted(), aux.Cpu());
+    return etm_decoder_->ProcessData(data.data(), size, !aux.Unformatted(), aux.Cpu());
   }
   return true;
 }
 
-void DumpRecordCommand::ProcessTracingData(const TracingDataRecord& r) {
-  Tracing tracing(std::vector<char>(r.data, r.data + r.data_size));
-  std::vector<EventAttrWithId> attrs = record_file_reader_->AttrSection();
+bool DumpRecordCommand::ProcessTracingData(const TracingDataRecord& r) {
+  auto tracing = Tracing::Create(std::vector<char>(r.data, r.data + r.data_size));
+  if (!tracing) {
+    return false;
+  }
+  const EventAttrIds& attrs = record_file_reader_->AttrSection();
   events_.resize(attrs.size());
   for (size_t i = 0; i < attrs.size(); i++) {
     auto& attr = attrs[i].attr;
     auto& event = events_[i];
 
-    if (attr->type != PERF_TYPE_TRACEPOINT) {
+    if (attr.type != PERF_TYPE_TRACEPOINT) {
       continue;
     }
-    TracingFormat format = tracing.GetTracingFormatHavingId(attr->config);
+    TracingFormat format = tracing->GetTracingFormatHavingId(attr.config);
     event.tp_fields = format.fields;
     // Decide dump function for each field.
     for (size_t j = 0; j < event.tp_fields.size(); j++) {
@@ -444,6 +474,7 @@ void DumpRecordCommand::ProcessTracingData(const TracingDataRecord& r) {
       event.tp_data_size += field.elem_count * field.elem_size;
     }
   }
+  return true;
 }
 
 bool DumpRecordCommand::DumpFeatureSection() {
@@ -469,9 +500,10 @@ bool DumpRecordCommand::DumpFeatureSection() {
       PrintIndented(1, "cmdline: %s\n", android::base::Join(cmdline, ' ').c_str());
     } else if (feature == FEAT_FILE || feature == FEAT_FILE2) {
       FileFeature file;
-      size_t read_pos = 0;
+      uint64_t read_pos = 0;
+      bool error = false;
       PrintIndented(1, "file:\n");
-      while (record_file_reader_->ReadFileFeature(read_pos, &file)) {
+      while (record_file_reader_->ReadFileFeature(read_pos, file, error)) {
         PrintIndented(2, "file_path %s\n", file.path.c_str());
         PrintIndented(2, "file_type %s\n", DsoTypeToString(file.type));
         PrintIndented(2, "min_vaddr 0x%" PRIx64 "\n", file.min_vaddr);
@@ -487,6 +519,9 @@ bool DumpRecordCommand::DumpFeatureSection() {
             PrintIndented(3, "0x%" PRIx64 "\n", offset);
           }
         }
+      }
+      if (error) {
+        return false;
       }
     } else if (feature == FEAT_META_INFO) {
       PrintIndented(1, "meta_info:\n");
@@ -504,6 +539,35 @@ bool DumpRecordCommand::DumpFeatureSection() {
         for (const DebugUnwindFile& file : opt_debug_unwind.value()) {
           PrintIndented(2, "path: %s\n", file.path.c_str());
           PrintIndented(2, "size: %" PRIu64 "\n", file.size);
+        }
+      }
+    } else if (feature == FEAT_ETM_BRANCH_LIST) {
+      std::string data;
+      if (!record_file_reader_->ReadFeatureSection(FEAT_ETM_BRANCH_LIST, &data)) {
+        return false;
+      }
+      BranchListBinaryMap binary_map;
+      if (!StringToBranchListBinaryMap(data, binary_map)) {
+        return false;
+      }
+      PrintIndented(1, "etm_branch_list:\n");
+      for (const auto& [key, binary] : binary_map) {
+        PrintIndented(2, "path: %s\n", key.path.c_str());
+        PrintIndented(2, "build_id: %s\n", key.build_id.ToString().c_str());
+        PrintIndented(2, "binary_type: %s\n", DsoTypeToString(binary.dso_type));
+        if (binary.dso_type == DSO_KERNEL) {
+          PrintIndented(2, "kernel_start_addr: 0x%" PRIx64 "\n", key.kernel_start_addr);
+        }
+        for (const auto& [addr, branches] : binary.GetOrderedBranchMap()) {
+          PrintIndented(3, "addr: 0x%" PRIx64 "\n", addr);
+          for (const auto& [branch, count] : branches) {
+            std::string s = "0b";
+            for (auto it = branch.rbegin(); it != branch.rend(); ++it) {
+              s.push_back(*it ? '1' : '0');
+            }
+            PrintIndented(3, "branch: %s\n", s.c_str());
+            PrintIndented(3, "count: %" PRIu64 "\n", count);
+          }
         }
       }
     }

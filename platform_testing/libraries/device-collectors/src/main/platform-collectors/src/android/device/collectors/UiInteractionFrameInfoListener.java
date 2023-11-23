@@ -98,7 +98,6 @@ public class UiInteractionFrameInfoListener extends BaseCollectionListener<Strin
                 result = Double.max(result, Double.parseDouble(token));
             } else {
                 result += Double.parseDouble(token);
-                result = UiInteractionFrameInfoHelper.makeLogFriendly(Math.floor(result));
             }
         }
         data.addStringMetric(key, Double.toString(result));

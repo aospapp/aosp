@@ -28,10 +28,22 @@ namespace chre {
 void *memoryAlloc(size_t size);
 
 /**
+ * A platform abstraction for aligned memory allocation. The semantics are the
+ * same as aligned_malloc.
+ *
+ * This implementation is optional and is not typically needed.
+ */
+
+template <typename T>
+T *memoryAlignedAlloc();
+
+/**
  * A platform abstraction for memory free. The semantics are the same as free.
  */
 void memoryFree(void *pointer);
 
 }  // namespace chre
+
+#include "chre/target_platform/memory_impl.h"
 
 #endif  // CHRE_PLATFORM_MEMORY_H_

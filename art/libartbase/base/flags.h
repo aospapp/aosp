@@ -236,8 +236,8 @@ class Flag : public FlagBase {
 //
 //     Flag<int> WriteMetricsToLog{"my-feature-test.flag", 42, FlagType::kDeviceConfig};
 //
-// This creates a boolean flag that can be read through gFlags.WriteMetricsToLog(). The default
-// value is false. Note that the default value can be left unspecified, in which the value of the
+// This creates an integer flag that can be read through gFlags.WriteMetricsToLog(). The default
+// value is 42. Note that the default value can be left unspecified, in which case the value of the
 // type's default constructor will be used.
 //
 // The flag can be set through the following generated means:
@@ -263,22 +263,23 @@ struct Flags {
 
   // The reporting spec for regular apps. An example of valid value is "S,1,2,4,*".
   // See metrics::ReportingPeriodSpec for complete docs.
-  Flag<std::string> MetricsReportingSpec{"metrics.reporting-spec", "", FlagType::kDeviceConfig};
+  Flag<std::string> MetricsReportingSpec{
+      "metrics.reporting-spec", "1,5,30,60,600", FlagType::kDeviceConfig};
 
   // The reporting spec for the system server. See MetricsReportingSpec as well.
-  Flag<std::string> MetricsReportingSpecSystemServer{"metrics.reporting-spec-server", "",
-      FlagType::kDeviceConfig};
+  Flag<std::string> MetricsReportingSpecSystemServer{
+      "metrics.reporting-spec-server", "1,10,60,3600,*", FlagType::kDeviceConfig};
 
   // The mods that should report metrics. Together with MetricsReportingNumMods, they
   // dictate what percentage of the runtime execution will report metrics.
   // If the `session_id (a random number) % MetricsReportingNumMods < MetricsReportingMods`
   // then the runtime session will report metrics.
   //
-  // By default, the mods are 0, which means the reporting is disabled.
-  Flag<uint32_t> MetricsReportingMods{"metrics.reporting-mods", 0,
-      FlagType::kDeviceConfig};
-  Flag<uint32_t> MetricsReportingModsServer{"metrics.reporting-mods-server", 0,
-      FlagType::kDeviceConfig};
+  // By default, the mods are 2, which means that 2 out of #{reporting-num-mods} of Android sessions
+  // will be reported (with the default values this is 2/100 = 2%).
+  Flag<uint32_t> MetricsReportingMods{"metrics.reporting-mods", 2, FlagType::kDeviceConfig};
+  Flag<uint32_t> MetricsReportingModsServer{
+      "metrics.reporting-mods-server", 2, FlagType::kDeviceConfig};
 
   // See MetricsReportingMods docs.
   //
@@ -293,7 +294,7 @@ struct Flags {
   // Whether or not we should write metrics to statsd.
   // Note that the actual write is still controlled by
   // MetricsReportingMods and MetricsReportingNumMods.
-  Flag<bool> MetricsWriteToStatsd{ "metrics.write-to-statsd", false, FlagType::kDeviceConfig};
+  Flag<bool> MetricsWriteToStatsd{"metrics.write-to-statsd", true, FlagType::kDeviceConfig};
 
   // Whether or not we should write metrics to logcat.
   // Note that the actual write is still controlled by
@@ -304,6 +305,12 @@ struct Flags {
   // Note that the actual write is still controlled by
   // MetricsReportingMods and MetricsReportingNumMods.
   Flag<std::string> MetricsWriteToFile{"metrics.write-to-file", "", FlagType::kCmdlineOnly};
+
+  // The output format for metrics. This is only used
+  // when writing metrics to a file; metrics written
+  // to logcat will be in human-readable text format.
+  // Supported values are "text" and "xml".
+  Flag<std::string> MetricsFormat{"metrics.format", "text", FlagType::kCmdlineOnly};
 };
 
 // This is the actual instance of all the flags.

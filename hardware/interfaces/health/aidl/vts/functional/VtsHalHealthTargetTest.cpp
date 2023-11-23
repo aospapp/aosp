@@ -225,6 +225,87 @@ TEST_P(HealthAidl, getChargeStatus) {
     ASSERT_THAT(value, IsValidEnum<BatteryStatus>());
 }
 
+/*
+ * Tests the values returned by getChargingPolicy() from interface IHealth.
+ */
+TEST_P(HealthAidl, getChargingPolicy) {
+    int32_t version = 0;
+    auto status = health->getInterfaceVersion(&version);
+    ASSERT_TRUE(status.isOk()) << status;
+    if (version < 2) {
+        GTEST_SKIP() << "Support in health hal v2 for EU Ecodesign";
+    }
+    BatteryChargingPolicy value;
+    status = health->getChargingPolicy(&value);
+    ASSERT_THAT(status, AnyOf(IsOk(), ExceptionIs(EX_UNSUPPORTED_OPERATION)));
+    if (!status.isOk()) return;
+    ASSERT_THAT(value, IsValidEnum<BatteryChargingPolicy>());
+}
+
+/*
+ * Tests that setChargingPolicy() writes the value and compared the returned
+ * value by getChargingPolicy() from interface IHealth.
+ */
+TEST_P(HealthAidl, setChargingPolicy) {
+    int32_t version = 0;
+    auto status = health->getInterfaceVersion(&version);
+    ASSERT_TRUE(status.isOk()) << status;
+    if (version < 2) {
+        GTEST_SKIP() << "Support in health hal v2 for EU Ecodesign";
+    }
+
+    BatteryChargingPolicy value;
+
+    /* set ChargingPolicy*/
+    status = health->setChargingPolicy(BatteryChargingPolicy::LONG_LIFE);
+    ASSERT_THAT(status, AnyOf(IsOk(), ExceptionIs(EX_UNSUPPORTED_OPERATION)));
+    if (!status.isOk()) return;
+
+    /* get ChargingPolicy*/
+    status = health->getChargingPolicy(&value);
+    ASSERT_THAT(status, AnyOf(IsOk(), ExceptionIs(EX_UNSUPPORTED_OPERATION)));
+    if (!status.isOk()) return;
+    // the result of getChargingPolicy will be one of default(1), ADAPTIVE_AON(2)
+    // ADAPTIVE_AC(3) or LONG_LIFE(4). default(1) means NOT_SUPPORT
+    ASSERT_THAT(static_cast<int>(value), AnyOf(Eq(1), Eq(4)));
+}
+
+MATCHER(IsValidHealthData, "") {
+    *result_listener << "value is " << arg.toString() << ".";
+    if (!ExplainMatchResult(Ge(-1), arg.batteryManufacturingDateSeconds, result_listener)) {
+        *result_listener << " for batteryManufacturingDateSeconds.";
+        return false;
+    }
+    if (!ExplainMatchResult(Ge(-1), arg.batteryFirstUsageSeconds, result_listener)) {
+        *result_listener << " for batteryFirstUsageSeconds.";
+        return false;
+    }
+    if (!ExplainMatchResult(Ge(-1), arg.batteryStateOfHealth, result_listener)) {
+        *result_listener << " for batteryStateOfHealth.";
+        return false;
+    }
+
+    return true;
+}
+
+/*
+ * Tests the values returned by getBatteryHealthData() from interface IHealth.
+ */
+TEST_P(HealthAidl, getBatteryHealthData) {
+    int32_t version = 0;
+    auto status = health->getInterfaceVersion(&version);
+    ASSERT_TRUE(status.isOk()) << status;
+    if (version < 2) {
+        GTEST_SKIP() << "Support in health hal v2 for EU Ecodesign";
+    }
+
+    BatteryHealthData value;
+    status = health->getBatteryHealthData(&value);
+    ASSERT_THAT(status, AnyOf(IsOk(), ExceptionIs(EX_UNSUPPORTED_OPERATION)));
+    if (!status.isOk()) return;
+    ASSERT_THAT(value, IsValidHealthData());
+}
+
 MATCHER(IsValidStorageInfo, "") {
     *result_listener << "value is " << arg.toString() << ".";
     if (!ExplainMatchResult(InClosedRange(0, 3), arg.eol, result_listener)) {

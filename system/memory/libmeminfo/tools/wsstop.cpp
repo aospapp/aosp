@@ -69,9 +69,8 @@ static void print_vma(const Vma& v) {
     printf("%16" PRIx64 " %16" PRIx64 " ", v.start, v.end);
     printf("%8" PRIu64 "K %8" PRIu64 "K %8" PRIu64 "K %8" PRIu64 "K %8" PRIu64 "K %8" PRIu64
            "K %8" PRIu64 "K %8" PRIu64 "K %8" PRIu64 "K ",
-           v.usage.vss / 1024, v.usage.rss / 1024, v.usage.pss / 1024, v.usage.shared_clean / 1024,
-           v.usage.shared_dirty / 1024, v.usage.private_clean / 1024, v.usage.private_dirty / 1024,
-           v.usage.swap / 1024, v.usage.swap_pss / 1024);
+           v.usage.vss, v.usage.rss, v.usage.pss, v.usage.shared_clean, v.usage.shared_dirty,
+           v.usage.private_clean, v.usage.private_dirty, v.usage.swap, v.usage.swap_pss);
     printf("%s\n", v.name.c_str());
 }
 

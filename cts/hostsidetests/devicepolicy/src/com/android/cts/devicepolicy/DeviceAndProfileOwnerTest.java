@@ -16,6 +16,7 @@
 
 package com.android.cts.devicepolicy;
 
+import com.android.tradefed.util.RunUtil;
 import static com.android.cts.devicepolicy.metrics.DevicePolicyEventLogVerifier.assertMetricsLogged;
 
 import static org.junit.Assert.assertFalse;
@@ -115,14 +116,9 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
     private static final String CONTENT_CAPTURE_SERVICE_PKG = "com.android.cts.devicepolicy.contentcaptureservice";
     private static final String CONTENT_CAPTURE_SERVICE_APK = "CtsDevicePolicyContentCaptureService.apk";
-    private static final String CONTENT_SUGGESTIONS_APP_APK =
-            "CtsDevicePolicyContentSuggestionsApp.apk";
 
     protected static final String ASSIST_APP_PKG = "com.android.cts.devicepolicy.assistapp";
     protected static final String ASSIST_APP_APK = "CtsDevicePolicyAssistApp.apk";
-
-    private static final String PRINTING_APP_PKG = "com.android.cts.devicepolicy.printingapp";
-    private static final String PRINTING_APP_APK = "CtsDevicePolicyPrintingApp.apk";
 
     private static final String METERED_DATA_APP_PKG
             = "com.android.cts.devicepolicy.meteredtestapp";
@@ -188,7 +184,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         getDevice().uninstallPackage(AUTOFILL_APP_PKG);
         getDevice().uninstallPackage(CONTENT_CAPTURE_SERVICE_PKG);
         getDevice().uninstallPackage(CONTENT_CAPTURE_APP_PKG);
-        getDevice().uninstallPackage(PRINTING_APP_PKG);
         getDevice().uninstallPackage(METERED_DATA_APP_PKG);
         getDevice().uninstallPackage(TEST_APP_PKG);
 
@@ -386,15 +381,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     @Test
-    public void testPermissionMixedPolicies() throws Exception {
-        installAppPermissionAppAsUser();
-        executeDeviceTestMethod(".PermissionsTest",
-                "testPermissionGrantStateDenied_mixedPolicies");
-        executeDeviceTestMethod(".PermissionsTest",
-                "testPermissionGrantStateGranted_mixedPolicies");
-    }
-
-    @Test
     public void testPermissionGrantOfDisallowedPermissionWhileOtherPermIsGranted()
             throws Exception {
         installAppPermissionAppAsUser();
@@ -446,19 +432,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
     }
 
     @Test
-    public void testPersistentIntentResolving() throws Exception {
-        executeDeviceTestClass(".PersistentIntentResolvingTest");
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".PersistentIntentResolvingTest",
-                    "testAddPersistentPreferredActivityYieldsReceptionAtTarget");
-        }, new DevicePolicyEventWrapper.Builder(EventId.ADD_PERSISTENT_PREFERRED_ACTIVITY_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .setStrings(DEVICE_ADMIN_PKG,
-                        "com.android.cts.deviceandprofileowner.EXAMPLE_ACTION")
-                .build());
-    }
-
-    @Test
     public void testScreenCaptureDisabled_assist() throws Exception {
         try {
             // Install and enable assistant, notice that profile can't have assistant.
@@ -470,32 +443,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             setScreenCaptureDisabled_assist(mUserId, false /* disabled */);
             clearVoiceInteractionService();
         }
-    }
-
-    @Test
-    public void testApplicationHidden() throws Exception {
-        installAppPermissionAppAsUser();
-        executeDeviceTestClass(".ApplicationHiddenTest");
-        installAppAsUser(PERMISSIONS_APP_APK, mUserId);
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".ApplicationHiddenTest","testSetApplicationHidden");
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_APPLICATION_HIDDEN_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .setBoolean(false)
-                .setStrings(PERMISSIONS_APP_PKG, "hidden", NOT_CALLED_FROM_PARENT)
-                .build(),
-        new DevicePolicyEventWrapper.Builder(EventId.SET_APPLICATION_HIDDEN_VALUE)
-                .setAdminPackageName(DEVICE_ADMIN_PKG)
-                .setBoolean(false)
-                .setStrings(PERMISSIONS_APP_PKG, "not_hidden", NOT_CALLED_FROM_PARENT)
-                .build());
-    }
-
-    @Test
-    public void testApplicationHidden_cannotHidePolicyExemptApps() throws Exception {
-        // Needed to access dpm.getPolicyExemptApps()
-        allowTestApiAccess(DEVICE_ADMIN_PKG);
-        executeDeviceTestMethod(".ApplicationHiddenTest", "testCannotHidePolicyExemptApps");
     }
 
     @TemporarilyIgnoreOnHeadlessSystemUserMode(bugId = "197859595",
@@ -639,30 +586,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         } finally {
             setDefaultContentCaptureServiceEnabled(true);
         }
-    }
-
-    @Test
-    public void testDisallowContentSuggestions_allowed() throws Exception {
-        boolean hasContentSuggestions = hasService("content_suggestions");
-        if (!hasContentSuggestions) {
-            return;
-        }
-        installAppAsUser(CONTENT_SUGGESTIONS_APP_APK, mUserId);
-
-        setDefaultContentSuggestionsServiceEnabled(false);
-        try {
-            executeDeviceTestMethod(".ContentSuggestionsRestrictionsTest",
-                    "testDisallowContentSuggestions_allowed");
-        } finally {
-            setDefaultContentSuggestionsServiceEnabled(true);
-        }
-    }
-
-    private void setDefaultContentSuggestionsServiceEnabled(boolean enabled)
-            throws DeviceNotAvailableException {
-        CLog.d("setDefaultContentSuggestionsServiceEnabled(" + mUserId + "): " + enabled);
-        getDevice().executeShellCommand(
-                "cmd content_suggestions set default-service-enabled " + mUserId + " " + enabled);
     }
 
     private void setDefaultContentCaptureServiceEnabled(boolean enabled)
@@ -864,24 +787,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
 
         executeDeviceTestClass(".TrustAgentInfoTest");
     }
-
-    @FlakyTest(bugId = 141161038)
-    @Test
-    public void testCannotRemoveUserIfRestrictionSet() throws Exception {
-        assumeCanCreateAdditionalUsers(1);
-        assumeTrue("Outside of the primary user, setting DISALLOW_REMOVE_USER would not work",
-                mUserId == getPrimaryUser());
-
-        final int userId = createUser();
-        try {
-            changeUserRestrictionOrFail(DISALLOW_REMOVE_USER, true, mUserId);
-            assertFalse(getDevice().removeUser(userId));
-        } finally {
-            changeUserRestrictionOrFail(DISALLOW_REMOVE_USER, false, mUserId);
-            assertTrue(getDevice().removeUser(userId));
-        }
-    }
-
     @Test
     public void testCannotEnableOrDisableDeviceOwnerOrProfileOwner() throws Exception {
         // Try to disable a component in device owner/ profile owner.
@@ -996,7 +901,7 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
             executeDeviceTestMethod(".GetPasswordExpirationTest",
                     "testGetPasswordExpirationUpdatedAfterPasswordReset_beforeReset");
             // Wait for 20 seconds so we can make sure that the expiration date is refreshed later.
-            Thread.sleep(20000);
+            RunUtil.getDefault().sleep(20000);
             changeUserCredential(TEST_PASSWORD, null, mUserId);
             executeDeviceTestMethod(".GetPasswordExpirationTest",
                     "testGetPasswordExpirationUpdatedAfterPasswordReset_afterReset");
@@ -1039,14 +944,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
         // Clearing data of active admin should fail
         executeDeviceTestMethod(".ClearApplicationDataTest",
                 "testClearApplicationData_activeAdmin");
-    }
-
-    @Test
-    public void testPrintingPolicy() throws Exception {
-        assumeHasPrintFeature();
-
-        installAppAsUser(PRINTING_APP_APK, mUserId);
-        executeDeviceTestClass(".PrintingPolicyTest");
     }
 
     @TemporarilyIgnoreOnHeadlessSystemUserMode(bugId = "197859595",
@@ -1364,48 +1261,6 @@ public abstract class DeviceAndProfileOwnerTest extends BaseDevicePolicyTest {
                     .setBoolean(false)
                     .setStrings("android.permission.READ_CONTACTS")
                     .build());
-    }
-
-    @Test
-    public void testSetAutoTimeRequired() throws Exception {
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetAutoTimeRequired");
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_AUTO_TIME_REQUIRED_VALUE)
-                    .setAdminPackageName(DEVICE_ADMIN_PKG)
-                    .setBoolean(true)
-                    .build(),
-            new DevicePolicyEventWrapper.Builder(EventId.SET_AUTO_TIME_REQUIRED_VALUE)
-                    .setAdminPackageName(DEVICE_ADMIN_PKG)
-                    .setBoolean(false)
-                    .build());
-    }
-
-    @Test
-    public void testSetAutoTimeEnabled() throws Exception {
-        assertMetricsLogged(getDevice(), () -> {
-            executeDeviceTestMethod(".DevicePolicyLoggingTest", "testSetAutoTimeEnabled");
-        }, new DevicePolicyEventWrapper.Builder(EventId.SET_AUTO_TIME_VALUE)
-                    .setAdminPackageName(DEVICE_ADMIN_PKG)
-                    .setBoolean(true)
-                    .build(),
-            new DevicePolicyEventWrapper.Builder(EventId.SET_AUTO_TIME_VALUE)
-                    .setAdminPackageName(DEVICE_ADMIN_PKG)
-                    .setBoolean(false)
-                    .build());
-    }
-
-    @Test
-    public void testSetAutoTimeZoneEnabled() throws Exception {
-        assertMetricsLogged(getDevice(), () -> {
-                    executeDeviceTestMethod(".TimeManagementTest", "testSetAutoTimeZoneEnabled");
-                }, new DevicePolicyEventWrapper.Builder(EventId.SET_AUTO_TIME_ZONE_VALUE)
-                        .setAdminPackageName(DEVICE_ADMIN_PKG)
-                        .setBoolean(true)
-                        .build(),
-                new DevicePolicyEventWrapper.Builder(EventId.SET_AUTO_TIME_ZONE_VALUE)
-                        .setAdminPackageName(DEVICE_ADMIN_PKG)
-                        .setBoolean(false)
-                        .build());
     }
 
     @Test

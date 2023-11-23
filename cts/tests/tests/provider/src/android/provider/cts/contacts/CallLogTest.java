@@ -529,7 +529,7 @@ public class CallLogTest extends InstrumentationTestCase {
                 e.setValue(cursor.getColumnName(i), cursor.getString(i));
             }
             // don't add if bad number (should never happen)
-            if (e.number != null || !e.number.isEmpty()) {
+            if (e.number != null && !e.number.isEmpty()) {
                 entries.put(e.number, e);
             }
         }

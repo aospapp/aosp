@@ -24,22 +24,13 @@
 
 namespace chromeos_update_engine {
 
-namespace {
-
-bool IsConsecutive(const CowOperation& op1, const CowOperation& op2) {
-  return op1.op == op2.op && op1.dst_block + op1.block_count == op2.dst_block &&
-         op1.src_block + op1.block_count == op2.src_block;
-}
-
 void push_back(std::vector<CowOperation>* converted, const CowOperation& op) {
   if (!converted->empty() && IsConsecutive(converted->back(), op)) {
-    converted->back().block_count++;
+    converted->back().block_count += op.block_count;
   } else {
     converted->push_back(op);
   }
 }
-
-}  // namespace
 
 std::vector<CowOperation> ConvertToCowOperations(
     const ::google::protobuf::RepeatedPtrField<

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2020 NXP
+ *  Copyright 2018-2020,2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,18 +23,18 @@
  *
  */
 #define LOG_TAG "NxpEseHal"
-#include <log/log.h>
-
+#include <EseTransportFactory.h>
+#include <NxpTimer.h>
 #include <errno.h>
+#include <ese_config.h>
+#include <ese_logs.h>
 #include <fcntl.h>
+#include <log/log.h>
+#include <phEseStatus.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
-
-#include <EseTransportFactory.h>
-#include <ese_config.h>
-#include <phEseStatus.h>
-#include <string.h>
 
 /*!
  * \brief Normal mode header length
@@ -54,6 +54,8 @@
 #define SPI_ENABLED 1
 
 spTransport gpTransportObj;
+
+static phPalEse_NxpTimer_t gNxpTimer;
 
 /*******************************************************************************
 **
@@ -180,8 +182,8 @@ int phPalEse_write(void* pDevHandle, uint8_t* pBuffer, int nNbBytesToWrite) {
 ESESTATUS phPalEse_ioctl(phPalEse_ControlCode_t eControlCode, void* pDevHandle,
                          long level) {
   ESESTATUS ret = ESESTATUS_FAILED;
-  ALOGD_IF(ese_debug_enabled, "phPalEse_spi_ioctl(), ioctl %x , level %lx",
-           eControlCode, level);
+  NXP_LOG_ESE_D("phPalEse_spi_ioctl(), ioctl %x , level %lx", eControlCode,
+                level);
   if (GET_CHIP_OS_VERSION() == OS_VERSION_4_0) {
     if (NULL == pDevHandle) {
       return ESESTATUS_IOCTL_FAILED;
@@ -197,6 +199,28 @@ ESESTATUS phPalEse_ioctl(phPalEse_ControlCode_t eControlCode, void* pDevHandle,
 
   return ret;
 }
+/*******************************************************************************
+**
+** Function         phPalEse_BusyWait
+**
+** Description      This function  suspends execution of the calling thread for
+**                  total_time usecs(max extra delay 1 usecs) with busy wait.
+**                  Use this only for short delays (less than 500 microseconds)
+**
+** Returns          None
+**
+*******************************************************************************/
+
+void phPalEse_BusyWait(long total_time /* usecs*/) {
+  struct timespec ts1, ts2;
+  clock_gettime(CLOCK_MONOTONIC, &ts1);
+  long elapsed_time = 0;  // microseconds
+  do {
+    clock_gettime(CLOCK_MONOTONIC, &ts2);
+    elapsed_time = 1e+6 * ts2.tv_sec + 1e-3 * ts2.tv_nsec -
+                   (1e+6 * ts1.tv_sec + 1e-3 * ts1.tv_nsec);
+  } while (elapsed_time < total_time);
+}
 
 /*******************************************************************************
 **
@@ -209,6 +233,8 @@ ESESTATUS phPalEse_ioctl(phPalEse_ControlCode_t eControlCode, void* pDevHandle,
 *******************************************************************************/
 void phPalEse_print_packet(const char* pString, const uint8_t* p_data,
                            uint16_t len) {
+  if (ese_log_level < NXPESE_LOGLEVEL_DEBUG) return;  // debug logs disabled
+
   uint32_t i;
   char print_buffer[len * 3 + 1];
 
@@ -217,13 +243,10 @@ void phPalEse_print_packet(const char* pString, const uint8_t* p_data,
     snprintf(&print_buffer[i * 2], 3, "%02X", p_data[i]);
   }
   if (0 == memcmp(pString, "SEND", 0x04)) {
-    ALOGD_IF(ese_debug_enabled, "NxpEseDataX len = %3d > %s", len,
-             print_buffer);
+    NXP_LOG_ESE_D("NxpEseDataX len = %3d > %s", len, print_buffer);
   } else if (0 == memcmp(pString, "RECV", 0x04)) {
-    ALOGD_IF(ese_debug_enabled, "NxpEseDataR len = %3d > %s", len,
-             print_buffer);
+    NXP_LOG_ESE_D("NxpEseDataR len = %3d > %s", len, print_buffer);
   }
-
   return;
 }
 
@@ -311,4 +334,118 @@ void phPalEse_free(void* ptr) {
     ptr = NULL;
   }
   return;
+}
+/*******************************************************************************
+**
+** Function         phPalEse_initTimer
+**
+** Description      Initializes phPalEse_NxpTimer_t global struct
+**
+** Returns          None
+**
+*******************************************************************************/
+
+void phPalEse_initTimer() {
+  bool is_kpi_enabled =
+      EseConfig::getUnsigned(NAME_SE_KPI_MEASUREMENT_ENABLED, 0);
+  gNxpTimer.is_enabled = (is_kpi_enabled != 0) ? true : false;
+  if (!gNxpTimer.is_enabled) return;
+
+  gNxpTimer.tx_timer = new NxpTimer("TX");
+  gNxpTimer.rx_timer = new NxpTimer("RX");
+}
+/*******************************************************************************
+**
+** Function         phPalEse_getTimer
+**
+** Description      Get handle to phPalEse_NxpTimer_t global struct variable
+**
+** Returns          pointer to phPalEse_NxpTimer_t struct variable
+**
+*******************************************************************************/
+
+const phPalEse_NxpTimer_t* phPalEse_getTimer() { return &gNxpTimer; }
+/*******************************************************************************
+**
+** Function         phPalEse_startTimer
+**
+** Description      Wrapper function to start the given timer
+**
+** Returns          None
+**
+*******************************************************************************/
+
+void phPalEse_startTimer(NxpTimer* timer) {
+  if (!gNxpTimer.is_enabled) return;
+
+  timer->startTimer();
+}
+/*******************************************************************************
+**
+** Function         phPalEse_stopTimer
+**
+** Description      Wrapper function to stop the given timer
+**
+** Returns          None
+**
+*******************************************************************************/
+
+void phPalEse_stopTimer(NxpTimer* timer) {
+  if (!gNxpTimer.is_enabled) return;
+
+  timer->stopTimer();
+}
+/*******************************************************************************
+**
+** Function         phPalEse_timerDuration
+**
+** Description      Wrapper function to get total time (usecs) recorded by the
+**                  given timer
+**
+** Returns          total time (in usecs) recorded by the timer
+**
+*******************************************************************************/
+
+unsigned long phPalEse_timerDuration(NxpTimer* timer) {
+  if (!gNxpTimer.is_enabled) return 0;
+
+  return timer->totalDuration();
+}
+/*******************************************************************************
+**
+** Function         phPalEse_resetTimer
+**
+** Description      Function to reset both timers in gNxpTimer object
+**
+** Returns          None
+**
+*******************************************************************************/
+
+void phPalEse_resetTimer() {
+  if (!gNxpTimer.is_enabled) return;
+
+  gNxpTimer.tx_timer->resetTimer();
+  gNxpTimer.rx_timer->resetTimer();
+}
+
+/*******************************************************************************
+**
+** Function         phPalEse_deInitTimer
+**
+** Description      Wrapper function to de-construct the timer objects
+**
+** Returns          None
+**
+*******************************************************************************/
+
+void phPalEse_deInitTimer() {
+  if (!gNxpTimer.is_enabled) return;
+
+  delete gNxpTimer.tx_timer;
+  gNxpTimer.tx_timer = nullptr;
+
+  delete gNxpTimer.rx_timer;
+  gNxpTimer.rx_timer = nullptr;
+
+  gNxpTimer.is_enabled = false;
 }

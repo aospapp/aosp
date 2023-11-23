@@ -15,6 +15,8 @@
      */
 package android.uirendering.cts.testinfrastructure;
 
+import static java.util.Map.entry;
+
 import android.graphics.Canvas;
 import android.graphics.ColorFilter;
 import android.graphics.ColorMatrix;
@@ -80,364 +82,340 @@ public abstract class DisplayModifier {
     // paint object, like anti-aliasing or drawing. Within those LinkedHashMaps are the various
     // options for that specific topic, which contains a displaymodifier which will affect the
     // given canvas and paint objects.
-    public static final LinkedHashMap<String, LinkedHashMap<String, DisplayModifier>> MAPS =
-            new LinkedHashMap<String, LinkedHashMap<String,DisplayModifier>>() {
-                {
-                    put("aa", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("true", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setAntiAlias(true);
-                                }
-                            });
-                            put("false", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setAntiAlias(false);
-                                }
-                            });
-                        }
-                    });
-                    put("style", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("fill", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStyle(Paint.Style.FILL);
-                                }
-                            });
-                            put("stroke", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStyle(Paint.Style.STROKE);
-                                }
-                            });
-                            put("fillAndStroke", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStyle(Paint.Style.FILL_AND_STROKE);
-                                }
-                            });
-                        }
-                    });
-                    put("strokeWidth", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("hair", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeWidth(0);
-                                }
-                            });
-                            put("0.3", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeWidth(0.3f);
-                                }
-                            });
-                            put("1", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeWidth(1);
-                                }
-                            });
-                            put("5", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeWidth(5);
-                                }
-                            });
-                            put("30", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeWidth(30);
-                                }
-                            });
-                        }
-                    });
-                    put("strokeCap", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("butt", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeCap(Paint.Cap.BUTT);
-                                }
-                            });
-                            put("round", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeCap(Paint.Cap.ROUND);
-                                }
-                            });
-                            put("square", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeCap(Paint.Cap.SQUARE);
-                                }
-                            });
-                        }
-                    });
-                    put("strokeJoin", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("bevel", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeJoin(Paint.Join.BEVEL);
-                                }
-                            });
-                            put("round", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeJoin(Paint.Join.ROUND);
-                                }
-                            });
-                            put("miter", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setStrokeJoin(Paint.Join.MITER);
-                                }
-                            });
-                            // TODO: add miter0, miter1 etc to test miter distances
-                        }
-                    });
+    public static final Map<String, Map<String, DisplayModifier>> MAPS =
+            new LinkedHashMap<String, Map<String, DisplayModifier>>();
+    static {
+        MAPS.put("aa", Map.of(
+                "true", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setAntiAlias(true);
+                    }
+                },
+                "false", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setAntiAlias(false);
+                    }
+                })
+        );
+        MAPS.put("style", Map.of(
+                "fill", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStyle(Paint.Style.FILL);
+                    }
+                },
+                "stroke", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStyle(Paint.Style.STROKE);
+                    }
+                },
+                "fillAndStroke", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStyle(Paint.Style.FILL_AND_STROKE);
+                    }
+                })
+        );
+        MAPS.put("strokeWidth", Map.of(
+                "hair", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeWidth(0);
+                    }
+                },
+                "0.3", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeWidth(0.3f);
+                    }
+                },
+                "1", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeWidth(1);
+                    }
+                },
+                "5", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeWidth(5);
+                    }
+                },
+                "30", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeWidth(30);
+                    }
+                })
+        );
+        MAPS.put("strokeCap", Map.of(
+                "butt", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeCap(Paint.Cap.BUTT);
+                    }
+                },
+                "round", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeCap(Paint.Cap.ROUND);
+                    }
+                },
+                "square", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeCap(Paint.Cap.SQUARE);
+                    }
+                })
+        );
+        MAPS.put("strokeJoin", Map.of(
+                "bevel", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeJoin(Paint.Join.BEVEL);
+                    }
+                },
+                "round", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeJoin(Paint.Join.ROUND);
+                    }
+                },
+                "miter", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setStrokeJoin(Paint.Join.MITER);
+                    }
+                })
+                // TODO: add miter0, miter1 etc to test miter distances
+        );
+        MAPS.put("transform", Map.of(
+                "noTransform", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                    }
+                },
+                "rotate5", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.rotate(5);
+                    }
+                },
+                "rotate45", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.rotate(45);
+                    }
+                },
+                "rotate90", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.rotate(90);
+                        canvas.translate(0, -100);
+                    }
+                },
+                "scale2x2", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.scale(2, 2);
+                    }
+                },
+                "rot20scl1x4", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.rotate(20);
+                        canvas.scale(1, 4);
+                    }
+                })
+        );
+        MAPS.put("shader", Map.of(
+                "noShader", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                    }
+                },
+                "repeatShader", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().repeatShader);
+                    }
+                },
+                "translatedShader", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().translatedShader);
+                    }
+                },
+                "scaledShader", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().scaledShader);
+                    }
+                },
+                "composeShader", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().composeShader);
+                    }
+                },
+                /*
+                "bad composeShader", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().nestedComposeShader);
+                    }
+                },
+                "bad composeShader 2", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(
+                                ResourceModifier.instance().doubleGradientComposeShader);
+                    }
+                },
+                */
+                "horGradient", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().horGradient);
+                    }
+                },
+                "diagGradient", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().diagGradient);
+                    }
+                },
+                "vertGradient", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().vertGradient);
+                    }
+                },
+                "radGradient", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().radGradient);
+                    }
+                },
+                "sweepGradient", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setShader(ResourceModifier.instance().sweepGradient);
+                    }
+                })
+        );
+        Map<String, DisplayModifier> xfermodes = new LinkedHashMap<String, DisplayModifier>();
+        for (int i = 0; i < PORTERDUFF_MODES.length; i++) {
+            xfermodes.put(PORTERDUFF_MODES[i].toString(),
+                    new XfermodeModifier(PORTERDUFF_MODES[i]));
+        }
+        xfermodes.put("lowSaturationColorMatrix", new DisplayModifier() {
+            @Override
+            public void modifyDrawing(Paint paint, Canvas canvas) {
+                ColorMatrix matrix = new ColorMatrix();
+                matrix.setSaturation(0.1f);
+                paint.setColorFilter(new ColorMatrixColorFilter(matrix));
+            }
+        });
+        xfermodes.put("highSaturationColorMatrix", new DisplayModifier() {
+            @Override
+            public void modifyDrawing(Paint paint, Canvas canvas) {
+                ColorMatrix matrix = new ColorMatrix();
+                matrix.setSaturation(10.0f);
+                paint.setColorFilter(new ColorMatrixColorFilter(matrix));
+            }
+        });
+        MAPS.put("xfermodes", xfermodes);
 
-                    put("transform", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("noTransform", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                }
-                            });
-                            put("rotate5", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.rotate(5);
-                                }
-                            });
-                            put("rotate45", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.rotate(45);
-                                }
-                            });
-                            put("rotate90", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.rotate(90);
-                                    canvas.translate(0, -100);
-                                }
-                            });
-                            put("scale2x2", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.scale(2, 2);
-                                }
-                            });
-                            put("rot20scl1x4", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.rotate(20);
-                                    canvas.scale(1, 4);
-                                }
-                            });
-                        }
-                    });
+        Map<String, DisplayModifier> colorfilters = new LinkedHashMap<String, DisplayModifier>();
+        for (int i = 0; i < PORTERDUFF_MODES.length; i++) {
+            colorfilters.put(PORTERDUFF_MODES[i].toString(),
+                    new ColorFilterModifier(PORTERDUFF_MODES[i]));
+        }
+        MAPS.put("colorfilters", colorfilters);
 
-                    put("shader", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("noShader", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                }
-                            });
-                            put("repeatShader", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().repeatShader);
-                                }
-                            });
-                            put("translatedShader", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().translatedShader);
-                                }
-                            });
-                            put("scaledShader", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().scaledShader);
-                                }
-                            });
-                            put("composeShader", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().composeShader);
-                                }
-                            });
-                            /*
-                            put("bad composeShader", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().nestedComposeShader);
-                                }
-                            });
-                            put("bad composeShader 2", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(
-                                            ResourceModifier.instance().doubleGradientComposeShader);
-                                }
-                            });
-                            */
-                            put("horGradient", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().horGradient);
-                                }
-                            });
-                            put("diagGradient", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().diagGradient);
-                                }
-                            });
-                            put("vertGradient", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().vertGradient);
-                                }
-                            });
-                            put("radGradient", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().radGradient);
-                                }
-                            });
-                            put("sweepGradient", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setShader(ResourceModifier.instance().sweepGradient);
-                                }
-                            });
-                        }
-                    });
-
-                    put("xfermodes", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            for (int i = 0 ; i < PORTERDUFF_MODES.length ; i++) {
-                                put(PORTERDUFF_MODES[i].toString(),
-                                        new XfermodeModifier(PORTERDUFF_MODES[i]));
-                            }
-                            put("lowSaturationColorMatrix", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    ColorMatrix matrix = new ColorMatrix();
-                                    matrix.setSaturation(0.1f);
-                                    paint.setColorFilter(new ColorMatrixColorFilter(matrix));
-                                }
-                            });
-                            put("highSaturationColorMatrix", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    ColorMatrix matrix = new ColorMatrix();
-                                    matrix.setSaturation(10.0f);
-                                    paint.setColorFilter(new ColorMatrixColorFilter(matrix));
-                                }
-                            });
-                        }
-                    });
-
-                    put("colorfilters", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            for (int i = 0 ; i < PORTERDUFF_MODES.length ; i++) {
-                                put(PORTERDUFF_MODES[i].toString(),
-                                        new ColorFilterModifier(PORTERDUFF_MODES[i]));
-                            }
-                        }
-                    });
-
-                    // FINAL MAP: DOES ACTUAL DRAWING
-                    put("drawing", new LinkedHashMap<String, DisplayModifier>() {
-                        {
-                            put("roundRect", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawRoundRect(RECT, 20, 20, paint);
-                                }
-                            });
-                            put("rect", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawRect(RECT, paint);
-                                }
-                            });
-                            put("circle", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawCircle(100, 100, 75, paint);
-                                }
-                            });
-                            put("oval", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawOval(RECT, paint);
-                                }
-                            });
-                            put("lines", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawLines(LINES, paint);
-                                }
-                            });
-                            put("plusPoints", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawPoints(POINTS, paint);
-                                }
-                            });
-                            put("text", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setTextSize(20);
-                                    canvas.drawText("TEXTTEST", 0, 50, paint);
-                                }
-                            });
-                            put("shadowtext", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    paint.setTextSize(20);
-                                    paint.setShadowLayer(3.0f, 0.0f, 3.0f, 0xffff00ff);
-                                    canvas.drawText("TEXTTEST", 0, 50, paint);
-                                }
-                            });
-                            put("bitmapMesh", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    // skip some verts to exercise fix in P
-                                    // (previously this was ignored)
-                                    int vertsToSkip = 2;
-                                    canvas.drawBitmapMesh(ResourceModifier.instance().bitmap, 3, 3,
-                                            ResourceModifier.instance().bitmapVertices, vertsToSkip,
-                                            null, 0, null);
-                                }
-                            });
-                            put("arc", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawArc(RECT, 260, 285, false, paint);
-                                }
-                            });
-                            put("arcFromCenter", new DisplayModifier() {
-                                @Override
-                                public void modifyDrawing(Paint paint, Canvas canvas) {
-                                    canvas.drawArc(RECT, 260, 285, true, paint);
-                                }
-                            });
-                        }
-                    });
-                    // WARNING: DON'T PUT MORE MAPS BELOW THIS
-                }
-            };
+        // FINAL MAP: DOES ACTUAL DRAWING
+        MAPS.put("drawing", Map.ofEntries(
+                entry("roundRect", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawRoundRect(RECT, 20, 20, paint);
+                    }
+                }),
+                entry("rect", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawRect(RECT, paint);
+                    }
+                }),
+                entry("circle", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawCircle(100, 100, 75, paint);
+                    }
+                }),
+                entry("oval", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawOval(RECT, paint);
+                    }
+                }),
+                entry("lines", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawLines(LINES, paint);
+                    }
+                }),
+                entry("plusPoints", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawPoints(POINTS, paint);
+                    }
+                }),
+                entry("text", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setTextSize(20);
+                        canvas.drawText("TEXTTEST", 0, 50, paint);
+                    }
+                }),
+                entry("shadowtext", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        paint.setTextSize(20);
+                        paint.setShadowLayer(3.0f, 0.0f, 3.0f, 0xffff00ff);
+                        canvas.drawText("TEXTTEST", 0, 50, paint);
+                    }
+                }),
+                entry("bitmapMesh", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        // skip some verts to exercise fix in P
+                        // (previously this was ignored)
+                        int vertsToSkip = 2;
+                        canvas.drawBitmapMesh(ResourceModifier.instance().bitmap, 3, 3,
+                                ResourceModifier.instance().bitmapVertices, vertsToSkip,
+                                null, 0, null);
+                    }
+                }),
+                entry("arc", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawArc(RECT, 260, 285, false, paint);
+                    }
+                }),
+                entry("arcFromCenter", new DisplayModifier() {
+                    @Override
+                    public void modifyDrawing(Paint paint, Canvas canvas) {
+                        canvas.drawArc(RECT, 260, 285, true, paint);
+                    }
+                }))
+        );
+        // WARNING: DON'T PUT MORE MAPS BELOW THIS
+    }
 
     abstract public void modifyDrawing(Paint paint, Canvas canvas);
 
@@ -459,14 +437,14 @@ public abstract class DisplayModifier {
 
         private String mDebugString;
         private int[] mIndices;
-        private LinkedHashMap<String, LinkedHashMap<String, DisplayModifier>> mDisplayMap;
+        private Map<String, Map<String, DisplayModifier>> mDisplayMap;
 
         public Accessor(int mask) {
             int totalModifiers = Integer.bitCount(mask);
             mIndices = new int[totalModifiers];
             mMask = mask;
             // Create a Display Map of the valid indices
-            mDisplayMap = new LinkedHashMap<String, LinkedHashMap<String, DisplayModifier>>();
+            mDisplayMap = new LinkedHashMap<String, Map<String, DisplayModifier>>();
             int index = 0;
             for (String key : DisplayModifier.MAPS.keySet()) {
                 if (validIndex(index)) {
@@ -477,9 +455,9 @@ public abstract class DisplayModifier {
             mDebugString = "";
         }
 
-        private LinkedHashMap<String, DisplayModifier> getMapAtIndex(int index) {
+        private Map<String, DisplayModifier> getMapAtIndex(int index) {
             int i = 0;
-            for (LinkedHashMap<String, DisplayModifier> map : mDisplayMap.values()) {
+            for (Map<String, DisplayModifier> map : mDisplayMap.values()) {
                 if (i == index) {
                     return map;
                 }
@@ -497,7 +475,7 @@ public abstract class DisplayModifier {
             int modifierMapIndex = mIndices.length - 1;
             // Start from the last map, and loop until it is at the front
             while (modifierMapIndex >= 0) {
-                LinkedHashMap<String, DisplayModifier> map = getMapAtIndex(modifierMapIndex);
+                Map<String, DisplayModifier> map = getMapAtIndex(modifierMapIndex);
                 mIndices[modifierMapIndex]++;
 
                 // If we are still at a valid index, then we don't need to update any others
@@ -538,7 +516,7 @@ public abstract class DisplayModifier {
             mDebugString = "";
 
             // Through each possible category of modification
-            for (Map.Entry<String, LinkedHashMap<String, DisplayModifier>> entry :
+            for (Map.Entry<String, Map<String, DisplayModifier>> entry :
                     mDisplayMap.entrySet()) {
                 int displayModifierIndex = mIndices[mapIndex];
                 if (!mDebugString.isEmpty()) {

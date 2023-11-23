@@ -89,6 +89,7 @@ public class PrivacyIndicatorBoundsTests extends ActivityManagerTestBase {
         // TODO(b/187757919): Allow Automotive to skip this test until privacy chip is implemented
         // in immersive mode
         assumeFalse(isCar());
+        assumeFalse(isWatch());
 
         final PrivacyIndicatorBoundsTests.TestActivity activity = mTestActivity.launchActivity(
                 new Intent().putExtra(EXTRA_ORIENTATION, orientation));

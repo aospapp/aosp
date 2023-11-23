@@ -25,16 +25,19 @@ extern "C" {
  * hwjpeg_decompress_ptr - handle of decompressor instance
  */
 typedef struct hwjpeg_decompressor_struct {
-    unsigned int image_width;           /* width of the compressed image */
-    unsigned int image_height;          /* height of the compressed image */
-    unsigned char num_components;       /* number of components of the compressed image */
-    unsigned char chroma_h_samp_factor; /* horizontal chroma sampling factor of the compressed image */
-    unsigned char chroma_v_samp_factor; /* vertical chroma sampling factor of the compressed image */
-    unsigned char scale_factor;         /* down-scaling factor during decompression: one of 1, 2, 4 and 8 */
+    unsigned int image_width;     /* width of the compressed image */
+    unsigned int image_height;    /* height of the compressed image */
+    unsigned char num_components; /* number of components of the compressed image */
+    unsigned char
+            chroma_h_samp_factor; /* horizontal chroma sampling factor of the compressed image */
+    unsigned char
+            chroma_v_samp_factor; /* vertical chroma sampling factor of the compressed image */
+    unsigned char scale_factor; /* down-scaling factor during decompression: one of 1, 2, 4 and 8 */
 
-    unsigned int output_width;          /* width of the output image (image_width/scale_factor) */
-    unsigned int output_height;         /* height of the output image (image_height/scale_factor) */
-    __u32 output_format;                /* 4CC style format identifier of the output image defined in videodev2.h */
+    unsigned int output_width;  /* width of the output image (image_width/scale_factor) */
+    unsigned int output_height; /* height of the output image (image_height/scale_factor) */
+    __u32 output_format; /* 4CC style format identifier of the output image defined in videodev2.h
+                          */
 } *hwjpeg_decompress_ptr;
 
 /*
@@ -79,7 +82,8 @@ bool hwjpeg_dmabuf_src(hwjpeg_decompress_ptr cinfo, int infd, size_t insize, siz
  * @dummybytes: The available dummy bytes after @insize.
  * @return: false on failure
  */
-bool hwjpeg_mem_src(hwjpeg_decompress_ptr cinfo, unsigned char *inbuffer, size_t insize, size_t dummybytes);
+bool hwjpeg_mem_src(hwjpeg_decompress_ptr cinfo, unsigned char *inbuffer, size_t insize,
+                    size_t dummybytes);
 
 /*
  * hwjpeg_config_image_format - configure output image format
@@ -100,7 +104,8 @@ void hwjpeg_config_image_format(hwjpeg_decompress_ptr cinfo, __u32 v4l2_pix_fmt)
  * @num_buffers: The number of elements in @outsizes and @outbuffer
  * @return: false on failure.
  */
-bool hwjpeg_mem_dst(hwjpeg_decompress_ptr cinfo, unsigned char *outbuffer[], size_t outsize[], unsigned int num_buffers);
+bool hwjpeg_mem_dst(hwjpeg_decompress_ptr cinfo, unsigned char *outbuffer[], size_t outsize[],
+                    unsigned int num_buffers);
 
 /*
  * hwjpeg_dmabuf_dst - configure the buffer to store decompressed image
@@ -113,7 +118,8 @@ bool hwjpeg_mem_dst(hwjpeg_decompress_ptr cinfo, unsigned char *outbuffer[], siz
  * @num_buffers: The number of elements in @outsizes and @outfd
  * @return: false on failure.
  */
-bool hwjpeg_dmabuf_dst(hwjpeg_decompress_ptr cinfo, int outfd[], size_t outsize[], unsigned int num_buffers);
+bool hwjpeg_dmabuf_dst(hwjpeg_decompress_ptr cinfo, int outfd[], size_t outsize[],
+                       unsigned int num_buffers);
 
 /*
  * hwjpeg_set_downscale_factor - configure the downscaling factor during decompression
@@ -171,7 +177,7 @@ bool hwjpeg_start_decompress(hwjpeg_decompress_ptr cinfo);
  */
 void hwjpeg_destroy_decompress(hwjpeg_decompress_ptr cinfo);
 
-}; /* extern "C" */
+};     /* extern "C" */
 #endif /* __cplusplus */
 
 #endif /*__HARDWARE_SAMSUNG_EXYNOS7420_HWJPEGDECOMPRESSOR_H__*/

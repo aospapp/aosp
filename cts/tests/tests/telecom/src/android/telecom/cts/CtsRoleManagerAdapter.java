@@ -60,16 +60,33 @@ public class CtsRoleManagerAdapter {
 
     public void setDialerRoleHolder(String packageName)
             throws Exception {
+        setRoleHolder(RoleManager.ROLE_DIALER, packageName);
+    }
+
+    public void setRoleHolder(String role, String packageName) throws Exception {
         if (mRoleManager != null) {
-            addRoleHolder(RoleManager.ROLE_DIALER, packageName);
+            addRoleHolder(role, packageName);
         } else {
             fail("Expected role manager");
         }
     }
 
-    public void removeDialerRoleHolder(String packageName) throws Exception {
+    public void setByPassRoleQualification(boolean bypass) throws Exception {
         if (mRoleManager != null) {
-            removeRoleHolder(RoleManager.ROLE_DIALER, packageName);
+            runWithShellPermissionIdentity(
+                    () -> mRoleManager.setBypassingRoleQualification(bypass));
+        } else {
+            fail("expected role manager");
+        }
+    }
+
+    public void removeDialerRoleHolder(String packageName) throws Exception {
+        removeRoleHolder(RoleManager.ROLE_DIALER, packageName);
+    }
+
+    public void removeRoleHolder(String role, String packageName) throws Exception {
+        if (mRoleManager != null) {
+            removeRoleHolderInternal(role, packageName);
         } else {
             fail("Expected role manager");
         }
@@ -105,7 +122,7 @@ public class CtsRoleManagerAdapter {
         assertEquals(roleName + packageName, res);
     }
 
-    private void removeRoleHolder(String roleName, String packageName)
+    private void removeRoleHolderInternal(String roleName, String packageName)
             throws InterruptedException {
         UserHandle user = Process.myUserHandle();
         Executor executor = mContext.getMainExecutor();

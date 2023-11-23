@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.cts.tagging.sdk29">
 
-    <uses-sdk android:targetSdkVersion="29" />
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
 
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />

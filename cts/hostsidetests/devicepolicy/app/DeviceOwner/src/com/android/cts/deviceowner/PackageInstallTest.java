@@ -121,12 +121,13 @@ public class PackageInstallTest extends BaseAffiliatedProfileOwnerTest {
 
     private IntentSender getCommitCallback() {
         // Create a PendingIntent and use it to generate the IntentSender
-        Intent broadcastIntent = new Intent(ACTION_INSTALL_COMMIT);
+        Intent broadcastIntent = new Intent(ACTION_INSTALL_COMMIT)
+                .setPackage(mContext.getPackageName());
         PendingIntent pendingIntent = PendingIntent.getBroadcast(
                 mContext,
                 REQUEST_CODE,
                 broadcastIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         return pendingIntent.getIntentSender();
     }
 

@@ -16,17 +16,14 @@
 
 package android.view.accessibility.cts;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNotSame;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.fail;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
 import android.graphics.Rect;
 import android.graphics.Region;
+import android.os.LocaleList;
 import android.os.Parcel;
 import android.platform.test.annotations.Presubmit;
 import android.text.TextUtils;
@@ -55,11 +52,11 @@ public class AccessibilityWindowInfoTest {
     @Test
     public void testObtain() {
         AccessibilityWindowInfo w1 = AccessibilityWindowInfo.obtain();
-        assertNotNull(w1);
+        assertThat(w1).isNotNull();
 
         AccessibilityWindowInfo w2 = AccessibilityWindowInfo.obtain(w1);
-        assertNotSame(w1, w2);
-        assertTrue(areWindowsEqual(w1, w2));
+        assertThat(w2).isNotSameInstanceAs(w1);
+        assertThat(areWindowsEqual(w1, w2)).isTrue();
     }
 
     @SmallTest
@@ -70,8 +67,8 @@ public class AccessibilityWindowInfoTest {
         w1.writeToParcel(parcel, 0);
         parcel.setDataPosition(0);
         AccessibilityWindowInfo w2 = AccessibilityWindowInfo.CREATOR.createFromParcel(parcel);
-        assertNotSame(w1, w2);
-        assertTrue(w2.toString(), areWindowsEqual(w1, w2));
+        assertThat(w2).isNotSameInstanceAs(w1);
+        assertThat(areWindowsEqual(w1, w2)).isTrue();
         parcel.recycle();
     }
 
@@ -79,26 +76,28 @@ public class AccessibilityWindowInfoTest {
     @Test
     public void testDefaultValues() {
         AccessibilityWindowInfo w = AccessibilityWindowInfo.obtain();
-        assertEquals(0, w.getChildCount());
-        assertEquals(-1, w.getType());
-        assertEquals(-1, w.getLayer());
-        assertEquals(-1, w.getId());
-        assertEquals(0, w.describeContents());
-        assertEquals(Display.INVALID_DISPLAY, w.getDisplayId());
-        assertNull(w.getParent());
-        assertNull(w.getRoot());
-        assertFalse(w.isAccessibilityFocused());
-        assertFalse(w.isActive());
-        assertFalse(w.isFocused());
-        assertNull(w.getTitle());
+        assertThat(w.getChildCount()).isEqualTo(0);
+        assertThat(w.getType()).isEqualTo(-1);
+        assertThat(w.getLayer()).isEqualTo(-1);
+        assertThat(w.getId()).isEqualTo(-1);
+        assertThat(w.describeContents()).isEqualTo(0);
+        assertThat(w.getDisplayId()).isEqualTo(Display.INVALID_DISPLAY);
+        assertThat(w.getParent()).isNull();
+        assertThat(w.getRoot()).isNull();
+        assertThat(w.isAccessibilityFocused()).isFalse();
+        assertThat(w.isActive()).isFalse();
+        assertThat(w.isFocused()).isFalse();
+        assertThat(w.getTitle()).isNull();
 
         Rect rect = new Rect();
         w.getBoundsInScreen(rect);
-        assertTrue(rect.isEmpty());
+        assertThat(rect.isEmpty()).isTrue();
 
         Region region = new Region();
         w.getRegionInScreen(region);
-        assertTrue(region.isEmpty());
+        assertThat(region.isEmpty()).isTrue();
+        assertThat(w.getTransitionTimeMillis()).isEqualTo(0);
+        assertThat(w.getLocales()).isEqualTo(LocaleList.getEmptyLocaleList());
 
         try {
             w.getChild(0);
@@ -140,6 +139,8 @@ public class AccessibilityWindowInfoTest {
         w1.getRegionInScreen(regions1);
         w2.getRegionInScreen(regions2);
         equality &= regions1.equals(regions2);
+        equality &= w1.getTransitionTimeMillis() == w2.getTransitionTimeMillis();
+        equality &= w1.getLocales().equals(w2.getLocales());
         return equality;
     }
 }

@@ -46,7 +46,7 @@ _EXCLUDE_MODULES = ['fake-framework']
 # soong_ui.bash. We reserve 5000 characters for rewriting the command line
 # in soong_ui.bash.
 _CMD_LENGTH_BUFFER = 5000
-# For each argument, it need a space to separate following argument.
+# For each argument, it needs a space to separate following argument.
 _BLANK_SIZE = 1
 _CORE_MODULES = [constant.FRAMEWORK_ALL, constant.CORE_ALL,
                  'org.apache.http.legacy.stubs.system']
@@ -106,6 +106,7 @@ class ProjectInfo:
     """
 
     modules_info = None
+    projects = []
 
     def __init__(self, target=None, is_main_project=False):
         """ProjectInfo initialize.
@@ -126,7 +127,7 @@ class ProjectInfo:
         self.project_relative_path = rel_path
         self.project_absolute_path = abs_path
         self.iml_path = ''
-        self._set_default_modues()
+        self._set_default_modules()
         self._init_source_path()
         if target == constant.FRAMEWORK_ALL:
             self.dep_modules = self.get_dep_modules([target])
@@ -137,10 +138,10 @@ class ProjectInfo:
         self.iml_name = iml.IMLGenerator.get_unique_iml_name(abs_path)
         self.rel_out_soong_jar_path = self._get_rel_project_out_soong_jar_path()
 
-    def _set_default_modues(self):
+    def _set_default_modules(self):
         """Append default hard-code modules, source paths and jar files.
 
-        1. framework: Framework module is always needed for dependencies but it
+        1. framework: Framework module is always needed for dependencies, but it
             might not always be located by module dependency.
         2. org.apache.http.legacy.stubs.system: The module can't be located
             through module dependency. Without it, a lot of java files will have
@@ -157,7 +158,7 @@ class ProjectInfo:
             'source_folder_path': set(),
             'test_folder_path': set(),
             'jar_path': set(),
-            'jar_module_path': dict(),
+            'jar_module_path': {},
             'r_java_path': set(),
             'srcjar_path': set()
         }
@@ -496,7 +497,8 @@ class MultiProjectsInfo(ProjectInfo):
         self._targets = targets
         self.path_to_sources = {}
 
-    def _clear_srcjar_paths(self, module):
+    @staticmethod
+    def _clear_srcjar_paths(module):
         """Clears the srcjar_paths.
 
         Args:
@@ -526,7 +528,7 @@ class MultiProjectsInfo(ProjectInfo):
             # files under the frameworks/base except the framework-all. Because
             # there are too many duplicate srcjars of modules under the
             # frameworks/base. So that AIDEGen keeps the srcjar files only from
-            # the framework-all module. Other modeuls' srcjar files will be
+            # the framework-all module. Other modules' srcjar files will be
             # removed. However, when users choose the module base case, srcjar
             # files will be collected by the ProjectInfo class, so that the
             # removing srcjar_paths in this class does not impact the
@@ -605,8 +607,8 @@ def _build_target(targets):
     """
     build_cmd = ['-k', '-j']
     build_cmd.extend(list(targets))
-    verbose = True
-    if not atest_utils.build(build_cmd, verbose, _BUILD_BP_JSON_ENV_ON):
+    atest_utils.update_build_env(_BUILD_BP_JSON_ENV_ON)
+    if not atest_utils.build(build_cmd):
         message = ('Build failed!\n{}\nAIDEGen will proceed but dependency '
                    'correctness is not guaranteed if not all targets being '
                    'built successfully.'.format('\n'.join(targets)))

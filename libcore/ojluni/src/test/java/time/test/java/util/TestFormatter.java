@@ -170,11 +170,8 @@ public class TestFormatter {
             try {
                 // Get millis & nanos from the dt
                 final TemporalAccessor ta = (TemporalAccessor) dt;
-                // Android-changed: Formatter doesn't support nanosecond yet.
-                // TODO: Revert this patch when Formatter is upgraded from 8 to 11 version.
-                // final int nanos = ta.get(ChronoField.NANO_OF_SECOND);
+                final int nanos = ta.get(ChronoField.NANO_OF_SECOND);
                 final int millis = ta.get(ChronoField.MILLI_OF_SECOND);
-                final int nanos = millis * 1000000;
                 final String nanstr = String.valueOf(nanos);
                 final String mistr = String.valueOf(millis);
 

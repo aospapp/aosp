@@ -45,6 +45,8 @@ import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -80,6 +82,7 @@ public class MediaCodecResourceTest {
         public final int uid;
     }
 
+    @ApiTest(apis = "MediaCodec#createByCodecNameForClient")
     @Test
     public void testCreateCodecForAnotherProcessWithoutPermissionsThrows() throws Exception {
         CodecInfo codecInfo = getFirstVideoHardwareDecoder();
@@ -102,6 +105,7 @@ public class MediaCodecResourceTest {
 
     // A process with lower priority (e.g. background app) should not be able to reclaim
     // MediaCodec resources from a process with higher priority (e.g. foreground app).
+    @ApiTest(apis = "MediaCodec#createByCodecNameForClient")
     @Test
     public void testLowerPriorityProcessFailsToReclaimResources() throws Exception {
         CodecInfo codecInfo = getFirstVideoHardwareDecoder();
@@ -177,17 +181,18 @@ public class MediaCodecResourceTest {
             for (MediaCodec mediaCodec : mediaCodecList) {
                 mediaCodec.release();
             }
-            InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                    .dropShellPermissionIdentity();
             destroyHighPriorityProcess();
             destroyLowPriorityProcess();
             // Allow time for the codecs and other resources to be released
             Thread.sleep(500);
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
         }
     }
 
     // A process with higher priority (e.g. foreground app) should be able to reclaim
     // MediaCodec resources from a process with lower priority (e.g. background app).
+    @ApiTest(apis = "MediaCodec#createByCodecNameForClient")
     @Test
     public void testHigherPriorityProcessReclaimsResources() throws Exception {
         CodecInfo codecInfo = getFirstVideoHardwareDecoder();
@@ -263,12 +268,12 @@ public class MediaCodecResourceTest {
             for (MediaCodec mediaCodec : mediaCodecList) {
                 mediaCodec.release();
             }
-            InstrumentationRegistry.getInstrumentation().getUiAutomation()
-                .dropShellPermissionIdentity();
             destroyHighPriorityProcess();
             destroyLowPriorityProcess();
             // Allow time for the codecs and other resources to be released
             Thread.sleep(500);
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
         }
     }
 
@@ -281,6 +286,9 @@ public class MediaCodecResourceTest {
                 continue;
             }
             if (mediaCodecInfo.isEncoder()) {
+                continue;
+            }
+            if (mediaCodecInfo.getSupportedTypes().length == 0) {
                 continue;
             }
             String mime = mediaCodecInfo.getSupportedTypes()[0];
@@ -305,11 +313,12 @@ public class MediaCodecResourceTest {
         ProcessInfoBroadcastReceiver processInfoBroadcastReceiver =
                 new ProcessInfoBroadcastReceiver();
         context.registerReceiver(processInfoBroadcastReceiver,
-                new IntentFilter(ACTION_LOW_PRIORITY_SERVICE_READY));
+                new IntentFilter(ACTION_LOW_PRIORITY_SERVICE_READY),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         Intent intent = new Intent(context, MediaCodecResourceTestLowPriorityService.class);
         context.startForegroundService(intent);
-        // Starting the service and receiving the broadcast should take less than 1 second
-        ProcessInfo processInfo = processInfoBroadcastReceiver.waitForProcessInfoMs(1000);
+        // Starting the service and receiving the broadcast should take less than 5 seconds
+        ProcessInfo processInfo = processInfoBroadcastReceiver.waitForProcessInfoMs(5000);
         context.unregisterReceiver(processInfoBroadcastReceiver);
         return processInfo;
     }
@@ -319,12 +328,13 @@ public class MediaCodecResourceTest {
         ProcessInfoBroadcastReceiver processInfoBroadcastReceiver =
                 new ProcessInfoBroadcastReceiver();
         context.registerReceiver(processInfoBroadcastReceiver,
-                new IntentFilter(ACTION_HIGH_PRIORITY_ACTIVITY_READY));
+                new IntentFilter(ACTION_HIGH_PRIORITY_ACTIVITY_READY),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         Intent intent = new Intent(context, MediaCodecResourceTestHighPriorityActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         context.startActivity(intent);
-        // Starting the activity and receiving the broadcast should take less than 1 second
-        ProcessInfo processInfo = processInfoBroadcastReceiver.waitForProcessInfoMs(1000);
+        // Starting the activity and receiving the broadcast should take less than 5 seconds
+        ProcessInfo processInfo = processInfoBroadcastReceiver.waitForProcessInfoMs(5000);
         context.unregisterReceiver(processInfoBroadcastReceiver);
         return processInfo;
     }

@@ -52,6 +52,7 @@
 #include "mirror/object_array-inl.h"
 #include "mirror/proxy.h"
 #include "mirror/reference.h"
+#include "mirror/stack_frame_info.h"
 #include "mirror/stack_trace_element.h"
 #include "mirror/string-inl.h"
 #include "mirror/var_handle.h"
@@ -130,7 +131,14 @@ class ClassLinkerTest : public CommonRuntimeTest {
     EXPECT_TRUE(JavaLangObject->GetSuperClass() == nullptr);
     EXPECT_FALSE(JavaLangObject->HasSuperClass());
     EXPECT_TRUE(JavaLangObject->GetClassLoader() == nullptr);
-    class_linker_->MakeInitializedClassesVisiblyInitialized(Thread::Current(), /*wait=*/ true);
+    {
+      Thread* self = Thread::Current();
+      StackHandleScope<1> hs(self);
+      HandleWrapperObjPtr<mirror::Class> h(hs.NewHandleWrapper(&JavaLangObject));
+      ScopedThreadSuspension sts(self, ThreadState::kNative);
+      class_linker_->MakeInitializedClassesVisiblyInitialized(self, /*wait=*/ true);
+      // HandleWrapperObjPtr restores JavaLangObject here after becoming runnable again.
+    }
     EXPECT_EQ(ClassStatus::kVisiblyInitialized, JavaLangObject->GetStatus());
     EXPECT_FALSE(JavaLangObject->IsErroneous());
     EXPECT_TRUE(JavaLangObject->IsLoaded());
@@ -275,9 +283,10 @@ class ClassLinkerTest : public CommonRuntimeTest {
                                                klass->GetDescriptor(&temp2)));
     if (klass->IsInterface()) {
       EXPECT_TRUE(klass->IsAbstract());
-      // Check that all direct methods are static (either <clinit> or a regular static method).
+      // Check that all methods are direct and either static (<clinit> or a regular static method),
+      // or private.
       for (ArtMethod& m : klass->GetDirectMethods(kRuntimePointerSize)) {
-        EXPECT_TRUE(m.IsStatic());
+        EXPECT_TRUE(m.IsStatic() || m.IsPrivate());
         EXPECT_TRUE(m.IsDirect());
       }
     } else {
@@ -598,6 +607,7 @@ struct ClassOffsets : public CheckOffsets<mirror::Class> {
 
 struct ClassExtOffsets : public CheckOffsets<mirror::ClassExt> {
   ClassExtOffsets() : CheckOffsets<mirror::ClassExt>(false, "Ldalvik/system/ClassExt;") {
+    addOffset(OFFSETOF_MEMBER(mirror::ClassExt, class_value_map_), "classValueMap");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, erroneous_state_error_), "erroneousStateError");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, instance_jfield_ids_), "instanceJfieldIDs");
     addOffset(OFFSETOF_MEMBER(mirror::ClassExt, jmethod_ids_), "jmethodIDs");
@@ -640,6 +650,20 @@ struct StackTraceElementOffsets : public CheckOffsets<mirror::StackTraceElement>
   }
 };
 
+struct StackFrameInfoOffsets : public CheckOffsets<mirror::StackFrameInfo> {
+  StackFrameInfoOffsets() : CheckOffsets<mirror::StackFrameInfo>(
+      false, "Ljava/lang/StackFrameInfo;") {
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, bci_), "bci");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, declaring_class_), "declaringClass");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, file_name_), "fileName");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, line_number_), "lineNumber");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, method_name_), "methodName");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, method_type_), "methodType");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, retain_class_ref_), "retainClassRef");
+    addOffset(OFFSETOF_MEMBER(mirror::StackFrameInfo, ste_), "ste");
+  }
+};
+
 struct ClassLoaderOffsets : public CheckOffsets<mirror::ClassLoader> {
   ClassLoaderOffsets() : CheckOffsets<mirror::ClassLoader>(false, "Ljava/lang/ClassLoader;") {
     addOffset(OFFSETOF_MEMBER(mirror::ClassLoader, allocator_), "allocator");
@@ -661,20 +685,18 @@ struct DexCacheOffsets : public CheckOffsets<mirror::DexCache> {
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, class_loader_), "classLoader");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, dex_file_), "dexFile");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, location_), "location");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_preresolved_strings_), "numPreResolvedStrings");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_resolved_call_sites_), "numResolvedCallSites");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_resolved_fields_), "numResolvedFields");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_resolved_method_types_), "numResolvedMethodTypes");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_resolved_methods_), "numResolvedMethods");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_resolved_types_), "numResolvedTypes");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, num_strings_), "numStrings");
-    addOffset(OFFSETOF_MEMBER(mirror::DexCache, preresolved_strings_), "preResolvedStrings");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_call_sites_), "resolvedCallSites");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_fields_), "resolvedFields");
+    addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_fields_array_), "resolvedFieldsArray");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_method_types_), "resolvedMethodTypes");
+    addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_method_types_array_),
+              "resolvedMethodTypesArray");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_methods_), "resolvedMethods");
+    addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_methods_array_), "resolvedMethodsArray");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_types_), "resolvedTypes");
+    addOffset(OFFSETOF_MEMBER(mirror::DexCache, resolved_types_array_), "resolvedTypesArray");
     addOffset(OFFSETOF_MEMBER(mirror::DexCache, strings_), "strings");
+    addOffset(OFFSETOF_MEMBER(mirror::DexCache, strings_array_), "stringsArray");
   }
 };
 
@@ -830,7 +852,7 @@ struct ByteBufferViewVarHandleOffsets : public CheckOffsets<mirror::ByteBufferVi
 
 // C++ fields must exactly match the fields in the Java classes. If this fails,
 // reorder the fields in the C++ class. Managed class fields are ordered by
-// ClassLinker::LinkFields.
+// ClassLinker::LinkFieldsHelper::LinkFields.
 TEST_F(ClassLinkerTest, ValidateFieldOrderOfJavaCppUnionClasses) {
   ScopedObjectAccess soa(Thread::Current());
   EXPECT_TRUE(ObjectOffsets().Check());
@@ -858,6 +880,7 @@ TEST_F(ClassLinkerTest, ValidateFieldOrderOfJavaCppUnionClasses) {
   EXPECT_TRUE(ArrayElementVarHandleOffsets().Check());
   EXPECT_TRUE(ByteArrayViewVarHandleOffsets().Check());
   EXPECT_TRUE(ByteBufferViewVarHandleOffsets().Check());
+  EXPECT_TRUE(StackFrameInfoOffsets().Check());
 }
 
 TEST_F(ClassLinkerTest, FindClassNonexistent) {
@@ -1520,12 +1543,14 @@ TEST_F(ClassLinkerTest, RegisterDexFileName) {
                                                                               data)));
   const DexFile* old_dex_file = dex_cache->GetDexFile();
 
+  auto container =
+      std::make_shared<MemoryDexFileContainer>(old_dex_file->Begin(), old_dex_file->Size());
   std::unique_ptr<DexFile> dex_file(new StandardDexFile(old_dex_file->Begin(),
                                                         old_dex_file->Size(),
                                                         location->ToModifiedUtf8(),
                                                         0u,
                                                         nullptr,
-                                                        nullptr));
+                                                        std::move(container)));
   // Make a copy of the dex cache with changed name.
   dex_cache.Assign(class_linker->AllocAndInitializeDexCache(Thread::Current(),
                                                             *dex_file,
@@ -1689,7 +1714,7 @@ class ClassLinkerClassLoaderTest : public ClassLinkerTest {
       }
       ASSERT_TRUE(klass == nullptr);
     } else if (expected_class_loader_obj == nullptr) {
-      ASSERT_TRUE(ClassLinker::IsBootClassLoader(soa, klass->GetClassLoader()));
+      ASSERT_TRUE(ClassLinker::IsBootClassLoader(klass->GetClassLoader()));
     } else {
       ASSERT_TRUE(klass != nullptr) << descriptor;
       Handle<mirror::ClassLoader> expected_class_loader(

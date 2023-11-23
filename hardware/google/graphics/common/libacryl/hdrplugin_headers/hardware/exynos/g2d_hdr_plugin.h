@@ -39,6 +39,7 @@ public:
     virtual void setTargetDisplayLuminance(unsigned int __unused min, unsigned int __unused max) { };
     virtual struct g2d_commandlist *getCommands() = 0;
     virtual void putCommands(struct g2d_commandlist __unused *commands) { };
+    virtual bool hasColorFillLayer(void) { return false; }
 };
 
 #endif/* __LIBACRYL_PLUGIN_G2D_HDR_H__ */

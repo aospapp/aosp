@@ -27,6 +27,8 @@ import android.aidl.sdkversion.ITestService.TypedObject;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.internal.TextListener;
@@ -65,5 +67,8 @@ public class AidlJavaVersionTests {
     TypedObject token = new TypedObject();
     assertEquals(mService.RepeatTypedObject(token), token);
     assertNull(mService.RepeatTypedObject(null));
+    List<TypedObject> list = new ArrayList<>();
+    list.add(token);
+    assertEquals(mService.RepeatTypedList(list), list);
   }
 }

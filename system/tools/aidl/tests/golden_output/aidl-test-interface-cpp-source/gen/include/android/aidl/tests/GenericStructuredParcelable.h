@@ -37,8 +37,8 @@ public:
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
   ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
   static const ::android::String16& getParcelableDescriptor() {
-    static const ::android::StaticString16 DESCIPTOR (u"android.aidl.tests.GenericStructuredParcelable");
-    return DESCIPTOR;
+    static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.GenericStructuredParcelable");
+    return DESCRIPTOR;
   }
   inline std::string toString() const {
     std::ostringstream os;
@@ -68,7 +68,7 @@ template <typename T, typename U, typename B>
   }
   if (_aidl_parcelable_raw_size < 4) return ::android::BAD_VALUE;
   size_t _aidl_parcelable_size = static_cast<size_t>(_aidl_parcelable_raw_size);
-  if (_aidl_start_pos > SIZE_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
+  if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
   if (_aidl_parcel->dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) {
     _aidl_parcel->setDataPosition(_aidl_start_pos + _aidl_parcelable_size);
     return _aidl_ret_status;

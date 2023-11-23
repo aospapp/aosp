@@ -112,8 +112,6 @@ void ProcPidIoStats::update(bool forceAll) {
     // update mUidNameMapping only for new pids
     for (int i = 0, len = newpids.size(); i < len; i++) {
         uint32_t pid = newpids[i];
-        if (sOptDebug > 1)
-            LOG(INFO) << i << ".";
         std::string buffer;
         if (!android::base::ReadFileToString("/proc/" + std::to_string(pid) + "/status", &buffer)) {
             if (sOptDebug)
@@ -153,9 +151,6 @@ void ProcPidIoStats::update(bool forceAll) {
         while (buffer[e] && !std::isspace(buffer[e])) e++;
         std::string strUid(buffer, s, e - s);
 
-        if (sOptDebug > 1)
-            LOG(INFO) << "(pid, name, uid)=(" << pid << ", " << pname << ", " << strUid << ")"
-                      << std::endl;
         uint32_t uid = (uint32_t)std::stoi(strUid);
         mUidNameMapping[uid] = pname;
     }

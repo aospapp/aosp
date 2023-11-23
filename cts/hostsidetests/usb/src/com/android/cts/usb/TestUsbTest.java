@@ -116,7 +116,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
 
     /**
      * Check if adb serial number, USB serial number, ro.serialno, and android.os.Build.SERIAL
-     * all matches and meets the format requirement [a-zA-Z0-9]{6,20}
+     * all matches and meets the format requirement [a-zA-Z0-9\\._\\-,]+
      */
     @AppModeInstant(reason = "only instant apps fail when reading serial")
     public void testInstantAppsCannotReadSerial() throws Exception {
@@ -127,7 +127,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
 
     /**
      * Check if adb serial number, USB serial number, ro.serialno, and android.os.Build.SERIAL
-     * all matches and meets the format requirement [a-zA-Z0-9]{6,20}
+     * all matches and meets the format requirement [a-zA-Z0-9\\._\\-,]+
      */
     @AppModeFull(reason = "serial can not be read by instant apps")
     public void testUsbSerialReadOnDeviceMatches() throws Exception {
@@ -148,7 +148,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         CommandResult result = RunUtil.getDefault().runTimedCmd(15000, "lsusb", "-v");
         assertEquals("lsusb -v failed", result.getStatus(), CommandStatus.SUCCESS);
         String lsusbOutput = result.getStdout();
-        Pattern pattern = Pattern.compile("^\\s+iSerial\\s+\\d+\\s+([a-zA-Z0-9]{6,20})",
+        Pattern pattern = Pattern.compile("^\\s+iSerial\\s+\\d+\\s+([a-zA-Z0-9\\._\\-,]+)",
                 Pattern.MULTILINE);
         Matcher matcher = pattern.matcher(lsusbOutput);
         String usbSerial = "";
@@ -166,7 +166,7 @@ public class TestUsbTest extends DeviceTestCase implements IAbiReceiver, IBuildR
         runTestOnDevice("logSerial");
         String logs = mDevice.executeAdbCommand(
                 "logcat", "-v", "brief", "-d", "CtsUsbSerialTest:W", "*:S");
-        pattern = Pattern.compile("^.*CtsUsbSerialTest\\(.*\\):\\s+([a-zA-Z0-9]{6,20})",
+        pattern = Pattern.compile("^.*CtsUsbSerialTest\\(.*\\):\\s+([a-zA-Z0-9\\._\\-,]+)",
                 Pattern.MULTILINE);
         matcher = pattern.matcher(logs);
         String buildSerial = "";

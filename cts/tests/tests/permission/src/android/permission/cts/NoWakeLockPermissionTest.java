@@ -17,6 +17,8 @@
 
 package android.permission.cts;
 
+import static android.content.pm.PackageManager.FEATURE_WIFI;
+
 import android.content.Context;
 import android.media.MediaPlayer;
 import android.net.wifi.WifiManager;
@@ -49,6 +51,10 @@ public class NoWakeLockPermissionTest extends AndroidTestCase {
     @AppModeFull(reason = "Instant apps cannot access the WifiManager")
     @SmallTest
     public void testWifiLockAcquire() {
+        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_WIFI)) {
+            return;
+        }
+
         final WifiManager wifiManager = (WifiManager) mContext.getSystemService(
                 Context.WIFI_SERVICE);
         final WifiLock wifiLock = wifiManager.createWifiLock("WakeLockPermissionTest");

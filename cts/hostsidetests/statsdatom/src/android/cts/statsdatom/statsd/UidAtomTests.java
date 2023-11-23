@@ -34,27 +34,31 @@ import com.android.os.AtomsProto.AppBreadcrumbReported;
 import com.android.os.AtomsProto.AppCrashOccurred;
 import com.android.os.AtomsProto.AppUsageEventOccurred;
 import com.android.os.AtomsProto.Atom;
-import com.android.os.AtomsProto.AttributionNode;
 import com.android.os.AtomsProto.AudioStateChanged;
 import com.android.os.AtomsProto.CameraStateChanged;
 import com.android.os.AtomsProto.FlashlightStateChanged;
 import com.android.os.AtomsProto.ForegroundServiceAppOpSessionEnded;
 import com.android.os.AtomsProto.ForegroundServiceStateChanged;
-import com.android.os.AtomsProto.GpsScanStateChanged;
 import com.android.os.AtomsProto.LmkKillOccurred;
 import com.android.os.AtomsProto.MediaCodecStateChanged;
 import com.android.os.AtomsProto.OverlayStateChanged;
 import com.android.os.AtomsProto.SyncStateChanged;
 import com.android.os.AtomsProto.TestAtomReported;
 import com.android.os.AtomsProto.UiEventReported;
-import com.android.os.AtomsProto.VibratorStateChanged;
 import com.android.os.AtomsProto.WakelockStateChanged;
+import com.android.os.AttributionNode;
 import com.android.os.StatsLog.EventMetricData;
+import com.android.os.gps.GpsScanStateChanged;
+import com.android.os.statsd.StatsdExtensionAtoms;
+import com.android.os.statsd.StatsdExtensionAtoms.TestExtensionAtomReported;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.log.LogUtil;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
 import com.android.tradefed.util.Pair;
+import com.android.tradefed.util.RunUtil;
+
+import com.google.protobuf.ExtensionRegistry;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -94,7 +98,7 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -162,7 +166,7 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
             // Sorted list of events in order in which they occurred.
             List<LmkKillOccurred> atoms = null;
             for (int i = 0; i < 60; ++i) {
-                Thread.sleep(1_000);
+                RunUtil.getDefault().sleep(1_000);
                 atoms = ReportUtils.getEventMetricDataList(getDevice()).stream()
                         .map(EventMetricData::getAtom)
                         .filter(Atom::hasLmkKillOccurred)
@@ -170,7 +174,7 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
                         .filter(atom -> atom.getUid() == appUid)
                         .collect(Collectors.toList());
                 if (!atoms.isEmpty()) {
-                  break;
+                    break;
                 }
             }
 
@@ -182,7 +186,7 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
             assertThat(atoms.get(0).getOomAdjScore()).isGreaterThan(0);
             assertThat(atoms.get(0).getRssInBytes() + atoms.get(0).getSwapInBytes())
                     .isGreaterThan(0);
-      }
+        }
     }
 
     public void testAppCrashOccurred() throws Exception {
@@ -267,12 +271,12 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", name);
 
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         List<Integer> atomStates = data.stream().map(
                 eventMetricData -> eventMetricData.getAtom().getAudioStateChanged()
-                        .getState().getNumber())
+                                .getState().getNumber())
                 .collect(Collectors.toList());
         // Because the timestamp is truncated, we skip checking time differences between state
         // changes.
@@ -322,11 +326,11 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.DEVICE_CALCULATED_POWER_USE_FIELD_NUMBER);
         DeviceUtils.unplugDevice(getDevice());
 
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testSimpleCpu");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         Atom atom = ReportUtils.getGaugeMetricAtoms(getDevice()).get(0);
         assertThat(atom.getDeviceCalculatedPowerUse().getComputedPowerNanoAmpSecs())
@@ -554,7 +558,7 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Collections.singletonList(uidFvm));
         // Picture-in-picture logs' been migrated to UiEvent since rvc-qpr
         FieldValueMatcher.Builder pkgMatcher = ConfigUtils.createFvm(
-                UiEventReported.PACKAGE_NAME_FIELD_NUMBER)
+                        UiEventReported.PACKAGE_NAME_FIELD_NUMBER)
                 .setEqString(DeviceUtils.STATSD_ATOM_TEST_PKG);
         ConfigUtils.addEventMetric(config, Atom.UI_EVENT_REPORTED_FIELD_NUMBER,
                 Arrays.asList(pkgMatcher));
@@ -594,34 +598,29 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
         boolean isInitialManual = isScreenBrightnessModeManual();
         setScreenBrightnessMode(true);
         setScreenBrightness(150);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         final int atomTag = Atom.SCREEN_BRIGHTNESS_CHANGED_FIELD_NUMBER;
-
-        Set<Integer> screenMin = new HashSet<>(Arrays.asList(47));
-        Set<Integer> screen100 = new HashSet<>(Arrays.asList(100));
-
-        // Add state sets to the list in order.
-        List<Set<Integer>> stateSet = Arrays.asList(screenMin, screen100);
 
         ConfigUtils.uploadConfigForPushedAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 atomTag);
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testScreenBrightness");
 
-        // Sorted list of events in order in which they occurred.
-        List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
+        List<Integer> expectedValues = Arrays.asList(47, 100);
+
+        // Sorted list of brightness values in order in which they occurred, filtered to only
+        // contain expectedValues if they are present.
+        List<Integer> data = ReportUtils.getEventMetricDataList(getDevice())
+                .stream()
+                .map(e -> e.getAtom().getScreenBrightnessChanged().getLevel())
+                .filter(expectedValues::contains)
+                .collect(Collectors.toList());
 
         // Restore initial screen brightness
         setScreenBrightness(initialBrightness);
         setScreenBrightnessMode(isInitialManual);
 
-        AtomTestUtils.popUntilFind(data, screenMin,
-                atom -> atom.getScreenBrightnessChanged().getLevel());
-        AtomTestUtils.popUntilFindFromEnd(data, screen100,
-                atom -> atom.getScreenBrightnessChanged().getLevel());
-        // Assert that the events happened in the expected order.
-        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, AtomTestUtils.WAIT_TIME_SHORT,
-                atom -> atom.getScreenBrightnessChanged().getLevel());
+        assertThat(data).containsExactlyElementsIn(expectedValues).inOrder();
     }
 
     public void testSyncState() throws Exception {
@@ -644,33 +643,6 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
         AtomTestUtils.assertStatesOccurredInOrder(stateSet, data,
                 /* wait = */ 0 /* don't verify time differences between state changes */,
                 atom -> atom.getSyncStateChanged().getState().getNumber());
-    }
-
-    public void testVibratorState() throws Exception {
-        if (!DeviceUtils.checkDeviceFor(getDevice(), "checkVibratorSupported")) return;
-
-        final int atomTag = Atom.VIBRATOR_STATE_CHANGED_FIELD_NUMBER;
-        final String name = "testVibratorState";
-
-        Set<Integer> onState = new HashSet<>(
-                Arrays.asList(VibratorStateChanged.State.ON_VALUE));
-        Set<Integer> offState = new HashSet<>(
-                Arrays.asList(VibratorStateChanged.State.OFF_VALUE));
-
-        // Add state sets to the list in order.
-        List<Set<Integer>> stateSet = Arrays.asList(onState, offState);
-
-        ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
-                atomTag, /*useUidAttributionChain=*/true);
-
-        DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", name);
-
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
-        // Sorted list of events in order in which they occurred.
-        List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
-
-        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, 300,
-                atom -> atom.getVibratorStateChanged().getState().getNumber());
     }
 
     public void testWakelockState() throws Exception {
@@ -714,10 +686,10 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         try (AutoCloseable a = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, "ANRActivity", null, null)) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG * 2);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG * 2);
             getDevice().executeShellCommand(
                     "am broadcast -a action_anr -p " + DeviceUtils.STATSD_ATOM_TEST_PKG);
-            Thread.sleep(20_000);
+            RunUtil.getDefault().sleep(20_000);
         }
 
         // Sorted list of events in order in which they occurred.
@@ -737,6 +709,128 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
         assertEquals(-1, atom.getMillisSinceOldestPendingRead());
     }
 
+    public void testWriteExtensionTestAtom() throws Exception {
+        final int atomTag = StatsdExtensionAtoms.TEST_EXTENSION_ATOM_REPORTED_FIELD_NUMBER;
+        ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
+                atomTag, /*useUidAttributionChain=*/true);
+
+        DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests",
+                "testWriteExtensionTestAtom");
+
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        // Sorted list of events in order in which they occurred.
+
+        ExtensionRegistry registry = ExtensionRegistry.newInstance();
+        StatsdExtensionAtoms.registerAllExtensions(registry);
+
+        List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice(), registry);
+        assertThat(data).hasSize(4);
+
+        TestExtensionAtomReported atom = data.get(0).getAtom().getExtension(
+                StatsdExtensionAtoms.testExtensionAtomReported);
+        List<AttributionNode> attrChain = atom.getAttributionNodeList();
+        assertThat(attrChain).hasSize(2);
+        assertThat(attrChain.get(0).getUid()).isEqualTo(1234);
+        assertThat(attrChain.get(0).getTag()).isEqualTo("tag1");
+        assertThat(attrChain.get(1).getUid()).isEqualTo(
+                DeviceUtils.getStatsdTestAppUid(getDevice()));
+        assertThat(attrChain.get(1).getTag()).isEqualTo("tag2");
+
+        assertThat(atom.getIntField()).isEqualTo(42);
+        assertThat(atom.getLongField()).isEqualTo(Long.MAX_VALUE);
+        assertThat(atom.getFloatField()).isEqualTo(3.14f);
+        assertThat(atom.getStringField()).isEqualTo("This is a basic test!");
+        assertThat(atom.getBooleanField()).isFalse();
+        assertThat(atom.getState().getNumber()).isEqualTo(TestExtensionAtomReported.State.ON_VALUE);
+        assertThat(atom.getBytesField().getLongFieldList())
+                .containsExactly(1L, 2L, 3L).inOrder();
+
+        assertThat(atom.getRepeatedIntFieldList()).containsExactly(3, 6).inOrder();
+        assertThat(atom.getRepeatedLongFieldList()).containsExactly(1000L, 1002L).inOrder();
+        assertThat(atom.getRepeatedFloatFieldList()).containsExactly(0.3f, 0.09f).inOrder();
+        assertThat(atom.getRepeatedStringFieldList()).containsExactly("str1", "str2").inOrder();
+        assertThat(atom.getRepeatedBooleanFieldList()).containsExactly(true, false).inOrder();
+        assertThat(atom.getRepeatedEnumFieldList())
+                .containsExactly(TestExtensionAtomReported.State.OFF,
+                    TestExtensionAtomReported.State.ON).inOrder();
+
+        atom = data.get(1).getAtom().getExtension(
+            StatsdExtensionAtoms.testExtensionAtomReported);
+        attrChain = atom.getAttributionNodeList();
+        assertThat(attrChain).hasSize(2);
+        assertThat(attrChain.get(0).getUid()).isEqualTo(9999);
+        assertThat(attrChain.get(0).getTag()).isEqualTo("tag9999");
+        assertThat(attrChain.get(1).getUid()).isEqualTo(
+                DeviceUtils.getStatsdTestAppUid(getDevice()));
+        assertThat(attrChain.get(1).getTag()).isEmpty();
+
+        assertThat(atom.getIntField()).isEqualTo(100);
+        assertThat(atom.getLongField()).isEqualTo(Long.MIN_VALUE);
+        assertThat(atom.getFloatField()).isEqualTo(-2.5f);
+        assertThat(atom.getStringField()).isEqualTo("Test null uid");
+        assertThat(atom.getBooleanField()).isTrue();
+        assertThat(atom.getState().getNumber()).isEqualTo(
+                TestExtensionAtomReported.State.UNKNOWN_VALUE);
+        assertThat(atom.getBytesField().getLongFieldList())
+                .containsExactly(1L, 2L, 3L).inOrder();
+        assertThat(atom.getRepeatedIntFieldList()).containsExactly(3, 6).inOrder();
+        assertThat(atom.getRepeatedLongFieldList()).containsExactly(1000L, 1002L).inOrder();
+        assertThat(atom.getRepeatedFloatFieldList()).containsExactly(0.3f, 0.09f).inOrder();
+        assertThat(atom.getRepeatedStringFieldList()).containsExactly("str1", "str2").inOrder();
+        assertThat(atom.getRepeatedBooleanFieldList()).containsExactly(true, false).inOrder();
+        assertThat(atom.getRepeatedEnumFieldList())
+                .containsExactly(TestExtensionAtomReported.State.OFF,
+                        TestExtensionAtomReported.State.ON)
+                .inOrder();
+
+        atom = data.get(2).getAtom().getExtension(
+            StatsdExtensionAtoms.testExtensionAtomReported);
+        attrChain = atom.getAttributionNodeList();
+        assertThat(attrChain).hasSize(1);
+        assertThat(attrChain.get(0).getUid()).isEqualTo(
+                DeviceUtils.getStatsdTestAppUid(getDevice()));
+        assertThat(attrChain.get(0).getTag()).isEqualTo("tag1");
+
+        assertThat(atom.getIntField()).isEqualTo(-256);
+        assertThat(atom.getLongField()).isEqualTo(-1234567890L);
+        assertThat(atom.getFloatField()).isEqualTo(42.01f);
+        assertThat(atom.getStringField()).isEqualTo("Test non chained");
+        assertThat(atom.getBooleanField()).isTrue();
+        assertThat(atom.getState().getNumber()).isEqualTo(
+                TestExtensionAtomReported.State.OFF_VALUE);
+        assertThat(atom.getBytesField().getLongFieldList())
+                .containsExactly(1L, 2L, 3L).inOrder();
+        assertThat(atom.getRepeatedIntFieldList()).isEmpty();
+        assertThat(atom.getRepeatedLongFieldList()).isEmpty();
+        assertThat(atom.getRepeatedFloatFieldList()).isEmpty();
+        assertThat(atom.getRepeatedStringFieldList()).isEmpty();
+        assertThat(atom.getRepeatedBooleanFieldList()).isEmpty();
+        assertThat(atom.getRepeatedEnumFieldList()).isEmpty();
+
+        atom = data.get(3).getAtom().getExtension(
+            StatsdExtensionAtoms.testExtensionAtomReported);
+        attrChain = atom.getAttributionNodeList();
+        assertThat(attrChain).hasSize(1);
+        assertThat(attrChain.get(0).getUid()).isEqualTo(
+                DeviceUtils.getStatsdTestAppUid(getDevice()));
+        assertThat(attrChain.get(0).getTag()).isEmpty();
+
+        assertThat(atom.getIntField()).isEqualTo(0);
+        assertThat(atom.getLongField()).isEqualTo(0L);
+        assertThat(atom.getFloatField()).isEqualTo(0f);
+        assertThat(atom.getStringField()).isEmpty();
+        assertThat(atom.getBooleanField()).isTrue();
+        assertThat(atom.getState().getNumber()).isEqualTo(
+                TestExtensionAtomReported.State.OFF_VALUE);
+        assertThat(atom.getBytesField().getLongFieldList()).isEmpty();
+        assertThat(atom.getRepeatedIntFieldList()).isEmpty();
+        assertThat(atom.getRepeatedLongFieldList()).isEmpty();
+        assertThat(atom.getRepeatedFloatFieldList()).isEmpty();
+        assertThat(atom.getRepeatedStringFieldList()).isEmpty();
+        assertThat(atom.getRepeatedBooleanFieldList()).isEmpty();
+        assertThat(atom.getRepeatedEnumFieldList()).isEmpty();
+    }
+
     public void testWriteRawTestAtom() throws Exception {
         final int atomTag = Atom.TEST_ATOM_REPORTED_FIELD_NUMBER;
         ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
@@ -744,7 +838,7 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testWriteRawTestAtom");
 
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         assertThat(data).hasSize(4);
@@ -880,19 +974,19 @@ public class UidAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         List<Set<Integer>> stateSet = Arrays.asList(onStates, offStates); // state sets, in order
         createAndUploadConfig(Atom.APP_USAGE_EVENT_OCCURRED_FIELD_NUMBER, false);
-        Thread.sleep(WAIT_TIME_FOR_CONFIG_UPDATE_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_FOR_CONFIG_UPDATE_MS);
 
         getDevice().executeShellCommand(String.format(
                 "am start -n '%s' -e %s %s",
                 "com.android.server.cts.device.statsd/.StatsdCtsForegroundActivity",
                 "action", ACTION_LONG_SLEEP_WHILE_TOP));
         final int waitTime = EXTRA_WAIT_TIME_MS + 5_000;
-        Thread.sleep(waitTime);
+        RunUtil.getDefault().sleep(waitTime);
 
         getDevice().executeShellCommand(String.format(
                 "am force-stop %s",
                 "com.android.server.cts.device.statsd/.StatsdCtsForegroundActivity"));
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
 
         List<EventMetricData> data = getEventMetricDataList();
         Function<Atom, Integer> appUsageStateFunction =

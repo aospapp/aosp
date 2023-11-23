@@ -22,7 +22,9 @@ namespace aidl {
 
 struct DumpVisitor : AidlVisitor {
   CodeWriter& out;
-  DumpVisitor(CodeWriter& out) : out(out) {}
+  bool inline_constants;
+  DumpVisitor(CodeWriter& out, bool inline_constants)
+      : out(out), inline_constants(inline_constants) {}
 
   void DumpType(const AidlDefinedType& dt, const string& type);
   void DumpMembers(const AidlDefinedType& dt);
@@ -39,6 +41,10 @@ struct DumpVisitor : AidlVisitor {
   void Visit(const AidlVariableDeclaration& v) override;
   void Visit(const AidlConstantDeclaration& c) override;
   void Visit(const AidlTypeSpecifier& t) override;
+  void Visit(const AidlConstantValue& c) override;
+  void Visit(const AidlConstantReference& r) override;
+  void Visit(const AidlBinaryConstExpression& b) override;
+  void Visit(const AidlUnaryConstExpression& u) override;
 };
 
 bool dump_api(const Options& options, const IoDelegate& io_delegate);

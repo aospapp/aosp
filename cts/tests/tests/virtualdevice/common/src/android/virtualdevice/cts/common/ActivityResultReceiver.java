@@ -56,7 +56,8 @@ public class ActivityResultReceiver extends BroadcastReceiver {
         mCallback = callback;
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_SEND_ACTIVITY_RESULT);
-        mContext.registerReceiver(/* receiver= */ this, filter);
+        mContext.registerReceiver(/* receiver= */ this, filter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
     }
 
     public void unregister() {

@@ -48,9 +48,54 @@ static void onAsyncError(AMediaCodec* codec, void* userdata, media_status_t erro
                          int32_t actionCode, const char* detail) {
     (void)codec;
     auto* aSyncHandle = static_cast<CodecAsyncHandler*>(userdata);
-    aSyncHandle->setError(true);
+    auto msg = StringFormat("###################  Async Error Details  #####################\n "
+                            "received media codec error: %s , code : %d , action code: %d \n",
+                            detail, error, actionCode);
+    aSyncHandle->setError(true, msg);
     ALOGE("received media codec error: %s , code : %d , action code: %d ", detail, error,
           actionCode);
+}
+
+static bool arePtsListsIdentical(const std::vector<int64_t>& refArray,
+                                 const std::vector<int64_t>& testArray,
+                                 const std::shared_ptr<std::string>& logs) {
+    bool isEqual = true;
+    if (refArray.size() != testArray.size()) {
+        logs->append("Reference and test timestamps list sizes are not identical \n");
+        logs->append(StringFormat("reference pts list size is %zu \n", refArray.size()));
+        logs->append(StringFormat("test pts list size is %zu \n", testArray.size()));
+        isEqual = false;
+    }
+    if (!isEqual || refArray != testArray) {
+        isEqual = false;
+        std::vector<int64_t> refArrayDiff;
+        std::vector<int64_t> testArrayDiff;
+        std::set_difference(refArray.begin(), refArray.end(), testArray.begin(), testArray.end(),
+                            std::inserter(refArrayDiff, refArrayDiff.begin()));
+        std::set_difference(testArray.begin(), testArray.end(), refArray.begin(), refArray.end(),
+                            std::inserter(testArrayDiff, testArrayDiff.begin()));
+        if (!refArrayDiff.empty()) {
+            logs->append("Some of the frame/access-units present in ref list are not present in "
+                         "test list. Possibly due to frame drops \n");
+            logs->append("List of timestamps that are dropped by the component :- \n");
+            logs->append("pts :- [[ ");
+            for (auto pts : refArrayDiff) {
+                logs->append(StringFormat("{ %" PRId64 " us }, ", pts));
+            }
+            logs->append(" ]]\n");
+        }
+        if (!testArrayDiff.empty()) {
+            logs->append("Test list contains frame/access-units that are not present in ref list, "
+                         "Possible due to duplicate transmissions \n");
+            logs->append("List of timestamps that are additionally present in test list are :- \n");
+            logs->append("pts :- [[ ");
+            for (auto pts : testArrayDiff) {
+                logs->append(StringFormat("{ %" PRId64 " us }, ", pts));
+            }
+            logs->append(" ]]\n");
+        }
+    }
+    return isEqual;
 }
 
 CodecAsyncHandler::CodecAsyncHandler() {
@@ -161,13 +206,14 @@ bool CodecAsyncHandler::hasOutputFormatChanged() {
     return mSignalledOutFormatChanged;
 }
 
-void CodecAsyncHandler::setError(bool status) {
+void CodecAsyncHandler::setError(bool status, std::string& msg) {
     std::unique_lock<std::mutex> lock{mMutex};
     mSignalledError = status;
+    mErrorMsg.append(msg);
     mCondition.notify_all();
 }
 
-bool CodecAsyncHandler::getError() {
+bool CodecAsyncHandler::getError() const {
     return mSignalledError;
 }
 
@@ -179,6 +225,11 @@ void CodecAsyncHandler::resetContext() {
     }
     mSignalledOutFormatChanged = false;
     mSignalledError = false;
+    mErrorMsg.clear();
+}
+
+std::string CodecAsyncHandler::getErrorMsg() {
+    return mErrorMsg;
 }
 
 media_status_t CodecAsyncHandler::setCallBack(AMediaCodec* codec, bool isCodecInAsyncMode) {
@@ -193,13 +244,20 @@ media_status_t CodecAsyncHandler::setCallBack(AMediaCodec* codec, bool isCodecIn
 
 bool OutputManager::isPtsStrictlyIncreasing(int64_t lastPts) {
     bool result = true;
-    for (auto it1 = outPtsArray.cbegin(); it1 < outPtsArray.cend(); it1++) {
-        if (lastPts < *it1) {
-            lastPts = *it1;
+    for (auto i = 0; i < outPtsArray.size(); i++) {
+        if (lastPts < outPtsArray[i]) {
+            lastPts = outPtsArray[i];
         } else {
-            ALOGE("Timestamp ordering check failed: last timestamp: %" PRId64
-                  " / current timestamp: %" PRId64 "",
-                  lastPts, *it1);
+            mErrorLogs.append("Timestamp values are not strictly increasing. \n");
+            mErrorLogs.append("Frame indices around which timestamp values decreased :- \n");
+            for (auto j = std::max(0, i - 3); j < std::min((int)outPtsArray.size(), i + 3); j++) {
+                if (j == 0) {
+                    mErrorLogs.append(
+                            StringFormat("pts of frame idx -1 is  %" PRId64 "\n", lastPts));
+                }
+                mErrorLogs.append(
+                        StringFormat("pts of frame idx %d is %" PRId64 "\n", j, outPtsArray[j]));
+            }
             result = false;
             break;
         }
@@ -214,8 +272,7 @@ void OutputManager::updateChecksum(uint8_t* buf, AMediaCodecBufferInfo* info, in
     if (width <= 0 || height <= 0 || stride <= 0) {
         flattenField<int32_t>(flattenInfo, &pos, info->size);
     }
-    flattenField<int32_t>(flattenInfo, &pos,
-                          info->flags & ~AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM);
+    flattenField<int32_t>(flattenInfo, &pos, info->flags & ~AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM);
     flattenField<int64_t>(flattenInfo, &pos, info->presentationTimeUs);
     crc32value = crc32(crc32value, flattenInfo, pos);
     if (width > 0 && height > 0 && stride > 0 && bytesPerSample > 0) {
@@ -233,77 +290,53 @@ void OutputManager::updateChecksum(uint8_t* buf, AMediaCodecBufferInfo* info, in
 }
 
 bool OutputManager::isOutPtsListIdenticalToInpPtsList(bool requireSorting) {
-    bool isEqual = true;
     std::sort(inpPtsArray.begin(), inpPtsArray.end());
     if (requireSorting) {
         std::sort(outPtsArray.begin(), outPtsArray.end());
     }
-    if (outPtsArray != inpPtsArray) {
-        if (outPtsArray.size() != inpPtsArray.size()) {
-            ALOGE("input and output presentation timestamp list sizes are not identical sizes "
-                  "exp/rec %zu/%zu", inpPtsArray.size(), outPtsArray.size());
-            isEqual = false;
-        } else {
-            int count = 0;
-            for (auto it1 = outPtsArray.cbegin(), it2 = inpPtsArray.cbegin();
-                 it1 < outPtsArray.cend(); it1++, it2++) {
-                if (*it1 != *it2) {
-                    ALOGE("input output pts mismatch, exp/rec %" PRId64 "/%" PRId64 "",
-                          *it2, *it1);
-                    count++;
-                }
-                if (count == 20) {
-                    ALOGE("stopping after 20 mismatches ... ");
-                    break;
-                }
-            }
-            if (count != 0) isEqual = false;
-        }
-    }
-    return isEqual;
+    return arePtsListsIdentical(inpPtsArray, outPtsArray, mSharedErrorLogs);
 }
 
-bool OutputManager::equals(const OutputManager* that) {
+bool OutputManager::equals(OutputManager* that) {
     if (this == that) return true;
-    if (outPtsArray != that->outPtsArray) {
-        if (outPtsArray.size() != that->outPtsArray.size()) {
-            ALOGE("ref and test outputs presentation timestamp arrays are of unequal sizes "
-                  "%zu, %zu", outPtsArray.size(), that->outPtsArray.size());
-            return false;
-        } else {
-            int count = 0;
-            for (auto it1 = outPtsArray.cbegin(), it2 = that->outPtsArray.cbegin();
-                 it1 < outPtsArray.cend(); it1++, it2++) {
-                if (*it1 != *it2) {
-                    ALOGE("presentation timestamp exp/rec %" PRId64 "/%" PRId64 "", *it1, *it2);
-                    count++;
-                }
-                if (count == 20) {
-                    ALOGE("stopping after 20 mismatches ... ");
-                    break;
-                }
-            }
-            if (count != 0) return false;
-        }
-    }
+    if (that == nullptr) return false;
+    if (!equalsInterlaced(that)) return false;
+    if (!arePtsListsIdentical(outPtsArray, that->outPtsArray, mSharedErrorLogs)) return false;
+    return true;
+}
+
+bool OutputManager::equalsInterlaced(OutputManager* that) {
+    if (this == that) return true;
+    if (that == nullptr) return false;
     if (crc32value != that->crc32value) {
-        ALOGE("ref and test outputs checksum do not match %lu, %lu", crc32value, that->crc32value);
-        if (memory.size() != that->memory.size()) {
-            ALOGE("ref and test outputs decoded buffer are of unequal sizes %zu, %zu",
-                  memory.size(), that->memory.size());
-        } else {
+        mSharedErrorLogs->append("CRC32 checksums computed for byte buffers received from "
+                                 "getOutputBuffer() do not match between ref and test runs. \n");
+        mSharedErrorLogs->append(StringFormat("Ref CRC32 checksum value is %lu \n", crc32value));
+        mSharedErrorLogs->append(
+                StringFormat("Test CRC32 checksum value is %lu \n", that->crc32value));
+        if (memory.size() == that->memory.size()) {
             int count = 0;
-            for (auto it1 = memory.cbegin(), it2 = that->memory.cbegin(); it1 < memory.cend();
-                 it1++, it2++) {
-                if (*it1 != *it2) {
-                    ALOGE("decoded sample exp/rec %d/%d", *it1, *it2);
+            for (int i = 0; i < memory.size(); i++) {
+                if (memory[i] != that->memory[i]) {
                     count++;
-                }
-                if (count == 20) {
-                    ALOGE("stopping after 20 mismatches ... ");
-                    break;
+                    mSharedErrorLogs->append(StringFormat("At offset %d, ref buffer val is %x and "
+                                                          "test buffer val is %x \n",
+                                                          i, memory[i], that->memory[i]));
+                    if (count == 20) {
+                        mSharedErrorLogs->append("stopping after 20 mismatches, ...\n");
+                        break;
+                    }
                 }
             }
+            if (count != 0) {
+                mSharedErrorLogs->append("Ref and Test outputs are not identical \n");
+            }
+        } else {
+            mSharedErrorLogs->append("CRC32 byte buffer checksums are different because ref and "
+                                     "test output sizes are not identical \n");
+            mSharedErrorLogs->append(StringFormat("Ref output buffer size %d \n", memory.size()));
+            mSharedErrorLogs->append(
+                    StringFormat("Test output buffer size %d \n", that->memory.size()));
         }
         return false;
     }
@@ -327,9 +360,10 @@ float OutputManager::getRmsError(uint8_t* refData, int length) {
     return (float)sqrt(avgErrorSquared);
 }
 
-CodecTestBase::CodecTestBase(const char* mime) {
-    mMime = mime;
-    mIsAudio = strncmp(mime, "audio/", strlen("audio/")) == 0;
+CodecTestBase::CodecTestBase(const char* mediaType) {
+    mMediaType = mediaType;
+    mIsAudio = strncmp(mediaType, "audio/", strlen("audio/")) == 0;
+    mIsVideo = strncmp(mediaType, "video/", strlen("video/")) == 0;
     mIsCodecInAsyncMode = false;
     mSawInputEOS = false;
     mSawOutputEOS = false;
@@ -343,6 +377,9 @@ CodecTestBase::CodecTestBase(const char* mime) {
     mOutputBuff = nullptr;
     mCodec = nullptr;
     mBytesPerSample = mIsAudio ? 2 : 1;
+    mRefBuff = new OutputManager();
+    mTestBuff = new OutputManager(mRefBuff->getSharedErrorLogs());
+    mReconfBuff = new OutputManager(mRefBuff->getSharedErrorLogs());
 }
 
 CodecTestBase::~CodecTestBase() {
@@ -354,21 +391,45 @@ CodecTestBase::~CodecTestBase() {
         AMediaCodec_delete(mCodec);
         mCodec = nullptr;
     }
+    delete mRefBuff;
+    delete mTestBuff;
+    delete mReconfBuff;
 }
 
 bool CodecTestBase::configureCodec(AMediaFormat* format, bool isAsync, bool signalEOSWithLastFrame,
                                    bool isEncoder) {
     resetContext(isAsync, signalEOSWithLastFrame);
-    CHECK_STATUS(mAsyncHandle.setCallBack(mCodec, isAsync),
-                 "AMediaCodec_setAsyncNotifyCallback failed");
-    CHECK_STATUS(AMediaCodec_configure(mCodec, format, nullptr, nullptr,
-                                       isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0),
-                 "AMediaCodec_configure failed");
+    mTestEnv = "###################      Test Environment       #####################\n";
+    {
+        char* name = nullptr;
+        media_status_t val = AMediaCodec_getName(mCodec, &name);
+        if (AMEDIA_OK != val) {
+            mErrorLogs = StringFormat("%s with error %d \n", "AMediaCodec_getName failed", val);
+            return false;
+        }
+        if (!name) {
+            mErrorLogs = std::string{"AMediaCodec_getName returned null"};
+            return false;
+        }
+        mTestEnv.append(StringFormat("Component name %s \n", name));
+        AMediaCodec_releaseName(mCodec, name);
+    }
+    mTestEnv.append(StringFormat("Format under test :- %s \n", AMediaFormat_toString(format)));
+    mTestEnv.append(StringFormat("Component operating in :- %s mode \n",
+                                 (isAsync ? "asynchronous" : "synchronous")));
+    mTestEnv.append(
+            StringFormat("Component received input eos :- %s \n",
+                         (signalEOSWithLastFrame ? "with full buffer" : "with empty buffer")));
+    RETURN_IF_FAIL(mAsyncHandle.setCallBack(mCodec, isAsync),
+                   "AMediaCodec_setAsyncNotifyCallback failed")
+    RETURN_IF_FAIL(AMediaCodec_configure(mCodec, format, nullptr, nullptr,
+                                         isEncoder ? AMEDIACODEC_CONFIGURE_FLAG_ENCODE : 0),
+                   "AMediaCodec_configure failed")
     return true;
 }
 
 bool CodecTestBase::flushCodec() {
-    CHECK_STATUS(AMediaCodec_flush(mCodec), "AMediaCodec_flush failed");
+    RETURN_IF_FAIL(AMediaCodec_flush(mCodec), "AMediaCodec_flush failed")
     // TODO(b/147576107): is it ok to clearQueues right away or wait for some signal
     mAsyncHandle.clearQueues();
     mSawInputEOS = false;
@@ -381,7 +442,7 @@ bool CodecTestBase::flushCodec() {
 
 bool CodecTestBase::reConfigureCodec(AMediaFormat* format, bool isAsync,
                                      bool signalEOSWithLastFrame, bool isEncoder) {
-    CHECK_STATUS(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed");
+    RETURN_IF_FAIL(AMediaCodec_stop(mCodec), "AMediaCodec_stop failed")
     return configureCodec(format, isAsync, signalEOSWithLastFrame, isEncoder);
 }
 
@@ -401,11 +462,28 @@ void CodecTestBase::resetContext(bool isAsync, bool signalEOSWithLastFrame) {
     }
 }
 
+bool CodecTestBase::isTestStateValid() {
+    RETURN_IF_TRUE(hasSeenError(),
+                   std::string{"Encountered error in async mode. \n"}.append(
+                           mAsyncHandle.getErrorMsg()))
+    RETURN_IF_TRUE(mInputCount > 0 && mOutputCount <= 0,
+                   StringFormat("fed %d input frames, received no output frames \n", mInputCount))
+    /*if (mInputCount == 0 && mInputCount != mOutputCount) {
+        (void)mOutputBuff->isOutPtsListIdenticalToInpPtsList(true);
+        RETURN_IF_TRUE(true,
+                       StringFormat("The number of output frames received is not same as number of "
+                                    "input frames queued. Output count is %d, Input count is %d \n",
+                                    mOutputCount, mInputCount)
+                               .append(mOutputBuff->getErrorMsg()))
+    }*/
+    return true;
+}
+
 bool CodecTestBase::enqueueEOS(size_t bufferIndex) {
     if (!hasSeenError() && !mSawInputEOS) {
-        CHECK_STATUS(AMediaCodec_queueInputBuffer(mCodec, bufferIndex, 0, 0, 0,
-                                                  AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM),
-                     "AMediaCodec_queueInputBuffer failed");
+        RETURN_IF_FAIL(AMediaCodec_queueInputBuffer(mCodec, bufferIndex, 0, 0, 0,
+                                                    AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM),
+                       "AMediaCodec_queueInputBuffer failed")
         mSawInputEOS = true;
         ALOGV("Queued End of Stream");
     }
@@ -445,7 +523,11 @@ bool CodecTestBase::doWork(int frameLimit) {
             } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
+                auto msg = StringFormat("unexpected return value from "
+                                        "AMediaCodec_dequeueOutputBuffer: %zd \n",
+                                        oBufferID);
+                mErrorLogs.append(msg);
+                ALOGE("%s", msg.c_str());
                 return false;
             }
             ssize_t iBufferId = AMediaCodec_dequeueInputBuffer(mCodec, kQDeQTimeOutUs);
@@ -454,7 +536,11 @@ bool CodecTestBase::doWork(int frameLimit) {
                 frameCnt++;
             } else if (iBufferId == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %zd", iBufferId);
+                auto msg = StringFormat("unexpected return value from "
+                                        "AMediaCodec_dequeueInputBuffer: %zd \n",
+                                        iBufferId);
+                mErrorLogs.append(msg);
+                ALOGE("%s", msg.c_str());
                 return false;
             }
         }
@@ -491,7 +577,11 @@ bool CodecTestBase::queueEOS() {
             } else if (oBufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (oBufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %zd", oBufferID);
+                auto msg = StringFormat("unexpected return value from "
+                                        "AMediaCodec_dequeueOutputBuffer: %zd \n",
+                                        oBufferID);
+                mErrorLogs.append(msg);
+                ALOGE("%s", msg.c_str());
                 return false;
             }
             ssize_t iBufferId = AMediaCodec_dequeueInputBuffer(mCodec, kQDeQTimeOutUs);
@@ -499,7 +589,11 @@ bool CodecTestBase::queueEOS() {
                 isOk = enqueueEOS(iBufferId);
             } else if (iBufferId == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else {
-                ALOGE("unexpected return value from *_dequeueInputBuffer: %zd", iBufferId);
+                auto msg = StringFormat("unexpected return value from "
+                                        "AMediaCodec_dequeueInputBuffer: %zd \n",
+                                        iBufferId);
+                mErrorLogs.append(msg);
+                ALOGE("%s", msg.c_str());
                 return false;
             }
         }
@@ -532,12 +626,16 @@ bool CodecTestBase::waitForAllOutputs() {
             } else if (bufferID == AMEDIACODEC_INFO_TRY_AGAIN_LATER) {
             } else if (bufferID == AMEDIACODEC_INFO_OUTPUT_BUFFERS_CHANGED) {
             } else {
-                ALOGE("unexpected return value from *_dequeueOutputBuffer: %d", bufferID);
+                auto msg = StringFormat("unexpected return value from "
+                                        "AMediaCodec_dequeueOutputBuffer: %d \n",
+                                        bufferID);
+                mErrorLogs.append(msg);
+                ALOGE("%s", msg.c_str());
                 return false;
             }
         }
     }
-    return !hasSeenError() && isOk;
+    return isOk && isTestStateValid();
 }
 
 int CodecTestBase::getWidth(AMediaFormat* format) {
@@ -565,12 +663,13 @@ int CodecTestBase::getHeight(AMediaFormat* format) {
 }
 
 bool CodecTestBase::isFormatSimilar(AMediaFormat* inpFormat, AMediaFormat* outFormat) {
-    const char *refMime = nullptr, *testMime = nullptr;
-    bool hasRefMime = AMediaFormat_getString(inpFormat, AMEDIAFORMAT_KEY_MIME, &refMime);
-    bool hasTestMime = AMediaFormat_getString(outFormat, AMEDIAFORMAT_KEY_MIME, &testMime);
+    const char *refMediaType = nullptr, *testMediaType = nullptr;
+    bool hasRefMediaType = AMediaFormat_getString(inpFormat, AMEDIAFORMAT_KEY_MIME, &refMediaType);
+    bool hasTestMediaType =
+            AMediaFormat_getString(outFormat, AMEDIAFORMAT_KEY_MIME, &testMediaType);
 
-    if (!hasRefMime || !hasTestMime) return false;
-    if (!strncmp(refMime, "audio/", strlen("audio/"))) {
+    if (!hasRefMediaType || !hasTestMediaType) return false;
+    if (!strncmp(refMediaType, "audio/", strlen("audio/"))) {
         int32_t refSampleRate = -1;
         int32_t testSampleRate = -2;
         int32_t refNumChannels = -1;
@@ -580,14 +679,15 @@ bool CodecTestBase::isFormatSimilar(AMediaFormat* inpFormat, AMediaFormat* outFo
         AMediaFormat_getInt32(inpFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &refNumChannels);
         AMediaFormat_getInt32(outFormat, AMEDIAFORMAT_KEY_CHANNEL_COUNT, &testNumChannels);
         return refNumChannels == testNumChannels && refSampleRate == testSampleRate &&
-               (strncmp(testMime, "audio/", strlen("audio/")) == 0);
-    } else if (!strncmp(refMime, "video/", strlen("video/"))) {
+                (strncmp(testMediaType, "audio/", strlen("audio/")) == 0);
+    } else if (!strncmp(refMediaType, "video/", strlen("video/"))) {
         int32_t refWidth = getWidth(inpFormat);
         int32_t testWidth = getWidth(outFormat);
         int32_t refHeight = getHeight(inpFormat);
         int32_t testHeight = getHeight(outFormat);
         return refWidth != -1 && refHeight != -1 && refWidth == testWidth &&
-               refHeight == testHeight && (strncmp(testMime, "video/", strlen("video/")) == 0);
+                refHeight == testHeight &&
+                (strncmp(testMediaType, "video/", strlen("video/")) == 0);
     }
     return true;
 }

@@ -16,7 +16,7 @@
 
 package android.cts.install;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.android.cts.install.lib.PackageInstallerSessionInfoSubject.assertThat;
 
 import com.android.cts.install.lib.Install;
 import com.android.cts.install.lib.InstallUtils;
@@ -109,14 +109,14 @@ public final class DowngradeTest {
     /** Confirms versions before staged downgrades applied. */
     @Test
     public void assert_preReboot_phase() throws Exception {
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionReady()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionReady();
         mInstallRule.assertPackageVersion(mInstallType, VERSION_CODE_CURRENT);
     }
 
     /** Confirms versions after staged downgrades applied. */
     @Test
     public void assert_postReboot_phase() throws Exception {
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionApplied()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionApplied();
         mInstallRule.assertPackageVersion(mInstallType, VERSION_CODE_DOWNGRADE);
     }
 

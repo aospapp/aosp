@@ -42,8 +42,8 @@ using ::android::base::unique_fd;
 using ::android::os::ParcelFileDescriptor;
 
 std::vector<String16> gServiceNames;
-static constexpr size_t SHUTDOWN_WAIT_TIME = 10;
-static constexpr size_t CALLBACK_SHUTDOWN_WAIT_TIME = 5;
+static constexpr size_t SHUTDOWN_WAIT_MS = 10000;
+static constexpr size_t CALLBACK_SHUTDOWN_WAIT_MS = 5000;
 
 sp<IBinder> waitForService(const String16& name) {
   sp<IServiceManager> manager;
@@ -78,10 +78,10 @@ class AidlLazyTest : public ::testing::Test {
   }
 
   void TearDown() override {
-    std::cout << "Waiting " << SHUTDOWN_WAIT_TIME << " seconds before checking that the "
+    std::cout << "Waiting " << SHUTDOWN_WAIT_MS << " milliseconds before checking that the "
               << "service has shut down." << std::endl;
     IPCThreadState::self()->flushCommands();
-    sleep(SHUTDOWN_WAIT_TIME);
+    usleep(SHUTDOWN_WAIT_MS * 1000);
     for (size_t i = 0; i < gServiceNames.size(); i++) {
       ASSERT_FALSE(isServiceRunning(gServiceNames.at(i))) << "Service failed to shut down.";
     }
@@ -100,7 +100,7 @@ TEST_F(AidlLazyTest, GetRelease) {
   }
 }
 
-static std::vector<size_t> waitTimes(size_t numTimes, size_t maxWait) {
+static std::vector<size_t> waitMs(size_t numTimes, size_t maxWait) {
   std::vector<size_t> times(numTimes);
   for (size_t i = 0; i < numTimes; i++) {
     times.at(i) = (size_t)(rand() % (maxWait + 1));
@@ -108,21 +108,20 @@ static std::vector<size_t> waitTimes(size_t numTimes, size_t maxWait) {
   return times;
 }
 
-static void testWithTimes(const std::vector<size_t>& waitTimes, bool beforeGet) {
+static void testWithTimes(const std::vector<size_t>& waitMs, bool beforeGet) {
   size_t nServices = gServiceNames.size();
-  for (size_t i = 0; i < waitTimes.size(); i++) {
+  for (size_t i = 0; i < waitMs.size(); i++) {
     IPCThreadState::self()->flushCommands();
     if (beforeGet) {
-      std::cout << "Thread waiting " << waitTimes.at(i) << " while not holding service."
-                << std::endl;
-      sleep(waitTimes.at(i));
+      std::cout << "Thread waiting " << waitMs.at(i) << " while not holding service." << std::endl;
+      usleep(waitMs.at(i) * 1000);
     }
 
     sp<IBinder> service = waitForService(gServiceNames.at(i % nServices));
 
     if (!beforeGet) {
-      std::cout << "Thread waiting " << waitTimes.at(i) << " while holding service." << std::endl;
-      sleep(waitTimes.at(i));
+      std::cout << "Thread waiting " << waitMs.at(i) << " while holding service." << std::endl;
+      usleep(waitMs.at(i) * 1000);
     }
 
     ASSERT_NE(service.get(), nullptr);
@@ -131,18 +130,19 @@ static void testWithTimes(const std::vector<size_t>& waitTimes, bool beforeGet) 
 }
 
 static constexpr size_t NUM_TIMES_GET_RELEASE = 5;
-static constexpr size_t MAX_WAITING_DURATION = 10;
+static constexpr size_t MAX_WAITING_DURATION_MS = 10000;
 static constexpr size_t NUM_CONCURRENT_THREADS = 3;
 static void testConcurrentThreadsWithDelays(bool delayBeforeGet) {
   size_t nServices = gServiceNames.size();
   std::vector<std::vector<size_t>> threadWaitTimes(NUM_CONCURRENT_THREADS);
   int maxWait = 0;
   for (size_t i = 0; i < threadWaitTimes.size(); i++) {
-    threadWaitTimes.at(i) = waitTimes(NUM_TIMES_GET_RELEASE * nServices, MAX_WAITING_DURATION);
+    threadWaitTimes.at(i) = waitMs(NUM_TIMES_GET_RELEASE * nServices, MAX_WAITING_DURATION_MS);
     int totalWait = std::accumulate(threadWaitTimes.at(i).begin(), threadWaitTimes.at(i).end(), 0);
     maxWait = std::max(maxWait, totalWait);
   }
-  std::cout << "Additional runtime expected from sleeps: " << maxWait << " second(s)." << std::endl;
+  std::cout << "Additional runtime expected from sleeps: " << maxWait << " millisecond(s)."
+            << std::endl;
 
   std::vector<std::thread> threads(NUM_CONCURRENT_THREADS);
   for (size_t i = 0; i < threads.size(); i++) {
@@ -186,10 +186,10 @@ TEST_F(AidlLazyRegistrarTest, ForcedPersistenceTest) {
     EXPECT_TRUE(service->forcePersist(i == 0).isOk());
     service = nullptr;
 
-    std::cout << "Waiting " << SHUTDOWN_WAIT_TIME << " seconds before checking whether the "
+    std::cout << "Waiting " << SHUTDOWN_WAIT_MS << " milliseconds before checking whether the "
               << "service is still running." << std::endl;
     IPCThreadState::self()->flushCommands();
-    sleep(SHUTDOWN_WAIT_TIME);
+    usleep(SHUTDOWN_WAIT_MS * 1000);
 
     if (i == 0) {
       ASSERT_TRUE(isServiceRunning(serviceName)) << "Service shut down when it shouldn't have.";
@@ -215,7 +215,7 @@ TEST_F(AidlLazyRegistrarTest, ActiveServicesCountCallbackTest) {
 
   IPCThreadState::self()->flushCommands();
 
-  std::cout << "Waiting " << SHUTDOWN_WAIT_TIME << " seconds for callback completion "
+  std::cout << "Waiting " << SHUTDOWN_WAIT_MS << " milliseconds for callback completion "
             << "notification." << std::endl;
 
   int epollFd = epoll_create1(EPOLL_CLOEXEC);
@@ -230,7 +230,7 @@ TEST_F(AidlLazyRegistrarTest, ActiveServicesCountCallbackTest) {
   int rc = epoll_ctl(epollFd, EPOLL_CTL_ADD, efd, &event);
   ASSERT_GE(rc, 0) << "Failed to add fd to epoll";
 
-  rc = TEMP_FAILURE_RETRY(epoll_wait(epollFd, events, EPOLL_MAX_EVENTS, SHUTDOWN_WAIT_TIME * 1000));
+  rc = TEMP_FAILURE_RETRY(epoll_wait(epollFd, events, EPOLL_MAX_EVENTS, SHUTDOWN_WAIT_MS));
   ASSERT_NE(rc, 0) << "Service shutdown timeout";
   ASSERT_GT(rc, 0) << "Error waiting for service shutdown notification";
 
@@ -239,10 +239,11 @@ TEST_F(AidlLazyRegistrarTest, ActiveServicesCountCallbackTest) {
   ASSERT_GE(rc, 0) << "Failed to get callback completion notification from service";
   ASSERT_EQ(counter, 1);
 
-  std::cout << "Waiting " << CALLBACK_SHUTDOWN_WAIT_TIME << " seconds before checking whether the "
+  std::cout << "Waiting " << CALLBACK_SHUTDOWN_WAIT_MS
+            << " milliseconds before checking whether the "
             << "service is still running." << std::endl;
 
-  sleep(CALLBACK_SHUTDOWN_WAIT_TIME);
+  usleep(CALLBACK_SHUTDOWN_WAIT_MS * 1000);
 
   ASSERT_FALSE(isServiceRunning(serviceName)) << "Service failed to shut down.";
 }

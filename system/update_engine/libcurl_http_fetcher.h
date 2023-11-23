@@ -82,8 +82,7 @@ class UnresolvedHostStateMachine {
 
 class LibcurlHttpFetcher : public HttpFetcher {
  public:
-  LibcurlHttpFetcher(ProxyResolver* proxy_resolver,
-                     HardwareInterface* hardware);
+  explicit LibcurlHttpFetcher(HardwareInterface* hardware);
 
   // Cleans up all internal state. Does not notify delegate
   ~LibcurlHttpFetcher() override;
@@ -164,10 +163,6 @@ class LibcurlHttpFetcher : public HttpFetcher {
   // libcurl's CURLOPT_CLOSESOCKETFUNCTION callback function. Called when
   // closing a socket created with the CURLOPT_OPENSOCKETFUNCTION callback.
   static int LibcurlCloseSocketCallback(void* clientp, curl_socket_t item);
-
-  // Callback for when proxy resolution has completed. This begins the
-  // transfer.
-  void ProxiesResolved();
 
   // Asks libcurl for the http response code and stores it in the object.
   virtual void GetHttpResponseCode();

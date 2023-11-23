@@ -50,6 +50,7 @@
 #include "mirror/object-inl.h"
 #include "oat.h"
 #include "oat_writer.h"
+#include "read_barrier_config.h"
 #include "scoped_thread_state_change-inl.h"
 #include "signal_catcher.h"
 #include "stream/buffered_output_stream.h"
@@ -63,6 +64,7 @@ static const uintptr_t kRequestedImageBase = ART_BASE_ADDRESS;
 struct CompilationHelper {
   std::vector<std::string> dex_file_locations;
   std::vector<ScratchFile> image_locations;
+  std::string extra_dex;
   std::vector<std::unique_ptr<const DexFile>> extra_dex_files;
   std::vector<ScratchFile> image_files;
   std::vector<ScratchFile> oat_files;
@@ -78,7 +80,7 @@ class ImageTest : public CommonCompilerDriverTest {
  protected:
   void SetUp() override {
     ReserveImageSpace();
-    CommonCompilerTest::SetUp();
+    CommonCompilerDriverTest::SetUp();
   }
 
   void Compile(ImageHeader::StorageMode storage_mode,
@@ -86,10 +88,11 @@ class ImageTest : public CommonCompilerDriverTest {
                /*out*/ CompilationHelper& out_helper,
                const std::string& extra_dex = "",
                const std::initializer_list<std::string>& image_classes = {},
-               const std::initializer_list<std::string>& image_classes_failing_aot_clinit = {});
+               const std::initializer_list<std::string>& image_classes_failing_aot_clinit = {},
+               const std::initializer_list<std::string>& image_classes_failing_resolution = {});
 
   void SetUpRuntimeOptions(RuntimeOptions* options) override {
-    CommonCompilerTest::SetUpRuntimeOptions(options);
+    CommonCompilerDriverTest::SetUpRuntimeOptions(options);
     QuickCompilerCallbacks* new_callbacks =
         new QuickCompilerCallbacks(CompilerCallbacks::CallbackMode::kCompileBootImage);
     new_callbacks->SetVerificationResults(verification_results_.get());
@@ -149,17 +152,10 @@ inline std::vector<size_t> CompilationHelper::GetImageObjectSectionSizes() {
 inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
                                  /*out*/ CompilationHelper& out_helper) {
   CompilerDriver* driver = compiler_driver_.get();
+  Runtime::Current()->AppendToBootClassPath(
+      out_helper.extra_dex, out_helper.extra_dex, out_helper.extra_dex_files);
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
   std::vector<const DexFile*> class_path = class_linker->GetBootClassPath();
-
-  for (const std::unique_ptr<const DexFile>& dex_file : out_helper.extra_dex_files) {
-    {
-      ScopedObjectAccess soa(Thread::Current());
-      // Inject in boot class path so that the compiler driver can see it.
-      class_linker->AppendToBootClassPath(soa.Self(), dex_file.get());
-    }
-    class_path.push_back(dex_file.get());
-  }
 
   // Enable write for dex2dex.
   for (const DexFile* dex_file : class_path) {
@@ -228,6 +224,8 @@ inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
       key_value_store.Put(OatHeader::kBootClassPathKey,
                           android::base::Join(out_helper.dex_file_locations, ':'));
       key_value_store.Put(OatHeader::kApexVersionsKey, Runtime::Current()->GetApexVersions());
+      key_value_store.Put(OatHeader::kConcurrentCopying,
+                          gUseReadBarrier ? OatHeader::kTrueValue : OatHeader::kFalseValue);
 
       std::vector<std::unique_ptr<ElfWriter>> elf_writers;
       std::vector<std::unique_ptr<OatWriter>> oat_writers;
@@ -235,6 +233,7 @@ inline void ImageTest::DoCompile(ImageHeader::StorageMode storage_mode,
         elf_writers.emplace_back(CreateElfWriterQuick(*compiler_options_, oat_file.GetFile()));
         elf_writers.back()->Start();
         oat_writers.emplace_back(new OatWriter(*compiler_options_,
+                                               verification_results_.get(),
                                                &timings,
                                                /*profile_compilation_info*/nullptr,
                                                CompactDexLevel::kCompactDexLevelNone));
@@ -352,7 +351,8 @@ inline void ImageTest::Compile(
     CompilationHelper& helper,
     const std::string& extra_dex,
     const std::initializer_list<std::string>& image_classes,
-    const std::initializer_list<std::string>& image_classes_failing_aot_clinit) {
+    const std::initializer_list<std::string>& image_classes_failing_aot_clinit,
+    const std::initializer_list<std::string>& image_classes_failing_resolution) {
   for (const std::string& image_class : image_classes_failing_aot_clinit) {
     ASSERT_TRUE(ContainsElement(image_classes, image_class));
   }
@@ -366,6 +366,7 @@ inline void ImageTest::Compile(
   compiler_options_->SetMaxImageBlockSize(max_image_block_size);
   image_classes_.clear();
   if (!extra_dex.empty()) {
+    helper.extra_dex = extra_dex;
     helper.extra_dex_files = OpenTestDexFiles(extra_dex.c_str());
   }
   DoCompile(storage_mode, helper);
@@ -375,12 +376,14 @@ inline void ImageTest::Compile(
     ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
     for (const std::string& image_class : image_classes) {
       ObjPtr<mirror::Class> klass =
-          class_linker->FindSystemClass(Thread::Current(), image_class.c_str());
-      EXPECT_TRUE(klass != nullptr);
-      EXPECT_TRUE(klass->IsResolved());
-      if (ContainsElement(image_classes_failing_aot_clinit, image_class)) {
+          class_linker->LookupClass(Thread::Current(), image_class.c_str(), nullptr);
+      if (ContainsElement(image_classes_failing_resolution, image_class)) {
+        EXPECT_TRUE(klass == nullptr || klass->IsErroneousUnresolved());
+      } else  if (ContainsElement(image_classes_failing_aot_clinit, image_class)) {
+        ASSERT_TRUE(klass != nullptr) << image_class;
         EXPECT_FALSE(klass->IsInitialized());
       } else {
+        ASSERT_TRUE(klass != nullptr) << image_class;
         EXPECT_TRUE(klass->IsInitialized());
       }
     }

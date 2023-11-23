@@ -15,6 +15,7 @@
  */
 package com.android.cts.tv;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assume.assumeTrue;
@@ -79,7 +80,7 @@ public class TvInputManagerServiceHostTest extends BaseHostJUnit4Test {
         installPackage(TEST_APK);
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @After

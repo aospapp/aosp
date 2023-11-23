@@ -20,7 +20,6 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
-import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoDialContactDetailsHelper;
 import android.platform.helpers.IAutoDialContactDetailsHelper.ContactType;
@@ -32,7 +31,6 @@ import android.platform.test.option.StringOption;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
-import org.junit.BeforeClass;
 import org.junit.ClassRule;
 import org.junit.runner.RunWith;
 import org.junit.Test;
@@ -75,11 +73,6 @@ public class DialTest {
         mDialerHelper = new HelperAccessor<>(IAutoDialHelper.class);
         mContactDetailsHelper = new HelperAccessor<>(IAutoDialContactDetailsHelper.class);
         mVehicleHardKeysHelper = new HelperAccessor<>(IAutoVehicleHardKeysHelper.class);
-    }
-
-    @BeforeClass
-    public static void setUp() {
-        AutoUtility.exitSuw();
     }
 
     @After

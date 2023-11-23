@@ -17,7 +17,7 @@ import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiNetworkSelectorTest import WifiNetworkSelectorTest
+from ..WifiNetworkSelectorTest import WifiNetworkSelectorTest
 
 # WifiNetworkSelector imposes a 10 seconds gap between two selections
 NETWORK_SELECTION_TIME_GAP = 12

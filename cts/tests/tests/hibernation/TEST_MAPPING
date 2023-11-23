@@ -1,0 +1,21 @@
+{
+  "presubmit": [
+    {
+      "name": "CtsHibernationTestCases"
+    }
+  ],
+  "mainline-presubmit": [
+      {
+          "name": "CtsHibernationTestCases[com.google.android.permission.apex]",
+          "options": [
+              // TODO(b/238677038): This test currently fails on R base image
+              {
+                  "exclude-filter": "android.hibernation.cts.AutoRevokeTest#testUnusedApp_uninstallApp"
+              },
+              {
+                  "exclude-annotation": "android.platform.test.annotations.FlakyTest"
+              }
+          ]
+      }
+  ]
+}

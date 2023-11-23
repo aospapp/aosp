@@ -47,6 +47,31 @@ class IDisplayColorGS101 : public IDisplayColorGeneric {
     };
 
    public:
+    /// LUT with programmable X and Y
+    template <typename XT, typename YT, size_t N>
+    struct TransferFunctionData {
+        std::array<XT, N> posx;
+        std::array<YT, N> posy;
+    };
+
+    template <typename XType, typename YType, size_t N>
+    struct FlexLutConfigType {
+        // keep XContainer, YContainer and kLutLen for backward compatibility.
+        using XContainer = XType;
+        using YContainer = YType;
+        static constexpr size_t kLutLen = N;
+
+        TransferFunctionData<XContainer, YContainer, kLutLen> tf_data;
+    };
+
+    template <typename DType, size_t N>
+    struct MatrixConfigType {
+        using Container = DType;
+        static constexpr size_t kDimensions = N;
+
+        MatrixData<Container, kDimensions> matrix_data;
+    };
+
     /**
      * @brief Interface for accessing data for DPP stages.
      *
@@ -55,211 +80,219 @@ class IDisplayColorGS101 : public IDisplayColorGeneric {
      * identical, with one caveat: While all G2D layers support display tone
      * mapping (DTM) for HDR10+, only DPP layers L1/L3/L5 support this stage.
      */
-    struct IDpp {
-     private:
-        /// Register data for transfer function LUTs in DPP)
-        template <typename XT, typename YT, size_t N>
-        struct TransferFunctionData {
+    struct IDppData {
+        struct IEotfData {
+            /// Register data for the EOTF LUT in DPP.
+            using EotfData = DisplayStage<FlexLutConfigType<uint16_t, uint32_t, 129>>;
+
+            /// Get data for the EOTF LUT.
+            virtual const EotfData& EotfLut() const = 0;
+            virtual ~IEotfData() {}
+        };
+
+        struct IGmData {
+           public:
+            /// Register data for the gamut mapping (GM) matrix in DPP.
+            using GmData = DisplayStage<MatrixConfigType<uint32_t, 3>>;
+
+            /// Get data for the gamut mapping (GM) matrix.
+            virtual const GmData& Gm() const = 0;
+            virtual ~IGmData() {}
+        };
+
+        struct IDtmData {
+           private:
+            struct Rgb2YData {
+                uint16_t coeff_r;    // DPP_HDR_LSI_L#_TM_COEF[COEFR] #(1, 3, 5)
+                uint16_t coeff_g;    // DPP_HDR_LSI_L#_TM_COEF[COEFG] #(1, 3, 5)
+                uint16_t coeff_b;    // DPP_HDR_LSI_L#_TM_COEF[COEFB] #(1, 3, 5)
+                uint16_t rng_x_min;  // DPP_HDR_LSI_L#_TM_RNGX[MINX] #(1, 3, 5)
+                uint16_t rng_x_max;  // DPP_HDR_LSI_L#_TM_RNGX[MAXX] #(1, 3, 5)
+                uint16_t rng_y_min;  // DPP_HDR_LSI_L#_TM_RNGY[MINY] #(1, 3, 5)
+                uint16_t rng_y_max;  // DPP_HDR_LSI_L#_TM_RNGY[MAXY] #(1, 3, 5)
+            };
+
+            // To avoid updating legacy source code after separate lut and rgb2y,
+            // use inheritance instead of composition.
+            struct DtmConfigType : public FlexLutConfigType<uint16_t, uint32_t, 33>,
+                                   public Rgb2YData {};
+
+           public:
             /**
-             * DPP_HDR_LSI_L#_EOTF_POSX0~64[POSXn], #(0..5), n(0..1)
-             * DPP_HDR_LSI_L#_OETF_POSX0~16[POSXn], #(0..5), n(0..1)
-             * DPP_HDR_LSI_L#_TM_POSX0~16[POSXn], #(1, 3, 5), n(0..1)
+             * @brief Register data for the DTM stage in DPP.
+             *
+             * Note that this data is only applicable to DPP in layers L1/L3/L5
+             * and G2D layers. Other DPPs do not support DTM. DTM data will be
+             * provided for any layer whose DisplayScene::LayerColorData
+             * contains HDR dynamic metadata. It is the caller's (typically
+             * HWComposer) responsibility to validate layers and HW capabilities
+             * correctly, before calling this API.
              */
-            std::array<XT, N> posx;
+            using DtmData = DisplayStage<DtmConfigType>;
+
             /**
-             * DPP_HDR_LSI_L#_EOTF_POSY0~128[POSY0], #(0..5)
-             * DPP_HDR_LSI_L#_OETF_POSY0~16[POSYn] #(0..5), n(0..1)
-             * DPP_HDR_LSI_L#_TM_POSY0~32[POSY0], #(1, 3, 5)
+             * @brief Get data for the DTM LUT. Only used for HDR10+, and only
+             * applicable to DPPs that support this functionality.
              */
-            std::array<YT, N> posy;
+            virtual const DtmData& Dtm() const = 0;
+            virtual ~IDtmData() {}
         };
 
-        struct EotfConfigType {
-            using XContainer = uint16_t;
-            using YContainer = uint32_t;
-            static constexpr size_t kLutLen = 129;
+        struct IOetfData {
+            /// Register data for the OETF LUT in DPP.
+            using OetfData = DisplayStage<FlexLutConfigType<uint32_t, uint16_t, 33>>;
 
-            TransferFunctionData<XContainer, YContainer, kLutLen> tf_data;
+            /// Get data for the OETF LUT.
+            virtual const OetfData& OetfLut() const = 0;
+            virtual ~IOetfData() {}
         };
+    };
 
-        struct GmConfigType {
-            using Container = uint32_t;
-            static constexpr size_t kDimensions = 3;
-
-            MatrixData<Container, kDimensions> matrix_data;
-        };
-
-        struct DtmConfigType {
-            using XContainer = uint16_t;
-            using YContainer = uint32_t;
-            static constexpr size_t kLutLen = 33;
-
-            TransferFunctionData<XContainer, YContainer, kLutLen> tf_data;
-            uint16_t coeff_r;    // DPP_HDR_LSI_L#_TM_COEF[COEFR] #(1, 3, 5)
-            uint16_t coeff_g;    // DPP_HDR_LSI_L#_TM_COEF[COEFG] #(1, 3, 5)
-            uint16_t coeff_b;    // DPP_HDR_LSI_L#_TM_COEF[COEFB] #(1, 3, 5)
-            uint16_t rng_x_min;  // DPP_HDR_LSI_L#_TM_RNGX[MINX] #(1, 3, 5)
-            uint16_t rng_x_max;  // DPP_HDR_LSI_L#_TM_RNGX[MAXX] #(1, 3, 5)
-            uint16_t rng_y_min;  // DPP_HDR_LSI_L#_TM_RNGY[MINY] #(1, 3, 5)
-            uint16_t rng_y_max;  // DPP_HDR_LSI_L#_TM_RNGY[MAXY] #(1, 3, 5)
-        };
-
-        struct OetfConfigType {
-            using XContainer = uint32_t;
-            using YContainer = uint16_t;
-            static constexpr size_t kLutLen = 33;
-
-            TransferFunctionData<XContainer, YContainer, kLutLen> tf_data;
-        };
-
-     public:
-        /// Register data for the EOTF LUT in DPP.
-        using EotfData = DisplayStage<EotfConfigType>;
-
-        /// Register data for the gamut mapping (GM) matrix in DPP.
-        using GmData = DisplayStage<GmConfigType>;
-
-        /**
-         * @brief Register data for the DTM stage in DPP.
-         *
-         * Note that this data is only applicable to DPP in layers L1/L3/L5 and
-         * G2D layers. Other DPPs do not support DTM. DTM data will be provided
-         * for any layer whose DisplayScene::LayerColorData contains HDR dynamic
-         * metadata. It is the caller's (typically HWComposer) responsibility to
-         * validate layers and HW capabilities correctly, before calling this
-         * API.
-         */
-        using DtmData = DisplayStage<DtmConfigType>;
-
-        /// Register data for the OETF LUT in DPP.
-        using OetfData = DisplayStage<OetfConfigType>;
-
-        /// Get data for the EOTF LUT.
-        virtual const EotfData& EotfLut() const = 0;
-
-        /// Get data for the gamut mapping (GM) matrix.
-        virtual const GmData& Gm() const = 0;
-
-        /**
-         * @brief Get data for the DTM LUT. Only used for HDR10+, and only
-         * applicable to DPPs that support this functionality.
-         */
-        virtual const DtmData& Dtm() const = 0;
-
-        /// Get data for the OETF LUT.
-        virtual const OetfData& OetfLut() const = 0;
+    struct IDpp
+        : public IStageDataCollection<IDppData::IEotfData, IDppData::IGmData,
+                                      IDppData::IDtmData, IDppData::IOetfData> {
+        /// Get the solid color
+        virtual const Color SolidColor() const = 0;
 
         virtual ~IDpp() {}
     };
 
     /// Interface for accessing data for DQE stages.
-    struct IDqe {
-     private:
-        /// 32-bit DQE dither register, same definition as in uapi
-        struct DitherConfigType {
-            uint8_t en : 1;
-            uint8_t mode : 1;
-            uint8_t frame_con : 1;
-            uint8_t frame_offset : 2;
-            uint8_t table_sel_r : 1;
-            uint8_t table_sel_g : 1;
-            uint8_t table_sel_b : 1;
-            uint32_t reserved : 24;
-        };
-
-        struct DqeControlConfigType {
-            /// DQE force 10bpc mode
-            bool force_10bpc = false;
-
-            /// flag to use cgc_dither
-            bool cgc_dither_override = false;
-            /// CGC dither register value
-            union {
-                DitherConfigType cgc_dither_reg = {};
-                uint8_t cgc_dither; // only lowest 8 bit is used
+    struct IDqeData {
+       public:
+        struct IDqeControlData {
+           private:
+            /// 32-bit DQE dither register, same definition as in uapi
+            struct DitherConfigType {
+                uint8_t en : 1;
+                uint8_t mode : 1;
+                uint8_t frame_con : 1;
+                uint8_t frame_offset : 2;
+                uint8_t table_sel_r : 1;
+                uint8_t table_sel_g : 1;
+                uint8_t table_sel_b : 1;
+                uint32_t reserved : 24;
             };
 
-            /// flag to use disp_dither
-            bool disp_dither_override = false;
-            /// Display dither register value
-            union {
-                DitherConfigType disp_dither_reg = {};
-                uint8_t disp_dither; // only lowest 8 bit is used
+            struct DqeControlConfigType {
+                /// DQE force 10bpc mode
+                bool force_10bpc = false;
+
+                /// flag to use cgc_dither
+                bool cgc_dither_override = false;
+                /// CGC dither register value
+                union {
+                    DitherConfigType cgc_dither_reg = {};
+                    uint8_t cgc_dither;  // only lowest 8 bit is used
+                };
+
+                /// flag to use disp_dither
+                bool disp_dither_override = false;
+                /// Display dither register value
+                union {
+                    DitherConfigType disp_dither_reg = {};
+                    uint8_t disp_dither;  // only lowest 8 bit is used
+                };
             };
+
+           public:
+            /// DQE control data
+            using DqeControlData = DisplayStage<DqeControlConfigType>;
+
+            /// Get DQE control data
+            virtual const DqeControlData& DqeControl() const = 0;
+            virtual ~IDqeControlData() {}
         };
 
-        struct DqeMatrixConfigType {
-            using Container = uint16_t;
-            static constexpr size_t kDimensions = 3;
+        struct IGammaMatrixData {
+            /// Register data for the gamma and linear matrices in DQE.
+            using DqeMatrixData = DisplayStage<MatrixConfigType<uint16_t, 3>>;
 
-            struct MatrixData<Container, kDimensions> matrix_data;
+            /// Get data for the gamma-space matrix.
+            virtual const DqeMatrixData& GammaMatrix() const = 0;
+            virtual ~IGammaMatrixData() {}
         };
 
-        struct DegammaConfigType {
-            using Container = uint16_t;
-            static constexpr size_t kLutLen = 65;
+        struct IDegammaLutData {
+           private:
+            struct DegammaConfigType {
+                using Container = uint16_t;
+                static constexpr size_t kLutLen = 65;
 
-            std::array<Container, kLutLen> values;
+                std::array<Container, kLutLen> values;
+            };
+
+           public:
+            /// Register data for the degamma LUT in DQE.
+            using DegammaLutData = DisplayStage<DegammaConfigType>;
+
+            /// Get data for the 1D de-gamma LUT (EOTF).
+            virtual const DegammaLutData& DegammaLut() const = 0;
+            virtual ~IDegammaLutData() {}
         };
 
-        struct CgcConfigType {
-            using Container = uint32_t;
-            static constexpr size_t kChannelLutLen = 2457;
+        struct ILinearMatrixData {
+            /// Register data for the gamma and linear matrices in DQE.
+            using DqeMatrixData = DisplayStage<MatrixConfigType<uint16_t, 3>>;
 
-            /// DQE0_CGC_LUT_R_N{0-2456} (8 bit: 0~2047, 10 bit: 0~8191)
-            std::array<Container, kChannelLutLen> r_values{};
-            /// DQE0_CGC_LUT_G_N{0-2456} (8 bit: 0~2047, 10 bit: 0~8191)
-            std::array<Container, kChannelLutLen> g_values{};
-            /// DQE0_CGC_LUT_B_N{0-2456} (8 bit: 0~2047, 10 bit: 0~8191)
-            std::array<Container, kChannelLutLen> b_values{};
+            /// Get data for the linear-space matrix.
+            virtual const DqeMatrixData& LinearMatrix() const = 0;
+            virtual ~ILinearMatrixData() {}
         };
 
-        struct RegammaConfigType {
-            using Container = uint16_t;
-            static constexpr size_t kChannelLutLen = 65;
+        struct ICgcData {
+           private:
+            struct CgcConfigType {
+                using Container = uint32_t;
+                static constexpr size_t kChannelLutLen = 2457;
+                // nodes number at each dimension of this 3d lut
+                static constexpr size_t kVirtualChanelLen = 17;
 
-            /// REGAMMA LUT_R_{00-64} (8 bit: 0~1024, 10 bit: 0~4096)
-            std::array<Container, kChannelLutLen> r_values{};
-            /// REGAMMA LUT_G_{00-64} (8 bit: 0~1024, 10 bit: 0~4096)
-            std::array<Container, kChannelLutLen> g_values{};
-            /// REGAMMA LUT_B_{00-64} (8 bit: 0~1024, 10 bit: 0~4096)
-            std::array<Container, kChannelLutLen> b_values{};
+                /// DQE0_CGC_LUT_R_N{0-2456} (8 bit: 0~2047, 10 bit: 0~8191)
+                std::array<Container, kChannelLutLen> r_values{};
+                /// DQE0_CGC_LUT_G_N{0-2456} (8 bit: 0~2047, 10 bit: 0~8191)
+                std::array<Container, kChannelLutLen> g_values{};
+                /// DQE0_CGC_LUT_B_N{0-2456} (8 bit: 0~2047, 10 bit: 0~8191)
+                std::array<Container, kChannelLutLen> b_values{};
+            };
+
+           public:
+            /// Register data for CGC.
+            using CgcData = DisplayStage<CgcConfigType>;
+
+            /// Get data for the Color Gamut Conversion stage (3D LUT).
+            virtual const CgcData& Cgc() const = 0;
+            virtual ~ICgcData() {}
         };
 
-     public:
-        /// DQE control data
-        using DqeControlData = DisplayStage<DqeControlConfigType>;
+        struct IRegammaLutData {
+           private:
+            struct RegammaConfigType {
+                using Container = uint16_t;
+                static constexpr size_t kChannelLutLen = 65;
 
-        /// Register data for the gamma and linear matrices in DQE.
-        using DqeMatrixData = DisplayStage<DqeMatrixConfigType>;
+                /// REGAMMA LUT_R_{00-64} (8 bit: 0~1024, 10 bit: 0~4096)
+                std::array<Container, kChannelLutLen> r_values{};
+                /// REGAMMA LUT_G_{00-64} (8 bit: 0~1024, 10 bit: 0~4096)
+                std::array<Container, kChannelLutLen> g_values{};
+                /// REGAMMA LUT_B_{00-64} (8 bit: 0~1024, 10 bit: 0~4096)
+                std::array<Container, kChannelLutLen> b_values{};
+            };
 
-        /// Register data for the degamma LUT in DQE.
-        using DegammaLutData = DisplayStage<DegammaConfigType>;
+           public:
+            /// Register data for the regamma LUT.
+            using RegammaLutData = DisplayStage<RegammaConfigType>;
 
-        /// Register data for CGC.
-        using CgcData = DisplayStage<CgcConfigType>;
+            /// Get data for the 3x1D re-gamma LUTa (OETF).
+            virtual const RegammaLutData& RegammaLut() const = 0;
+            virtual ~IRegammaLutData() {}
+        };
+    };
 
-        /// Register data for the regamma LUT.
-        using RegammaLutData = DisplayStage<RegammaConfigType>;
-
-        /// Get DQE control data
-        virtual const DqeControlData& DqeControl() const = 0;
-
-        /// Get data for the gamma-space matrix.
-        virtual const DqeMatrixData& GammaMatrix() const = 0;
-
-        /// Get data for the 1D de-gamma LUT (EOTF).
-        virtual const DegammaLutData& DegammaLut() const = 0;
-
-        /// Get data for the linear-space matrix.
-        virtual const DqeMatrixData& LinearMatrix() const = 0;
-
-        /// Get data for the Color Gamut Conversion stage (3D LUT).
-        virtual const CgcData& Cgc() const = 0;
-
-        /// Get data for the 3x1D re-gamma LUTa (OETF).
-        virtual const RegammaLutData& RegammaLut() const = 0;
-
+    struct IDqe : public IStageDataCollection<
+                      IDqeData::IDqeControlData, IDqeData::IGammaMatrixData,
+                      IDqeData::IDegammaLutData, IDqeData::ILinearMatrixData,
+                      IDqeData::ICgcData, IDqeData::IRegammaLutData> {
         virtual ~IDqe() {}
     };
 

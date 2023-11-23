@@ -16,7 +16,14 @@
 
 package com.android.compatibility.common.util;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.File;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,10 +34,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import java.math.BigInteger;
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /** Contains helper functions and shared constants for crash parsing. */
 public class CrashUtils {
@@ -368,72 +371,99 @@ public class CrashUtils {
             backtraceExcludes = new ArrayList();
         }
 
+        /** Sets the min address. */
+        @CanIgnoreReturnValue
         public Config setMinAddress(BigInteger minCrashAddress) {
             this.minCrashAddress = minCrashAddress;
             return this;
         }
 
+        /** Check the min address. */
+        @CanIgnoreReturnValue
         public Config checkMinAddress(boolean checkMinAddress) {
             this.checkMinAddress = checkMinAddress;
             return this;
         }
 
+        /** Set the signals. */
+        @CanIgnoreReturnValue
         public Config setSignals(String... signals) {
             this.signals = new ArrayList(Arrays.asList(signals));
             return this;
         }
 
+        /** Appends signals. */
+        @CanIgnoreReturnValue
         public Config appendSignals(String... signals) {
             Collections.addAll(this.signals, signals);
             return this;
         }
 
+        /** Set the abort message includes. */
+        @CanIgnoreReturnValue
         public Config setAbortMessageIncludes(String... abortMessages) {
             this.abortMessageIncludes = new ArrayList<>(toPatterns(abortMessages));
             return this;
         }
 
+        /** Set the abort message includes. */
+        @CanIgnoreReturnValue
         public Config setAbortMessageIncludes(Pattern... abortMessages) {
             this.abortMessageIncludes = new ArrayList<>(Arrays.asList(abortMessages));
             return this;
         }
 
+        /** Appends the abort message includes. */
+        @CanIgnoreReturnValue
         public Config appendAbortMessageIncludes(String... abortMessages) {
             this.abortMessageIncludes.addAll(toPatterns(abortMessages));
             return this;
         }
 
+        /** Appends the abort message includes. */
+        @CanIgnoreReturnValue
         public Config appendAbortMessageIncludes(Pattern... abortMessages) {
             Collections.addAll(this.abortMessageIncludes, abortMessages);
             return this;
         }
 
+        /** Sets the abort message excludes. */
+        @CanIgnoreReturnValue
         public Config setAbortMessageExcludes(String... abortMessages) {
             this.abortMessageExcludes = new ArrayList<>(toPatterns(abortMessages));
             return this;
         }
 
+        /** Sets the abort message excludes. */
+        @CanIgnoreReturnValue
         public Config setAbortMessageExcludes(Pattern... abortMessages) {
             this.abortMessageExcludes = new ArrayList<>(Arrays.asList(abortMessages));
             return this;
         }
 
+        /** Appends the process patterns. */
+        @CanIgnoreReturnValue
         public Config appendAbortMessageExcludes(String... abortMessages) {
             this.abortMessageExcludes.addAll(toPatterns(abortMessages));
             return this;
         }
 
+        /** Appends the abort message excludes. */
+        @CanIgnoreReturnValue
         public Config appendAbortMessageExcludes(Pattern... abortMessages) {
             Collections.addAll(this.abortMessageExcludes, abortMessages);
             return this;
         }
 
-
+        /** Sets the process patterns. */
+        @CanIgnoreReturnValue
         public Config setProcessPatterns(String... processPatternStrings) {
             this.processPatterns = new ArrayList<>(toPatterns(processPatternStrings));
             return this;
         }
 
+        /** Sets the process patterns. */
+        @CanIgnoreReturnValue
         public Config setProcessPatterns(Pattern... processPatterns) {
             this.processPatterns = new ArrayList(Arrays.asList(processPatterns));
             return this;
@@ -443,16 +473,22 @@ public class CrashUtils {
             return Collections.unmodifiableList(processPatterns);
         }
 
+        /** Appends the process patterns. */
+        @CanIgnoreReturnValue
         public Config appendProcessPatterns(String... processPatternStrings) {
             this.processPatterns.addAll(toPatterns(processPatternStrings));
             return this;
         }
 
+        /** Appends the process patterns. */
+        @CanIgnoreReturnValue
         public Config appendProcessPatterns(Pattern... processPatterns) {
             Collections.addAll(this.processPatterns, processPatterns);
             return this;
         }
 
+        /** Sets which backtraces should be included. */
+        @CanIgnoreReturnValue
         public Config setBacktraceIncludes(BacktraceFilterPattern... patterns) {
             this.backtraceIncludes = new ArrayList<>(Arrays.asList(patterns));
             return this;
@@ -462,11 +498,15 @@ public class CrashUtils {
             return Collections.unmodifiableList(this.backtraceIncludes);
         }
 
+        /** Append which backtraces should be included. */
+        @CanIgnoreReturnValue
         public Config appendBacktraceIncludes(BacktraceFilterPattern... patterns) {
             Collections.addAll(this.backtraceIncludes, patterns);
             return this;
         }
 
+        /** Sets which backtraces should be excluded. */
+        @CanIgnoreReturnValue
         public Config setBacktraceExcludes(BacktraceFilterPattern... patterns) {
             this.backtraceExcludes = new ArrayList<>(Arrays.asList(patterns));
             return this;
@@ -476,6 +516,8 @@ public class CrashUtils {
             return Collections.unmodifiableList(this.backtraceExcludes);
         }
 
+        /** Appends which backtraces should be excluded. */
+        @CanIgnoreReturnValue
         public Config appendBacktraceExcludes(BacktraceFilterPattern... patterns) {
             Collections.addAll(this.backtraceExcludes, patterns);
             return this;

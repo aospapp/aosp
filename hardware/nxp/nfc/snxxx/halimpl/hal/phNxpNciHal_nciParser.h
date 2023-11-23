@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2020 NXP
+ * Copyright (C) 2012-2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,15 +24,16 @@
 #define NXP_NCI_PARSER_PATH "/vendor/lib64/nxp_nci_parser.so"
 
 /*******************Lx_DEBUG_CFG*******************/
-#define LX_DEBUG_CFG_DISABLE 0x00
-#define LX_DEBUG_CFG_ENABLE_L2_EVENT 0x01
-#define LX_DEBUG_CFG_ENABLE_FELICA_RF 0x02
-#define LX_DEBUG_CFG_ENABLE_FELICA_SYSCODE 0x04
-#define LX_DEBUG_CFG_ENABLE_L2_EVENT_READER 0x08
-#define LX_DEBUG_CFG_ENABLE_L1_EVENT 0x10
-#define LX_DEBUG_CFG_ENABLE_MOD_DETECTED_EVENT 0x20
-#define LX_DEBUG_CFG_MASK_RFU 0xFFC0
-#define LX_DEBUG_CFG_MASK 0x00FF
+#define LX_DEBUG_CFG_DISABLE 0x0000
+#define LX_DEBUG_CFG_ENABLE_L2_EVENT 0x0001
+#define LX_DEBUG_CFG_ENABLE_FELICA_RF 0x0002
+#define LX_DEBUG_CFG_ENABLE_FELICA_SYSCODE 0x0004
+#define LX_DEBUG_CFG_ENABLE_L2_EVENT_READER 0x0008
+#define LX_DEBUG_CFG_ENABLE_L1_EVENT 0x0010
+#define LX_DEBUG_CFG_ENABLE_MOD_DETECTED_EVENT 0x0020
+#define LX_DEBUG_CFG_ENABLE_CMA_EVENTS 0x2000
+#define LX_DEBUG_CFG_MASK_RFU 0xDFC0
+#define LX_DEBUG_CFG_MASK 0x20FF
 
 typedef void* (*tHAL_API_NATIVE_CREATE_PARSER)();
 typedef void (*tHAL_API_NATIVE_DESTROY_PARSER)(void*);

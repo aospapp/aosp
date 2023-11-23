@@ -144,14 +144,14 @@ void ClassHierarchyAnalysis::ResetSingleImplementationInHierarchy(ObjPtr<mirror:
       ArtMethod* super_method = super_it->
           GetVTableEntry<kDefaultVerifyFlags, kWithoutReadBarrier>(vtbl_index, pointer_size);
       if (super_method->IsAbstract() &&
-          super_method->HasSingleImplementation<kWithoutReadBarrier>() &&
+          super_method->HasSingleImplementation() &&
           super_method->GetSingleImplementation(pointer_size) == method) {
         // Do like there was no single implementation defined previously
         // for this method of the superclass.
         super_method->SetSingleImplementation(nullptr, pointer_size);
       } else {
         // No related SingleImplementations could possibly be found any further.
-        DCHECK(!super_method->HasSingleImplementation<kWithoutReadBarrier>());
+        DCHECK(!super_method->HasSingleImplementation());
         break;
       }
     }
@@ -168,7 +168,7 @@ void ClassHierarchyAnalysis::ResetSingleImplementationInHierarchy(ObjPtr<mirror:
          j < count;
          ++j) {
       ArtMethod* method = interface->GetVirtualMethod(j, pointer_size);
-      if (method->HasSingleImplementation<kWithoutReadBarrier>() &&
+      if (method->HasSingleImplementation() &&
           alloc->ContainsUnsafe(method->GetSingleImplementation(pointer_size)) &&
           !method->IsDefault()) {
         // Do like there was no single implementation defined previously for this method.
@@ -692,8 +692,9 @@ void ClassHierarchyAnalysis::InvalidateSingleImplementationMethods(
   }
 }
 
-void ClassHierarchyAnalysis::RemoveDependenciesForLinearAlloc(const LinearAlloc* linear_alloc) {
-  MutexLock mu(Thread::Current(), *Locks::cha_lock_);
+void ClassHierarchyAnalysis::RemoveDependenciesForLinearAlloc(Thread* self,
+                                                              const LinearAlloc* linear_alloc) {
+  MutexLock mu(self, *Locks::cha_lock_);
   for (auto it = cha_dependency_map_.begin(); it != cha_dependency_map_.end(); ) {
     // Use unsafe to avoid locking since the allocator is going to be deleted.
     if (linear_alloc->ContainsUnsafe(it->first)) {

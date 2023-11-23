@@ -16,7 +16,10 @@
 
 package android.media.audio.cts;
 
+import static android.media.AudioManager.AUDIO_SESSION_ID_GENERATE;
+
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -25,23 +28,30 @@ import android.media.AudioAttributes;
 import android.media.AudioManager;
 import android.media.SoundPool;
 import android.os.Build;
-import android.media.audio.cts.R;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
 import androidx.test.InstrumentationRegistry;
+
 import com.android.compatibility.common.util.ApiLevelUtil;
-import java.io.File;
-import java.io.FileDescriptor;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.util.Arrays;
-import junitparams.JUnitParamsRunner;
-import junitparams.Parameters;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.util.Arrays;
+
+import junitparams.JUnitParamsRunner;
+import junitparams.Parameters;
+
+
+//TODO(b/263104457) - Refactor SoundPoolTest to single test file. Use test parametrization instead
+// of inheritance.
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 @RunWith(JUnitParamsRunner.class)
 abstract class SoundPoolTest {
@@ -296,6 +306,8 @@ abstract class SoundPoolTest {
         SoundPool soundPool = null;
         try {
             soundPool = new SoundPool.Builder()
+                    .setContext(getContext())
+                    .setAudioSessionId(AUDIO_SESSION_ID_GENERATE)
                     .setAudioAttributes(getAudioAttributes())
                     .setMaxStreams(TEST_STREAMS)
                     .build();
@@ -380,6 +392,19 @@ abstract class SoundPoolTest {
                 soundPool = null;
             }
         }
+    }
+
+    @Test
+    public void testBuilder_nullContextFails() {
+        assertThrows(NullPointerException.class,
+                () -> new SoundPool.Builder().setContext(null).build());
+    }
+
+    @Test
+    public void testBuilder_invalidSessionFails() {
+        int invalidAudioSessionId = -273;
+        assertThrows(IllegalArgumentException.class,
+                () -> new SoundPool.Builder().setAudioSessionId(invalidAudioSessionId).build());
     }
 
     /**

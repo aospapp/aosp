@@ -18,6 +18,7 @@ package android.server.wm.app;
 
 import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_ACTIVITY_DPI;
 import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_PIXEL_SIZE;
+import static android.server.wm.app.Components.FontScaleActivity.EXTRA_FONT_SCALE;
 
 import android.content.res.TypedArray;
 import android.content.res.XmlResourceParser;
@@ -57,9 +58,13 @@ public class FontScaleActivity extends AbstractLifecycleLogActivity {
                     throw new AssertionError("android:attr/textSize not found");
                 }
 
-                Log.i(getTag(), "fontPixelSize=" + fontPixelSize);
-                TestJournalProvider.putExtras(this,
-                        bundle -> bundle.putInt(EXTRA_FONT_PIXEL_SIZE, fontPixelSize));
+                final float fontScale = getResources().getConfiguration().fontScale;
+
+                Log.i(getTag(), "fontPixelSize=" + fontPixelSize + ", fontScale=" + fontScale);
+                TestJournalProvider.putExtras(this, bundle -> {
+                    bundle.putInt(EXTRA_FONT_PIXEL_SIZE, fontPixelSize);
+                    bundle.putFloat(EXTRA_FONT_SCALE, fontScale);
+                });
             } finally {
                 ta.recycle();
             }

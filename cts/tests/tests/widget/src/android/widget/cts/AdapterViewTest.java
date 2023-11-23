@@ -50,6 +50,7 @@ import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 
+import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
@@ -81,9 +82,12 @@ public class AdapterViewTest {
             new ActivityTestRule<>(AdapterViewCtsActivity.class);
 
     @Before
-    public void setup() {
+    public void setup() throws Throwable {
         mActivity = mActivityRule.getActivity();
         mAdapterView = new ListView(mActivity);
+        mActivityRule.runOnUiThread(() -> {
+            mActivity.setContentView(mAdapterView);
+        });
     }
 
     @Test
@@ -151,6 +155,7 @@ public class AdapterViewTest {
     }
 
     @Test
+    @UiThreadTest
     public void testGetCount() {
         // Before setAdapter, the count should be zero.
         assertEquals(0, mAdapterView.getCount());
@@ -162,6 +167,7 @@ public class AdapterViewTest {
     }
 
     @Test
+    @UiThreadTest
     public void testAccessEmptyView() {
         ImageView emptyView = new ImageView(mActivity);
 
@@ -204,6 +210,7 @@ public class AdapterViewTest {
     }
 
     @Test
+    @UiThreadTest
     public void testAccessVisiblePosition() {
         assertEquals(0, mAdapterView.getFirstVisiblePosition());
         // If no adapter has been set, the value should be -1;
@@ -224,6 +231,7 @@ public class AdapterViewTest {
     }
 
     @Test
+    @UiThreadTest
     public void testItemOrItemIdAtPosition() {
         // no adapter set
         assertNull(mAdapterView.getItemAtPosition(0));
@@ -246,12 +254,14 @@ public class AdapterViewTest {
     }
 
     @Test(expected=IndexOutOfBoundsException.class)
+    @UiThreadTest
     public void testItemAtPositionInvalidIndex() {
         setArrayAdapter(mAdapterView);
         mAdapterView.getItemAtPosition(FRUIT.length);
     }
 
     @Test
+    @UiThreadTest
     public void testAccessOnItemClickAndLongClickListener() {
         AdapterView.OnItemClickListener mockClickListener =
                 mock(AdapterView.OnItemClickListener.class);
@@ -284,7 +294,6 @@ public class AdapterViewTest {
 
     @Test
     public void testAccessOnItemSelectedListener() throws Throwable {
-        mAdapterView = mActivity.getListView();
         WidgetTestUtils.runOnMainAndLayoutSync(mActivityRule, mAdapterView,
                 () -> {
                     mAdapterView.setLayoutParams(new FrameLayout.LayoutParams(
@@ -327,6 +336,7 @@ public class AdapterViewTest {
      * this means the position of item is same as position of the children in parent layout
      */
     @Test
+    @UiThreadTest
     public void testGetPositionForView() {
         setArrayAdapter(mAdapterView);
         mAdapterView.layout(0, 0, LAYOUT_WIDTH, LAYOUT_HEIGHT);
@@ -341,6 +351,7 @@ public class AdapterViewTest {
     }
 
     @Test(expected=NullPointerException.class)
+    @UiThreadTest
     public void testGetPositionForNull() {
         setArrayAdapter(mAdapterView);
         mAdapterView.layout(0, 0, LAYOUT_WIDTH, LAYOUT_HEIGHT);
@@ -348,6 +359,7 @@ public class AdapterViewTest {
     }
 
     @Test
+    @UiThreadTest
     public void testChangeFocusable() {
         assertFalse(mAdapterView.isFocusable());
         assertFalse(mAdapterView.isFocusableInTouchMode());
@@ -380,6 +392,7 @@ public class AdapterViewTest {
      * values will not change if invalid id given.
      */
     @Test
+    @UiThreadTest
     public void testGetSelected() {
         assertEquals(AdapterView.INVALID_ROW_ID, mAdapterView.getSelectedItemId());
         assertEquals(AdapterView.INVALID_POSITION, mAdapterView.getSelectedItemPosition());

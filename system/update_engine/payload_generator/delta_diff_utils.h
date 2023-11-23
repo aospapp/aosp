@@ -25,8 +25,9 @@
 #include <brillo/secure_blob.h>
 #include <puffin/puffdiff.h>
 
-#include "payload_generator/deflate_utils.h"
+#include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/annotated_operation.h"
+#include "update_engine/payload_generator/deflate_utils.h"
 #include "update_engine/payload_generator/extent_ranges.h"
 #include "update_engine/payload_generator/payload_generation_config.h"
 #include "update_engine/update_metadata.pb.h"

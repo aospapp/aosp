@@ -31,6 +31,7 @@
                 <action android:name="android.telephony.mockmodem.iradiodata"/>
                 <action android:name="android.telephony.mockmodem.iradiomessaging"/>
                 <action android:name="android.telephony.mockmodem.iradiovoice"/>
+                <action android:name="android.telephony.mockmodem.iradioims"/>
             </intent-filter>
         </service>
     </application>

@@ -35,7 +35,7 @@ import com.android.bedstead.harrier.annotations.EnsureDoesNotHavePermission;
 import com.android.bedstead.harrier.annotations.EnsureHasPermission;
 import com.android.bedstead.harrier.annotations.EnsureHasWorkProfile;
 import com.android.bedstead.harrier.annotations.PermissionTest;
-import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
+import com.android.bedstead.harrier.annotations.RequireRunOnInitialUser;
 import com.android.bedstead.testapp.BaseTestAppActivity;
 import com.android.bedstead.testapp.TestApp;
 import com.android.bedstead.testapp.TestAppActivityReference;
@@ -59,10 +59,10 @@ public class ActivityTest {
 
     private static final TestApp sTestApp = sDeviceState.testApps().query()
             .whereActivities()
-            .contains(activity().exported().isTrue())
+            .contains(activity().where().exported().isTrue())
             .get();
 
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @EnsureHasWorkProfile // Activities need to start on both users
     @PermissionTest({INTERACT_ACROSS_USERS, INTERACT_ACROSS_USERS_FULL})
     public void startActivityForResultAsUser_differentUser_startedSuccessfully()
@@ -85,7 +85,7 @@ public class ActivityTest {
     }
 
     @Test
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @EnsureHasWorkProfile // Activities need to start on both users
     @EnsureHasPermission(INTERACT_ACROSS_USERS_FULL)
     public void startActivityForResultAsUser_requestCodeAndResultPassedSuccessfully()
@@ -119,7 +119,7 @@ public class ActivityTest {
     }
 
     @Test
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @EnsureHasWorkProfile // Activities need to start on both users
     @EnsureDoesNotHavePermission(
             {INTERACT_ACROSS_USERS, INTERACT_ACROSS_USERS_FULL})
@@ -141,7 +141,7 @@ public class ActivityTest {
         }
     }
 
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @EnsureHasWorkProfile // Activities need to start on both users
     @PermissionTest({INTERACT_ACROSS_USERS, INTERACT_ACROSS_USERS_FULL})
     public void startActivityAsUser_differentUser_startedSuccessfully()
@@ -165,7 +165,7 @@ public class ActivityTest {
     }
 
     @Test
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     @EnsureHasWorkProfile // Activities need to start on both users
     @EnsureDoesNotHavePermission(
             {INTERACT_ACROSS_USERS, INTERACT_ACROSS_USERS_FULL})

@@ -472,7 +472,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     @test_tracker_info(uuid="dcb9bdc6-dbe2-47e1-9c2d-6f37c529d366")
     @TelephonyBaseTest.tel_test_wrap
-    def test_2g(self):
+    def test_2g_data_connectivity(self):
         """Test data connection in 2G.
 
         Turn off airplane mode, disable WiFi, enable Cellular Data.
@@ -517,7 +517,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     @test_tracker_info(uuid="97067ebb-130a-4fcb-8e6b-f4ec5874828f")
     @TelephonyBaseTest.tel_test_wrap
-    def test_3g(self):
+    def test_3g_data_connectivity(self):
         """Test data connection in 3G.
 
         Turn off airplane mode, disable WiFi, enable Cellular Data.
@@ -562,7 +562,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     @test_tracker_info(uuid="9c2f459f-1aac-4c68-818b-8698e8124c8b")
     @TelephonyBaseTest.tel_test_wrap
-    def test_4g(self):
+    def test_4g_data_connectivity(self):
         """Test data connection in 4g.
 
         Turn off airplane mode, disable WiFi, enable Cellular Data.
@@ -607,7 +607,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     @test_tracker_info(uuid="44f47b64-f8bc-4a17-9195-42dcca0806bb")
     @TelephonyBaseTest.tel_test_wrap
-    def test_3g_stress(self):
+    def test_3g_data_connectivity_stress(self):
         """Stress Test data connection in 3G.
 
         This is a stress test for "test_3g".
@@ -649,7 +649,7 @@ class TelLiveDataTest(TelephonyBaseTest):
 
     @test_tracker_info(uuid="c8876388-0441-4a51-81e6-ac2cb358a531")
     @TelephonyBaseTest.tel_test_wrap
-    def test_4g_stress(self):
+    def test_4g_data_connectivity_stress(self):
         """Stress Test data connection in 4g.
 
         This is a stress test for "test_4g".

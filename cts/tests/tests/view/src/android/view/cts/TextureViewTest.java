@@ -22,6 +22,7 @@ import static android.opengl.GLES20.glClear;
 import static android.opengl.GLES20.glClearColor;
 import static android.opengl.GLES20.glEnable;
 import static android.opengl.GLES20.glScissor;
+import static android.view.WindowInsets.Type.captionBar;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -130,11 +131,15 @@ public class TextureViewTest {
         activity.waitForSurface();
         activity.initGl();
         int updatedCount;
-        updatedCount = activity.waitForSurfaceUpdateCount(0);
-        assertEquals(0, updatedCount);
+        // If the caption bar is present, the surface update counts increase by 1
+        int extraSurfaceOffset =
+                window.getDecorView().getRootWindowInsets().getInsets(captionBar()).top == 0
+                ? 0 : 1;
+        updatedCount = activity.waitForSurfaceUpdateCount(0 + extraSurfaceOffset);
+        assertEquals(0 + extraSurfaceOffset, updatedCount);
         activity.drawColor(Color.GREEN);
-        updatedCount = activity.waitForSurfaceUpdateCount(1);
-        assertEquals(1, updatedCount);
+        updatedCount = activity.waitForSurfaceUpdateCount(1 + extraSurfaceOffset);
+        assertEquals(1 + extraSurfaceOffset, updatedCount);
         assertEquals(Color.WHITE, getPixel(window, center));
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule,
                 activity.findViewById(android.R.id.content), () -> activity.removeCover());
@@ -142,8 +147,8 @@ public class TextureViewTest {
         int color = waitForChange(window, center, Color.WHITE);
         assertEquals(Color.GREEN, color);
         activity.drawColor(Color.BLUE);
-        updatedCount = activity.waitForSurfaceUpdateCount(2);
-        assertEquals(2, updatedCount);
+        updatedCount = activity.waitForSurfaceUpdateCount(2 + extraSurfaceOffset);
+        assertEquals(2 + extraSurfaceOffset, updatedCount);
         color = waitForChange(window, center, color);
         assertEquals(Color.BLUE, color);
     }
@@ -290,6 +295,7 @@ public class TextureViewTest {
 
         // paint surfaceView layer
         SurfaceView surfaceView = activity.getSurfaceView();
+        final CountDownLatch latch = new CountDownLatch(1);
         surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder holder) {
@@ -298,18 +304,29 @@ public class TextureViewTest {
                         .setHardwareBufferFormat(PixelFormat.RGBA_8888)
                         .setDataSpace(dataSpace)
                         .build();
-                Image image = writer.dequeueInputImage();
-                assertEquals(dataSpace, image.getDataSpace());
-                Image.Plane plane = image.getPlanes()[0];
-                Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4, image.getHeight(),
-                        Bitmap.Config.ARGB_8888, true, ColorSpace.getFromDataSpace(dataSpace));
-                Canvas canvas = new Canvas(bitmap);
-                Paint paint = new Paint();
-                paint.setAntiAlias(false);
-                paint.setColor(converted);
-                canvas.drawRect(0f, 0f, width, height, paint);
-                bitmap.copyPixelsToBuffer(plane.getBuffer());
-                writer.queueInputImage(image);
+                // spawn a thread here to iterate 10 times from image dequeue to queue
+                // so that we can be stalled until the first frame has been displayed.
+                new Thread(() -> {
+                    Bitmap bitmap = null;
+                    for (int i = 0; i < 10; i++) {
+                        Image image = writer.dequeueInputImage();
+                        assertEquals(dataSpace, image.getDataSpace());
+                        Image.Plane plane = image.getPlanes()[0];
+                        // only make bitmap the first time to improve the performation
+                        // if the bitmap is large.
+                        if (bitmap == null) {
+                            bitmap = Bitmap.createBitmap(plane.getRowStride() / 4,
+                                image.getHeight(),
+                                Bitmap.Config.ARGB_8888, true,
+                                ColorSpace.getFromDataSpace(dataSpace));
+                            Canvas canvas = new Canvas(bitmap);
+                            canvas.drawColor(converted);
+                        }
+                        bitmap.copyPixelsToBuffer(plane.getBuffer());
+                        writer.queueInputImage(image);
+                    }
+                    latch.countDown();
+                }).start();
             }
 
             @Override
@@ -324,9 +341,8 @@ public class TextureViewTest {
             activity.setContentView(surfaceView);
         });
 
-        // wait here to ensure SF has latched the buffer that has been queued in
-        // this is the easiest way to solve copy failure but sacrifice the performance.
-        Thread.sleep(100);
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
+
         Bitmap surfaceViewScreenshot = mInstrumentation
                 .getUiAutomation()
                 .takeScreenshot(activity.getWindow());
@@ -352,10 +368,7 @@ public class TextureViewTest {
         Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4, image.getHeight(),
                 Bitmap.Config.ARGB_8888, true, ColorSpace.getFromDataSpace(dataSpace));
         Canvas canvas = new Canvas(bitmap);
-        Paint paint = new Paint();
-        paint.setAntiAlias(false);
-        paint.setColor(converted);
-        canvas.drawRect(0f, 0f, width, height, paint);
+        canvas.drawColor(converted);
         bitmap.copyPixelsToBuffer(plane.getBuffer());
         writer.queueInputImage(image);
 
@@ -369,22 +382,53 @@ public class TextureViewTest {
         WidgetTestUtils.runOnMainAndDrawSync(
                 mSDRActivityRule, textureView, () -> textureView.getBitmap(textureViewScreenshot));
 
-        assertTrue(textureViewScreenshot.sameAs(surfaceViewScreenshot));
+        // If the caption bar is present, the surface top edge in the screenshot is shifted.
+        int extraSurfaceOffset = activity.getWindow().getDecorView().getRootWindowInsets()
+                .getInsets(captionBar()).top;
+
+        // sample 5 pixels on the edge for bitmap comparison.
+        // TextureView and SurfaceView use different shaders, so compare these two with tolerance.
+        // TODO(b/229173479): These shaders shouldn't be very different. Figure out why we need
+        // this tolerance in the first place.
+        final int threshold = 3;
+        assertPixelsAreSame(surfaceViewScreenshot.getPixel(width / 2, extraSurfaceOffset),
+                textureViewScreenshot.getPixel(width / 2, 0), threshold);
+        assertPixelsAreSame(surfaceViewScreenshot.getPixel(0, height / 2),
+                textureViewScreenshot.getPixel(0, height / 2), threshold);
+        assertPixelsAreSame(surfaceViewScreenshot.getPixel(width / 2, height / 2),
+                textureViewScreenshot.getPixel(width / 2, height / 2), threshold);
+        assertPixelsAreSame(surfaceViewScreenshot.getPixel(width / 2, height - 1),
+                textureViewScreenshot.getPixel(width / 2, height - 1), threshold);
+        assertPixelsAreSame(surfaceViewScreenshot.getPixel(width - 1, height / 2),
+                textureViewScreenshot.getPixel(width - 1, height / 2), threshold);
     }
 
     @Test
     public void testCropRect() throws Throwable {
         final TextureViewCtsActivity activity = mActivityRule.launchActivity(/*startIntent*/ null);
         activity.waitForSurface();
-        mActivityRule.runOnUiThread(activity::removeCover);
-        TextureView textureView = activity.getTextureView();
+        final TextureView textureView = activity.getTextureView();
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, textureView, () -> {
+            activity.removeCover();
+            // This test is sensitive to GPU sampling precision, so cap the size of the textureview
+            // to a known small value that will not have float precision issues when being
+            // sampled, specifically when running on GPUs limited to fp16 precision
+            ViewGroup.LayoutParams params = textureView.getLayoutParams();
+            params.width = 100;
+            params.height = 100;
+            textureView.setLayoutParams(params);
+        });
         int textureWidth = textureView.getWidth();
         int textureHeight = textureView.getHeight();
+        assertEquals(100, textureWidth);
+        assertEquals(100, textureHeight);
         SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
         Surface surface = new Surface(surfaceTexture);
         assertTrue(surface.isValid());
         ImageWriter writer = ImageWriter.newInstance(surface, /*maxImages*/ 1);
         Image image = writer.dequeueInputImage();
+        assertEquals(100, image.getWidth());
+        assertEquals(100, image.getHeight());
         Image.Plane plane = image.getPlanes()[0];
         Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4, image.getHeight(),
                 Bitmap.Config.ARGB_8888);
@@ -436,6 +480,13 @@ public class TextureViewTest {
         error += Math.abs(Color.green(ideal) - Color.green(given));
         error += Math.abs(Color.blue(ideal) - Color.blue(given));
         return (error < threshold);
+    }
+
+    private void assertPixelsAreSame(int ideal, int given, int threshold) {
+        if (!pixelsAreSame(ideal, given, threshold)) {
+            fail("expected=" + Integer.toHexString(ideal) + ", actual="
+                    + Integer.toHexString(given));
+        }
     }
 
     @Test

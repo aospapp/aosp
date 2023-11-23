@@ -35,7 +35,9 @@ public class VirtualMouseButtonEventTest {
     public void parcelAndUnparcel_matches() {
         final VirtualMouseButtonEvent originalEvent = new VirtualMouseButtonEvent.Builder()
                 .setAction(VirtualMouseButtonEvent.ACTION_BUTTON_PRESS)
-                .setButtonCode(VirtualMouseButtonEvent.BUTTON_PRIMARY).build();
+                .setButtonCode(VirtualMouseButtonEvent.BUTTON_PRIMARY)
+                .setEventTimeNanos(5000L)
+                .build();
         final Parcel parcel = Parcel.obtain();
         originalEvent.writeToParcel(parcel, /* flags= */ 0);
         parcel.setDataPosition(0);
@@ -45,6 +47,9 @@ public class VirtualMouseButtonEventTest {
                 .isEqualTo(recreatedEvent.getAction());
         assertWithMessage("Recreated event has different button code")
                 .that(originalEvent.getButtonCode()).isEqualTo(recreatedEvent.getButtonCode());
+        assertWithMessage("Recreated event has different event time")
+                .that(originalEvent.getEventTimeNanos())
+                .isEqualTo(recreatedEvent.getEventTimeNanos());
     }
 
     @Test
@@ -66,13 +71,27 @@ public class VirtualMouseButtonEventTest {
     }
 
     @Test
+    public void buttonEvent_invalidEventTime_throwsIae() {
+        assertThrows(IllegalArgumentException.class, () -> new VirtualMouseButtonEvent.Builder()
+                .setAction(VirtualMouseButtonEvent.ACTION_BUTTON_RELEASE)
+                .setButtonCode(VirtualMouseButtonEvent.BUTTON_BACK)
+                .setEventTimeNanos(-10L)
+                .build());
+    }
+
+    @Test
     public void buttonEvent_valid_created() {
+        final long eventTimeNanos = 5000L;
         final VirtualMouseButtonEvent event = new VirtualMouseButtonEvent.Builder()
                 .setAction(VirtualMouseButtonEvent.ACTION_BUTTON_PRESS)
-                .setButtonCode(VirtualMouseButtonEvent.BUTTON_BACK).build();
+                .setButtonCode(VirtualMouseButtonEvent.BUTTON_BACK)
+                .setEventTimeNanos(eventTimeNanos)
+                .build();
         assertWithMessage("Incorrect button code").that(event.getButtonCode()).isEqualTo(
                 VirtualMouseButtonEvent.BUTTON_BACK);
         assertWithMessage("Incorrect action").that(event.getAction()).isEqualTo(
                 VirtualMouseButtonEvent.ACTION_BUTTON_PRESS);
+        assertWithMessage("Incorrect event time").that(event.getEventTimeNanos())
+                .isEqualTo(eventTimeNanos);
     }
 }

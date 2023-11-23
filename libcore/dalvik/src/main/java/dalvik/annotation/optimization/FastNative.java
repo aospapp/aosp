@@ -16,25 +16,53 @@
 
 package dalvik.annotation.optimization;
 
-import static android.annotation.SystemApi.Client.MODULE_LIBRARIES;
-
-import android.annotation.SystemApi;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * An ART runtime built-in optimization for "native" methods to speed up JNI transitions.
+ * An ART runtime built-in optimization for {@code native} methods to speed up JNI transitions:
+ * Compared to normal {@code native} methods, {@code native} methods that are annotated with
+ * {@literal @}{@code FastNative} use faster JNI transitions from managed code to the native code
+ * and back. Calls from a {@literal @}{@code FastNative} method implementation to JNI functions
+ * that access the managed heap or call managed code also have faster internal transitions.
  *
  * <p>
- * This has the side-effect of disabling all garbage collections while executing a fast native
- * method. Use with extreme caution. Any long-running methods must not be marked with
- * {@code @FastNative} (including usually-fast but generally unbounded methods)!</p>
+ * While executing a {@literal @}{@code FastNative} method, the garbage collection cannot
+ * suspend the thread for essential work and may become blocked. Use with caution. Do not use
+ * this annotation for long-running methods, including usually-fast, but generally unbounded,
+ * methods. In particular, the code should not perform significant I/O operations or acquire
+ * native locks that can be held for a long time. (Some logging or native allocations, which
+ * internally acquire native locks for a short time, are generally OK. However, as the cost
+ * of several such operations adds up, the {@literal @}{@code FastNative} performance gain
+ * can become insignificant and overshadowed by potential GC delays.)
+ * Acquiring managed locks is OK as it internally allows thread suspension.
+ * </p>
  *
- * <p><b>Deadlock Warning:</b>As a rule of thumb, do not acquire any locks during a fast native
- * call if they aren't also locally released [before returning to managed code].</p>
+ * <p>
+ * For performance critical methods that need this annotation, it is strongly recommended
+ * to explicitly register the method(s) with JNI {@code RegisterNatives} instead of relying
+ * on the built-in dynamic JNI linking.
+ * </p>
+ *
+ * <p>
+ * The {@literal @}{@code FastNative} optimization was implemented for system use since
+ * Android 8 and became CTS-tested public API in Android 14. Developers aiming for maximum
+ * compatibility should avoid calling {@literal @}{@code FastNative} methods on Android 13-.
+ * The optimization is likely to work also on Android 8-13 devices (after all, it was used
+ * in the system, albeit without the strong CTS guarantees), especially those that use
+ * unmodified versions of ART, such as Android 12+ devices with the official ART Module.
+ * The built-in dynamic JNI linking is working only in Android 12+, the explicit registration
+ * with JNI {@code RegisterNatives} is strictly required for running on Android versions 8-11.
+ * The annotation is ignored on Android 7-.
+ * </p>
+ *
+ * <p>
+ * <b>Deadlock Warning:</b> As a rule of thumb, any native locks acquired in a
+ * {@literal @}{@link FastNative} call (despite the above warning that this is an unbounded
+ * operation that can block GC for a long time) must be released before returning to managed code.
+ * </p>
  *
  * <p>
  * Say some code does:
@@ -73,11 +101,7 @@ import java.lang.annotation.Target;
  * <p>
  * Has no effect when used with non-native methods.
  * </p>
- *
- * @hide
  */
-@SystemApi(client = MODULE_LIBRARIES)
-@libcore.api.IntraCoreApi
 @Retention(RetentionPolicy.CLASS)  // Save memory, don't instantiate as an object at runtime.
 @Target(ElementType.METHOD)
 public @interface FastNative {}

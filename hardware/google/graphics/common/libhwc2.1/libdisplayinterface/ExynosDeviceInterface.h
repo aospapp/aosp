@@ -17,8 +17,9 @@
 #ifndef _EXYNOSDEVICEINTERFACE_H
 #define _EXYNOSDEVICEINTERFACE_H
 
-#include "ExynosHWCHelper.h"
 #include "ExynosDisplayInterface.h"
+#include "ExynosHWCHelper.h"
+#include "drmeventlistener.h"
 
 struct hwc_dpp_size_range {
   uint32_t min;
@@ -82,11 +83,20 @@ class ExynosDeviceInterface {
         virtual ~ExynosDeviceInterface(){};
         virtual void init(ExynosDevice *exynosDevice) = 0;
         virtual int32_t initDisplayInterface(
-                std::unique_ptr<ExynosDisplayInterface> &dispInterface)
-        { return 0;};
+                std::unique_ptr<ExynosDisplayInterface> __unused &dispInterface) {
+            return 0;
+        };
         /* Fill mDPUInfo according to interface type */
         virtual void updateRestrictions() = 0;
         virtual bool getUseQuery() { return mUseQuery; };
+
+        virtual int32_t registerSysfsEventHandler(
+                std::shared_ptr<DrmSysfsEventHandler> __unused handler) {
+            return android::INVALID_OPERATION;
+        }
+        virtual int32_t unregisterSysfsEventHandler(int __unused sysfsFd) {
+            return android::INVALID_OPERATION;
+        }
 
         uint32_t getNumDPPChs() { return mDPUInfo.dpuInfo.dpp_chs.size(); };
         uint32_t getNumSPPChs() { return mDPUInfo.dpuInfo.spp_chs.size(); };

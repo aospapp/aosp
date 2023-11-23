@@ -197,6 +197,17 @@ abstract class SELinuxTargetSdkTestBase extends AndroidTestCase
     }
 
     /**
+     * Verify that hidden ro properties are not readable.
+     */
+    protected static void noHiddenSystemProperties() throws IOException {
+        String[] hiddenProperties = {"ro.debuggable", "ro.secure"};
+        for(int i = 0; i < hiddenProperties.length; i++) {
+            String roHidden = getProperty(hiddenProperties[i]);
+            assertEquals("Hidden system properties may not be readable by apps", "", roHidden);
+        }
+    }
+
+    /**
      * Checks whether a network interface is an ethernet interface.
      */
     private static Pattern ethernetNamePattern = Pattern.compile("^(eth|wlan)[0-9]+$");

@@ -55,7 +55,7 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
 
     public BlockingBroadcastReceiver register(String action) {
         InstrumentationRegistry.getTargetContext().registerReceiver(
-                this, new IntentFilter(action));
+                this, new IntentFilter(action), Context.RECEIVER_EXPORTED);
         return this;
     }
 }

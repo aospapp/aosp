@@ -57,9 +57,10 @@ import android.content.IntentSender;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.autofill.AutofillValue;
+
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.compatibility.common.util.Timeout;
 
@@ -165,6 +166,8 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
     @Test
     public void testDatasetAuthResponseWhileAutofilledAppIsLifecycled() throws Exception {
         assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
+        assumeTrue("Device state is not REAR_DISPLAY",
+                !Helper.isDeviceInState(mContext, Helper.DeviceStateEnum.REAR_DISPLAY));
         final ActivityManager activityManager = (ActivityManager) getContext()
                 .getSystemService(Context.ACTIVITY_SERVICE);
         assumeFalse(activityManager.isLowRamDevice());
@@ -455,6 +458,18 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
                                         .setField(ID_USERNAME, "filled").build())
                         .build());
 
+        boolean isMockImeAvailable = sMockImeSessionRule.getMockImeSession() != null;
+        if (!isMockImeAvailable) {
+            // If Mock IME cannot be installed,
+            // it works fine for portrait but for the platforms that the default orientation
+            // is landscape, (e.g. automotive.)
+            // the ID_CANCEL button may not be visible depending on the height of the IME.
+            LoginActivity loginActivity = LoginActivity.getCurrentActivity();
+            loginActivity.onCancel(v -> {
+                    v.getParent().requestChildFocus(v, v);
+            });
+        }
+
         // Tap "Cancel".
         mUiBot.selectByRelativeId(ID_CANCEL);
 
@@ -525,6 +540,13 @@ public class SessionLifecycleTest extends AutoFillServiceTestCase.ManualActivity
 
         // Trigger save
         mUiBot.setTextByRelativeId(ID_USERNAME, "dude");
+
+        // It works fine for portrait but for the platforms that the default orientation
+        // is landscape, e.g. automotive. Depending on the height of the IME, the ID_LOGIN
+        // button may not be visible.
+
+        // In order to avoid that, scroll until the ID_LOGIN button appears.
+        mUiBot.scrollToTextObject(ID_LOGIN);
         mUiBot.selectByRelativeId(ID_LOGIN);
         mUiBot.assertSaveShowing(SAVE_DATA_TYPE_USERNAME);
 

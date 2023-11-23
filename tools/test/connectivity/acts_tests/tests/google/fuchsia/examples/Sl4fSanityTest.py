@@ -20,26 +20,29 @@ can communicate to ACTS successfully.
 """
 from acts.base_test import BaseTestClass
 
-import os
-import uuid
+from acts import asserts
 
-from acts import signals
-from acts_contrib.test_utils.tel.tel_test_utils import setup_droid_properties
+from acts.controllers.fuchsia_device import FuchsiaDevice
 
 
 class Sl4fSanityTest(BaseTestClass):
+    fuchsia_devices: list[FuchsiaDevice]
+
     def setup_class(self):
         super().setup_class()
 
-        success_str = ("Congratulations! Fuchsia controllers have been "
-                       "initialized successfully!")
-        err_str = ("Sorry, please try verifying FuchsiaDevice is in your "
-                   "config file and try again.")
-        if len(self.fuchsia_devices) > 0:
-            self.log.info(success_str)
-        else:
-            raise signals.TestAbortClass("err_str")
+        asserts.abort_class_if(
+            len(self.fuchsia_devices) == 0,
+            "Sorry, please try verifying FuchsiaDevice is in your config file and try again."
+        )
+
+        self.log.info(
+            "Congratulations! Fuchsia controllers have been initialized successfully!"
+        )
 
     def test_example(self):
+        for fuchsia_device in self.fuchsia_devices:
+            res = fuchsia_device.sl4f.netstack_lib.netstackListInterfaces()
+            self.log.info(res)
         self.log.info("Congratulations! You've run your first test.")
         return True

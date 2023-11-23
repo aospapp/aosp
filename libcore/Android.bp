@@ -13,7 +13,7 @@
 // limitations under the License.
 
 package {
-    default_visibility: ["//visibility:private"],
+    default_visibility: [":__subpackages__"],
     default_applicable_licenses: ["libcore_license"],
 }
 
@@ -42,9 +42,7 @@ license {
     license_kinds: [
         "SPDX-license-identifier-Apache-2.0",
         "SPDX-license-identifier-BSD",
-        "SPDX-license-identifier-GPL",
-        "SPDX-license-identifier-GPL-2.0",
-        "SPDX-license-identifier-LGPL",
+        "SPDX-license-identifier-GPL-2.0-with-classpath-exception",
         "SPDX-license-identifier-MIT",
         "SPDX-license-identifier-OpenSSL",
         "SPDX-license-identifier-Unicode-DFS",
@@ -54,6 +52,7 @@ license {
     license_text: [
         "LICENSE",
         "NOTICE",
+        "ojluni/src/main/NOTICE",
     ],
 }
 
@@ -63,16 +62,22 @@ build = [
     "Extras.bp",
 ]
 
+gen_notice {
+    name: "libcore-library-notices",
+    for: [
+        "core-oj",
+        "core-libart",
+    ],
+    stem: "libcore-NOTICES",
+    suffix: ".txt",
+}
+
 java_genrule {
     name: "notices-for-stubs-jar",
     tools: ["soong_zip"],
-    tool_files: [
-        "NOTICE",
-        "ojluni/NOTICE",
-    ],
+    srcs: [":libcore-library-notices"],
     cmd: "mkdir $(genDir)/NOTICES && " +
-        "cp -f $(location NOTICE) $(genDir)/NOTICES/libcore-NOTICE && " +
-        "cp -f $(location ojluni/NOTICE) $(genDir)/NOTICES/ojluni-NOTICE && " +
+        "cp -f $(in) $(genDir)/NOTICES && " +
         "$(location soong_zip) -o $(out) -C $(genDir) -D $(genDir)/NOTICES",
     out: ["notices-for-stubs.jar"],
 }

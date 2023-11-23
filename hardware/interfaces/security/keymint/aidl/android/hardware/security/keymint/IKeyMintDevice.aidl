@@ -196,12 +196,12 @@ import android.hardware.security.secureclock.TimeStampToken;
  * derive a key that is used to encrypt the private/secret key material.
  *
  * The root of trust consists of a bitstring that must be derived from the public key used by
- * Verified Boot to verify the signature on the boot image and from the lock state of the
- * device.  If the public key is changed to allow a different system image to be used or if the
- * lock state is changed, then all of the IKeyMintDevice-protected keys created by the previous
- * system state must be unusable, unless the previous state is restored.  The goal is to increase
- * the value of the software-enforced key access controls by making it impossible for an attacker-
- * installed operating system to use IKeyMintDevice keys.
+ * Verified Boot to verify the signature on the boot image, from the lock state and from the
+ * Verified Boot state of the device.  If the public key is changed to allow a different system
+ * image to be used or if the lock state is changed, then all of the IKeyMintDevice-protected keys
+ * created by the previous system state must be unusable, unless the previous state is restored.
+ * The goal is to increase the value of the software-enforced key access controls by making it
+ * impossible for an attacker-installed operating system to use IKeyMintDevice keys.
  *
  * == Version Binding ==
  *
@@ -335,6 +335,17 @@ interface IKeyMintDevice {
      *
      * Only Tag::KEY_SIZE is required to generate an 3DES key, and its value must be 168.  If
      * omitted, generateKey must return ErrorCode::UNSUPPORTED_KEY_SIZE.
+     *
+     * == HMAC Keys ==
+     *
+     * Tag::KEY_SIZE must be provided to generate an HMAC key, and its value must be >= 64 and a
+     * multiple of 8.  All devices must support key sizes up to 512 bits, but StrongBox devices must
+     * not support key sizes larger than 512 bits.  If omitted or invalid, generateKey() must return
+     * ErrorCode::UNSUPPORTED_KEY_SIZE.
+     *
+     * Tag::MIN_MAC_LENGTH must be provided, and must be a multiple of 8 in the range 64 to 512
+     * bits (inclusive). If omitted, generateKey must return ErrorCode::MISSING_MIN_MAC_LENGTH; if
+     * invalid, generateKey must return ErrorCode::UNSUPPORTED_MIN_MAC_LENGTH.
      *
      * @param keyParams Key generation parameters are defined as KeyMintDevice tag/value pairs,
      *        provided in params.  See above for detailed specifications of which tags are required
@@ -613,9 +624,15 @@ interface IKeyMintDevice {
      *
      *   o The key must have a Tag::USER_AUTH_TYPE that matches the auth type in the token.
      *
-     *   o The timestamp in the auth token plus the value of the Tag::AUTH_TIMEOUT must be less than
-     *     the current secure timestamp (which is a monotonic timer counting milliseconds since
-     *     boot.)
+     *   o If the device has a source of secure time, then the timestamp in the auth token plus the
+     *     value of the Tag::AUTH_TIMEOUT must be greater than the current secure timestamp (which
+     *     is a monotonic timer counting milliseconds since boot).
+     *
+     *   o If the device does not have a source of secure time, then the timestamp check should be
+     *     performed on the first update(), updateAad() or finish() invocation for the operation,
+     *     using the timeStampToken parameter provided on the invocation to indicate the current
+     *     timestamp. It may optionally also be performed on subsequent update() / updateAad() /
+     *     finish() invocations.
      *
      *   If any of these conditions are not met, begin() must return
      *   ErrorCode::KEY_USER_NOT_AUTHENTICATED.
@@ -661,19 +678,19 @@ interface IKeyMintDevice {
      *   structure, because it cannot add the DigestInfo structure.  Instead, the IKeyMintDevice
      *   must construct 0x00 || 0x01 || PS || 0x00 || M, where M is the provided message and PS is a
      *   random padding string at least eight bytes in length.  The size of the RSA key has to be at
-     *   least 11 bytes larger than the message, otherwise begin() must return
+     *   least 11 bytes larger than the message, otherwise finish() must return
      *   ErrorCode::INVALID_INPUT_LENGTH.
      *
      * o PaddingMode::RSA_PKCS1_1_1_5_ENCRYPT padding does not require a digest.
      *
-     * o PaddingMode::RSA_PSS padding requires a digest, which must match one of the padding values
+     * o PaddingMode::RSA_PSS padding requires a digest, which must match one of the digest values
      *   in the key authorizations, and which may not be Digest::NONE.  begin() must return
      *   ErrorCode::INCOMPATIBLE_DIGEST if this is not the case.  In addition, the size of the RSA
-     *   key must be at least 2 + D bytes larger than the output size of the digest, where D is the
-     *   size of the digest, in bytes.  Otherwise begin() must return
-     *   ErrorCode::INCOMPATIBLE_DIGEST.  The salt size must be D.
+     *   key must be at least (D + S + 9) bits, where D is the size of the digest (in bits) and
+     *   S is the size of the salt (in bits).  The salt size S must equal D, so the RSA key must
+     *   be at least (2*D + 9) bits. Otherwise begin() must return ErrorCode::INCOMPATIBLE_DIGEST.
      *
-     * o PaddingMode::RSA_OAEP padding requires a digest, which must match one of the padding values
+     * o PaddingMode::RSA_OAEP padding requires a digest, which must match one of the digest values
      *   in the key authorizations, and which may not be Digest::NONE.  begin() must return
      *   ErrorCode::INCOMPATIBLE_DIGEST if this is not the case.  RSA_OAEP padding also requires an
      *   MGF1 digest, specified with Tag::RSA_OAEP_MGF_DIGEST, which must match one of the MGF1
@@ -683,9 +700,9 @@ interface IKeyMintDevice {
      *
      * -- EC Keys --
      *
-     * Private key operations (KeyPurpose::SIGN) need authorization of digest and padding, which
-     * means that the key authorizations must contain the specified values.  If not, begin() must
-     * return ErrorCode::INCOMPATIBLE_DIGEST.
+     * Private key operations (KeyPurpose::SIGN) need authorization of digest, which means that the
+     * key authorizations must contain the specified values.  If not, begin() must return
+     * ErrorCode::INCOMPATIBLE_DIGEST.
      *
      * -- AES Keys --
      *
@@ -804,7 +821,7 @@ interface IKeyMintDevice {
     /**
      * Called by client to notify the IKeyMintDevice that the device has left the early boot
      * state, and that keys with the EARLY_BOOT_ONLY tag may no longer be used.  All attempts to use
-     * an EARLY_BOOT_ONLY key after this method is called must fail with Error::INVALID_KEY_BLOB.
+     * an EARLY_BOOT_ONLY key after this method is called must fail with Error::EARLY_BOOT_ENDED.
      */
     void earlyBootEnded();
 

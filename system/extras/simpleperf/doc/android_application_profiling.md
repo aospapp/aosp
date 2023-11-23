@@ -70,7 +70,7 @@ android {
 }
 
 task createWrapShLibDir
-    for (String abi : ["armeabi", "armeabi-v7a", "arm64-v8a", "x86", "x86_64"]) {
+    for (String abi : ["armeabi-v7a", "arm64-v8a", "x86", "x86_64"]) {
         def dir = new File("app/wrap_sh_lib_dir/lib/" + abi)
         dir.mkdirs()
         def wrapFile = new File(dir, "wrap.sh")

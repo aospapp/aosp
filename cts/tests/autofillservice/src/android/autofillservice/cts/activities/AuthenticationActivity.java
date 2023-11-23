@@ -36,6 +36,7 @@ import android.os.Looper;
 import android.os.Parcelable;
 import android.util.Log;
 import android.util.SparseArray;
+import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillManager;
 import android.view.inputmethod.InlineSuggestionsRequest;
 import android.widget.Button;
@@ -46,6 +47,7 @@ import com.google.common.base.Preconditions;
 import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * This class simulates authentication at the dataset at reponse level
@@ -308,15 +310,24 @@ public class AuthenticationActivity extends AbstractAutoFillActivity {
 
         final Parcelable result;
 
+        final Function<String, AssistStructure.ViewNode> nodeResolver =
+                (id) -> Helper.findNodeByResourceId(structure, id);
+        final Function<String, AutofillId> autofillPccResolver =
+                (id)-> {
+                    AssistStructure.ViewNode node = nodeResolver.apply(id);
+                    if (node == null) {
+                        return null;
+                    }
+                    return node.getAutofillId();
+                };
         if (response != null) {
             if (response.getResponseType() == NULL) {
                 result = null;
             } else {
-                result = response.asFillResponse(/* contexts= */ null,
-                        (id) -> Helper.findNodeByResourceId(structure, id));
+                result = response.asPccFillResponse(/* contexts= */ null, nodeResolver);
             }
         } else if (dataset != null) {
-            result = dataset.asDataset((id) -> Helper.findNodeByResourceId(structure, id));
+            result = dataset.asDatasetForPcc(autofillPccResolver);
         } else {
             throw new IllegalStateException("no dataset or response");
         }

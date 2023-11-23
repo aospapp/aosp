@@ -1,4 +1,2 @@
-# Bug component: 24950
-kanlig@google.com
-patb@google.com
-chiuwinson@google.com
+# Bug component: 36137
+include platform/frameworks/base:/PACKAGE_MANAGER_OWNERS

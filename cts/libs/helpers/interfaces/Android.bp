@@ -23,7 +23,6 @@ java_library {
 
     static_libs: [
         "cts-helpers-core",
-        "ub-uiautomator",
     ],
 
     sdk_version: "test_current",

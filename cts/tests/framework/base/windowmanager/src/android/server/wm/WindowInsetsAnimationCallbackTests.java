@@ -44,6 +44,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Presubmit
+@android.server.wm.annotation.Group2
 public class WindowInsetsAnimationCallbackTests {
 
     private static final Bounds BOUNDS = new Bounds(NONE, Insets.of(1000, 2000, 3000, 4000));

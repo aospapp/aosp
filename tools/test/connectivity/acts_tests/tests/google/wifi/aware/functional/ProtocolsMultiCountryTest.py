@@ -17,7 +17,6 @@
 #import acts.test_utils.wifi.wifi_test_utils as wutils
 
 import time
-import random
 import re
 import logging
 import acts.controllers.packet_capture as packet_capture
@@ -33,13 +32,14 @@ from acts.controllers.ap_lib.hostapd_constants import CHANNEL_MAP
 
 WifiEnums = wutils.WifiEnums
 
+
 class ProtocolsMultiCountryTest(AwareBaseTest):
     def __init__(self, controllers):
         AwareBaseTest.__init__(self, controllers)
         self.basetest_name = (
             "ping6_ib_unsolicited_passive_multicountry",
             "ping6_ib_solicited_active_multicountry",
-            )
+        )
 
         self.generate_tests()
 
@@ -54,15 +54,15 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
         test_tracker_uuid = ""
 
         testcase_name = 'test_%s_%s' % (basetest_name, country)
-        test_case = test_tracker_info(uuid=test_tracker_uuid)(
-            lambda: base_test(country))
+        test_case = test_tracker_info(
+            uuid=test_tracker_uuid)(lambda: base_test(country))
         setattr(self, testcase_name, test_case)
         self.tests.append(testcase_name)
 
     def generate_tests(self):
         for country in self.user_params['wifi_country_code']:
-                for basetest_name in self.basetest_name:
-                    self.generate_testcase(basetest_name, country)
+            for basetest_name in self.basetest_name:
+                self.generate_testcase(basetest_name, country)
 
     def setup_class(self):
         super().setup_class()
@@ -81,7 +81,7 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
         for ad in self.android_devices:
             ad.ed.clear_all_events()
 
-    def test_time(self,begin_time):
+    def test_time(self, begin_time):
         super(ProtocolsMultiCountryTest, self).setup_test()
         for ad in self.android_devices:
             ad.cat_adb_log(begin_time)
@@ -90,7 +90,6 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
         super(ProtocolsMultiCountryTest, self).teardown_test()
         for ad in self.android_devices:
             ad.adb.shell("cmd wifiaware reset")
-
 
     """Set of tests for Wi-Fi Aware data-paths: validating protocols running on
     top of a data-path"""
@@ -116,7 +115,6 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
         out_nda0 = re.findall("Channel = (\d+)", out_nda01)
         return out_nda0
 
-
     def conf_packet_capture(self, band, channel):
         """Configure packet capture on necessary channels."""
         freq_to_chan = wutils.WifiEnums.freq_to_channel[int(channel)]
@@ -126,8 +124,8 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
         if not result:
             logging.error("Failed to configure channel "
                           "for {} band".format(band))
-        self.pcap_procs = wutils.start_pcap(
-            self.packet_capture, band, self.test_name)
+        self.pcap_procs = wutils.start_pcap(self.packet_capture, band,
+                                            self.test_name)
         time.sleep(5)
 
     ########################################################################
@@ -153,7 +151,7 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
              device_startup_offset=self.device_startup_offset)
         self.log.info("Interface names: P=%s, S=%s", p_aware_if, s_aware_if)
         self.log.info("Interface addresses (IPv6): P=%s, S=%s", p_ipv6, s_ipv6)
-        ndpfreg =int(self.get_ndp_freq(p_dut)[-1])
+        ndpfreg = int(self.get_ndp_freq(p_dut)[-1])
         ndp_channel = str(CHANNEL_MAP[ndpfreg])
         n = int(ndp_channel)
         if n in range(len(self.channel_list_2g)):
@@ -168,7 +166,7 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
         if hasattr(self, 'packet_capture'):
             self.conf_packet_capture(ndp_band, ndpfreg)
 
-       # run ping6
+    # run ping6
         self.run_ping6(p_dut, s_ipv6)
         self.run_ping6(s_dut, p_ipv6)
 
@@ -202,7 +200,7 @@ class ProtocolsMultiCountryTest(AwareBaseTest):
              device_startup_offset=self.device_startup_offset)
         self.log.info("Interface names: P=%s, S=%s", p_aware_if, s_aware_if)
         self.log.info("Interface addresses (IPv6): P=%s, S=%s", p_ipv6, s_ipv6)
-        ndpfreg =int(self.get_ndp_freq(p_dut)[-1])
+        ndpfreg = int(self.get_ndp_freq(p_dut)[-1])
         ndp_channel = str(CHANNEL_MAP[ndpfreg])
         n = int(ndp_channel)
         if n in range(len(self.channel_list_2g)):

@@ -1,0 +1,6 @@
+[book]
+authors = ["Bill Schilit", "Hyun Jae Moon"]
+language = "en"
+multilingual = false
+src = "src"
+title = "Wireless Network Emulation with Netsim"

@@ -32,7 +32,6 @@ cc_library {
         "libnativehelper_compat_libc++",
     ],
     static_libs: [
-        "cpufeatures",
         "libcutils",
     ],
 }
@@ -46,7 +45,6 @@ cc_library {
         "libnativehelper_compat_libc++",
     ],
     static_libs: [
-        "cpufeatures",
         "libcutils",
     ],
     cflags: [

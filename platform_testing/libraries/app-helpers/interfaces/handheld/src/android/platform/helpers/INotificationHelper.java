@@ -26,23 +26,16 @@ import androidx.annotation.Nullable;
 
 import java.util.List;
 
-/** An App Helper interface for the Notification. */
+/**
+ * An App Helper interface for the Notification.
+ *
+ * @deprecated use classes from the "systemui-tapl" library instead
+ */
+@Deprecated
 public interface INotificationHelper extends IAppHelper {
 
-    String UI_PACKAGE_NAME_SYSUI = "com.android.systemui";
-    String UI_PACKAGE_NAME_ANDROID = "android";
-    String UI_NOTIFICATION_ID = "status_bar_latest_event_content";
-    String NOTIFICATION_TITLE_TEXT = "TEST NOTIFICATION";
     String NOTIFICATION_CONTENT_TEXT = "Test notification content";
-    String NOTIFICATION_BIG_TEXT =
-            "lorem ipsum dolor sit amet\n"
-                    + "lorem ipsum dolor sit amet\n"
-                    + "lorem ipsum dolor sit amet\n"
-                    + "lorem ipsum dolor sit amet";
-    String NOTIFICATION_CHANNEL_NAME = "Test Channel";
     String EXPAND_BUTTON_ID = "expand_button";
-    String BUBBLE_BUTTON = "bubble_button";
-    String APP_ICON_ID = "icon";
 
     /**
      * Setup expectations: Notification shade opened.
@@ -154,6 +147,36 @@ public interface INotificationHelper extends IAppHelper {
      * @param count How many bubble notifications to send.
      */
     default void postBubbleNotification(String senderName, int count) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Setup Expectations: Shade is open
+     *
+     * <p>Posts multiple bubble notification. These notifications are associated with a conversation
+     * shortcut, a BubbleMetadata, and in {@link android.app.Notification.MessagingStyle}.
+     *
+     * @param senderName Name of notification sender.
+     * @param count How many bubble notifications to send.
+     * @param id The starting id for the notifications. If the starting id is 1000 and count is 3
+     *     then three notifications will be posted and the id's will be: 1000, 1001, 1002.
+     */
+    default void postBubbleNotification(String senderName, int count, int id) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
+
+    /**
+     * Posts a bubble notification. This notification is associated with a conversation shortcut, a
+     * BubbleMetadata, and in {@link android.app.Notification.MessagingStyle}.
+     *
+     * @param senderName Name of notification sender.
+     * @param id An unique notification identifier.
+     * @param text Notification message content.
+     * @param shortcutId id of the shortcut used in the notification.
+     * @param messageToActivity message to send to bubble test activity.
+     */
+    default void postBubbleNotification(
+            String senderName, int id, String text, String shortcutId, String messageToActivity) {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
 

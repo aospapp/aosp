@@ -1,15 +1,7 @@
 {
   "presubmit": [
     {
-      "name": "dmabufinfo_test",
-      "options": [
-        {
-          "include-filter": "*DmaBufSysfsStatsParser.*"
-        },
-        {
-          "include-filter": "*DmaBufProcessStatsTest.*"
-        }
-      ]
+      "name": "dmabufinfo_test"
     }
   ]
 }

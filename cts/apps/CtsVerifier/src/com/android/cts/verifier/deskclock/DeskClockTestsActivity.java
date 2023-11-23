@@ -89,7 +89,7 @@ public class DeskClockTestsActivity extends PassFailButtons.TestListActivity {
                     R.string.dc_start_alarm_test,
                     R.string.dc_start_alarm_test_info,
                     new ButtonInfo(
-                            R.string.dc_set_alarm_button,
+                            R.string.dc_start_alarm_button,
                             DeskClockIntentFactory.class.getName()),
                     new ButtonInfo(
                             R.string.dc_set_alarm_verify_button,

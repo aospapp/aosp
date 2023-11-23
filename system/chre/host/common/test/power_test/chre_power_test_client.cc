@@ -35,6 +35,7 @@
 #include "chre/util/nanoapp/app_id.h"
 #include "chre/util/system/napp_header_utils.h"
 #include "chre/version.h"
+#include "chre_host/file_stream.h"
 #include "chre_host/host_protocol_host.h"
 #include "chre_host/log.h"
 #include "chre_host/napp_header.h"
@@ -127,6 +128,7 @@ using android::chre::getStringFromByteVector;
 using android::chre::HostProtocolHost;
 using android::chre::IChreMessageHandlers;
 using android::chre::NanoAppBinaryHeader;
+using android::chre::readFileContents;
 using android::chre::SocketClient;
 using chre::power_test::MessageType;
 using chre::power_test::SensorType;
@@ -357,29 +359,6 @@ bool requestNanoappList(SocketClient &client) {
   return true;
 }
 
-bool readFileContents(const std::string filename,
-                      std::vector<uint8_t> *buffer) {
-  bool success = false;
-  std::ifstream file(filename.c_str(), std::ios::binary | std::ios::ate);
-  if (!file) {
-    LOGE("Couldn't open file '%s': %d (%s)", filename.c_str(), errno,
-         strerror(errno));
-  } else {
-    ssize_t size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    buffer->resize(size);
-    if (!file.read(reinterpret_cast<char *>(buffer->data()), size)) {
-      LOGE("Couldn't read from file '%s': %d (%s)", filename.c_str(), errno,
-           strerror(errno));
-    } else {
-      success = true;
-    }
-  }
-
-  return success;
-}
-
 bool sendNanoappLoad(SocketClient &client, uint64_t appId, uint32_t appVersion,
                      uint32_t apiVersion, uint32_t appFlags,
                      const std::vector<uint8_t> &binary) {
@@ -403,8 +382,10 @@ bool sendLoadNanoappRequest(SocketClient &client,
   bool success = false;
   std::vector<uint8_t> headerBuffer;
   std::vector<uint8_t> binaryBuffer;
-  if (readFileContents(filenameNoExtension + ".napp_header", &headerBuffer) &&
-      readFileContents(filenameNoExtension + ".so", &binaryBuffer)) {
+  std::string headerName = filenameNoExtension + ".napp_header";
+  std::string binaryName = filenameNoExtension + ".so";
+  if (readFileContents(headerName.c_str(), headerBuffer) &&
+      readFileContents(binaryName.c_str(), binaryBuffer)) {
     if (headerBuffer.size() != sizeof(NanoAppBinaryHeader)) {
       LOGE("Header size mismatch");
     } else {

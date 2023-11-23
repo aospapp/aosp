@@ -16,7 +16,7 @@
 
 package android.server.wm.app;
 
-import static android.server.wm.app.Components.PipActivity.EXTRA_FINISH_SELF_ON_RESUME;
+import static android.server.wm.app.Components.PipActivity.EXTRA_FINISH_TRAMPOLINE_ON_RESUME;
 
 import android.app.Activity;
 import android.os.Bundle;
@@ -25,7 +25,7 @@ public class LaunchEnterPipActivity extends Activity {
     @Override
     protected void onCreate(Bundle bundle) {
         super.onCreate(bundle);
-        PipActivity.launchEnterPipActivity(this);
+        PipActivity.launchEnterPipActivity(this, getIntent().getExtras());
     }
 
     @Override
@@ -33,7 +33,7 @@ public class LaunchEnterPipActivity extends Activity {
         super.onResume();
 
         // Finish self if requested
-        if (getIntent().hasExtra(EXTRA_FINISH_SELF_ON_RESUME)) {
+        if (getIntent().hasExtra(EXTRA_FINISH_TRAMPOLINE_ON_RESUME)) {
             finish();
         }
     }

@@ -52,6 +52,13 @@ public class IconMarginSpanTest {
     }
 
     @Test
+    public void testConstructAndGet() {
+        IconMarginSpan span = new IconMarginSpan(BITMAP_80X120, 32);
+        assertEquals(BITMAP_80X120, span.getBitmap());
+        assertEquals(32, span.getPadding());
+    }
+
+    @Test
     public void testGetLeadingMargin() {
         IconMarginSpan iconMarginSpan = new IconMarginSpan(BITMAP_80X120, 1);
         int leadingMargin1 = iconMarginSpan.getLeadingMargin(true);

@@ -240,6 +240,9 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
         assertEmptySequence(PipActivity.class, getTransitionLog(),
                 "launchBelow");
 
+        // Set secondary split as launch root
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
+
         // Launch second activity to side
         getTransitionLog().clear();
         new Launcher(SecondActivity.class)
@@ -263,6 +266,9 @@ public class ActivityLifecyclePipTests extends ActivityLifecycleClientTestBase {
 
         // Enter split screen
         moveTaskToPrimarySplitScreenAndVerify(firstActivity, sideActivity);
+
+        // Set secondary split as launch root
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
 
         // Launch second activity to side
         final Activity secondActivity = new Launcher(SecondActivity.class)

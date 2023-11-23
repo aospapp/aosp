@@ -27,12 +27,12 @@ import android.autofillservice.cts.testcore.Helper;
 import android.autofillservice.cts.testcore.UiBot;
 import android.content.Intent;
 import android.service.autofill.CustomDescription;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
 import android.widget.RemoteViews;
 
 import androidx.annotation.NonNull;
 import androidx.test.filters.FlakyTest;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 
@@ -93,6 +93,8 @@ public abstract class CustomDescriptionWithLinkTestCase<A extends AbstractAutoFi
     @Test
     public final void testTapLink_changeOrientationThenTapBack() throws Exception {
         assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
+        assumeTrue("Device state is not REAR_DISPLAY",
+                !Helper.isDeviceInState(mContext, Helper.DeviceStateEnum.REAR_DISPLAY));
 
         mUiBot.assumeMinimumResolution(500);
         mUiBot.setScreenOrientation(UiBot.PORTRAIT);

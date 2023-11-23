@@ -21,7 +21,7 @@
     <application android:label="RemoteDPC Tests">
         <uses-library android:name="android.test.runner" />
     </application>
-    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.bedstead.remotedpc.test"
                      android:label="RemoteDPC Tests" />

@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaRfcommLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "rfcomm")
 
     def init(self):
         """Initializes the RFCOMM service.
@@ -30,12 +29,9 @@ class FuchsiaRfcommLib(BaseLib):
             Dictionary, None if success, error if error.
         """
         test_cmd = "rfcomm_facade.RfcommInit"
-
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def removeService(self):
         """Removes the RFCOMM service from the Fuchsia device
@@ -45,10 +41,8 @@ class FuchsiaRfcommLib(BaseLib):
         """
         test_cmd = "rfcomm_facade.RfcommRemoveService"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def disconnectSession(self, peer_id):
         """Closes the RFCOMM Session with the remote peer
@@ -58,10 +52,8 @@ class FuchsiaRfcommLib(BaseLib):
         """
         test_cmd = "rfcomm_facade.DisconnectSession"
         test_args = {"peer_id": peer_id}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def connectRfcommChannel(self, peer_id, server_channel_number):
         """Makes an outgoing RFCOMM connection to the remote peer
@@ -74,10 +66,8 @@ class FuchsiaRfcommLib(BaseLib):
             "peer_id": peer_id,
             "server_channel_number": server_channel_number
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def disconnectRfcommChannel(self, peer_id, server_channel_number):
         """Closes the RFCOMM channel with the remote peer
@@ -90,10 +80,8 @@ class FuchsiaRfcommLib(BaseLib):
             "peer_id": peer_id,
             "server_channel_number": server_channel_number
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def sendRemoteLineStatus(self, peer_id, server_channel_number):
         """Sends a Remote Line Status update to the remote peer for the provided channel number
@@ -106,10 +94,8 @@ class FuchsiaRfcommLib(BaseLib):
             "peer_id": peer_id,
             "server_channel_number": server_channel_number
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def writeRfcomm(self, peer_id, server_channel_number, data):
         """Sends data to the remote peer over the RFCOMM channel
@@ -123,7 +109,5 @@ class FuchsiaRfcommLib(BaseLib):
             "server_channel_number": server_channel_number,
             "data": data
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

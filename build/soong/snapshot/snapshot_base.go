@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -118,5 +118,21 @@ type SnapshotJsonFlags struct {
 	CrateName           string `json:",omitempty"`
 
 	// dependencies
-	Required []string `json:",omitempty"`
+	Required  []string `json:",omitempty"`
+	Overrides []string `json:",omitempty"`
+
+	// license information
+	LicenseKinds []string `json:",omitempty"`
+	LicenseTexts []string `json:",omitempty"`
+}
+
+func (prop *SnapshotJsonFlags) InitBaseSnapshotPropsWithName(m android.Module, name string) {
+	prop.ModuleName = name
+
+	prop.LicenseKinds = m.EffectiveLicenseKinds()
+	prop.LicenseTexts = m.EffectiveLicenseFiles().Strings()
+}
+
+func (prop *SnapshotJsonFlags) InitBaseSnapshotProps(m android.Module) {
+	prop.InitBaseSnapshotPropsWithName(m, m.Name())
 }

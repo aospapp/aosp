@@ -136,3 +136,9 @@ TEST(environment, GetAppType) {
   ASSERT_EQ(GetAppType("com.android.simpleperf.profileable"), "profileable");
   ASSERT_EQ(GetAppType("com.android.simpleperf.app_not_exist"), "not_exist");
 }
+
+TEST(environment, GetMemorySize) {
+  auto value = GetMemorySize();
+  ASSERT_TRUE(value);
+  ASSERT_GT(value.value(), 0);
+}

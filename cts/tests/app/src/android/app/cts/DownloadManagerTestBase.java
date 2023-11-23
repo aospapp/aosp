@@ -43,13 +43,13 @@ import android.os.Process;
 import android.os.RemoteCallback;
 import android.os.SystemClock;
 import android.provider.MediaStore;
-import android.support.test.uiautomator.UiDevice;
 import android.text.TextUtils;
 import android.text.format.DateUtils;
 import android.util.Log;
 import android.webkit.cts.CtsTestServer;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;

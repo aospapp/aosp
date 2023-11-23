@@ -1,0 +1,60 @@
+{
+  "presubmit": [
+    {
+      "name": "vts_linux_kselftest_arm_32"
+    },
+    {
+      "name": "vts_linux_kselftest_arm_64"
+    },
+    {
+      "name": "vts_linux_kselftest_riscv_64"
+    },
+    {
+      "name": "vts_linux_kselftest_x86_32",
+      "options": [
+        {
+          // TODO(b/191663053)
+          "exclude-filter": "x86_single_step_syscall_x86_32"
+        }
+      ]
+    },
+    {
+      "name": "vts_linux_kselftest_x86_64",
+      "options": [
+        {
+          // TODO(b/191663053)
+          "exclude-filter": "x86_single_step_syscall_x86_64"
+        }
+      ]
+    }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "vts_linux_kselftest_arm_32"
+    },
+    {
+      "name": "vts_linux_kselftest_arm_64"
+    },
+    {
+      "name": "vts_linux_kselftest_riscv_64"
+    },
+    {
+      "name": "vts_linux_kselftest_x86_32",
+      "options": [
+        {
+          // TODO(b/191663053)
+          "exclude-filter": "x86_single_step_syscall_x86_32"
+        }
+      ]
+    },
+    {
+      "name": "vts_linux_kselftest_x86_64",
+      "options": [
+        {
+          // TODO(b/191663053)
+          "exclude-filter": "x86_single_step_syscall_x86_64"
+        }
+      ]
+    }
+  ]
+}

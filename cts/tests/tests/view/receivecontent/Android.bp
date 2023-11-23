@@ -30,15 +30,11 @@ android_test {
         "android-common",
         "ctstestrunner-axt",
         "metrics-helper-lib",
-        "mockito-target-inline-minus-junit4",
+        "mockito-target-minus-junit4",
         "platform-test-annotations",
         "truth-prebuilt",
     ],
     compile_multilib: "both",
-    jni_libs: [
-        "libdexmakerjvmtiagent",
-        "libmultiplejvmtiagentsinterferenceagent",
-    ],
     srcs: ["src/**/*.java"],
     platform_apis: true,
 }

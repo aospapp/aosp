@@ -15,9 +15,7 @@
 package cc
 
 import (
-	"fmt"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"android/soong/android"
@@ -30,29 +28,11 @@ func includeDirsToFlags(dirs android.Paths) string {
 	return android.JoinWithPrefix(dirs.Strings(), "-I")
 }
 
-func ldDirsToFlags(dirs []string) string {
-	return android.JoinWithPrefix(dirs, "-L")
-}
-
-func libNamesToFlags(names []string) string {
-	return android.JoinWithPrefix(names, "-l")
-}
-
 var indexList = android.IndexList
 var inList = android.InList
 var filterList = android.FilterList
 var removeListFromList = android.RemoveListFromList
 var removeFromList = android.RemoveFromList
-
-var libNameRegexp = regexp.MustCompile(`^lib(.*)$`)
-
-func moduleToLibName(module string) (string, error) {
-	matches := libNameRegexp.FindStringSubmatch(module)
-	if matches == nil {
-		return "", fmt.Errorf("Library module name %s does not start with lib", module)
-	}
-	return matches[1], nil
-}
 
 func flagsToBuilderFlags(in Flags) builderFlags {
 	return builderFlags{
@@ -113,29 +93,11 @@ func addPrefix(list []string, prefix string) []string {
 	return list
 }
 
-func addSuffix(list []string, suffix string) []string {
-	for i := range list {
-		list[i] = list[i] + suffix
-	}
-	return list
-}
-
 // linkDirOnDevice/linkName -> target
 func makeSymlinkCmd(linkDirOnDevice string, linkName string, target string) string {
 	dir := filepath.Join("$(PRODUCT_OUT)", linkDirOnDevice)
 	return "mkdir -p " + dir + " && " +
 		"ln -sf " + target + " " + filepath.Join(dir, linkName)
-}
-
-func combineNoticesRule(ctx android.SingletonContext, paths android.Paths, out string) android.OutputPath {
-	outPath := android.PathForOutput(ctx, out)
-	ctx.Build(pctx, android.BuildParams{
-		Rule:        android.Cat,
-		Inputs:      paths,
-		Output:      outPath,
-		Description: "combine notices for " + out,
-	})
-	return outPath
 }
 
 // Dump a map to a list file as:
@@ -145,7 +107,7 @@ func combineNoticesRule(ctx android.SingletonContext, paths android.Paths, out s
 // ...
 func installMapListFileRule(ctx android.SingletonContext, m map[string]string, path string) android.OutputPath {
 	var txtBuilder strings.Builder
-	for idx, k := range android.SortedStringKeys(m) {
+	for idx, k := range android.SortedKeys(m) {
 		if idx > 0 {
 			txtBuilder.WriteString("\n")
 		}

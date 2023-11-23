@@ -32,7 +32,7 @@ IDEA_SH_FIND = [
     '/opt/intellij-ce-2018.1/bin/idea.sh', '/opt/intellij-ce-2017.2/bin/idea.sh'
 ]  # script path data
 
-SH_GODEN_SAMPLE = '/opt/intellij-ce-2018.1/bin/idea.sh'
+SH_GOLDEN_SAMPLE = '/opt/intellij-ce-2018.1/bin/idea.sh'
 
 IDEA_SH_FIND_NONE = ''  # Neither IntelliJ CE nor UE script exists.
 TEST_PATH = 'path'

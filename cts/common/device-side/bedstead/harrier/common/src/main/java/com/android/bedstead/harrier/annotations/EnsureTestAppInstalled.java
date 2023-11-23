@@ -19,6 +19,8 @@ package com.android.bedstead.harrier.annotations;
 import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
 
 import com.android.bedstead.harrier.UserType;
+import com.android.bedstead.harrier.annotations.enterprise.AdditionalQueryParameters;
+import com.android.queryable.annotations.Query;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Repeatable;
@@ -29,9 +31,8 @@ import java.lang.annotation.Target;
 /**
  * Mark that a test requires the given test app to be installed on the given user.
  *
- * <p>You should use {@code Devicestate} to ensure that the device enters
- * the correct state for the method. You can use {@code Devicestate#delegate()} to interact with
- * the delegate.
+ * <p>You should use {@code DeviceState} to ensure that the device enters
+ * the correct state for the method.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
@@ -40,19 +41,24 @@ public @interface EnsureTestAppInstalled {
 
     int ENSURE_TEST_APP_INSTALLED_WEIGHT = MIDDLE;
 
-    String DEFAULT_TEST_APP_KEY = "testApp";
+    String DEFAULT_KEY = "testApp";
 
-    /** A key which uniquely identifies the test app for the test. */
-    String key() default DEFAULT_TEST_APP_KEY;
+    /**
+     * A key which uniquely identifies the test app for the test.
+     *
+     * <p>This can be used with e.g. {@code DeviceState#testApp} and
+     * {@link AdditionalQueryParameters}.
+     */
+    String key() default DEFAULT_KEY;
 
-    /** The package name of the testapp. */
-    String packageName();
+    /** Query specifying the testapp. Defaults to any test app. */
+    Query query() default @Query();
 
     /** The user the testApp should be installed on. */
     UserType onUser() default UserType.INSTRUMENTED_USER;
 
     /**
-     * Whether this testApp should be returned by calls to {@code DeviceState#policyManager()}.
+     * Whether this testApp should be returned by calls to {@code DeviceState#dpc()}.
      *
      * <p>Only one policy manager per test should be marked as primary.
      */

@@ -69,6 +69,7 @@ func (ev ExportedVariables) asBazel(config Config,
 	ret = append(ret, ev.exportedStringListDictVars.asBazel(config, stringVars, stringListVars, cfgDepVars)...)
 	// Note: ExportedVariableReferenceDictVars collections can only contain references to other variables and must be printed last
 	ret = append(ret, ev.exportedVariableReferenceDictVars.asBazel(config, stringVars, stringListVars, cfgDepVars)...)
+	ret = append(ret, ev.exportedConfigDependingVars.asBazel(config, stringVars, stringListVars, cfgDepVars)...)
 	return ret
 }
 
@@ -92,6 +93,15 @@ func (ev ExportedVariables) ExportStringListStaticVariable(name string, value []
 func (ev ExportedVariables) ExportVariableConfigMethod(name string, method interface{}) blueprint.Variable {
 	ev.exportedConfigDependingVars.set(name, method)
 	return ev.pctx.VariableConfigMethod(name, method)
+}
+
+func (ev ExportedVariables) ExportStringStaticVariableWithEnvOverride(name, envVar, defaultVal string) {
+	ev.ExportVariableConfigMethod(name, func(config Config) string {
+		if override := config.Getenv(envVar); override != "" {
+			return override
+		}
+		return defaultVal
+	})
 }
 
 // ExportSourcePathVariable declares a static "source path" variable and exports
@@ -139,6 +149,33 @@ type ExportedConfigDependingVariables map[string]interface{}
 
 func (m ExportedConfigDependingVariables) set(k string, v interface{}) {
 	m[k] = v
+}
+
+func (m ExportedConfigDependingVariables) asBazel(config Config,
+	stringVars ExportedStringVariables, stringListVars ExportedStringListVariables, cfgDepVars ExportedConfigDependingVariables) []bazelConstant {
+	ret := make([]bazelConstant, 0, len(m))
+	for variable, unevaluatedVar := range m {
+		evalFunc := reflect.ValueOf(unevaluatedVar)
+		validateVariableMethod(variable, evalFunc)
+		evaluatedResult := evalFunc.Call([]reflect.Value{reflect.ValueOf(config)})
+		evaluatedValue := evaluatedResult[0].Interface().(string)
+		expandedVars, err := expandVar(config, evaluatedValue, stringVars, stringListVars, cfgDepVars)
+		if err != nil {
+			panic(fmt.Errorf("error expanding config variable %s: %s", variable, err))
+		}
+		if len(expandedVars) > 1 {
+			ret = append(ret, bazelConstant{
+				variableName:       variable,
+				internalDefinition: starlark_fmt.PrintStringList(expandedVars, 0),
+			})
+		} else {
+			ret = append(ret, bazelConstant{
+				variableName:       variable,
+				internalDefinition: fmt.Sprintf(`"%s"`, validateCharacters(expandedVars[0])),
+			})
+		}
+	}
+	return ret
 }
 
 // Ensure that string s has no invalid characters to be generated into the bzl file.
@@ -240,10 +277,12 @@ func (m ExportedStringListDictVariables) asBazel(_ Config, _ ExportedStringVaria
 // ExportedVariableReferenceDictVariables is a mapping from variable names to a
 // dictionary which references previously defined variables. This is used to
 // create a Starlark output such as:
-// 		string_var1 = "string1
-// 		var_ref_dict_var1 = {
-// 			"key1": string_var1
-// 		}
+//
+//	string_var1 = "string1
+//	var_ref_dict_var1 = {
+//		"key1": string_var1
+//	}
+//
 // This type of variable collection must be expanded last so that it recognizes
 // previously defined variables.
 type ExportedVariableReferenceDictVariables map[string]map[string]string

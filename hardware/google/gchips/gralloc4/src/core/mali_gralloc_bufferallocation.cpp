@@ -22,6 +22,7 @@
 #include <assert.h>
 #include <atomic>
 #include <algorithm>
+#include <set>
 #include <utils/Trace.h>
 
 #include <hardware/hardware.h>
@@ -39,15 +40,18 @@
 
 #define EXT_SIZE       256
 
+/* HW needs extra padding bytes for its prefetcher does not check the picture boundary */
+#define BW_EXT_SIZE (16 * 1024)
+
 /* Default align values for Exynos */
 #define YUV_BYTE_ALIGN_DEFAULT 16
 #define RGB_BYTE_ALIGN_DEFAULT 64
 
 /* IP-specific align values */
 #define GPU_BYTE_ALIGN_DEFAULT 64
-
-/* Always CPU align for Exynos */
-#define CAN_SKIP_CPU_ALIGN 0
+#ifdef SOC_ZUMA
+#define CAMERA_RAW_BUFFER_BYTE_ALIGN 32
+#endif
 
 /* Realign YV12 format so that chroma stride is half of luma stride */
 #define REALIGN_YV12 1
@@ -446,20 +450,14 @@ static void update_yv12_stride(int8_t plane,
                                uint32_t stride_align,
                                uint32_t * byte_stride)
 {
-	if (plane == 0)
-	{
-		*byte_stride = GRALLOC_ALIGN(luma_stride, GRALLOC_ALIGN(stride_align, 32));
-	}
-	else
-	{
-		/*
-		 * Derive chroma stride from luma and verify it is:
-		 * 1. Aligned to "1/2*lcm(hw_align, cpu_align)"
-		 * 2. Multiple of 16px (16 bytes)
-		 */
-		*byte_stride = luma_stride / 2;
-		assert(*byte_stride == GRALLOC_ALIGN(*byte_stride, GRALLOC_ALIGN(stride_align / 2, 16)));
-		assert(*byte_stride & 15 == 0);
+	// https://developer.android.com/reference/android/graphics/ImageFormat#YV12
+	if (plane == 0) {
+		// stride_align has to be honored as GPU alignment still requires the format to be
+		// 64 bytes aligned. Though that does not break the contract as long as the
+		// horizontal stride for chroma is half the luma stride and aligned to 16.
+		*byte_stride = GRALLOC_ALIGN(luma_stride, GRALLOC_ALIGN(stride_align, 16));
+	} else {
+		*byte_stride = GRALLOC_ALIGN(luma_stride / 2, 16);
 	}
 }
 #endif
@@ -476,7 +474,7 @@ static void update_yv12_stride(int8_t plane,
  * (matched against `VALID_USAGE`). These should be aligned.
  */
 static bool log_deprecated_usage_flags(uint64_t usage) {
-	if (usage & MALI_GRALLOC_USAGE_FRONTBUFFER) {
+	if (usage & DEPRECATED_MALI_GRALLOC_USAGE_FRONTBUFFER) {
 		MALI_GRALLOC_LOGW("Using deprecated FRONTBUFFER usage bit, please upgrade to BufferUsage::FRONT_BUFFER");
 		return true;
 	}
@@ -485,15 +483,15 @@ static bool log_deprecated_usage_flags(uint64_t usage) {
 }
 
 /*
- * Modify usage flag when BO is the producer
+ * Modify usage flag when BO/BW is the producer (decoder) or the consumer (encoder)
  *
- * BO cannot use the flags CPU_READ_RARELY as Codec layer redefines those flags
- * for some internal usage. So, when BO is sending CPU_READ_OFTEN, it still
+ * BO/BW cannot use the flags CPU_READ_RARELY as Codec layer redefines those flags
+ * for some internal usage. So, when BO/BW is sending CPU_READ_OFTEN, it still
  * expects to allocate an uncached buffer and this procedure convers the OFTEN
  * flag to RARELY.
  */
-static uint64_t update_usage_for_BO(uint64_t usage) {
-	MALI_GRALLOC_LOGV("Hacking CPU RW flags for BO");
+static uint64_t update_usage_for_BIG(uint64_t usage) {
+	MALI_GRALLOC_LOGV("Hacking CPU RW flags for BO/BW");
 	if (usage & hidl_common::BufferUsage::CPU_READ_OFTEN) {
 		usage &= ~(static_cast<uint64_t>(hidl_common::BufferUsage::CPU_READ_OFTEN));
 		usage |= hidl_common::BufferUsage::CPU_READ_RARELY;
@@ -523,6 +521,10 @@ static void align_plane_stride(plane_info_t *plane_info, int plane, const format
  * @param alloc_type      [in]    Allocation type inc. whether tiled and/or multi-plane.
  * @param format          [in]    Pixel format.
  * @param has_cpu_usage   [in]    CPU usage requested (in addition to any other).
+ * @param has_hw_usage    [in]    HW usage requested.
+ * @param has_gpu_usage   [in]    GPU usage requested.
+ * @param has_video_usage [in]    Video usage requested.
+ * @param has_camera_usage[in]    Camera usage requested.
  * @param pixel_stride    [out]   Calculated pixel stride.
  * @param size            [out]   Total calculated buffer size including all planes.
  * @param plane_info      [out]   Array of calculated information for each plane. Includes
@@ -535,6 +537,7 @@ static void calc_allocation_size(const int width,
                                  const bool has_cpu_usage,
                                  const bool has_hw_usage,
                                  const bool has_gpu_usage,
+                                 const bool has_BIG_usage,
                                  const bool has_camera_usage,
                                  int * const pixel_stride,
                                  uint64_t * const size,
@@ -542,6 +545,9 @@ static void calc_allocation_size(const int width,
 {
 	/* pixel_stride is set outside this function after this function is called */
 	GRALLOC_UNUSED(pixel_stride);
+#ifndef SOC_ZUMA
+	GRALLOC_UNUSED(has_camera_usage);
+#endif
 
 	plane_info[0].offset = 0;
 
@@ -605,19 +611,23 @@ static void calc_allocation_size(const int width,
 				hw_align = std::max(hw_align, static_cast<uint16_t>(GPU_BYTE_ALIGN_DEFAULT));
 			}
 
-			uint32_t cpu_align = 0;
-
-			if (!(has_camera_usage && !has_cpu_usage && format.id == MALI_GRALLOC_FORMAT_INTERNAL_RAW10)) {
-#if CAN_SKIP_CPU_ALIGN == 1
-				if (has_cpu_usage)
+#ifdef SOC_ZUMA
+			if (has_camera_usage && (format.id == MALI_GRALLOC_FORMAT_INTERNAL_RAW10 ||
+						format.id == MALI_GRALLOC_FORMAT_INTERNAL_RAW12 ||
+						format.id == MALI_GRALLOC_FORMAT_INTERNAL_RAW16)) {
+				/*
+				 * Camera ISP requires RAW buffers to have 32-byte aligned stride
+				 */
+				hw_align = std::max(hw_align, static_cast<uint16_t>(CAMERA_RAW_BUFFER_BYTE_ALIGN));
+			}
 #endif
-				{
-					assert((format.bpp[plane] * format.align_w_cpu) % 8 == 0);
-					const bool is_primary_plane = (plane == 0 || !format.planes_contiguous);
-					if (is_primary_plane)
-					{
-						cpu_align = (format.bpp[plane] * format.align_w_cpu) / 8;
-					}
+
+			uint32_t cpu_align = 0;
+			if (has_cpu_usage && format.id != MALI_GRALLOC_FORMAT_INTERNAL_RAW10) {
+				assert((format.bpp[plane] * format.align_w_cpu) % 8 == 0);
+				const bool is_primary_plane = (plane == 0 || !format.planes_contiguous);
+				if (is_primary_plane) {
+					cpu_align = (format.bpp[plane] * format.align_w_cpu) / 8;
 				}
 			}
 
@@ -631,10 +641,10 @@ static void calc_allocation_size(const int width,
 			/*
 			 * Update YV12 stride with both CPU & HW usage due to constraint of chroma stride.
 			 * Width is anyway aligned to 16px for luma and chroma (has_cpu_usage).
-                         *
-                         * Note: To prevent luma stride misalignment with GPU stride alignment.
-                         * The luma plane will maintain the same `stride` size, and the chroma plane
-                         * will align to `stride/2`.
+			 *
+			 * Note: To prevent luma stride misalignment with GPU stride alignment.
+			 * The luma plane will maintain the same `stride` size, and the chroma plane
+			 * will align to `stride/2`.
 			 */
 			if (format.id == MALI_GRALLOC_FORMAT_INTERNAL_YV12 && has_hw_usage && has_cpu_usage)
 			{
@@ -676,6 +686,13 @@ static void calc_allocation_size(const int width,
 		}
 		else
 		{
+			if (has_BIG_usage && plane &&
+			    (format.id == HAL_PIXEL_FORMAT_GOOGLE_NV12_SP ||
+			     format.id == HAL_PIXEL_FORMAT_GOOGLE_NV12_SP_10B))
+			{
+				/* Make luma and chroma planes have the same stride. */
+				plane_info[plane].byte_stride = plane_info[0].byte_stride;
+			}
 			body_size = plane_info[plane].byte_stride * plane_info[plane].alloc_height;
 		}
 		MALI_GRALLOC_LOGV("Body size: %d", body_size);
@@ -770,35 +787,18 @@ static int prepare_descriptor_exynos_formats(
 		buffer_descriptor_t *bufDescriptor,
 		format_info_t format_info)
 {
-	int fd_count = 1;
 	int w = bufDescriptor->width;
 	int h = bufDescriptor->height;
 	uint64_t usage = bufDescriptor->producer_usage | bufDescriptor->consumer_usage;
 	int plane_count = 2;
 	int format = MALI_GRALLOC_INTFMT_FMT_MASK & bufDescriptor->alloc_format;
+	int fd_count = get_exynos_fd_count(format);
 
 	if (usage & (GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_HW_VIDEO_DECODER))
 	{
 		usage |= GRALLOC_USAGE_VIDEO_PRIVATE_DATA;
 		bufDescriptor->producer_usage |= GRALLOC_USAGE_VIDEO_PRIVATE_DATA;
 		bufDescriptor->consumer_usage |= GRALLOC_USAGE_VIDEO_PRIVATE_DATA;
-	}
-
-	/* set SBWC format fd_count */
-	fd_count = 1;
-	switch (format)
-	{
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M_SBWC:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M_10B_SBWC:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC_L50:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC_L75:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC_L40:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC_L60:
-		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC_L80:
-			fd_count = 2;
-			break;
 	}
 
 	/* SWBC Formats have special size requirements */
@@ -842,7 +842,6 @@ static int prepare_descriptor_exynos_formats(
 			break;
 
 		case HAL_PIXEL_FORMAT_YCrCb_420_SP:
-			fd_count = 1;
 			h = GRALLOC_ALIGN(h, 2);
 			plane_count = setup_420_sp(w, h, fd_count, bufDescriptor->plane_info);
 			break;
@@ -851,20 +850,17 @@ static int prepare_descriptor_exynos_formats(
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_P_M:
 			w = GRALLOC_ALIGN(w, 32);
 			h = GRALLOC_ALIGN(h, 16);
-			fd_count = 3;
 			plane_count = setup_420_p(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_TILED:
 			w = GRALLOC_ALIGN(w, 16);
 			h = GRALLOC_ALIGN(h, 32);
-			fd_count = 2;
 			plane_count = setup_420_sp_tiled(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_P:
 			w = GRALLOC_ALIGN(w, 16);
-			fd_count = 1;
 			plane_count = setup_420_p(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
@@ -873,14 +869,12 @@ static int prepare_descriptor_exynos_formats(
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M:
 			w = GRALLOC_ALIGN(w, 16);
 			h = GRALLOC_ALIGN(h, 32);
-			fd_count = 2;
 			plane_count = setup_420_sp(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN:
-			w = GRALLOC_ALIGN(w, 16);
+			w = GRALLOC_ALIGN(w, 64);
 			h = GRALLOC_ALIGN(h, 16);
-			fd_count = 1;
 			plane_count = setup_420_sp(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
@@ -888,21 +882,24 @@ static int prepare_descriptor_exynos_formats(
 			/* This is 64 pixel align for now */
 			w = GRALLOC_ALIGN(w, BOARD_EXYNOS_S10B_FORMAT_ALIGN);
 			h = GRALLOC_ALIGN(h, 16);
-			fd_count = 2;
 			plane_count = setup_420_sp_s10b(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_S10B:
 			w = GRALLOC_ALIGN(w, BOARD_EXYNOS_S10B_FORMAT_ALIGN);
 			h = GRALLOC_ALIGN(h, 16);
-			fd_count = 1;
 			plane_count = setup_420_sp_s10b(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_M:
 			w = GRALLOC_ALIGN(w, 16);
 			h = GRALLOC_ALIGN(h, 16);
-			fd_count = 2;
+			plane_count = setup_p010_sp(w, h, fd_count, bufDescriptor->plane_info);
+			break;
+
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_SPN:
+			w = GRALLOC_ALIGN(w, 64);
+			h = GRALLOC_ALIGN(h, 16);
 			plane_count = setup_p010_sp(w, h, fd_count, bufDescriptor->plane_info);
 			break;
 
@@ -973,21 +970,10 @@ static int prepare_descriptor_exynos_formats(
 		bufDescriptor->alloc_sizes[fidx] = size;
 	}
 
-
 	bufDescriptor->fd_count = fd_count;
 	bufDescriptor->plane_count = plane_count;
 
 	return 0;
-}
-
-static bool validate_usage(const uint64_t usage) {
-	if (usage & GRALLOC_USAGE_FRONT_BUFFER) {
-		/* TODO(b/218383959): Enable front buffer rendering */
-		MALI_GRALLOC_LOGW("Front buffer rendering is disabled.");
-		return false;
-	}
-
-	return true;
 }
 
 int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescriptor)
@@ -998,19 +984,29 @@ int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescripto
 	int alloc_height = bufDescriptor->height;
 	uint64_t usage = bufDescriptor->producer_usage | bufDescriptor->consumer_usage;
 
-	if (!validate_usage(usage)) {
-		MALI_GRALLOC_LOGE("Usage flag validation failed.");
-		return -EINVAL;
-	}
-
 	/*
 	* Select optimal internal pixel format based upon
 	* usage and requested format.
 	*/
 	bufDescriptor->alloc_format = mali_gralloc_select_format(bufDescriptor->hal_format,
 	                                                         bufDescriptor->format_type,
-	                                                         usage,
-	                                                         bufDescriptor->width * bufDescriptor->height);
+	                                                         usage);
+
+	int base_format = bufDescriptor->alloc_format & MALI_GRALLOC_INTFMT_FMT_MASK;
+
+	// TODO(b/182885532): Delete all multi-fd related dead code from gralloc
+	if (is_exynos_format(base_format) && get_exynos_fd_count(base_format) != 1)
+	{
+		static std::set<uint32_t> seen_formats;
+		if (seen_formats.find(base_format) == seen_formats.end()) {
+			MALI_GRALLOC_LOGW("Multi-fd format (%s 0x%" PRIx64 ") have been deprecated. Requested format: %s 0x%" PRIx64
+					". Consider changing the format to one of the single-fd options.",
+					format_name(base_format), static_cast<uint64_t>(base_format),
+					format_name(bufDescriptor->hal_format), bufDescriptor->hal_format);
+			seen_formats.insert(base_format);
+		}
+	}
+
 	if (bufDescriptor->alloc_format == MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED)
 	{
 		MALI_GRALLOC_LOGE("ERROR: Unrecognized and/or unsupported format (%s 0x%" PRIx64 ") and usage (%s 0x%" PRIx64 ")",
@@ -1019,7 +1015,7 @@ int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescripto
 		return -EINVAL;
 	}
 
-	int32_t format_idx = get_format_index(bufDescriptor->alloc_format & MALI_GRALLOC_INTFMT_FMT_MASK);
+	int32_t format_idx = get_format_index(base_format);
 	if (format_idx == -1)
 	{
 		return -EINVAL;
@@ -1041,7 +1037,7 @@ int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescripto
 		return -EINVAL;
 	}
 
-	if (is_exynos_format(bufDescriptor->alloc_format))
+	if (is_exynos_format(base_format))
 	{
 		prepare_descriptor_exynos_formats(bufDescriptor, formats[format_idx]);
 	}
@@ -1066,6 +1062,7 @@ int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescripto
 		                     usage & (GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK),
 		                     usage & ~(GRALLOC_USAGE_PRIVATE_MASK | GRALLOC_USAGE_SW_READ_MASK | GRALLOC_USAGE_SW_WRITE_MASK),
 		                     usage & (GRALLOC_USAGE_HW_TEXTURE | GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_GPU_DATA_BUFFER),
+		                     (usage & (GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_HW_VIDEO_DECODER)) && (usage & GRALLOC_USAGE_GOOGLE_IP_BIG),
 		                     usage & (GRALLOC_USAGE_HW_CAMERA_WRITE | GRALLOC_USAGE_HW_CAMERA_READ),
 		                     &bufDescriptor->pixel_stride,
 		                     &bufDescriptor->alloc_sizes[0],
@@ -1073,7 +1070,7 @@ int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescripto
 	}
 
 	/* Set pixel stride differently for RAW formats */
-	switch (MALI_GRALLOC_INTFMT_FMT_MASK & bufDescriptor->alloc_format)
+	switch (base_format)
 	{
 		case MALI_GRALLOC_FORMAT_INTERNAL_RAW12:
 		case MALI_GRALLOC_FORMAT_INTERNAL_RAW10:
@@ -1111,9 +1108,14 @@ int mali_gralloc_derive_format_and_size(buffer_descriptor_t * const bufDescripto
 	/* MFC requires EXT_SIZE padding */
 	bufDescriptor->alloc_sizes[0] += EXT_SIZE;
 
+	if ((usage & GRALLOC_USAGE_HW_VIDEO_ENCODER) && (usage & GRALLOC_USAGE_GOOGLE_IP_BW))
+	{
+		/* BW HW requires extra padding bytes */
+		bufDescriptor->alloc_sizes[0] += BW_EXT_SIZE;
+	}
+
 	return 0;
 }
-
 
 int mali_gralloc_buffer_allocate(const gralloc_buffer_descriptor_t *descriptors,
                                  uint32_t numDescriptors, buffer_handle_t *pHandle, bool *shared_backend,
@@ -1130,13 +1132,16 @@ int mali_gralloc_buffer_allocate(const gralloc_buffer_descriptor_t *descriptors,
 
 		assert(bufDescriptor->producer_usage == bufDescriptor->consumer_usage);
 		uint64_t usage = bufDescriptor->producer_usage;
-		if ((usage & hidl_common::BufferUsage::VIDEO_DECODER) && (usage & GRALLOC_USAGE_GOOGLE_IP_BO)) {
-			usage = update_usage_for_BO(usage);
+		if (((usage & hidl_common::BufferUsage::VIDEO_DECODER)||(usage & hidl_common::BufferUsage::VIDEO_ENCODER)) &&
+		    (usage & GRALLOC_USAGE_GOOGLE_IP_BIG))
+		{
+			usage = update_usage_for_BIG(usage);
 			bufDescriptor->producer_usage = usage;
 			bufDescriptor->consumer_usage = usage;
 		}
 
-		if (log_deprecated_usage_flags(usage)) {
+		if (log_deprecated_usage_flags(usage))
+		{
 			return -EINVAL;
 		}
 

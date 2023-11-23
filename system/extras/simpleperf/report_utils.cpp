@@ -16,12 +16,167 @@
 
 #include "report_utils.h"
 
+#include <stdlib.h>
+
+#include <android-base/parsebool.h>
+#include <android-base/scopeguard.h>
 #include <android-base/strings.h>
 
 #include "JITDebugReader.h"
 #include "utils.h"
 
 namespace simpleperf {
+
+bool ProguardMappingRetrace::AddProguardMappingFile(std::string_view mapping_file) {
+  // The mapping file format is described in
+  // https://www.guardsquare.com/en/products/proguard/manual/retrace.
+  // Additional info provided by R8 is described in
+  // https://r8.googlesource.com/r8/+/refs/heads/main/doc/retrace.md.
+  line_reader_.reset(new LineReader(mapping_file));
+  android::base::ScopeGuard g([&]() { line_reader_ = nullptr; });
+
+  if (!line_reader_->Ok()) {
+    PLOG(ERROR) << "failed to read " << mapping_file;
+    return false;
+  }
+
+  MoveToNextLine();
+  while (cur_line_.type != LineType::LINE_EOF) {
+    if (cur_line_.type == LineType::CLASS_LINE) {
+      // Match line "original_classname -> obfuscated_classname:".
+      std::string_view s = cur_line_.data;
+      auto arrow_pos = s.find(" -> ");
+      auto arrow_end_pos = arrow_pos + strlen(" -> ");
+      if (auto colon_pos = s.find(':', arrow_end_pos); colon_pos != s.npos) {
+        std::string_view original_classname = s.substr(0, arrow_pos);
+        std::string obfuscated_classname(s.substr(arrow_end_pos, colon_pos - arrow_end_pos));
+        MappingClass& cur_class = class_map_[obfuscated_classname];
+        cur_class.original_classname = original_classname;
+        MoveToNextLine();
+        if (cur_line_.type == LineType::SYNTHESIZED_COMMENT) {
+          cur_class.synthesized = true;
+          MoveToNextLine();
+        }
+
+        while (cur_line_.type == LineType::METHOD_LINE) {
+          ParseMethod(cur_class);
+        }
+        continue;
+      }
+    }
+
+    // Skip unparsed line.
+    MoveToNextLine();
+  }
+  return true;
+}
+
+void ProguardMappingRetrace::ParseMethod(MappingClass& mapping_class) {
+  // Match line "... [original_classname.]original_methodname(...)... -> obfuscated_methodname".
+  std::string_view s = cur_line_.data;
+  auto arrow_pos = s.find(" -> ");
+  auto arrow_end_pos = arrow_pos + strlen(" -> ");
+  if (auto left_brace_pos = s.rfind('(', arrow_pos); left_brace_pos != s.npos) {
+    if (auto space_pos = s.rfind(' ', left_brace_pos); space_pos != s.npos) {
+      std::string_view name = s.substr(space_pos + 1, left_brace_pos - space_pos - 1);
+      bool contains_classname = name.find('.') != name.npos;
+      if (contains_classname && android::base::StartsWith(name, mapping_class.original_classname)) {
+        name.remove_prefix(mapping_class.original_classname.size() + 1);
+        contains_classname = false;
+      }
+      std::string original_methodname(name);
+      std::string obfuscated_methodname(s.substr(arrow_end_pos));
+      bool synthesized = false;
+
+      MoveToNextLine();
+      if (cur_line_.type == LineType::SYNTHESIZED_COMMENT) {
+        synthesized = true;
+        MoveToNextLine();
+      }
+
+      auto& method_map = mapping_class.method_map;
+      if (auto it = method_map.find(obfuscated_methodname); it != method_map.end()) {
+        // The obfuscated method name already exists. We don't know which one to choose.
+        // So just prefer the latter one unless it's synthesized.
+        if (!synthesized) {
+          it->second.original_name = original_methodname;
+          it->second.contains_classname = contains_classname;
+          it->second.synthesized = synthesized;
+        }
+      } else {
+        auto& method = method_map[obfuscated_methodname];
+        method.original_name = original_methodname;
+        method.contains_classname = contains_classname;
+        method.synthesized = synthesized;
+      }
+      return;
+    }
+  }
+
+  // Skip unparsed line.
+  MoveToNextLine();
+}
+
+void ProguardMappingRetrace::MoveToNextLine() {
+  std::string* line;
+  while ((line = line_reader_->ReadLine()) != nullptr) {
+    std::string_view s = *line;
+    if (s.empty()) {
+      continue;
+    }
+    size_t non_space_pos = s.find_first_not_of(' ');
+    if (non_space_pos != s.npos && s[non_space_pos] == '#') {
+      // Skip all comments unless it's synthesized comment.
+      if (s.find("com.android.tools.r8.synthesized") != s.npos) {
+        cur_line_.type = SYNTHESIZED_COMMENT;
+        cur_line_.data = s;
+        return;
+      }
+      continue;
+    }
+    if (s.find(" -> ") == s.npos) {
+      // Skip unknown lines.
+      continue;
+    }
+    cur_line_.data = s;
+    if (s[0] == ' ') {
+      cur_line_.type = METHOD_LINE;
+    } else {
+      cur_line_.type = CLASS_LINE;
+    }
+    return;
+  }
+  cur_line_.type = LINE_EOF;
+}
+
+bool ProguardMappingRetrace::DeObfuscateJavaMethods(std::string_view obfuscated_name,
+                                                    std::string* original_name, bool* synthesized) {
+  if (auto split_pos = obfuscated_name.rfind('.'); split_pos != obfuscated_name.npos) {
+    std::string obfuscated_classname(obfuscated_name.substr(0, split_pos));
+
+    if (auto it = class_map_.find(obfuscated_classname); it != class_map_.end()) {
+      const MappingClass& mapping_class = it->second;
+      const auto& method_map = mapping_class.method_map;
+      std::string obfuscated_methodname(obfuscated_name.substr(split_pos + 1));
+
+      if (auto method_it = method_map.find(obfuscated_methodname); method_it != method_map.end()) {
+        const auto& method = method_it->second;
+        if (method.contains_classname) {
+          *original_name = method.original_name;
+        } else {
+          *original_name = mapping_class.original_classname + "." + method.original_name;
+        }
+        *synthesized = method.synthesized;
+      } else {
+        // Only the classname is obfuscated.
+        *original_name = mapping_class.original_classname + "." + obfuscated_methodname;
+        *synthesized = mapping_class.synthesized;
+      }
+      return true;
+    }
+  }
+  return false;
+}
 
 static bool IsArtEntry(const CallChainReportEntry& entry, bool* is_jni_trampoline) {
   if (entry.execution_type == CallChainExecutionType::NATIVE_METHOD) {
@@ -34,51 +189,26 @@ static bool IsArtEntry(const CallChainReportEntry& entry, bool* is_jni_trampolin
   return false;
 };
 
-bool CallChainReportBuilder::AddProguardMappingFile(std::string_view mapping_file) {
-  // The mapping file format is described in
-  // https://www.guardsquare.com/en/products/proguard/manual/retrace.
-  LineReader reader(mapping_file);
-  if (!reader.Ok()) {
-    PLOG(ERROR) << "failed to read " << mapping_file;
-    return false;
+CallChainReportBuilder::CallChainReportBuilder(ThreadTree& thread_tree)
+    : thread_tree_(thread_tree) {
+  const char* env_name = "REMOVE_R8_SYNTHESIZED_FRAME";
+  const char* s = getenv(env_name);
+  if (s != nullptr) {
+    auto result = android::base::ParseBool(s);
+    if (result == android::base::ParseBoolResult::kError) {
+      LOG(WARNING) << "invalid value in env variable " << env_name;
+    } else if (result == android::base::ParseBoolResult::kTrue) {
+      LOG(INFO) << "R8 synthesized frames will be removed.";
+      remove_r8_synthesized_frame_ = true;
+    }
   }
-  ProguardMappingClass* cur_class = nullptr;
-  std::string* line;
-  while ((line = reader.ReadLine()) != nullptr) {
-    std::string_view s = *line;
-    if (s.empty() || s[0] == '#') {
-      continue;
-    }
-    auto arrow_pos = s.find(" -> ");
-    if (arrow_pos == s.npos) {
-      continue;
-    }
-    auto arrow_end_pos = arrow_pos + strlen(" -> ");
+}
 
-    if (s[0] != ' ') {
-      // Match line "original_classname -> obfuscated_classname:".
-      if (auto colon_pos = s.find(':', arrow_end_pos); colon_pos != s.npos) {
-        std::string_view original_classname = s.substr(0, arrow_pos);
-        std::string obfuscated_classname(s.substr(arrow_end_pos, colon_pos - arrow_end_pos));
-        cur_class = &proguard_class_map_[obfuscated_classname];
-        cur_class->original_classname = original_classname;
-      }
-    } else if (cur_class != nullptr) {
-      // Match line "... [original_classname.]original_methodname(...)... ->
-      // obfuscated_methodname".
-      if (auto left_brace_pos = s.rfind('(', arrow_pos); left_brace_pos != s.npos) {
-        if (auto space_pos = s.rfind(' ', left_brace_pos); space_pos != s.npos) {
-          auto original_methodname = s.substr(space_pos + 1, left_brace_pos - space_pos - 1);
-          if (android::base::StartsWith(original_methodname, cur_class->original_classname)) {
-            original_methodname.remove_prefix(cur_class->original_classname.size() + 1);
-          }
-          std::string obfuscated_methodname(s.substr(arrow_end_pos));
-          cur_class->method_map[obfuscated_methodname] = original_methodname;
-        }
-      }
-    }
+bool CallChainReportBuilder::AddProguardMappingFile(std::string_view mapping_file) {
+  if (!retrace_) {
+    retrace_.reset(new ProguardMappingRetrace);
   }
-  return true;
+  return retrace_->AddProguardMappingFile(mapping_file);
 }
 
 std::vector<CallChainReportEntry> CallChainReportBuilder::Build(const ThreadEntry* thread,
@@ -118,7 +248,7 @@ std::vector<CallChainReportEntry> CallChainReportBuilder::Build(const ThreadEntr
   if (convert_jit_frame_) {
     ConvertJITFrame(result);
   }
-  if (!proguard_class_map_.empty()) {
+  if (retrace_) {
     DeObfuscateJavaMethods(result);
   }
   return result;
@@ -227,24 +357,78 @@ static bool IsJavaEntry(const CallChainReportEntry& entry) {
 }
 
 void CallChainReportBuilder::DeObfuscateJavaMethods(std::vector<CallChainReportEntry>& callchain) {
-  for (auto& entry : callchain) {
+  for (size_t i = 0; i < callchain.size();) {
+    auto& entry = callchain[i];
     if (!IsJavaEntry(entry)) {
+      i++;
       continue;
     }
     std::string_view name = entry.symbol->FunctionName();
-    if (auto split_pos = name.rfind('.'); split_pos != name.npos) {
-      std::string obfuscated_classname(name.substr(0, split_pos));
-      if (auto it = proguard_class_map_.find(obfuscated_classname);
-          it != proguard_class_map_.end()) {
-        const ProguardMappingClass& proguard_class = it->second;
-        std::string obfuscated_methodname(name.substr(split_pos + 1));
-        if (auto method_it = proguard_class.method_map.find(obfuscated_methodname);
-            method_it != proguard_class.method_map.end()) {
-          std::string new_symbol_name = proguard_class.original_classname + "." + method_it->second;
-          entry.symbol->SetDemangledName(new_symbol_name);
-        }
+    std::string original_name;
+    bool synthesized;
+    if (retrace_->DeObfuscateJavaMethods(name, &original_name, &synthesized)) {
+      if (synthesized && remove_r8_synthesized_frame_) {
+        callchain.erase(callchain.begin() + i);
+        continue;
       }
+      entry.symbol->SetDemangledName(original_name);
     }
+    i++;
+  }
+}
+
+bool ThreadReportBuilder::AggregateThreads(const std::vector<std::string>& thread_name_regex) {
+  size_t i = thread_regs_.size();
+  thread_regs_.resize(i + thread_name_regex.size());
+  for (const auto& reg_str : thread_name_regex) {
+    std::unique_ptr<RegEx> re = RegEx::Create(reg_str);
+    if (!re) {
+      return false;
+    }
+    thread_regs_[i++].re = std::move(re);
+  }
+  return true;
+}
+
+ThreadReport ThreadReportBuilder::Build(const ThreadEntry& thread) {
+  ThreadReport report(thread.pid, thread.tid, thread.comm);
+  ModifyReportToAggregateThreads(report);
+  return report;
+}
+
+void ThreadReportBuilder::ModifyReportToAggregateThreads(ThreadReport& report) {
+  if (thread_regs_.empty()) {
+    // No modification when there are no regular expressions.
+    return;
+  }
+  const std::string thread_name = report.thread_name;
+  if (auto it = thread_map_.find(thread_name); it != thread_map_.end()) {
+    // Found cached result in thread_map_.
+    if (it->second != -1) {
+      report = thread_regs_[it->second].report;
+    }
+    return;
+  }
+  // Run the slow path to walk through every regular expression.
+  size_t index;
+  for (index = 0; index < thread_regs_.size(); ++index) {
+    if (thread_regs_[index].re->Match(thread_name)) {
+      break;
+    }
+  }
+  if (index == thread_regs_.size()) {
+    thread_map_[thread_name] = -1;
+  } else {
+    thread_map_[thread_name] = static_cast<int>(index);
+    // Modify thread report.
+    auto& aggregated_report = thread_regs_[index].report;
+    if (aggregated_report.thread_name == nullptr) {
+      // Use regular expression as the name of the aggregated thread. So users know it's an
+      // aggregated thread.
+      aggregated_report =
+          ThreadReport(report.pid, report.tid, thread_regs_[index].re->GetPattern().c_str());
+    }
+    report = aggregated_report;
   }
 }
 

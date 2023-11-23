@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <!-- Switch to system user before running this module since some tests only works for user 0 -->
     <target_preparer class="com.android.tradefed.targetprep.SwitchUserTargetPreparer">
         <option name="user-type" value="system" />

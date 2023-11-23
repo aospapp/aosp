@@ -21,6 +21,7 @@ import static android.security.KeyChain.ACTION_KEYCHAIN_CHANGED;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeFalse;
 
 import static java.util.Collections.singleton;
 
@@ -38,6 +39,7 @@ import com.android.bedstead.harrier.annotations.enterprise.CanSetPolicyTest;
 import com.android.bedstead.harrier.annotations.enterprise.CannotSetPolicyTest;
 import com.android.bedstead.harrier.annotations.enterprise.PolicyAppliesTest;
 import com.android.bedstead.harrier.policies.KeyManagement;
+import com.android.bedstead.harrier.policies.KeyManagementWithAdminReceiver;
 import com.android.bedstead.harrier.policies.KeySelection;
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.packages.ProcessReference;
@@ -98,6 +100,11 @@ public final class KeyManagementTest {
         }
     }
 
+    /**
+     * This requires launching an activity so can't be called by a HSUM DO user.
+     * No user apps run on HSUM DO user so there is no need to test KeyChain.choosePrivateKeyAlias
+     * in that case anyway. Use {@code assumeFalse(isHeadlessDoMode())} to skip those test cases.
+     */
     private static void choosePrivateKeyAlias(KeyChainAliasCallback callback, String alias) {
         /* Pass the alias as a GET to an imaginary server instead of explicitly asking for it,
          * to make sure the DPC actually has to do some work to grant the cert.
@@ -286,8 +293,11 @@ public final class KeyManagementTest {
     }
 
     @Postsubmit(reason = "new test")
-    @PolicyAppliesTest(policy = KeyManagement.class)
+    @PolicyAppliesTest(policy = KeyManagementWithAdminReceiver.class)
     public void choosePrivateKeyAlias_aliasIsSelectedByAdmin_returnAlias() throws Exception {
+        // Test doesn't apply to HSUM DO case as no app on that user is expected to request keypair.
+        assumeFalse(isHeadlessDoMode());
+
         try {
             // Install keypair
             sDeviceState.dpc().devicePolicyManager()
@@ -307,9 +317,42 @@ public final class KeyManagementTest {
     }
 
     @Postsubmit(reason = "new test")
-    @PolicyAppliesTest(policy = KeyManagement.class)
+    @PolicyAppliesTest(policy = KeyManagementWithAdminReceiver.class)
+    public void choosePrivateKeyAlias_NonexistentAliasSelectedByAdmin_returnNull()
+            throws Exception {
+        // Test doesn't apply to HSUM DO case as no app on that user is expected to request keypair.
+        assumeFalse(isHeadlessDoMode());
+
+        KeyChainAliasCallback callback = new KeyChainAliasCallback();
+
+        choosePrivateKeyAlias(callback, NON_EXISTENT_ALIAS);
+
+        assertThat(callback.await(KEYCHAIN_CALLBACK_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isEqualTo(null);
+    }
+
+    @Postsubmit(reason = "new test")
+    @PolicyAppliesTest(policy = KeyManagementWithAdminReceiver.class)
+    public void choosePrivateKeyAlias_adminDenySelection_returnNull()
+            throws Exception {
+        // Test doesn't apply to HSUM DO case as no app on that user is expected to request keypair.
+        assumeFalse(isHeadlessDoMode());
+
+        KeyChainAliasCallback callback = new KeyChainAliasCallback();
+
+        choosePrivateKeyAlias(callback, KeyChain.KEY_ALIAS_SELECTION_DENIED);
+
+        assertThat(callback.await(KEYCHAIN_CALLBACK_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .isEqualTo(null);
+    }
+
+    @Postsubmit(reason = "new test")
+    @PolicyAppliesTest(policy = KeyManagementWithAdminReceiver.class)
     public void choosePrivateKeyAlias_nonUserSelectedAliasIsSelectedByAdmin_returnAlias()
             throws Exception {
+        // Test doesn't apply to HSUM DO case as no app on that user is expected to request keypair.
+        assumeFalse(isHeadlessDoMode());
+
         try {
             // Install keypair which is not user selectable
             sDeviceState.dpc().devicePolicyManager()
@@ -329,8 +372,11 @@ public final class KeyManagementTest {
     }
 
     @Postsubmit(reason = "new test")
-    @PolicyAppliesTest(policy = KeyManagement.class)
+    @PolicyAppliesTest(policy = KeyManagementWithAdminReceiver.class)
     public void getPrivateKey_aliasIsGranted_returnPrivateKey() throws Exception {
+        // Test doesn't apply to HSUM DO case as no app on that user is expected to request keypair.
+        assumeFalse(isHeadlessDoMode());
+
         try {
             // Install keypair
 
@@ -485,6 +531,23 @@ public final class KeyManagementTest {
         }
     }
 
+    // TODO(b/199148889): To be tested with targetSDKVersion U+.
+    @Postsubmit(reason = "new test")
+    @CanSetPolicyTest(policy = KeySelection.class, singleTestOnly = true)
+    public void grantKeyPairToWifiAuth_nonExistent_throwsIllegalArgumentException() {
+        Assert.assertThrows(IllegalArgumentException.class,
+                () -> sDeviceState.dpc().devicePolicyManager()
+                        .grantKeyPairToWifiAuth(NON_EXISTENT_ALIAS));
+    }
+
+    @Ignore("TODO(b/199148889): To be tested with targetSDKVersion pre U.")
+    @Postsubmit(reason = "new test")
+    @CanSetPolicyTest(policy = KeySelection.class, singleTestOnly = true)
+    public void grantKeyPairToWifiAuth_nonExistent_returnsFalse() {
+        assertThat(sDeviceState.dpc().devicePolicyManager()
+                .grantKeyPairToWifiAuth(NON_EXISTENT_ALIAS)).isFalse();
+    }
+
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = KeySelection.class)
     public void isKeyPairGrantedToWifiAuth_default_returnsFalse() {
@@ -540,6 +603,24 @@ public final class KeyManagementTest {
             sDeviceState.dpcOnly().devicePolicyManager()
                     .removeKeyPair(sDeviceState.dpcOnly().componentName(), RSA_ALIAS);
         }
+    }
+    // TODO(b/199148889): To be tested with targetSDKVersion U+.
+    @Postsubmit(reason = "new test")
+    @CanSetPolicyTest(policy = KeySelection.class, singleTestOnly = true)
+    public void grantKeyPairToApp_nonExistent_throwsIllegalArgumentException() {
+        Assert.assertThrows(IllegalArgumentException.class,
+                () -> sDeviceState.dpc().devicePolicyManager()
+                        .grantKeyPairToApp(sDeviceState.dpc().componentName(), NON_EXISTENT_ALIAS,
+                                sContext.getPackageName()));
+    }
+
+    @Ignore("TODO(b/199148889): To be tested with targetSDKVersions pre U.")
+    @Postsubmit(reason = "new test")
+    @CanSetPolicyTest(policy = KeySelection.class, singleTestOnly = true)
+    public void grantKeyPairToApp_nonExistent_returnsFalse() {
+        assertThat(sDeviceState.dpc().devicePolicyManager()
+                        .grantKeyPairToApp(sDeviceState.dpc().componentName(), NON_EXISTENT_ALIAS,
+                                sContext.getPackageName())).isFalse();
     }
 
     @Postsubmit(reason = "new test")
@@ -604,5 +685,11 @@ public final class KeyManagementTest {
         public void alias(final String chosenAlias) {
             callbackTriggered(chosenAlias);
         }
+    }
+
+    // Returns true if the test is currently running as (user 0) DO on a HSUM build.
+    private boolean isHeadlessDoMode() {
+        return TestApis.users().isHeadlessSystemUserMode()
+                && sDeviceState.dpc().user().equals(TestApis.users().system());
     }
 }

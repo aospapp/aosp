@@ -17,7 +17,7 @@
 ## script to install mediav2 test files manually
 
 adbOptions=" "
-resLabel=CtsMediaV2TestCases-2.4
+resLabel=CtsMediaV2TestCases-3.4
 srcDir="/tmp/$resLabel"
 tgtDir="/sdcard/test"
 usage="Usage: $0 [-h] [-s serial]"
@@ -37,7 +37,7 @@ fi
 
 ## download resources if not already done
 if [ ! -f "/tmp/$resLabel.zip" ]; then
-  wget "https://storage.googleapis.com/android_media/cts/tests/media/$resLabel.zip" -O /tmp/$resLabel.zip
+  wget "https://dl.google.com/android/xts/cts/tests/media/$resLabel.zip" -O /tmp/$resLabel.zip
 fi
 unzip -qo "/tmp/$resLabel" -d $srcDir
 

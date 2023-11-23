@@ -24,6 +24,7 @@ import android.icu.util.Calendar;
 import android.icu.util.GregorianCalendar;
 
 import dalvik.system.VMRuntime;
+import sun.util.locale.provider.CalendarDataUtility;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -251,7 +252,8 @@ public final class LocaleData {
     private void initializeCalendarData(Locale locale) {
         Calendar calendar = Calendar.getInstance(locale);
 
-        firstDayOfWeek = calendar.getFirstDayOfWeek();
+        firstDayOfWeek = CalendarDataUtility.retrieveFirstDayOfWeek(locale,
+                calendar.getFirstDayOfWeek());
         minimalDaysInFirstWeek = calendar.getMinimalDaysInFirstWeek();
     }
 }

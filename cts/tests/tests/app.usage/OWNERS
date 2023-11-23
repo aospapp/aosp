@@ -1,4 +1,6 @@
 # Bug component: 532296
+set noparent
+
 mwachens@google.com
 varunshah@google.com
 yamasani@google.com

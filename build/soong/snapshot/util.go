@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,17 +21,25 @@ func WriteStringToFileRule(ctx android.SingletonContext, content, out string) an
 	return outPath
 }
 
-func CopyFileRule(pctx android.PackageContext, ctx android.SingletonContext, path android.Path, out string) android.OutputPath {
-	outPath := android.PathForOutput(ctx, out)
+type buildContext interface {
+	Build(pctx android.PackageContext, params android.BuildParams)
+}
+
+func CopyFileToOutputPathRule(pctx android.PackageContext, ctx buildContext, path android.Path, outPath android.OutputPath) {
 	ctx.Build(pctx, android.BuildParams{
 		Rule:        android.Cp,
 		Input:       path,
 		Output:      outPath,
-		Description: "copy " + path.String() + " -> " + out,
+		Description: "copy " + path.String() + " -> " + outPath.String(),
 		Args: map[string]string{
-			"cpFlags": "-f -L",
+			"cpFlags": "-L",
 		},
 	})
+}
+
+func CopyFileRule(pctx android.PackageContext, ctx android.SingletonContext, path android.Path, out string) android.OutputPath {
+	outPath := android.PathForOutput(ctx, out)
+	CopyFileToOutputPathRule(pctx, ctx, path, outPath)
 	return outPath
 }
 

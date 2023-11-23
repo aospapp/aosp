@@ -24,8 +24,8 @@
 #include "chre/util/nanoapp/app_id.h"
 #include "chre/util/system/napp_permissions.h"
 #include "chre/util/time.h"
-#include "chre_api/chre.h"
 
+#include "chre_api/chre.h"
 /**
  * @file
  * A nanoapp exclusively for testing, which unloads the spammer nanoapp after a

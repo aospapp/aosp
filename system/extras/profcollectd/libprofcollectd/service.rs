@@ -79,11 +79,11 @@ impl IProfCollectd for ProfcollectdBinderService {
             .context("Failed to process profiles.")
             .map_err(err_to_binder_status)
     }
-    fn report(&self) -> BinderResult<String> {
+    fn report(&self, usage_setting: i32) -> BinderResult<String> {
         self.process()?;
 
         let lock = &mut *self.lock();
-        pack_report(&PROFILE_OUTPUT_DIR, &REPORT_OUTPUT_DIR, &lock.config)
+        pack_report(&PROFILE_OUTPUT_DIR, &REPORT_OUTPUT_DIR, &lock.config, usage_setting)
             .context("Failed to create profile report.")
             .map_err(err_to_binder_status)
     }
@@ -131,7 +131,8 @@ impl ProfcollectdBinderService {
             log::info!("Config change detected, resetting profcollect.");
             clear_data()?;
 
-            write(*CONFIG_FILE, &new_config.to_string())?;
+            write(*CONFIG_FILE, new_config.to_string())?;
+            new_scheduler.clear_trace_log()?;
         }
 
         // Clear profile reports out of rentention period.

@@ -120,6 +120,31 @@ TEST_F(AidlPrimitiveTest, longConstants) {
   }
 }
 
+TEST_F(AidlPrimitiveTest, floatConstants) {
+  constexpr float consts[] = {
+      ITestService::FLOAT_TEST_CONSTANT,  ITestService::FLOAT_TEST_CONSTANT2,
+      ITestService::FLOAT_TEST_CONSTANT3, ITestService::FLOAT_TEST_CONSTANT4,
+      ITestService::FLOAT_TEST_CONSTANT5, ITestService::FLOAT_TEST_CONSTANT6,
+      ITestService::FLOAT_TEST_CONSTANT7,
+  };
+  for (auto sent : consts) {
+    DoTest(&ITestService::RepeatFloat, sent);
+  }
+}
+
+TEST_F(AidlPrimitiveTest, doubleConstants) {
+  constexpr double consts[] = {
+      ITestService::DOUBLE_TEST_CONSTANT,  ITestService::DOUBLE_TEST_CONSTANT2,
+      ITestService::DOUBLE_TEST_CONSTANT3, ITestService::DOUBLE_TEST_CONSTANT4,
+      ITestService::DOUBLE_TEST_CONSTANT5, ITestService::DOUBLE_TEST_CONSTANT6,
+      ITestService::DOUBLE_TEST_CONSTANT7, ITestService::DOUBLE_TEST_CONSTANT8,
+      ITestService::DOUBLE_TEST_CONSTANT9,
+  };
+  for (auto sent : consts) {
+    DoTest(&ITestService::RepeatDouble, sent);
+  }
+}
+
 TEST_F(AidlPrimitiveTest, strings) {
   std::vector<String16> strings = {
       String16("Deliver us from evil."), String16(), String16("\0\0", 2),
@@ -336,4 +361,8 @@ TEST_F(AidlPrimitiveTest, constantExpressions) {
   EXPECT_THAT(ITestService::A55, Eq(1));
   EXPECT_THAT(ITestService::A56, Eq(1));
   EXPECT_THAT(ITestService::A57, Eq(1));
+  EXPECT_THAT(ITestService::FLOAT_TEST_CONSTANT4, Eq(2.2f));
+  EXPECT_THAT(ITestService::FLOAT_TEST_CONSTANT5, Eq(-2.2f));
+  EXPECT_THAT(ITestService::DOUBLE_TEST_CONSTANT4, Eq(2.2));
+  EXPECT_THAT(ITestService::DOUBLE_TEST_CONSTANT5, Eq(-2.2));
 }

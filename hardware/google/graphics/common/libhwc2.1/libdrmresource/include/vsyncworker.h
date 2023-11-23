@@ -17,14 +17,15 @@
 #ifndef ANDROID_EVENT_WORKER_H_
 #define ANDROID_EVENT_WORKER_H_
 
-#include "drmdevice.h"
-#include "worker.h"
-
-#include <stdint.h>
-#include <map>
-
 #include <hardware/hardware.h>
 #include <hardware/hwcomposer.h>
+#include <stdint.h>
+#include <utils/String8.h>
+
+#include <map>
+
+#include "drmdevice.h"
+#include "worker.h"
 
 namespace android {
 
@@ -39,7 +40,7 @@ class VSyncWorker : public Worker {
      VSyncWorker();
      ~VSyncWorker() override;
 
-     int Init(DrmDevice *drm, int display);
+     int Init(DrmDevice *drm, int display, const String8 &display_trace_name);
      void RegisterCallback(std::shared_ptr<VsyncCallback> callback);
 
      void VSyncControl(bool enabled);
@@ -61,6 +62,9 @@ class VSyncWorker : public Worker {
      int display_;
      std::atomic_bool enabled_;
      int64_t last_timestamp_;
+     String8 hw_vsync_period_tag_;
+     String8 hw_vsync_enabled_tag_;
+     String8 display_trace_name_;
 };
 }  // namespace android
 

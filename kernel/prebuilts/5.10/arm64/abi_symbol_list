@@ -4,6 +4,12 @@
   __put_task_struct
 
 [abi_symbol_list]
+
+# for type visibility
+  GKI_struct_blk_mq_alloc_data
+  GKI_struct_cgroup_taskset
+
+[abi_symbol_list]
 # commonly used symbols
   ieee802154_alloc_hw
   ieee802154_free_hw
@@ -241,6 +247,7 @@
   __bitmap_set
   bitmap_to_arr32
   __bitmap_weight
+  __bitmap_xor
   blk_abort_request
   blk_alloc_queue
   blk_check_plugged
@@ -495,6 +502,7 @@
   crypto_register_notifier
   crypto_register_scomp
   crypto_register_shash
+  crypto_req_done
   crypto_shash_digest
   crypto_shash_final
   crypto_shash_finup
@@ -537,6 +545,7 @@
   desc_to_gpio
   destroy_workqueue
   dev_alloc_name
+  dev_base_lock
   dev_close
   _dev_crit
   dev_driver_string
@@ -605,11 +614,13 @@
   devm_extcon_dev_allocate
   devm_extcon_dev_register
   devm_free_irq
+  devm_fwnode_gpiod_get_index
   devm_fwnode_pwm_get
   devm_gen_pool_create
   devm_gpiochip_add_data_with_key
   devm_gpiod_get
   devm_gpiod_get_array
+  devm_gpiod_get_array_optional
   devm_gpiod_get_optional
   devm_gpiod_put_array
   devm_gpio_free
@@ -787,6 +798,7 @@
   drm_add_modes_noedid
   drm_atomic_add_affected_connectors
   drm_atomic_add_affected_planes
+  drm_atomic_bridge_chain_disable
   drm_atomic_commit
   drm_atomic_get_connector_state
   drm_atomic_get_crtc_state
@@ -912,6 +924,7 @@
   drm_mode_object_find
   drm_mode_object_get
   drm_mode_object_put
+  drm_mode_parse_command_line_for_connector
   drm_mode_probed_add
   drm_modeset_acquire_fini
   drm_modeset_acquire_init
@@ -1122,6 +1135,7 @@
   gpiod_get_raw_value_cansleep
   gpiod_get_value
   gpiod_get_value_cansleep
+  gpiod_set_debounce
   gpiod_set_raw_value
   gpiod_set_raw_value_cansleep
   gpiod_set_value
@@ -1148,8 +1162,12 @@
   hid_allocate_device
   hid_debug
   hid_destroy_device
+  hid_hw_start
   hid_input_report
+  hid_open_report
   hid_parse_report
+  __hid_register_driver
+  hid_unregister_driver
   hrtimer_active
   hrtimer_cancel
   hrtimer_forward
@@ -1210,6 +1228,7 @@
   __init_swait_queue_head
   init_task
   init_timer_key
+  init_user_ns
   init_wait_entry
   __init_waitqueue_head
   input_alloc_absinfo
@@ -1251,6 +1270,7 @@
   iommu_device_sysfs_remove
   iommu_device_unlink
   iommu_device_unregister
+  iommu_dma_enable_best_fit_algo
   iommu_domain_alloc
   iommu_domain_free
   iommu_fwspec_add_ids
@@ -1354,6 +1374,7 @@
   kobject_init
   kobject_init_and_add
   kobject_put
+  kobject_rename
   kobject_uevent
   kobject_uevent_env
   kobj_sysfs_ops
@@ -1514,6 +1535,8 @@
   netlink_kernel_release
   netlink_unicast
   net_ratelimit
+  nf_register_net_hooks
+  nf_unregister_net_hooks
   nla_append
   nla_memcpy
   __nla_parse
@@ -1529,6 +1552,7 @@
   nr_cpu_ids
   nr_irqs
   ns_capable
+  ns_capable_noaudit
   nsec_to_clock_t
   ns_to_timespec64
   __num_online_cpus
@@ -1928,6 +1952,7 @@
   regulator_notifier_call_chain
   regulator_put
   regulator_register
+  regulator_set_active_discharge_regmap
   regulator_set_load
   regulator_set_voltage
   regulator_set_voltage_sel_regmap
@@ -2392,6 +2417,7 @@
   __traceiter_android_vh_cpu_idle_exit
   __traceiter_android_vh_dump_throttled_rt_tasks
   __traceiter_android_vh_dup_task_struct
+  __traceiter_android_vh_early_resume_begin
   __traceiter_android_vh_enable_thermal_genl_check
   __traceiter_android_vh_ep_create_wakeup_source
   __traceiter_android_vh_get_user_pages
@@ -2404,6 +2430,8 @@
   __traceiter_android_vh_of_i2c_get_board_info
   __traceiter_android_vh_pagecache_get_page
   __traceiter_android_vh_pin_user_pages
+  __traceiter_android_vh_rebuild_root_domains_bypass
+  __traceiter_android_vh_resume_end
   __traceiter_android_vh_rmqueue
   __traceiter_android_vh_sched_setaffinity_early
   __traceiter_android_vh_scheduler_tick
@@ -2415,6 +2443,7 @@
   __traceiter_android_vh_thermal_pm_notify_suspend
   __traceiter_android_vh_timerfd_create
   __traceiter_android_vh_try_grab_compound_head
+  __traceiter_android_vh_try_to_freeze_todo_logging
   __traceiter_android_vh_typec_store_partner_src_caps
   __traceiter_android_vh_typec_tcpci_override_toggling
   __traceiter_android_vh_typec_tcpm_get_timer
@@ -2505,6 +2534,7 @@
   __tracepoint_android_vh_cpu_idle_exit
   __tracepoint_android_vh_dump_throttled_rt_tasks
   __tracepoint_android_vh_dup_task_struct
+  __tracepoint_android_vh_early_resume_begin
   __tracepoint_android_vh_enable_thermal_genl_check
   __tracepoint_android_vh_ep_create_wakeup_source
   __tracepoint_android_vh_get_user_pages
@@ -2517,6 +2547,8 @@
   __tracepoint_android_vh_of_i2c_get_board_info
   __tracepoint_android_vh_pagecache_get_page
   __tracepoint_android_vh_pin_user_pages
+  __tracepoint_android_vh_rebuild_root_domains_bypass
+  __tracepoint_android_vh_resume_end
   __tracepoint_android_vh_rmqueue
   __tracepoint_android_vh_sched_setaffinity_early
   __tracepoint_android_vh_scheduler_tick
@@ -2528,6 +2560,7 @@
   __tracepoint_android_vh_thermal_pm_notify_suspend
   __tracepoint_android_vh_timerfd_create
   __tracepoint_android_vh_try_grab_compound_head
+  __tracepoint_android_vh_try_to_freeze_todo_logging
   __tracepoint_android_vh_typec_store_partner_src_caps
   __tracepoint_android_vh_typec_tcpci_override_toggling
   __tracepoint_android_vh_typec_tcpm_get_timer
@@ -2819,6 +2852,7 @@
   xa_find
   xa_find_after
   xa_get_mark
+  __xa_insert
   xa_load
   xa_set_mark
   xa_store
@@ -4185,7 +4219,6 @@
   cpumask_next
   cpu_number
   __cpu_online_mask
-  crc32_le
   debugfs_create_dir
   debugfs_create_file
   debugfs_create_u32
@@ -4316,7 +4349,6 @@
   free_irq
   generic_handle_irq
   get_device
-  get_random_bytes
   gic_nonsecure_priorities
   gpiochip_add_data_with_key
   gpiochip_add_pin_range
@@ -4550,7 +4582,6 @@
   preempt_schedule_notrace
   prepare_to_wait_event
   printk
-  pskb_expand_head
   put_device
   __put_task_struct
   qcom_smem_state_register
@@ -4636,7 +4667,6 @@
   simple_read_from_buffer
   single_open
   single_release
-  skb_clone
   skb_dequeue
   skb_pull
   skb_push
@@ -4684,6 +4714,7 @@
   strlen
   strncmp
   strncpy
+  strnlen
   strpbrk
   strsep
   __sw_hweight32
@@ -4786,9 +4817,11 @@
   cfg80211_vendor_cmd_reply
   cpu_latency_qos_add_request
   cpu_latency_qos_remove_request
+  crc32_le
   device_get_mac_address
   device_set_wakeup_enable
   firmware_request_nowarn
+  get_random_bytes
   guid_gen
   idr_for_each
   ieee80211_alloc_hw_nm
@@ -4841,11 +4874,13 @@
   init_uts_ns
   __kfifo_alloc
   __kfifo_free
+  ktime_get_with_offset
   __local_bh_enable_ip
   memmove
   __nla_parse
   nla_put
   param_ops_ulong
+  pskb_expand_head
   regulatory_hint
   rfc1042_header
   skb_copy
@@ -4881,44 +4916,6 @@
   __bitmap_clear
   devm_clk_bulk_get_optional
   iommu_map
-
-# required by ax88179_178a.ko
-  eth_platform_get_mac_address
-  ethtool_op_get_link
-  ethtool_op_get_ts_info
-  eth_validate_addr
-  generic_mii_ioctl
-  mii_ethtool_get_link_ksettings
-  mii_ethtool_gset
-  mii_ethtool_set_link_ksettings
-  mii_nway_restart
-  netdev_err
-  netdev_info
-  netdev_warn
-  netif_carrier_on
-  usb_deregister
-  usbnet_disconnect
-  usbnet_get_endpoints
-  usbnet_get_msglevel
-  usbnet_get_stats64
-  usbnet_link_change
-  usbnet_nway_reset
-  usbnet_open
-  usbnet_probe
-  usbnet_read_cmd
-  usbnet_read_cmd_nopm
-  usbnet_resume
-  usbnet_set_msglevel
-  usbnet_skb_return
-  usbnet_start_xmit
-  usbnet_stop
-  usbnet_suspend
-  usbnet_tx_timeout
-  usbnet_update_max_qlen
-  usbnet_write_cmd
-  usbnet_write_cmd_async
-  usbnet_write_cmd_nopm
-  usb_register_driver
 
 # required by bam_dma.ko
   dma_async_device_register
@@ -5434,9 +5431,6 @@
   usb_put_hcd
   usb_remove_hcd
 
-# required by pdr_interface.ko
-  strnlen
-
 # required by phy-qcom-qmp.ko
   of_clk_get_by_name
   __of_reset_control_get
@@ -5620,6 +5614,7 @@
   refcount_dec_and_mutex_lock
   release_sock
   sk_alloc
+  skb_clone
   skb_copy_bits
   skb_copy_datagram_iter
   skb_free_datagram
@@ -5708,7 +5703,9 @@
   snd_ctl_add
   snd_ctl_new1
   snd_pcm_add_chmap_ctls
-  snd_pcm_create_iec958_consumer_hw_params
+  snd_pcm_create_iec958_consumer_default
+  snd_pcm_fill_iec958_consumer
+  snd_pcm_fill_iec958_consumer_hw_params
   snd_pcm_hw_constraint_eld
 
 # required by snd-soc-qcom-common.ko
@@ -5832,6 +5829,45 @@
 # required by wcd934x.ko
   mfd_add_devices
   mfd_remove_devices
+
+# preserved by --additions-only
+  eth_platform_get_mac_address
+  ethtool_op_get_link
+  ethtool_op_get_ts_info
+  eth_validate_addr
+  generic_mii_ioctl
+  mii_ethtool_get_link_ksettings
+  mii_ethtool_gset
+  mii_ethtool_set_link_ksettings
+  mii_nway_restart
+  netdev_err
+  netdev_info
+  netdev_warn
+  netif_carrier_on
+  snd_pcm_create_iec958_consumer_hw_params
+  usb_deregister
+  usbnet_disconnect
+  usbnet_get_endpoints
+  usbnet_get_msglevel
+  usbnet_get_stats64
+  usbnet_link_change
+  usbnet_nway_reset
+  usbnet_open
+  usbnet_probe
+  usbnet_read_cmd
+  usbnet_read_cmd_nopm
+  usbnet_resume
+  usbnet_set_msglevel
+  usbnet_skb_return
+  usbnet_start_xmit
+  usbnet_stop
+  usbnet_suspend
+  usbnet_tx_timeout
+  usbnet_update_max_qlen
+  usbnet_write_cmd
+  usbnet_write_cmd_async
+  usbnet_write_cmd_nopm
+  usb_register_driver
 
 [abi_symbol_list]
 # commonly used symbols

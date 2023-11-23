@@ -371,6 +371,7 @@ public class MediaStore_Images_MediaTest {
     private File copyResourceToFile(int sourceResId, File destinationDir,
             String destinationFileName) throws Exception {
         final File file = new File(destinationDir, destinationFileName);
+        destinationDir.mkdirs();
         file.createNewFile();
 
         try (InputStream source = InstrumentationRegistry.getTargetContext().getResources()

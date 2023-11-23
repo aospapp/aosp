@@ -14,6 +14,7 @@
 
 //! This module implements methods to load legacy keystore key blob files.
 
+use crate::ks_err;
 use crate::{
     error::{Error as KsError, ResponseCode},
     key_parameter::{KeyParameter, KeyParameterValue},
@@ -320,7 +321,7 @@ impl LegacyBlobLoader {
                     acc.push(c as char);
                 }
                 c => {
-                    acc.push((b'+' + (c as u8 >> 6)) as char);
+                    acc.push((b'+' + (c >> 6)) as char);
                     acc.push((b'0' + (c & 0x3F)) as char);
                 }
             };
@@ -348,24 +349,23 @@ impl LegacyBlobLoader {
                     None
                 }
                 _ => {
-                    return Err(Error::BadEncoding)
-                        .context("In decode_alias: could not decode filename.")
+                    return Err(Error::BadEncoding).context(ks_err!("could not decode filename."));
                 }
             };
         }
         if multi.is_some() {
-            return Err(Error::BadEncoding).context("In decode_alias: could not decode filename.");
+            return Err(Error::BadEncoding).context(ks_err!("could not decode filename."));
         }
 
-        String::from_utf8(s).context("In decode_alias: encoded alias was not valid UTF-8.")
+        String::from_utf8(s).context(ks_err!("encoded alias was not valid UTF-8."))
     }
 
     fn new_from_stream(stream: &mut dyn Read) -> Result<Blob> {
         let mut buffer = Vec::new();
-        stream.read_to_end(&mut buffer).context("In new_from_stream.")?;
+        stream.read_to_end(&mut buffer).context(ks_err!())?;
 
         if buffer.len() < Self::COMMON_HEADER_SIZE {
-            return Err(Error::BadLen).context("In new_from_stream.")?;
+            return Err(Error::BadLen).context(ks_err!())?;
         }
 
         let version: u8 = buffer[Self::VERSION_OFFSET];
@@ -380,15 +380,15 @@ impl LegacyBlobLoader {
 
         if version != SUPPORTED_LEGACY_BLOB_VERSION {
             return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-                .context(format!("In new_from_stream: Unknown blob version: {}.", version));
+                .context(ks_err!("Unknown blob version: {}.", version));
         }
 
         let length = u32::from_be_bytes(
             buffer[Self::LENGTH_OFFSET..Self::LENGTH_OFFSET + 4].try_into().unwrap(),
         ) as usize;
         if buffer.len() < Self::COMMON_HEADER_SIZE + length {
-            return Err(Error::BadLen).context(format!(
-                "In new_from_stream. Expected: {} got: {}.",
+            return Err(Error::BadLen).context(ks_err!(
+                "Expected: {} got: {}.",
                 Self::COMMON_HEADER_SIZE + length,
                 buffer.len()
             ));
@@ -457,11 +457,12 @@ impl LegacyBlobLoader {
             }),
             (blob_types::SUPER_KEY, _, None) | (blob_types::SUPER_KEY_AES256, _, None) => {
                 Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-                    .context("In new_from_stream: Super key without salt for key derivation.")
+                    .context(ks_err!("Super key without salt for key derivation."))
             }
-            _ => Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED)).context(format!(
-                "In new_from_stream: Unknown blob type. {} {}",
-                blob_type, is_encrypted
+            _ => Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED)).context(ks_err!(
+                "Unknown blob type. {} {}",
+                blob_type,
+                is_encrypted
             )),
         }
     }
@@ -482,30 +483,23 @@ impl LegacyBlobLoader {
     where
         F: FnOnce(&[u8], &[u8], &[u8], Option<&[u8]>, Option<usize>) -> Result<ZVec>,
     {
-        let blob =
-            Self::new_from_stream(&mut stream).context("In new_from_stream_decrypt_with.")?;
+        let blob = Self::new_from_stream(&mut stream).context(ks_err!())?;
 
         match blob.value() {
             BlobValue::Encrypted { iv, tag, data } => Ok(Blob {
                 flags: blob.flags,
-                value: BlobValue::Decrypted(
-                    decrypt(data, iv, tag, None, None)
-                        .context("In new_from_stream_decrypt_with.")?,
-                ),
+                value: BlobValue::Decrypted(decrypt(data, iv, tag, None, None).context(ks_err!())?),
             }),
             BlobValue::PwEncrypted { iv, tag, data, salt, key_size } => Ok(Blob {
                 flags: blob.flags,
                 value: BlobValue::Decrypted(
-                    decrypt(data, iv, tag, Some(salt), Some(*key_size))
-                        .context("In new_from_stream_decrypt_with.")?,
+                    decrypt(data, iv, tag, Some(salt), Some(*key_size)).context(ks_err!())?,
                 ),
             }),
             BlobValue::EncryptedGeneric { iv, tag, data } => Ok(Blob {
                 flags: blob.flags,
                 value: BlobValue::Generic(
-                    decrypt(data, iv, tag, None, None)
-                        .context("In new_from_stream_decrypt_with.")?[..]
-                        .to_vec(),
+                    decrypt(data, iv, tag, None, None).context(ks_err!())?[..].to_vec(),
                 ),
             }),
 
@@ -548,33 +542,30 @@ impl LegacyBlobLoader {
     /// | 32 bit indirect_offset |    Offset from the beginning of the indirect section.
     /// +------------------------+
     pub fn read_key_parameters(stream: &mut &[u8]) -> Result<Vec<KeyParameterValue>> {
-        let indirect_size =
-            read_ne_u32(stream).context("In read_key_parameters: While reading indirect size.")?;
+        let indirect_size = read_ne_u32(stream).context(ks_err!("While reading indirect size."))?;
 
         let indirect_buffer = stream
             .get(0..indirect_size as usize)
             .ok_or(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-            .context("In read_key_parameters: While reading indirect buffer.")?;
+            .context(ks_err!("While reading indirect buffer."))?;
 
         // update the stream position.
         *stream = &stream[indirect_size as usize..];
 
-        let element_count =
-            read_ne_u32(stream).context("In read_key_parameters: While reading element count.")?;
-        let element_size =
-            read_ne_u32(stream).context("In read_key_parameters: While reading element size.")?;
+        let element_count = read_ne_u32(stream).context(ks_err!("While reading element count."))?;
+        let element_size = read_ne_u32(stream).context(ks_err!("While reading element size."))?;
 
         let mut element_stream = stream
             .get(0..element_size as usize)
             .ok_or(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-            .context("In read_key_parameters: While reading elements buffer.")?;
+            .context(ks_err!("While reading elements buffer."))?;
 
         // update the stream position.
         *stream = &stream[element_size as usize..];
 
         let mut params: Vec<KeyParameterValue> = Vec::new();
         for _ in 0..element_count {
-            let tag = Tag(read_ne_i32(&mut element_stream).context("In read_key_parameters.")?);
+            let tag = Tag(read_ne_i32(&mut element_stream).context(ks_err!())?);
             let param = match Self::tag_type(tag) {
                 TagType::ENUM | TagType::ENUM_REP | TagType::UINT | TagType::UINT_REP => {
                     KeyParameterValue::new_from_tag_primitive_pair(
@@ -617,7 +608,7 @@ impl LegacyBlobLoader {
                 TagType::INVALID => Err(anyhow::anyhow!("Invalid.")),
                 _ => {
                     return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-                        .context("In read_key_parameters: Encountered bogus tag type.");
+                        .context(ks_err!("Encountered bogus tag type."));
                 }
             };
             if let Ok(p) = param {
@@ -647,9 +638,11 @@ impl LegacyBlobLoader {
             {
                 Ok(Blob {
                     value: BlobValue::Characteristics(
-                        super_key.as_ref().unwrap().decrypt(&data, &iv, &tag).context(
-                            "In decrypt_if_required: Failed to decrypt EncryptedCharacteristics",
-                        )?[..]
+                        super_key
+                            .as_ref()
+                            .unwrap()
+                            .decrypt(&data, &iv, &tag)
+                            .context(ks_err!("Failed to decrypt EncryptedCharacteristics"))?[..]
                             .to_vec(),
                     ),
                     flags,
@@ -664,7 +657,7 @@ impl LegacyBlobLoader {
                             .as_ref()
                             .unwrap()
                             .decrypt(&data, &iv, &tag)
-                            .context("In decrypt_if_required: Failed to decrypt Encrypted")?,
+                            .context(ks_err!("Failed to decrypt Encrypted"))?,
                     ),
                     flags,
                 })
@@ -678,7 +671,7 @@ impl LegacyBlobLoader {
                             .as_ref()
                             .unwrap()
                             .decrypt(&data, &iv, &tag)
-                            .context("In decrypt_if_required: Failed to decrypt Encrypted")?[..]
+                            .context(ks_err!("Failed to decrypt Encrypted"))?[..]
                             .to_vec(),
                     ),
                     flags,
@@ -687,7 +680,7 @@ impl LegacyBlobLoader {
             // This arm catches all encrypted cases where super key is not present or cannot
             // decrypt the blob, the latter being BlobValue::PwEncrypted.
             _ => Err(Error::LockedComponent)
-                .context("In decrypt_if_required: Encountered encrypted blob without super key."),
+                .context(ks_err!("Encountered encrypted blob without super key.")),
         }
     }
 
@@ -700,7 +693,7 @@ impl LegacyBlobLoader {
         super_key: &Option<Arc<dyn AesGcm>>,
     ) -> Result<LegacyKeyCharacteristics> {
         let blob = Self::read_generic_blob(&self.make_chr_filename(uid, alias, prefix))
-            .context("In read_characteristics_file")?;
+            .context(ks_err!())?;
 
         let blob = match blob {
             None => return Ok(LegacyKeyCharacteristics::Cache(Vec::new())),
@@ -708,16 +701,14 @@ impl LegacyBlobLoader {
         };
 
         let blob = Self::decrypt_if_required(super_key, blob)
-            .context("In read_characteristics_file: Trying to decrypt blob.")?;
+            .context(ks_err!("Trying to decrypt blob."))?;
 
         let (mut stream, is_cache) = match blob.value() {
             BlobValue::Characteristics(data) => (&data[..], false),
             BlobValue::CharacteristicsCache(data) => (&data[..], true),
             _ => {
-                return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED)).context(concat!(
-                    "In read_characteristics_file: ",
-                    "Characteristics file does not hold key characteristics."
-                ))
+                return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
+                    .context(ks_err!("Characteristics file does not hold key characteristics."));
             }
         };
 
@@ -726,7 +717,7 @@ impl LegacyBlobLoader {
             // the hardware enforced list.
             BlobValue::CharacteristicsCache(_) => Some(
                 Self::read_key_parameters(&mut stream)
-                    .context("In read_characteristics_file.")?
+                    .context(ks_err!())?
                     .into_iter()
                     .map(|value| KeyParameter::new(value, hw_sec_level)),
             ),
@@ -734,7 +725,7 @@ impl LegacyBlobLoader {
         };
 
         let sw_list = Self::read_key_parameters(&mut stream)
-            .context("In read_characteristics_file.")?
+            .context(ks_err!())?
             .into_iter()
             .map(|value| KeyParameter::new(value, SecurityLevel::KEYSTORE));
 
@@ -786,11 +777,11 @@ impl LegacyBlobLoader {
             Ok(file) => file,
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => return Ok(None),
-                _ => return Err(e).context("In read_generic_blob."),
+                _ => return Err(e).context(ks_err!()),
             },
         };
 
-        Ok(Some(Self::new_from_stream(&mut file).context("In read_generic_blob.")?))
+        Ok(Some(Self::new_from_stream(&mut file).context(ks_err!())?))
     }
 
     fn read_generic_blob_decrypt_with<F>(path: &Path, decrypt: F) -> Result<Option<Blob>>
@@ -801,14 +792,11 @@ impl LegacyBlobLoader {
             Ok(file) => file,
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => return Ok(None),
-                _ => return Err(e).context("In read_generic_blob_decrypt_with."),
+                _ => return Err(e).context(ks_err!()),
             },
         };
 
-        Ok(Some(
-            Self::new_from_stream_decrypt_with(&mut file, decrypt)
-                .context("In read_generic_blob_decrypt_with.")?,
-        ))
+        Ok(Some(Self::new_from_stream_decrypt_with(&mut file, decrypt).context(ks_err!())?))
     }
 
     /// Read a legacy keystore entry blob.
@@ -827,7 +815,7 @@ impl LegacyBlobLoader {
         };
 
         let blob = Self::read_generic_blob_decrypt_with(&path, decrypt)
-            .context("In read_legacy_keystore_entry: Failed to read blob.")?;
+            .context(ks_err!("Failed to read blob."))?;
 
         Ok(blob.and_then(|blob| match blob.value {
             BlobValue::Generic(blob) => Some(blob),
@@ -848,13 +836,13 @@ impl LegacyBlobLoader {
         if let Err(e) = Self::with_retry_interrupted(|| fs::remove_file(path.as_path())) {
             match e.kind() {
                 ErrorKind::NotFound => return Ok(false),
-                _ => return Err(e).context("In remove_legacy_keystore_entry."),
+                _ => return Err(e).context(ks_err!()),
             }
         }
 
         let user_id = uid_to_android_user(uid);
         self.remove_user_dir_if_empty(user_id)
-            .context("In remove_legacy_keystore_entry: Trying to remove empty user dir.")?;
+            .context(ks_err!("Trying to remove empty user dir."))?;
         Ok(true)
     }
 
@@ -869,27 +857,21 @@ impl LegacyBlobLoader {
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => return Ok(Default::default()),
                 _ => {
-                    return Err(e).context(format!(
-                        concat!(
-                            "In list_legacy_keystore_entries_for_uid: ,",
-                            "Failed to open legacy blob database: {:?}"
-                        ),
-                        path
-                    ))
+                    return Err(e)
+                        .context(ks_err!("Failed to open legacy blob database: {:?}", path));
                 }
             },
         };
         let mut result: Vec<String> = Vec::new();
         for entry in dir {
-            let file_name = entry
-                .context("In list_legacy_keystore_entries_for_uid: Trying to access dir entry")?
-                .file_name();
+            let file_name = entry.context(ks_err!("Trying to access dir entry"))?.file_name();
             if let Some(f) = file_name.to_str() {
                 let encoded_alias = &f[uid_str.len() + 1..];
                 if f.starts_with(&uid_str) && !Self::is_keystore_alias(encoded_alias) {
-                    result.push(Self::decode_alias(encoded_alias).context(
-                        "In list_legacy_keystore_entries_for_uid: Trying to decode alias.",
-                    )?)
+                    result.push(
+                        Self::decode_alias(encoded_alias)
+                            .context(ks_err!("Trying to decode alias."))?,
+                    )
                 }
             }
         }
@@ -911,9 +893,7 @@ impl LegacyBlobLoader {
         &self,
         user_id: u32,
     ) -> Result<HashMap<u32, HashSet<String>>> {
-        let user_entries = self
-            .list_user(user_id)
-            .context("In list_legacy_keystore_entries_for_user: Trying to list user.")?;
+        let user_entries = self.list_user(user_id).context(ks_err!("Trying to list user."))?;
 
         let result =
             user_entries.into_iter().fold(HashMap::<u32, HashSet<String>>::new(), |mut acc, v| {
@@ -986,9 +966,9 @@ impl LegacyBlobLoader {
     /// in the database dir.
     pub fn is_empty(&self) -> Result<bool> {
         let dir = Self::with_retry_interrupted(|| fs::read_dir(self.path.as_path()))
-            .context("In is_empty: Failed to open legacy blob database.")?;
+            .context(ks_err!("Failed to open legacy blob database."))?;
         for entry in dir {
-            if (*entry.context("In is_empty: Trying to access dir entry")?.file_name())
+            if (*entry.context(ks_err!("Trying to access dir entry"))?.file_name())
                 .to_str()
                 .map_or(false, |f| f.starts_with("user_"))
             {
@@ -1007,7 +987,7 @@ impl LegacyBlobLoader {
             return Ok(true);
         }
         Ok(Self::with_retry_interrupted(|| user_path.read_dir())
-            .context("In is_empty_user: Failed to open legacy user dir.")?
+            .context(ks_err!("Failed to open legacy user dir."))?
             .next()
             .is_none())
     }
@@ -1032,16 +1012,14 @@ impl LegacyBlobLoader {
             Err(e) => match e.kind() {
                 ErrorKind::NotFound => return Ok(Default::default()),
                 _ => {
-                    return Err(e).context(format!(
-                        "In list_user: Failed to open legacy blob database. {:?}",
-                        path
-                    ))
+                    return Err(e)
+                        .context(ks_err!("Failed to open legacy blob database. {:?}", path));
                 }
             },
         };
         let mut result: Vec<String> = Vec::new();
         for entry in dir {
-            let file_name = entry.context("In list_user: Trying to access dir entry")?.file_name();
+            let file_name = entry.context(ks_err!("Trying to access dir entry"))?.file_name();
             if let Some(f) = file_name.to_str() {
                 result.push(f.to_string())
             }
@@ -1055,9 +1033,7 @@ impl LegacyBlobLoader {
         &self,
         user_id: u32,
     ) -> Result<HashMap<u32, HashSet<String>>> {
-        let user_entries = self
-            .list_user(user_id)
-            .context("In list_keystore_entries_for_user: Trying to list user.")?;
+        let user_entries = self.list_user(user_id).context(ks_err!("Trying to list user."))?;
 
         let result =
             user_entries.into_iter().fold(HashMap::<u32, HashSet<String>>::new(), |mut acc, v| {
@@ -1078,9 +1054,7 @@ impl LegacyBlobLoader {
     pub fn list_keystore_entries_for_uid(&self, uid: u32) -> Result<Vec<String>> {
         let user_id = uid_to_android_user(uid);
 
-        let user_entries = self
-            .list_user(user_id)
-            .context("In list_keystore_entries_for_uid: Trying to list user.")?;
+        let user_entries = self.list_user(user_id).context(ks_err!("Trying to list user."))?;
 
         let uid_str = format!("{}_", uid);
 
@@ -1163,7 +1137,7 @@ impl LegacyBlobLoader {
         if something_was_deleted {
             let user_id = uid_to_android_user(uid);
             self.remove_user_dir_if_empty(user_id)
-                .context("In remove_keystore_entry: Trying to remove empty user dir.")?;
+                .context(ks_err!("Trying to remove empty user dir."))?;
         }
 
         Ok(something_was_deleted)
@@ -1188,7 +1162,7 @@ impl LegacyBlobLoader {
         let dest_path = make_filename(dest_uid, dest_alias, prefix);
         match Self::with_retry_interrupted(|| fs::rename(&src_path, &dest_path)) {
             Err(e) if e.kind() == ErrorKind::NotFound => Ok(()),
-            r => r.context("In move_keystore_file_if_exists: Trying to rename."),
+            r => r.context(ks_err!("Trying to rename.")),
         }
     }
 
@@ -1207,7 +1181,7 @@ impl LegacyBlobLoader {
         }
 
         if uid_to_android_user(src_uid) != uid_to_android_user(dest_uid) {
-            return Err(Error::AndroidUserMismatch).context("In move_keystore_entry.");
+            return Err(Error::AndroidUserMismatch).context(ks_err!());
         }
 
         let prefixes = ["USRPKEY", "USRSKEY", "USRCERT", "CACERT"];
@@ -1220,12 +1194,7 @@ impl LegacyBlobLoader {
                 prefix,
                 |uid, alias, prefix| self.make_blob_filename(uid, alias, prefix),
             )
-            .with_context(|| {
-                format!(
-                    "In move_keystore_entry: Trying to move blob file with prefix: \"{}\"",
-                    prefix
-                )
-            })?;
+            .with_context(|| ks_err!("Trying to move blob file with prefix: \"{}\"", prefix))?;
         }
 
         let prefixes = ["USRPKEY", "USRSKEY"];
@@ -1240,8 +1209,8 @@ impl LegacyBlobLoader {
                 |uid, alias, prefix| self.make_chr_filename(uid, alias, prefix),
             )
             .with_context(|| {
-                format!(
-                    "In move_keystore_entry: Trying to move characteristics file with \
+                ks_err!(
+                    "Trying to move characteristics file with \
                      prefix: \"{}\"",
                     prefix
                 )
@@ -1252,10 +1221,7 @@ impl LegacyBlobLoader {
     }
 
     fn remove_user_dir_if_empty(&self, user_id: u32) -> Result<()> {
-        if self
-            .is_empty_user(user_id)
-            .context("In remove_user_dir_if_empty: Trying to check for empty user dir.")?
-        {
+        if self.is_empty_user(user_id).context(ks_err!("Trying to check for empty user dir."))? {
             let user_path = self.make_user_path_name(user_id);
             Self::with_retry_interrupted(|| fs::remove_dir(user_path.as_path())).ok();
         }
@@ -1273,14 +1239,14 @@ impl LegacyBlobLoader {
 
         let km_blob = match km_blob {
             Some((km_blob, prefix)) => {
-                let km_blob =
-                    match km_blob {
-                        Blob { flags: _, value: BlobValue::Decrypted(_) }
-                        | Blob { flags: _, value: BlobValue::Encrypted { .. } } => km_blob,
-                        _ => return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED)).context(
-                            "In load_by_uid_alias: Found wrong blob type in legacy key blob file.",
-                        ),
-                    };
+                let km_blob = match km_blob {
+                    Blob { flags: _, value: BlobValue::Decrypted(_) }
+                    | Blob { flags: _, value: BlobValue::Encrypted { .. } } => km_blob,
+                    _ => {
+                        return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
+                            .context(ks_err!("Found wrong blob type in legacy key blob file."))
+                    }
+                };
 
                 let hw_sec_level = match km_blob.is_strongbox() {
                     true => SecurityLevel::STRONGBOX,
@@ -1288,7 +1254,7 @@ impl LegacyBlobLoader {
                 };
                 let key_parameters = self
                     .read_characteristics_file(uid, &prefix, alias, hw_sec_level, super_key)
-                    .context("In load_by_uid_alias.")?;
+                    .context(ks_err!())?;
                 Some((km_blob, key_parameters))
             }
             None => None,
@@ -1296,34 +1262,34 @@ impl LegacyBlobLoader {
 
         let user_cert_blob =
             Self::read_generic_blob(&self.make_blob_filename(uid, alias, "USRCERT"))
-                .context("In load_by_uid_alias: While loading user cert.")?;
+                .context(ks_err!("While loading user cert."))?;
 
         let user_cert = if let Some(blob) = user_cert_blob {
             let blob = Self::decrypt_if_required(super_key, blob)
-                .context("In load_by_uid_alias: While decrypting user cert.")?;
+                .context(ks_err!("While decrypting user cert."))?;
 
             if let Blob { value: BlobValue::Generic(data), .. } = blob {
                 Some(data)
             } else {
                 return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-                    .context("In load_by_uid_alias: Found unexpected blob type in USRCERT file");
+                    .context(ks_err!("Found unexpected blob type in USRCERT file"));
             }
         } else {
             None
         };
 
         let ca_cert_blob = Self::read_generic_blob(&self.make_blob_filename(uid, alias, "CACERT"))
-            .context("In load_by_uid_alias: While loading ca cert.")?;
+            .context(ks_err!("While loading ca cert."))?;
 
         let ca_cert = if let Some(blob) = ca_cert_blob {
             let blob = Self::decrypt_if_required(super_key, blob)
-                .context("In load_by_uid_alias: While decrypting ca cert.")?;
+                .context(ks_err!("While decrypting ca cert."))?;
 
             if let Blob { value: BlobValue::Generic(data), .. } = blob {
                 Some(data)
             } else {
                 return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
-                    .context("In load_by_uid_alias: Found unexpected blob type in CACERT file");
+                    .context(ks_err!("Found unexpected blob type in CACERT file"));
             }
         } else {
             None
@@ -1340,32 +1306,26 @@ impl LegacyBlobLoader {
     /// Load and decrypt legacy super key blob.
     pub fn load_super_key(&self, user_id: u32, pw: &Password) -> Result<Option<ZVec>> {
         let path = self.make_super_key_filename(user_id);
-        let blob = Self::read_generic_blob(&path)
-            .context("In load_super_key: While loading super key.")?;
+        let blob = Self::read_generic_blob(&path).context(ks_err!("While loading super key."))?;
 
         let blob = match blob {
             Some(blob) => match blob {
                 Blob { flags, value: BlobValue::PwEncrypted { iv, tag, data, salt, key_size } } => {
                     if (flags & flags::ENCRYPTED) != 0 {
                         let key = pw
-                            .derive_key(Some(&salt), key_size)
-                            .context("In load_super_key: Failed to derive key from password.")?;
-                        let blob = aes_gcm_decrypt(&data, &iv, &tag, &key).context(
-                            "In load_super_key: while trying to decrypt legacy super key blob.",
-                        )?;
+                            .derive_key(&salt, key_size)
+                            .context(ks_err!("Failed to derive key from password."))?;
+                        let blob = aes_gcm_decrypt(&data, &iv, &tag, &key)
+                            .context(ks_err!("while trying to decrypt legacy super key blob."))?;
                         Some(blob)
                     } else {
                         // In 2019 we had some unencrypted super keys due to b/141955555.
-                        Some(
-                            data.try_into()
-                                .context("In load_super_key: Trying to convert key into ZVec")?,
-                        )
+                        Some(data.try_into().context(ks_err!("Trying to convert key into ZVec"))?)
                     }
                 }
                 _ => {
-                    return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED)).context(
-                        "In load_super_key: Found wrong blob type in legacy super key blob file.",
-                    )
+                    return Err(KsError::Rc(ResponseCode::VALUE_CORRUPTED))
+                        .context(ks_err!("Found wrong blob type in legacy super key blob file."));
                 }
             },
             None => None,
@@ -1993,7 +1953,7 @@ mod test {
         std::fs::create_dir(&*temp_dir.build().push("user_0")).unwrap();
 
         let pw: Password = PASSWORD.into();
-        let pw_key = TestKey(pw.derive_key(Some(SUPERKEY_SALT), 32).unwrap());
+        let pw_key = TestKey(pw.derive_key(SUPERKEY_SALT, 32).unwrap());
         let super_key =
             Arc::new(TestKey(pw_key.decrypt(SUPERKEY_PAYLOAD, SUPERKEY_IV, SUPERKEY_TAG).unwrap()));
 
@@ -2080,7 +2040,7 @@ mod test {
         std::fs::create_dir(&*temp_dir.build().push("user_0")).unwrap();
 
         let pw: Password = PASSWORD.into();
-        let pw_key = TestKey(pw.derive_key(Some(SUPERKEY_SALT), 32).unwrap());
+        let pw_key = TestKey(pw.derive_key(SUPERKEY_SALT, 32).unwrap());
         let super_key =
             Arc::new(TestKey(pw_key.decrypt(SUPERKEY_PAYLOAD, SUPERKEY_IV, SUPERKEY_TAG).unwrap()));
 
@@ -2168,7 +2128,7 @@ mod test {
         std::fs::create_dir(&*temp_dir.build().push("user_0")).unwrap();
 
         let pw: Password = PASSWORD.into();
-        let pw_key = TestKey(pw.derive_key(Some(SUPERKEY_SALT), 32).unwrap());
+        let pw_key = TestKey(pw.derive_key(SUPERKEY_SALT, 32).unwrap());
         let super_key =
             Arc::new(TestKey(pw_key.decrypt(SUPERKEY_PAYLOAD, SUPERKEY_IV, SUPERKEY_TAG).unwrap()));
 

@@ -31,7 +31,11 @@ java_test_host {
         "compatibility-host-util",
     ],
     data: [
+        ":AngleIntegrationTestCommon",
         ":CtsAngleDriverTestCases",
+        ":CtsAngleDriverTestCasesSecondary",
+        ":CtsAngleDumpsysGpuTestApp",
+        ":CtsAngleGameDriverTestCases",
     ],
     per_testcase_directory: true,
 }

@@ -16,7 +16,9 @@
 
 package com.android.libcore.timezone.testing;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -74,5 +76,16 @@ public final class TestUtils {
         for (String expected : expecteds) {
             assertTrue(s + " must contain " + expected, s.contains(expected));
         }
+    }
+
+    public static byte[] readFully(InputStream is) throws IOException {
+        int read;
+        byte[] buffer = new byte[1024];
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        while ((read = is.read(buffer)) != -1) {
+            baos.write(buffer, 0, read);
+        }
+
+        return baos.toByteArray();
     }
 }

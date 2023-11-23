@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2015 The Android Open Source Project
 #
@@ -72,6 +72,9 @@ INET_DIAG_BC_D_COND = 8
 INET_DIAG_BC_DEV_COND = 9
 INET_DIAG_BC_MARK_COND = 10
 
+CONSTANT_PREFIXES = netlink.MakeConstantPrefixes([
+    "INET_DIAG_", "INET_DIAG_REQ_", "INET_DIAG_BC_"])
+
 # Data structure formats.
 # These aren't constants, they're classes. So, pylint: disable=invalid-name
 InetDiagSockId = cstruct.Struct(
@@ -114,13 +117,13 @@ class SockDiag(netlink.NetlinkSocket):
   def __init__(self):
     super(SockDiag, self).__init__(netlink.NETLINK_SOCK_DIAG)
 
-  def _Decode(self, command, msg, nla_type, nla_data):
+  def _Decode(self, command, msg, nla_type, nla_data, nested):
     """Decodes netlink attributes to Python types."""
     if msg.family == AF_INET or msg.family == AF_INET6:
       if isinstance(msg, InetDiagReqV2):
-        prefix = "INET_DIAG_REQ"
+        prefix = "INET_DIAG_REQ_"
       else:
-        prefix = "INET_DIAG"
+        prefix = "INET_DIAG_"
       name = self._GetConstantName(__name__, nla_type, prefix)
     else:
       # Don't know what this is. Leave it as an integer.
@@ -130,7 +133,7 @@ class SockDiag(netlink.NetlinkSocket):
                 "INET_DIAG_SKV6ONLY"]:
       data = ord(nla_data)
     elif name == "INET_DIAG_CONG":
-      data = nla_data.strip("\x00")
+      data = nla_data.strip(b"\x00")
     elif name == "INET_DIAG_MEMINFO":
       data = InetDiagMeminfo(nla_data)
     elif name == "INET_DIAG_INFO":
@@ -168,7 +171,7 @@ class SockDiag(netlink.NetlinkSocket):
 
   @staticmethod
   def _EmptyInetDiagSockId():
-    return InetDiagSockId(("\x00" * len(InetDiagSockId)))
+    return InetDiagSockId((b"\x00" * len(InetDiagSockId)))
 
   @staticmethod
   def PackBytecode(instructions):
@@ -220,10 +223,10 @@ class SockDiag(netlink.NetlinkSocket):
         raise ValueError("Jumps must be > 0")
 
       if op in [INET_DIAG_BC_NOP, INET_DIAG_BC_JMP, INET_DIAG_BC_AUTO]:
-        arg = ""
+        arg = b""
       elif op in [INET_DIAG_BC_S_GE, INET_DIAG_BC_S_LE,
                   INET_DIAG_BC_D_GE, INET_DIAG_BC_D_LE]:
-        arg = "\x00\x00" + struct.pack("=H", arg)
+        arg = b"\x00\x00" + struct.pack("=H", arg)
       elif op in [INET_DIAG_BC_S_COND, INET_DIAG_BC_D_COND]:
         addr, prefixlen, port = arg
         family = AF_INET6 if ":" in addr else AF_INET
@@ -248,7 +251,7 @@ class SockDiag(netlink.NetlinkSocket):
 
     # print(positions)
 
-    packed = ""
+    packed = b""
     for i, (op, yes, no, arg) in enumerate(instructions):
       yes = positions[i + yes] - positions[i]
       no = positions[i + no] - positions[i]
@@ -346,7 +349,7 @@ class SockDiag(netlink.NetlinkSocket):
     """Converts an IP address string to binary format for InetDiagSockId."""
     padded = SockDiag.RawAddress(addr)
     if len(padded) < 16:
-      padded += "\x00" * (16 - len(padded))
+      padded += b"\x00" * (16 - len(padded))
     return padded
 
   @staticmethod
@@ -354,12 +357,9 @@ class SockDiag(netlink.NetlinkSocket):
     """Creates an InetDiagReqV2 that matches the specified socket."""
     family = s.getsockopt(net_test.SOL_SOCKET, net_test.SO_DOMAIN)
     protocol = s.getsockopt(net_test.SOL_SOCKET, net_test.SO_PROTOCOL)
-    if net_test.LINUX_VERSION >= (3, 8):
-      iface = s.getsockopt(SOL_SOCKET, net_test.SO_BINDTODEVICE,
-                           net_test.IFNAMSIZ)
-      iface = GetInterfaceIndex(iface) if iface else 0
-    else:
-      iface = 0
+    iface = s.getsockopt(SOL_SOCKET, net_test.SO_BINDTODEVICE,
+                         net_test.IFNAMSIZ)
+    iface = GetInterfaceIndex(iface) if iface else 0
     src, sport = s.getsockname()[:2]
     try:
       dst, dport = s.getpeername()[:2]
@@ -371,7 +371,7 @@ class SockDiag(netlink.NetlinkSocket):
         raise e
     src = SockDiag.PaddedAddress(src)
     dst = SockDiag.PaddedAddress(dst)
-    sock_id = InetDiagSockId((sport, dport, src, dst, iface, "\x00" * 8))
+    sock_id = InetDiagSockId((sport, dport, src, dst, iface, b"\x00" * 8))
     return InetDiagReqV2((family, protocol, 0, 0xffffffff, sock_id))
 
   @staticmethod
@@ -387,7 +387,7 @@ class SockDiag(netlink.NetlinkSocket):
     # the inode number to ensure we don't mistakenly match another socket on
     # the same port but with a different IP address.
     inode = os.fstat(s.fileno()).st_ino
-    results = self.Dump(req, "")
+    results = self.Dump(req, b"")
     if len(results) == 0:
       raise ValueError("Dump of %s returned no sockets" % req)
     for diag_msg, attrs in results:
@@ -423,11 +423,10 @@ class SockDiag(netlink.NetlinkSocket):
 if __name__ == "__main__":
   n = SockDiag()
   n.DEBUG = True
-  bytecode = ""
   sock_id = n._EmptyInetDiagSockId()
   sock_id.dport = 443
   ext = 1 << (INET_DIAG_TOS - 1) | 1 << (INET_DIAG_TCLASS - 1)
   states = 0xffffffff
-  diag_msgs = n.DumpAllInetSockets(IPPROTO_TCP, "",
+  diag_msgs = n.DumpAllInetSockets(IPPROTO_TCP, b"",
                                    sock_id=sock_id, ext=ext, states=states)
   print(diag_msgs)

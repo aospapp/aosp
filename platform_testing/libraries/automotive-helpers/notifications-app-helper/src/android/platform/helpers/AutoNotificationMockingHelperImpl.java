@@ -27,18 +27,19 @@ import android.app.PendingIntent;
 import android.app.Person;
 import android.content.Context;
 import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiObject2;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
 
-import java.util.List;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
+
 import java.util.ArrayList;
-import java.util.stream.Collectors;
+import java.util.List;
 
-public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHelper
+/** Helper for creating mock notifications on Automotive device */
+public class AutoNotificationMockingHelperImpl extends AbstractStandardAppHelper
         implements IAutoNotificationMockingHelper {
-
-    private static final int UI_RESPONSE_WAIT_MS = 5000;
 
     private static final String NOTIFICATION_CHANNEL_ID = "auto_test_channel_id";
     private static final String NOTIFICATION_CHANNEL_NAME = "Test Channel";
@@ -52,6 +53,13 @@ public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHe
 
     private NotificationManager mNotificationManager;
 
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private ScrollDirection mScrollDirection;
+
     public AutoNotificationMockingHelperImpl(Instrumentation instr) {
         super(instr);
         mNotificationManager = instr.getContext().getSystemService(NotificationManager.class);
@@ -62,27 +70,54 @@ public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHe
                         NotificationManager.IMPORTANCE_HIGH);
         mNotificationManager.createNotificationChannel(channel);
         NOTIFICATION_REQUIRED_FIELDS.add(
-                getResourceFromConfig(
-                        AutoConfigConstants.NOTIFICATIONS,
-                        AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
-                        AutoConfigConstants.APP_ICON));
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_ICON));
         NOTIFICATION_REQUIRED_FIELDS.add(
-                getResourceFromConfig(
-                        AutoConfigConstants.NOTIFICATIONS,
-                        AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
-                        AutoConfigConstants.NOTIFICATION_TITLE));
+                getUiElementFromConfig(AutomotiveConfigConstants.NOTIFICATION_TITLE));
         NOTIFICATION_REQUIRED_FIELDS.add(
-                getResourceFromConfig(
-                        AutoConfigConstants.NOTIFICATIONS,
-                        AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
-                        AutoConfigConstants.NOTIFICATION_BODY));
+                getUiElementFromConfig(AutomotiveConfigConstants.NOTIFICATION_BODY));
+
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.NOTIFICATION_LIST_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.NOTIFICATION_LIST_SCROLL_BACKWARD_BUTTON);
+        mForwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.NOTIFICATION_LIST_SCROLL_FORWARD_BUTTON);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.NOTIFICATION_LIST);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.NOTIFICATION_LIST_SCROLL_DIRECTION));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getLauncherName() {
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getPackage() {
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
     }
 
     /** {@inheritDoc} */
     @Override
     public void postNotifications(int count) {
         postNotifications(count, null);
-        SystemClock.sleep(UI_RESPONSE_WAIT_MS);
+        getSpectatioUiUtil().wait1Second();
         assertTrue(
                 "Notification does not have all required fields",
                 checkNotificationRequiredFieldsExist(NOTIFICATION_TITLE_TEXT));
@@ -112,6 +147,9 @@ public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHe
 
         for (int i = initialCount; i < initialCount + count; i++) {
             builder.setContentText(String.format(NOTIFICATION_CONTENT_TEXT_FORMAT, i));
+
+            // Set unique group for each notification so that they're NOT grouped together
+            builder.setGroup(String.format("GROUP_KEY_%d", i));
             mNotificationManager.notify(i, builder.build());
         }
     }
@@ -128,17 +166,32 @@ public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHe
                     String.format("Unable to find notification with title %s", title));
         }
         for (BySelector selector : NOTIFICATION_REQUIRED_FIELDS) {
-            UiObject2 obj = findUiObject(selector);
+            UiObject2 obj = getSpectatioUiUtil().findUiObject(selector);
             if (obj == null) {
-                throw new RuntimeException("Unable to find required notification field");
+                throw new RuntimeException(
+                        String.format(
+                                "Unable to find required notification field %s",
+                                selector.toString()));
             }
         }
         return true;
     }
 
     private boolean checkNotificationExists(String title) {
-        executeShellCommand(getApplicationConfig(AutoConfigConstants.OPEN_NOTIFICATIONS_COMMAND));
-        UiObject2 postedNotification = findUiObject(By.text(title));
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(AutomotiveConfigConstants.OPEN_NOTIFICATIONS_COMMAND));
+
+        BySelector selector = By.text(title);
+        UiObject2 postedNotification =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        selector,
+                        String.format("Scroll on notification list to find %s", selector));
         return postedNotification != null;
     }
 
@@ -155,19 +208,9 @@ public class AutoNotificationMockingHelperImpl extends AbstractAutoStandardAppHe
                             context,
                             0,
                             context.getPackageManager().getLaunchIntentForPackage(pkg),
-                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+                                    | PendingIntent.FLAG_IMMUTABLE));
         }
         return builder;
-    }
-
-    private List<UiObject2> getNotificationStack() {
-        List<UiObject2> objects =
-                findUiObjects(
-                        getResourceFromConfig(
-                                AutoConfigConstants.NOTIFICATIONS,
-                                AutoConfigConstants.EXPANDED_NOTIFICATIONS_SCREEN,
-                                AutoConfigConstants.CARD_VIEW),
-                        NOTIFICATION_DEPTH);
-        return objects.stream().map(o -> o.getParent().getParent()).collect(Collectors.toList());
     }
 }

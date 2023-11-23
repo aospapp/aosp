@@ -16,7 +16,14 @@
 
 package libcore.java.nio.channels;
 
-import org.junit.Rule;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNotNull;
 
 import java.io.IOException;
 import java.net.BindException;
@@ -36,14 +43,19 @@ import java.nio.channels.DatagramChannel;
 import java.nio.channels.UnsupportedAddressTypeException;
 import java.nio.channels.spi.SelectorProvider;
 import java.util.Enumeration;
-import libcore.junit.junit3.TestCaseWithRules;
 import libcore.junit.util.ResourceLeakageDetector;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public class DatagramChannelTest extends TestCaseWithRules {
+@RunWith(JUnit4.class)
+public class DatagramChannelTest {
     @Rule
     public ResourceLeakageDetector.LeakageDetectorRule guardRule =
             ResourceLeakageDetector.getRule();
 
+    @Test
     public void test_read_intoReadOnlyByteArrays() throws Exception {
         ByteBuffer readOnly = ByteBuffer.allocate(1).asReadOnlyBuffer();
         try (DatagramSocket ds = new DatagramSocket(0);
@@ -68,21 +80,19 @@ public class DatagramChannelTest extends TestCaseWithRules {
     }
 
     // http://code.google.com/p/android/issues/detail?id=16579
+    @Test
     public void testNonBlockingRecv() throws Exception {
-        DatagramChannel dc = DatagramChannel.open();
-        try {
+        try (DatagramChannel dc = DatagramChannel.open()) {
             dc.configureBlocking(false);
             dc.socket().bind(null);
             // Should return immediately, since we're non-blocking.
             assertNull(dc.receive(ByteBuffer.allocate(2048)));
-        } finally {
-            dc.close();
         }
     }
 
+    @Test
     public void testInitialState() throws Exception {
-        DatagramChannel dc = DatagramChannel.open();
-        try {
+        try (DatagramChannel dc = DatagramChannel.open()) {
             DatagramSocket socket = dc.socket();
             assertFalse(socket.isBound());
             assertFalse(socket.getBroadcast());
@@ -97,11 +107,10 @@ public class DatagramChannelTest extends TestCaseWithRules {
             assertFalse(socket.getReuseAddress());
 
             assertSame(dc, socket.getChannel());
-        } finally {
-            dc.close();
         }
     }
 
+    @Test
     public void test_bind_unresolvedAddress() throws IOException {
         DatagramChannel dc = DatagramChannel.open();
         try {
@@ -116,43 +125,51 @@ public class DatagramChannelTest extends TestCaseWithRules {
         dc.close();
     }
 
+    @Test
     public void test_bind_any_IPv4() throws Exception {
         test_bind_any(InetAddress.getByName("0.0.0.0"));
     }
 
+    @Test
     public void test_bind_any_IPv6() throws Exception {
         test_bind_any(InetAddress.getByName("::"));
     }
 
     private void test_bind_any(InetAddress bindAddress) throws Exception {
-        DatagramChannel dc = DatagramChannel.open();
-        dc.socket().bind(new InetSocketAddress(bindAddress, 0));
+        try (DatagramChannel dc = DatagramChannel.open()) {
+            dc.socket().bind(new InetSocketAddress(bindAddress, 0));
 
-        assertTrue(dc.isOpen());
-        assertFalse(dc.isConnected());
+            assertTrue(dc.isOpen());
+            assertFalse(dc.isConnected());
 
-        InetSocketAddress actualAddress = (InetSocketAddress) dc.socket().getLocalSocketAddress();
-        assertTrue(actualAddress.getAddress().isAnyLocalAddress());
-        assertTrue(actualAddress.getPort() > 0);
-
-        dc.close();
+            InetSocketAddress actualAddress = (InetSocketAddress) dc.socket()
+                .getLocalSocketAddress();
+            assertTrue(actualAddress.getAddress().isAnyLocalAddress());
+            assertTrue(actualAddress.getPort() > 0);
+        }
     }
 
+    @Test
     public void test_bind_loopback_IPv4() throws Exception {
         test_bind(InetAddress.getByName("127.0.0.1"));
     }
 
+    @Test
     public void test_bind_loopback_IPv6() throws Exception {
         test_bind(InetAddress.getByName("::1"));
     }
 
+    @Test
     public void test_bind_IPv4() throws Exception {
         InetAddress bindAddress = getNonLoopbackNetworkInterfaceAddress(true /* ipv4 */);
+        assumeNotNull(bindAddress);
         test_bind(bindAddress);
     }
 
+    @Test
     public void test_bind_IPv6() throws Exception {
         InetAddress bindAddress = getNonLoopbackNetworkInterfaceAddress(false /* ipv4 */);
+        assumeNotNull(bindAddress);
         test_bind(bindAddress);
     }
 
@@ -166,6 +183,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
         }
     }
 
+    @Test
     public void test_setOption() throws Exception {
         DatagramChannel dc = DatagramChannel.open();
         // There were problems in the past as the number used here was below the minimum for
@@ -186,6 +204,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
     }
 
     // http://b/26292854
+    @Test
     public void test_getFileDescriptor() throws Exception {
         try (DatagramSocket socket = DatagramChannel.open().socket()) {
             socket.getReuseAddress();
@@ -193,6 +212,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
         }
     }
 
+    @Test
     public void test_bind() throws IOException {
         InetSocketAddress socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK, 0);
         DatagramChannel channel = DatagramChannel.open();
@@ -222,6 +242,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
         } catch (ClosedChannelException expected) {}
     }
 
+    @Test
     public void test_getRemoteAddress() throws IOException {
         InetSocketAddress socketAddress = new InetSocketAddress(Inet4Address.LOOPBACK, 0);
         try (DatagramChannel clientChannel = DatagramChannel.open();
@@ -238,6 +259,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
         }
     }
 
+    @Test
     public void test_open$java_net_ProtocolFamily() throws IOException {
         try (DatagramChannel channel = DatagramChannel.open(StandardProtocolFamily.INET)) {
             channel.bind(new InetSocketAddress(Inet4Address.LOOPBACK, 0));
@@ -265,6 +287,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
         } catch (NullPointerException expected) {}
     }
 
+    @Test
     public void test_closeGuardSupport() throws IOException {
         try(DatagramChannel dc = DatagramChannel.open(StandardProtocolFamily.INET)) {
             guardRule.assertUnreleasedResourceCount(dc, 1);
@@ -273,6 +296,7 @@ public class DatagramChannelTest extends TestCaseWithRules {
 
     private static InetAddress getNonLoopbackNetworkInterfaceAddress(boolean ipv4) throws IOException {
         Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+        assertNotNull(networkInterfaces);
         while (networkInterfaces.hasMoreElements()) {
             NetworkInterface networkInterface = networkInterfaces.nextElement();
             if (networkInterface.isLoopback() || !networkInterface.isUp()) {

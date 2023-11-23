@@ -56,14 +56,6 @@ constexpr size_t kOutboundQueueSize = 32;
 //! TODO: Make this a member of HostLinkBase
 Nanoseconds gLastTimeSyncRequestNanos(0);
 
-struct LoadNanoappCallbackData {
-  uint64_t appId;
-  uint32_t transactionId;
-  uint16_t hostClientId;
-  UniquePtr<Nanoapp> nanoapp;
-  uint32_t fragmentId;
-};
-
 struct NanoappListData {
   ChreFlatBufferBuilder *builder;
   DynamicVector<NanoappListEntryOffset> nanoappEntries;
@@ -231,25 +223,6 @@ void buildNanoappListResponse(ChreFlatBufferBuilder &builder, void *cookie) {
                                               cbData->hostClientId);
 }
 
-void finishLoadingNanoappCallback(SystemCallbackType /*type*/,
-                                  UniquePtr<LoadNanoappCallbackData> &&data) {
-  auto msgBuilder = [](ChreFlatBufferBuilder &builder, void *cookie) {
-    auto *cbData = static_cast<LoadNanoappCallbackData *>(cookie);
-
-    EventLoop &eventLoop = EventLoopManagerSingleton::get()->getEventLoop();
-    bool success =
-        cbData->nanoapp->isLoaded() && eventLoop.startNanoapp(cbData->nanoapp);
-
-    HostProtocolChre::encodeLoadNanoappResponse(builder, cbData->hostClientId,
-                                                cbData->transactionId, success,
-                                                cbData->fragmentId);
-  };
-
-  constexpr size_t kInitialBufferSize = 48;
-  buildAndEnqueueMessage(PendingMessageType::LoadNanoappResponse,
-                         kInitialBufferSize, msgBuilder, data.get());
-}
-
 void handleUnloadNanoappCallback(SystemCallbackType /*type*/,
                                  UniquePtr<UnloadNanoappCallbackData> &&data) {
   auto msgBuilder = [](ChreFlatBufferBuilder &builder, void *cookie) {
@@ -410,33 +383,6 @@ void sendSelfTestResponse(uint16_t hostClientId, bool success) {
                          msgBuilder, &data);
 }
 
-void sendFragmentResponse(uint16_t hostClientId, uint32_t transactionId,
-                          uint32_t fragmentId, bool success) {
-  struct FragmentedLoadInfoResponse {
-    uint16_t hostClientId;
-    uint32_t transactionId;
-    uint32_t fragmentId;
-    bool success;
-  };
-
-  auto msgBuilder = [](ChreFlatBufferBuilder &builder, void *cookie) {
-    auto *cbData = static_cast<FragmentedLoadInfoResponse *>(cookie);
-    HostProtocolChre::encodeLoadNanoappResponse(
-        builder, cbData->hostClientId, cbData->transactionId, cbData->success,
-        cbData->fragmentId);
-  };
-
-  FragmentedLoadInfoResponse response = {
-      .hostClientId = hostClientId,
-      .transactionId = transactionId,
-      .fragmentId = fragmentId,
-      .success = success,
-  };
-  constexpr size_t kInitialBufferSize = 48;
-  buildAndEnqueueMessage(PendingMessageType::LoadNanoappResponse,
-                         kInitialBufferSize, msgBuilder, &response);
-}
-
 /**
  * Sends a request to the host for a time sync message.
  */
@@ -508,67 +454,6 @@ UniquePtr<Nanoapp> handleLoadNanoappFile(uint16_t hostClientId,
     nanoapp.reset(nullptr);
   }
 
-  return nanoapp;
-}
-
-/**
- * Helper function that prepares a nanoapp that can be loaded into the system
- * from a buffer sent over in 1 or more fragments.
- *
- * @param hostClientId the ID of client that originated this transaction
- * @param transactionId the ID of the transaction
- * @param appId the ID of the app to load
- * @param appVersion the version of the app to load
- * @param appFlags The flags provided by the app being loaded
- * @param targetApiVersion the API version this nanoapp is targeted for
- * @param buffer the nanoapp binary data. May be only part of the nanoapp's
- *     binary if it's being sent over multiple fragments
- * @param bufferLen the size of buffer in bytes
- * @param fragmentId the identifier indicating which fragment is being loaded
- * @param appBinaryLen the full size of the nanoapp binary to be loaded
- *
- * @return A valid pointer to a nanoapp that can be loaded into the system. A
- *     nullptr if the preparation process fails.
- */
-UniquePtr<Nanoapp> handleLoadNanoappData(uint16_t hostClientId,
-                                         uint32_t transactionId, uint64_t appId,
-                                         uint32_t appVersion, uint32_t appFlags,
-                                         uint32_t targetApiVersion,
-                                         const void *buffer, size_t bufferLen,
-                                         uint32_t fragmentId,
-                                         size_t appBinaryLen) {
-  static NanoappLoadManager sLoadManager;
-
-  bool success = true;
-  if (fragmentId == 0 || fragmentId == 1) {  // first fragment
-    size_t totalAppBinaryLen = (fragmentId == 0) ? bufferLen : appBinaryLen;
-    LOGD("Load nanoapp request for app ID 0x%016" PRIx64 " ver 0x%" PRIx32
-         " flags 0x%" PRIx32 " target API 0x%08" PRIx32
-         " size %zu (txnId %" PRIu32 " client %" PRIu16 ")",
-         appId, appVersion, appFlags, targetApiVersion, totalAppBinaryLen,
-         transactionId, hostClientId);
-
-    if (sLoadManager.hasPendingLoadTransaction()) {
-      FragmentedLoadInfo info = sLoadManager.getTransactionInfo();
-      sendFragmentResponse(info.hostClientId, info.transactionId,
-                           0 /* fragmentId */, false /* success */);
-      sLoadManager.markFailure();
-    }
-
-    success = sLoadManager.prepareForLoad(hostClientId, transactionId, appId,
-                                          appVersion, appFlags,
-                                          totalAppBinaryLen, targetApiVersion);
-  }
-  success &= sLoadManager.copyNanoappFragment(
-      hostClientId, transactionId, (fragmentId == 0) ? 1 : fragmentId, buffer,
-      bufferLen);
-
-  UniquePtr<Nanoapp> nanoapp;
-  if (!sLoadManager.isLoadComplete()) {
-    sendFragmentResponse(hostClientId, transactionId, fragmentId, success);
-  } else {
-    nanoapp = sLoadManager.releaseNanoapp();
-  }
   return nanoapp;
 }
 
@@ -850,6 +735,35 @@ void sendAudioRelease() {
                          kInitialSize, msgBuilder, nullptr);
 }
 
+void HostMessageHandlers::sendFragmentResponse(uint16_t hostClientId,
+                                               uint32_t transactionId,
+                                               uint32_t fragmentId,
+                                               bool success) {
+  struct FragmentedLoadInfoResponse {
+    uint16_t hostClientId;
+    uint32_t transactionId;
+    uint32_t fragmentId;
+    bool success;
+  };
+
+  auto msgBuilder = [](ChreFlatBufferBuilder &builder, void *cookie) {
+    auto *cbData = static_cast<FragmentedLoadInfoResponse *>(cookie);
+    HostProtocolChre::encodeLoadNanoappResponse(
+        builder, cbData->hostClientId, cbData->transactionId, cbData->success,
+        cbData->fragmentId);
+  };
+
+  FragmentedLoadInfoResponse response = {
+      .hostClientId = hostClientId,
+      .transactionId = transactionId,
+      .fragmentId = fragmentId,
+      .success = success,
+  };
+  constexpr size_t kInitialBufferSize = 48;
+  buildAndEnqueueMessage(PendingMessageType::LoadNanoappResponse,
+                         kInitialBufferSize, msgBuilder, &response);
+}
+
 void HostMessageHandlers::handleNanoappMessage(uint64_t appId,
                                                uint32_t messageType,
                                                uint16_t hostEndpoint,
@@ -907,16 +821,16 @@ void HostMessageHandlers::handleLoadNanoappRequest(
     uint32_t appVersion, uint32_t appFlags, uint32_t targetApiVersion,
     const void *buffer, size_t bufferLen, const char *appFileName,
     uint32_t fragmentId, size_t appBinaryLen, bool respondBeforeStart) {
-  UniquePtr<Nanoapp> pendingNanoapp;
-  if (appFileName != nullptr) {
-    pendingNanoapp =
-        handleLoadNanoappFile(hostClientId, transactionId, appId, appVersion,
-                              targetApiVersion, appFileName);
-  } else {
-    pendingNanoapp = handleLoadNanoappData(
-        hostClientId, transactionId, appId, appVersion, appFlags,
-        targetApiVersion, buffer, bufferLen, fragmentId, appBinaryLen);
+  if (appFileName == nullptr) {
+    loadNanoappData(hostClientId, transactionId, appId, appVersion, appFlags,
+                    targetApiVersion, buffer, bufferLen, fragmentId,
+                    appBinaryLen, respondBeforeStart);
+    return;
   }
+
+  UniquePtr<Nanoapp> pendingNanoapp =
+      handleLoadNanoappFile(hostClientId, transactionId, appId, appVersion,
+                            targetApiVersion, appFileName);
 
   if (!pendingNanoapp.isNull()) {
     auto cbData = MakeUnique<LoadNanoappCallbackData>();

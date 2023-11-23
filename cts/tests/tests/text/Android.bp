@@ -33,7 +33,7 @@ android_test {
         "ctstestrunner-axt",
         "mockito-target-minus-junit4",
         "androidx.test.rules",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "junit-params",
     ],
 

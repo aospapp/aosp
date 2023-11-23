@@ -52,6 +52,7 @@ import android.os.Looper;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
+import androidx.test.filters.RequiresDevice;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.FeatureUtil;
@@ -65,6 +66,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 @LargeTest
+@RequiresDevice
 public class DualSuspendTests {
     private Context mContext;
     private Handler mReceiverHandler;

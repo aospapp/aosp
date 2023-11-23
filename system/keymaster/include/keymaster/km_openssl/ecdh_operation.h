@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_ECDH_OPERATION_H_
 #define SYSTEM_KEYMASTER_ECDH_OPERATION_H_
 
+#include <utility>
+
 #include <openssl/ec.h>
 #include <openssl/evp.h>
 
@@ -31,7 +33,8 @@ namespace keymaster {
 class EcdhOperation : public Operation {
   public:
     EcdhOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced, EVP_PKEY* key)
-        : Operation(KM_PURPOSE_AGREE_KEY, move(hw_enforced), move(sw_enforced)), ecdh_key_(key) {}
+        : Operation(KM_PURPOSE_AGREE_KEY, std::move(hw_enforced), std::move(sw_enforced)),
+                    ecdh_key_(key) {}
 
     keymaster_error_t Abort() override { return KM_ERROR_OK; }
 
@@ -51,7 +54,7 @@ class EcdhOperation : public Operation {
 class X25519Operation : public EcdhOperation {
   public:
     X25519Operation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced, EVP_PKEY* key)
-        : EcdhOperation(move(hw_enforced), move(sw_enforced), key) {}
+        : EcdhOperation(std::move(hw_enforced), std::move(sw_enforced), key) {}
 
     keymaster_error_t Finish(const AuthorizationSet& additional_params, const Buffer& input,
                              const Buffer& signature, AuthorizationSet* output_params,

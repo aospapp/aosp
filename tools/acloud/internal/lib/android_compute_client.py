@@ -80,6 +80,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
         self._ssh_public_key_path = acloud_config.ssh_public_key_path
         self._launch_args = acloud_config.launch_args
         self._instance_name_pattern = acloud_config.instance_name_pattern
+        self._gce_hostname = None
         self._AddPerInstanceSshkey()
         self._dict_report = {_ZONE: self._zone,
                              _VERSION: config.GetVersion()}
@@ -359,6 +360,7 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
             if e.code == 400:
                 logger.debug("CheckBoot: Instance is not ready yet %s", str(e))
                 return False
+            logger.error("Unexpected http status: %d, %s", e.code, e.message)
             raise
 
     def WaitForBoot(self, instance, boot_timeout_secs=None):
@@ -426,3 +428,8 @@ class AndroidComputeClient(gcompute_client.ComputeClient):
     def dict_report(self):
         """Return dict_report"""
         return self._dict_report
+
+    @property
+    def gce_hostname(self):
+        """Return gce_hostname"""
+        return self._gce_hostname

@@ -90,7 +90,7 @@ class PipTestActivity : Activity() {
             setPlaybackState(playbackBuilder.build())
             setCallback(mediaCallback)
         }
-        registerReceiver(broadcastReceiver, intentFilter)
+        registerReceiver(broadcastReceiver, intentFilter, Context.RECEIVER_NOT_EXPORTED)
         handle(intent)
     }
 

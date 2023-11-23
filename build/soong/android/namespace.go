@@ -91,7 +91,27 @@ type NameResolver struct {
 	namespaceExportFilter func(*Namespace) bool
 }
 
-func NewNameResolver(namespaceExportFilter func(*Namespace) bool) *NameResolver {
+// NameResolverConfig provides the subset of the Config interface needed by the
+// NewNameResolver function.
+type NameResolverConfig interface {
+	// ExportedNamespaces is the list of namespaces that Soong must export to
+	// make.
+	ExportedNamespaces() []string
+}
+
+func NewNameResolver(config NameResolverConfig) *NameResolver {
+	namespacePathsToExport := make(map[string]bool)
+
+	for _, namespaceName := range config.ExportedNamespaces() {
+		namespacePathsToExport[namespaceName] = true
+	}
+
+	namespacePathsToExport["."] = true // always export the root namespace
+
+	namespaceExportFilter := func(namespace *Namespace) bool {
+		return namespacePathsToExport[namespace.Path]
+	}
+
 	r := &NameResolver{
 		namespacesByDir:       sync.Map{},
 		namespaceExportFilter: namespaceExportFilter,
@@ -166,10 +186,10 @@ func (r *NameResolver) findNamespace(path string) (namespace *Namespace) {
 	return namespace
 }
 
-// A NamelessModule can never be looked up by name.  It must still implement Name(), but the return
-// value doesn't have to be unique.
-type NamelessModule interface {
-	Nameless()
+// A NamespacelessModule can never be looked up by name.  It must still implement Name(), and the name
+// still has to be unique.
+type NamespacelessModule interface {
+	Namespaceless()
 }
 
 func (r *NameResolver) NewModule(ctx blueprint.NamespaceContext, moduleGroup blueprint.ModuleGroup, module blueprint.Module) (namespace blueprint.Namespace, errs []error) {
@@ -183,7 +203,7 @@ func (r *NameResolver) NewModule(ctx blueprint.NamespaceContext, moduleGroup blu
 		return nil, nil
 	}
 
-	if _, ok := module.(NamelessModule); ok {
+	if _, ok := module.(NamespacelessModule); ok {
 		return nil, nil
 	}
 
@@ -205,6 +225,10 @@ func (r *NameResolver) NewModule(ctx blueprint.NamespaceContext, moduleGroup blu
 	return ns, nil
 }
 
+func (r *NameResolver) NewSkippedModule(ctx blueprint.NamespaceContext, name string, skipInfo blueprint.SkippedModuleInfo) {
+	r.rootNamespace.moduleContainer.NewSkippedModule(ctx, name, skipInfo)
+}
+
 func (r *NameResolver) AllModules() []blueprint.ModuleGroup {
 	childLists := [][]blueprint.ModuleGroup{}
 	totalCount := 0
@@ -219,6 +243,10 @@ func (r *NameResolver) AllModules() []blueprint.ModuleGroup {
 		allModules = append(allModules, childList...)
 	}
 	return allModules
+}
+
+func (r *NameResolver) SkippedModuleFromName(moduleName string, namespace blueprint.Namespace) (skipInfos []blueprint.SkippedModuleInfo, skipped bool) {
+	return r.rootNamespace.moduleContainer.SkippedModuleFromName(moduleName, namespace)
 }
 
 // parses a fully-qualified path (like "//namespace_path:module_name") into a namespace name and a
@@ -280,7 +308,7 @@ func (r *NameResolver) FindNamespaceImports(namespace *Namespace) (err error) {
 	for _, name := range namespace.importedNamespaceNames {
 		imp, ok := r.namespaceAt(name)
 		if !ok {
-			return fmt.Errorf("namespace %v does not exist", name)
+			return fmt.Errorf("namespace %v does not exist; Some necessary modules may have been skipped by Soong. Check if PRODUCT_SOURCE_ROOT_DIRS is pruning necessary Android.bp files.", name)
 		}
 		namespace.visibleNamespaces = append(namespace.visibleNamespaces, imp)
 	}
@@ -297,8 +325,8 @@ func (r *NameResolver) chooseId(namespace *Namespace) {
 	namespace.id = strconv.Itoa(id)
 }
 
-func (r *NameResolver) MissingDependencyError(depender string, dependerNamespace blueprint.Namespace, depName string) (err error) {
-	text := fmt.Sprintf("%q depends on undefined module %q", depender, depName)
+func (r *NameResolver) MissingDependencyError(depender string, dependerNamespace blueprint.Namespace, depName string, guess []string) (err error) {
+	text := fmt.Sprintf("%q depends on undefined module %q.", depender, depName)
 
 	_, _, isAbs := r.parseFullyQualifiedName(depName)
 	if isAbs {
@@ -309,12 +337,18 @@ func (r *NameResolver) MissingDependencyError(depender string, dependerNamespace
 
 	// determine which namespaces the module can be found in
 	foundInNamespaces := []string{}
+	skippedDepErrors := []error{}
 	for _, namespace := range r.sortedNamespaces.sortedItems() {
 		_, found := namespace.moduleContainer.ModuleFromName(depName, nil)
 		if found {
 			foundInNamespaces = append(foundInNamespaces, namespace.Path)
 		}
+		_, skipped := namespace.moduleContainer.SkippedModuleFromName(depName, nil)
+		if skipped {
+			skippedDepErrors = append(skippedDepErrors, namespace.moduleContainer.MissingDependencyError(depender, dependerNamespace, depName, nil))
+		}
 	}
+
 	if len(foundInNamespaces) > 0 {
 		// determine which namespaces are visible to dependerNamespace
 		dependerNs := dependerNamespace.(*Namespace)
@@ -325,6 +359,13 @@ func (r *NameResolver) MissingDependencyError(depender string, dependerNamespace
 		}
 		text += fmt.Sprintf("\nModule %q is defined in namespace %q which can read these %v namespaces: %q", depender, dependerNs.Path, len(importedNames), importedNames)
 		text += fmt.Sprintf("\nModule %q can be found in these namespaces: %q", depName, foundInNamespaces)
+	}
+	for _, err := range skippedDepErrors {
+		text += fmt.Sprintf("\n%s", err.Error())
+	}
+
+	if len(guess) > 0 {
+		text += fmt.Sprintf("\nOr did you mean %q?", guess)
 	}
 
 	return fmt.Errorf(text)

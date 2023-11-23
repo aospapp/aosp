@@ -101,6 +101,7 @@ class BatteryDefender {
             "/mnt/vendor/persist/battery/defender_charger_time";
     const std::string kPathPersistDefenderActiveTime =
             "/mnt/vendor/persist/battery/defender_active_time";
+    const std::string kPathDockState = "/sys/devices/platform/google,charger/dd_state";
 
     // Properties
     const char *const kPropChargeLevelVendorStart = "persist.vendor.charge.start.level";
@@ -140,6 +141,7 @@ class BatteryDefender {
     bool mIsDockPresent = false;
     bool mIsPowerAvailable = false;
     bool mIsDefenderDisabled = false;
+    bool mIsDockDefendTrigger = false;
     int32_t mTimeToActivateSecsModified;
 
     // State
@@ -183,6 +185,7 @@ class BatteryDefender {
     bool isDefaultChargeLevel(const int start, const int stop);
     bool isBatteryDefenderDisabled(const int vendorStart, const int vendorStop);
     void addTimeToChargeTimers(void);
+    bool isDockDefendTrigger(void);
 };
 
 }  // namespace health

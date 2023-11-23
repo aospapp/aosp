@@ -21,6 +21,7 @@ import android.os.Bundle;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.webkit.WebView;
+import android.widget.FrameLayout;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 
@@ -40,6 +41,10 @@ public class WebViewCtsActivity extends Activity {
 
     public WebView getWebView() {
         return mWebView;
+    }
+
+    public FrameLayout getRootLayout() {
+        return (FrameLayout) findViewById(android.R.id.content).getRootView();
     }
 
     @Override

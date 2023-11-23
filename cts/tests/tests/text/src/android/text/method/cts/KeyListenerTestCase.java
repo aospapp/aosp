@@ -27,11 +27,13 @@ import android.text.cts.R;
 import android.text.method.KeyListener;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
 import android.widget.EditText;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
+import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -48,6 +50,8 @@ public abstract class KeyListenerTestCase {
 
     protected KeyListenerCtsActivity mActivity;
     protected Instrumentation mInstrumentation;
+    private Context mContext;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     protected EditText mTextView;
     private int mAutoCapSetting;
 
@@ -58,10 +62,12 @@ public abstract class KeyListenerTestCase {
     @Before
     public void setup() throws IOException {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mContext = mInstrumentation.getTargetContext();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mContext);
         mActivity = mActivityRule.getActivity();
         mTextView = mActivity.findViewById(R.id.keylistener_textview);
 
-        PollingCheck.waitFor(5000, mActivity::hasWindowFocus);
+        PollingCheck.waitFor(10000, mActivity::hasWindowFocus);
     }
 
     protected void enableAutoCapSettings() throws IOException {
@@ -113,7 +119,34 @@ public abstract class KeyListenerTestCase {
 
     private void grantWriteSettingsPermission() throws IOException {
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                "appops set " + mActivity.getPackageName() + " "
-                        + AppOpsManager.OPSTR_WRITE_SETTINGS + " allow");
+                "appops set --user " + mContext.getUser().getIdentifier()
+                + " " + mActivity.getPackageName()
+                + " " + AppOpsManager.OPSTR_WRITE_SETTINGS + " allow");
+    }
+
+    protected final void sendKeys(View targetView, int...keys) {
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, targetView, keys);
+    }
+
+    protected final void sendKeys(View targetView, String keysSequence) {
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, targetView, keysSequence);
+    }
+
+    protected final void sendKey(View targetView, KeyEvent event) {
+        mCtsKeyEventUtil.sendKey(mInstrumentation, targetView, event);
+    }
+
+    protected final void sendKeyDownUp(View targetView, int key) {
+        mCtsKeyEventUtil.sendKeyDownUp(mInstrumentation, targetView, key);
+    }
+
+    protected void sendKeyWhileHoldingModifier(View targetView, int keyCodeToSend,
+            int modifierKeyCodeToHold) {
+        mCtsKeyEventUtil.sendKeyWhileHoldingModifier(mInstrumentation, targetView, keyCodeToSend,
+                modifierKeyCodeToHold);
+    }
+
+    protected final void sendString(View targetView, String text) {
+        mCtsKeyEventUtil.sendString(mInstrumentation, targetView, text);
     }
 }

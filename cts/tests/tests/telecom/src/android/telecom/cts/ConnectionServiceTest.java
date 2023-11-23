@@ -18,23 +18,34 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.*;
 
+import static com.android.compatibility.common.util.BlockedNumberUtil.deleteBlockedNumber;
+import static com.android.compatibility.common.util.BlockedNumberUtil.insertBlockedNumber;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.database.Cursor;
 import android.media.AudioManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.os.Parcel;
+import android.provider.BlockedNumberContract;
+import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.CallScreeningService;
 import android.telecom.CallScreeningService.CallResponse;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
 import android.telecom.PhoneAccountHandle;
+import android.telecom.TelecomManager;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.CddTest;
+
 import java.util.Collection;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test some additional {@link ConnectionService} and {@link Connection} APIs not already covered
@@ -53,6 +64,11 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
             mTelecomManager.registerPhoneAccount(TestUtils.TEST_SELF_MANAGED_PHONE_ACCOUNT_1);
         }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
     }
 
     public void testAddExistingConnection() {
@@ -396,6 +412,79 @@ public class ConnectionServiceTest extends BaseTelecomTestWithMockServices {
                     .dropShellPermissionIdentity();
             TestUtils.deleteContact(mContext.getContentResolver(), contactUri);
             MockCallScreeningService.disableService(mContext);
+        }
+    }
+
+    private Uri blockNumber(Uri phoneNumberUri) {
+        Uri number = insertBlockedNumber(mContext, phoneNumberUri.getSchemeSpecificPart());
+        if (number == null) {
+            fail("Failed to insert into blocked number provider");
+        }
+        return number;
+    }
+
+    private int unblockNumber(Uri uri) {
+        return deleteBlockedNumber(mContext, uri);
+    }
+
+    /**
+     * Tests {@link CallLog.Calls.BLOCKED_TYPE} call log to ensure that blocked
+     * numbers incoming calls should be logged to platform call log provider.
+     */
+    @CddTest(requirement = "7.4.1.1/C-1-4")
+    public void testCallLogForBlockedNumberIncomingCall() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        //Check if blocking numbers is supported for the current user
+        if (!BlockedNumberContract.canCurrentUserBlockNumbers(mContext)) {
+            return;
+        }
+
+        Uri blockedUri = null;
+
+        try {
+            TestUtils.executeShellCommand(getInstrumentation(), "telecom stop-block-suppression");
+            Uri testNumberUri = createTestNumber();
+            blockedUri = blockNumber(testNumberUri);
+
+            final Bundle extras = new Bundle();
+            extras.putParcelable(TelecomManager.EXTRA_INCOMING_CALL_ADDRESS, testNumberUri);
+            mTelecomManager.addNewIncomingCall(TEST_PHONE_ACCOUNT_HANDLE, extras);
+
+            // Setup content observer to notify us when we call log entry is added.
+            CountDownLatch callLogEntryLatch = getCallLogEntryLatch();
+
+            // Blocked number incoming call should be in disconnected state
+            final MockConnection connection = verifyConnectionForIncomingCall();
+            assertConnectionState(connection, Connection.STATE_DISCONNECTED);
+            assertNull(mInCallCallbacks.getService());
+
+            // Wait for the content observer to report that we have gotten a new call log entry.
+            callLogEntryLatch.await(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+
+            // Query the latest entry into the call log.
+            Cursor callsCursor = mContext.getContentResolver().query(CallLog.Calls.CONTENT_URI,
+                    null, null, null, CallLog.Calls._ID + " DESC limit 1;");
+            int numberIndex = callsCursor.getColumnIndex(CallLog.Calls.NUMBER);
+            int callTypeIndex = callsCursor.getColumnIndex(CallLog.Calls.TYPE);
+            int reasonIndex = callsCursor.getColumnIndex(CallLog.Calls.BLOCK_REASON);
+            if (callsCursor.moveToNext()) {
+                assertEquals(testNumberUri.getSchemeSpecificPart(),
+                        callsCursor.getString(numberIndex));
+                assertEquals(CallLog.Calls.BLOCKED_TYPE, callsCursor.getInt(callTypeIndex));
+                assertEquals(CallLog.Calls.BLOCK_REASON_BLOCKED_NUMBER,
+                        callsCursor.getInt(reasonIndex));
+            } else {
+                fail("No call log entry found for blocked number");
+            }
+        } catch (InterruptedException ie) {
+            fail("Failed to get blocked number call log");
+        } finally {
+            if (blockedUri != null) {
+                unblockNumber(blockedUri);
+            }
         }
     }
 

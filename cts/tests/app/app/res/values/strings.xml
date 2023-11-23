@@ -178,12 +178,6 @@ I think so, so how about double this string, like copy and paste! </string>
     <string name="rectangle200">"M 0,0 l 200,0 l 0, 200 l -200, 0 z"</string>
     <string name="hello">Hello World</string>
 
-    <string name="wallpaper_description">Description</string>
-    <string name="wallpaper_collection">Collection</string>
-    <string name="wallpaper_title">Title</string>
-    <string name="wallpaper_context">Context</string>
-    <string name="wallpaper_context_uri">http://android.com</string>
-    <string name="wallpaper_slice_uri">content://com.android.wallpaper/slice</string>
     <string name="automatic_zen_rule_name">Rule!</string>
 
     <string name="bubble_shortcut_label">Shortcut Label</string>

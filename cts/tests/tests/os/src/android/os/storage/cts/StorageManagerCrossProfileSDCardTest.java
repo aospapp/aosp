@@ -75,10 +75,12 @@ public class StorageManagerCrossProfileSDCardTest {
     public void testGetStorageVolumeSDCardWorkProfile() throws Exception {
         List<StorageVolume> storageVolumes = mStorageManager.getStorageVolumes();
         Optional<StorageVolume> sdCardStorageVolume =
-                storageVolumes.stream().filter(sv->sv.getPath().contains(mVolumeName)).findFirst();
+                storageVolumes.stream().filter(sv -> sv.getPath() != null && sv.getPath().contains(
+                        mVolumeName)).findFirst();
         assertWithMessage("The SdCard storage volume " + mVolumeName
                 + " mounted on the main user is present in "
-                + storageVolumes.stream().map(StorageVolume::getPath).collect(joining("\n")))
+                + storageVolumes.stream().filter(sv -> sv.getPath() != null).map(
+                StorageVolume::getPath).collect(joining("\n")))
                 .that(sdCardStorageVolume.isPresent()).isFalse();
     }
 }

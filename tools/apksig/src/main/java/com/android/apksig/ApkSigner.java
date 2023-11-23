@@ -25,6 +25,7 @@ import com.android.apksig.apk.ApkSigningBlockNotFoundException;
 import com.android.apksig.apk.ApkUtils;
 import com.android.apksig.apk.MinSdkVersionException;
 import com.android.apksig.internal.apk.v3.V3SchemeConstants;
+import com.android.apksig.internal.util.AndroidSdkVersion;
 import com.android.apksig.internal.util.ByteBufferDataSource;
 import com.android.apksig.internal.zip.CentralDirectoryRecord;
 import com.android.apksig.internal.zip.EocdRecord;
@@ -84,6 +85,8 @@ public class ApkSigner {
 
     private static final short ANDROID_COMMON_PAGE_ALIGNMENT_BYTES = 4096;
 
+    private static final short ANDROID_FILE_ALIGNMENT_BYTES = 4096;
+
     /** Name of the Android manifest ZIP entry in APKs. */
     private static final String ANDROID_MANIFEST_ZIP_ENTRY_NAME = "AndroidManifest.xml";
 
@@ -91,6 +94,7 @@ public class ApkSigner {
     private final SignerConfig mSourceStampSignerConfig;
     private final SigningCertificateLineage mSourceStampSigningCertificateLineage;
     private final boolean mForceSourceStampOverwrite;
+    private final boolean mSourceStampTimestampEnabled;
     private final Integer mMinSdkVersion;
     private final int mRotationMinSdkVersion;
     private final boolean mRotationTargetsDevRelease;
@@ -98,6 +102,7 @@ public class ApkSigner {
     private final boolean mV2SigningEnabled;
     private final boolean mV3SigningEnabled;
     private final boolean mV4SigningEnabled;
+    private final boolean mAlignFileSize;
     private final boolean mVerityEnabled;
     private final boolean mV4ErrorReportingEnabled;
     private final boolean mDebuggableApkPermitted;
@@ -122,6 +127,7 @@ public class ApkSigner {
             SignerConfig sourceStampSignerConfig,
             SigningCertificateLineage sourceStampSigningCertificateLineage,
             boolean forceSourceStampOverwrite,
+            boolean sourceStampTimestampEnabled,
             Integer minSdkVersion,
             int rotationMinSdkVersion,
             boolean rotationTargetsDevRelease,
@@ -129,6 +135,7 @@ public class ApkSigner {
             boolean v2SigningEnabled,
             boolean v3SigningEnabled,
             boolean v4SigningEnabled,
+            boolean alignFileSize,
             boolean verityEnabled,
             boolean v4ErrorReportingEnabled,
             boolean debuggableApkPermitted,
@@ -147,6 +154,7 @@ public class ApkSigner {
         mSourceStampSignerConfig = sourceStampSignerConfig;
         mSourceStampSigningCertificateLineage = sourceStampSigningCertificateLineage;
         mForceSourceStampOverwrite = forceSourceStampOverwrite;
+        mSourceStampTimestampEnabled = sourceStampTimestampEnabled;
         mMinSdkVersion = minSdkVersion;
         mRotationMinSdkVersion = rotationMinSdkVersion;
         mRotationTargetsDevRelease = rotationTargetsDevRelease;
@@ -154,6 +162,7 @@ public class ApkSigner {
         mV2SigningEnabled = v2SigningEnabled;
         mV3SigningEnabled = v3SigningEnabled;
         mV4SigningEnabled = v4SigningEnabled;
+        mAlignFileSize = alignFileSize;
         mVerityEnabled = verityEnabled;
         mV4ErrorReportingEnabled = v4ErrorReportingEnabled;
         mDebuggableApkPermitted = debuggableApkPermitted;
@@ -289,13 +298,20 @@ public class ApkSigner {
             List<DefaultApkSignerEngine.SignerConfig> engineSignerConfigs =
                     new ArrayList<>(mSignerConfigs.size());
             for (SignerConfig signerConfig : mSignerConfigs) {
-                engineSignerConfigs.add(
+                DefaultApkSignerEngine.SignerConfig.Builder signerConfigBuilder =
                         new DefaultApkSignerEngine.SignerConfig.Builder(
-                                        signerConfig.getName(),
-                                        signerConfig.getPrivateKey(),
-                                        signerConfig.getCertificates(),
-                                        signerConfig.getDeterministicDsaSigning())
-                                .build());
+                                signerConfig.getName(),
+                                signerConfig.getPrivateKey(),
+                                signerConfig.getCertificates(),
+                                signerConfig.getDeterministicDsaSigning());
+                int signerMinSdkVersion = signerConfig.getMinSdkVersion();
+                SigningCertificateLineage signerLineage =
+                        signerConfig.getSigningCertificateLineage();
+                if (signerMinSdkVersion > 0) {
+                    signerConfigBuilder.setLineageForMinSdkVersion(signerLineage,
+                            signerMinSdkVersion);
+                }
+                engineSignerConfigs.add(signerConfigBuilder.build());
             }
             DefaultApkSignerEngine.Builder signerEngineBuilder =
                     new DefaultApkSignerEngine.Builder(engineSignerConfigs, minSdkVersion)
@@ -319,6 +335,7 @@ public class ApkSigner {
                                         mSourceStampSignerConfig.getCertificates(),
                                         mSourceStampSignerConfig.getDeterministicDsaSigning())
                                 .build());
+                signerEngineBuilder.setSourceStampTimestampEnabled(mSourceStampTimestampEnabled);
             }
             if (mSourceStampSigningCertificateLineage != null) {
                 signerEngineBuilder.setSourceStampSigningCertificateLineage(
@@ -590,6 +607,9 @@ public class ApkSigner {
         int outputCentralDirRecordCount = outputCdRecords.size();
 
         // Step 10. Construct output ZIP End of Central Directory record in an in-memory buffer
+        // because it can be adjusted in Step 11 due to signing block.
+        //   - CD offset (it's shifted by signing block)
+        //   - Comments (when the output file needs to be sized 4k-aligned)
         ByteBuffer outputEocd =
                 EocdRecord.createWithModifiedCentralDirectoryInfo(
                         inputZipSections.getZipEndOfCentralDirectory(),
@@ -608,13 +628,39 @@ public class ApkSigner {
 
         if (outputApkSigningBlockRequest != null) {
             int padding = outputApkSigningBlockRequest.getPaddingSizeBeforeApkSigningBlock();
-            outputApkOut.consume(ByteBuffer.allocate(padding));
             byte[] outputApkSigningBlock = outputApkSigningBlockRequest.getApkSigningBlock();
+            outputApkSigningBlockRequest.done();
+
+            long fileSize =
+                    outputCentralDirStartOffset
+                            + outputCentralDirDataSource.size()
+                            + padding
+                            + outputApkSigningBlock.length
+                            + outputEocd.remaining();
+            if (mAlignFileSize && (fileSize % ANDROID_FILE_ALIGNMENT_BYTES != 0)) {
+                int eocdPadding =
+                        (int)
+                                (ANDROID_FILE_ALIGNMENT_BYTES
+                                        - fileSize % ANDROID_FILE_ALIGNMENT_BYTES);
+                // Replace EOCD with padding one so that output file size can be the multiples of
+                // alignment.
+                outputEocd = EocdRecord.createWithPaddedComment(outputEocd, eocdPadding);
+
+                // Since EoCD has changed, we need to regenerate signing block as well.
+                outputApkSigningBlockRequest =
+                        signerEngine.outputZipSections2(
+                                outputApkIn,
+                                new ByteBufferDataSource(outputCentralDir),
+                                DataSources.asDataSource(outputEocd));
+                outputApkSigningBlock = outputApkSigningBlockRequest.getApkSigningBlock();
+                outputApkSigningBlockRequest.done();
+            }
+
+            outputApkOut.consume(ByteBuffer.allocate(padding));
             outputApkOut.consume(outputApkSigningBlock, 0, outputApkSigningBlock.length);
             ZipUtils.setZipEocdCentralDirectoryOffset(
                     outputEocd,
                     outputCentralDirStartOffset + padding + outputApkSigningBlock.length);
-            outputApkSigningBlockRequest.done();
         }
 
         // Step 12. Output ZIP Central Directory and ZIP End of Central Directory
@@ -980,18 +1026,19 @@ public class ApkSigner {
         private final String mName;
         private final PrivateKey mPrivateKey;
         private final List<X509Certificate> mCertificates;
-        private boolean mDeterministicDsaSigning;
+        private final boolean mDeterministicDsaSigning;
+        private final int mMinSdkVersion;
+        private final SigningCertificateLineage mSigningCertificateLineage;
 
-        private SignerConfig(
-                String name,
-                PrivateKey privateKey,
-                List<X509Certificate> certificates,
-                boolean deterministicDsaSigning) {
-            mName = name;
-            mPrivateKey = privateKey;
-            mCertificates = Collections.unmodifiableList(new ArrayList<>(certificates));
-            mDeterministicDsaSigning = deterministicDsaSigning;
+        private SignerConfig(Builder builder) {
+            mName = builder.mName;
+            mPrivateKey = builder.mPrivateKey;
+            mCertificates = Collections.unmodifiableList(new ArrayList<>(builder.mCertificates));
+            mDeterministicDsaSigning = builder.mDeterministicDsaSigning;
+            mMinSdkVersion = builder.mMinSdkVersion;
+            mSigningCertificateLineage = builder.mSigningCertificateLineage;
         }
+
         /** Returns the name of this signer. */
         public String getName() {
             return mName;
@@ -1010,12 +1057,21 @@ public class ApkSigner {
             return mCertificates;
         }
 
-
         /**
          * If this signer is a DSA signer, whether or not the signing is done deterministically.
          */
         public boolean getDeterministicDsaSigning() {
             return mDeterministicDsaSigning;
+        }
+
+        /** Returns the minimum SDK version for which this signer should be used. */
+        public int getMinSdkVersion() {
+            return mMinSdkVersion;
+        }
+
+        /** Returns the {@link SigningCertificateLineage} for this signer. */
+        public SigningCertificateLineage getSigningCertificateLineage() {
+            return mSigningCertificateLineage;
         }
 
         /** Builder of {@link SignerConfig} instances. */
@@ -1024,6 +1080,9 @@ public class ApkSigner {
             private final PrivateKey mPrivateKey;
             private final List<X509Certificate> mCertificates;
             private final boolean mDeterministicDsaSigning;
+
+            private int mMinSdkVersion;
+            private SigningCertificateLineage mSigningCertificateLineage;
 
             /**
              * Constructs a new {@code Builder}.
@@ -1066,13 +1125,71 @@ public class ApkSigner {
                 mDeterministicDsaSigning = deterministicDsaSigning;
             }
 
+            /** @see #setLineageForMinSdkVersion(SigningCertificateLineage, int) */
+            public Builder setMinSdkVersion(int minSdkVersion) {
+                return setLineageForMinSdkVersion(null, minSdkVersion);
+            }
+
+            /**
+             * Sets the specified {@code minSdkVersion} as the minimum Android platform version
+             * (API level) for which the provided {@code lineage} (where applicable) should be used
+             * to produce the APK's signature. This method is useful if callers want to specify a
+             * particular rotated signer or lineage with restricted capabilities for later
+             * platform releases.
+             *
+             * <p><em>Note:</em>>The V1 and V2 signature schemes do not support key rotation and
+             * signing lineages with capabilities; only an app's original signer(s) can be used for
+             * the V1 and V2 signature blocks. Because of this, only a value of {@code
+             * minSdkVersion} >= 28 (Android P) where support for the V3 signature scheme was
+             * introduced can be specified.
+             *
+             * <p><em>Note:</em>Due to limitations with platform targeting in the V3.0 signature
+             * scheme, specifying a {@code minSdkVersion} value <= 32 (Android Sv2) will result in
+             * the current {@code SignerConfig} being used in the V3.0 signing block and applied to
+             * Android P through at least Sv2 (and later depending on the {@code minSdkVersion} for
+             * subsequent {@code SignerConfig} instances). Because of this, only a single {@code
+             * SignerConfig} can be instantiated with a minimum SDK version <= 32.
+             *
+             * @param lineage the {@code SigningCertificateLineage} to target the specified {@code
+             *                minSdkVersion}
+             * @param minSdkVersion the minimum SDK version for which this {@code SignerConfig}
+             *                      should be used
+             * @return this {@code Builder} instance
+             *
+             * @throws IllegalArgumentException if the provided {@code minSdkVersion} < 28 or the
+             * certificate provided in the constructor is not in the specified {@code lineage}.
+             */
+            public Builder setLineageForMinSdkVersion(SigningCertificateLineage lineage,
+                    int minSdkVersion) {
+                if (minSdkVersion < AndroidSdkVersion.P) {
+                    throw new IllegalArgumentException(
+                            "SDK targeted signing config is only supported with the V3 signature "
+                                    + "scheme on Android P (SDK version "
+                                    + AndroidSdkVersion.P + ") and later");
+                }
+                if (minSdkVersion < MIN_SDK_WITH_V31_SUPPORT) {
+                    minSdkVersion = AndroidSdkVersion.P;
+                }
+                mMinSdkVersion = minSdkVersion;
+                // If a lineage is provided, ensure the signing certificate for this signer is in
+                // the lineage; in the case of multiple signing certificates, the first is always
+                // used in the lineage.
+                if (lineage != null && !lineage.isCertificateInLineage(mCertificates.get(0))) {
+                    throw new IllegalArgumentException(
+                            "The provided lineage does not contain the signing certificate, "
+                                    + mCertificates.get(0).getSubjectDN()
+                                    + ", for this SignerConfig");
+                }
+                mSigningCertificateLineage = lineage;
+                return this;
+            }
+
             /**
              * Returns a new {@code SignerConfig} instance configured based on the configuration of
              * this builder.
              */
             public SignerConfig build() {
-                return new SignerConfig(mName, mPrivateKey, mCertificates,
-                        mDeterministicDsaSigning);
+                return new SignerConfig(this);
             }
         }
     }
@@ -1094,10 +1211,12 @@ public class ApkSigner {
         private SignerConfig mSourceStampSignerConfig;
         private SigningCertificateLineage mSourceStampSigningCertificateLineage;
         private boolean mForceSourceStampOverwrite = false;
+        private boolean mSourceStampTimestampEnabled = true;
         private boolean mV1SigningEnabled = true;
         private boolean mV2SigningEnabled = true;
         private boolean mV3SigningEnabled = true;
         private boolean mV4SigningEnabled = true;
+        private boolean mAlignFileSize = false;
         private boolean mVerityEnabled = false;
         private boolean mV4ErrorReportingEnabled = false;
         private boolean mDebuggableApkPermitted = true;
@@ -1190,6 +1309,15 @@ public class ApkSigner {
          */
         public Builder setForceSourceStampOverwrite(boolean force) {
             mForceSourceStampOverwrite = force;
+            return this;
+        }
+
+        /**
+         * Sets whether the source stamp should contain the timestamp attribute with the time
+         * at which the source stamp was signed.
+         */
+        public Builder setSourceStampTimestampEnabled(boolean value) {
+            mSourceStampTimestampEnabled = value;
             return this;
         }
 
@@ -1476,6 +1604,21 @@ public class ApkSigner {
             return this;
         }
 
+       /**
+         * Sets whether the output APK files should be sized as multiples of 4K.
+         *
+         * <p><em>Note:</em> This method may only be invoked when this builder is not initialized
+         * with an {@link ApkSignerEngine}.
+         *
+         * @throws IllegalStateException if this builder was initialized with an {@link
+         *     ApkSignerEngine}
+         */
+        public Builder setAlignFileSize(boolean alignFileSize) {
+            checkInitializedWithoutEngine();
+            mAlignFileSize = alignFileSize;
+            return this;
+        }
+
         /**
          * Sets whether to enable the verity signature algorithm for the v2 and v3 signature
          * schemes.
@@ -1602,6 +1745,7 @@ public class ApkSigner {
                     mSourceStampSignerConfig,
                     mSourceStampSigningCertificateLineage,
                     mForceSourceStampOverwrite,
+                    mSourceStampTimestampEnabled,
                     mMinSdkVersion,
                     mRotationMinSdkVersion,
                     mRotationTargetsDevRelease,
@@ -1609,6 +1753,7 @@ public class ApkSigner {
                     mV2SigningEnabled,
                     mV3SigningEnabled,
                     mV4SigningEnabled,
+                    mAlignFileSize,
                     mVerityEnabled,
                     mV4ErrorReportingEnabled,
                     mDebuggableApkPermitted,

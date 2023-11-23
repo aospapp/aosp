@@ -29,7 +29,8 @@
 
 namespace art {
 
-#if defined(__LP64__) && !defined(__Fuchsia__) && (defined(__aarch64__) || defined(__APPLE__))
+#if defined(__LP64__) && !defined(__Fuchsia__) && \
+    (defined(__aarch64__) || defined(__riscv) || defined(__APPLE__))
 #define USE_ART_LOW_4G_ALLOCATOR 1
 #else
 #if defined(__LP64__) && !defined(__Fuchsia__) && !defined(__x86_64__)
@@ -127,7 +128,7 @@ class MemMap {
   // 'name' will be used -- on systems that support it -- to give the mapping
   // a name.
   //
-  // On success, returns returns a valid MemMap.  On failure, returns an invalid MemMap.
+  // On success, returns a valid MemMap. On failure, returns an invalid MemMap.
   static MemMap MapAnonymous(const char* name,
                              uint8_t* addr,
                              size_t byte_count,
@@ -137,6 +138,17 @@ class MemMap {
                              /*inout*/MemMap* reservation,
                              /*out*/std::string* error_msg,
                              bool use_debug_name = true);
+
+  // Request an aligned anonymous region. We can't directly ask for a MAP_SHARED (anonymous or
+  // otherwise) mapping to be aligned as in that case file offset is involved and could make
+  // the starting offset to be out of sync with another mapping of the same file.
+  static MemMap MapAnonymousAligned(const char* name,
+                                    size_t byte_count,
+                                    int prot,
+                                    bool low_4gb,
+                                    size_t alignment,
+                                    /*out=*/std::string* error_msg);
+
   static MemMap MapAnonymous(const char* name,
                              size_t byte_count,
                              int prot,
@@ -173,10 +185,10 @@ class MemMap {
   // The region is not considered to be owned and will not be unmmaped.
   static MemMap MapPlaceholder(const char* name, uint8_t* addr, size_t byte_count);
 
-  // Map part of a file, taking care of non-page aligned offsets.  The
+  // Map part of a file, taking care of non-page aligned offsets. The
   // "start" offset is absolute, not relative.
   //
-  // On success, returns returns a valid MemMap.  On failure, returns an invalid MemMap.
+  // On success, returns a valid MemMap. On failure, returns an invalid MemMap.
   static MemMap MapFile(size_t byte_count,
                         int prot,
                         int flags,
@@ -198,7 +210,7 @@ class MemMap {
                             error_msg);
   }
 
-  // Map part of a file, taking care of non-page aligned offsets.  The "start" offset is absolute,
+  // Map part of a file, taking care of non-page aligned offsets. The "start" offset is absolute,
   // not relative. This version allows requesting a specific address for the base of the mapping.
   //
   // `reuse` allows re-mapping an address range from an existing mapping which retains the
@@ -209,7 +221,7 @@ class MemMap {
   // This helps improve performance of the fail case since reading and printing /proc/maps takes
   // several milliseconds in the worst case.
   //
-  // On success, returns returns a valid MemMap.  On failure, returns an invalid MemMap.
+  // On success, returns a valid MemMap. On failure, returns an invalid MemMap.
   static MemMap MapFileAtAddress(uint8_t* addr,
                                  size_t byte_count,
                                  int prot,
@@ -290,8 +302,9 @@ class MemMap {
   // exceed the size of this reservation.
   //
   // Returns a mapping owning `byte_count` bytes rounded up to entire pages
-  // with size set to the passed `byte_count`.
-  MemMap TakeReservedMemory(size_t byte_count);
+  // with size set to the passed `byte_count`. If 'reuse' is true then the caller
+  // is responsible for unmapping the taken pages.
+  MemMap TakeReservedMemory(size_t byte_count, bool reuse = false);
 
   static bool CheckNoGaps(MemMap& begin_map, MemMap& end_map)
       REQUIRES(!MemMap::mem_maps_lock_);
@@ -303,14 +316,16 @@ class MemMap {
   // time after the first call to Init and before the first call to Shutodwn.
   static void Init() REQUIRES(!MemMap::mem_maps_lock_);
   static void Shutdown() REQUIRES(!MemMap::mem_maps_lock_);
+  static bool IsInitialized();
 
   // If the map is PROT_READ, try to read each page of the map to check it is in fact readable (not
   // faulting). This is used to diagnose a bug b/19894268 where mprotect doesn't seem to be working
   // intermittently.
   void TryReadable();
 
-  // Align the map by unmapping the unaligned parts at the lower and the higher ends.
-  void AlignBy(size_t size);
+  // Align the map by unmapping the unaligned part at the lower end and if 'align_both_ends' is
+  // true, then the higher end as well.
+  void AlignBy(size_t alignment, bool align_both_ends = true);
 
   // For annotation reasons.
   static std::mutex* GetMemMapsLock() RETURN_CAPABILITY(mem_maps_lock_) {
@@ -320,6 +335,9 @@ class MemMap {
   // Reset in a forked process the MemMap whose memory has been madvised MADV_DONTFORK
   // in the parent process.
   void ResetInForkedProcess();
+
+  // 'redzone_size_ == 0' indicates that we are not using memory-tool on this mapping.
+  size_t GetRedzoneSize() const { return redzone_size_; }
 
  private:
   MemMap(const std::string& name,

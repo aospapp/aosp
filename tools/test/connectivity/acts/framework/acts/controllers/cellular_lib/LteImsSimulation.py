@@ -43,7 +43,9 @@ class LteImsSimulation(LteSimulation):
         # Make sure the IMS registration was successful by verifying the CSCF
         # status is SIP IDLE.
         if not _wait_for_ims_cscf_status(
-                self.log, self.anritsu, DEFAULT_IMS_VIRTUAL_NETWORK_ID,
+                self.log,
+                self.simulator.anritsu,
+                DEFAULT_IMS_VIRTUAL_NETWORK_ID,
                 md8475a.ImsCscfStatus.SIPIDLE.value):
             self.log.error('UE failed to register with the IMS server.')
             return False

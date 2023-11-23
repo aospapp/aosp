@@ -66,11 +66,13 @@ android_test {
         "LocationAccessingApp/**/I*.aidl",
         "TestExternalImsServiceApp/**/*.java",
         "TestExternalImsServiceApp/**/I*.aidl",
+        "src/android/telephony/satellite/cts/I*.aidl",
     ],
     aidl: {
         local_include_dirs: [
             "EmbmsMiddlewareTestApp/aidl/",
             "TestExternalImsServiceApp/aidl/",
+            "src/android/telephony/satellite/cts",
         ],
     },
     test_suites: [
@@ -83,6 +85,8 @@ android_test {
         "cts-tradefed",
     ],
     data: [
+        ":CtsTelephonyPreparerApp",
+        ":CtsTelephonyCleanerApp",
         ":TestSmsApp22",
         ":LocationAccessingApp",
         ":LocationAccessingAppSdk28",
@@ -93,11 +97,4 @@ android_test {
         ":EmbmsMiddlewareCtsTestApp",
     ],
     per_testcase_directory: true,
-}
-
-filegroup {
-    name: "cts-telephony-utils",
-    srcs: [
-        "src/android/telephony/cts/TelephonyUtils.java",
-    ],
 }

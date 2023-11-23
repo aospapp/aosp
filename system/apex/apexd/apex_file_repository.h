@@ -52,6 +52,11 @@ class ApexFileRepository final {
       : multi_install_select_prop_prefixes_(multi_install_select_prop_prefixes),
         enforce_multi_install_partition_(enforce_multi_install_partition){};
 
+  explicit ApexFileRepository(const std::string& decompression_dir,
+                              bool ignore_duplicate_apex_definitions)
+      : ignore_duplicate_apex_definitions_(ignore_duplicate_apex_definitions),
+        decompression_dir_(decompression_dir){};
+
   ~ApexFileRepository() {
     pre_installed_store_.clear();
     data_store_.clear();
@@ -104,13 +109,13 @@ class ApexFileRepository final {
   android::base::Result<const std::string> GetDataPath(
       const std::string& name) const;
 
-  // Returns root digest of an apex with the given |name| for block apexes.
+  // Returns root digest of an apex with the given |path| for block apexes.
   std::optional<std::string> GetBlockApexRootDigest(
-      const std::string& name) const;
+      const std::string& path) const;
 
-  // Returns timestamp to be used for the block apex of the given |name|.
+  // Returns timestamp to be used for the block apex of the given |path|.
   std::optional<int64_t> GetBlockApexLastUpdateSeconds(
-      const std::string& name) const;
+      const std::string& path) const;
 
   // Checks whether there is a pre-installed version of an apex with the given
   // |name|.
@@ -176,15 +181,16 @@ class ApexFileRepository final {
 
   // Prefixes used when looking for multi-installed APEX sysprops.
   // Order matters: the first non-empty prop value is returned.
-  std::vector<std::string> multi_install_select_prop_prefixes_ = {
-      // Check persist props first, to allow users to override bootconfig.
-      kMultiApexSelectPersistPrefix,
-      kMultiApexSelectBootconfigPrefix,
-  };
+  std::vector<std::string> multi_install_select_prop_prefixes_ =
+      kMultiApexSelectPrefix;
 
   // Allows multi-install APEXes outside of expected partitions.
   // Only set false in tests.
   bool enforce_multi_install_partition_ = true;
+
+  // Ignore duplicate vendor APEX definitions, normally a duplicate definition
+  // is considered an error.
+  bool ignore_duplicate_apex_definitions_ = false;
 
   // Decompression directory which will be used to determine if apex is
   // decompressed or not
@@ -203,8 +209,13 @@ class ApexFileRepository final {
     std::optional<int64_t> last_update_seconds;
   };
 
+  // Use "path" as key instead of APEX name because there can be multiple
+  // versions of sharedlibs APEXes.
   std::unordered_map<std::string, BlockApexOverride> block_apex_overrides_;
 };
+
+std::string GetApexSelectFilenameFromProp(
+    const std::vector<std::string>& prefixes, const std::string& apex_name);
 
 }  // namespace apex
 }  // namespace android

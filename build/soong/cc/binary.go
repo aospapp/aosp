@@ -17,6 +17,8 @@ package cc
 import (
 	"path/filepath"
 
+	"android/soong/bazel/cquery"
+
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
@@ -149,7 +151,7 @@ func (binary *binaryDecorator) getStem(ctx BaseModuleContext) string {
 // modules common to most binaries, such as bionic libraries.
 func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = binary.baseLinker.linkerDeps(ctx, deps)
-	if !Bool(binary.baseLinker.Properties.Nocrt) {
+	if binary.baseLinker.Properties.crt() {
 		if binary.static() {
 			deps.CrtBegin = ctx.toolchain().CrtBeginStaticBinary()
 			deps.CrtEnd = ctx.toolchain().CrtEndStaticBinary()
@@ -182,7 +184,7 @@ func (binary *binaryDecorator) linkerDeps(ctx DepsContext, deps Deps) Deps {
 		}
 	}
 
-	if !binary.static() && inList("libc", deps.StaticLibs) && !ctx.BazelConversionMode() {
+	if !binary.static() && inList("libc", deps.StaticLibs) {
 		ctx.ModuleErrorf("statically linking libc to dynamic executable, please remove libc\n" +
 			"from static libs or set static_executable: true")
 	}
@@ -510,7 +512,7 @@ func (binary *binaryDecorator) install(ctx ModuleContext, file android.Path) {
 		}
 		binary.baseInstaller.subDir = "bootstrap"
 	}
-	binary.baseInstaller.install(ctx, file)
+	binary.baseInstaller.installExecutable(ctx, file)
 
 	var preferredArchSymlinkPath android.OptionalPath
 	for _, symlink := range binary.symlinks {
@@ -538,6 +540,12 @@ func (binary *binaryDecorator) hostToolPath() android.OptionalPath {
 	return binary.toolPath
 }
 
+func (binary *binaryDecorator) overriddenModules() []string {
+	return binary.Properties.Overrides
+}
+
+var _ overridable = (*binaryDecorator)(nil)
+
 func init() {
 	pctx.HostBinToolVariable("verifyHostBionicCmd", "host_bionic_verify")
 }
@@ -562,28 +570,36 @@ func (binary *binaryDecorator) verifyHostBionicLinker(ctx ModuleContext, in, lin
 }
 
 type ccBinaryBazelHandler struct {
-	android.BazelHandler
-
 	module *Module
 }
 
-func (handler *ccBinaryBazelHandler) GenerateBazelBuildActions(ctx android.ModuleContext, label string) bool {
+var _ BazelHandler = (*ccBinaryBazelHandler)(nil)
+
+func (handler *ccBinaryBazelHandler) QueueBazelCall(ctx android.BaseModuleContext, label string) {
 	bazelCtx := ctx.Config().BazelContext
-	filePaths, ok := bazelCtx.GetOutputFiles(label, android.GetConfigKey(ctx))
-	if ok {
-		if len(filePaths) != 1 {
-			ctx.ModuleErrorf("expected exactly one output file for '%s', but got %s", label, filePaths)
-			return false
-		}
-		outputFilePath := android.PathForBazelOut(ctx, filePaths[0])
-		handler.module.outputFile = android.OptionalPathForPath(outputFilePath)
-		// TODO(b/220164721): We need to decide if we should return the stripped as the unstripped.
-		handler.module.linker.(*binaryDecorator).unstrippedOutputFile = outputFilePath
-	}
-	return ok
+	bazelCtx.QueueBazelRequest(label, cquery.GetCcUnstrippedInfo, android.GetConfigKeyApexVariant(ctx, GetApexConfigKey(ctx)))
 }
 
-func binaryBp2build(ctx android.TopDownMutatorContext, m *Module, typ string) {
+func (handler *ccBinaryBazelHandler) ProcessBazelQueryResponse(ctx android.ModuleContext, label string) {
+	bazelCtx := ctx.Config().BazelContext
+	info, err := bazelCtx.GetCcUnstrippedInfo(label, android.GetConfigKeyApexVariant(ctx, GetApexConfigKey(ctx)))
+	if err != nil {
+		ctx.ModuleErrorf(err.Error())
+		return
+	}
+
+	var outputFilePath android.Path = android.PathForBazelOut(ctx, info.OutputFile)
+	if len(info.TidyFiles) > 0 {
+		handler.module.tidyFiles = android.PathsForBazelOut(ctx, info.TidyFiles)
+		outputFilePath = android.AttachValidationActions(ctx, outputFilePath, handler.module.tidyFiles)
+	}
+	handler.module.outputFile = android.OptionalPathForPath(outputFilePath)
+	handler.module.linker.(*binaryDecorator).unstrippedOutputFile = android.PathForBazelOut(ctx, info.UnstrippedOutput)
+
+	handler.module.setAndroidMkVariablesFromCquery(info.CcAndroidMkInfo)
+}
+
+func binaryBp2buildAttrs(ctx android.TopDownMutatorContext, m *Module) binaryAttributes {
 	baseAttrs := bp2BuildParseBaseProps(ctx, m)
 	binaryLinkerAttrs := bp2buildBinaryLinkerProps(ctx, m)
 
@@ -593,7 +609,7 @@ func binaryBp2build(ctx android.TopDownMutatorContext, m *Module, typ string) {
 		baseAttrs.implementationDeps.Add(baseAttrs.protoDependency)
 	}
 
-	attrs := &binaryAttributes{
+	attrs := binaryAttributes{
 		binaryLinkerAttrs: binaryLinkerAttrs,
 
 		Srcs:    baseAttrs.srcs,
@@ -609,12 +625,11 @@ func binaryBp2build(ctx android.TopDownMutatorContext, m *Module, typ string) {
 		Dynamic_deps:       baseAttrs.implementationDynamicDeps,
 		Whole_archive_deps: baseAttrs.wholeArchiveDeps,
 		System_deps:        baseAttrs.systemDynamicDeps,
+		Runtime_deps:       baseAttrs.runtimeDeps,
 
 		Local_includes:    baseAttrs.localIncludes,
 		Absolute_includes: baseAttrs.absoluteIncludes,
 		Linkopts:          baseAttrs.linkopts,
-		Link_crt:          baseAttrs.linkCrt,
-		Use_libcrt:        baseAttrs.useLibcrt,
 		Use_version_lib:   baseAttrs.useVersionLib,
 		Rtti:              baseAttrs.rtti,
 		Stl:               baseAttrs.stl,
@@ -633,14 +648,26 @@ func binaryBp2build(ctx android.TopDownMutatorContext, m *Module, typ string) {
 		Features: baseAttrs.features,
 
 		sdkAttributes: bp2BuildParseSdkAttributes(m),
+
+		Native_coverage: baseAttrs.Native_coverage,
 	}
 
+	m.convertTidyAttributes(ctx, &attrs.tidyAttributes)
+
+	return attrs
+}
+
+func binaryBp2build(ctx android.TopDownMutatorContext, m *Module) {
+	// shared with cc_test
+	binaryAttrs := binaryBp2buildAttrs(ctx, m)
+
+	tags := android.ApexAvailableTags(m)
 	ctx.CreateBazelTargetModule(bazel.BazelTargetModuleProperties{
 		Rule_class:        "cc_binary",
 		Bzl_load_location: "//build/bazel/rules/cc:cc_binary.bzl",
 	},
-		android.CommonAttributes{Name: m.Name()},
-		attrs)
+		android.CommonAttributes{Name: m.Name(), Tags: tags},
+		&binaryAttrs)
 }
 
 // binaryAttributes contains Bazel attributes corresponding to a cc binary
@@ -659,16 +686,14 @@ type binaryAttributes struct {
 	Dynamic_deps       bazel.LabelListAttribute
 	Whole_archive_deps bazel.LabelListAttribute
 	System_deps        bazel.LabelListAttribute
+	Runtime_deps       bazel.LabelListAttribute
 
 	Local_includes    bazel.StringListAttribute
 	Absolute_includes bazel.StringListAttribute
 
 	Linkopts                 bazel.StringListAttribute
 	Additional_linker_inputs bazel.LabelListAttribute
-
-	Link_crt        bazel.BoolAttribute
-	Use_libcrt      bazel.BoolAttribute
-	Use_version_lib bazel.BoolAttribute
+	Use_version_lib          bazel.BoolAttribute
 
 	Rtti    bazel.BoolAttribute
 	Stl     *string
@@ -679,4 +704,8 @@ type binaryAttributes struct {
 	Features bazel.StringListAttribute
 
 	sdkAttributes
+
+	tidyAttributes
+
+	Native_coverage *bool
 }

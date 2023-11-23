@@ -75,14 +75,15 @@ import android.service.autofill.RegexValidator;
 import android.service.autofill.SaveInfo;
 import android.service.autofill.TextValueSanitizer;
 import android.service.autofill.Validator;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.URLSpan;
 import android.view.View;
 import android.view.autofill.AutofillId;
 import android.widget.RemoteViews;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 import org.junit.rules.RuleChain;
@@ -286,6 +287,8 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
     @Test
     public void testSave_afterRotation() throws Exception {
         assumeTrue("Rotation is supported", Helper.isRotationSupported(mContext));
+        assumeTrue("Device state is not REAR_DISPLAY",
+                !Helper.isDeviceInState(mContext, Helper.DeviceStateEnum.REAR_DISPLAY));
         mUiBot.setScreenOrientation(UiBot.PORTRAIT);
         try {
             saveTest(true);
@@ -1740,6 +1743,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
     @Test
     @AppModeFull(reason = "No real use case for instant mode af service")
     public void testTapUrlSpanOnCustomDescription_thenTapBack() throws Exception {
+        mUiBot.assumeMinimumResolution(500);
         saveUiRestoredAfterTappingSpanTest(DescriptionType.CUSTOM,
                 ViewActionActivity.ActivityCustomAction.NORMAL_ACTIVITY);
     }
@@ -1767,6 +1771,7 @@ public class SimpleSaveActivityTest extends CustomDescriptionWithLinkTestCase<Si
     @AppModeFull(reason = "No real use case for instant mode af service")
     public void testTapUrlSpanOnCustomDescription_forwardAnotherActivityThenTapBack()
             throws Exception {
+        mUiBot.assumeMinimumResolution(500);
         saveUiRestoredAfterTappingSpanTest(DescriptionType.CUSTOM,
                 ViewActionActivity.ActivityCustomAction.FAST_FORWARD_ANOTHER_ACTIVITY);
     }

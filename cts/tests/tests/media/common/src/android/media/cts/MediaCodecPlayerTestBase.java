@@ -69,10 +69,13 @@ public class MediaCodecPlayerTestBase<T extends Activity> extends ActivityInstru
             return;
         }
 
+        boolean checkNetwork = !audioUrl.toString().startsWith("file:///")
+                || !videoUrl.toString().startsWith("file:///");
+
         if (!preparePlayback(videoMime, videoFeatures,
                 audioUrl, false /* audioEncrypted */,
                 videoUrl, false /* videoEncrypted */, videoWidth, videoHeight,
-                false /* scrambled */, null /* sessionId */, surfaces)) {
+                false /* scrambled */, null /* sessionId */, surfaces, checkNetwork)) {
             return;
         }
 
@@ -88,8 +91,18 @@ public class MediaCodecPlayerTestBase<T extends Activity> extends ActivityInstru
             boolean audioEncrypted, Uri videoUrl, boolean videoEncrypted, int videoWidth,
             int videoHeight, boolean scrambled, byte[] sessionId, List<Surface> surfaces)
             throws IOException, MediaCryptoException, MediaCasException {
+        return preparePlayback(videoMime, videoFeatures, audioUrl, audioEncrypted, videoUrl,
+                videoEncrypted, videoWidth, videoHeight, scrambled, sessionId, surfaces,
+                /* checkNetwork */ true);
+    }
+
+    protected boolean preparePlayback(String videoMime, String[] videoFeatures, Uri audioUrl,
+            boolean audioEncrypted, Uri videoUrl, boolean videoEncrypted, int videoWidth,
+            int videoHeight, boolean scrambled, byte[] sessionId, List<Surface> surfaces,
+            boolean checkNetwork)
+            throws IOException, MediaCryptoException, MediaCasException {
         if (false == playbackPreCheck(videoMime, videoFeatures, videoUrl,
-                videoWidth, videoHeight)) {
+                videoWidth, videoHeight, checkNetwork)) {
             Log.e(TAG, "Failed playback precheck");
             return false;
         }
@@ -102,7 +115,10 @@ public class MediaCodecPlayerTestBase<T extends Activity> extends ActivityInstru
         mMediaCodecPlayer.setAudioDataSource(audioUrl, null, audioEncrypted);
         mMediaCodecPlayer.setVideoDataSource(videoUrl, null, videoEncrypted);
         mMediaCodecPlayer.start();
-        mMediaCodecPlayer.prepare();
+        if (!mMediaCodecPlayer.prepare()) {
+            Log.i(TAG, "Media Player could not be prepared.");
+            return false;
+        }
         return true;
     }
 
@@ -126,10 +142,20 @@ public class MediaCodecPlayerTestBase<T extends Activity> extends ActivityInstru
     // Verify if we can support playback resolution and has network connection.
     protected boolean playbackPreCheck(String videoMime, String[] videoFeatures,
             Uri videoUrl, int videoWidth, int videoHeight) {
+        return playbackPreCheck(videoMime, videoFeatures, videoUrl, videoWidth, videoHeight,
+                /* checkNetwork */ true);
+    }
+
+    private boolean playbackPreCheck(String videoMime, String[] videoFeatures,
+            Uri videoUrl, int videoWidth, int videoHeight, boolean checkNetwork) {
         if (!isResolutionSupported(videoMime, videoFeatures, videoWidth, videoHeight)) {
             Log.i(TAG, "Device does not support " +
                     videoWidth + "x" + videoHeight + " resolution for " + videoMime);
             return false;
+        }
+
+        if (!checkNetwork) {
+            return true;
         }
 
         IConnectionStatus connectionStatus = new ConnectionStatus(mContext);

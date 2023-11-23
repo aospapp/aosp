@@ -15,7 +15,7 @@
 
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiEnterpriseTest import WifiEnterpriseTest
+from ..WifiEnterpriseTest import WifiEnterpriseTest
 
 WifiEnums = wutils.WifiEnums
 # EAP Macros

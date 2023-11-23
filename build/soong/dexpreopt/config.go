@@ -36,8 +36,6 @@ type GlobalConfig struct {
 
 	PreoptWithUpdatableBcp bool // If updatable boot jars are included in dexpreopt or not.
 
-	UseArtImage bool // use the art image (use other boot class path dex files without image)
-
 	HasSystemOther        bool     // store odex files that match PatternsOnSystemOther on the system_other partition
 	PatternsOnSystemOther []string // patterns (using '%' to denote a prefix match) to put odex on the system_other partition
 
@@ -98,6 +96,8 @@ type GlobalConfig struct {
 	// quickly silence build errors. This flag should be used with caution and only as a temporary
 	// measure, as it masks real errors and affects performance.
 	RelaxUsesLibraryCheck bool
+
+	EnableUffdGc bool // preopt with the assumption that userfaultfd GC will be used on device.
 }
 
 var allPlatformSystemServerJarsKey = android.NewOnceKey("allPlatformSystemServerJars")
@@ -252,8 +252,9 @@ func ParseGlobalConfig(ctx android.PathContext, data []byte) (*GlobalConfig, err
 }
 
 type globalConfigAndRaw struct {
-	global *GlobalConfig
-	data   []byte
+	global     *GlobalConfig
+	data       []byte
+	pathErrors []error
 }
 
 // GetGlobalConfig returns the global dexpreopt.config that's created in the
@@ -274,16 +275,26 @@ func GetGlobalConfigRawData(ctx android.PathContext) []byte {
 var globalConfigOnceKey = android.NewOnceKey("DexpreoptGlobalConfig")
 var testGlobalConfigOnceKey = android.NewOnceKey("TestDexpreoptGlobalConfig")
 
+type pathContextErrorCollector struct {
+	android.PathContext
+	errors []error
+}
+
+func (p *pathContextErrorCollector) Errorf(format string, args ...interface{}) {
+	p.errors = append(p.errors, fmt.Errorf(format, args...))
+}
+
 func getGlobalConfigRaw(ctx android.PathContext) globalConfigAndRaw {
-	return ctx.Config().Once(globalConfigOnceKey, func() interface{} {
+	config := ctx.Config().Once(globalConfigOnceKey, func() interface{} {
 		if data, err := ctx.Config().DexpreoptGlobalConfig(ctx); err != nil {
 			panic(err)
 		} else if data != nil {
-			globalConfig, err := ParseGlobalConfig(ctx, data)
+			pathErrorCollectorCtx := &pathContextErrorCollector{PathContext: ctx}
+			globalConfig, err := ParseGlobalConfig(pathErrorCollectorCtx, data)
 			if err != nil {
 				panic(err)
 			}
-			return globalConfigAndRaw{globalConfig, data}
+			return globalConfigAndRaw{globalConfig, data, pathErrorCollectorCtx.errors}
 		}
 
 		// No global config filename set, see if there is a test config set
@@ -293,16 +304,35 @@ func getGlobalConfigRaw(ctx android.PathContext) globalConfigAndRaw {
 				DisablePreopt:           true,
 				DisablePreoptBootImages: true,
 				DisableGenerateProfile:  true,
-			}, nil}
+			}, nil, nil}
 		})
 	}).(globalConfigAndRaw)
+
+	// Avoid non-deterministic errors by reporting cached path errors on all callers.
+	for _, err := range config.pathErrors {
+		if ctx.Config().AllowMissingDependencies() {
+			// When AllowMissingDependencies it set, report errors through AddMissingDependencies.
+			// If AddMissingDependencies doesn't exist on the current context (for example when
+			// called with a SingletonContext), just swallow the errors since there is no way to
+			// report them.
+			if missingDepsCtx, ok := ctx.(interface {
+				AddMissingDependencies(missingDeps []string)
+			}); ok {
+				missingDepsCtx.AddMissingDependencies([]string{err.Error()})
+			}
+		} else {
+			android.ReportPathErrorf(ctx, "%w", err)
+		}
+	}
+
+	return config
 }
 
 // SetTestGlobalConfig sets a GlobalConfig that future calls to GetGlobalConfig
 // will return. It must be called before the first call to GetGlobalConfig for
 // the config.
 func SetTestGlobalConfig(config android.Config, globalConfig *GlobalConfig) {
-	config.Once(testGlobalConfigOnceKey, func() interface{} { return globalConfigAndRaw{globalConfig, nil} })
+	config.Once(testGlobalConfigOnceKey, func() interface{} { return globalConfigAndRaw{globalConfig, nil, nil} })
 }
 
 // This struct is required to convert ModuleConfig from/to JSON.
@@ -445,7 +475,16 @@ func RegisterToolDeps(ctx android.BottomUpMutatorContext) {
 	ctx.AddFarVariationDependencies(v, Dex2oatDepTag, dex2oatBin)
 }
 
+func IsDex2oatNeeded(ctx android.PathContext) bool {
+	global := GetGlobalConfig(ctx)
+	return !global.DisablePreopt || !global.DisablePreoptBootImages
+}
+
 func dex2oatPathFromDep(ctx android.ModuleContext) android.Path {
+	if !IsDex2oatNeeded(ctx) {
+		return nil
+	}
+
 	dex2oatBin := dex2oatModuleName(ctx.Config())
 
 	// Find the right dex2oat module, trying to follow PrebuiltDepTag from source
@@ -494,7 +533,7 @@ func createGlobalSoongConfig(ctx android.ModuleContext) *GlobalSoongConfig {
 	return &GlobalSoongConfig{
 		Profman:          ctx.Config().HostToolPath(ctx, "profman"),
 		Dex2oat:          dex2oatPathFromDep(ctx),
-		Aapt:             ctx.Config().HostToolPath(ctx, "aapt"),
+		Aapt:             ctx.Config().HostToolPath(ctx, "aapt2"),
 		SoongZip:         ctx.Config().HostToolPath(ctx, "soong_zip"),
 		Zip2zip:          ctx.Config().HostToolPath(ctx, "zip2zip"),
 		ManifestCheck:    ctx.Config().HostToolPath(ctx, "manifest_check"),
@@ -696,7 +735,7 @@ func globalSoongConfigForTests() *GlobalSoongConfig {
 	return &GlobalSoongConfig{
 		Profman:          android.PathForTesting("profman"),
 		Dex2oat:          android.PathForTesting("dex2oat"),
-		Aapt:             android.PathForTesting("aapt"),
+		Aapt:             android.PathForTesting("aapt2"),
 		SoongZip:         android.PathForTesting("soong_zip"),
 		Zip2zip:          android.PathForTesting("zip2zip"),
 		ManifestCheck:    android.PathForTesting("manifest_check"),

@@ -70,8 +70,10 @@ class CdEntryMapTest : public ::testing::Test {
     joined_names_ = header_ + android::base::Join(names_, separator_);
     base_ptr_ = reinterpret_cast<uint8_t*>(&joined_names_[0]);
 
-    entry_maps_.emplace_back(CdEntryMapZip32::Create(static_cast<uint16_t>(names_.size())));
-    entry_maps_.emplace_back(CdEntryMapZip64::Create());
+    uint16_t num_entries = static_cast<uint16_t>(names_.size());
+    entry_maps_.emplace_back(new CdEntryMapZip32<ZipStringOffset20>(num_entries));
+    entry_maps_.emplace_back(new CdEntryMapZip32<ZipStringOffset32>(num_entries));
+    entry_maps_.emplace_back(new CdEntryMapZip64());
     for (auto& cd_map : entry_maps_) {
       ASSERT_NE(nullptr, cd_map);
       size_t offset = header_.size();
@@ -132,8 +134,16 @@ TEST_F(CdEntryMapTest, Iteration) {
 TEST(ziparchive, Open) {
   ZipArchiveHandle handle;
   ASSERT_EQ(0, OpenArchiveWrapper(kValidZip, &handle));
+  // TODO(b/287285733): restore mmap() when the cold cache regression is fixed.
+#if 0
+  const auto& mappedFile = handle->mapped_zip;
+  if constexpr (sizeof(void*) < 8) {
+    ASSERT_EQ(nullptr, mappedFile.GetBasePtr());
+  } else {
+    ASSERT_NE(nullptr, mappedFile.GetBasePtr());
+  }
+#endif  // 0
   CloseArchive(handle);
-
   ASSERT_EQ(kInvalidEntryName, OpenArchiveWrapper("bad_filename.zip", &handle));
   CloseArchive(handle);
 }
@@ -886,7 +896,7 @@ TEST(ziparchive, BrokenLfhSignature) {
   ASSERT_EQ(kInvalidFile, OpenArchiveFd(tmp_file.fd, "LeadingNonZipBytes", &handle, false));
 }
 
-class VectorReader : public zip_archive::Reader {
+class VectorReader final : public zip_archive::Reader {
  public:
   VectorReader(const std::vector<uint8_t>& input) : Reader(), input_(input) {}
 
@@ -903,7 +913,7 @@ class VectorReader : public zip_archive::Reader {
   const std::vector<uint8_t>& input_;
 };
 
-class VectorWriter : public zip_archive::Writer {
+class VectorWriter final : public zip_archive::Writer {
  public:
   VectorWriter() : Writer() {}
 
@@ -918,14 +928,14 @@ class VectorWriter : public zip_archive::Writer {
   std::vector<uint8_t> output_;
 };
 
-class BadReader : public zip_archive::Reader {
+class BadReader final : public zip_archive::Reader {
  public:
   BadReader() : Reader() {}
 
   bool ReadAtOffset(uint8_t*, size_t, off64_t) const { return false; }
 };
 
-class BadWriter : public zip_archive::Writer {
+class BadWriter final : public zip_archive::Writer {
  public:
   BadWriter() : Writer() {}
 

@@ -29,6 +29,7 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
+#include "android-base/properties.h"
 #include "arch/instruction_set.h"
 #include "art_method-inl.h"
 #include "base/enums.h"
@@ -41,7 +42,7 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include "dex/dex_file-inl.h"
 #include "dex/dex_file_types.h"
 #include "gc/accounting/card_table-inl.h"
-#include "gc/allocator/dlmalloc.h"
+#include "gc/allocator/art-dlmalloc.h"
 #include "gc/heap.h"
 #include "gc/space/dlmalloc_space.h"
 #include "gc/space/image_space.h"
@@ -60,9 +61,10 @@ extern "C" void android_set_application_target_sdk_version(uint32_t version);
 #include "runtime.h"
 #include "scoped_fast_native_object_access-inl.h"
 #include "scoped_thread_state_change-inl.h"
-#include "thread.h"
+#include "startup_completed_task.h"
+#include "string_array_utils.h"
+#include "thread-inl.h"
 #include "thread_list.h"
-#include "well_known_classes.h"
 
 namespace art {
 
@@ -189,27 +191,9 @@ static jboolean VMRuntime_isJavaDebuggable(JNIEnv*, jobject) {
 }
 
 static jobjectArray VMRuntime_properties(JNIEnv* env, jobject) {
-  DCHECK(WellKnownClasses::java_lang_String != nullptr);
-
   const std::vector<std::string>& properties = Runtime::Current()->GetProperties();
-  ScopedLocalRef<jobjectArray> ret(env,
-                                   env->NewObjectArray(static_cast<jsize>(properties.size()),
-                                                       WellKnownClasses::java_lang_String,
-                                                       nullptr /* initial element */));
-  if (ret == nullptr) {
-    DCHECK(env->ExceptionCheck());
-    return nullptr;
-  }
-  for (size_t i = 0; i != properties.size(); ++i) {
-    ScopedLocalRef<jstring> str(env, env->NewStringUTF(properties[i].c_str()));
-    if (str == nullptr) {
-      DCHECK(env->ExceptionCheck());
-      return nullptr;
-    }
-    env->SetObjectArrayElement(ret.get(), static_cast<jsize>(i), str.get());
-    DCHECK(!env->ExceptionCheck());
-  }
-  return ret.release();
+  ScopedObjectAccess soa(Thread::ForEnv(env));
+  return soa.AddLocalReference<jobjectArray>(CreateStringArray(soa.Self(), properties));
 }
 
 // This is for backward compatibility with dalvik which returned the
@@ -251,6 +235,13 @@ static jboolean VMRuntime_is64Bit(JNIEnv*, jobject) {
 
 static jboolean VMRuntime_isCheckJniEnabled(JNIEnv* env, jobject) {
   return down_cast<JNIEnvExt*>(env)->GetVm()->IsCheckJniEnabled() ? JNI_TRUE : JNI_FALSE;
+}
+
+static jint VMRuntime_getSdkVersionNative(JNIEnv* env ATTRIBUTE_UNUSED,
+                                          jclass klass ATTRIBUTE_UNUSED,
+                                          jint default_sdk_version) {
+  return android::base::GetIntProperty("ro.build.version.sdk",
+                                       default_sdk_version);
 }
 
 static void VMRuntime_setTargetSdkVersionNative(JNIEnv*, jobject, jint target_sdk_version) {
@@ -333,35 +324,35 @@ static void VMRuntime_updateProcessState(JNIEnv*, jobject, jint process_state) {
 }
 
 static void VMRuntime_notifyStartupCompleted(JNIEnv*, jobject) {
-  Runtime::Current()->NotifyStartupCompleted();
+  Runtime::Current()->GetHeap()->AddHeapTask(new StartupCompletedTask(NanoTime()));
 }
 
 static void VMRuntime_trimHeap(JNIEnv* env, jobject) {
-  Runtime::Current()->GetHeap()->Trim(ThreadForEnv(env));
+  Runtime::Current()->GetHeap()->Trim(Thread::ForEnv(env));
 }
 
 static void VMRuntime_requestHeapTrim(JNIEnv* env, jobject) {
-  Runtime::Current()->GetHeap()->RequestTrim(ThreadForEnv(env));
+  Runtime::Current()->GetHeap()->RequestTrim(Thread::ForEnv(env));
 }
 
 static void VMRuntime_requestConcurrentGC(JNIEnv* env, jobject) {
   gc::Heap *heap = Runtime::Current()->GetHeap();
-  heap->RequestConcurrentGC(ThreadForEnv(env),
+  heap->RequestConcurrentGC(Thread::ForEnv(env),
                             gc::kGcCauseBackground,
                             true,
                             heap->GetCurrentGcNum());
 }
 
 static void VMRuntime_startHeapTaskProcessor(JNIEnv* env, jobject) {
-  Runtime::Current()->GetHeap()->GetTaskProcessor()->Start(ThreadForEnv(env));
+  Runtime::Current()->GetHeap()->GetTaskProcessor()->Start(Thread::ForEnv(env));
 }
 
 static void VMRuntime_stopHeapTaskProcessor(JNIEnv* env, jobject) {
-  Runtime::Current()->GetHeap()->GetTaskProcessor()->Stop(ThreadForEnv(env));
+  Runtime::Current()->GetHeap()->GetTaskProcessor()->Stop(Thread::ForEnv(env));
 }
 
 static void VMRuntime_runHeapTasks(JNIEnv* env, jobject) {
-  Runtime::Current()->GetHeap()->GetTaskProcessor()->RunAllTasks(ThreadForEnv(env));
+  Runtime::Current()->GetHeap()->GetTaskProcessor()->RunAllTasks(Thread::ForEnv(env));
 }
 
 static void VMRuntime_preloadDexCaches(JNIEnv* env ATTRIBUTE_UNUSED, jobject) {
@@ -509,6 +500,41 @@ static jboolean VMRuntime_isValidClassLoaderContext(JNIEnv* env,
   return ClassLoaderContext::IsValidEncoding(encoded_class_loader_context.c_str());
 }
 
+static jobject VMRuntime_getBaseApkOptimizationInfo(JNIEnv* env, jclass klass ATTRIBUTE_UNUSED) {
+  AppInfo* app_info = Runtime::Current()->GetAppInfo();
+  DCHECK(app_info != nullptr);
+
+  std::string compiler_filter;
+  std::string compilation_reason;
+  app_info->GetPrimaryApkOptimizationStatus(&compiler_filter, &compilation_reason);
+
+  ScopedLocalRef<jclass> cls(env, env->FindClass("dalvik/system/DexFile$OptimizationInfo"));
+  if (cls == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
+
+  jmethodID ctor = env->GetMethodID(cls.get(), "<init>", "(Ljava/lang/String;Ljava/lang/String;)V");
+  if (ctor == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
+
+  ScopedLocalRef<jstring> j_compiler_filter(env, env->NewStringUTF(compiler_filter.c_str()));
+  if (j_compiler_filter == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
+
+  ScopedLocalRef<jstring> j_compilation_reason(env, env->NewStringUTF(compilation_reason.c_str()));
+  if (j_compilation_reason == nullptr) {
+    DCHECK(env->ExceptionCheck());
+    return nullptr;
+  }
+
+  return env->NewObject(cls.get(), ctor, j_compiler_filter.get(), j_compilation_reason.get());
+}
+
 static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, addressOf, "(Ljava/lang/Object;)J"),
   NATIVE_METHOD(VMRuntime, bootClassPath, "()Ljava/lang/String;"),
@@ -524,6 +550,7 @@ static JNINativeMethod gMethods[] = {
   FAST_NATIVE_METHOD(VMRuntime, newNonMovableArray, "(Ljava/lang/Class;I)Ljava/lang/Object;"),
   FAST_NATIVE_METHOD(VMRuntime, newUnpaddedArray, "(Ljava/lang/Class;I)Ljava/lang/Object;"),
   NATIVE_METHOD(VMRuntime, properties, "()[Ljava/lang/String;"),
+  NATIVE_METHOD(VMRuntime, getSdkVersionNative, "(I)I"),
   NATIVE_METHOD(VMRuntime, setTargetSdkVersionNative, "(I)V"),
   NATIVE_METHOD(VMRuntime, setDisabledCompatChangesNative, "([J)V"),
   NATIVE_METHOD(VMRuntime, registerNativeAllocation, "(J)V"),
@@ -557,6 +584,8 @@ static JNINativeMethod gMethods[] = {
   NATIVE_METHOD(VMRuntime, bootCompleted, "()V"),
   NATIVE_METHOD(VMRuntime, resetJitCounters, "()V"),
   NATIVE_METHOD(VMRuntime, isValidClassLoaderContext, "(Ljava/lang/String;)Z"),
+  NATIVE_METHOD(VMRuntime, getBaseApkOptimizationInfo,
+      "()Ldalvik/system/DexFile$OptimizationInfo;"),
 };
 
 void register_dalvik_system_VMRuntime(JNIEnv* env) {

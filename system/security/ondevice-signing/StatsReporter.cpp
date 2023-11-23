@@ -20,12 +20,13 @@
 #include <string>
 #include <sys/stat.h>
 
-// Keep these constant in sync with COMPOS_METRIC_NAME & METRICS_FILE in OdsignStatsLogger.java.
+// Keep these constants in sync with those in OdsignStatsLogger.java.
 constexpr const char* kOdsignMetricsFile = "/data/misc/odsign/metrics/odsign-metrics.txt";
 constexpr const char* kComposMetricName = "comp_os_artifacts_check_record";
+constexpr const char* kOdsignMetricName = "odsign_record";
 
 StatsReporter::~StatsReporter() {
-    if (comp_os_artifacts_check_record_ == nullptr) {
+    if (comp_os_artifacts_check_record_ == nullptr && !odsign_record_enabled_) {
         LOG(INFO) << "Metrics report is empty";
 
         // Remove the metrics file if any old version of the file already exists
@@ -42,24 +43,31 @@ StatsReporter::~StatsReporter() {
         PLOG(ERROR) << "Could not open file: " << kOdsignMetricsFile;
         return;
     }
-
-    odsign_metrics_file_ << kComposMetricName << ' ';
-    odsign_metrics_file_ << comp_os_artifacts_check_record_->current_artifacts_ok << ' ';
-    odsign_metrics_file_ << comp_os_artifacts_check_record_->comp_os_pending_artifacts_exists
-                         << ' ';
-    odsign_metrics_file_ << comp_os_artifacts_check_record_->use_comp_os_generated_artifacts
-                         << '\n';
     if (chmod(kOdsignMetricsFile, 0644) != 0) {
         PLOG(ERROR) << "Could not set correct file permissions for " << kOdsignMetricsFile;
         return;
     }
+
+    if (comp_os_artifacts_check_record_ != nullptr) {
+        odsign_metrics_file_ << kComposMetricName << ' '
+                             << comp_os_artifacts_check_record_->current_artifacts_ok << ' '
+                             << comp_os_artifacts_check_record_->comp_os_pending_artifacts_exists
+                             << ' '
+                             << comp_os_artifacts_check_record_->use_comp_os_generated_artifacts
+                             << '\n';
+    }
+
+    if (odsign_record_enabled_) {
+        odsign_metrics_file_ << kOdsignMetricName << ' ' << odsign_record_.status << '\n';
+    }
+
     odsign_metrics_file_.close();
     if (!odsign_metrics_file_) {
         PLOG(ERROR) << "Failed to close the file";
     }
 }
 
-StatsReporter::CompOsArtifactsCheckRecord* StatsReporter::GetComposArtifactsCheckRecord() {
+StatsReporter::CompOsArtifactsCheckRecord* StatsReporter::GetOrCreateComposArtifactsCheckRecord() {
     if (comp_os_artifacts_check_record_ == nullptr) {
         comp_os_artifacts_check_record_ = std::make_unique<CompOsArtifactsCheckRecord>();
     }

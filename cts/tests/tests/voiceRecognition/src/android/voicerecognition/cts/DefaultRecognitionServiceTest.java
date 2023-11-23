@@ -16,30 +16,43 @@
 
 package android.voicerecognition.cts;
 
+import static com.android.compatibility.common.util.SystemUtil.eventually;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.content.Context;
 import android.provider.Settings;
 import android.speech.SpeechRecognizer;
 
-import androidx.test.InstrumentationRegistry;
-import androidx.test.runner.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.SettingsStateChangerRule;
 
+import org.junit.BeforeClass;
 import org.junit.Rule;
-import org.junit.runner.RunWith;
 
 /** Recognition service tests for a default speech recognition service. */
-@RunWith(AndroidJUnit4.class)
 public final class DefaultRecognitionServiceTest extends AbstractRecognitionServiceTest {
 
     // same as Settings.Secure.VOICE_RECOGNITION_SERVICE
     final String VOICE_RECOGNITION_SERVICE = "voice_recognition_service";
 
-    protected final Context mContext = InstrumentationRegistry.getTargetContext();
+    // UiAutomation connection timeout in milliseconds.
+    private static final int UIAUTOMATION_CONNECTION_TIMEOUT_MILLIS = 10000;
+
+    protected final Context mContext =
+            InstrumentationRegistry.getInstrumentation().getTargetContext();
     private final String mOriginalVoiceRecognizer = Settings.Secure.getString(
             mContext.getContentResolver(), VOICE_RECOGNITION_SERVICE);
+
+    // Check that UiAutomation is properly connected, SettingsStateChangerRule will fail otherwise.
+    @BeforeClass
+    public static void checkUiAutomationNonNull() {
+        eventually(() -> assertWithMessage("UiAutomation failed to connect")
+                .that(InstrumentationRegistry.getInstrumentation().getUiAutomation()).isNotNull(),
+                UIAUTOMATION_CONNECTION_TIMEOUT_MILLIS);
+    }
 
     @Rule
     public final SettingsStateChangerRule mVoiceRecognitionServiceSetterRule =

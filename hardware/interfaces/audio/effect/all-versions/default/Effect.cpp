@@ -25,8 +25,11 @@
 #define ATRACE_TAG ATRACE_TAG_AUDIO
 #include <HidlUtils.h>
 #include <android/log.h>
+#include <cutils/properties.h>
 #include <media/EffectsFactoryApi.h>
 #include <mediautils/ScopedStatistics.h>
+#include <sys/syscall.h>
+#include <system/audio_effects/effect_spatializer.h>
 #include <util/EffectUtils.h>
 #include <utils/Trace.h>
 
@@ -46,6 +49,160 @@ using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::implementati
 using ::android::hardware::audio::common::COMMON_TYPES_CPP_VERSION::implementation::HidlUtils;
 
 namespace {
+
+/**
+ * Some basic scheduling tools.
+ */
+namespace scheduler {
+
+int getCpu() {
+    return sched_getcpu();
+}
+
+uint64_t getAffinity(pid_t tid) {
+    cpu_set_t set;
+    CPU_ZERO_S(sizeof(set), &set);
+
+    if (sched_getaffinity(tid, sizeof(set), &set)) {
+        ALOGW("%s: for tid:%d returning 0, failed %s", __func__, tid, strerror(errno));
+        return 0;
+    }
+    const int count = CPU_COUNT_S(sizeof(set), &set);
+    uint64_t mask = 0;
+    for (int i = 0; i < CPU_SETSIZE; ++i) {
+        if (CPU_ISSET_S(i, sizeof(set), &set)) {
+            mask |= 1 << i;
+        }
+    }
+    ALOGV("%s: for tid:%d returning cpu count %d mask %llu", __func__, tid, count,
+          (unsigned long long)mask);
+    return mask;
+}
+
+status_t setAffinity(pid_t tid, uint64_t mask) {
+    cpu_set_t set;
+    CPU_ZERO_S(sizeof(set), &set);
+
+    for (uint64_t m = mask; m != 0;) {
+        uint64_t tz = __builtin_ctz(m);
+        CPU_SET_S(tz, sizeof(set), &set);
+        m &= ~(1 << tz);
+    }
+    if (sched_setaffinity(tid, sizeof(set), &set)) {
+        ALOGW("%s: for tid:%d setting cpu mask %llu failed %s", __func__, tid,
+              (unsigned long long)mask, strerror(errno));
+        return -errno;
+    }
+    ALOGV("%s: for tid:%d setting cpu mask %llu", __func__, tid, (unsigned long long)mask);
+    return OK;
+}
+
+__unused status_t setPriority(pid_t tid, int policy, int priority) {
+    struct sched_param param {
+        .sched_priority = priority,
+    };
+    if (sched_setscheduler(tid, policy, &param) != 0) {
+        ALOGW("%s: Cannot set FIFO priority for tid %d to policy %d priority %d  %s", __func__, tid,
+              policy, priority, strerror(errno));
+        return -errno;
+    }
+    ALOGV("%s: Successfully set priority for tid %d to policy %d priority %d", __func__, tid,
+          policy, priority);
+    return NO_ERROR;
+}
+
+status_t setUtilMin(pid_t tid, uint32_t utilMin) {
+    // Currently, there is no wrapper in bionic: b/183240349.
+    struct {
+        uint32_t size;
+        uint32_t sched_policy;
+        uint64_t sched_flags;
+        int32_t sched_nice;
+        uint32_t sched_priority;
+        uint64_t sched_runtime;
+        uint64_t sched_deadline;
+        uint64_t sched_period;
+        uint32_t sched_util_min;
+        uint32_t sched_util_max;
+    } attr{
+            .size = sizeof(attr),
+            .sched_flags = SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP_MIN,
+            .sched_util_min = utilMin,
+    };
+
+    if (syscall(__NR_sched_setattr, tid, &attr, 0 /* flags */)) {
+        ALOGW("%s: Cannot set sched_util_min for pid %d to %u  %s", __func__, tid, utilMin,
+              strerror(errno));
+        return -errno;
+    }
+    ALOGV("%s: Successfully set sched_util_min for pid %d to %u", __func__, tid, utilMin);
+    return NO_ERROR;
+}
+
+/*
+   Attempts to raise the priority and usage of tid for spatialization.
+   Returns OK if everything works.
+*/
+status_t updateSpatializerPriority(pid_t tid) {
+    status_t status = OK;
+
+    const int cpu = getCpu();
+    ALOGV("%s: current CPU:%d", __func__, cpu);
+
+    const auto currentAffinity = getAffinity(tid);
+    ALOGV("%s: current Affinity:%llx", __func__, (unsigned long long)currentAffinity);
+
+    // Set the desired CPU core affinity.
+    // Typically this would be done to move the Spatializer effect off of the little cores.
+    // The mid cores and large cores typically have more FP/NEON units
+    // and will advantageously reduce power and prevent glitches due CPU limitations.
+    //
+    // Since this is SOC dependent, we do not set the core affinity here but
+    // prefer to set the util_clamp_min below.
+    //
+    constexpr uint64_t kDefaultAffinity = 0;
+    const int32_t desiredAffinity =
+            property_get_int32("audio.spatializer.effect.affinity", kDefaultAffinity);
+    if (desiredAffinity != 0 && (desiredAffinity & ~currentAffinity) == 0) {
+        const status_t localStatus = setAffinity(tid, desiredAffinity);
+        status = status ? status : localStatus;
+    }
+
+    // Set the util_clamp_min.
+    // This is beneficial to reduce glitches when starting up, or due to scheduler
+    // thread statistics reset (e.g. core migration), which cause the CPU frequency to drop
+    // to minimum.
+    //
+    // Experimentation has found that moving to a mid core over a little core reduces
+    // power if the mid core (e.g. A76/78) has more (e.g. 2x) FP/NEON units
+    // than the little core (e.g. A55).
+    // A possible value is 300.
+    //
+    constexpr uint32_t kUtilMin = 0;
+    const int32_t utilMin = property_get_int32("audio.spatializer.effect.util_clamp_min", kUtilMin);
+    if (utilMin > 0 && utilMin <= 1024) {
+        const status_t localStatus = setUtilMin(tid, utilMin);
+        status = status ? status : localStatus;
+    }
+
+#if 0
+    // Provided for local vendor testing but not enabled as audioserver does this for us.
+    //
+    // Set priority if specified.
+    constexpr int32_t kRTPriorityMin = 1;
+    constexpr int32_t kRTPriorityMax = 3;
+    const int32_t priorityBoost =
+            property_get_int32("audio.spatializer.priority", kRTPriorityMin);
+    if (priorityBoost >= kRTPriorityMin && priorityBoost <= kRTPriorityMax) {
+        const status_t localStatus = scheduler::setPriority(threadId, SCHED_FIFO, priorityBoost);
+        status = status ? status : localStatus;
+    }
+#endif
+
+    return status;
+}
+
+}  // namespace scheduler
 
 #define SCOPED_STATS()                                                       \
     ::android::mediautils::ScopedStatistics scopedStatistics {               \
@@ -238,12 +395,27 @@ void Effect::effectOffloadParamToHal(const EffectOffloadParameter& offload,
 }
 
 // static
-std::vector<uint8_t> Effect::parameterToHal(uint32_t paramSize, const void* paramData,
-                                            uint32_t valueSize, const void** valueData) {
+bool Effect::parameterToHal(uint32_t paramSize, const void* paramData, uint32_t valueSize,
+                            const void** valueData, std::vector<uint8_t>* halParamBuffer) {
+    constexpr size_t kMaxSize = EFFECT_PARAM_SIZE_MAX - sizeof(effect_param_t);
+    if (paramSize > kMaxSize) {
+        ALOGE("%s: Parameter size is too big: %" PRIu32, __func__, paramSize);
+        return false;
+    }
     size_t valueOffsetFromData = alignedSizeIn<uint32_t>(paramSize) * sizeof(uint32_t);
+    if (valueOffsetFromData > kMaxSize) {
+        ALOGE("%s: Aligned parameter size is too big: %zu", __func__, valueOffsetFromData);
+        return false;
+    }
+    if (valueSize > kMaxSize - valueOffsetFromData) {
+        ALOGE("%s: Value size is too big: %" PRIu32 ", max size is %zu", __func__, valueSize,
+              kMaxSize - valueOffsetFromData);
+        android_errorWriteLog(0x534e4554, "237291425");
+        return false;
+    }
     size_t halParamBufferSize = sizeof(effect_param_t) + valueOffsetFromData + valueSize;
-    std::vector<uint8_t> halParamBuffer(halParamBufferSize, 0);
-    effect_param_t* halParam = reinterpret_cast<effect_param_t*>(&halParamBuffer[0]);
+    halParamBuffer->resize(halParamBufferSize, 0);
+    effect_param_t* halParam = reinterpret_cast<effect_param_t*>(halParamBuffer->data());
     halParam->psize = paramSize;
     halParam->vsize = valueSize;
     memcpy(halParam->data, paramData, paramSize);
@@ -256,7 +428,7 @@ std::vector<uint8_t> Effect::parameterToHal(uint32_t paramSize, const void* para
             *valueData = halParam->data + valueOffsetFromData;
         }
     }
-    return halParamBuffer;
+    return true;
 }
 
 Result Effect::analyzeCommandStatus(const char* commandName, const char* context, status_t status) {
@@ -301,6 +473,11 @@ void Effect::getConfigImpl(int commandCode, const char* commandName, GetConfigCa
 
 Result Effect::getCurrentConfigImpl(uint32_t featureId, uint32_t configSize,
                                     GetCurrentConfigSuccessCallback onSuccess) {
+    if (configSize > kMaxDataSize - sizeof(uint32_t)) {
+        ALOGE("%s: Config size is too big: %" PRIu32, __func__, configSize);
+        android_errorWriteLog(0x534e4554, "240266798");
+        return Result::INVALID_ARGUMENTS;
+    }
     uint32_t halCmd = featureId;
     std::vector<uint32_t> halResult(alignedSizeIn<uint32_t>(sizeof(uint32_t) + configSize), 0);
     uint32_t halResultSize = 0;
@@ -314,11 +491,15 @@ Result Effect::getParameterImpl(uint32_t paramSize, const void* paramData,
                                 GetParameterSuccessCallback onSuccess) {
     // As it is unknown what method HAL uses for copying the provided parameter data,
     // it is safer to make sure that input and output buffers do not overlap.
-    std::vector<uint8_t> halCmdBuffer =
-        parameterToHal(paramSize, paramData, requestValueSize, nullptr);
+    std::vector<uint8_t> halCmdBuffer;
+    if (!parameterToHal(paramSize, paramData, requestValueSize, nullptr, &halCmdBuffer)) {
+        return Result::INVALID_ARGUMENTS;
+    }
     const void* valueData = nullptr;
-    std::vector<uint8_t> halParamBuffer =
-        parameterToHal(paramSize, paramData, replyValueSize, &valueData);
+    std::vector<uint8_t> halParamBuffer;
+    if (!parameterToHal(paramSize, paramData, replyValueSize, &valueData, &halParamBuffer)) {
+        return Result::INVALID_ARGUMENTS;
+    }
     uint32_t halParamBufferSize = halParamBuffer.size();
 
     return sendCommandReturningStatusAndData(
@@ -331,8 +512,12 @@ Result Effect::getParameterImpl(uint32_t paramSize, const void* paramData,
 
 Result Effect::getSupportedConfigsImpl(uint32_t featureId, uint32_t maxConfigs, uint32_t configSize,
                                        GetSupportedConfigsSuccessCallback onSuccess) {
+    if (maxConfigs != 0 && configSize > (kMaxDataSize - 2 * sizeof(uint32_t)) / maxConfigs) {
+        ALOGE("%s: Config size is too big: %" PRIu32, __func__, configSize);
+        return Result::INVALID_ARGUMENTS;
+    }
     uint32_t halCmd[2] = {featureId, maxConfigs};
-    uint32_t halResultSize = 2 * sizeof(uint32_t) + maxConfigs * sizeof(configSize);
+    uint32_t halResultSize = 2 * sizeof(uint32_t) + maxConfigs * configSize;
     std::vector<uint8_t> halResult(static_cast<size_t>(halResultSize), 0);
     return sendCommandReturningStatusAndData(
         EFFECT_CMD_GET_FEATURE_SUPPORTED_CONFIGS, "GET_FEATURE_SUPPORTED_CONFIGS", sizeof(halCmd),
@@ -373,6 +558,15 @@ Return<void> Effect::prepareForProcessing(prepareForProcessing_cb _hidl_cb) {
         ALOGW("failed to start effect processing thread: %s", strerror(-status));
         _hidl_cb(Result::INVALID_ARGUMENTS, MQDescriptorSync<Result>());
         return Void();
+    }
+
+    // For a spatializer effect, we perform scheduler adjustments to reduce glitches and power.
+    // We do it here instead of the ProcessThread::threadLoop to ensure that mHandle is valid.
+    if (effect_descriptor_t halDescriptor{};
+        (*mHandle)->get_descriptor(mHandle, &halDescriptor) == NO_ERROR &&
+        memcmp(&halDescriptor.type, FX_IID_SPATIALIZER, sizeof(effect_uuid_t)) == 0) {
+        const status_t status = scheduler::updateSpatializerPriority(mProcessThread->getTid());
+        ALOGW_IF(status != OK, "Failed to update Spatializer priority");
     }
 
     mStatusMQ = std::move(tempStatusMQ);
@@ -472,8 +666,10 @@ Result Effect::setConfigImpl(int commandCode, const char* commandName, const Eff
 
 Result Effect::setParameterImpl(uint32_t paramSize, const void* paramData, uint32_t valueSize,
                                 const void* valueData) {
-    std::vector<uint8_t> halParamBuffer =
-        parameterToHal(paramSize, paramData, valueSize, &valueData);
+    std::vector<uint8_t> halParamBuffer;
+    if (!parameterToHal(paramSize, paramData, valueSize, &valueData, &halParamBuffer)) {
+        return Result::INVALID_ARGUMENTS;
+    }
     return sendCommandReturningStatus(EFFECT_CMD_SET_PARAM, "SET_PARAM", halParamBuffer.size(),
                                       &halParamBuffer[0]);
 }
@@ -670,8 +866,21 @@ Return<void> Effect::command(uint32_t commandId, const hidl_vec<uint8_t>& data,
 
     void* dataPtr = halDataSize > 0 ? &halData[0] : NULL;
     void* resultPtr = halResultSize > 0 ? &halResult[0] : NULL;
-    status_t status =
-        (*mHandle)->command(mHandle, commandId, halDataSize, dataPtr, &halResultSize, resultPtr);
+    status_t status = BAD_VALUE;
+    switch (commandId) {
+        case 'gtid':  // retrieve the tid, used for spatializer priority boost
+            if (halDataSize == 0 && resultMaxSize == sizeof(int32_t)) {
+                auto ptid = (int32_t*)resultPtr;
+                ptid[0] = mProcessThread ? mProcessThread->getTid() : -1;
+                status = OK;
+                break;  // we have handled 'gtid' here.
+            }
+            [[fallthrough]];  // allow 'gtid' overload (checked halDataSize and resultMaxSize).
+        default:
+            status = (*mHandle)->command(mHandle, commandId, halDataSize, dataPtr, &halResultSize,
+                                         resultPtr);
+            break;
+    }
     hidl_vec<uint8_t> result;
     if (status == OK && resultPtr != NULL) {
         result.setToExternal(&halResult[0], halResultSize);

@@ -23,6 +23,8 @@ import (
 	"android/soong/android"
 	"android/soong/java/config"
 	"android/soong/tradefed"
+
+	"github.com/google/blueprint/proptools"
 )
 
 func init() {
@@ -63,6 +65,10 @@ type robolectricProperties struct {
 	// The version number of a robolectric prebuilt to use from prebuilts/misc/common/robolectric
 	// instead of the one built from source in external/robolectric-shadows.
 	Robolectric_prebuilt_version *string
+
+	// Use /external/robolectric rather than /external/robolectric-shadows as the version of robolectri
+	// to use.  /external/robolectric closely tracks github's master, and will fully replace /external/robolectric-shadows
+	Upstream *bool
 }
 
 type robolectricTest struct {
@@ -106,7 +112,11 @@ func (r *robolectricTest) DepsMutator(ctx android.BottomUpMutatorContext) {
 	if v := String(r.robolectricProperties.Robolectric_prebuilt_version); v != "" {
 		ctx.AddVariationDependencies(nil, libTag, fmt.Sprintf(robolectricPrebuiltLibPattern, v))
 	} else {
-		ctx.AddVariationDependencies(nil, libTag, robolectricCurrentLib)
+		if proptools.Bool(r.robolectricProperties.Upstream) {
+			ctx.AddVariationDependencies(nil, libTag, robolectricCurrentLib+"_upstream")
+		} else {
+			ctx.AddVariationDependencies(nil, libTag, robolectricCurrentLib)
+		}
 	}
 
 	ctx.AddVariationDependencies(nil, libTag, robolectricDefaultLibs...)
@@ -121,9 +131,14 @@ func (r *robolectricTest) GenerateAndroidBuildActions(ctx android.ModuleContext)
 	r.forceOSType = ctx.Config().BuildOS
 	r.forceArchType = ctx.Config().BuildArch
 
-	r.testConfig = tradefed.AutoGenRobolectricTestConfig(ctx, r.testProperties.Test_config,
-		r.testProperties.Test_config_template, r.testProperties.Test_suites,
-		r.testProperties.Auto_gen_config)
+	r.testConfig = tradefed.AutoGenTestConfig(ctx, tradefed.AutoGenTestConfigOptions{
+		TestConfigProp:         r.testProperties.Test_config,
+		TestConfigTemplateProp: r.testProperties.Test_config_template,
+		TestSuites:             r.testProperties.Test_suites,
+		AutoGenConfig:          r.testProperties.Auto_gen_config,
+		DeviceTemplate:         "${RobolectricTestConfigTemplate}",
+		HostTemplate:           "${RobolectricTestConfigTemplate}",
+	})
 	r.data = android.PathsForModuleSrc(ctx, r.testProperties.Data)
 
 	roboTestConfig := android.PathForModuleGen(ctx, "robolectric").
@@ -165,12 +180,19 @@ func (r *robolectricTest) GenerateAndroidBuildActions(ctx android.ModuleContext)
 		instrumentedApp.implementationAndResourcesJar,
 	}
 
-	for _, dep := range ctx.GetDirectDepsWithTag(libTag) {
+	handleLibDeps := func(dep android.Module) {
 		m := ctx.OtherModuleProvider(dep, JavaInfoProvider).(JavaInfo)
 		r.libs = append(r.libs, ctx.OtherModuleName(dep))
 		if !android.InList(ctx.OtherModuleName(dep), config.FrameworkLibraries) {
 			combinedJarJars = append(combinedJarJars, m.ImplementationAndResourcesJars...)
 		}
+	}
+
+	for _, dep := range ctx.GetDirectDepsWithTag(libTag) {
+		handleLibDeps(dep)
+	}
+	for _, dep := range ctx.GetDirectDepsWithTag(sdkLibTag) {
+		handleLibDeps(dep)
 	}
 
 	r.combinedJar = android.PathForModuleOut(ctx, "robolectric_combined", r.outputFile.Base())
@@ -179,9 +201,9 @@ func (r *robolectricTest) GenerateAndroidBuildActions(ctx android.ModuleContext)
 
 	// TODO: this could all be removed if tradefed was used as the test runner, it will find everything
 	// annotated as a test and run it.
-	for _, src := range r.compiledJavaSrcs {
+	for _, src := range r.uniqueSrcFiles {
 		s := src.Rel()
-		if !strings.HasSuffix(s, "Test.java") {
+		if !strings.HasSuffix(s, "Test.java") && !strings.HasSuffix(s, "Test.kt") {
 			continue
 		} else if strings.HasSuffix(s, "/BaseRobolectricTest.java") {
 			continue
@@ -279,6 +301,10 @@ func (r *robolectricTest) AndroidMkEntries() []android.AndroidMkEntries {
 	entries.ExtraEntries = append(entries.ExtraEntries,
 		func(ctx android.AndroidMkExtraEntriesContext, entries *android.AndroidMkEntries) {
 			entries.SetBool("LOCAL_UNINSTALLABLE_MODULE", true)
+			entries.AddStrings("LOCAL_COMPATIBILITY_SUITE", "robolectric-tests")
+			if r.testConfig != nil {
+				entries.SetPath("LOCAL_FULL_TEST_CONFIG", r.testConfig)
+			}
 		})
 
 	entries.ExtraFooters = []android.AndroidMkExtraFootersFunc{
@@ -310,13 +336,12 @@ func (r *robolectricTest) AndroidMkEntries() []android.AndroidMkEntries {
 
 func (r *robolectricTest) writeTestRunner(w io.Writer, module, name string, tests []string) {
 	fmt.Fprintln(w, "")
-	fmt.Fprintln(w, "include $(CLEAR_VARS)")
+	fmt.Fprintln(w, "include $(CLEAR_VARS)", " # java.robolectricTest")
 	fmt.Fprintln(w, "LOCAL_MODULE :=", name)
-	fmt.Fprintln(w, "LOCAL_JAVA_LIBRARIES :=", module)
-	fmt.Fprintln(w, "LOCAL_JAVA_LIBRARIES += ", strings.Join(r.libs, " "))
+	android.AndroidMkEmitAssignList(w, "LOCAL_JAVA_LIBRARIES", []string{module}, r.libs)
 	fmt.Fprintln(w, "LOCAL_TEST_PACKAGE :=", String(r.robolectricProperties.Instrumentation_for))
 	fmt.Fprintln(w, "LOCAL_INSTRUMENT_SRCJARS :=", r.roboSrcJar.String())
-	fmt.Fprintln(w, "LOCAL_ROBOTEST_FILES :=", strings.Join(tests, " "))
+	android.AndroidMkEmitAssignList(w, "LOCAL_ROBOTEST_FILES", tests)
 	if t := r.robolectricProperties.Test_options.Timeout; t != nil {
 		fmt.Fprintln(w, "LOCAL_ROBOTEST_TIMEOUT :=", *t)
 	}
@@ -344,7 +369,7 @@ func RobolectricTestFactory() android.Module {
 		&module.testProperties)
 
 	module.Module.dexpreopter.isTest = true
-	module.Module.linter.test = true
+	module.Module.linter.properties.Lint.Test = proptools.BoolPtr(true)
 
 	module.testProperties.Test_suites = []string{"robolectric-tests"}
 

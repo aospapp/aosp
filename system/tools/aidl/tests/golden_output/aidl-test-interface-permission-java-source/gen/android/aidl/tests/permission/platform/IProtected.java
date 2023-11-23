@@ -18,10 +18,21 @@ public interface IProtected extends android.os.IInterface
   /** Local-side IPC implementation stub class. */
   public static abstract class Stub extends android.os.Binder implements android.aidl.tests.permission.platform.IProtected
   {
-    /** Construct the stub at attach it to the interface. */
-    public Stub()
+    private final android.os.PermissionEnforcer mEnforcer;
+    /** Construct the stub using the Enforcer provided. */
+    public Stub(android.os.PermissionEnforcer enforcer)
     {
       this.attachInterface(this, DESCRIPTOR);
+      if (enforcer == null) {
+        throw new IllegalArgumentException("enforcer cannot be null");
+      }
+      mEnforcer = enforcer;
+    }
+    @Deprecated
+    /** Default constructor. */
+    public Stub() {
+      this(android.os.PermissionEnforcer.fromContext(
+         android.app.ActivityThread.currentActivityThread().getSystemContext()));
     }
     /**
      * Cast an IBinder object into an android.aidl.tests.permission.platform.IProtected interface,
@@ -41,6 +52,26 @@ public interface IProtected extends android.os.IInterface
     @Override public android.os.IBinder asBinder()
     {
       return this;
+    }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_ProtectedWithSourceAttribution:
+        {
+          return "ProtectedWithSourceAttribution";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
@@ -63,9 +94,6 @@ public interface IProtected extends android.os.IInterface
           android.content.AttributionSource _arg0;
           _arg0 = data.readTypedObject(android.content.AttributionSource.CREATOR);
           data.enforceNoDataAvail();
-          if (((this.permissionCheckerWrapper(android.Manifest.permission.INTERNET, this.getCallingPid(), _arg0)&&this.permissionCheckerWrapper(android.Manifest.permission.VIBRATE, this.getCallingPid(), _arg0))!=true)) {
-            throw new SecurityException("Access denied, requires: allOf = {android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE}");
-          }
           this.ProtectedWithSourceAttribution(_arg0);
           reply.writeNoException();
           break;
@@ -94,7 +122,7 @@ public interface IProtected extends android.os.IInterface
       }
       @Override public void ProtectedWithSourceAttribution(android.content.AttributionSource source) throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -108,15 +136,17 @@ public interface IProtected extends android.os.IInterface
         }
       }
     }
-    private boolean permissionCheckerWrapper(
-        String permission, int pid, android.content.AttributionSource attributionSource) {
-      android.content.Context ctx =
-          android.app.ActivityThread.currentActivityThread().getSystemContext();
-      return (android.content.PermissionChecker.checkPermissionForDataDelivery(
-              ctx, permission, pid, attributionSource, "" /*message*/) ==
-          android.content.PermissionChecker.PERMISSION_GRANTED);
-    }
     static final int TRANSACTION_ProtectedWithSourceAttribution = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    static final String[] PERMISSIONS_ProtectedWithSourceAttribution = {android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE};
+    /** Helper method to enforce permissions for ProtectedWithSourceAttribution */
+    protected void ProtectedWithSourceAttribution_enforcePermission() throws SecurityException {
+      mEnforcer.enforcePermissionAllOf(PERMISSIONS_ProtectedWithSourceAttribution, getCallingPid(), getCallingUid());
+    }
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 0;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$permission$platform$IProtected".replace('$', '.');
   @android.annotation.EnforcePermission(allOf = {android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE})

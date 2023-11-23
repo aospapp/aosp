@@ -45,9 +45,17 @@ using google_camera_hal::RequestTemplate;
 using google_camera_hal::StreamBuffer;
 
 struct PendingRequest {
+  uint32_t frame_number;
+  uint32_t pipeline_id;
+  HwlPipelineCallback callback;
   std::unique_ptr<HalCameraMetadata> settings;
   std::unique_ptr<Buffers> input_buffers;
   std::unique_ptr<Buffers> output_buffers;
+};
+
+struct OverrideRequest {
+  uint32_t frame_number;
+  std::unique_ptr<HalCameraMetadata> settings;
 };
 
 class EmulatedRequestProcessor {
@@ -99,6 +107,9 @@ class EmulatedRequestProcessor {
   std::thread request_thread_;
   std::atomic_bool processor_done_ = false;
 
+  // Speed up zoom by 2 frames using settings override
+  const static uint32_t kZoomSpeedup = 2;
+
   // helper methods
   static uint32_t inline AlignTo(uint32_t value, uint32_t alignment) {
     uint32_t delta = value % alignment;
@@ -123,16 +134,25 @@ class EmulatedRequestProcessor {
       int32_t override_width, int32_t override_height);
   std::unique_ptr<Buffers> AcquireBuffers(Buffers* buffers);
   void NotifyFailedRequest(const PendingRequest& request);
+  uint32_t ApplyOverrideSettings(
+      uint32_t frame_number,
+      const std::unique_ptr<HalCameraMetadata>& request_settings);
+  void ApplyOverrideZoom(
+      const std::unique_ptr<HalCameraMetadata>& override_setting,
+      const std::unique_ptr<HalCameraMetadata>& request_settings,
+      camera_metadata_tag tag);
 
   std::mutex process_mutex_;
   std::condition_variable request_condition_;
   std::queue<PendingRequest> pending_requests_;
+  std::queue<OverrideRequest> override_settings_;
   uint32_t camera_id_;
   sp<EmulatedSensor> sensor_;
   HwlSessionCallback session_callback_;
   std::unique_ptr<EmulatedLogicalRequestState>
       request_state_;  // Stores and handles 3A and related camera states.
   std::unique_ptr<HalCameraMetadata> last_settings_;
+  std::unique_ptr<HalCameraMetadata> last_override_settings_;
   std::shared_ptr<HandleImporter> importer_;
 
   EmulatedRequestProcessor(const EmulatedRequestProcessor&) = delete;

@@ -17,10 +17,12 @@
 #ifndef ART_COMPILER_OPTIMIZING_CONSTANT_FOLDING_H_
 #define ART_COMPILER_OPTIMIZING_CONSTANT_FOLDING_H_
 
+#include "base/macros.h"
 #include "nodes.h"
 #include "optimization.h"
+#include "optimizing/optimizing_compiler_stats.h"
 
-namespace art {
+namespace art HIDDEN {
 
 /**
  * Optimization pass performing a simple constant-expression
@@ -39,13 +41,20 @@ namespace art {
  */
 class HConstantFolding : public HOptimization {
  public:
-  HConstantFolding(HGraph* graph, const char* name) : HOptimization(graph, name) {}
+  HConstantFolding(HGraph* graph,
+                   OptimizingCompilerStats* stats = nullptr,
+                   const char* name = kConstantFoldingPassName,
+                   bool use_all_optimizations = false)
+      : HOptimization(graph, name, stats), use_all_optimizations_(use_all_optimizations) {}
 
   bool Run() override;
 
   static constexpr const char* kConstantFoldingPassName = "constant_folding";
 
  private:
+  // Use all optimizations without restrictions.
+  bool use_all_optimizations_;
+
   DISALLOW_COPY_AND_ASSIGN(HConstantFolding);
 };
 

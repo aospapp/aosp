@@ -31,6 +31,7 @@ import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -94,7 +95,7 @@ public abstract class BroadcastRpcBase<TRequest, TResponse> {
         final byte[] resultPayload = responseBundle.get().getByteArray(EXTRA_PAYLOAD);
         assertNotNull("Didn't receive result payload", resultPayload);
 
-        Log.i(TAG, "Response received: " + (VERBOSE ? resultPayload.toString() : ""));
+        Log.i(TAG, "Response received: " + (VERBOSE ? Arrays.toString(resultPayload) : ""));
 
         return bytesToResponse(resultPayload);
     }

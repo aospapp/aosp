@@ -63,3 +63,19 @@ android_test_helper_app {
     ],
     manifest: "AndroidManifest-ExcludeTester.xml",
 }
+
+android_test_helper_app {
+    name: "CtsSharesheetAlternateType",
+    defaults: ["cts_defaults"],
+    srcs: ["packages/src/**/*.java"],
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    aaptflags: [
+        "--rename-manifest-package",
+        "android.sharesheet.cts.packages.alternatetype",
+    ],
+    manifest: "AndroidManifest-AlternateType.xml",
+}

@@ -108,6 +108,7 @@ public final class PreCreateUsersHostTest extends CarHostJUnit4TestCase {
 
         if (afterReboot) {
             restartSystem();
+            waitForCarServiceReady();
 
             // Checks again
             assertAppInstalledForUser(APP_PKG, initialUserId);
@@ -157,6 +158,8 @@ public final class PreCreateUsersHostTest extends CarHostJUnit4TestCase {
             throws Exception {
         deletePreCreatedUsers();
         requiresExtraUsers(2);
+
+        waitUntilUserPermissionsIsReady(-1);
 
         // Create a normal reference user
         int referenceUserId = isGuest

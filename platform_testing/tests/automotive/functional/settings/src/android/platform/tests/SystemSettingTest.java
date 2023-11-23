@@ -18,20 +18,21 @@ package android.platform.tests;
 
 import static junit.framework.Assert.assertTrue;
 
-import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
-import android.platform.helpers.IAutoSystemSettingsHelper;
-import android.platform.helpers.IAutoSettingHelper;
 import android.platform.helpers.HelperAccessor;
-import androidx.test.runner.AndroidJUnit4;
+import android.platform.helpers.IAutoSettingHelper;
+import android.platform.helpers.IAutoSystemSettingsHelper;
+import android.platform.helpers.SettingsConstants;
 
-import java.util.Date;
+import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Date;
 
 @RunWith(AndroidJUnit4.class)
 public class SystemSettingTest {
@@ -50,7 +51,10 @@ public class SystemSettingTest {
 
     @Before
     public void openSystemFacet() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.SYSTEM_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.SYSTEM_SETTINGS);
+        assertTrue(
+                "System settings did not open",
+                mSettingHelper.get().checkMenuExists("Languages & input"));
     }
 
     @After

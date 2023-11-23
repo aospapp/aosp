@@ -21,7 +21,7 @@ java_library {
     srcs: ["src/**/*.java"],
     static_libs: [
         "mockito-target",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
     ],
 }

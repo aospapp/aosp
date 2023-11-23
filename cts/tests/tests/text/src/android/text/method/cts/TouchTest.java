@@ -70,6 +70,7 @@ public class TouchTest {
         mActivity = mActivityRule.getActivity();
         mTextView = new TextViewNoIme(mActivity);
         mTextView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        mTextView.setEllipsize(null);
     }
 
     @Test

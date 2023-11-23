@@ -22,7 +22,7 @@ import android.view.MotionEvent;
 
 public class EventUtils {
 
-    public static MotionEvent generateMouseEvent(int x, int y, int eventType, int buttonState) {
+    public static MotionEvent generateMouseEvent(int x, int y, int action, int buttonState) {
 
         MotionEvent.PointerCoords[] pointerCoords = new MotionEvent.PointerCoords[1];
         pointerCoords[0] = new MotionEvent.PointerCoords();
@@ -32,8 +32,9 @@ public class EventUtils {
         MotionEvent.PointerProperties[] pp = new MotionEvent.PointerProperties[1];
         pp[0] = new MotionEvent.PointerProperties();
         pp[0].id = 0;
+        pp[0].toolType = MotionEvent.TOOL_TYPE_MOUSE;
 
-        return MotionEvent.obtain(0, SystemClock.uptimeMillis(), eventType, 1, pp,
+        return MotionEvent.obtain(0, SystemClock.uptimeMillis(), action, 1, pp,
                 pointerCoords, 0, buttonState, 0, 0, 0, 0, InputDevice.SOURCE_MOUSE, 0);
     }
 

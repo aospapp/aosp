@@ -28,6 +28,8 @@ import android.test.suitebuilder.annotation.LargeTest;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import com.android.compatibility.common.util.NonMainlineTest;
+
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
@@ -36,7 +38,7 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<MediaFrameworkTest> {
 
     private static final String TAG = "MediaRecorderStressTest";
@@ -282,6 +284,10 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             mRecorder.reset();
             mRecorder.release();
             output.write(", " + i);
+            if (mRemoveVideo) {
+                removeRecodedVideo(filename);
+            }
+
         }
 
         output.write("\n\n");
@@ -299,7 +305,6 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
         int width;
         int height;
         SurfaceHolder mSurfaceHolder;
-        mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
         File stressOutFile = new File(WorkDir.getTopDir(), MEDIA_STRESS_OUTPUT);
         Writer output = new BufferedWriter(new FileWriter(stressOutFile, true));
         output.write("Camera and video recorder preview switching\n");
@@ -324,6 +329,7 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             if (mCamera == null) {
                 break;
             }
+            mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
             // Try to get camera smallest supported resolution.
             // If we fail for any reason, set the video size to default value.
             List<Camera.Size> previewSizes = mCamera.getParameters().getSupportedPreviewSizes();
@@ -371,6 +377,9 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             mRecorder.release();
             Log.v(TAG, "release video recorder");
             output.write(", " + i);
+            if (mRemoveVideo) {
+                removeRecodedVideo(filename);
+            }
         }
 
         output.write("\n\n");
@@ -403,7 +412,6 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
 
         String filename;
         SurfaceHolder mSurfaceHolder;
-        mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
         File stressOutFile = new File(WorkDir.getTopDir(), MEDIA_STRESS_OUTPUT);
         Writer output = new BufferedWriter(
                 new FileWriter(stressOutFile, true));
@@ -431,6 +439,7 @@ public class MediaRecorderStressTest extends ActivityInstrumentationTestCase2<Me
             Log.v(TAG, "bitRate : " + mBitRate);
             Log.v(TAG, "recordDuration : " + mRecordDuration);
 
+            mSurfaceHolder = MediaFrameworkTest.getSurfaceView().getHolder();
             mRecorder.setOnErrorListener(mRecorderErrorCallback);
             mRecorder.setVideoSource(MediaRecorder.VideoSource.CAMERA);
             mRecorder.setAudioSource(MediaRecorder.AudioSource.MIC);

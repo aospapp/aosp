@@ -54,13 +54,15 @@ public class TimeZoneVersionTest {
             // S_V2 is 5.x, as the format version did not change from S.
             assertEquals("005", majorVersion);
         } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.TIRAMISU) {
-            // TODO Hack for master, which will have the same API level as T until the next
+            assertEquals("006", majorVersion);
+        } else if (Build.VERSION.SDK_INT == Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            // TODO Hack for master, which will have the same API level as U until the next
             // release API is finalized.
-            if (VersionInfo.ICU_VERSION.getMajor() > 70) {
-                // U is expected to be 7.x.
-                assertEquals("007", majorVersion);
+            if (VersionInfo.ICU_VERSION.getMajor() > 72) {
+                // V is expected to be *.x.
+                assertEquals("008", majorVersion);
             } else {
-                assertEquals("006", majorVersion);
+                assertEquals("007", majorVersion);
             }
         } else {
             // If this fails, a new API level has likely been finalized and can be made

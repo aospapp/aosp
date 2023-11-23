@@ -127,7 +127,7 @@ class ThreadList {
       REQUIRES(!Locks::thread_list_lock_, !Locks::thread_suspend_count_lock_);
 
   // Flip thread roots from from-space refs to to-space refs. Used by
-  // the concurrent copying collector.
+  // the concurrent moving collectors.
   size_t FlipThreadRoots(Closure* thread_flip_visitor,
                          Closure* flip_callback,
                          gc::collector::GarbageCollector* collector,
@@ -153,7 +153,7 @@ class ThreadList {
       REQUIRES(!Locks::mutator_lock_,
                !Locks::thread_list_lock_,
                !Locks::thread_suspend_count_lock_);
-  void Unregister(Thread* self)
+  void Unregister(Thread* self, bool should_run_callbacks)
       REQUIRES(!Locks::mutator_lock_,
                !Locks::thread_list_lock_,
                !Locks::thread_suspend_count_lock_);
@@ -166,6 +166,9 @@ class ThreadList {
       REQUIRES_SHARED(Locks::mutator_lock_);
 
   void VisitReflectiveTargets(ReflectiveValueVisitor* visitor) const REQUIRES(Locks::mutator_lock_);
+
+  void SweepInterpreterCaches(IsMarkedVisitor* visitor) const
+      REQUIRES(Locks::mutator_lock_, !Locks::thread_list_lock_);
 
   // Return a copy of the thread list.
   std::list<Thread*> GetList() REQUIRES(Locks::thread_list_lock_) {

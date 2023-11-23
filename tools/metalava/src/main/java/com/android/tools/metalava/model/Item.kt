@@ -299,7 +299,7 @@ interface Item {
             }
             builder.append(' ')
             if (includeReturnValue && !item.isConstructor()) {
-                builder.append(item.returnType()?.toSimpleType())
+                builder.append(item.returnType().toSimpleType())
                 builder.append(' ')
             }
             appendMethodSignature(builder, item, includeParameterNames, includeParameterTypes)

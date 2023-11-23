@@ -47,6 +47,9 @@ public final sun.misc.Cleaner cleaner() { throw new RuntimeException("Stub!"); }
 public final java.nio.ByteBuffer slice() { throw new RuntimeException("Stub!"); }
 
 @libcore.api.Hide
+public final java.nio.ByteBuffer slice(int index, int length) { throw new RuntimeException("Stub!"); }
+
+@libcore.api.Hide
 public final java.nio.ByteBuffer duplicate() { throw new RuntimeException("Stub!"); }
 
 @libcore.api.Hide

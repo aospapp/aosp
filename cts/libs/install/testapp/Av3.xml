@@ -23,7 +23,7 @@
     <uses-sdk android:minSdkVersion="28"/>
 
     <application android:label="Test App A3">
-        <receiver android:name="com.android.cts.install.lib.testapp.ProcessUserData"
+        <receiver android:name="com.android.cts.install.lib.testapp.ProcessBroadcast"
              android:exported="true"/>
         <activity android:name="com.android.cts.install.lib.testapp.MainActivity"
              android:exported="true">
@@ -31,6 +31,9 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+        </activity>
+        <activity android:name="com.android.cts.install.lib.testapp.TestServiceActivity"
+            android:exported="true">
         </activity>
     </application>
 </manifest>

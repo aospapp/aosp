@@ -30,12 +30,17 @@ from google.protobuf import text_format
 
 import carrier_list_pb2
 import carrier_settings_pb2
+import carrierId_pb2
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
     '--apn_file', default='./apns-full-conf.xml', help='Path to APN xml file')
 parser.add_argument(
     '--data_dir', default='./data', help='Folder path for CarrierSettings data')
+parser.add_argument(
+    '--support_carrier_id', action='store_true', help='To support using carrier_id in apns.xml')
+parser.add_argument(
+    '--aosp_carrier_list', default='packages/providers/TelephonyProvider/assets/latest_carrier_id/carrier_list.textpb', help='Resource file path to the AOSP carrier list file')
 parser.add_argument(
     '--out_file', default='./tmpapns.textpb', help='Temp APN file')
 FLAGS = parser.parse_args()
@@ -68,12 +73,13 @@ def get_cname(cid, known_carriers):
   Returns:
     string for canonical name, like verizon_us or 27402
   """
-  name = to_string(cid)
+  return get_known_cname(to_string(cid), known_carriers)
+
+def get_known_cname(name, known_carriers):
   if name in known_carriers:
     return known_carriers[name]
   else:
     return name
-
 
 def get_knowncarriers(files):
   """Create a mapping from mccmnc and possible mvno data to canonical name.
@@ -233,6 +239,99 @@ def gen_apnitem(node):
 
   return apn
 
+def is_mccmnc_only_attribute(attribute):
+  """Check if the given CarrierAttribute only contains mccmnc_tuple
+
+  Args:
+    attribute: message CarrierAttribute defined in carrierId.proto
+
+  Returns:
+    True, if the given CarrierAttribute only contains mccmnc_tuple
+    False, otherwise
+  """
+  for descriptor in attribute.DESCRIPTOR.fields:
+    if descriptor.name != "mccmnc_tuple":
+      if len(getattr(attribute, descriptor.name)):
+        return False
+  return True
+
+def process_apnmap_by_mccmnc(apn_node, pb2_carrier_id, known, apn_map):
+  """Process apn map based on the MCCMNC combination in apns.xml.
+
+  Args:
+    apn_node: APN node
+    pb2_carrier_id: carrier id proto from APN node
+    known: mapping from mccmnc and possible mvno data to canonical name
+    apn_map: apn map
+
+  Returns:
+    None by default
+  """
+  apn_carrier_id = apn_node.getAttribute('carrier_id')
+  if apn_carrier_id != '':
+    print("Cannot use mccmnc and carrier_id at the same time,"
+           + " carrier_id<" + apn_carrier_id + "> is ignored.")
+  cname = get_cname(pb2_carrier_id, known)
+  apn = gen_apnitem(apn_node)
+  apn_map[cname].append(apn)
+
+def process_apnmap_by_carrier_id(apn_node, aospCarrierList, known, apn_map):
+  """Process apn map based on the carrier_id in apns.xml.
+
+  Args:
+    apn_node: APN node
+    aospCarrierList: CarrierList from AOSP
+    known: mapping from mccmnc and possible mvno data to canonical name
+    apn_map: apn map
+
+  Returns:
+    None by default
+  """
+  cname_map = dict()
+  apn_carrier_id = apn_node.getAttribute('carrier_id')
+  if apn_carrier_id != '':
+    if apn_carrier_id in cname_map:
+      for cname in cname_map[apn_carrier_id]:
+        apn_map[cname].append(gen_apnitem(apn_node))
+    else:
+      # convert cid to mccmnc combination
+      cnameList = []
+      for aosp_carrier_id in aospCarrierList.carrier_id:
+        aosp_canonical_id = str(aosp_carrier_id.canonical_id)
+        if aosp_canonical_id == apn_carrier_id:
+          for attribute in aosp_carrier_id.carrier_attribute:
+            mcc_mnc_only = is_mccmnc_only_attribute(attribute)
+            for mcc_mnc in attribute.mccmnc_tuple:
+              cname = mcc_mnc
+              # Handle gid1, spn, imsi in the order used by
+              # CarrierConfigConverterV2#generateCanonicalNameForOthers
+              gid1_list = attribute.gid1 if len(attribute.gid1) else [""]
+              for gid1 in gid1_list:
+                cname_gid1 = cname + ("GID1=" + gid1.upper() if gid1 else "")
+
+                spn_list = attribute.spn if len(attribute.spn) else [""]
+                for spn in spn_list:
+                  cname_spn = cname_gid1 + ("SPN=" + spn.upper() if spn else "")
+
+                  imsi_list = attribute.imsi_prefix_xpattern if\
+                        len(attribute.imsi_prefix_xpattern) else [""]
+                  for imsi in imsi_list:
+                    cname_imsi = cname_spn + ("IMSI=" + imsi.upper() if imsi else "")
+
+                    if cname_imsi == cname and not mcc_mnc_only:
+                      # Ignore fields which cannot be handled for now
+                      continue
+
+                    cnameList.append(get_known_cname(cname_imsi, known))
+          break # break from aospCarrierList.carrier_id since cid is found
+      if cnameList:
+        for cname in cnameList:
+          apn_map[cname].append(gen_apnitem(apn_node))
+
+        # cache cnameList to avoid searching again
+        cname_map[aosp_canonical_id] = cnameList
+      else:
+        print("Can't find cname list, carrier_id in APN files might be wrong : " + apn_carrier_id)
 
 def main():
   known = get_knowncarriers([FLAGS.data_dir + '/' + f for f in CARRIER_LISTS])
@@ -240,11 +339,19 @@ def main():
   with open(FLAGS.apn_file, 'r', encoding='utf-8') as apnfile:
     dom = minidom.parse(apnfile)
 
+  with open(FLAGS.aosp_carrier_list, 'r', encoding='utf-8', newline='\n') as f:
+    aospCarrierList = text_format.Parse(f.read(), carrierId_pb2.CarrierList())
+
   apn_map = collections.defaultdict(list)
   for apn_node in dom.getElementsByTagName('apn'):
-    cname = get_cname(gen_cid(apn_node), known)
-    apn = gen_apnitem(apn_node)
-    apn_map[cname].append(apn)
+    pb2_carrier_id = gen_cid(apn_node)
+    if pb2_carrier_id.mcc_mnc or not FLAGS.support_carrier_id:
+      # case 1 : mccmnc
+      # case 2 : mccmnc+mvno
+      process_apnmap_by_mccmnc(apn_node, pb2_carrier_id, known, apn_map)
+    else:
+      # case 3 : carrier_id
+      process_apnmap_by_carrier_id(apn_node, aospCarrierList, known, apn_map)
 
   mcs = carrier_settings_pb2.MultiCarrierSettings()
   for c in apn_map:

@@ -20,7 +20,6 @@ Setup/Teardown methods take care of establishing connection, and doing GATT DB i
 
 import os
 import time
-from queue import Empty
 
 from acts.keys import Config
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
@@ -100,8 +99,8 @@ class BluetoothCarHfpBaseTest(BluetoothBaseTest):
 
     def on_fail(self, test_name, begin_time):
         result = True
-        if not super(BluetoothCarHfpBaseTest, self).on_fail(test_name,
-                                                            begin_time):
+        if not super(BluetoothCarHfpBaseTest, self).on_fail(
+                test_name, begin_time):
             result = False
         ensure_phones_default_state(self.log, self.android_devices[1:])
         return result

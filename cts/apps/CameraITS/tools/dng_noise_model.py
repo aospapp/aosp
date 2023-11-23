@@ -15,36 +15,56 @@
 import logging
 import math
 import os.path
+from pathlib import Path
+import pickle
+import tempfile
 import textwrap
+
+import capture_read_noise_utils
+import capture_request_utils
+import image_processing_utils
+import its_base_test
+import its_session_utils
 from matplotlib import pylab
 import matplotlib.pyplot as plt
+from matplotlib.ticker import NullLocator, ScalarFormatter
 from mobly import test_runner
 import numpy as np
 import scipy.signal
 import scipy.stats
 
-import its_base_test
-import capture_request_utils
-import image_processing_utils
-import its_session_utils
 
-
-_ZOOM_RATIO = 1.0 # Zoom target to be used while running the model
-_REMOVE_OUTLIERS = False # When True, filters the variance to remove outliers
-_OUTLIE_MEDIAN_ABS_DEVS = 10 # Defines the number of Median Absolute Deviations
-                             # that consitutes acceptable data
-_BAYER_LIST = ('R', 'GR', 'GB', 'B')
+_BAYER_LIST = ('R', 'GR', 'GB', 'B')  # List of Bayer colors
+_BAYER_COLOR_FILTERS = [  # Bayer filters (SENSOR_INFO_COLOR_FILTER_ARRANGEMENT)
+    'RGGB',  # 0
+    'GRBG',  # 1
+    'GBRG',  # 2
+    'BGGR',  # 3
+    'RBG',   # 4
+    'MONO',  # 5
+    'NIR'    # 6
+]
 _BRACKET_MAX = 8  # Exposure bracketing range in stops
 _BRACKET_FACTOR = math.pow(2, _BRACKET_MAX)
+_ISO_MAX_VALUE = None  # ISO range max value, uses sensor max if None
+_ISO_MIN_VALUE = None  # ISO range min value, uses sensor min if None
 _PLOT_COLORS = 'rygcbm'  # Colors used for plotting the data for each exposure.
 _MAX_SCALE_FUDGE = 1.1
 _MAX_SIGNAL_VALUE = 0.25  # Maximum value to allow mean of the tiles to go.
 _NAME = os.path.basename(__file__).split('.')[0]
-_RTOL_EXP_GAIN = 0.97
+_NAME_READ_NOISE = os.path.join(tempfile.gettempdir(), 'CameraITS/ReadNoise')
+_NAME_READ_NOISE_FILE = 'read_noise_results.pkl'
+_OUTLIE_MEDIAN_ABS_DEVS = 10  # Defines the number of Median Absolute Deviations
+                              # that consitutes acceptable data
+_READ_NOISE_STEPS_PER_STOP = 12  # Sensitivities per stop to sample for read
+                                 # noise
+_REMOVE_OUTLIERS = False  # When True, filters the variance to remove outliers
 _STEPS_PER_STOP = 3  # How many sensitivities per stop to sample.
 _TILE_SIZE = 32  # Tile size to compute mean/variance. Large tiles may have
                  # their variance corrupted by low freq image changes.
 _TILE_CROP_N = 0  # Number of tiles to crop from edge of image. Usually 0.
+_TWO_STAGE_MODEL = False  # Require read noise data prior to running noise model
+_ZOOM_RATIO = 1  # Zoom target to be used while running the model
 
 
 def check_auto_exposure_targets(auto_e, sens_min, sens_max, props):
@@ -112,7 +132,7 @@ def create_noise_model_code(noise_model_a, noise_model_b,
           }}
           """)
   text_file = open(os.path.join(log_path, 'noise_model.c'), 'w')
-  text_file.write('%s' % code)
+  text_file.write(code)
   text_file.close()
 
   # Creates the noise profile C++ file
@@ -144,8 +164,9 @@ def create_noise_model_code(noise_model_a, noise_model_b,
                                         .offset_intercept = {noise_model_d[3]}}}}},
           """)
   text_file = open(os.path.join(log_path, 'noise_profile.cc'), 'w')
-  text_file.write('%s' % code)
+  text_file.write(code)
   text_file.close()
+
 
 def outlier_removed_indices(data, deviations=3):
   """Removes outliers using median absolute deviation and returns indices kept.
@@ -159,8 +180,35 @@ def outlier_removed_indices(data, deviations=3):
   std_dev = scipy.stats.median_abs_deviation(data, axis=None, scale=1)
   med = np.median(data)
   keep_indices = np.where(
-    np.logical_and(data>med-deviations*std_dev, data<med+deviations*std_dev))
+      np.logical_and(data > med-deviations*std_dev,
+                     data < med+deviations*std_dev))
   return keep_indices
+
+
+def reorganize_read_noise_coeff_to_rggb(data, cmap):
+  """Reorganize the list of read noise coeffs to RGGB Bayer form.
+
+  Args:
+    data:      list; List of color channel data
+    cmap:      str; Color map filter of the given data
+  Returns:
+    list       Returns data reformatted in the correct RGGB order
+  """
+  if cmap not in _BAYER_COLOR_FILTERS:
+    raise AssertionError(f'Unexpected color map {cmap}')
+
+  if cmap.lower() == 'rggb':
+    return data
+  if cmap.lower() == 'grbg':
+    return [data[1], data[0], data[3], data[2]]
+  if cmap.lower() == 'gbrg':
+    return [data[2], data[3], data[0], data[1]]
+  if cmap.lower() == 'bggr':
+    return [data[3], data[2], data[1], data[0]]
+  else:
+    raise AssertionError(
+        'Currently only 4-channel filters supported for 2-Stage model')
+
 
 class DngNoiseModel(its_base_test.ItsBaseTest):
   """Create DNG noise model.
@@ -170,6 +218,71 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
   """
 
   def test_dng_noise_model_generation(self):
+    read_noise_folder = ''
+    read_noise_data = ''
+
+    # If 2-Stage model is enabled, check/collect read noise data
+    if _TWO_STAGE_MODEL:
+      with its_session_utils.ItsSession(
+          device_id=self.dut.serial,
+          camera_id=self.camera_id,
+          hidden_physical_id=self.hidden_physical_id) as cam:
+        props = cam.get_camera_properties()
+        props = cam.override_with_hidden_physical_camera_props(props)
+
+        # Get sensor ISO range
+        sens_min, _ = props['android.sensor.info.sensitivityRange']
+        sens_max_analog = props['android.sensor.maxAnalogSensitivity']
+        color_map_index = props['android.sensor.info.colorFilterArrangement']
+        color_map = _BAYER_COLOR_FILTERS[color_map_index]
+
+        sens_max_meas = sens_max_analog
+
+        # Create the folder structure
+        if self.hidden_physical_id:
+          camera_name = f'{self.camera_id}.{self.hidden_physical_id}'
+        else:
+          camera_name = self.camera_id
+
+        read_noise_folder = os.path.join(_NAME_READ_NOISE,
+                                         self.dut.serial.replace(':', '_'),
+                                         camera_name)
+        read_noise_data = os.path.join(read_noise_folder,
+                                       _NAME_READ_NOISE_FILE)
+
+        if not os.path.exists(read_noise_folder):
+          os.makedirs(read_noise_folder)
+
+        logging.info('Read noise data folder: %s', read_noise_folder)
+        # Collect or retrieve read noise data
+        if not os.path.isfile(read_noise_data):
+          # Wait until camera is repositioned for read noise data collection
+          input(f'\nPress <ENTER> after concealing camera {self.camera_id} in'
+                ' complete darkness.\n')
+          logging.info('Collecting read noise data for %s', self.camera_id)
+          # Results file does not exist, collect read noise data
+          capture_read_noise_utils.capture_read_noise_for_iso_range(
+              cam, sens_min, sens_max_meas, _READ_NOISE_STEPS_PER_STOP,
+              color_map, read_noise_data)
+        else:  # If data exists, check if it covers the full range
+          with open(read_noise_data, 'rb') as f:
+            results = pickle.load(f)
+            # The +5 offset takes write to read error into account
+            if results[-1][0]['iso'] + 50 < sens_max_meas:
+              logging.info('\nNot enough ISO data points exist. '
+                           '\nMax ISO measured: %.2f'
+                           '\nMax ISO possible: %.2f',
+                           results[-1][0]['iso'],
+                           sens_max_meas)
+              # Wait until camera is repositioned for read noise data collection
+              input(f'\nPress <ENTER> after concealing camera {self.camera_id} '
+                    'in complete darkness.\n')
+              # Not all data points were captured, continue capture
+              capture_read_noise_utils.capture_read_noise_for_iso_range(
+                  cam, sens_min, sens_max_meas, _READ_NOISE_STEPS_PER_STOP,
+                  color_map, read_noise_data)
+
+    # Begin DNG Noise Model Calibration
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -189,6 +302,39 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
       sens_max_analog = props['android.sensor.maxAnalogSensitivity']
       sens_max_meas = sens_max_analog
       white_level = props['android.sensor.info.whiteLevel']
+      min_exposure_ns, _ = props[
+          'android.sensor.info.exposureTimeRange']
+
+      # Change the ISO min and/or max values if specified
+      if _ISO_MIN_VALUE is not None:
+        sens_min = _ISO_MIN_VALUE
+      if _ISO_MAX_VALUE is not None:
+        sens_max_meas = _ISO_MAX_VALUE
+
+      # Wait until camera is repositioned for DNG noise model calibration
+      input(f'\nPress <ENTER> after covering camera lense {self.camera_id} with'
+            ' frosted glass diffuser, and facing lense at evenly illuminated'
+            ' surface.\n')
+
+      if _TWO_STAGE_MODEL:
+        # Check if read noise results exist for this device and camera
+        if not os.path.exists(read_noise_data):
+          raise AssertionError(
+              'Read noise results file does not exist for this device. Run '
+              'capture_read_noise_data script to gather read noise data for '
+              'current sensor')
+
+        color_map_index = props['android.sensor.info.colorFilterArrangement']
+        color_map = _BAYER_COLOR_FILTERS[color_map_index]
+
+        with open(read_noise_data, 'rb') as f:
+          read_noise_results = pickle.load(f)
+
+        coeff_a, coeff_b = capture_read_noise_utils.get_read_noise_coefficients(
+            read_noise_results, sens_min, sens_max_meas)
+
+        coeff_a = reorganize_read_noise_coeff_to_rggb(coeff_a, color_map)
+        coeff_b = reorganize_read_noise_coeff_to_rggb(coeff_b, color_map)
 
       logging.info('Sensitivity range: [%d, %d]', sens_min, sens_max)
       logging.info('Max analog sensitivity: %d', sens_max_analog)
@@ -211,17 +357,29 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
       measured_models = [[], [], [], []]
       color_plane_plots = {}
       isos = []
+      fmt_raw = {'format': 'rawStats',
+                 'gridWidth': _TILE_SIZE,
+                 'gridHeight': _TILE_SIZE}
+
       while int(round(iso)) <= sens_max_meas:
-        iso_int = int(round(iso))
-        isos.append(iso_int)
-        logging.info('ISO %d', iso_int)
+        req = capture_request_utils.manual_capture_request(
+            int(round(iso)), min_exposure_ns, f_dist)
+        cap = cam.do_capture(req, fmt_raw)
+
+        # Instead of raising an error when the sensitivity readback != requested
+        # use the readback value for calculations instead
+        iso_cap = cap['metadata']['android.sensor.sensitivity']
+        isos.append(iso_cap)
+
+        logging.info('ISO %d', iso_cap)
+
         fig, [[plt_r, plt_gr], [plt_gb, plt_b]] = plt.subplots(
             2, 2, figsize=(11, 11))
         fig.gca()
-        color_plane_plots[iso_int] = [plt_r, plt_gr, plt_gb, plt_b]
-        fig.suptitle('ISO %d' % iso_int, x=0.54, y=0.99)
-        for i, plot in enumerate(color_plane_plots[iso_int]):
-          plot.set_title('%s' % _BAYER_LIST[i])
+        color_plane_plots[iso_cap] = [plt_r, plt_gr, plt_gb, plt_b]
+        fig.suptitle('ISO %d' % iso_cap, x=0.54, y=0.99)
+        for i, plot in enumerate(color_plane_plots[iso_cap]):
+          plot.set_title(_BAYER_LIST[i])
           plot.set_xlabel('Mean signal level')
           plot.set_ylabel('Variance')
 
@@ -230,7 +388,7 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
           # Get the exposure for this sensitivity and exposure time.
           exposure = int(math.pow(2, b)*auto_e/iso)
           logging.info('exp %.3fms', round(exposure*1.0E-6, 3))
-          req = capture_request_utils.manual_capture_request(iso_int, exposure,
+          req = capture_request_utils.manual_capture_request(iso_cap, exposure,
                                                              f_dist)
           req['android.control.zoomRatio'] = _ZOOM_RATIO
           fmt_raw = {'format': 'rawStats',
@@ -241,7 +399,7 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
             img = image_processing_utils.convert_capture_to_rgb_image(
                 cap, props=props)
             image_processing_utils.write_image(
-                img, f'{name_with_log_path}_{iso_int}_{exposure}ns.jpg', True)
+                img, f'{name_with_log_path}_{iso_cap}_{exposure}ns.jpg', True)
 
           mean_img, var_img = image_processing_utils.unpack_rawstats_capture(
               cap)
@@ -258,8 +416,8 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
             logging.info('R planes means image size: %s', str(means[0].shape))
             logging.info('means min: %.3f, median: %.3f, max: %.3f',
                          np.min(means), np.median(means), np.max(means))
-          logging.info('vars_ min: %.4f, median: %.4f, max: %.4f',
-                        np.min(vars_), np.median(vars_), np.max(vars_))
+            logging.info('vars_ min: %.4f, median: %.4f, max: %.4f',
+                         np.min(vars_), np.median(vars_), np.max(vars_))
 
           # If remove outliers is True, we will filter the variance data
           if _REMOVE_OUTLIERS:
@@ -267,21 +425,15 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
             vars_filtered = []
             for pidx in range(len(means)):
               keep_indices = outlier_removed_indices(vars_[pidx],
-                                                    _OUTLIE_MEDIAN_ABS_DEVS)
+                                                     _OUTLIE_MEDIAN_ABS_DEVS)
               means_filtered.append(means[pidx][keep_indices])
               vars_filtered.append(vars_[pidx][keep_indices])
 
             means = means_filtered
             vars_ = vars_filtered
 
-          s_read = cap['metadata']['android.sensor.sensitivity']
-          if not 1.0 >= s_read/float(iso_int) >= _RTOL_EXP_GAIN:
-            raise AssertionError(
-                f's_write: {iso}, s_read: {s_read}, RTOL: {_RTOL_EXP_GAIN}')
-          logging.info('ISO_write: %d, ISO_read: %d', iso_int, s_read)
-
           for pidx in range(len(means)):
-            plot = color_plane_plots[iso_int][pidx]
+            plot = color_plane_plots[iso_cap][pidx]
 
             # convert_capture_to_planes normalizes the range to [0, 1], but
             # without subtracting the black level.
@@ -305,24 +457,25 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
 
             if samples_e:
               means_e, vars_e = zip(*samples_e)
-              color_plane_plots[iso_int][pidx].plot(
+              color_plane_plots[iso_cap][pidx].plot(
                   means_e, vars_e, _PLOT_COLORS[b%len(_PLOT_COLORS)] + '.',
                   alpha=0.5, markersize=1)
               samples_s[pidx].extend(samples_e)
 
-        for (pidx, p) in enumerate(samples_s):
+        for (pidx, _) in enumerate(samples_s):
           [slope, intercept, rvalue, _, _] = scipy.stats.linregress(
               samples_s[pidx])
-          measured_models[pidx].append([iso_int, slope, intercept])
+
+          measured_models[pidx].append([iso_cap, slope, intercept])
           logging.info('%s sensitivity %d: %e*y + %e (R=%f)',
-                       'RGKB'[pidx], iso_int, slope, intercept, rvalue)
+                       _BAYER_LIST[pidx], iso_cap, slope, intercept, rvalue)
 
           # Add the samples for this sensitivity to the global samples list.
           samples[pidx].extend(
-              [(iso_int, mean, var) for (mean, var) in samples_s[pidx]])
+              [(iso_cap, mean, var) for (mean, var) in samples_s[pidx]])
 
           # Add the linear fit to subplot for this sensitivity.
-          color_plane_plots[iso_int][pidx].plot(
+          color_plane_plots[iso_cap][pidx].plot(
               [0, _MAX_SIGNAL_VALUE],
               [intercept, intercept + slope * _MAX_SIGNAL_VALUE],
               'rgkb'[pidx] + '--',
@@ -331,13 +484,13 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
           xmax = max([max([x for (x, _) in p]) for p in samples_s
                      ]) * _MAX_SCALE_FUDGE
           ymax = (intercept + slope * xmax) * _MAX_SCALE_FUDGE
-          color_plane_plots[iso_int][pidx].set_xlim(xmin=0, xmax=xmax)
-          color_plane_plots[iso_int][pidx].set_ylim(ymin=0, ymax=ymax)
-          color_plane_plots[iso_int][pidx].legend()
+          color_plane_plots[iso_cap][pidx].set_xlim(xmin=0, xmax=xmax)
+          color_plane_plots[iso_cap][pidx].set_ylim(ymin=0, ymax=ymax)
+          color_plane_plots[iso_cap][pidx].legend()
           pylab.tight_layout()
 
-        fig.savefig(f'{name_with_log_path}_samples_iso{iso_int:04d}.png')
-        plots.append([iso_int, fig])
+        fig.savefig(f'{name_with_log_path}_samples_iso{iso_cap:04d}.png')
+        plots.append([iso_cap, fig])
 
         # Move to the next sensitivity.
         iso *= math.pow(2, 1.0/_STEPS_PER_STOP)
@@ -350,7 +503,7 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
     plt_o.set_ylabel('O')
 
     noise_model = []
-    for (pidx, p) in enumerate(measured_models):
+    for (pidx, _) in enumerate(measured_models):
       # Grab the sensitivities and line parameters from each sensitivity.
       s_measured = [e[1] for e in measured_models[pidx]]
       o_measured = [e[2] for e in measured_models[pidx]]
@@ -375,14 +528,36 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
       digital_gain_cdef = '(sens / %d.0) < 1.0 ? 1.0 : (sens / %d.0)' % (
           sens_max_analog, sens_max_analog)
 
+      # Noise model function:
+      # f(x) = scale * x + offset
+      # Where:
+      # scale = scale_a*analog_gain*digital_gain + scale_b
+      # offset = (offset_a*analog_gain^2 + offset_b)*digital_gain^2
+      #
+      # Function f will be used to train the scale and offset coefficients,
+      # scale_a, scale_b, offset_a, offset_b (a, b, c, d respectively)
       # Divide the whole system by gains*means.
-      f = lambda x, a, b, c, d: (c*(x[0]**2)+d+(x[1])*a*x[0]+(x[1])*b)/(x[0])
+      if _TWO_STAGE_MODEL:
+        # For the two-stage model, we want to use the line fit coefficients
+        # found from capturing read noise data (offset_a and offset_b) to
+        # train the scale coefficients
+        f = lambda x, a, b: (x[1]*a*x[0]+(x[1])*b+coeff_a[pidx]*(x[0]**2)+
+                             coeff_b[pidx])/(x[0])
+      else:
+        f = lambda x, a, b, c, d: (x[1]*a*x[0]+x[1]*b + c*(x[0]**2)+d)/(x[0])
       result, _ = scipy.optimize.curve_fit(f, (gains, means), vars_/(gains))
       # result[0:4] = s_gradient, s_offset, o_gradient, o_offset
       # Note 'S' and 'O' are the API terms for the 2 model params.
       # The noise_profile.cc uses 'slope' for 'S' and 'intercept' for 'O'.
       # 'gradient' and 'offset' are used to describe the linear fit
       # parameters for 'S' and 'O'.
+
+      # If using two-stage model, two of the coefficients calculated above are
+      # constant, so we need to append them to the result ndarray
+      if _TWO_STAGE_MODEL:
+        result = np.append(result, coeff_a[pidx])
+        result = np.append(result, coeff_b[pidx])
+
       noise_model.append(result[0:4])
 
       # Plot noise model components with the values predicted by the model.
@@ -398,13 +573,15 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
                    label='Measured')
       plt_o.loglog(sens, o_model, 'rgkb'[pidx]+'o', base=10,
                    label='Model', alpha=0.3)
-    plt_s.legend()
-    plt_s.set_xticks(isos)
-    plt_s.set_xticklabels(isos)
 
-    plt_o.set_xticks([])
+    plt_s.set_xticks(isos)
+    plt_s.xaxis.set_minor_locator(NullLocator())  # no minor ticks
+    plt_s.xaxis.set_major_formatter(ScalarFormatter())
+    plt_s.legend()
+
     plt_o.set_xticks(isos)
-    plt_o.set_xticklabels(isos)
+    plt_o.xaxis.set_minor_locator(NullLocator())  # no minor ticks
+    plt_o.xaxis.set_major_formatter(ScalarFormatter())
     plt_o.legend()
     fig.savefig(f'{name_with_log_path}.png')
 
@@ -416,7 +593,7 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
     for [iso, fig] in plots:  # re-step through figs...
       dig_gain = max(iso/sens_max_analog, 1)
       fig.gca()
-      for (pidx, p) in enumerate(measured_models):
+      for (pidx, _) in enumerate(measured_models):
         s = noise_model_a[pidx]*iso + noise_model_b[pidx]
         o = noise_model_c[pidx]*iso**2 + noise_model_d[pidx]*dig_gain**2
         color_plane_plots[iso][pidx].plot(
@@ -436,6 +613,28 @@ class DngNoiseModel(its_base_test.ItsBaseTest):
       if noise_model_c[i] <= 0:
         raise AssertionError(f'{_BAYER_LIST[i]} model API intercept gradient '
                              f'is negative: {noise_model_c[i]:.4e}')
+
+    # If 2-Stage model is enabled, save the read noise graph and csv data
+    if _TWO_STAGE_MODEL:
+      # Save the linear plot of the read noise data
+      filename = f'{Path(_NAME_READ_NOISE_FILE).stem}.png'
+      file_path = os.path.join(log_path, filename)
+      capture_read_noise_utils.create_read_noise_plots_from_results(
+          read_noise_results,
+          sens_min,
+          sens_max_meas,
+          color_map,
+          file_path)
+
+      # Save the data as a csv file
+      filename = f'{Path(_NAME_READ_NOISE_FILE).stem}.csv'
+      file_path = os.path.join(log_path, filename)
+      capture_read_noise_utils.create_and_save_csv_from_results(
+          read_noise_results,
+          sens_min,
+          sens_max_meas,
+          color_map,
+          file_path)
 
     # Generate the noise model file.
     create_noise_model_code(

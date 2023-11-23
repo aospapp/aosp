@@ -18,11 +18,12 @@ package android.platform.helpers;
 
 import android.graphics.Rect;
 import android.platform.helpers.exceptions.TestHelperException;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.Direction;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
+
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.Direction;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
 
 /**
  * This interface is intended to be inherited by AppHelper classes to add scrolling functionlity.

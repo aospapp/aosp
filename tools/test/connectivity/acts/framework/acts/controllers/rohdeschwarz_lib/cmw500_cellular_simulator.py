@@ -17,6 +17,7 @@ import time
 
 from acts.controllers.rohdeschwarz_lib import cmw500
 from acts.controllers import cellular_simulator as cc
+from acts.controllers.rohdeschwarz_lib import cmw500_scenario_generator as cg
 from acts.controllers.cellular_lib import LteSimulation
 
 CMW_TM_MAPPING = {
@@ -37,6 +38,18 @@ CMW_MIMO_MAPPING = {
     LteSimulation.MimoMode.MIMO_1x1: cmw500.MimoModes.MIMO1x1,
     LteSimulation.MimoMode.MIMO_2x2: cmw500.MimoModes.MIMO2x2,
     LteSimulation.MimoMode.MIMO_4x4: cmw500.MimoModes.MIMO4x4
+}
+
+MIMO_ANTENNA_COUNT = {
+    LteSimulation.MimoMode.MIMO_1x1: 1,
+    LteSimulation.MimoMode.MIMO_2x2: 2,
+    LteSimulation.MimoMode.MIMO_4x4: 4,
+}
+
+IP_ADDRESS_TYPE_MAPPING = {
+    LteSimulation.IPAddressType.IPV4: cmw500.IPAddressType.IPV4,
+    LteSimulation.IPAddressType.IPV6: cmw500.IPAddressType.IPV6,
+    LteSimulation.IPAddressType.IPV4V6: cmw500.IPAddressType.IPV4V6,
 }
 
 # get mcs vs tbsi map with 256-qam disabled(downlink)
@@ -189,16 +202,29 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
     def setup_lte_scenario(self):
         """ Configures the equipment for an LTE simulation. """
         self.cmw.connection_type = cmw500.ConnectionType.DAU
-        self.bts = [self.cmw.get_base_station()]
+        # if bts has not yet been initialized
+        if not self.bts:
+            self.bts = [self.cmw.get_base_station()]
         self.cmw.switch_lte_signalling(cmw500.LteState.LTE_ON)
 
-    def set_band_combination(self, bands):
-        """ Prepares the test equipment for the indicated band combination.
+    def set_band_combination(self, bands, mimo_modes):
+        """ Prepares the test equipment for the indicated band/mimo combination.
 
         Args:
             bands: a list of bands represented as ints or strings
+            mimo_modes: a list of LteSimulation.MimoMode to use for each carrier
         """
         self.num_carriers = len(bands)
+        self.bts = [self.cmw.get_base_station(cmw500.BtsNumber.BTS1)]
+        for i in range(1, len(bands)):
+            self.bts.append(
+                self.cmw.get_base_station(cmw500.BtsNumber('SCC{}'.format(i))))
+
+        antennas = [MIMO_ANTENNA_COUNT[m] for m in mimo_modes]
+        self.set_scenario(bands, antennas)
+
+    def get_band_combination(self):
+        return [int(bts.band.strip('OB')) for bts in self.bts]
 
     def set_lte_rrc_state_change_timer(self, enabled, time=10):
         """ Configures the LTE RRC state change timer.
@@ -252,9 +278,9 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             self.log.warning('Open loop supports-50dBm to 23 dBm. '
                              'Setting it to max power 23 dBm')
             input_power = 23
+        bts.tpc_closed_loop_target_power = input_power
         bts.uplink_power_control = input_power
         bts.tpc_power_control = cmw500.TpcPowerControl.CLOSED_LOOP
-        bts.tpc_closed_loop_target_power = input_power
 
     def set_output_power(self, bts_index, output_power):
         """ Sets the output power for the indicated base station.
@@ -335,18 +361,65 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         bts = self.bts[bts_index]
         mimo_mode = CMW_MIMO_MAPPING[mimo_mode]
         if mimo_mode == cmw500.MimoModes.MIMO1x1:
-            self.cmw.configure_mimo_settings(cmw500.MimoScenario.SCEN1x1)
+            self.set_bts_antenna(bts_index, 1)
             bts.dl_antenna = cmw500.MimoModes.MIMO1x1
 
         elif mimo_mode == cmw500.MimoModes.MIMO2x2:
-            self.cmw.configure_mimo_settings(cmw500.MimoScenario.SCEN2x2)
+            self.set_bts_antenna(bts_index, 2)
             bts.dl_antenna = cmw500.MimoModes.MIMO2x2
+            # set default transmission mode and DCI for this scenario
+            bts.transmode = cmw500.TransmissionModes.TM3
+            bts.dci_format = cmw500.DciFormat.D2A
 
         elif mimo_mode == cmw500.MimoModes.MIMO4x4:
-            self.cmw.configure_mimo_settings(cmw500.MimoScenario.SCEN4x4)
+            self.set_bts_antenna(bts_index, 4)
             bts.dl_antenna = cmw500.MimoModes.MIMO4x4
         else:
             raise RuntimeError('The requested MIMO mode is not supported.')
+
+    def set_bts_antenna(self, bts_index, antenna_count):
+        """ Sets the mimo mode for a particular component carrier.
+
+        Args:
+            bts_index: index of the base station to configure.
+            antenna_count: number of antennas to use for the component carrier
+                either (1, 2, 4)
+        """
+        antennas = self.get_antenna_combination()
+        antennas[bts_index] = antenna_count
+        bands = self.get_band_combination()
+        self.set_scenario(bands, antennas)
+
+    def get_antenna_combination(self):
+        """ Gets the current antenna configuration.
+
+        Returns:
+            antenna_count: a list containing the number of antennas to use for
+                each bts/CC.
+        """
+        cmd = 'ROUTe:LTE:SIGN:SCENario?'
+        scenario_name = self.cmw.send_and_recv(cmd)
+        return cg.get_antennas(scenario_name)
+
+    def set_scenario(self, bands, antennas):
+        """ Sets the MIMO scenario on the CMW.
+
+        Args:
+            bands: a list defining the bands to use for each CC.
+            antennas: a list of integers defining the number of antennas to use
+                for each bts/CC.
+        """
+        self.log.debug('Setting scenario: bands: {}, antennas: {}'.format(
+            bands, antennas))
+        scenario = cg.get_scenario(bands, antennas)
+        cmd = 'ROUTe:LTE:SIGN:SCENario:{}:FLEXible {}'.format(
+            scenario.name, scenario.routing)
+        self.cmw.send_and_recv(cmd)
+        self.cmw.scc_activation_mode = cmw500.SccActivationMode.AUTO
+
+        # apply requested bands now
+        for i, band in enumerate(bands):
+            self.set_band(i, str(band))
 
     def set_transmission_mode(self, bts_index, tmode):
         """ Sets the transmission mode for the indicated base station.
@@ -360,18 +433,15 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         tmode = CMW_TM_MAPPING[tmode]
 
         if (tmode in [
-            cmw500.TransmissionModes.TM1,
-            cmw500.TransmissionModes.TM7
+                cmw500.TransmissionModes.TM1, cmw500.TransmissionModes.TM7
         ] and bts.dl_antenna == cmw500.MimoModes.MIMO1x1.value):
             bts.transmode = tmode
-        elif (tmode.value in cmw500.TransmissionModes.__members__ and
-              bts.dl_antenna == cmw500.MimoModes.MIMO2x2.value):
+        elif (tmode.value in cmw500.TransmissionModes.__members__
+              and bts.dl_antenna == cmw500.MimoModes.MIMO2x2.value):
             bts.transmode = tmode
         elif (tmode in [
-            cmw500.TransmissionModes.TM2,
-            cmw500.TransmissionModes.TM3,
-            cmw500.TransmissionModes.TM4,
-            cmw500.TransmissionModes.TM9
+                cmw500.TransmissionModes.TM2, cmw500.TransmissionModes.TM3,
+                cmw500.TransmissionModes.TM4, cmw500.TransmissionModes.TM9
         ] and bts.dl_antenna == cmw500.MimoModes.MIMO4x4.value):
             bts.transmode = tmode
 
@@ -379,8 +449,13 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             raise ValueError('Transmission modes should support the current '
                              'mimo mode')
 
-    def set_scheduling_mode(self, bts_index, scheduling, mcs_dl=None,
-                            mcs_ul=None, nrb_dl=None, nrb_ul=None):
+    def set_scheduling_mode(self,
+                            bts_index,
+                            scheduling,
+                            mcs_dl=None,
+                            mcs_ul=None,
+                            nrb_dl=None,
+                            nrb_ul=None):
         """ Sets the scheduling mode for the indicated base station.
 
         Args:
@@ -474,7 +549,6 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             mac_padding: the new MAC padding setting
         """
         # TODO (b/143918664): CMW500 doesn't have an equivalent setting.
-        pass
 
     def set_cfi(self, bts_index, cfi):
         """ Sets the Channel Format Indicator for the indicated base station.
@@ -508,6 +582,95 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
         self.log.error('Configuring the PHICH resource setting is not yet '
                        'implemented in the CMW500 controller.')
 
+    def set_drx_connected_mode(self, bts_index, active):
+        """ Sets the time interval to wait before entering DRX mode
+
+        Args:
+            bts_index: the base station number
+            active: Boolean indicating whether cDRX mode
+                is active
+        """
+        self.cmw.drx_connected_mode = (cmw500.DrxMode.USER_DEFINED
+                                       if active else cmw500.DrxMode.OFF)
+
+    def set_drx_on_duration_timer(self, bts_index, timer):
+        """ Sets the amount of PDCCH subframes to wait for data after
+            waking up from a DRX cycle
+
+        Args:
+            bts_index: the base station number
+            timer: Number of PDCCH subframes to wait and check for user data
+                after waking from the DRX cycle
+        """
+        timer = 'PSF{}'.format(timer)
+        self.cmw.drx_on_duration_timer = timer
+
+    def set_drx_inactivity_timer(self, bts_index, timer):
+        """ Sets the number of PDCCH subframes to wait before entering DRX mode
+
+        Args:
+            bts_index: the base station number
+            timer: The amount of time to wait before entering DRX mode
+        """
+        timer = 'PSF{}'.format(timer)
+        self.cmw.drx_inactivity_timer = timer
+
+    def set_drx_retransmission_timer(self, bts_index, timer):
+        """ Sets the number of consecutive PDCCH subframes to wait
+        for retransmission
+
+        Args:
+            bts_index: the base station number
+            timer: Number of PDCCH subframes to remain active
+        """
+        timer = 'PSF{}'.format(timer)
+        self.cmw.drx_retransmission_timer = timer
+
+    def set_drx_long_cycle(self, bts_index, cycle):
+        """ Sets the amount of subframes representing a DRX long cycle.
+
+        Args:
+            bts_index: the base station number
+            cycle: The amount of subframes representing one long DRX cycle.
+                One cycle consists of DRX sleep + DRX on duration
+        """
+        cycle = 'SF{}'.format(cycle)
+        self.cmw.drx_long_cycle = cycle
+
+    def set_drx_long_cycle_offset(self, bts_index, offset):
+        """ Sets the offset used to determine the subframe number
+        to begin the long drx cycle
+
+        Args:
+            bts_index: the base station number
+            offset: Number in range 0 to (long cycle - 1)
+        """
+        self.cmw.drx_long_cycle_offset = offset
+
+    def set_apn(self, apn):
+        """ Configures the callbox network Access Point Name.
+
+        Args:
+            apn: the APN name
+        """
+        self.cmw.apn = apn
+
+    def set_ip_type(self, ip_type):
+        """ Configures the callbox network IP type.
+
+        Args:
+            ip_type: the network type to use.
+        """
+        self.cmw.ip_type = IP_ADDRESS_TYPE_MAPPING[ip_type]
+
+    def set_mtu(self, mtu):
+        """ Configures the callbox network Maximum Transmission Unit.
+
+        Args:
+            mtu: the MTU size.
+        """
+        self.cmw.mtu = mtu
+
     def lte_attach_secondary_carriers(self, ue_capability_enquiry):
         """ Activates the secondary carriers for CA. Requires the DUT to be
         attached to the primary carrier first.
@@ -516,7 +679,26 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
             ue_capability_enquiry: UE capability enquiry message to be sent to
         the UE before starting carrier aggregation.
         """
-        raise NotImplementedError()
+        for i in range(1, len(self.bts)):
+            bts = self.bts[i]
+            if bts.scc_state == cmw500.SccState.OFF.value:
+                if (self.cmw.scc_activation_mode ==
+                        cmw500.SccActivationMode.MANUAL.value):
+                    self.cmw.switch_scc_state(i, cmw500.SccState.ON)
+                # SEMI_AUTO -> directly to MAC activation
+                if (self.cmw.scc_activation_mode ==
+                        cmw500.SccActivationMode.SEMI_AUTO.value):
+                    self.cmw.switch_scc_state(i, cmw500.SccState.MAC)
+
+            # no need to do anything for auto
+            if self.cmw.scc_activation_mode != cmw500.SccActivationMode.AUTO.value:
+                if bts.scc_state == cmw500.SccState.ON.value:
+                    self.cmw.switch_scc_state(i, cmw500.SccState.RRC)
+
+                if bts.scc_state == cmw500.SccState.RRC.value:
+                    self.cmw.switch_scc_state(i, cmw500.SccState.MAC)
+
+            self.cmw.wait_for_scc_state(i, [cmw500.SccState.MAC])
 
     def wait_until_attached(self, timeout=120):
         """ Waits until the DUT is attached to the primary carrier.
@@ -560,6 +742,15 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
                                             'Idle state before '
                                             'the timeout period ended.')
 
+    def wait_until_quiet(self, timeout=120):
+        """Waits for all pending operations to finish on the simulator.
+
+        Args:
+            timeout: after this amount of time the method will raise a
+                CellularSimulatorError exception. Default is 120 seconds.
+        """
+        self.cmw.send_and_recv('*OPC?')
+
     def detach(self):
         """ Turns off all the base stations so the DUT loose connection."""
         self.cmw.detach()
@@ -567,7 +758,8 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
     def stop(self):
         """ Stops current simulation. After calling this method, the simulator
         will need to be set up again. """
-        raise NotImplementedError()
+        self.detach()
+        self.cmw.switch_lte_signalling(cmw500.LteState.LTE_OFF)
 
     def start_data_traffic(self):
         """ Starts transmitting data from the instrument to the DUT. """
@@ -576,3 +768,12 @@ class CMW500CellularSimulator(cc.AbstractCellularSimulator):
     def stop_data_traffic(self):
         """ Stops transmitting data from the instrument to the DUT. """
         raise NotImplementedError()
+
+    def send_sms(self, message):
+        """ Sends an SMS message to the DUT.
+
+        Args:
+            message: the SMS message to send.
+        """
+        self.cmw.set_sms(message)
+        self.cmw.send_sms()

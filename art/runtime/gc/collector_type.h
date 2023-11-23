@@ -30,6 +30,8 @@ enum CollectorType {
   kCollectorTypeMS,
   // Concurrent mark-sweep.
   kCollectorTypeCMS,
+  // Concurrent mark-compact.
+  kCollectorTypeCMC,
   // Semi-space / mark-sweep hybrid, enables compaction.
   kCollectorTypeSS,
   // Heap trimming collector, doesn't do any actual collecting.
@@ -63,12 +65,13 @@ enum CollectorType {
 std::ostream& operator<<(std::ostream& os, CollectorType collector_type);
 
 static constexpr CollectorType kCollectorTypeDefault =
-#if ART_DEFAULT_GC_TYPE_IS_CMS
-    kCollectorTypeCMS
+#if ART_DEFAULT_GC_TYPE_IS_CMC
+    kCollectorTypeCMC
 #elif ART_DEFAULT_GC_TYPE_IS_SS
     kCollectorTypeSS
-#else
+#elif ART_DEFAULT_GC_TYPE_IS_CMS
     kCollectorTypeCMS
+#else
 #error "ART default GC type must be set"
 #endif
     ;  // NOLINT [whitespace/semicolon] [5]

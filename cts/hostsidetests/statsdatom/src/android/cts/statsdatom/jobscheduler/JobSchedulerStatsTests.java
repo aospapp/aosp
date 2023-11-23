@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.jobscheduler;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -40,6 +41,8 @@ public class JobSchedulerStatsTests extends DeviceTestCase implements IBuildRece
             List.of(AtomsProto.ScheduledJobStateChanged.State.STARTED_VALUE));
     private static final Set<Integer> STATE_FINISH = new HashSet<>(
             List.of(AtomsProto.ScheduledJobStateChanged.State.FINISHED_VALUE));
+    private static final Set<Integer> STATE_CANCEL = new HashSet<>(
+            List.of(AtomsProto.ScheduledJobStateChanged.State.CANCELLED_VALUE));
 
     private static final String JOB_NAME =
             "com.android.server.cts.device.statsdatom/.StatsdJobService";
@@ -53,7 +56,7 @@ public class JobSchedulerStatsTests extends DeviceTestCase implements IBuildRece
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -79,6 +82,30 @@ public class JobSchedulerStatsTests extends DeviceTestCase implements IBuildRece
                 atomTag, /*useUidAttributionChain=*/true);
         DeviceUtils.allowImmediateSyncs(getDevice());
         DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testScheduledJob");
+
+        // Sorted list of events in order in which they occurred.
+        List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
+
+        AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, 0,
+                atom -> atom.getScheduledJobStateChanged().getState().getNumber());
+
+        for (StatsLog.EventMetricData e : data) {
+            assertThat(e.getAtom().getScheduledJobStateChanged().getJobName())
+                    .isEqualTo(JOB_NAME);
+        }
+    }
+
+    public void testScheduledJobState_CancelledJob() throws Exception {
+        final int atomTag = AtomsProto.Atom.SCHEDULED_JOB_STATE_CHANGED_FIELD_NUMBER;
+
+        // Add state sets to the list in order.
+        List<Set<Integer>> stateSet = List.of(STATE_SCHEDULE, STATE_CANCEL);
+
+        ConfigUtils.uploadConfigForPushedAtomWithUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
+                atomTag, /*useUidAttributionChain=*/true);
+        DeviceUtils.allowImmediateSyncs(getDevice());
+        DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(),
+                ".AtomTests", "testScheduledJob_CancelledJob");
 
         // Sorted list of events in order in which they occurred.
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());

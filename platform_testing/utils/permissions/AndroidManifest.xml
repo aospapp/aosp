@@ -17,15 +17,11 @@
  */
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.android.permissionutils">
+    package="com.android.permissionutils"
+    android:sharedUserId="android.uid.system">
 
     <uses-sdk android:minSdkVersion="23"
-              android:targetSdkVersion="23" />
-
-    <uses-permission android:name="android.permission.GRANT_REVOKE_PERMISSIONS" />
-    <uses-permission android:name="android.permission.GRANT_RUNTIME_PERMISSIONS" />
-    <uses-permission android:name="android.permission.REVOKE_RUNTIME_PERMISSIONS" />
-    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL" />
+              android:targetSdkVersion="31" />
 
     <application>
         <uses-library android:name="android.test.runner" />

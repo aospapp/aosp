@@ -20,10 +20,6 @@ android_test_helper_app {
     name: "PackageSettingTestApp",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
-    test_suites: [
-        "cts",
-        "general-tests",
-    ],
     static_libs: ["androidx.test.rules"],
     compile_multilib: "both",
     platform_apis: true,

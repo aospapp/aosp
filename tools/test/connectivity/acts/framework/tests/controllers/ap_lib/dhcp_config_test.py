@@ -16,7 +16,6 @@
 
 import ipaddress
 import unittest
-from unittest.mock import patch
 
 from acts.controllers.ap_lib.dhcp_config import DhcpConfig, Subnet, StaticMapping
 

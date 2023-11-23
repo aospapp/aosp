@@ -58,6 +58,8 @@ func init() {
 	AddNeverAllowRules(createMakefileGoalRules()...)
 	AddNeverAllowRules(createInitFirstStageRules()...)
 	AddNeverAllowRules(createProhibitFrameworkAccessRules()...)
+	AddNeverAllowRules(createBp2BuildRule())
+	AddNeverAllowRules(createCcStubsRule())
 }
 
 // Add a NeverAllow rule to the set of rules to apply.
@@ -65,8 +67,16 @@ func AddNeverAllowRules(rules ...Rule) {
 	neverallows = append(neverallows, rules...)
 }
 
-func createIncludeDirsRules() []Rule {
-	notInIncludeDir := []string{
+func createBp2BuildRule() Rule {
+	return NeverAllow().
+		With("bazel_module.bp2build_available", "true").
+		NotIn("soong_tests"). // only used in tests
+		Because("setting bp2build_available in Android.bp is not " +
+			"supported for custom conversion, use allowlists.go instead.")
+}
+
+var (
+	neverallowNotInIncludeDir = []string{
 		"art",
 		"art/libnativebridge",
 		"art/libnativeloader",
@@ -82,7 +92,7 @@ func createIncludeDirsRules() []Rule {
 		"external/vixl",
 		"external/wycheproof",
 	}
-	noUseIncludeDir := []string{
+	neverallowNoUseIncludeDir = []string{
 		"frameworks/av/apex",
 		"frameworks/av/tools",
 		"frameworks/native/cmds",
@@ -94,10 +104,12 @@ func createIncludeDirsRules() []Rule {
 		"system/libfmq",
 		"system/libvintf",
 	}
+)
 
-	rules := make([]Rule, 0, len(notInIncludeDir)+len(noUseIncludeDir))
+func createIncludeDirsRules() []Rule {
+	rules := make([]Rule, 0, len(neverallowNotInIncludeDir)+len(neverallowNoUseIncludeDir))
 
-	for _, path := range notInIncludeDir {
+	for _, path := range neverallowNotInIncludeDir {
 		rule :=
 			NeverAllow().
 				WithMatcher("include_dirs", StartsWith(path+"/")).
@@ -107,7 +119,7 @@ func createIncludeDirsRules() []Rule {
 		rules = append(rules, rule)
 	}
 
-	for _, path := range noUseIncludeDir {
+	for _, path := range neverallowNoUseIncludeDir {
 		rule := NeverAllow().In(path+"/").WithMatcher("include_dirs", isSetMatcherInstance).
 			Because("include_dirs is deprecated, all usages of them in '" + path + "' have been migrated" +
 				" to use alternate mechanisms and so can no longer be used.")
@@ -153,7 +165,9 @@ func createJavaDeviceForHostRules() []Rule {
 	javaDeviceForHostProjectsAllowedList := []string{
 		"development/build",
 		"external/guava",
+		"external/kotlinx.coroutines",
 		"external/robolectric-shadows",
+		"external/robolectric",
 		"frameworks/layoutlib",
 	}
 
@@ -202,6 +216,17 @@ func createCcSdkVariantRules() []Rule {
 	}
 }
 
+func createCcStubsRule() Rule {
+	ccStubsImplementationInstallableProjectsAllowedList := []string{
+		"packages/modules/Virtualization/vm_payload",
+	}
+
+	return NeverAllow().
+		NotIn(ccStubsImplementationInstallableProjectsAllowedList...).
+		WithMatcher("stubs.implementation_installable", isSetMatcherInstance).
+		Because("implementation_installable can only be used in allowed projects.")
+}
+
 func createUncompressDexRules() []Rule {
 	return []Rule{
 		NeverAllow().
@@ -212,11 +237,16 @@ func createUncompressDexRules() []Rule {
 }
 
 func createMakefileGoalRules() []Rule {
+	allowlist := []string{
+		// libwifi_hal uses makefile_goal for its dependencies
+		"frameworks/opt/net/wifi/libwifi_hal",
+	}
 	return []Rule{
 		NeverAllow().
 			ModuleType("makefile_goal").
 			WithoutMatcher("product_out_path", Regexp("^boot[0-9a-zA-Z.-]*[.]img$")).
-			Because("Only boot images may be imported as a makefile goal."),
+			NotIn(allowlist...).
+			Because("Only boot images may be imported as a makefile goal if not in allowed projects"),
 	}
 }
 
@@ -513,7 +543,7 @@ func (r *rule) String() string {
 		s = append(s, fmt.Sprintf("properties matching: %s", r.props))
 	}
 	if len(r.directDeps) > 0 {
-		s = append(s, fmt.Sprintf("dep(s): %q", SortedStringKeys(r.directDeps)))
+		s = append(s, fmt.Sprintf("dep(s): %q", SortedKeys(r.directDeps)))
 	}
 	if len(r.osClasses) > 0 {
 		s = append(s, fmt.Sprintf("os class(es): %q", r.osClasses))

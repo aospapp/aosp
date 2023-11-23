@@ -22,14 +22,21 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.UserHandle;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class UserHandleQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class UserHandleQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private final Queryable mQuery = null;
     private static final int USER_HANDLE_ID = 1;
@@ -93,5 +100,41 @@ public class UserHandleQueryHelperTest {
         userHandleQueryHelper.isEqualTo(USER_HANDLE);
 
         assertParcelsCorrectly(UserHandleQueryHelper.class, userHandleQueryHelper);
+    }
+
+    @Test
+    public void userHandleQueryHelper_queries() {
+        assertThat(
+                UserHandleQuery.userHandle()
+                        .where().id().isEqualTo(USER_HANDLE_ID)
+                        .matches(USER_HANDLE)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        UserHandleQueryHelper<Queryable> userHandleQueryHelper =
+                new UserHandleQueryHelper<>(mQuery);
+
+        assertThat(userHandleQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasEqualToQuery_returnsFalse() {
+        UserHandleQueryHelper<Queryable> userHandleQueryHelper =
+                new UserHandleQueryHelper<>(mQuery);
+
+        userHandleQueryHelper.isEqualTo(USER_HANDLE);
+
+        assertThat(userHandleQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIdQuery_returnsFalse() {
+        UserHandleQueryHelper<Queryable> userHandleQueryHelper =
+                new UserHandleQueryHelper<>(mQuery);
+
+        userHandleQueryHelper.id().isEqualTo(0);
+
+        assertThat(userHandleQueryHelper.isEmptyQuery()).isFalse();
     }
 }

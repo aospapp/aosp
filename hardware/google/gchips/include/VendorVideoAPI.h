@@ -81,36 +81,71 @@ typedef struct _ExynosHdrStaticInfo {
     };
 } ExynosHdrStaticInfo;
 
-typedef struct _ExynosHdrDynamicInfo {
-    unsigned int valid;
+typedef struct _ExynosHdrData_ST2094_40 {
+    unsigned char  country_code;
+    unsigned short provider_code;
+    unsigned short provider_oriented_code;
+
+    unsigned char  application_identifier;
+    unsigned char  application_version;
+
+    unsigned char num_windows;
+
+    unsigned short window_upper_left_corner_x[2];
+    unsigned short window_upper_left_corner_y[2];
+    unsigned short window_lower_right_corner_x[2];
+    unsigned short window_lower_right_corner_y[2];
+    unsigned short center_of_ellipse_x[2];
+    unsigned short center_of_ellipse_y[2];
+    unsigned char  rotation_angle[2];
+    unsigned short semimajor_axis_internal_ellipse[2];
+    unsigned short semimajor_axis_external_ellipse[2];
+    unsigned short semiminor_axis_external_ellipse[2];
+    unsigned char  overlap_process_option[2];
+
+    unsigned int  targeted_system_display_maximum_luminance;
+    unsigned char targeted_system_display_actual_peak_luminance_flag;
+    unsigned char num_rows_targeted_system_display_actual_peak_luminance;
+    unsigned char num_cols_targeted_system_display_actual_peak_luminance;
+    unsigned char targeted_system_display_actual_peak_luminance[25][25];
+
+    unsigned int maxscl[3][3];
+    unsigned int average_maxrgb[3];
+
+    unsigned char num_maxrgb_percentiles[3];
+    unsigned char maxrgb_percentages[3][15];
+    unsigned int  maxrgb_percentiles[3][15];
+
+    unsigned short fraction_bright_pixels[3];
+
+    unsigned char mastering_display_actual_peak_luminance_flag;
+    unsigned char num_rows_mastering_display_actual_peak_luminance;
+    unsigned char num_cols_mastering_display_actual_peak_luminance;
+    unsigned char mastering_display_actual_peak_luminance[25][25];
 
     struct {
-        unsigned char  country_code;
-        unsigned short provider_code;
-        unsigned short provider_oriented_code;
+        unsigned char   tone_mapping_flag[3];
+        unsigned short  knee_point_x[3];
+        unsigned short  knee_point_y[3];
+        unsigned char   num_bezier_curve_anchors[3];
+        unsigned short  bezier_curve_anchors[3][15];
+    } tone_mapping;
 
-        unsigned char  application_identifier;
-        unsigned short application_version;
+    unsigned char color_saturation_mapping_flag[3];
+    unsigned char color_saturation_weight[3];
+} ExynosHdrData_ST2094_40;
 
-        unsigned int  display_maximum_luminance;
-
-        unsigned int maxscl[3];
-
-        unsigned char num_maxrgb_percentiles;
-        unsigned char maxrgb_percentages[15];
-        unsigned int  maxrgb_percentiles[15];
-
-        struct {
-            unsigned short  tone_mapping_flag;
-            unsigned short  knee_point_x;
-            unsigned short  knee_point_y;
-            unsigned short  num_bezier_curve_anchors;
-            unsigned short  bezier_curve_anchors[15];
-        } tone_mapping;
-    } data;
-
+typedef struct _ExynosHdrDynamicInfo {
+    unsigned int valid;
     unsigned int reserved[42];
+
+    ExynosHdrData_ST2094_40 data;
 } ExynosHdrDynamicInfo;
+
+typedef struct _ExynosHdrDynamicBlob {
+    int  nSize;
+    char pData[1020];
+} ExynosHdrDynamicBlob;
 
 typedef struct _ExynosVideoCrop {
     int left;
@@ -138,23 +173,31 @@ typedef struct _ExynosVideoEncData {
 } ExynosVideoEncData;
 
 typedef struct _ExynosVideoMeta {
-    ExynosVideoInfoType eType;
+    /***********************************************/
+    /****** WARNING: DO NOT MODIFY THIS AREA *******/
+    /**/                                         /**/
+    /**/  ExynosVideoInfoType eType;             /**/
+    /**/  int                 nHDRType;          /**/
+    /**/                                         /**/
+    /**/  ExynosColorAspects   sColorAspects;    /**/
+    /**/  ExynosHdrStaticInfo  sHdrStaticInfo;   /**/
+    /**/  ExynosHdrDynamicInfo sHdrDynamicInfo;  /**/
+    /**/                                         /**/
+    /****** WARNING: DO NOT MODIFY THIS AREA *******/
+    /***********************************************/
 
-    ExynosHdrStaticInfo  sHdrStaticInfo;
-    ExynosColorAspects   sColorAspects;
+    int nPixelFormat;
+    ExynosVideoCrop crop;
 
     union {
         ExynosVideoDecData dec;
         ExynosVideoEncData enc;
     } data;
 
-    ExynosHdrDynamicInfo sHdrDynamicInfo;
-
-    int nPixelFormat;
-    ExynosVideoCrop crop;
+    int reserved[20];   /* reserved filed for additional info */
 } ExynosVideoMeta;
 
-int Exynos_parsing_user_data_registered_itu_t_t35(ExynosHdrDynamicInfo *dest, void *src);
+int Exynos_parsing_user_data_registered_itu_t_t35(ExynosHdrDynamicInfo *dest, void *src, int size);
 int Exynos_dynamic_meta_to_itu_t_t35(ExynosHdrDynamicInfo *src, char *dst);
 
 #ifdef __cplusplus

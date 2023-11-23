@@ -58,9 +58,9 @@ public class Collections2Test extends TestCase {
     public void test_binarySearchLjava_util_ListLjava_lang_ObjectLjava_util_Comparator() {
         // Regression for HARMONY-94
         LinkedList<Integer> lst = new LinkedList<Integer>();
-        lst.add(new Integer(30));
+        lst.add(Integer.valueOf(30));
         Collections.sort(lst, null);
-        int index = Collections.binarySearch(lst, new Integer(2), null);
+        int index = Collections.binarySearch(lst, Integer.valueOf(2), null);
         assertEquals(-1, index);
     }
 
@@ -75,7 +75,7 @@ public class Collections2Test extends TestCase {
         assertEquals(-1, Collections.binarySearch(localList, new Object()));
         localList.add(new Object());
         try {
-            Collections.binarySearch(localList, new Integer(1));
+            Collections.binarySearch(localList, Integer.valueOf(1));
             fail("Should throw ClassCastException");
         } catch (ClassCastException e) {
             // expected
@@ -264,14 +264,14 @@ public class Collections2Test extends TestCase {
         assertEquals("Assert 4: matched on null when there are none", 0,
                 Collections.frequency(strings, null));
 
-        List<Object> objects = Arrays.asList(new Object[] { new Integer(1), null, null,
-                new Long(1) });
+        List<Object> objects = Arrays.asList(new Object[] { Integer.valueOf(1), null, null,
+                Long.valueOf(1) });
 
         assertEquals("Assert 5: did not find one Integer(1)", 1, Collections
-                .frequency(objects, new Integer(1)));
+                .frequency(objects, Integer.valueOf(1)));
 
         assertEquals("Assert 6: did not find one Long(1)", 1, Collections
-                .frequency(objects, new Long(1)));
+                .frequency(objects, Long.valueOf(1)));
 
         assertEquals("Assert 7: did not find two null references", 2,
                 Collections.frequency(objects, null));
@@ -327,21 +327,21 @@ public class Collections2Test extends TestCase {
         List<Object> l = new ArrayList<Object>();
         assertFalse(Collections.addAll(l, new Object[] { }));
         assertTrue(l.isEmpty());
-        assertTrue(Collections.addAll(l, new Object[] { new Integer(1),
-                new Integer(2), new Integer(3) }));
+        assertTrue(Collections.addAll(l, new Object[] { Integer.valueOf(1),
+                Integer.valueOf(2), Integer.valueOf(3) }));
         assertFalse(l.isEmpty());
-        assertTrue(l.equals(Arrays.asList(new Object[] { new Integer(1),
-                new Integer(2), new Integer(3) })));
+        assertTrue(l.equals(Arrays.asList(new Object[] { Integer.valueOf(1),
+                Integer.valueOf(2), Integer.valueOf(3) })));
     }
 
     public void test_Disjoint() {
         Object[] arr1 = new Object[10];
         for (int i = 0; i < arr1.length; i++) {
-            arr1[i] = new Integer(i);
+            arr1[i] = Integer.valueOf(i);
         }
         Object[] arr2 = new Object[20];
         for (int i = 0; i < arr2.length; i++) {
-            arr2[i] = new Integer(100 + i);
+            arr2[i] = Integer.valueOf(100 + i);
         }
         Collection<Object> c1 = new ArrayList<Object>();
         Collection<Object> c2 = new ArrayList<Object>();
@@ -510,7 +510,7 @@ public class Collections2Test extends TestCase {
         testCollectionForEach(Collections.unmodifiableCollection(list));
         testCollectionForEach(Collections.synchronizedCollection(list));
         testCollectionForEach(Collections.checkedCollection(list, Integer.class));
-        testCollectionForEach(Collections.singletonList(new Integer(0)));
+        testCollectionForEach(Collections.singletonList(Integer.valueOf(0)));
     }
 
     void testMapForEach(Map<String,String> map) {

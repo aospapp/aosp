@@ -14,71 +14,14 @@
  * limitations under the License.
  */
 
-#include <err.h>
-#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <unistd.h>
 
-#include <string>
-
 #include "Alloc.h"
+#include "AllocParser.h"
 #include "Pointers.h"
 #include "Utils.h"
-
-void AllocGetData(const std::string& line, AllocEntry* entry) {
-  int line_pos = 0;
-  char name[128];
-  // All lines have this format:
-  //   TID: ALLOCATION_TYPE POINTER
-  // where
-  //   TID is the thread id of the thread doing the operation.
-  //   ALLOCATION_TYPE is one of malloc, calloc, memalign, realloc, free, thread_done
-  //   POINTER is the hex value of the actual pointer
-  if (sscanf(line.c_str(), "%d: %127s %" SCNx64 " %n", &entry->tid, name, &entry->ptr, &line_pos) !=
-      3) {
-    errx(1, "File Error: Failed to process %s", line.c_str());
-  }
-  const char* line_end = &line[line_pos];
-  std::string type(name);
-  if (type == "malloc") {
-    // Format:
-    //   TID: malloc POINTER SIZE_OF_ALLOCATION
-    if (sscanf(line_end, "%zu", &entry->size) != 1) {
-      errx(1, "File Error: Failed to read malloc data %s", line.c_str());
-    }
-    entry->type = MALLOC;
-  } else if (type == "free") {
-    // Format:
-    //   TID: free POINTER
-    entry->type = FREE;
-  } else if (type == "calloc") {
-    // Format:
-    //   TID: calloc POINTER ITEM_COUNT ITEM_SIZE
-    if (sscanf(line_end, "%" SCNd64 " %zu", &entry->u.n_elements, &entry->size) != 2) {
-      errx(1, "File Error: Failed to read calloc data %s", line.c_str());
-    }
-    entry->type = CALLOC;
-  } else if (type == "realloc") {
-    // Format:
-    //   TID: calloc POINTER NEW_SIZE OLD_POINTER
-    if (sscanf(line_end, "%" SCNx64 " %zu", &entry->u.old_ptr, &entry->size) != 2) {
-      errx(1, "File Error: Failed to read realloc data %s", line.c_str());
-    }
-    entry->type = REALLOC;
-  } else if (type == "memalign") {
-    // Format:
-    //   TID: memalign POINTER ALIGNMENT SIZE
-    if (sscanf(line_end, "%" SCNd64 " %zu", &entry->u.align, &entry->size) != 2) {
-      errx(1, "File Error: Failed to read memalign data %s", line.c_str());
-    }
-    entry->type = MEMALIGN;
-  } else if (type == "thread_done") {
-    entry->type = THREAD_DONE;
-  } else {
-    errx(1, "File Error: Unknown type %s", type.c_str());
-  }
-}
 
 bool AllocDoesFree(const AllocEntry& entry) {
   switch (entry.type) {

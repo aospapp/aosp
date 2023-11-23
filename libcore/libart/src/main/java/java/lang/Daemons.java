@@ -20,6 +20,9 @@ import android.compat.annotation.UnsupportedAppUsage;
 import android.system.Os;
 import android.system.OsConstants;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.lang.ref.Cleaner;
 import java.lang.ref.FinalizerReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
@@ -30,6 +33,8 @@ import libcore.util.EmptyArray;
 
 import dalvik.system.VMRuntime;
 import dalvik.system.VMDebug;
+
+import jdk.internal.ref.CleanerImpl;
 
 /**
  * Calls Object.finalize() on objects in the finalizer reference queue. The VM
@@ -225,9 +230,11 @@ public final class Daemons {
                 try {
                     synchronized (ReferenceQueue.class) {
                         if (ReferenceQueue.unenqueued == null) {
-                            progressCounter.incrementAndGet();
                             FinalizerWatchdogDaemon.INSTANCE.monitoringNotNeeded(
                                     FinalizerWatchdogDaemon.RQ_DAEMON);
+                            // Increment after above call. If watchdog saw it active, it should see
+                            // the counter update.
+                            progressCounter.incrementAndGet();
                             do {
                                ReferenceQueue.class.wait();
                             } while (ReferenceQueue.unenqueued == null);
@@ -248,8 +255,8 @@ public final class Daemons {
             }
         }
 
-        ReferenceQueue currentlyProcessing() {
-          return ReferenceQueue.getCurrentQueue();
+        Object currentlyProcessing() {
+          return ReferenceQueue.getCurrentTarget();
         }
     }
 
@@ -278,7 +285,7 @@ public final class Daemons {
             // potentially extended period.  This prevents the device from waking up regularly
             // during idle times.
 
-            // Local copy of progressCounter; saves a fence per increment on ARM and MIPS.
+            // Local copy of progressCounter; saves a fence per increment on ARM.
             int localProgressCounter = progressCounter.get();
 
             FinalizerWatchdogDaemon.INSTANCE.monitoringNeeded(
@@ -287,26 +294,39 @@ public final class Daemons {
                 try {
                     // Use non-blocking poll to avoid FinalizerWatchdogDaemon communication
                     // when busy.
-                    FinalizerReference<?> finalizingReference = (FinalizerReference<?>)queue.poll();
-                    if (finalizingReference != null) {
-                        finalizingObject = finalizingReference.get();
+                    Object nextReference = queue.poll();
+                    if (nextReference != null) {
                         progressCounter.lazySet(++localProgressCounter);
+                        processReference(nextReference);
                     } else {
                         finalizingObject = null;
-                        progressCounter.lazySet(++localProgressCounter);
                         // Slow path; block.
                         FinalizerWatchdogDaemon.INSTANCE.monitoringNotNeeded(
                                 FinalizerWatchdogDaemon.FINALIZER_DAEMON);
-                        finalizingReference = (FinalizerReference<?>)queue.remove();
-                        finalizingObject = finalizingReference.get();
+                        // Increment after above call. If watchdog saw it active, it should see
+                        // the counter update.
+                        progressCounter.set(++localProgressCounter);
+                        nextReference = queue.remove();
                         progressCounter.set(++localProgressCounter);
                         FinalizerWatchdogDaemon.INSTANCE.monitoringNeeded(
                                 FinalizerWatchdogDaemon.FINALIZER_DAEMON);
+                        processReference(nextReference);
                     }
-                    doFinalize(finalizingReference);
                 } catch (InterruptedException ignored) {
                 } catch (OutOfMemoryError ignored) {
                 }
+            }
+        }
+
+        private void processReference(Object ref) {
+            if (ref instanceof FinalizerReference finalizingReference) {
+                finalizingObject = finalizingReference.get();
+                doFinalize(finalizingReference);
+            } else if (ref instanceof Cleaner.Cleanable cleanableReference) {
+                finalizingObject = cleanableReference;
+                doClean(cleanableReference);
+            } else {
+                throw new AssertionError("Unknown class was placed into queue: " + ref);
             }
         }
 
@@ -322,6 +342,17 @@ public final class Daemons {
                 System.logE("Uncaught exception thrown by finalizer", ex);
             } finally {
                 // Done finalizing, stop holding the object as live.
+                finalizingObject = null;
+            }
+        }
+
+        private void doClean(Cleaner.Cleanable cleanable) {
+            try {
+                cleanable.clean();
+            } catch (Throwable ex) {
+                System.logE("Uncaught exception thrown by cleaner", ex);
+            } finally {
+                // No need to hold cleaner object.
                 finalizingObject = null;
             }
         }
@@ -342,6 +373,18 @@ public final class Daemons {
 
         @UnsupportedAppUsage
         private static final FinalizerWatchdogDaemon INSTANCE = new FinalizerWatchdogDaemon();
+        private static final VarHandle VH_ACTION;
+        static {
+            try {
+                VH_ACTION = MethodHandles
+                        .privateLookupIn(
+                                CleanerImpl.PhantomCleanableRef.class, MethodHandles.lookup())
+                        .findVarHandle(
+                                CleanerImpl.PhantomCleanableRef.class, "action", Runnable.class);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new AssertionError("PhantomCleanableRef should have action field", e);
+            }
+        }
 
         private int activeWatchees;  // Only synchronized accesses.
 
@@ -463,73 +506,108 @@ public final class Daemons {
                 // Temporary app backward compatibility. Remove eventually.
                 MAX_FINALIZE_NANOS = finalizerTimeoutNs;
             }
-            boolean monitorFinalizer = false;
-            int finalizerStartCount = 0;
-            if (isActive(FINALIZER_DAEMON)) {
-                monitorFinalizer = true;
-                finalizerStartCount = FinalizerDaemon.INSTANCE.progressCounter.get();
-            }
-            boolean monitorRefQueue = false;
-            int refQueueStartCount = 0;
-            if (isActive(RQ_DAEMON)) {
-                monitorRefQueue = true;
-                refQueueStartCount = ReferenceQueueDaemon.INSTANCE.progressCounter.get();
-            }
-
+            // Read the counter before we read the "active" state the first time, and after
+            // we read it the last time, to guarantee that if the state was ever inactive,
+            // we'll see a changed counter.
+            int finalizerStartCount = FinalizerDaemon.INSTANCE.progressCounter.get();
+            boolean monitorFinalizer = isActive(FINALIZER_DAEMON);
+            int refQueueStartCount = ReferenceQueueDaemon.INSTANCE.progressCounter.get();
+            boolean monitorRefQueue = isActive(RQ_DAEMON);
             // Avoid remembering object being finalized, so as not to keep it alive.
-            if (!sleepForNanos(finalizerTimeoutNs)) {
-                // Don't report possibly spurious timeout if we are interrupted.
-                return null;
-            }
-            if (FinalizerDaemon.INSTANCE.progressCounter.get() == finalizerStartCount
-                && monitorFinalizer && isActive(FINALIZER_DAEMON)) {
-                // We assume that only remove() and doFinalize() may take time comparable to the
-                // finalizer timeout.
-                // We observed neither the effect of the monitoringNotNeeded() nor the increment
-                // preceding a later wakeUp. Any remove() call by the FinalizerDaemon during our
-                // sleep interval must have been followed by a monitoringNeeded() call before we
-                // checked activeCallees.  But then we would have seen the counter increment.
-                // Thus there cannot have been such a remove() call.
-                // The FinalizerDaemon must not have progressed (from either the beginning or the
-                // last progressCounter increment) to either the next increment or
-                // monitoringNotNeeded() call.
-                // Thus we must have taken essentially the whole finalizerTimeoutMs in a single
-                // doFinalize() call.  Thus it's OK to time out.  finalizingObject was set just
-                // before the counter increment, which preceded the doFinalize() call.  Thus we
-                // are guaranteed to get the correct finalizing value below, unless doFinalize()
-                // just finished as we were timing out, in which case we may get null or a later
-                // one.  In this last case, we are very likely to discard it below.
-                Object finalizing = FinalizerDaemon.INSTANCE.finalizingObject;
-                sleepForNanos(500 * NANOS_PER_MILLI);
-                // Recheck to make it even less likely we report the wrong finalizing object in
-                // the case which a very slow finalization just finished as we were timing out.
-                if (isActive(FINALIZER_DAEMON)
-                        && FinalizerDaemon.INSTANCE.progressCounter.get() == finalizerStartCount) {
-                    return finalizerTimeoutException(finalizing);
+            final long startMillis = System.currentTimeMillis();
+            final long startNanos = System.nanoTime();
+
+            // Rather than just sleeping for finalizerTimeoutNs and checking whether we made
+            // progress, we sleep repeatedly. This means that if our process makes no progress,
+            // e.g. because it is frozen, the watchdog also won't, making it less likely we will
+            // spuriously time out. It does mean that in the normal case, we will go to sleep
+            // and wake up twice per timeout period, rather than once.
+            final int NUM_WAKEUPS = 5;
+            for (int i = 1; i <= NUM_WAKEUPS; ++i) {
+                if (!sleepForNanos(finalizerTimeoutNs / NUM_WAKEUPS)) {
+                    // Don't report possibly spurious timeout if we are interrupted.
+                    return null;
+                }
+                if (monitorFinalizer && isActive(FINALIZER_DAEMON)
+                    && FinalizerDaemon.INSTANCE.progressCounter.get() == finalizerStartCount) {
+                    // Still working on same finalizer or Java 9 Cleaner.
+                    continue;
+                }
+                if (monitorRefQueue && isActive(RQ_DAEMON)
+                    && ReferenceQueueDaemon.INSTANCE.progressCounter.get() == refQueueStartCount) {
+                    // Still working on same ReferenceQueue or sun.misc.Cleaner.
+                    continue;
+                }
+                // Everything that could make progress, already did. Just sleep for the rest of the
+                // timeout interval.
+                if (i < NUM_WAKEUPS) {
+                    sleepForNanos((finalizerTimeoutNs  / NUM_WAKEUPS) * (NUM_WAKEUPS - i));
+                    return null;
                 }
             }
-            if (ReferenceQueueDaemon.INSTANCE.progressCounter.get() == refQueueStartCount
-                && monitorRefQueue && isActive(RQ_DAEMON)) {
+            // Either a state change to inactive, or a task completion would have caused us to see a
+            // counter change. Thus at least one of the daemons appears stuck.
+            if (monitorFinalizer && isActive(FINALIZER_DAEMON)
+                && FinalizerDaemon.INSTANCE.progressCounter.get() == finalizerStartCount) {
+                // The finalizingObject field was set just before the counter increment, which
+                // preceded the doFinalize() or doClean() call.  Thus we are guaranteed to get the
+                // correct finalizing value below, unless doFinalize() just finished as we were
+                // timing out, in which case we may get null or a later one.
+                Object finalizing = FinalizerDaemon.INSTANCE.finalizingObject;
+                System.logE("Was finalizing " + finalizingObjectAsString(finalizing)
+                    + ", now finalizing "
+                    + finalizingObjectAsString(FinalizerDaemon.INSTANCE.finalizingObject));
+                // Print both time of day and monotonic time differences:
+                System.logE("Total elapsed millis: "
+                    + (System.currentTimeMillis() - startMillis));
+                System.logE("Total elapsed nanos: " + (System.nanoTime() - startNanos));
+                return finalizerTimeoutException(finalizing);
+            }
+            if (monitorRefQueue && isActive(RQ_DAEMON)
+                && ReferenceQueueDaemon.INSTANCE.progressCounter.get() == refQueueStartCount) {
+                // Report RQD timeouts only if they occur repeatedly.
+                // TODO: Consider changing that, but we have historically been more tolerant here,
+                // since we may not increment the reference counter for every processed queue
+                // element.
+                String currentTarget = ReferenceQueueDaemon.INSTANCE.currentlyProcessing().toString();
+                System.logE("ReferenceQueueDaemon timed out while targeting " + currentTarget
+                        + ". Total nanos: " + (System.nanoTime() - startNanos));
                 if (observedReferenceQueueTimeouts.incrementAndGet()
                         > TOLERATED_REFERENCE_QUEUE_TIMEOUTS) {
-                    return refQueueTimeoutException(
-                            ReferenceQueueDaemon.INSTANCE.currentlyProcessing());
+                    return refQueueTimeoutException(currentTarget);
                 }
             }
             return null;
         }
 
         private static TimeoutException finalizerTimeoutException(Object object) {
-            String message = object.getClass().getName() + ".finalize() timed out after "
-                    + VMRuntime.getRuntime().getFinalizerTimeoutMs() / 1000 + " seconds";
-            TimeoutException syntheticException = new TimeoutException(message);
+            StringBuilder messageBuilder = new StringBuilder();
+
+            if (object instanceof Cleaner.Cleanable) {
+                messageBuilder.append(VH_ACTION.get(object).getClass().getName());
+            } else {
+                messageBuilder.append(object.getClass().getName()).append(".finalize()");
+            }
+
+            messageBuilder.append(" timed out after ")
+                    .append(VMRuntime.getRuntime().getFinalizerTimeoutMs() / 1000)
+                    .append(" seconds");
+            TimeoutException syntheticException = new TimeoutException(messageBuilder.toString());
             // We use the stack from where finalize() was running to show where it was stuck.
             syntheticException.setStackTrace(FinalizerDaemon.INSTANCE.getStackTrace());
             return syntheticException;
         }
 
-        private static TimeoutException refQueueTimeoutException(ReferenceQueue rq) {
-            String message = "ReferenceQueueDaemon timed out while targeting " + rq;
+        private static String finalizingObjectAsString(Object obj) {
+            if (obj instanceof Cleaner.Cleanable) {
+                return VH_ACTION.get(obj).toString();
+            } else {
+                return obj.toString();
+            }
+        }
+
+        private static TimeoutException refQueueTimeoutException(String target) {
+            String message = "ReferenceQueueDaemon timed out while targeting " + target;
             return new TimeoutException(message);
         }
 

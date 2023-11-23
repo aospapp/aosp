@@ -2,7 +2,7 @@ import com.android.ndkports.AutoconfPortTask
 import com.android.ndkports.CMakeCompatibleVersion
 import com.android.ndkports.PrefabSysrootPlugin
 
-val portVersion = "7.79.1"
+val portVersion = "7.85.0"
 
 group = "com.android.ndk.thirdparty"
 version = "$portVersion${rootProject.extra.get("snapshotSuffix")}"
@@ -10,6 +10,7 @@ version = "$portVersion${rootProject.extra.get("snapshotSuffix")}"
 plugins {
     id("maven-publish")
     id("com.android.ndkports.NdkPorts")
+    distribution
 }
 
 dependencies {
@@ -19,7 +20,7 @@ dependencies {
 ndkPorts {
     ndkPath.set(File(project.findProperty("ndkPath") as String))
     source.set(project.file("src.tar.gz"))
-    minSdkVersion.set(16)
+    minSdkVersion.set(19)
 }
 
 tasks.prefab {
@@ -35,14 +36,6 @@ tasks.register<AutoconfPortTask>("buildPort") {
             "--with-ca-path=/system/etc/security/cacerts",
             "--with-ssl=$sysroot"
         )
-
-        // aarch64 still defaults to bfd which transitively checks libraries.
-        // When curl is linking one of its own libraries which depends on
-        // openssl, it doesn't pass -rpath-link to be able to find the SSL
-        // libraries and fails to build because of it.
-        //
-        // TODO: Switch to lld once we're using r21.
-        env("LDFLAGS", "-fuse-ld=gold")
     }
 }
 
@@ -100,7 +93,24 @@ publishing {
 
     repositories {
         maven {
-            url = uri("${rootProject.buildDir}/repository")
+            url = uri("${project.buildDir}/repository")
         }
+    }
+}
+
+distributions {
+    main {
+        contents {
+            from("${project.buildDir}/repository")
+            include("**/*.aar")
+            include("**/*.pom")
+        }
+    }
+}
+
+tasks {
+    distZip {
+        dependsOn("publish")
+        destinationDirectory.set(File(rootProject.buildDir, "distributions"))
     }
 }

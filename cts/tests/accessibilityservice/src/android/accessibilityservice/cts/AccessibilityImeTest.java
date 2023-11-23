@@ -38,15 +38,18 @@ import android.app.UiAutomation;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.LargeTest;
+import android.platform.test.annotations.Presubmit;
 import android.text.TextUtils;
 import android.util.Log;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.AfterClass;
@@ -58,6 +61,8 @@ import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Test one a11y service requiring ime capabilities and one doesn't.
@@ -65,6 +70,8 @@ import java.util.concurrent.CountDownLatch;
 @LargeTest
 @AppModeFull
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityImeTest {
     private static final String LOG_TAG = "AccessibilityImeTest";
     private static Instrumentation sInstrumentation;
@@ -169,6 +176,66 @@ public class AccessibilityImeTest {
                 serviceToBeCleanedUp.disableSelfAndRemove();
             }
         }
+    }
+
+    /**
+     * Verifies that calling
+     * {@link InputMethodManager#updateSelection(android.view.View, int, int, int, int)} does not
+     * directly invoke {@link android.accessibilityservice.InputMethod#onUpdateSelection(int, int,
+     * int, int, int, int)}, which can cause an infinite-loop.
+     */
+    @AppModeFull(reason = "No need to consider instant apps that host A11yIme")
+    @Test
+    public void testOnUpdateSelectionForInProcessA11yIme() throws Exception {
+        final CountDownLatch startInputLatch = new CountDownLatch(1);
+
+        final String marker = this.getClass() + "/"  + SystemClock.elapsedRealtimeNanos();
+        sInstrumentation.runOnMainSync(() -> {
+            sStubImeAccessibilityService.setOnStartInputCallback((editorInfo, restarting) -> {
+                if (TextUtils.equals(editorInfo.privateImeOptions, marker)) {
+                    startInputLatch.countDown();
+                    sStubImeAccessibilityService.setOnStartInputCallback(null);
+                }
+            });
+
+            mEditText.setPrivateImeOptions(marker);
+            mEditText.requestFocus();
+        });
+
+        assertTrue("Waiting for input to start",
+                startInputLatch.await(AsyncUtils.DEFAULT_TIMEOUT_MS, MILLISECONDS));
+
+        final ThreadLocal<Boolean> invocationOnGoing = new ThreadLocal<>();
+        final AtomicBoolean directInvocationDetected = new AtomicBoolean(false);
+        final CountDownLatch onUpdateSelectionLatch = new CountDownLatch(1);
+        final int expectedNewSelStart = 123;
+        final int expectedNewSelEnd = 321;
+
+        sInstrumentation.runOnMainSync(() -> {
+            sStubImeAccessibilityService.setOnUpdateSelectionCallback((oldSelStart, oldSelEnd,
+                    newSelStart, newSelEnd, candidatesStart, candidatesEnd) -> {
+                if (newSelStart == expectedNewSelStart && newSelEnd == expectedNewSelEnd) {
+                    directInvocationDetected.set(invocationOnGoing.get());
+                    onUpdateSelectionLatch.countDown();
+                    sStubImeAccessibilityService.setOnUpdateSelectionCallback(null);
+                }
+            });
+
+            final InputMethodManager imm =
+                    mEditText.getContext().getSystemService(InputMethodManager.class);
+            invocationOnGoing.set(true);
+            try {
+                imm.updateSelection(mEditText, expectedNewSelStart, expectedNewSelEnd, -1, -1);
+            } finally {
+                invocationOnGoing.set(false);
+            }
+        });
+
+        assertTrue("Waiting for InputMethod#onUpdateSelection() to get called",
+                onUpdateSelectionLatch.await(AsyncUtils.DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS));
+
+        assertFalse("InputMethodManager#updateSelection must not directly invoke"
+                + " InputMethod#onUpdateSelection", directInvocationDetected.get());
     }
 
     @Test

@@ -35,10 +35,10 @@ class NetstackIfaceTest(BaseTestClass):
         self.dut = self.fuchsia_devices[0]
 
     def _enable_all_interfaces(self):
-        interfaces = self.dut.netstack_lib.netstackListInterfaces()
+        interfaces = self.dut.sl4f.netstack_lib.netstackListInterfaces()
         for item in interfaces.get("result"):
             identifier = item.get('id')
-            self.dut.netstack_lib.enableInterface(identifier)
+            self.dut.sl4f.netstack_lib.enableInterface(identifier)
 
     def setup_test(self):
         # Always make sure all interfaces listed are in an up state.
@@ -66,7 +66,7 @@ class NetstackIfaceTest(BaseTestClass):
         TAGS: Netstack
         Priority: 1
         """
-        interfaces = self.dut.netstack_lib.netstackListInterfaces()
+        interfaces = self.dut.sl4f.netstack_lib.netstackListInterfaces()
         if interfaces.get('error') is not None:
             raise signals.TestFailure("Failed with {}".format(
                 interfaces.get('error')))
@@ -99,7 +99,7 @@ class NetstackIfaceTest(BaseTestClass):
         """
 
         def get_wlan_interfaces():
-            result = self.dut.netstack_lib.netstackListInterfaces()
+            result = self.dut.sl4f.netstack_lib.netstackListInterfaces()
             if (error := result.get('error')):
                 raise signals.TestFailure(
                     f'unable to list interfaces: {error}')
@@ -118,7 +118,7 @@ class NetstackIfaceTest(BaseTestClass):
 
         # Disable the interfaces.
         for identifier in interface_ids:
-            result = self.dut.netstack_lib.disableInterface(identifier)
+            result = self.dut.sl4f.netstack_lib.disableInterface(identifier)
             if (error := result.get('error')):
                 raise signals.TestFailure(
                     f'failed to disable wlan interface {identifier}: {error}')
@@ -142,7 +142,7 @@ class NetstackIfaceTest(BaseTestClass):
 
         # Re-enable the interfaces.
         for identifier in disabled_interface_ids:
-            result = self.dut.netstack_lib.enableInterface(identifier)
+            result = self.dut.sl4f.netstack_lib.enableInterface(identifier)
             if (error := result.get('error')):
                 raise signals.TestFailure(
                     f'failed to enable wlan interface {identifier}: {error}')

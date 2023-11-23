@@ -18,27 +18,28 @@ package android.security.net.config.cts;
 
 import android.net.http.AndroidHttpClient;
 
-import java.io.InputStream;
+import junit.framework.Assert;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.HttpURLConnection;
-import java.net.Socket;
 import java.net.URL;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
+
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
-
-import junit.framework.Assert;
-
-import org.apache.http.HttpResponse;
-import org.apache.http.client.methods.HttpGet;
 
 public final class TestUtils extends Assert {
 
@@ -91,8 +92,9 @@ public final class TestUtils extends Assert {
     private static void assertSslSocketFails(String host, int port)
             throws Exception {
         try {
-            Socket s = SSLContext.getDefault().getSocketFactory().createSocket(host, port);
-            s.getInputStream();
+            SSLSocket s =
+                    (SSLSocket) SSLContext.getDefault().getSocketFactory().createSocket(host, port);
+            s.startHandshake();
             fail("Connection to " + host + ":" + port + " succeeded");
         } catch (SSLHandshakeException expected) {
         }
@@ -100,8 +102,9 @@ public final class TestUtils extends Assert {
 
     private static void assertSslSocketSucceeds(String host, int port)
             throws Exception {
-        Socket s = SSLContext.getDefault().getSocketFactory().createSocket(host, port);
-        s.getInputStream();
+        SSLSocket s =
+                (SSLSocket) SSLContext.getDefault().getSocketFactory().createSocket(host, port);
+        s.startHandshake();
     }
 
     private static void assertUrlConnectionFails(String host, int port, boolean https)

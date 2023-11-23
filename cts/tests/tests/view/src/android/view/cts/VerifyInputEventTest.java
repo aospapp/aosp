@@ -17,6 +17,7 @@
 package android.view.cts;
 
 import static android.view.Display.DEFAULT_DISPLAY;
+import static android.view.Display.INVALID_DISPLAY;
 import static android.view.InputDevice.SOURCE_JOYSTICK;
 import static android.view.KeyEvent.FLAG_CANCELED;
 import static android.view.KeyEvent.KEYCODE_A;
@@ -311,7 +312,7 @@ public class VerifyInputEventTest {
         assertEquals(keyEvent.getEventTime() * NANOS_PER_MILLISECOND,
                 verified.getEventTimeNanos());
         assertEquals(keyEvent.getSource(), verified.getSource());
-        assertEquals(DEFAULT_DISPLAY, verified.getDisplayId());
+        assertEquals(INVALID_DISPLAY, verified.getDisplayId());
 
         assertTrue(verified instanceof VerifiedKeyEvent);
         VerifiedKeyEvent verifiedKey = (VerifiedKeyEvent) verified;

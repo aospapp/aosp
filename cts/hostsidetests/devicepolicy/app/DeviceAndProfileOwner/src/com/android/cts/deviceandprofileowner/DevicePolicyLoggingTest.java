@@ -148,20 +148,6 @@ public class DevicePolicyLoggingTest extends BaseDeviceAdminTest {
                 READ_CONTACTS, PERMISSION_GRANT_STATE_DEFAULT);
     }
 
-    public void testSetAutoTimeRequired() {
-        final boolean initialValue = mDevicePolicyManager.getAutoTimeRequired();
-        mDevicePolicyManager.setAutoTimeRequired(ADMIN_RECEIVER_COMPONENT, true);
-        mDevicePolicyManager.setAutoTimeRequired(ADMIN_RECEIVER_COMPONENT, false);
-        mDevicePolicyManager.setAutoTimeRequired(ADMIN_RECEIVER_COMPONENT, initialValue);
-    }
-
-    public void testSetAutoTimeEnabled() {
-        final boolean initialValue = mDevicePolicyManager.getAutoTimeEnabled(
-                ADMIN_RECEIVER_COMPONENT);
-        mDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT, true);
-        mDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT, false);
-        mDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT, initialValue);
-    }
 
     public void testEnableSystemAppLogged() {
         final String systemPackageToEnable =

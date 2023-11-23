@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,82 +16,105 @@
 
 #pragma once
 
-#include <android/hardware/thermal/2.0/IThermal.h>
-#include <android/hardware/thermal/2.0/IThermalChangedCallback.h>
-#include <hidl/Status.h>
+#include <aidl/android/hardware/thermal/BnThermal.h>
 
 #include <mutex>
 #include <thread>
 
 #include "thermal-helper.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
-using ::android::sp;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::Return;
-using ::android::hardware::thermal::V2_0::IThermal;
-using ::android::hardware::thermal::V2_0::IThermalChangedCallback;
-
 struct CallbackSetting {
-    CallbackSetting(sp<IThermalChangedCallback> callback, bool is_filter_type,
-                    TemperatureType_2_0 type)
+    CallbackSetting(std::shared_ptr<IThermalChangedCallback> callback, bool is_filter_type,
+                    TemperatureType type)
         : callback(std::move(callback)), is_filter_type(is_filter_type), type(type) {}
-    sp<IThermalChangedCallback> callback;
+    std::shared_ptr<IThermalChangedCallback> callback;
     bool is_filter_type;
-    TemperatureType_2_0 type;
+    TemperatureType type;
 };
 
-class Thermal : public IThermal {
+class Thermal : public BnThermal {
   public:
     Thermal();
     ~Thermal() = default;
+    ndk::ScopedAStatus getTemperatures(std::vector<Temperature> *_aidl_return) override;
+    ndk::ScopedAStatus getTemperaturesWithType(TemperatureType type,
+                                               std::vector<Temperature> *_aidl_return) override;
 
-    // Disallow copy and assign.
-    Thermal(const Thermal &) = delete;
-    void operator=(const Thermal &) = delete;
+    ndk::ScopedAStatus getCoolingDevices(std::vector<CoolingDevice> *_aidl_return) override;
+    ndk::ScopedAStatus getCoolingDevicesWithType(CoolingType type,
+                                                 std::vector<CoolingDevice> *_aidl_return) override;
 
-    // Methods from ::android::hardware::thermal::V1_0::IThermal.
-    Return<void> getTemperatures(getTemperatures_cb _hidl_cb) override;
-    Return<void> getCpuUsages(getCpuUsages_cb _hidl_cb) override;
-    Return<void> getCoolingDevices(getCoolingDevices_cb _hidl_cb) override;
+    ndk::ScopedAStatus getTemperatureThresholds(
+            std::vector<TemperatureThreshold> *_aidl_return) override;
+    ndk::ScopedAStatus getTemperatureThresholdsWithType(
+            TemperatureType type, std::vector<TemperatureThreshold> *_aidl_return) override;
 
-    // Methods from ::android::hardware::thermal::V2_0::IThermal follow.
-    Return<void> getCurrentTemperatures(bool filterType, TemperatureType_2_0 type,
-                                        getCurrentTemperatures_cb _hidl_cb) override;
-    Return<void> getTemperatureThresholds(bool filterType, TemperatureType_2_0 type,
-                                          getTemperatureThresholds_cb _hidl_cb) override;
-    Return<void> registerThermalChangedCallback(
-            const sp<IThermalChangedCallback> &callback, bool filterType, TemperatureType_2_0 type,
-            registerThermalChangedCallback_cb _hidl_cb) override;
-    Return<void> unregisterThermalChangedCallback(
-            const sp<IThermalChangedCallback> &callback,
-            unregisterThermalChangedCallback_cb _hidl_cb) override;
-    Return<void> getCurrentCoolingDevices(bool filterType, CoolingType type,
-                                          getCurrentCoolingDevices_cb _hidl_cb) override;
-
-    // Methods from ::android::hidl::base::V1_0::IBase follow.
-    Return<void> debug(const hidl_handle &fd, const hidl_vec<hidl_string> &args) override;
+    ndk::ScopedAStatus registerThermalChangedCallback(
+            const std::shared_ptr<IThermalChangedCallback> &callback) override;
+    ndk::ScopedAStatus registerThermalChangedCallbackWithType(
+            const std::shared_ptr<IThermalChangedCallback> &callback,
+            TemperatureType type) override;
+    ndk::ScopedAStatus unregisterThermalChangedCallback(
+            const std::shared_ptr<IThermalChangedCallback> &callback) override;
+    binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
 
     // Helper function for calling callbacks
-    void sendThermalChangedCallback(const Temperature_2_0 &t);
+    void sendThermalChangedCallback(const Temperature &t);
 
   private:
+    class Looper {
+      public:
+        struct Event {
+            std::function<void()> handler;
+        };
+
+        Looper() {
+            thread_ = std::thread([&] { loop(); });
+        }
+        void addEvent(const Event &e);
+
+      private:
+        std::condition_variable cv_;
+        std::queue<Event> events_;
+        std::mutex mutex_;
+        std::thread thread_;
+
+        void loop();
+    };
+
     ThermalHelper thermal_helper_;
+    std::mutex thermal_callback_mutex_;
+    std::vector<CallbackSetting> callbacks_;
+    Looper looper_;
+
+    ndk::ScopedAStatus getFilteredTemperatures(bool filterType, TemperatureType type,
+                                               std::vector<Temperature> *_aidl_return);
+    ndk::ScopedAStatus getFilteredCoolingDevices(bool filterType, CoolingType type,
+                                                 std::vector<CoolingDevice> *_aidl_return);
+    ndk::ScopedAStatus getFilteredTemperatureThresholds(
+            bool filterType, TemperatureType type, std::vector<TemperatureThreshold> *_aidl_return);
+    ndk::ScopedAStatus registerThermalChangedCallback(
+            const std::shared_ptr<IThermalChangedCallback> &callback, bool filterType,
+            TemperatureType type);
+
     void dumpVirtualSensorInfo(std::ostringstream *dump_buf);
     void dumpThrottlingInfo(std::ostringstream *dump_buf);
     void dumpThrottlingRequestStatus(std::ostringstream *dump_buf);
     void dumpPowerRailInfo(std::ostringstream *dump_buf);
-    std::mutex thermal_callback_mutex_;
-    std::vector<CallbackSetting> callbacks_;
+    void dumpStatsRecord(std::ostringstream *dump_buf, const StatsRecord &stats_record,
+                         std::string_view line_prefix);
+    void dumpThermalStats(std::ostringstream *dump_buf);
+    void dumpThermalData(int fd);
 };
 
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

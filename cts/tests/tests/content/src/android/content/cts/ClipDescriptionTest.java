@@ -27,9 +27,6 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.Until;
 import android.text.SpannableString;
 import android.text.style.UnderlineSpan;
 import android.view.textclassifier.TextClassifier;
@@ -39,6 +36,9 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.Until;
 
 import com.google.common.collect.Range;
 
@@ -67,6 +67,10 @@ public class ClipDescriptionTest {
         mContext = InstrumentationRegistry.getTargetContext();
         mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         mUiDevice.wakeUp();
+
+        // Clear any dialogs and launch an activity as focus is needed to access clipboard.
+        mUiDevice.pressHome();
+        mUiDevice.pressBack();
         launchActivity(MockActivity.class);
     }
 

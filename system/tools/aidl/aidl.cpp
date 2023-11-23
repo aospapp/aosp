@@ -43,6 +43,7 @@
 #include "check_valid.h"
 #include "generate_aidl_mappings.h"
 #include "generate_cpp.h"
+#include "generate_cpp_analyzer.h"
 #include "generate_java.h"
 #include "generate_ndk.h"
 #include "generate_rust.h"
@@ -355,38 +356,54 @@ bool ValidateAnnotationContext(const AidlDocument& doc) {
   return validator.success;
 }
 
-bool ValidateCppHeader(const AidlDocument& doc) {
-  struct CppHeaderVisitor : AidlVisitor {
+bool ValidateHeaders(Options::Language language, const AidlDocument& doc) {
+  typedef std::string (AidlParcelable::*GetHeader)() const;
+
+  struct HeaderVisitor : AidlVisitor {
     bool success = true;
-    void Visit(const AidlParcelable& p) override {
-      if (p.GetCppHeader().empty()) {
-        AIDL_ERROR(p) << "Unstructured parcelable \"" << p.GetName()
-                      << "\" must have C++ header defined.";
+    const char* str = nullptr;
+    GetHeader getHeader = nullptr;
+
+    void check(const AidlParcelable& p) {
+      if ((p.*getHeader)().empty()) {
+        AIDL_ERROR(p) << "Unstructured parcelable \"" << p.GetName() << "\" must have " << str
+                      << " defined.";
         success = false;
       }
     }
+
+    void Visit(const AidlParcelable& p) override { check(p); }
     void Visit(const AidlTypeSpecifier& m) override {
       auto type = m.GetDefinedType();
       if (type) {
         auto unstructured = type->AsUnstructuredParcelable();
-        if (unstructured && unstructured->GetCppHeader().empty()) {
-          AIDL_ERROR(m) << "Unstructured parcelable \"" << m.GetUnresolvedName()
-                        << "\" must have C++ header defined.";
-          success = false;
-        }
+        if (unstructured) check(*unstructured);
       }
     }
   };
 
-  CppHeaderVisitor validator;
-  VisitTopDown(validator, doc);
-  return validator.success;
+  if (language == Options::Language::CPP) {
+    HeaderVisitor validator;
+    validator.str = "cpp_header";
+    validator.getHeader = &AidlParcelable::GetCppHeader;
+    VisitTopDown(validator, doc);
+    return validator.success;
+  } else if (language == Options::Language::NDK) {
+    HeaderVisitor validator;
+    validator.str = "ndk_header";
+    validator.getHeader = &AidlParcelable::GetNdkHeader;
+    VisitTopDown(validator, doc);
+    return validator.success;
+  }
+  return true;
 }
 
 }  // namespace
 
 namespace internals {
 
+// WARNING: options are passed here and below, but only the file contents should determine
+// what is generated for portability.
 AidlError load_and_validate_aidl(const std::string& input_file_name, const Options& options,
                                  const IoDelegate& io_delegate, AidlTypenames* typenames,
                                  vector<string>* imported_files) {
@@ -432,7 +449,6 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     }
     string import_path = import_resolver.FindImportFile(import);
     if (import_path.empty()) {
-      AIDL_ERROR(input_file_name) << "Couldn't find import for class " << import;
       err = AidlError::BAD_IMPORT;
       continue;
     }
@@ -555,19 +571,6 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
       }
       if (!success) return AidlError::NOT_STRUCTURED;
     }
-
-    // Verify the var/const declarations.
-    // const expressions should be non-empty when evaluated with the var/const type.
-    for (const auto& constant : defined_type->GetConstantDeclarations()) {
-      if (constant->ValueString(AidlConstantValueDecorator).empty()) {
-        return AidlError::BAD_TYPE;
-      }
-    }
-    for (const auto& var : defined_type->GetFields()) {
-      if (var->GetDefaultValue() && var->ValueString(AidlConstantValueDecorator).empty()) {
-        return AidlError::BAD_TYPE;
-      }
-    }
   }
 
   // Add meta methods and assign method IDs to each interface
@@ -613,9 +616,7 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     return AidlError::BAD_TYPE;
   }
 
-  if ((options.TargetLanguage() == Options::Language::CPP ||
-       options.TargetLanguage() == Options::Language::NDK) &&
-      !ValidateCppHeader(*document)) {
+  if (!ValidateHeaders(options.TargetLanguage(), *document)) {
     return AidlError::BAD_TYPE;
   }
 
@@ -628,16 +629,21 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
       err = AidlError::BAD_TYPE;
     }
 
-    if (options.IsStructured() && type.AsUnstructuredParcelable() != nullptr &&
-        !type.AsUnstructuredParcelable()->IsStableApiParcelable(options.TargetLanguage())) {
+    bool isStable = type.IsStableApiParcelable(options.TargetLanguage());
+
+    if (options.IsStructured() && type.AsUnstructuredParcelable() != nullptr && !isStable) {
       err = AidlError::NOT_STRUCTURED;
       AIDL_ERROR(type) << type.GetCanonicalName()
-                       << " is not structured, but this is a structured interface.";
+                       << " is not structured, but this is a structured interface in "
+                       << to_string(options.TargetLanguage());
     }
-    if (options.GetStability() == Options::Stability::VINTF && !type.IsVintfStability()) {
+    if (options.GetStability() == Options::Stability::VINTF && !type.IsVintfStability() &&
+        !isStable) {
       err = AidlError::NOT_STRUCTURED;
       AIDL_ERROR(type) << type.GetCanonicalName()
-                       << " does not have VINTF level stability, but this interface requires it.";
+                       << " does not have VINTF level stability (marked @VintfStability), but this "
+                          "interface requires it in "
+                       << to_string(options.TargetLanguage());
     }
 
     // Ensure that untyped List/Map is not used in a parcelable, a union and a stable interface.
@@ -734,6 +740,9 @@ bool compile_aidl(const Options& options, const IoDelegate& io_delegate) {
       } else if (lang == Options::Language::RUST) {
         rust::GenerateRust(output_file_name, options, typenames, *defined_type, io_delegate);
         success = true;
+      } else if (lang == Options::Language::CPP_ANALYZER) {
+        success = cpp::GenerateCppAnalyzer(output_file_name, options, typenames, *defined_type,
+                                           io_delegate);
       } else {
         AIDL_FATAL(input_file) << "Should not reach here.";
       }

@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1994, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1994, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,9 +26,26 @@
 package java.lang;
 
 import java.lang.annotation.Native;
+
+// BEGIN Android-removed: dynamic constants not supported on Android.
+/*
+import java.lang.invoke.MethodHandles;
+import java.lang.constant.Constable;
+import java.lang.constant.ConstantDesc;
+import java.util.Optional;
+*/
+// END Android-removed: dynamic constants not supported on Android.
+
 import java.util.Objects;
-import jdk.internal.HotSpotIntrinsicCandidate;
+
+// BEGIN Android-removed: Unused classes on Android.
+/*
+import jdk.internal.misc.CDS;
 import jdk.internal.misc.VM;
+*/
+// END Android-removed: Unused classes on Android.
+
+import jdk.internal.vm.annotation.IntrinsicCandidate;
 
 /**
  * The {@code Integer} class wraps a value of the primitive type
@@ -40,6 +56,14 @@ import jdk.internal.misc.VM;
  * an {@code int} to a {@code String} and a {@code String} to an
  * {@code int}, as well as other constants and methods useful when
  * dealing with an {@code int}.
+ *
+ * <!-- Android-removed: paragraph on ValueBased
+ * <p>This is a <a href="{@docRoot}/java.base/java/lang/doc-files/ValueBased.html">value-based</a>
+ * class; programmers should treat instances that are
+ * {@linkplain #equals(Object) equal} as interchangeable and should not
+ * use instances for synchronization, or unpredictable behavior may
+ * occur. For example, in a future release, synchronization may fail.
+ * -->
  *
  * <p>Implementation note: The implementations of the "bit twiddling"
  * methods (such as {@link #highestOneBit(int) highestOneBit} and
@@ -53,7 +77,12 @@ import jdk.internal.misc.VM;
  * @author  Joseph D. Darcy
  * @since 1.0
  */
-public final class Integer extends Number implements Comparable<Integer> {
+@jdk.internal.ValueBased
+public final class Integer extends Number
+        implements Comparable<Integer>
+// Android-removed: no Constable support.
+// , Constable, ConstantDesc
+{
     /**
      * A constant holding the minimum value an {@code int} can
      * have, -2<sup>31</sup>.
@@ -224,6 +253,7 @@ public final class Integer extends Number implements Comparable<Integer> {
         return Long.toUnsignedString(toUnsignedLong(i), radix);
     }
 
+    // Android-removed: java.util.HexFormat references in javadoc as not present.
     /**
      * Returns a string representation of the integer argument as an
      * unsigned integer in base&nbsp;16.
@@ -359,7 +389,7 @@ public final class Integer extends Number implements Comparable<Integer> {
             return new String(buf, LATIN1);
         } else {
             byte[] buf = new byte[chars * 2];
-            formatUnsignedIntUTF16(val, shift, buf, 0, chars);
+            formatUnsignedIntUTF16(val, shift, buf, chars);
             return new String(buf, UTF16);
         }
          */
@@ -391,6 +421,26 @@ public final class Integer extends Number implements Comparable<Integer> {
         } while (charPos > offset);
     }
 
+    /**
+     * Format an {@code int} (treated as unsigned) into a byte buffer (LATIN1 version). If
+     * {@code len} exceeds the formatted ASCII representation of {@code val},
+     * {@code buf} will be padded with leading zeroes.
+     *
+     * @param val the unsigned int to format
+     * @param shift the log2 of the base to format in (4 for hex, 3 for octal, 1 for binary)
+     * @param buf the byte buffer to write to
+     * @param len the number of characters to write
+     */
+    private static void formatUnsignedInt(int val, int shift, byte[] buf, int len) {
+        int charPos = len;
+        int radix = 1 << shift;
+        int mask = radix - 1;
+        do {
+            buf[--charPos] = (byte)Integer.digits[val & mask];
+            val >>>= shift;
+        } while (charPos > 0);
+    }
+
     /** byte[]/LATIN1 version    */
     static void formatUnsignedInt(int val, int shift, byte[] buf, int offset, int len) {
         int charPos = offset + len;
@@ -412,7 +462,7 @@ public final class Integer extends Number implements Comparable<Integer> {
         do {
             StringUTF16.putChar(buf, --charPos, Integer.digits[val & mask]);
             val >>>= shift;
-        } while (charPos > offset);
+        } while (charPos > 0);
     }
      */
     // END Android-removed: UTF16 version of formatUnsignedInt().
@@ -459,7 +509,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @param   i   an integer to be converted.
      * @return  a string representation of the argument in base&nbsp;10.
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static String toString(int i) {
         // BEGIN Android-changed: Cache the String for small values.
         boolean negative = i < 0;
@@ -692,7 +742,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @param      radix   the radix to be used while parsing {@code s}.
      * @return     the integer represented by the string argument in the
      *             specified radix.
-     * @exception  NumberFormatException if the {@code String}
+     * @throws     NumberFormatException if the {@code String}
      *             does not contain a parsable {@code int}.
      */
     public static int parseInt(String s, int radix)
@@ -730,11 +780,11 @@ public final class Integer extends Number implements Comparable<Integer> {
                     negative = true;
                     limit = Integer.MIN_VALUE;
                 } else if (firstChar != '+') {
-                    throw NumberFormatException.forInputString(s);
+                    throw NumberFormatException.forInputString(s, radix);
                 }
 
                 if (len == 1) { // Cannot have lone "+" or "-"
-                    throw NumberFormatException.forInputString(s);
+                    throw NumberFormatException.forInputString(s, radix);
                 }
                 i++;
             }
@@ -744,17 +794,17 @@ public final class Integer extends Number implements Comparable<Integer> {
                 // Accumulating negatively avoids surprises near MAX_VALUE
                 int digit = Character.digit(s.charAt(i++), radix);
                 if (digit < 0 || result < multmin) {
-                    throw NumberFormatException.forInputString(s);
+                    throw NumberFormatException.forInputString(s, radix);
                 }
                 result *= radix;
                 if (result < limit + digit) {
-                    throw NumberFormatException.forInputString(s);
+                    throw NumberFormatException.forInputString(s, radix);
                 }
                 result -= digit;
             }
             return negative ? result : -result;
         } else {
-            throw NumberFormatException.forInputString(s);
+            throw NumberFormatException.forInputString(s, radix);
         }
     }
 
@@ -787,7 +837,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      */
     public static int parseInt(CharSequence s, int beginIndex, int endIndex, int radix)
                 throws NumberFormatException {
-        s = Objects.requireNonNull(s);
+        Objects.requireNonNull(s);
 
         if (beginIndex < 0 || beginIndex > endIndex || endIndex > s.length()) {
             throw new IndexOutOfBoundsException();
@@ -840,7 +890,7 @@ public final class Integer extends Number implements Comparable<Integer> {
             }
             return negative ? result : -result;
         } else {
-            throw NumberFormatException.forInputString("");
+            throw NumberFormatException.forInputString("", radix);
         }
     }
 
@@ -858,7 +908,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @param s    a {@code String} containing the {@code int}
      *             representation to be parsed
      * @return     the integer value represented by the argument in decimal.
-     * @exception  NumberFormatException  if the string does not contain a
+     * @throws     NumberFormatException  if the string does not contain a
      *               parsable integer.
      */
     public static int parseInt(String s) throws NumberFormatException {
@@ -911,7 +961,7 @@ public final class Integer extends Number implements Comparable<Integer> {
     public static int parseUnsignedInt(String s, int radix)
                 throws NumberFormatException {
         if (s == null)  {
-            throw new NumberFormatException("null");
+            throw new NumberFormatException("Cannot parse null string");
         }
 
         int len = s.length();
@@ -937,7 +987,7 @@ public final class Integer extends Number implements Comparable<Integer> {
                 }
             }
         } else {
-            throw NumberFormatException.forInputString(s);
+            throw NumberFormatException.forInputString(s, radix);
         }
     }
 
@@ -970,7 +1020,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      */
     public static int parseUnsignedInt(CharSequence s, int beginIndex, int endIndex, int radix)
                 throws NumberFormatException {
-        s = Objects.requireNonNull(s);
+        Objects.requireNonNull(s);
 
         if (beginIndex < 0 || beginIndex > endIndex || endIndex > s.length()) {
             throw new IndexOutOfBoundsException();
@@ -1045,7 +1095,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @return     an {@code Integer} object holding the value
      *             represented by the string argument in the specified
      *             radix.
-     * @exception NumberFormatException if the {@code String}
+     * @throws    NumberFormatException if the {@code String}
      *            does not contain a parsable {@code int}.
      */
     public static Integer valueOf(String s, int radix) throws NumberFormatException {
@@ -1071,7 +1121,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @param      s   the string to be parsed.
      * @return     an {@code Integer} object holding the value
      *             represented by the string argument.
-     * @exception  NumberFormatException  if the string cannot be parsed
+     * @throws     NumberFormatException  if the string cannot be parsed
      *             as an integer.
      */
     public static Integer valueOf(String s) throws NumberFormatException {
@@ -1087,6 +1137,12 @@ public final class Integer extends Number implements Comparable<Integer> {
      * During VM initialization, java.lang.Integer.IntegerCache.high property
      * may be set and saved in the private system properties in the
      * jdk.internal.misc.VM class.
+     *
+     * WARNING: The cache is archived with CDS and reloaded from the shared
+     * archive at runtime. The archived cache (Integer[]) and Integer objects
+     * reside in the closed archive heap regions. Care should be taken when
+     * changing the implementation and the cache array should not be assigned
+     * with new Integer object(s) after initialization.
      */
 
     private static class IntegerCache {
@@ -1098,31 +1154,35 @@ public final class Integer extends Number implements Comparable<Integer> {
         static {
             // high value may be configured by property
             int h = 127;
+            // BEGIN Android-removed: unsupported property.
+            /*
             String integerCacheHighPropValue =
                 VM.getSavedProperty("java.lang.Integer.IntegerCache.high");
             if (integerCacheHighPropValue != null) {
                 try {
-                    int i = parseInt(integerCacheHighPropValue);
-                    i = Math.max(i, 127);
+                    h = Math.max(parseInt(integerCacheHighPropValue), 127);
                     // Maximum array size is Integer.MAX_VALUE
-                    h = Math.min(i, Integer.MAX_VALUE - (-low) -1);
+                    h = Math.min(h, Integer.MAX_VALUE - (-low) -1);
                 } catch( NumberFormatException nfe) {
                     // If the property cannot be parsed into an int, ignore it.
                 }
             }
+            */
+            // END Android-removed: unsupported property.
             high = h;
 
             // Load IntegerCache.archivedCache from archive, if possible
-            // Android-removed: VM.initializeFromArchive isn't supported yet.
-            // VM.initializeFromArchive(IntegerCache.class);
+            // Android-removed: CDS is not used on Android.
+            // CDS.initializeFromArchive(IntegerCache.class);
             int size = (high - low) + 1;
 
             // Use the archived cache if it exists and is large enough
             if (archivedCache == null || size > archivedCache.length) {
                 Integer[] c = new Integer[size];
                 int j = low;
-                for(int k = 0; k < c.length; k++)
-                    c[k] = new Integer(j++);
+                for(int i = 0; i < c.length; i++) {
+                    c[i] = new Integer(j++);
+                }
                 archivedCache = c;
             }
             cache = archivedCache;
@@ -1148,7 +1208,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @return an {@code Integer} instance representing {@code i}.
      * @since  1.5
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static Integer valueOf(int i) {
         if (i >= IntegerCache.low && i <= IntegerCache.high)
             return IntegerCache.cache[i + (-IntegerCache.low)];
@@ -1174,7 +1234,8 @@ public final class Integer extends Number implements Comparable<Integer> {
      * {@link #valueOf(int)} is generally a better choice, as it is
      * likely to yield significantly better space and time performance.
      */
-    @Deprecated(since="9")
+    // Android-changed: not yet forRemoval on Android.
+    @Deprecated(since="9"/*, forRemoval = true*/)
     public Integer(int value) {
         this.value = value;
     }
@@ -1196,7 +1257,8 @@ public final class Integer extends Number implements Comparable<Integer> {
      * {@code int} primitive, or use {@link #valueOf(String)}
      * to convert a string to an {@code Integer} object.
      */
-    @Deprecated(since="9")
+    // Android-changed: not yet forRemoval on Android.
+    @Deprecated(since="9"/*, forRemoval = true*/)
     public Integer(String s) throws NumberFormatException {
         this.value = parseInt(s, 10);
     }
@@ -1204,7 +1266,7 @@ public final class Integer extends Number implements Comparable<Integer> {
     /**
      * Returns the value of this {@code Integer} as a {@code byte}
      * after a narrowing primitive conversion.
-     * @jls 5.1.3 Narrowing Primitive Conversions
+     * @jls 5.1.3 Narrowing Primitive Conversion
      */
     public byte byteValue() {
         return (byte)value;
@@ -1213,7 +1275,7 @@ public final class Integer extends Number implements Comparable<Integer> {
     /**
      * Returns the value of this {@code Integer} as a {@code short}
      * after a narrowing primitive conversion.
-     * @jls 5.1.3 Narrowing Primitive Conversions
+     * @jls 5.1.3 Narrowing Primitive Conversion
      */
     public short shortValue() {
         return (short)value;
@@ -1223,7 +1285,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * Returns the value of this {@code Integer} as an
      * {@code int}.
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public int intValue() {
         return value;
     }
@@ -1231,7 +1293,7 @@ public final class Integer extends Number implements Comparable<Integer> {
     /**
      * Returns the value of this {@code Integer} as a {@code long}
      * after a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      * @see Integer#toUnsignedLong(int)
      */
     public long longValue() {
@@ -1241,7 +1303,7 @@ public final class Integer extends Number implements Comparable<Integer> {
     /**
      * Returns the value of this {@code Integer} as a {@code float}
      * after a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public float floatValue() {
         return (float)value;
@@ -1250,7 +1312,7 @@ public final class Integer extends Number implements Comparable<Integer> {
     /**
      * Returns the value of this {@code Integer} as a {@code double}
      * after a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public double doubleValue() {
         return (double)value;
@@ -1466,8 +1528,8 @@ public final class Integer extends Number implements Comparable<Integer> {
      * </blockquote>
      *
      * <i>DecimalNumeral</i>, <i>HexDigits</i>, and <i>OctalDigits</i>
-     * are as defined in section 3.10.1 of
-     * <cite>The Java&trade; Language Specification</cite>,
+     * are as defined in section {@jls 3.10.1} of
+     * <cite>The Java Language Specification</cite>,
      * except that underscores are not accepted between digits.
      *
      * <p>The sequence of characters following an optional
@@ -1483,7 +1545,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      * @param     nm the {@code String} to decode.
      * @return    an {@code Integer} object holding the {@code int}
      *             value represented by {@code nm}
-     * @exception NumberFormatException  if the {@code String} does not
+     * @throws    NumberFormatException  if the {@code String} does not
      *            contain a parsable integer.
      * @see java.lang.Integer#parseInt(java.lang.String, int)
      */
@@ -1721,7 +1783,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      *     is equal to zero.
      * @since 1.5
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static int numberOfLeadingZeros(int i) {
         // HD, Count leading 0's
         if (i <= 0)
@@ -1748,17 +1810,17 @@ public final class Integer extends Number implements Comparable<Integer> {
      *     to zero.
      * @since 1.5
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static int numberOfTrailingZeros(int i) {
-        // HD, Figure 5-14
-        int y;
-        if (i == 0) return 32;
-        int n = 31;
-        y = i <<16; if (y != 0) { n = n -16; i = y; }
-        y = i << 8; if (y != 0) { n = n - 8; i = y; }
-        y = i << 4; if (y != 0) { n = n - 4; i = y; }
-        y = i << 2; if (y != 0) { n = n - 2; i = y; }
-        return n - ((i << 1) >>> 31);
+        // HD, Count trailing 0's
+        i = ~i & (i - 1);
+        if (i <= 0) return i & 32;
+        int n = 1;
+        if (i > 1 << 16) { n += 16; i >>>= 16; }
+        if (i > 1 <<  8) { n +=  8; i >>>=  8; }
+        if (i > 1 <<  4) { n +=  4; i >>>=  4; }
+        if (i > 1 <<  2) { n +=  2; i >>>=  2; }
+        return n + (i >>> 1);
     }
 
     /**
@@ -1771,7 +1833,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      *     representation of the specified {@code int} value.
      * @since 1.5
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static int bitCount(int i) {
         // HD, Figure 5-2
         i = i - ((i >>> 1) & 0x55555555);
@@ -1872,7 +1934,7 @@ public final class Integer extends Number implements Comparable<Integer> {
      *     {@code int} value.
      * @since 1.5
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static int reverseBytes(int i) {
         return (i << 24)            |
                ((i & 0xff00) << 8)  |
@@ -1921,6 +1983,34 @@ public final class Integer extends Number implements Comparable<Integer> {
         return Math.min(a, b);
     }
 
+    // BEGIN Android-removed: dynamic constants not supported on Android.
+    /**
+     * Returns an {@link Optional} containing the nominal descriptor for this
+     * instance, which is the instance itself.
+     *
+     * @return an {@link Optional} describing the {@linkplain Integer} instance
+     * @since 12
+     *
+    @Override
+    public Optional<Integer> describeConstable() {
+        return Optional.of(this);
+    }
+
+    /**
+     * Resolves this instance as a {@link ConstantDesc}, the result of which is
+     * the instance itself.
+     *
+     * @param lookup ignored
+     * @return the {@linkplain Integer} instance
+     * @since 12
+     *
+    @Override
+    public Integer resolveConstantDesc(MethodHandles.Lookup lookup) {
+        return this;
+    }
+    // END Android-removed: dynamic constants not supported on Android.
+
     /** use serialVersionUID from JDK 1.0.2 for interoperability */
+    @java.io.Serial
     @Native private static final long serialVersionUID = 1360826667806852920L;
 }

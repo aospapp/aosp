@@ -20,8 +20,8 @@ package tradefed.invoker;
 option java_package = "com.android.tradefed.invoker.proto";
 option java_outer_classname = "InvocationContext";
 
-import public "tools/asuite/atest/tf_proto/configuration_description.proto";
-import public "tools/asuite/atest/tf_proto/build_info.proto";
+import public "atest/tf_proto/configuration_description.proto";
+import public "atest/tf_proto/build_info.proto";
 
 // Representation of a Tradefed Invocation Context in proto.
 message Context {

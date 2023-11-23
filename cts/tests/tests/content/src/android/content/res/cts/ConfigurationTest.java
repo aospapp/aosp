@@ -110,6 +110,11 @@ public class ConfigurationTest extends AndroidTestCase {
         cfg2.touchscreen = 2;
         assertEquals(1, cfg1.compareTo(cfg2));
 
+        cfg1.setGrammaticalGender(Configuration.GRAMMATICAL_GENDER_FEMININE);
+        cfg2.setGrammaticalGender(Configuration.GRAMMATICAL_GENDER_MASCULINE);
+        assertEquals(-1, cfg1.compareTo(cfg2));
+        assertEquals(1, cfg2.compareTo(cfg1));
+
         cfg1.setLocales(LocaleList.forLanguageTags("fr"));
         cfg2.setLocales(LocaleList.forLanguageTags("fr,en"));
         assertTrue(cfg1.compareTo(cfg2) < 0);
@@ -416,6 +421,22 @@ public class ConfigurationTest extends AndroidTestCase {
                 | ActivityInfo.CONFIG_FONT_SCALE
                 | ActivityInfo.CONFIG_COLOR_MODE
                 | ActivityInfo.CONFIG_FONT_WEIGHT_ADJUSTMENT, mConfigDefault, config);
+        config.setGrammaticalGender(Configuration.GRAMMATICAL_GENDER_MASCULINE);
+        doConfigCompare(ActivityInfo.CONFIG_MCC
+                | ActivityInfo.CONFIG_MNC
+                | ActivityInfo.CONFIG_LOCALE
+                | ActivityInfo.CONFIG_LAYOUT_DIRECTION
+                | ActivityInfo.CONFIG_SCREEN_LAYOUT
+                | ActivityInfo.CONFIG_TOUCHSCREEN
+                | ActivityInfo.CONFIG_KEYBOARD
+                | ActivityInfo.CONFIG_KEYBOARD_HIDDEN
+                | ActivityInfo.CONFIG_NAVIGATION
+                | ActivityInfo.CONFIG_ORIENTATION
+                | ActivityInfo.CONFIG_UI_MODE
+                | ActivityInfo.CONFIG_FONT_SCALE
+                | ActivityInfo.CONFIG_COLOR_MODE
+                | ActivityInfo.CONFIG_FONT_WEIGHT_ADJUSTMENT
+                | ActivityInfo.CONFIG_GRAMMATICAL_GENDER, mConfigDefault, config);
     }
 
     public void testEquals() {
@@ -468,6 +489,7 @@ public class ConfigurationTest extends AndroidTestCase {
         assertEquals(Configuration.DENSITY_DPI_UNDEFINED, config.densityDpi);
         assertEquals(Configuration.COLOR_MODE_UNDEFINED, config.colorMode);
         assertEquals(Configuration.FONT_WEIGHT_ADJUSTMENT_UNDEFINED, config.fontWeightAdjustment);
+        assertEquals(Configuration.GRAMMATICAL_GENDER_NOT_SPECIFIED, config.getGrammaticalGender());
     }
 
     public void testUnset() {
@@ -496,6 +518,7 @@ public class ConfigurationTest extends AndroidTestCase {
         assertEquals(Configuration.DENSITY_DPI_UNDEFINED, config.densityDpi);
         assertEquals(Configuration.COLOR_MODE_UNDEFINED, config.colorMode);
         assertEquals(Configuration.FONT_WEIGHT_ADJUSTMENT_UNDEFINED, config.fontWeightAdjustment);
+        assertEquals(Configuration.GRAMMATICAL_GENDER_NOT_SPECIFIED, config.getGrammaticalGender());
     }
 
     public void testToString() {
@@ -604,6 +627,13 @@ public class ConfigurationTest extends AndroidTestCase {
 
         config.colorMode |= Configuration.COLOR_MODE_WIDE_COLOR_GAMUT_YES;
         assertTrue(config.isScreenWideColorGamut());
+    }
+
+    public void testGrammaticalGender() {
+        var config = new Configuration();
+        assertEquals(Configuration.GRAMMATICAL_GENDER_NOT_SPECIFIED, config.getGrammaticalGender());
+        config.setGrammaticalGender(Configuration.GRAMMATICAL_GENDER_FEMININE);
+        assertEquals(Configuration.GRAMMATICAL_GENDER_FEMININE, config.getGrammaticalGender());
     }
 
     public void testFixUpLocaleList() {

@@ -191,12 +191,24 @@ public class ScreenLockBoundKeysTest extends PassFailButtons.Activity {
         switch (requestCode) {
             case CONFIRM_CREDENTIALS_REQUEST_CODE:
                 if (resultCode == RESULT_OK) {
-                    if (tryEncrypt()) {
-                        showToast("Test passed.");
-                        getPassButton().setEnabled(true);
-                    } else {
-                        showToast("Test failed. Key not accessible after auth");
+                    /**
+                     * Regarding to b/258823254, sometimes the test fail because the
+                     * decryption of synthetic password has not been done when
+                     * calling tryEncrypt(). So that add the retry for tryEncrypt()
+                    */
+                    final long deadline = System.currentTimeMillis() + 1000L;
+                    while (System.currentTimeMillis() < deadline) {
+                        if (tryEncrypt()) {
+                            showToast("Test passed.");
+                            getPassButton().setEnabled(true);
+                            return;
+                        }
+                        try {
+                            Thread.sleep(100);
+                        } catch(InterruptedException e) {
+                        }
                     }
+                    showToast("Test failed. Key not accessible after auth");
                 }
         }
     }

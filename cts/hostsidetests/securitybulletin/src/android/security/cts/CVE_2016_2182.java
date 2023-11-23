@@ -15,15 +15,20 @@
  */
 
 package android.security.cts;
-import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.compatibility.common.util.CrashUtils;
+
 import static org.junit.Assume.assumeFalse;
 
+import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2016_2182 extends SecurityTestCase {
+public class CVE_2016_2182 extends NonRootSecurityTestCase {
 
     /**
      * b/32096880
@@ -35,8 +40,8 @@ public class CVE_2016_2182 extends SecurityTestCase {
         assumeFalse(moduleIsPlayManaged("com.google.android.conscrypt"));
         String binaryName = "CVE-2016-2182";
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
-        testConfig.config = new CrashUtils.Config().setProcessPatterns(binaryName);
-        testConfig.config.checkMinAddress(false);
+        testConfig.config = new TombstoneUtils.Config().setProcessPatterns(binaryName);
+        testConfig.config.setIgnoreLowFaultAddress(false);
         AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
     }
 }

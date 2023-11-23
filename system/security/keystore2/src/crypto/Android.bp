@@ -36,6 +36,10 @@ rust_library {
         "libcrypto",
     ],
     vendor_available: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 cc_library {
@@ -50,6 +54,10 @@ cc_library {
         "liblog",
     ],
     vendor_available: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 rust_bindgen {
@@ -86,6 +94,10 @@ rust_bindgen {
         "--allowlist-var", "EVP_MAX_MD_SIZE",
     ],
     cflags: ["-DBORINGSSL_NO_CXX"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }
 
 rust_test {
@@ -138,4 +150,8 @@ rust_test {
     auto_gen_config: true,
     clippy_lints: "none",
     lints: "none",
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
 }

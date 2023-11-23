@@ -36,7 +36,7 @@ if [ ! -z "${delta_generator}" ]; then
   truncate -s 1M ${fs_root}/dir1/dir2/file4
   touch ${fs_root}/dir1/dir2/dir123/empty
   cp ${delta_generator} ${fs_root}/delta_generator
-  truncate -s 8M ${fs_root}/delta_generator
+  truncate -s 1M ${fs_root}/delta_generator
   echo "PAYLOAD_MINOR_VERSION=1234" > ${fs_root}/etc/update_engine.conf
   truncate -s 16M ${fs_root}/dir1/dir2/dir123/chunks_of_zero
 fi

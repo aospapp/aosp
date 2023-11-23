@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -46,7 +47,7 @@ public class StatsdAppSecurityAtomTest extends BaseHostJUnit4Test {
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         installPackage(STATSD_APP_APK);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @After
@@ -72,7 +73,7 @@ public class StatsdAppSecurityAtomTest extends BaseHostJUnit4Test {
 
         // Pull a report
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         int testAppId = getAppId(DeviceUtils.getAppUid(getDevice(), STATSD_APP_PKG));
 

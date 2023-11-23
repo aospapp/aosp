@@ -17,6 +17,7 @@
 package android.media.tv.interactive.cts;
 
 import android.content.Context;
+import android.media.tv.AdBuffer;
 import android.media.tv.AdRequest;
 import android.media.tv.AdResponse;
 import android.media.tv.AitInfo;
@@ -29,6 +30,7 @@ import android.view.Surface;
 public class StubTvInputService2 extends TvInputService {
     static String sTvInputSessionId;
     public static StubSessionImpl2 sStubSessionImpl2;
+    public static StubRecordingSessionImpl sStubRecordingSession;
 
     public static String getSessionId() {
         return sTvInputSessionId;
@@ -46,12 +48,20 @@ public class StubTvInputService2 extends TvInputService {
         return new StubSessionImpl2(this);
     }
 
+    @Override
+    public RecordingSession onCreateRecordingSession(String inputId) {
+        sStubRecordingSession = new StubRecordingSessionImpl(this);
+        return sStubRecordingSession;
+    }
+
     public static class StubSessionImpl2 extends TvInputService.Session {
         public int mAdRequestCount;
         public int mBroadcastInfoRequestCount;
+        public int mAdBufferCount;
 
         public AdRequest mAdRequest;
         public BroadcastInfoRequest mBroadcastInfoRequest;
+        public AdBuffer mAdBuffer;
 
         StubSessionImpl2(Context context) {
             super(context);
@@ -60,9 +70,11 @@ public class StubTvInputService2 extends TvInputService {
         public void resetValues() {
             mAdRequestCount = 0;
             mBroadcastInfoRequestCount = 0;
+            mAdBufferCount = 0;
 
             mAdRequest = null;
             mBroadcastInfoRequest = null;
+            mAdBuffer = null;
         }
 
         @Override
@@ -118,6 +130,11 @@ public class StubTvInputService2 extends TvInputService {
         }
 
         @Override
+        public void notifyAdBufferConsumed(AdBuffer buffer) {
+            super.notifyAdBufferConsumed(buffer);
+        }
+
+        @Override
         public void notifyAitInfoUpdated(AitInfo info) {
             super.notifyAitInfoUpdated(info);
         }
@@ -133,8 +150,52 @@ public class StubTvInputService2 extends TvInputService {
         }
 
         @Override
+        public void notifyCueingMessageAvailability(boolean available) {
+            super.notifyCueingMessageAvailability(available);
+        }
+
+        @Override
+        public void notifyTimeShiftMode(int mode) {
+            super.notifyTimeShiftMode(mode);
+        }
+
+        @Override
+        public void notifyAvailableSpeeds(float[] speeds) {
+            super.notifyAvailableSpeeds(speeds);
+        }
+
+        @Override
         public void notifyTuned(Uri uri) {
             super.notifyTuned(uri);
+        }
+
+        @Override
+        public void onAdBufferReady(AdBuffer buffer) {
+            super.onAdBufferReady(buffer);
+            mAdBufferCount++;
+            mAdBuffer = buffer;
+        }
+    }
+
+    public static class StubRecordingSessionImpl extends TvInputService.RecordingSession {
+        StubRecordingSessionImpl(Context context) {
+            super(context);
+        }
+
+        @Override
+        public void onTune(Uri channelUri) {
+        }
+
+        @Override
+        public void onStartRecording(Uri programUri) {
+        }
+
+        @Override
+        public void onStopRecording() {
+        }
+
+        @Override
+        public void onRelease() {
         }
     }
 }

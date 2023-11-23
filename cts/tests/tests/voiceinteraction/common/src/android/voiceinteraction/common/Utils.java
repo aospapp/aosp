@@ -15,16 +15,27 @@
  */
 package android.voiceinteraction.common;
 
+import static android.service.voice.HotwordAudioStream.KEY_AUDIO_STREAM_COPY_BUFFER_LENGTH_BYTES;
+
 import android.app.VoiceInteractor.PickOptionRequest.Option;
 import android.content.LocusId;
+import android.media.AudioFormat;
+import android.media.AudioTimestamp;
 import android.os.Bundle;
 import android.os.Parcel;
+import android.os.ParcelFileDescriptor;
 import android.os.Parcelable;
+import android.os.PersistableBundle;
+import android.service.voice.HotwordAudioStream;
+import android.service.voice.HotwordDetectedResult;
 import android.util.Log;
 
 import com.android.compatibility.common.util.PropertyUtil;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -68,46 +79,33 @@ public class Utils {
      */
     public static final int LIMIT_AUDIO_CHANNEL_MAX_VALUE = 63;
 
-    /** Decide which VoiceInteractionService should be started for testing. */
-    public static final int HOTWORD_DETECTION_SERVICE_NONE = 0;
-    public static final int HOTWORD_DETECTION_SERVICE_BASIC = 1;
-    public static final int HOTWORD_DETECTION_SERVICE_INVALIDATION = 2;
-    public static final int HOTWORD_DETECTION_SERVICE_WITHOUT_ISOLATED_PROCESS = 3;
-    public static final int HOTWORD_DETECTION_SERVICE_WITHIN_ISOLATED_PROCESS = 4;
-
     /**
      * Indicate which test event for testing.
      *
      * Note: The VIS is the abbreviation of VoiceInteractionService
      */
     public static final int VIS_NORMAL_TEST = 0;
-    public static final int VIS_WITHOUT_MANAGE_HOTWORD_DETECTION_PERMISSION_TEST = 1;
-    public static final int VIS_HOLD_BIND_HOTWORD_DETECTION_PERMISSION_TEST = 2;
-
-    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_TEST = 100;
-    public static final int HOTWORD_DETECTION_SERVICE_DSP_ONDETECT_TEST = 101;
-    public static final int HOTWORD_DETECTION_SERVICE_EXTERNAL_SOURCE_ONDETECT_TEST = 102;
-    public static final int HOTWORD_DETECTION_SERVICE_FROM_SOFTWARE_TRIGGER_TEST = 103;
-    public static final int HOTWORD_DETECTION_SERVICE_MIC_ONDETECT_TEST = 104;
-    public static final int HOTWORD_DETECTION_SERVICE_DSP_ONREJECT_TEST = 105;
-    public static final int HOTWORD_DETECTION_SERVICE_PROCESS_DIED_TEST = 106;
-    public static final int HOTWORD_DETECTION_SERVICE_CALL_STOP_RECOGNITION = 107;
-    public static final int HOTWORD_DETECTION_SERVICE_DSP_DESTROY_DETECTOR = 108;
-    public static final int HOTWORD_DETECTION_SERVICE_SOFTWARE_DESTROY_DETECTOR = 109;
-
-    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SUCCESS = 1;
-    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_ILLEGAL_STATE_EXCEPTION = 2;
-    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SECURITY_EXCEPTION = 3;
-    public static final int HOTWORD_DETECTION_SERVICE_TRIGGER_SHARED_MEMORY_NOT_READ_ONLY = 4;
-    public static final int HOTWORD_DETECTION_SERVICE_GET_ERROR = 5;
 
     /** Indicate which test scenario for testing. */
-    public static final int HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_CRASH = 1;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_CRASH = 1;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_ON_UPDATE_STATE_UNEXPECTED_CALLBACK = 2;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_SEND_OVER_MAX_INIT_STATUS = 3;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_SEND_CUSTOM_INIT_STATUS = 4;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_ENABLE_AUDIO_EGRESS = 5;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_CLEAR_SOFTWARE_DETECTION_JOB = 6;
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_NO_NEED_ACTION_DURING_DETECTION = 7;
+    // test scenario to verify the HotwordDetectionService was created after a given time
+    // This can be used to verify the service was restarted or recreated.
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_SEND_SUCCESS_IF_CREATED_AFTER = 8;
+    // Check the HotwordDetectionService can read audio and the data is not zero
+    public static final int EXTRA_HOTWORD_DETECTION_SERVICE_CAN_READ_AUDIO_DATA_IS_NOT_ZERO = 9;
 
     /** Indicate to start a new activity for testing. */
     public static final int ACTIVITY_NEW = 0;
     /** Indicate to finish an activity for testing. */
     public static final int ACTIVITY_FINISH = 1;
+    /** Indicate to crash an activity for testing. */
+    public static final int ACTIVITY_CRASH = 2;
 
     /** Indicate what kind of parameters for calling registerVisibleActivityCallback. */
     public static final int VISIBLE_ACTIVITY_CALLBACK_REGISTER_NORMAL = 0;
@@ -164,6 +162,7 @@ public class Utils {
             "destroyedInteractor";
     public static final String DIRECT_ACTIONS_ACTIVITY_CMD_INVALIDATE_ACTIONS = "invalidateActions";
     public static final String DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_NAME = "getpackagename";
+    public static final String DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_INFO = "getpackageinfo";
 
     public static final String DIRECT_ACTIONS_RESULT_PERFORMED = "performed";
     public static final String DIRECT_ACTIONS_RESULT_CANCELLED = "cancelled";
@@ -180,25 +179,36 @@ public class Utils {
     public static final String SERVICE_NAME =
             "android.voiceinteraction.service/.MainInteractionService";
 
-    public static final String HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT_INTENT =
-            "android.intent.action.HOTWORD_DETECTION_SERVICE_TRIGGER_RESULT";
-    public static final String HOTWORD_DETECTION_SERVICE_SOFTWARE_TRIGGER_RESULT_INTENT =
-            "android.intent.action.HOTWORD_DETECTION_SERVICE_SOFTWARE_TRIGGER_RESULT";
-    public static final String HOTWORD_DETECTION_SERVICE_ONDETECT_RESULT_INTENT =
-            "android.intent.action.HOTWORD_DETECTION_SERVICE_ONDETECT_RESULT";
-    public static final String KEY_SERVICE_TYPE = "serviceType";
     public static final String KEY_TEST_EVENT = "testEvent";
     public static final String KEY_TEST_RESULT = "testResult";
     public static final String KEY_TEST_SCENARIO = "testScenario";
+    public static final String KEY_DETECTION_DELAY_MS = "detectionDelayMs";
+    public static final String KEY_DETECTION_REJECTED = "detection_rejected";
+    public static final String KEY_INITIALIZATION_STATUS = "initialization_status";
+    /**
+     * It only works when the test scenario is
+     * {@link #EXTRA_HOTWORD_DETECTION_SERVICE_ENABLE_AUDIO_EGRESS}
+     *
+     * Type: Boolean
+     */
+    public static final String KEY_AUDIO_EGRESS_USE_ILLEGAL_COPY_BUFFER_SIZE =
+            "useIllegalCopyBufferSize";
+    public static final String KEY_TIMESTAMP_MILLIS = "timestamp_millis";
 
     public static final String VOICE_INTERACTION_KEY_CALLBACK = "callback";
     public static final String VOICE_INTERACTION_KEY_CONTROL = "control";
     public static final String VOICE_INTERACTION_KEY_COMMAND = "command";
+    public static final String VOICE_INTERACTION_KEY_TASKID = "taskId";
     public static final String VOICE_INTERACTION_DIRECT_ACTIONS_KEY_ACTION = "action";
     public static final String VOICE_INTERACTION_KEY_ARGUMENTS = "arguments";
     public static final String VOICE_INTERACTION_KEY_CLASS = "class";
+
+    public static final String VOICE_INTERACTION_KEY_REMOTE_CALLBACK_FOR_NEW_SESSION =
+            "remoteCallbackForNewSession";
+    public static final String VOICE_INTERACTION_KEY_USE_ACTIVITY_OPTIONS = "useActivityOptions";
     public static final String VOICE_INTERACTION_SESSION_CMD_FINISH = "hide";
     public static final String VOICE_INTERACTION_ACTIVITY_CMD_FINISH = "finish";
+    public static final String VOICE_INTERACTION_ACTIVITY_CMD_CRASH = "crash";
 
     // For v2 reliable visible activity lookup feature
     public static final String VISIBLE_ACTIVITY_CALLBACK_ONVISIBLE_INTENT =
@@ -209,6 +219,112 @@ public class Utils {
 
     public static final String VISIBLE_ACTIVITY_CMD_REGISTER_CALLBACK = "registerCallback";
     public static final String VISIBLE_ACTIVITY_CMD_UNREGISTER_CALLBACK = "unregisterCallback";
+
+    // For asking to bind to a test VoiceInteractionService if it supports it
+    public static final String ACTION_BIND_TEST_VOICE_INTERACTION =
+            "android.intent.action.ACTION_BIND_TEST_VOICE_INTERACTION";
+    public static final String TEST_VOICE_INTERACTION_SERVICE_PACKAGE_NAME =
+            "android.voiceinteraction.service";
+    public static final String PROXY_VOICE_INTERACTION_SERVICE_CLASS_NAME =
+            "android.voiceinteraction.service.ProxyVoiceInteractionService";
+    public static final String PROXY_VOICEINTERACTION_SERVICE_COMPONENT =
+            TEST_VOICE_INTERACTION_SERVICE_PACKAGE_NAME + "/"
+                    + PROXY_VOICE_INTERACTION_SERVICE_CLASS_NAME;
+    public static final String VOICE_INTERACTION_SERVICE_BINDING_HELPER_CLASS_NAME =
+            "android.voiceinteraction.service.VoiceInteractionServiceBindingHelper";
+
+    private static final String KEY_FAKE_DATA = "fakeData";
+    private static final String VALUE_FAKE_DATA = "fakeData";
+
+    private static final long FRAME_POSITION = 0;
+    private static final long NANO_TIME_NS = 1000;
+
+    private static final byte[] FAKE_HOTWORD_AUDIO_DATA =
+            new byte[]{'h', 'o', 't', 'w', 'o', 'r', 'd', '!'};
+
+    private static final HotwordAudioStream HOTWORD_AUDIO_STREAM =
+            new HotwordAudioStream.Builder(createFakeAudioFormat(), createFakeAudioStream())
+                    .setInitialAudio(FAKE_HOTWORD_AUDIO_DATA)
+                    .setMetadata(createFakePersistableBundleData())
+                    .setTimestamp(createFakeAudioTimestamp())
+                    .build();
+
+    private static final HotwordAudioStream HOTWORD_AUDIO_STREAM_WRONG_COPY_BUFFER_SIZE =
+            new HotwordAudioStream.Builder(createFakeAudioFormat(), createFakeAudioStream())
+                    .setInitialAudio(FAKE_HOTWORD_AUDIO_DATA)
+                    .setMetadata(createFakePersistableBundleData(0))
+                    .setTimestamp(createFakeAudioTimestamp())
+                    .build();
+
+    public static final HotwordDetectedResult AUDIO_EGRESS_DETECTED_RESULT =
+            new HotwordDetectedResult.Builder().setAudioStreams(
+                    List.of(HOTWORD_AUDIO_STREAM)).build();
+
+    public static final HotwordDetectedResult AUDIO_EGRESS_DETECTED_RESULT_WRONG_COPY_BUFFER_SIZE =
+            new HotwordDetectedResult.Builder().setAudioStreams(
+                    List.of(HOTWORD_AUDIO_STREAM_WRONG_COPY_BUFFER_SIZE)).build();
+
+    /**
+     * Returns the PersistableBundle data that is used for testing.
+     */
+    private static PersistableBundle createFakePersistableBundleData() {
+        return createFakePersistableBundleData(/* copyBufferSize= */ -1);
+    }
+
+    /**
+     * Returns the PersistableBundle data that is used for testing.
+     */
+    private static PersistableBundle createFakePersistableBundleData(int copyBufferSize) {
+        // TODO : Add more data for testing
+        PersistableBundle persistableBundle = new PersistableBundle();
+        persistableBundle.putString(KEY_FAKE_DATA, VALUE_FAKE_DATA);
+        if (copyBufferSize > -1) {
+            persistableBundle.putInt(KEY_AUDIO_STREAM_COPY_BUFFER_LENGTH_BYTES, copyBufferSize);
+        }
+        return persistableBundle;
+    }
+
+    /**
+     * Returns the AudioFormat data that is used for testing.
+     */
+    private static AudioFormat createFakeAudioFormat() {
+        return new AudioFormat.Builder()
+                .setSampleRate(32000)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_IN_MONO).build();
+    }
+
+    /**
+     * Returns the ParcelFileDescriptor data that is used for testing.
+     */
+    private static ParcelFileDescriptor createFakeAudioStream() {
+        ParcelFileDescriptor[] tempParcelFileDescriptors = null;
+        try {
+            tempParcelFileDescriptors = ParcelFileDescriptor.createPipe();
+            try (OutputStream fos =
+                         new ParcelFileDescriptor.AutoCloseOutputStream(
+                                 tempParcelFileDescriptors[1])) {
+                fos.write(FAKE_HOTWORD_AUDIO_DATA, 0, 8);
+            } catch (IOException e) {
+                Log.w(TAG, "Failed to pipe audio data : ", e);
+                throw new IllegalStateException();
+            }
+            return tempParcelFileDescriptors[0];
+        } catch (IOException e) {
+            Log.w(TAG, "Failed to create a pipe : " + e);
+        }
+        throw new IllegalStateException();
+    }
+
+    /**
+     * Returns the AudioTimestamp for test
+     */
+    private static AudioTimestamp createFakeAudioTimestamp() {
+        final AudioTimestamp timestamp = new AudioTimestamp();
+        timestamp.framePosition = FRAME_POSITION;
+        timestamp.nanoTime = NANO_TIME_NS;
+        return timestamp;
+    }
 
     public static final String toBundleString(Bundle bundle) {
         if (bundle == null) {
@@ -255,7 +371,7 @@ public class Utils {
 
     public static final void addErrorResult(final Bundle testinfo, final String msg) {
         testinfo.getStringArrayList(testinfo.getString(Utils.TESTCASE_TYPE))
-            .add(TEST_ERROR + " " + msg);
+                .add(TEST_ERROR + " " + msg);
     }
 
     public static boolean await(CountDownLatch latch) {

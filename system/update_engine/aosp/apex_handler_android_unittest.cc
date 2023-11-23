@@ -38,7 +38,7 @@ ApexInfo CreateApexInfo(const std::string& package_name,
   result.set_version(version);
   result.set_is_compressed(is_compressed);
   result.set_decompressed_size(decompressed_size);
-  return std::move(result);
+  return result;
 }
 
 TEST(ApexHandlerAndroidTest, CalculateSizeUpdatableApex) {

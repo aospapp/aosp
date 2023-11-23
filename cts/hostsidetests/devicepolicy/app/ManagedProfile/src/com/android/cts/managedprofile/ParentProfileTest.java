@@ -174,15 +174,6 @@ public class ParentProfileTest extends BaseManagedProfileTest {
                 () -> mParentDevicePolicyManager.wipeData(0));
     }
 
-    public void testCannotCallAutoTimeMethodsOnParentProfile() {
-        assertThrows(SecurityException.class,
-                () -> mParentDevicePolicyManager.setAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT,
-                        true));
-
-        assertThrows(SecurityException.class,
-                () -> mParentDevicePolicyManager.getAutoTimeEnabled(ADMIN_RECEIVER_COMPONENT));
-    }
-
     public void testCannotCallSetDefaultSmsApplicationOnParentProfile() {
         String messagesPackageName = "com.google.android.apps.messaging";
         assertThrows(SecurityException.class,

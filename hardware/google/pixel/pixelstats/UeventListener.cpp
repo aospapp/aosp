@@ -48,7 +48,6 @@
 #include <log/log.h>
 #include <pixelstats/StatsHelper.h>
 #include <pixelstats/UeventListener.h>
-#include <pixelstats/WlcReporter.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -67,7 +66,6 @@ using aidl::android::frameworks::stats::VendorAtomValue;
 using android::sp;
 using android::base::ReadFileToString;
 using android::base::WriteStringToFile;
-using android::hardware::google::pixel::WlcReporter;
 using android::hardware::google::pixel::PixelAtoms::PdVidPid;
 using android::hardware::google::pixel::PixelAtoms::VendorHardwareFailed;
 using android::hardware::google::pixel::PixelAtoms::VendorUsbPortOverheat;
@@ -185,17 +183,6 @@ void UeventListener::ReportChargeMetricsEvent(const std::shared_ptr<IStats> &sta
     charge_stats_reporter_.checkAndReport(stats_client, kChargeMetricsPath);
 }
 
-/* ReportWlc
- * Report wireless relate  metrics when wireless charging start
- */
-void UeventListener::ReportWlc(const std::shared_ptr<IStats> &stats_client, const bool pow_wireless,
-                               const bool online, const char *ptmc) {
-    if (!pow_wireless) {
-        return;
-    }
-
-    wlc_reporter_.checkAndReport(stats_client, online, ptmc);
-}
 /**
  * Report raw battery capacity, system battery capacity and associated
  * battery capacity curves. This data is collected to verify the filter
@@ -291,9 +278,6 @@ bool UeventListener::ProcessUevent() {
     const char *mic_break_status, *mic_degrade_status;
     const char *devpath;
     bool collect_partner_id = false;
-    bool pow_online;
-    bool pow_wireless;
-    const char *pow_ptmc;
     int n;
 
     if (uevent_fd_ < 0) {
@@ -322,8 +306,7 @@ bool UeventListener::ProcessUevent() {
     msg[n + 1] = '\0';
 
     driver = product = subsystem = NULL;
-    mic_break_status = mic_degrade_status = devpath = pow_ptmc = NULL;
-    pow_online = pow_wireless = false;
+    mic_break_status = mic_degrade_status = devpath = NULL;
 
     /**
      * msg is a sequence of null-terminated strings.
@@ -350,15 +333,6 @@ bool UeventListener::ProcessUevent() {
             subsystem = cp;
         } else if (!strncmp(cp, kTypeCPartnerUevent.c_str(), kTypeCPartnerUevent.size())) {
             collect_partner_id = true;
-        } else if (!strncmp(cp, "POWER_SUPPLY_NAME=wireless",
-                            strlen("POWER_SUPPLY_NAME=wireless"))) {
-            pow_wireless = true;
-        } else if (!strncmp(cp, "POWER_SUPPLY_ONLINE=1", strlen("POWER_SUPPLY_ONLINE=1"))) {
-            pow_online = true;
-        } else if (!kWirelessChargerPtmcUevent.empty() &&
-                   !strncmp(cp, kWirelessChargerPtmcUevent.c_str(),
-                            strlen(kWirelessChargerPtmcUevent.c_str()))) {
-            pow_ptmc = cp + strlen(kWirelessChargerPtmcUevent.c_str());
         }
         /* advance to after the next \0 */
         while (*cp++) {
@@ -374,7 +348,6 @@ bool UeventListener::ProcessUevent() {
         ReportMicStatusUevents(stats_client, devpath, mic_degrade_status);
         ReportUsbPortOverheatEvent(stats_client, driver);
         ReportChargeMetricsEvent(stats_client, driver);
-        ReportWlc(stats_client, pow_wireless, pow_online, pow_ptmc);
         ReportBatteryCapacityFGEvent(stats_client, subsystem);
         if (collect_partner_id) {
             ReportTypeCPartnerId(stats_client);
@@ -399,8 +372,6 @@ UeventListener::UeventListener(const std::string audio_uevent, const std::string
       kTypeCPartnerUevent(typec_partner_uevent_default),
       kTypeCPartnerVidPath(typec_partner_vid_path),
       kTypeCPartnerPidPath(typec_partner_pid_path),
-      kWirelessChargerPtmcUevent(""),
-      kWirelessChargerPtmcPath(""),
       uevent_fd_(-1),
       log_fd_(-1) {}
 
@@ -422,12 +393,6 @@ UeventListener::UeventListener(const struct UeventPaths &uevents_paths)
       kTypeCPartnerPidPath((uevents_paths.TypeCPartnerPidPath == nullptr)
                                    ? typec_partner_pid_path_default
                                    : uevents_paths.TypeCPartnerPidPath),
-      kWirelessChargerPtmcUevent((uevents_paths.WirelessChargerPtmcUevent == nullptr)
-                                         ? ""
-                                         : uevents_paths.WirelessChargerPtmcUevent),
-      kWirelessChargerPtmcPath((uevents_paths.WirelessChargerPtmcPath == nullptr)
-                                       ? ""
-                                       : uevents_paths.WirelessChargerPtmcPath),
       uevent_fd_(-1),
       log_fd_(-1) {}
 

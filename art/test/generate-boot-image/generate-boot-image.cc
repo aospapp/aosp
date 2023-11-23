@@ -109,7 +109,8 @@ int main(int argc, char** argv) {
   android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
 
   std::string dir = "";
-  // Set the compiler filter to `verify` by default to make test preparation faster.
+  // Set the compiler filter to `verify` by default to make test preparation
+  // faster.
   std::string compiler_filter = "verify";
   for (int i = 1; i < argc; i++) {
     std::string_view arg{argv[i]};

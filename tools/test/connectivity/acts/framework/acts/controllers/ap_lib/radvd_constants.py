@@ -14,6 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+DEFAULT_PREFIX = 'fd00::/64'
+
 IGNORE_IF_MISSING_ON = 'on'
 IGNORE_IF_MISSING_OFF = 'off'
 

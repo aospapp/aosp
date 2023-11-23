@@ -24,9 +24,6 @@
 
 //#define DISABLE_FENCE
 
-#define HWC_FPS_TH      5   /* valid range 1 to 60 */
-#define VSYNC_INTERVAL (1000000000.0 / 60)
-
 enum {
     HWC_CTL_MAX_OVLY_CNT = 100,
     HWC_CTL_VIDEO_OVLY_CNT = 101,

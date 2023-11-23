@@ -16,13 +16,18 @@
 
 readme() {
     echo '
-Analyze boot-time & bootchart
+Analyze boot-time
 e.g.
 ANDROID_BUILD_TOP="$PWD" \
 CONFIG_YMAL="$ANDROID_BUILD_TOP/system/extras/boottime_tools/bootanalyze/config.yaml" \
     LOOPS=3 \
-    RESULTS_DIR="$ANDROID_BUILD_TOP/bootAnalyzeResults" \
-    $PWD/system/extras/boottime_tools/bootanalyze/bootanalyze.sh
+    RESULTS_DIR="$PWD/bootAnalyzeResults" \
+    $ANDROID_BUILD_TOP/system/extras/boottime_tools/bootanalyze/bootanalyze.sh
+
+Flags:
+-a : Uses "adb reboot" (instead of "adb shell su root svc power reboot") command to reboot
+-b : If set grabs bootchart
+-w : If set grabs carwatchdog perf stats
 '
     exit
 }
@@ -48,6 +53,29 @@ fi
 echo "RESULTS_DIR=$RESULTS_DIR"
 mkdir -p $RESULTS_DIR
 
+ADB_REBOOT_FLAG=""
+BOOTCHART_FLAG=""
+CARWATCHDOG_FLAG=""
+
+while getopts 'abw' OPTION; do
+  case "$OPTION" in
+    a)
+      ADB_REBOOT_FLAG="-a"
+      ;;
+    b)
+      BOOTCHART_FLAG="-b"
+      ;;
+    w)
+      CARWATCHDOG_FLAG="-W"
+      ;;
+    ?)
+      echo 'Error: Invalid flag set'
+      readme
+      ;;
+  esac
+done
+shift "$(($OPTIND -1))"
+
 
 adb shell 'touch /data/bootchart/enabled'
 
@@ -55,15 +83,25 @@ if [[ -z $LOOPS ]]; then
 	LOOPS=1
 fi
 echo "Analyzing boot-time for LOOPS=$LOOPS"
+BOOTCHART_TGZ="/tmp/android-bootchart/bootchart.tgz"
 START=1
 
-SLEEP_SEC=30
+SLEEP_SEC=20
 for (( l=$START; l<=$LOOPS; l++ )); do
-    echo -n "Loop: $l"
+    echo "Loop: $l"
     SECONDS=0
-    $SCRIPT_DIR/bootanalyze.py -c $CONFIG_YMAL -G 4M -r -b > "$RESULTS_DIR/boot$l.txt"
+    mkdir $RESULTS_DIR/$l
+    $SCRIPT_DIR/bootanalyze.py -c $CONFIG_YMAL -G 4M -r \
+        $ADB_REBOOT_FLAG $BOOTCHART_FLAG $CARWATCHDOG_FLAG \
+        -o "$RESULTS_DIR/$l" 1> "$RESULTS_DIR/$l/boot.txt"
+    if [[ $? -ne 0 ]]; then
+        echo "bootanalyze.py failed"
+        exit 1
+    fi
     echo "$SECONDS sec."
-    cp /tmp/android-bootchart/bootchart.tgz "$RESULTS_DIR/bootchart$l.tgz"
+    if [ -f "$BOOTCHART_TGZ" ]; then
+        cp $BOOTCHART_TGZ "$RESULTS_DIR/$l/bootchart.tgz"
+    fi
     echo "Sleep for $SLEEP_SEC sec."
     sleep $SLEEP_SEC
 done

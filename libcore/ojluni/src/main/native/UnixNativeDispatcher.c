@@ -500,6 +500,20 @@ Java_sun_nio_fs_UnixNativeDispatcher_stat0(JNIEnv* env, jclass this,
     }
 }
 
+JNIEXPORT jint JNICALL
+Java_sun_nio_fs_UnixNativeDispatcher_stat1(JNIEnv* env, jclass this, jlong pathAddress) {
+    int err;
+    struct stat64 buf;
+    const char* path = (const char*)jlong_to_ptr(pathAddress);
+
+    RESTARTABLE(stat64(path, &buf), err);
+    if (err == -1) {
+        return 0;
+    } else {
+        return (jint)buf.st_mode;
+    }
+}
+
 JNIEXPORT void JNICALL
 Java_sun_nio_fs_UnixNativeDispatcher_lstat0(JNIEnv* env, jclass this,
     jlong pathAddress, jobject attrs)
@@ -936,6 +950,14 @@ Java_sun_nio_fs_UnixNativeDispatcher_access0(JNIEnv* env, jclass this,
     }
 }
 
+JNIEXPORT jboolean JNICALL
+Java_sun_nio_fs_UnixNativeDispatcher_exists0(JNIEnv* env, jclass this, jlong pathAddress) {
+    int err;
+    const char* path = (const char*)jlong_to_ptr(pathAddress);
+    RESTARTABLE(access(path, F_OK), err);
+    return (err == 0) ? JNI_TRUE : JNI_FALSE;
+}
+
 JNIEXPORT void JNICALL
 Java_sun_nio_fs_UnixNativeDispatcher_statvfs0(JNIEnv* env, jclass this,
     jlong pathAddress, jobject attrs)
@@ -1204,4 +1226,63 @@ Java_sun_nio_fs_UnixNativeDispatcher_getgrnam0(JNIEnv* env, jclass this,
     } while (retry);
 
     return gid;
+}
+
+// Android-changed: register native methods.
+#include <nativehelper/JNIHelp.h>
+#define NATIVE_METHOD(className, functionName, signature) \
+{ #functionName, signature, (void*)(className ## _ ## functionName) }
+
+static JNINativeMethod gMethods[] = {
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, getcwd, "()[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, dup, "(I)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, open0, "(JII)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, openat0, "(IJII)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, close, "(I)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fopen0, "(JJ)J"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fclose, "(J)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, link0, "(JJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, unlink0, "(J)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, unlinkat0, "(IJI)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, mknod0, "(JIJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, rename0, "(JJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, renameat0, "(IJIJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, mkdir0, "(JI)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, rmdir0, "(J)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, readlink0, "(J)[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, realpath0, "(J)[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, symlink0, "(JJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, stat0, "(JLsun/nio/fs/UnixFileAttributes;)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, stat1, "(J)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, lstat0, "(JLsun/nio/fs/UnixFileAttributes;)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fstat, "(ILsun/nio/fs/UnixFileAttributes;)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fstatat0, "(IJILsun/nio/fs/UnixFileAttributes;)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, chown0, "(JII)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, lchown0, "(JII)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fchown, "(III)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, chmod0, "(JI)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fchmod, "(II)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, utimes0, "(JJJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, futimes, "(IJJ)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, opendir0, "(J)J"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fdopendir, "(I)J"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, closedir, "(J)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, readdir, "(J)[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, read, "(IJI)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, write, "(IJI)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, access0, "(JI)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, exists0, "(J)Z"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, getpwuid, "(I)[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, getgrgid, "(I)[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, getpwnam0, "(J)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, getgrnam0, "(J)I"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, statvfs0, "(JLsun/nio/fs/UnixFileStoreAttributes;)V"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, pathconf0, "(JI)J"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, fpathconf, "(II)J"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, strerror, "(I)[B"),
+  NATIVE_METHOD(Java_sun_nio_fs_UnixNativeDispatcher, init, "()I"),
+};
+
+void register_java_sun_nio_fs_UnixNativeDispatcher(JNIEnv* env) {
+  jniRegisterNativeMethods(env, "sun/nio/fs/UnixNativeDispatcher", gMethods, NELEM(gMethods));
 }

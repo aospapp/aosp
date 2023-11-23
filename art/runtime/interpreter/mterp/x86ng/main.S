@@ -275,7 +275,9 @@ DEFINE_FUNCTION \name
   RESTORE_IBASE
   FETCH_INST_CLEAR_OPCODE
   RESTORE_SAVE_REFS_ONLY_FRAME
-  RETURN_OR_DELIVER_PENDING_EXCEPTION
+  cmpl LITERAL(0), %fs:THREAD_EXCEPTION_OFFSET
+  jne nterp_deliver_pending_exception
+  ret
 END_FUNCTION \name
 .endm
 
@@ -1757,6 +1759,27 @@ END_FUNCTION \name
  *  rest  method parameters
  */
 
+OAT_ENTRY ExecuteNterpWithClinitImpl, EndExecuteNterpWithClinitImpl
+    push %esi
+    // For simplicity, we don't do a read barrier here, but instead rely
+    // on art_quick_resolution_trampoline to always have a suspend point before
+    // calling back here.
+    movl ART_METHOD_DECLARING_CLASS_OFFSET(%eax), %esi
+    cmpb $$(MIRROR_CLASS_IS_VISIBLY_INITIALIZED_VALUE), MIRROR_CLASS_IS_VISIBLY_INITIALIZED_OFFSET(%esi)
+    jae .Lcontinue_execute_nterp
+    cmpb  $$(MIRROR_CLASS_IS_INITIALIZING_VALUE), MIRROR_CLASS_IS_VISIBLY_INITIALIZED_OFFSET(%esi)
+    jb .Linvoke_trampoline
+    movl MIRROR_CLASS_CLINIT_THREAD_ID_OFFSET(%esi), %esi
+    cmpl %esi, rSELF:THREAD_TID_OFFSET
+    je .Lcontinue_execute_nterp
+.Linvoke_trampoline:
+    pop %esi
+    jmp art_quick_resolution_trampoline
+.Lcontinue_execute_nterp:
+    pop %esi
+    jmp ExecuteNterpImpl
+EndExecuteNterpWithClinitImpl:
+
 OAT_ENTRY ExecuteNterpImpl, EndExecuteNterpImpl
     .cfi_startproc
     .cfi_def_cfa esp, 4
@@ -1980,7 +2003,7 @@ NterpNewInstance:
    movl rSELF:THREAD_SELF_OFFSET, ARG0
    movl 0(%esp), ARG1
    movl rPC, ARG2
-   call nterp_get_class_or_allocate_object
+   call nterp_allocate_object
    jmp 1b
 3:
    // 00 is %eax
@@ -2008,7 +2031,7 @@ NterpNewArray:
    movl rSELF:THREAD_SELF_OFFSET, ARG0
    movl 0(%esp), ARG1
    movl rPC, ARG2
-   call nterp_get_class_or_allocate_object
+   call nterp_get_class
    jmp 1b
 3:
    // 00 is %eax
@@ -2339,10 +2362,15 @@ NTERP_TRAMPOLINE nterp_get_static_field, NterpGetStaticField
 NTERP_TRAMPOLINE nterp_get_instance_field_offset, NterpGetInstanceFieldOffset
 NTERP_TRAMPOLINE nterp_filled_new_array, NterpFilledNewArray
 NTERP_TRAMPOLINE nterp_filled_new_array_range, NterpFilledNewArrayRange
-NTERP_TRAMPOLINE nterp_get_class_or_allocate_object, NterpGetClassOrAllocateObject
+NTERP_TRAMPOLINE nterp_get_class, NterpGetClass
+NTERP_TRAMPOLINE nterp_allocate_object, NterpAllocateObject
 NTERP_TRAMPOLINE nterp_get_method, NterpGetMethod
 NTERP_TRAMPOLINE nterp_hot_method, NterpHotMethod
 NTERP_TRAMPOLINE nterp_load_object, NterpLoadObject
+
+DEFINE_FUNCTION nterp_deliver_pending_exception
+    DELIVER_PENDING_EXCEPTION
+END_FUNCTION nterp_deliver_pending_exception
 
 // gen_mterp.py will inline the following definitions
 // within [ExecuteNterpImpl, EndExecuteNterpImpl).

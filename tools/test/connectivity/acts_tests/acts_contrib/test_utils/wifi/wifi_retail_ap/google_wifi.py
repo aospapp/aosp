@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import collections.abc
 from acts.controllers import access_point
 from acts.controllers.ap_lib import bridge_interface
 from acts.controllers.ap_lib import hostapd_security
@@ -27,6 +26,7 @@ class GoogleWifiAP(WifiRetailAP):
 
     This class is a work in progress
     """
+
     def __init__(self, ap_settings):
         super().__init__(ap_settings)
         # Initialize AP
@@ -118,6 +118,10 @@ class GoogleWifiAP(WifiRetailAP):
         }
         self.access_point = access_point.AccessPoint(init_settings)
         self.configure_ap()
+
+    def teardown(self):
+        self.access_point.stop_all_aps()
+        super().teardown()
 
     def read_ap_settings(self):
         """Function that reads current ap settings."""

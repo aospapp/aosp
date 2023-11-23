@@ -163,6 +163,13 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
   memset(&resApduBuff, 0x00, sizeof(resApduBuff));
   STLOG_HAL_D("%s: Enter", __func__);
 
+  if (aid.size() > 16) {
+    STLOG_HAL_E("%s: Invalid AID size: %u", __func__, (unsigned)aid.size());
+    _hidl_cb(resApduBuff, SecureElementStatus::FAILED);
+    OpenLogicalChannelProcessing = false;
+    return Void();
+  }
+
   if (!isSeInitialized()) {
     STLOG_HAL_D("%s: Enter SeInitialized", __func__);
     ESESTATUS status = seHalInit();
@@ -301,6 +308,13 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
   hidl_vec<uint8_t> result;
   OpenBasicChannelProcessing = true;
   STLOG_HAL_D("%s: Enter", __func__);
+
+  if (aid.size() > 16) {
+    STLOG_HAL_E("%s: Invalid AID size: %u", __func__, (unsigned)aid.size());
+    _hidl_cb(result, SecureElementStatus::FAILED);
+    OpenBasicChannelProcessing = false;
+    return Void();
+  }
 
   if (!isSeInitialized()) {
     ESESTATUS status = seHalInit();
@@ -523,6 +537,7 @@ SecureElement::seHalDeInit() {
 Return<::android::hardware::secure_element::V1_0::SecureElementStatus>
 SecureElement::reset() {
   int ret = 0;
+  void* stdll = nullptr;
   ESESTATUS status = ESESTATUS_SUCCESS;
   SecureElementStatus sestatus = SecureElementStatus::FAILED;
   std::string valueStr =
@@ -534,8 +549,11 @@ SecureElement::reset() {
     if (status != ESESTATUS_SUCCESS) {
       STLOG_HAL_E("%s: seHalInit Failed!!!", __func__);
       if (valueStr.length() > 0) {
-        valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
-        void* stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+        stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+        if (!stdll) {
+          valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
+          stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+        }
         if (stdll) {
           STEseReset fn = (STEseReset)dlsym(stdll, "direct_reset");
           if (fn) {

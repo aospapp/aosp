@@ -17,12 +17,13 @@
 #ifndef ART_COMPILER_COMPILER_H_
 #define ART_COMPILER_COMPILER_H_
 
+#include "base/macros.h"
 #include "base/mutex.h"
 #include "base/os.h"
 #include "compilation_kind.h"
 #include "dex/invoke_type.h"
 
-namespace art {
+namespace art HIDDEN {
 
 namespace dex {
 struct CodeItem;
@@ -38,8 +39,8 @@ class DexCache;
 }  // namespace mirror
 
 class ArtMethod;
+class CompiledCodeStorage;
 class CompiledMethod;
-class CompiledMethodStorage;
 class CompilerOptions;
 class DexFile;
 template<class T> class Handle;
@@ -52,9 +53,9 @@ class Compiler {
     kOptimizing
   };
 
-  static Compiler* Create(const CompilerOptions& compiler_options,
-                          CompiledMethodStorage* storage,
-                          Kind kind);
+  EXPORT static Compiler* Create(const CompilerOptions& compiler_options,
+                                 CompiledCodeStorage* storage,
+                                 Kind kind);
 
   virtual bool CanCompileMethod(uint32_t method_idx, const DexFile& dex_file) const = 0;
 
@@ -99,7 +100,7 @@ class Compiler {
 
  protected:
   Compiler(const CompilerOptions& compiler_options,
-           CompiledMethodStorage* storage,
+           CompiledCodeStorage* storage,
            uint64_t warning) :
       compiler_options_(compiler_options),
       storage_(storage),
@@ -110,13 +111,13 @@ class Compiler {
     return compiler_options_;
   }
 
-  CompiledMethodStorage* GetCompiledMethodStorage() const {
+  CompiledCodeStorage* GetCompiledCodeStorage() const {
     return storage_;
   }
 
  private:
   const CompilerOptions& compiler_options_;
-  CompiledMethodStorage* const storage_;
+  CompiledCodeStorage* const storage_;
   const uint64_t maximum_compilation_time_before_warning_;
 
   DISALLOW_COPY_AND_ASSIGN(Compiler);

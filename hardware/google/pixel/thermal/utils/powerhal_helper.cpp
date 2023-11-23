@@ -22,7 +22,6 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 #include <android/binder_manager.h>
-#include <hidl/HidlTransportSupport.h>
 
 #include <iterator>
 #include <set>
@@ -33,13 +32,13 @@
 #include "thermal_info.h"
 #include "thermal_throttling.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
-using android::base::StringPrintf;
+using ::android::base::StringPrintf;
 
 PowerHalService::PowerHalService()
     : power_hal_aidl_exist_(true), power_hal_aidl_(nullptr), power_hal_ext_aidl_(nullptr) {
@@ -48,11 +47,14 @@ PowerHalService::PowerHalService()
 
 bool PowerHalService::connect() {
     std::lock_guard<std::mutex> lock(lock_);
-    if (!power_hal_aidl_exist_)
-        return false;
 
-    if (power_hal_aidl_ != nullptr)
+    if (!power_hal_aidl_exist_) {
+        return false;
+    }
+
+    if (power_hal_aidl_ && power_hal_ext_aidl_) {
         return true;
+    }
 
     const std::string kInstance = std::string(IPower::descriptor) + "/default";
     ndk::SpAIBinder power_binder = ndk::SpAIBinder(AServiceManager_getService(kInstance.c_str()));
@@ -90,14 +92,13 @@ bool PowerHalService::connect() {
 
 bool PowerHalService::isModeSupported(const std::string &type, const ThrottlingSeverity &t) {
     bool isSupported = false;
-    if (!isPowerHalConnected()) {
+    if (!connect()) {
         return false;
     }
     std::string power_hint = StringPrintf("THERMAL_%s_%s", type.c_str(), toString(t).c_str());
     lock_.lock();
     if (!power_hal_ext_aidl_->isModeSupported(power_hint, &isSupported).isOk()) {
         LOG(ERROR) << "Fail to check supported mode, Hint: " << power_hint;
-        power_hal_aidl_exist_ = false;
         power_hal_ext_aidl_ = nullptr;
         power_hal_aidl_ = nullptr;
         lock_.unlock();
@@ -108,27 +109,30 @@ bool PowerHalService::isModeSupported(const std::string &type, const ThrottlingS
 }
 
 void PowerHalService::setMode(const std::string &type, const ThrottlingSeverity &t,
-                              const bool &enable) {
-    if (!isPowerHalConnected()) {
+                              const bool &enable, const bool error_on_exit) {
+    if (!connect()) {
         return;
     }
 
     std::string power_hint = StringPrintf("THERMAL_%s_%s", type.c_str(), toString(t).c_str());
-    LOG(INFO) << "Send Hint " << power_hint << " Enable: " << std::boolalpha << enable;
+    LOG(INFO) << (error_on_exit ? "Resend Hint " : "Send Hint ") << power_hint
+              << " Enable: " << std::boolalpha << enable;
     lock_.lock();
     if (!power_hal_ext_aidl_->setMode(power_hint, enable).isOk()) {
         LOG(ERROR) << "Fail to set mode, Hint: " << power_hint;
-        power_hal_aidl_exist_ = false;
         power_hal_ext_aidl_ = nullptr;
         power_hal_aidl_ = nullptr;
         lock_.unlock();
+        if (!error_on_exit) {
+            setMode(type, t, enable, true);
+        }
         return;
     }
     lock_.unlock();
 }
 
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

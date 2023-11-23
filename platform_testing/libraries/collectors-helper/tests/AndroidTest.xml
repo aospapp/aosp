@@ -21,7 +21,8 @@
         <option name="test-file-name" value="CollectorsHelperAospTest.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="package" value="com.android.helpers.tests" />
+      <option name="package" value="com.android.helpers.tests" />
+      <option name="isolated-storage" value="false" />
     </test>
 </configuration>
 

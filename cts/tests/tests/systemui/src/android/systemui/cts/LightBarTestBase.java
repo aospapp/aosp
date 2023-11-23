@@ -59,13 +59,14 @@ public class LightBarTestBase {
 
     protected Bitmap takeStatusBarScreenshot(LightBarBaseActivity activity) {
         Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(fullBitmap, 0, 0, fullBitmap.getWidth(), activity.getTop());
+        return Bitmap.createBitmap(fullBitmap, activity.getLeft(), 0, activity.getRight(),
+                activity.getTop());
     }
 
     protected Bitmap takeNavigationBarScreenshot(LightBarBaseActivity activity) {
         Bitmap fullBitmap = getInstrumentation().getUiAutomation().takeScreenshot();
-        return Bitmap.createBitmap(fullBitmap, 0, activity.getBottom(), fullBitmap.getWidth(),
-                fullBitmap.getHeight() - activity.getBottom());
+        return Bitmap.createBitmap(fullBitmap, activity.getLeft(), activity.getBottom(),
+                activity.getRight(), fullBitmap.getHeight() - activity.getBottom());
     }
 
     protected void dumpBitmap(Bitmap bitmap, String name) {
@@ -106,9 +107,7 @@ public class LightBarTestBase {
         for (int i = 0; i < pixels.length; i++) {
             int x = i % bitmap.getWidth();
             int y = i / bitmap.getWidth();
-
-            if (pixels[i] == backgroundColor
-                    || isInsideCutout(x, shiftY + y)) {
+            if (isColorSame(pixels[i], backgroundColor) || isInsideCutout(x, shiftY + y)) {
                 backgroundColorPixelCount++;
             }
         }

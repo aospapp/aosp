@@ -18,11 +18,15 @@ package android.autofillservice.cts.commontests;
 
 import android.autofillservice.cts.activities.LoginActivity;
 import android.autofillservice.cts.testcore.AutofillActivityTestRule;
+import android.autofillservice.cts.testcore.IdMode;
 import android.autofillservice.cts.testcore.Timeouts;
 import android.autofillservice.cts.testcore.UiBot;
 import android.autofillservice.cts.testcore.WindowChangeTimeoutException;
+import android.util.Log;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
+
+import org.junit.After;
 
 import java.util.concurrent.TimeoutException;
 
@@ -50,6 +54,12 @@ public abstract class AbstractLoginActivityTestCase
                 mActivity = getActivity();
             }
         };
+    }
+
+    @After
+    public void resetReplierIdMode() {
+        Log.d("AbstractLoginActivityTestCase", "resetReplierIdMode()");
+        sReplier.setIdMode(IdMode.RESOURCE_ID);
     }
 
     /**

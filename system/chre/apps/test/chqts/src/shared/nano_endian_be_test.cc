@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
+
 // For this test, we pretend we're a big endian platform, even if we don't
 // happen to be.
+#undef __LITTLE_ENDIAN
+#undef __BIG_ENDIAN
+#undef __BYTE_ORDER
 #define CHRE_NO_ENDIAN_H 1
 #define __LITTLE_ENDIAN 0
 #define __BIG_ENDIAN 1
 #define __BYTE_ORDER __BIG_ENDIAN
 
 #include <shared/nano_endian.h>
-
-#include <cstdint>
-#include <cstring>
 
 #include <gtest/gtest.h>
 #include <shared/array_length.h>

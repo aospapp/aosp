@@ -1,0 +1,15 @@
+[package]
+name = "frontend-client-cxx"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[lib]
+crate-type = ["staticlib", "lib"]
+doctest = false
+
+[dependencies]
+cxx = { version = ">=1.0.85", features = ["c++17"] }
+
+[build-dependencies]
+cxx-build = "1.0.92"

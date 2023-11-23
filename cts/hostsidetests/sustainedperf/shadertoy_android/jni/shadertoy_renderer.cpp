@@ -90,7 +90,6 @@ void DrawFrame() {
   static double previous_time = 0;
   static float angle = 0.0f;
   static double elapsed_time_sum = 0;
-  static double gpu_timer_elapsed_sum = 0;
   static double start_time = NowInMs();
 
   // After how many frames to report the avg frame time.
@@ -103,7 +102,6 @@ void DrawFrame() {
 
     frame_count = 0;
     elapsed_time_sum = 0;
-    gpu_timer_elapsed_sum = 0;
   }
 
   double current_time = NowInMs();

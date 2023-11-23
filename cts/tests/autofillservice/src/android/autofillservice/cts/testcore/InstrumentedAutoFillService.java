@@ -241,7 +241,8 @@ public class InstrumentedAutoFillService extends AutofillService {
             return;
         }
         mHandler.post(
-                () -> sReplier.onFillRequest(request.getFillContexts(), request.getClientState(),
+                () -> sReplier.onFillRequest(request.getFillContexts(), request.getHints(),
+                        request.getClientState(),
                         cancellationSignal, callback, request.getFlags(),
                         request.getInlineSuggestionsRequest(),
                         request.getDelayedFillIntentSender(),
@@ -391,13 +392,15 @@ public class InstrumentedAutoFillService extends AutofillService {
         public final InlineSuggestionsRequest inlineRequest;
         public final IntentSender delayFillIntentSender;
         public final int requestId;
+        public final List<String> hints;
 
-        private FillRequest(List<FillContext> contexts, Bundle data,
+        private FillRequest(List<FillContext> contexts, List<String> hints, Bundle data,
                 CancellationSignal cancellationSignal, FillCallback callback, int flags,
                 InlineSuggestionsRequest inlineRequest,
                 IntentSender delayFillIntentSender,
                 int requestId) {
             this.contexts = contexts;
+            this.hints = hints;
             this.data = data;
             this.cancellationSignal = cancellationSignal;
             this.callback = callback;
@@ -642,7 +645,7 @@ public class InstrumentedAutoFillService extends AutofillService {
             mReportUnhandledSaveRequest = true;
         }
 
-        private void onFillRequest(List<FillContext> contexts, Bundle data,
+        private void onFillRequest(List<FillContext> contexts, List<String> hints, Bundle data,
                 CancellationSignal cancellationSignal, FillCallback callback, int flags,
                 InlineSuggestionsRequest inlineRequest, IntentSender delayFillIntentSender,
                 int requestId) {
@@ -709,6 +712,11 @@ public class InstrumentedAutoFillService extends AutofillService {
                         fillResponse = response.asFillResponse(contexts,
                                 (id) -> Helper.findNodeByHtmlNameOrResourceId(contexts, id));
                         break;
+                    case PCC_ID:
+                        // TODO: SaveInfo undetermined for PCC
+                        fillResponse = response.asPccFillResponse(contexts,
+                                (id) -> Helper.findNodeByResourceId(contexts, id));
+                        break;
                     default:
                         throw new IllegalStateException("Unknown id mode: " + mIdMode);
                 }
@@ -720,7 +728,7 @@ public class InstrumentedAutoFillService extends AutofillService {
                         callback.onSuccess(fillResponse);
                         // Add a fill request to let test case know response was sent.
                         Helper.offer(mFillRequests,
-                                new FillRequest(contexts, data, cancellationSignal, callback,
+                                new FillRequest(contexts, hints, data, cancellationSignal, callback,
                                         flags, inlineRequest, delayFillIntentSender, requestId),
                                 CONNECTION_TIMEOUT.ms());
                     }, RESPONSE_DELAY_MS);
@@ -731,8 +739,9 @@ public class InstrumentedAutoFillService extends AutofillService {
             } catch (Throwable t) {
                 addException(t);
             } finally {
-                Helper.offer(mFillRequests, new FillRequest(contexts, data, cancellationSignal,
-                        callback, flags, inlineRequest, delayFillIntentSender, requestId),
+                Helper.offer(mFillRequests, new FillRequest(contexts, hints, data,
+                        cancellationSignal, callback, flags, inlineRequest,
+                        delayFillIntentSender, requestId),
                         CONNECTION_TIMEOUT.ms());
             }
         }

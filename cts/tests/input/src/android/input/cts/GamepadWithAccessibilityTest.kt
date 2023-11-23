@@ -18,10 +18,10 @@ package android.input.cts
 
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Instrumentation
-import android.view.accessibility.AccessibilityManager
 import android.view.InputDevice
 import android.view.KeyCharacterMap.VIRTUAL_KEYBOARD
 import android.view.KeyEvent
+import android.view.accessibility.AccessibilityManager
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
@@ -30,8 +30,8 @@ import com.android.compatibility.common.util.PollingCheck
 import com.android.cts.input.UinputDevice
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
@@ -118,5 +118,7 @@ class GamepadWithAccessibilityTest {
         assertEquals(KeyEvent.FLAG_FROM_SYSTEM, keyEvent.getFlags())
         assertNotEquals(keyEvent.getDeviceId(), VIRTUAL_KEYBOARD)
         assertEquals(keyEvent.getDeviceId(), uinputDevice.getDeviceId())
+
+        uinputDevice.close()
     }
 }

@@ -59,13 +59,13 @@ abstract class TvTestBase {
         get() = packageManager.run {
             hasSystemFeature(FEATURE_LEANBACK) || hasSystemFeature(FEATURE_LEANBACK_ONLY)
         }
-    private val systemUiProcessObserver = SystemUiProcessObserver()
+    private var systemUiProcessObserver : SystemUiProcessObserver? = null
 
     @Before
     fun setUp() {
         assumeTrue(isTelevision)
 
-        systemUiProcessObserver.start()
+        systemUiProcessObserver = SystemUiProcessObserver().apply { start() }
 
         UiDeviceUtils.pressWakeupButton()
         UiDeviceUtils.pressUnlockButton()
@@ -80,8 +80,9 @@ abstract class TvTestBase {
         onTearDown()
 
         SystemClock.sleep(AFTER_TEST_PROCESS_CHECK_DELAY)
-        systemUiProcessObserver.stop()
-        assertFalse("SystemUI has died during test execution", systemUiProcessObserver.hasDied)
+        systemUiProcessObserver?.stop()
+        assertFalse(
+            "SystemUI has died during test execution", systemUiProcessObserver?.hasDied ?: true)
     }
 
     abstract fun onSetUp()

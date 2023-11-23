@@ -35,6 +35,10 @@ namespace art {
 namespace gc {
 
 class SystemWeakTest : public CommonRuntimeTest {
+ protected:
+  SystemWeakTest() {
+    use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
 };
 
 struct CountingSystemWeakHolder : public SystemWeakHolder {
@@ -111,6 +115,7 @@ static bool CollectorDoesAllowOrBroadcast() {
   CollectorType type = Runtime::Current()->GetHeap()->CurrentCollectorType();
   switch (type) {
     case CollectorType::kCollectorTypeCMS:
+    case CollectorType::kCollectorTypeCMC:
     case CollectorType::kCollectorTypeCC:
     case CollectorType::kCollectorTypeSS:
       return true;
@@ -124,6 +129,7 @@ static bool CollectorDoesDisallow() {
   CollectorType type = Runtime::Current()->GetHeap()->CurrentCollectorType();
   switch (type) {
     case CollectorType::kCollectorTypeCMS:
+    case CollectorType::kCollectorTypeCMC:
       return true;
 
     default:
@@ -149,7 +155,12 @@ TEST_F(SystemWeakTest, Keep) {
   // Expect the holder to have been called.
   EXPECT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
   EXPECT_EQ(CollectorDoesDisallow() ? 1U : 0U, cswh.disallow_count_);
-  EXPECT_EQ(1U, cswh.sweep_count_);
+  // Userfaultfd GC uses SweepSystemWeaks also for concurrent updation.
+  // TODO: Explore this can be reverted back to unconditionally compare with 1
+  // once concurrent updation of native roots is full implemented in userfaultfd
+  // GC.
+  size_t expected_sweep_count = gUseUserfaultfd ? 2U : 1U;
+  EXPECT_EQ(expected_sweep_count, cswh.sweep_count_);
 
   // Expect the weak to not be cleared.
   EXPECT_FALSE(cswh.Get().IsNull());
@@ -170,7 +181,12 @@ TEST_F(SystemWeakTest, Discard) {
   // Expect the holder to have been called.
   EXPECT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
   EXPECT_EQ(CollectorDoesDisallow() ? 1U : 0U, cswh.disallow_count_);
-  EXPECT_EQ(1U, cswh.sweep_count_);
+  // Userfaultfd GC uses SweepSystemWeaks also for concurrent updation.
+  // TODO: Explore this can be reverted back to unconditionally compare with 1
+  // once concurrent updation of native roots is full implemented in userfaultfd
+  // GC.
+  size_t expected_sweep_count = gUseUserfaultfd ? 2U : 1U;
+  EXPECT_EQ(expected_sweep_count, cswh.sweep_count_);
 
   // Expect the weak to be cleared.
   EXPECT_TRUE(cswh.Get().IsNull());
@@ -194,7 +210,12 @@ TEST_F(SystemWeakTest, Remove) {
   // Expect the holder to have been called.
   ASSERT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
   ASSERT_EQ(CollectorDoesDisallow() ? 1U : 0U, cswh.disallow_count_);
-  ASSERT_EQ(1U, cswh.sweep_count_);
+  // Userfaultfd GC uses SweepSystemWeaks also for concurrent updation.
+  // TODO: Explore this can be reverted back to unconditionally compare with 1
+  // once concurrent updation of native roots is full implemented in userfaultfd
+  // GC.
+  size_t expected_sweep_count = gUseUserfaultfd ? 2U : 1U;
+  EXPECT_EQ(expected_sweep_count, cswh.sweep_count_);
 
   // Expect the weak to not be cleared.
   ASSERT_FALSE(cswh.Get().IsNull());
@@ -209,7 +230,7 @@ TEST_F(SystemWeakTest, Remove) {
   // Expectation: no change in the numbers.
   EXPECT_EQ(CollectorDoesAllowOrBroadcast() ? 1U : 0U, cswh.allow_count_);
   EXPECT_EQ(CollectorDoesDisallow() ? 1U : 0U, cswh.disallow_count_);
-  EXPECT_EQ(1U, cswh.sweep_count_);
+  EXPECT_EQ(expected_sweep_count, cswh.sweep_count_);
 }
 
 }  // namespace gc

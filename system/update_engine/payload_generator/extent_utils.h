@@ -105,25 +105,25 @@ bool operator!=(const Extent& a, const Extent& b) noexcept;
 // }
 struct BlockIterator {
   explicit BlockIterator(
-      const google::protobuf::RepeatedPtrField<Extent>& src_extents)
-      : src_extents_(src_extents) {}
+      const google::protobuf::RepeatedPtrField<Extent>& extents)
+      : extents_(extents) {}
 
   BlockIterator& operator++() {
-    CHECK_LT(cur_extent_, src_extents_.size());
+    CHECK_LT(cur_extent_, extents_.size());
     block_offset_++;
-    if (block_offset_ >= src_extents_[cur_extent_].num_blocks()) {
+    if (block_offset_ >= extents_[cur_extent_].num_blocks()) {
       cur_extent_++;
       block_offset_ = 0;
     }
     return *this;
   }
 
-  [[nodiscard]] bool is_end() { return cur_extent_ >= src_extents_.size(); }
+  [[nodiscard]] bool is_end() { return cur_extent_ >= extents_.size(); }
   [[nodiscard]] uint64_t operator*() {
-    return src_extents_[cur_extent_].start_block() + block_offset_;
+    return extents_[cur_extent_].start_block() + block_offset_;
   }
 
-  const google::protobuf::RepeatedPtrField<Extent>& src_extents_;
+  const google::protobuf::RepeatedPtrField<Extent>& extents_;
   int cur_extent_ = 0;
   size_t block_offset_ = 0;
 };
@@ -149,6 +149,13 @@ size_t GetNthBlock(const Container& extents, const size_t n) {
 constexpr bool ExtentContains(const Extent& extent, size_t block) {
   return extent.start_block() <= block &&
          block < extent.start_block() + extent.num_blocks();
+}
+
+// return true iff |big| extent contains |small| extent
+constexpr bool ExtentContains(const Extent& big, const Extent& small) {
+  return big.start_block() <= small.start_block() &&
+         small.start_block() + small.num_blocks() <=
+             big.start_block() + big.num_blocks();
 }
 
 }  // namespace chromeos_update_engine

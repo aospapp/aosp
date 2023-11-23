@@ -54,6 +54,8 @@ import java.util.GregorianCalendar;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class CalendarViewTest {
+    private CtsTouchUtils mCtsTouchUtils;
+
     private Instrumentation mInstrumentation;
     private CalendarViewCtsActivity mActivity;
     private CalendarView mCalendarViewMaterial;
@@ -67,6 +69,7 @@ public class CalendarViewTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mCalendarViewMaterial = (CalendarView) mActivity.findViewById(R.id.calendar_view_material);
         mCalendarViewHolo = (CalendarView) mActivity.findViewById(R.id.calendar_view_holoyolo);
@@ -233,7 +236,7 @@ public class CalendarViewTest {
         }
 
         // Use instrumentation to emulate a tap on 09/07/2008
-        CtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, calendarView,
+        mCtsTouchUtils.emulateTapOnView(mInstrumentation, mActivityRule, calendarView,
                 dayBounds.left + dayBounds.width() / 2,
                 dayBounds.top + dayBounds.height() / 2);
 

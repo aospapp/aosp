@@ -157,6 +157,22 @@ TEST(strings, trim_other_whitespace) {
   ASSERT_EQ("foo", android::base::Trim("\v\tfoo\n\f"));
 }
 
+TEST(strings, trim_build_implicit_string_conversion) {
+  struct Foo {
+    operator std::string() { return " foo "; }
+    explicit operator std::string_view() { return " foo "; }
+  };
+  ASSERT_EQ("foo", android::base::Trim(Foo()));
+}
+
+TEST(strings, trim_build_implicit_string_view_conversion) {
+  struct Foo {
+    explicit operator std::string() { return " foo "; }
+    operator std::string_view() { return " foo "; }
+  };
+  ASSERT_EQ("foo", android::base::Trim(Foo()));
+}
+
 TEST(strings, join_nothing) {
   std::vector<std::string> list = {};
   ASSERT_EQ("", android::base::Join(list, ','));

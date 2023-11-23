@@ -56,7 +56,6 @@ public class SearchResultTest {
         extraInfos.putString(SearchResult.EXTRAINFO_APP_DEVELOPER_NAME,
                 "best_app_developer");
         extraInfos.putParcelable(SearchResult.EXTRAINFO_ACTION_INSTALL_BUTTON, pendingIntent);
-        extraInfos.putParcelable(SearchResult.EXTRAINFO_ACTION_APP_CARD, pendingIntent);
         extraInfos.putString(SearchResult.EXTRAINFO_APP_PACKAGE_NAME,
                 "best_package_name");
         extraInfos.putDouble(SearchResult.EXTRAINFO_APP_INSTALL_COUNT, 10);
@@ -78,9 +77,6 @@ public class SearchResultTest {
                 .isEqualTo("best_app_developer");
         assertThat((PendingIntent) rExtraInfos
                 .getParcelable(SearchResult.EXTRAINFO_ACTION_INSTALL_BUTTON))
-                .isEqualTo(pendingIntent);
-        assertThat((PendingIntent) rExtraInfos
-                .getParcelable(SearchResult.EXTRAINFO_ACTION_APP_CARD))
                 .isEqualTo(pendingIntent);
         assertThat(rExtraInfos
                 .getString(SearchResult.EXTRAINFO_APP_PACKAGE_NAME))
@@ -107,9 +103,6 @@ public class SearchResultTest {
                 .isEqualTo("best_app_developer");
         assertThat((PendingIntent) rExtraInfosCopy
                 .getParcelable(SearchResult.EXTRAINFO_ACTION_INSTALL_BUTTON))
-                .isEqualTo(pendingIntent);
-        assertThat((PendingIntent) rExtraInfosCopy
-                .getParcelable(SearchResult.EXTRAINFO_ACTION_APP_CARD))
                 .isEqualTo(pendingIntent);
         assertThat(rExtraInfosCopy
                 .getString(SearchResult.EXTRAINFO_APP_PACKAGE_NAME))

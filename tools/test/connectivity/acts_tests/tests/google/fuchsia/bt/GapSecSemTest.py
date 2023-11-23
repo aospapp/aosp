@@ -30,7 +30,6 @@ from acts_contrib.test_utils.fuchsia.bt_test_utils import get_link_keys
 from acts_contrib.test_utils.fuchsia.bt_test_utils import unbond_all_known_devices
 from contextlib import suppress
 import inspect
-import time
 
 
 class GapSecSemTest(BaseTestClass):
@@ -46,7 +45,7 @@ class GapSecSemTest(BaseTestClass):
         # for the interim set this manually in the build.
         self.sec_dut = self.fuchsia_devices[1]
         for fd in self.fuchsia_devices:
-            fd.bts_lib.initBluetoothSys()
+            fd.sl4f.bts_lib.initBluetoothSys()
         # Optional user param for collecting enough information for
         # certification on pass results.
         self.collect_detailed_pass_logs = self.user_params.get(
@@ -60,14 +59,14 @@ class GapSecSemTest(BaseTestClass):
         # Stop scanning and advertising on all devices at the end of a test.
         with suppress(Exception):
             for fd in self.fuchsia_devices:
-                fd.ble_lib.bleStopBleAdvertising()
+                fd.sl4f.ble_lib.bleStopBleAdvertising()
                 fd.bleStopBleScan()
         for fd in self.fuchsia_devices:
             unbond_all_known_devices(fd, self.log)
 
     def teardown_class(self):
         for fd in self.fuchsia_devices:
-            fd.bts_lib.requestDiscovery(False)
+            fd.sl4f.bts_lib.requestDiscovery(False)
 
     def on_pass(self, test_name, begin_time):
         if self.collect_detailed_pass_logs == True:
@@ -98,11 +97,10 @@ class GapSecSemTest(BaseTestClass):
         scan_response = None
         connectable = True
 
-        peripheral.ble_lib.bleStartBleAdvertising(adv_data, scan_response,
-                                                  self.ble_advertise_interval,
-                                                  connectable)
+        peripheral.sl4f.ble_lib.bleStartBleAdvertising(
+            adv_data, scan_response, self.ble_advertise_interval, connectable)
         scan_filter = {"name_substring": adv_name}
-        central.gattc_lib.bleStartBleScan(scan_filter)
+        central.sl4f.gattc_lib.bleStartBleScan(scan_filter)
         device = le_scan_for_device_by_name(central,
                                             self.log,
                                             adv_name,
@@ -111,7 +109,8 @@ class GapSecSemTest(BaseTestClass):
                                             self_manage_scan=False)
         if device is None:
             raise signals.TestFailure("Scanner unable to find advertisement.")
-        connect_result = central.gattc_lib.bleConnectToPeripheral(device["id"])
+        connect_result = central.sl4f.gattc_lib.bleConnectToPeripheral(
+            device["id"])
         if connect_result.get("error") is not None:
             raise signals.TestFailure(
                 self.gatt_connect_err_message.format(
@@ -147,9 +146,9 @@ class GapSecSemTest(BaseTestClass):
         input_capabilities = "NONE"
         output_capabilities = "NONE"
 
-        central.bts_lib.acceptPairing("KEYBOARD", "DISPLAY")
+        central.sl4f.bts_lib.acceptPairing("KEYBOARD", "DISPLAY")
 
-        peripheral.bts_lib.acceptPairing("KEYBOARD", "DISPLAY")
+        peripheral.sl4f.bts_lib.acceptPairing("KEYBOARD", "DISPLAY")
 
         device = self._orchestrate_gatt_connection(central, peripheral)
         # TODO: fxb/71289 Change once all peer IDs are ints and not strings
@@ -157,28 +156,29 @@ class GapSecSemTest(BaseTestClass):
         bondable = True
         transport = 2  #LE
         if is_central_pairing_initiator:
-            pair_result = central.bts_lib.pair(identifier, security_level,
-                                               bondable, transport)
+            pair_result = central.sl4f.bts_lib.pair(identifier, security_level,
+                                                    bondable, transport)
         if not is_central_pairing_initiator:
-            device_list = peripheral.bts_lib.getKnownRemoteDevices()['result']
+            device_list = peripheral.sl4f.bts_lib.getKnownRemoteDevices(
+            )['result']
             print(device_list)
             for id_dict in device_list:
                 d = device_list[id_dict]
                 name = None
                 if d['connected'] is True:
                     did = d['id']
-            pair_result = peripheral.bts_lib.pair(did, security_level,
-                                                  bondable, transport)
+            pair_result = peripheral.sl4f.bts_lib.pair(did, security_level,
+                                                       bondable, transport)
 
         pins_transferred = False
-        pairing_pin = central.bts_lib.getPairingPin()['result']
+        pairing_pin = central.sl4f.bts_lib.getPairingPin()['result']
         if pairing_pin != "0" and pairing_pin is not None:
-            peripheral.bts_lib.inputPairingPin(pairing_pin)
+            peripheral.sl4f.bts_lib.inputPairingPin(pairing_pin)
             pins_transferred = True
         if not pins_transferred:
-            pairing_pin = peripheral.bts_lib.getPairingPin()['result']
+            pairing_pin = peripheral.sl4f.bts_lib.getPairingPin()['result']
             if pairing_pin != "0":
-                central.bts_lib.inputPairingPin(pairing_pin)
+                central.sl4f.bts_lib.inputPairingPin(pairing_pin)
 
         if self.collect_detailed_pass_logs == True:
             save_path = f"{central.log_path}/{test_name}_stash_secure.store"
@@ -188,7 +188,7 @@ class GapSecSemTest(BaseTestClass):
             self.log.info(
                 f"Known Link Keys: {get_link_keys(peripheral, save_path)}")
 
-        disconnect_result = central.gattc_lib.bleDisconnectPeripheral(
+        disconnect_result = central.sl4f.gattc_lib.bleDisconnectPeripheral(
             device["id"])
         if disconnect_result.get("error") is not None:
             raise signals.TestFailure(
@@ -196,7 +196,7 @@ class GapSecSemTest(BaseTestClass):
                     disconnect_result.get("error")))
         self.log.info("Disconnection Successful...")
 
-        central.bts_lib.forgetDevice(identifier)
+        central.sl4f.bts_lib.forgetDevice(identifier)
 
         raise signals.TestPass("Success")
 

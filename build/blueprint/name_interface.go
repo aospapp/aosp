@@ -17,6 +17,7 @@ package blueprint
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // This file exposes the logic of locating a module via a query string, to enable
@@ -54,12 +55,18 @@ type NameInterface interface {
 	// Gets called when a new module is created
 	NewModule(ctx NamespaceContext, group ModuleGroup, module Module) (namespace Namespace, err []error)
 
+	// Gets called when a module was pruned from the build tree by SourceRootDirs
+	NewSkippedModule(ctx NamespaceContext, name string, skipInfo SkippedModuleInfo)
+
 	// Finds the module with the given name
 	ModuleFromName(moduleName string, namespace Namespace) (group ModuleGroup, found bool)
 
+	// Finds if the module with the given name was skipped
+	SkippedModuleFromName(moduleName string, namespace Namespace) (skipInfos []SkippedModuleInfo, skipped bool)
+
 	// Returns an error indicating that the given module could not be found.
 	// The error contains some diagnostic information about where the dependency can be found.
-	MissingDependencyError(depender string, dependerNamespace Namespace, depName string) (err error)
+	MissingDependencyError(depender string, dependerNamespace Namespace, depName string, guess []string) (err error)
 
 	// Rename
 	Rename(oldName string, newName string, namespace Namespace) []error
@@ -88,18 +95,29 @@ func newNamespaceContext(moduleInfo *moduleInfo) (ctx NamespaceContext) {
 	return &namespaceContextImpl{moduleInfo.pos.Filename}
 }
 
+func newNamespaceContextFromFilename(filename string) NamespaceContext {
+	return &namespaceContextImpl{filename}
+}
+
 func (ctx *namespaceContextImpl) ModulePath() string {
 	return ctx.modulePath
 }
 
+type SkippedModuleInfo struct {
+	filename string
+	reason   string
+}
+
 // a SimpleNameInterface just stores all modules in a map based on name
 type SimpleNameInterface struct {
-	modules map[string]ModuleGroup
+	modules        map[string]ModuleGroup
+	skippedModules map[string][]SkippedModuleInfo
 }
 
 func NewSimpleNameInterface() *SimpleNameInterface {
 	return &SimpleNameInterface{
-		modules: make(map[string]ModuleGroup),
+		modules:        make(map[string]ModuleGroup),
+		skippedModules: make(map[string][]SkippedModuleInfo),
 	}
 }
 
@@ -118,9 +136,21 @@ func (s *SimpleNameInterface) NewModule(ctx NamespaceContext, group ModuleGroup,
 	return nil, []error{}
 }
 
+func (s *SimpleNameInterface) NewSkippedModule(ctx NamespaceContext, name string, info SkippedModuleInfo) {
+	if name == "" {
+		return
+	}
+	s.skippedModules[name] = append(s.skippedModules[name], info)
+}
+
 func (s *SimpleNameInterface) ModuleFromName(moduleName string, namespace Namespace) (group ModuleGroup, found bool) {
 	group, found = s.modules[moduleName]
 	return group, found
+}
+
+func (s *SimpleNameInterface) SkippedModuleFromName(moduleName string, namespace Namespace) (skipInfos []SkippedModuleInfo, skipped bool) {
+	skipInfos, skipped = s.skippedModules[moduleName]
+	return
 }
 
 func (s *SimpleNameInterface) Rename(oldName string, newName string, namespace Namespace) (errs []error) {
@@ -167,8 +197,30 @@ func (s *SimpleNameInterface) AllModules() []ModuleGroup {
 	return groups
 }
 
-func (s *SimpleNameInterface) MissingDependencyError(depender string, dependerNamespace Namespace, dependency string) (err error) {
-	return fmt.Errorf("%q depends on undefined module %q", depender, dependency)
+func (s *SimpleNameInterface) MissingDependencyError(depender string, dependerNamespace Namespace, dependency string, guess []string) (err error) {
+	skipInfos, skipped := s.SkippedModuleFromName(dependency, dependerNamespace)
+	if skipped {
+		filesFound := make([]string, 0, len(skipInfos))
+		reasons := make([]string, 0, len(skipInfos))
+		for _, info := range skipInfos {
+			filesFound = append(filesFound, info.filename)
+			reasons = append(reasons, info.reason)
+		}
+		return fmt.Errorf(
+			"module %q depends on skipped module %q; %q was defined in files(s) [%v], but was skipped for reason(s) [%v]",
+			depender,
+			dependency,
+			dependency,
+			strings.Join(filesFound, ", "),
+			strings.Join(reasons, "; "),
+		)
+	}
+
+	guessString := ""
+	if len(guess) > 0 {
+		guessString = fmt.Sprintf(" Did you mean %q?", guess)
+	}
+	return fmt.Errorf("%q depends on undefined module %q.%s", depender, dependency, guessString)
 }
 
 func (s *SimpleNameInterface) GetNamespace(ctx NamespaceContext) Namespace {

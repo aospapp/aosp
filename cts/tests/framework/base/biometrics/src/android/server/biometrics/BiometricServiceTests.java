@@ -90,6 +90,12 @@ public class BiometricServiceTests extends BiometricTestBase {
             // the above sensor should be invalidated.
             for (Integer id : strongSensors) {
                 if (id != sensorId) {
+                    List<Integer> aidlSensorIds = Utils.getAidlFingerprintSensorIds();
+                    if (!aidlSensorIds.contains(sensorId) || !aidlSensorIds.contains(id)) {
+                        Log.w(TAG, "HIDL sensor does not support InvalidateAuthenticatorId");
+                        continue;
+                    }
+
                     final BiometricTestSession session = mBiometricManager.createTestSession(id);
                     biometricSessions.add(session);
                     Log.d(TAG, "Sensor " + id + " should request invalidation");

@@ -19,6 +19,8 @@ package android.telephony.cts;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.provider.Telephony;
+import android.util.Log;
 
 /**
  * SmsReceiver, MmsReceiver, ComposeSmsActivity, HeadlessSmsSendService together make
@@ -27,7 +29,19 @@ import android.content.Intent;
  * app. -->
  */
 public class MmsReceiver extends BroadcastReceiver {
+    private static final String TAG = "android.telephony.cts.MmsReceiver";
+
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (intent == null) return;
+
+        Log.i(TAG, "onReceive intent action " + intent.getAction());
+        switch (intent.getAction()) {
+            case Telephony.Sms.Intents.WAP_PUSH_DELIVER_ACTION: {
+                // Send broadcast for MmsTest cases
+                context.sendBroadcast(new Intent(MmsTest.ACTION_WAP_PUSH_DELIVER_DEFAULT_APP));
+                break;
+            }
+        }
     }
 }

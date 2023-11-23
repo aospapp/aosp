@@ -26,7 +26,11 @@ BROWSER_WAIT_EXTRA_LONG = 60
 
 class NetgearR7000AP(WifiRetailAP):
     """Class that implements Netgear R7000 AP."""
+
     def __init__(self, ap_settings):
+        self.log.warning(
+            'This AP model is no longer maintained and must be updated/verified.'
+        )
         super().__init__(ap_settings)
         self.init_gui_data()
         # Read and update AP settings
@@ -276,6 +280,7 @@ class NetgearR7000AP(WifiRetailAP):
 
 class NetgearR7000NAAP(NetgearR7000AP):
     """Class that implements Netgear R7000 NA AP."""
+
     def init_gui_data(self):
         """Function to initialize data used while interacting with web GUI"""
         super().init_gui_data()

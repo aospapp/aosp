@@ -40,6 +40,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import com.android.compatibility.common.util.ApiLevelUtil;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -56,6 +57,9 @@ public class BluetoothLeBroadcastSubgroupTest {
 
     // For BluetoothLeAudioCodecConfigMetadata
     private static final long TEST_AUDIO_LOCATION_FRONT_LEFT = 0x01;
+    private static final int TEST_SAMPLE_RATE_44100 = 0x01 << 6;
+    private static final int TEST_FRAME_DURATION_10000 = 0x01 << 1;
+    private static final int TEST_OCTETS_PER_FRAME = 100;
 
     // For BluetoothLeAudioContentMetadata
     private static final String TEST_PROGRAM_INFO = "Test";
@@ -63,7 +67,6 @@ public class BluetoothLeBroadcastSubgroupTest {
     private static final String TEST_LANGUAGE = "deu";
 
     private Context mContext;
-    private boolean mHasBluetooth;
     private BluetoothAdapter mAdapter;
     private boolean mIsBroadcastSourceSupported;
     private boolean mIsBroadcastAssistantSupported;
@@ -71,13 +74,9 @@ public class BluetoothLeBroadcastSubgroupTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU)) {
-            return;
-        }
-        mHasBluetooth = TestUtils.hasBluetooth();
-        if (!mHasBluetooth) {
-            return;
-        }
+        Assume.assumeTrue(ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU));
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+
         TestUtils.adoptPermissionAsShellUid(BLUETOOTH_CONNECT);
         mAdapter = TestUtils.getBluetoothAdapterOrDie();
         assertTrue(BTAdapterUtils.enableAdapter(mAdapter, mContext));
@@ -99,27 +98,24 @@ public class BluetoothLeBroadcastSubgroupTest {
             assertTrue("Config must be true when profile is supported",
                     isBroadcastSourceEnabledInConfig);
         }
+
+        Assume.assumeTrue(mIsBroadcastAssistantSupported || mIsBroadcastSourceSupported);
     }
 
     @After
     public void tearDown() {
-        if (mHasBluetooth) {
-            if (mAdapter != null) {
-                assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-            }
-            mAdapter = null;
-            TestUtils.dropPermissionAsShellUid();
-        }
+        TestUtils.dropPermissionAsShellUid();
     }
 
     @Test
     public void testCreateBroadcastSubgroupFromBuilder() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioCodecConfigMetadata codecMetadata =
                 new BluetoothLeAudioCodecConfigMetadata.Builder()
-                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT).build();
+                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT)
+                        .setSampleRate(TEST_SAMPLE_RATE_44100)
+                        .setFrameDuration(TEST_FRAME_DURATION_10000)
+                        .setOctetsPerFrame(TEST_OCTETS_PER_FRAME)
+                        .build();
         BluetoothLeAudioContentMetadata contentMetadata =
                 new BluetoothLeAudioContentMetadata.Builder()
                         .setProgramInfo(TEST_PROGRAM_INFO).setLanguage(TEST_LANGUAGE).build();
@@ -144,12 +140,13 @@ public class BluetoothLeBroadcastSubgroupTest {
 
     @Test
     public void testCreateBroadcastSubgroupFromCopy() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioCodecConfigMetadata codecMetadata =
                 new BluetoothLeAudioCodecConfigMetadata.Builder()
-                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT).build();
+                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT)
+                        .setSampleRate(TEST_SAMPLE_RATE_44100)
+                        .setFrameDuration(TEST_FRAME_DURATION_10000)
+                        .setOctetsPerFrame(TEST_OCTETS_PER_FRAME)
+                        .build();
         BluetoothLeAudioContentMetadata contentMetadata =
                 new BluetoothLeAudioContentMetadata.Builder()
                         .setProgramInfo(TEST_PROGRAM_INFO).setLanguage(TEST_LANGUAGE).build();
@@ -172,9 +169,5 @@ public class BluetoothLeBroadcastSubgroupTest {
         builder.clearChannel();
         // builder expect at least one channel
         assertThrows(IllegalArgumentException.class, builder::build);
-    }
-
-    private boolean shouldSkipTest() {
-        return !mHasBluetooth || (!mIsBroadcastSourceSupported && !mIsBroadcastAssistantSupported);
     }
 }

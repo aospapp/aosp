@@ -23,13 +23,19 @@ cc_test_library {
     srcs: [
         "CtsHardwareJniOnLoad.cpp",
         "android_hardware_cts_HardwareBufferTest.cpp",
+        "HardwareBufferTestService.cpp",
     ],
     shared_libs: [
         "libandroid",
         "libnativehelper_compat_libc++",
         "liblog",
+        "libnativewindow",
+        "libbinder_ndk",
     ],
-    stl: "none",
+    static_libs: [
+        "ctshardware-aidl-ndk",
+    ],
+    stl: "c++_shared",
     sdk_version: "current",
 
 }

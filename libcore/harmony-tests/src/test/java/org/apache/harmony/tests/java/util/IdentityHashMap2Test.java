@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -165,7 +165,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         IdentityHashMap m = new IdentityHashMap();
         m.put(null, "test");
         assertTrue("Failed with null key", m.containsKey(null));
-        assertFalse("Failed with missing key matching null hash", m.containsKey(new Integer(0)));
+        assertFalse("Failed with missing key matching null hash", m.containsKey(Integer.valueOf(0)));
     }
 
     public static class TestKey implements Cloneable {
@@ -201,7 +201,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         assertTrue("Returned false for valid value", hm
                 .containsValue(objArray[19]));
         assertTrue("Returned true for invalid valie", !hm
-                .containsValue(new Integer(-9)));
+                .containsValue(Integer.valueOf(-9)));
     }
 
     /**
@@ -235,7 +235,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         m.put(null, "test");
         assertEquals("Failed with null key", "test", m.get(null));
         assertNull("Failed with missing key matching null hash", m
-                .get(new Integer(0)));
+                .get(Integer.valueOf(0)));
     }
 
     /**
@@ -266,9 +266,9 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         assertNull("Failed with null key", m.keySet().iterator().next());
 
         Map map = new IdentityHashMap(101);
-        map.put(new Integer(1), "1");
-        map.put(new Integer(102), "102");
-        map.put(new Integer(203), "203");
+        map.put(Integer.valueOf(1), "1");
+        map.put(Integer.valueOf(102), "102");
+        map.put(Integer.valueOf(203), "203");
         Iterator it = map.keySet().iterator();
         Integer remove1 = (Integer) it.next();
         it.hasNext();
@@ -276,7 +276,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         Integer remove2 = (Integer) it.next();
         it.remove();
         ArrayList list = new ArrayList(Arrays.asList(new Integer[] {
-                new Integer(1), new Integer(102), new Integer(203) }));
+                Integer.valueOf(1), Integer.valueOf(102), Integer.valueOf(203) }));
         list.remove(remove1);
         list.remove(remove2);
         assertTrue("Wrong result", it.next().equals(list.get(0)));
@@ -285,15 +285,15 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
                 list.get(0)));
 
         Map map2 = new IdentityHashMap(101);
-        map2.put(new Integer(1), "1");
-        map2.put(new Integer(4), "4");
+        map2.put(Integer.valueOf(1), "1");
+        map2.put(Integer.valueOf(4), "4");
         Iterator it2 = map2.keySet().iterator();
         Integer remove3 = (Integer) it2.next();
         Integer next;
         if (remove3.intValue() == 1)
-            next = new Integer(4);
+            next = Integer.valueOf(4);
         else
-            next = new Integer(1);
+            next = Integer.valueOf(1);
         it2.hasNext();
         it2.remove();
         assertTrue("Wrong result 2", it2.next().equals(next));
@@ -313,10 +313,10 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
                 "VALUE", hm.get("KEY"));
 
         IdentityHashMap m = new IdentityHashMap();
-        Short s0 = new Short((short) 0);
+        Short s0 = Short.valueOf((short) 0);
         m.put(s0, "short");
         m.put(null, "test");
-        Integer i0 = new Integer(0);
+        Integer i0 = Integer.valueOf(0);
         m.put(i0, "int");
         assertEquals("Failed adding to bucket containing null",
                 "short", m.get(s0));
@@ -333,7 +333,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         hm2.putAll(hm);
         for (int i = 0; i < hmSize; i++) {
             assertTrue("Failed to clear all elements", hm2.get(objArray2[i])
-                    .equals((new Integer(i))));
+                    .equals((Integer.valueOf(i))));
         }
 
         hm2 = new IdentityHashMap();
@@ -350,7 +350,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         // java.util.IdentityHashMap.remove(java.lang.Object)
         int size = hm.size();
         Integer x = ((Integer) hm.remove(objArray2[9]));
-        assertTrue("Remove returned incorrect value", x.equals(new Integer(9)));
+        assertTrue("Remove returned incorrect value", x.equals(Integer.valueOf(9)));
         assertNull("Failed to remove given key", hm.get(objArray2[9]));
         assertTrue("Failed to decrement size", hm.size() == (size - 1));
         assertNull("Remove of non-existent key returned non-null", hm
@@ -443,7 +443,7 @@ public class IdentityHashMap2Test extends junit.framework.TestCase {
         objArray = new Object[hmSize];
         objArray2 = new Object[hmSize];
         for (int i = 0; i < objArray.length; i++) {
-            objArray[i] = new Integer(i);
+            objArray[i] = Integer.valueOf(i);
             objArray2[i] = objArray[i].toString();
         }
 

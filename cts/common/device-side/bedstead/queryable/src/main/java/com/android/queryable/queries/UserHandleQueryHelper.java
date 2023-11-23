@@ -21,6 +21,7 @@ import android.os.Parcelable;
 import android.os.UserHandle;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
@@ -38,8 +39,27 @@ public final class UserHandleQueryHelper<E extends Queryable>
     private UserHandle mEqualsValue;
     private IntegerQueryHelper<E> mIdQuery;
 
-    UserHandleQueryHelper() {
-        mQuery = (E) this;
+    public static final class UserHandleQueryBase extends
+            QueryableBaseWithMatch<UserHandle, UserHandleQueryHelper<UserHandleQueryBase>> {
+        UserHandleQueryBase() {
+            super();
+            setQuery(new UserHandleQueryHelper<>(this));
+        }
+
+        UserHandleQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<UserHandleQueryHelper.UserHandleQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public UserHandleQueryHelper.UserHandleQueryBase createFromParcel(Parcel in) {
+                        return new UserHandleQueryHelper.UserHandleQueryBase(in);
+                    }
+
+                    public UserHandleQueryHelper.UserHandleQueryBase[] newArray(int size) {
+                        return new UserHandleQueryHelper.UserHandleQueryBase[size];
+                    }
+                };
     }
 
     public UserHandleQueryHelper(E query) {
@@ -64,6 +84,12 @@ public final class UserHandleQueryHelper<E extends Queryable>
             mIdQuery = new IntegerQueryHelper<>(mQuery);
         }
         return mIdQuery;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return mEqualsValue == null
+                && Queryable.isEmptyQuery(mIdQuery);
     }
 
     /**

@@ -61,7 +61,7 @@ DLL_EXPORT bool chreTimerCancel(uint32_t timerId) {
       .cancelNanoappTimer(nanoapp, timerId);
 }
 
-DLL_EXPORT void *chreHeapAlloc(uint32_t bytes) {
+MALLOC_ATTR DLL_EXPORT void *chreHeapAlloc(uint32_t bytes) {
   chre::Nanoapp *nanoapp = EventLoopManager::validateChreApiCall(__func__);
   return chre::EventLoopManagerSingleton::get()
       ->getMemoryManager()

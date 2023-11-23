@@ -16,18 +16,18 @@
 
 package android.app.cts;
 
-import static androidx.test.internal.runner.junit4.statement.UiThreadStatement.runOnUiThread;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.AlertDialog.Builder;
-import android.app.Instrumentation;
-import android.app.stubs.DialogStubActivity;
 import android.app.stubs.R;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -49,14 +49,9 @@ import android.widget.ListAdapter;
 import android.widget.ListView;
 
 import androidx.test.filters.SmallTest;
-import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
-import com.android.compatibility.common.util.WindowUtil;
 
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -64,9 +59,9 @@ import org.mockito.ArgumentCaptor;
 
 @SmallTest
 @RunWith(JUnit4.class)
-public class AlertDialog_BuilderTest  {
+public final class AlertDialog_BuilderTest extends AlertDialog_BuilderTestBase {
+
     private Builder mBuilder;
-    private Instrumentation mInstrumentation;
     private final CharSequence mTitle = "title";
     private Drawable mDrawable;
     private AlertDialog mDialog;
@@ -86,95 +81,73 @@ public class AlertDialog_BuilderTest  {
 
     private OnItemSelectedListener mOnItemSelectedListener = mock(OnItemSelectedListener.class);
 
-    @Rule
-    public ActivityTestRule<DialogStubActivity> mActivityRule =
-            new ActivityTestRule<>(DialogStubActivity.class);
-
-    private Context mContext;
-
     private OnMultiChoiceClickListener mOnMultiChoiceClickListener =
             mock(OnMultiChoiceClickListener.class);
 
-    @Before
-    public void setUp() throws Exception {
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
-        Activity activity = mActivityRule.getActivity();
-        mContext = activity;
-        WindowUtil.waitForFocus(activity);
-    }
-
     @Test
     public void testConstructor() {
-        new AlertDialog.Builder(mContext);
+        new AlertDialog.Builder(mDialogActivity);
     }
 
     @Test
     public void testConstructorWithThemeId() {
-        mBuilder = new AlertDialog.Builder(mContext, R.style.DialogTheme_Test);
+        mBuilder = new AlertDialog.Builder(mDialogActivity, R.style.DialogTheme_Test);
 
         // Get the context from the builder and attempt to resolve a custom attribute
         // set on our theme. This way we verify that our theme has been applied to the
         // builder.
         final Context themedContext = mBuilder.getContext();
-        int[] attrs = new int[] { R.attr.themeInteger };
+        int[] attrs = new int[]{R.attr.themeInteger};
         TypedArray ta = themedContext.obtainStyledAttributes(attrs);
         assertEquals(20, ta.getInt(0, 0));
     }
 
     @Test
-    public void testSetIconWithParamInt() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mDrawable = mContext.getResources().getDrawable(android.R.drawable.btn_default);
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setIcon(android.R.drawable.btn_default);
-                mDialog = mBuilder.show();
-            }
+    public void testSetIconWithParamInt() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mDrawable = activity.getResources().getDrawable(android.R.drawable.btn_default);
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setIcon(android.R.drawable.btn_default);
+            mDialog = mBuilder.show();
         });
         mInstrumentation.waitForIdleSync();
     }
 
     @Test
-    public void testSetIconWithParamDrawable() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mDrawable = mContext.getResources().getDrawable(android.R.drawable.btn_default);
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setIcon(mDrawable);
-                mDialog = mBuilder.show();
-            }
+    public void testSetIconWithParamDrawable() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mDrawable = activity.getResources().getDrawable(android.R.drawable.btn_default);
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setIcon(mDrawable);
+            mDialog = mBuilder.show();
         });
         mInstrumentation.waitForIdleSync();
     }
 
     @Test
-    public void testSetIconAttribute() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mDrawable = mContext.getResources().getDrawable(android.R.drawable.btn_default);
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setIconAttribute(android.R.attr.alertDialogIcon);
-                mDialog = mBuilder.show();
-            }
+    public void testSetIconAttribute() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mDrawable = activity.getResources().getDrawable(android.R.drawable.btn_default);
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setIconAttribute(android.R.attr.alertDialogIcon);
+            mDialog = mBuilder.show();
         });
         mInstrumentation.waitForIdleSync();
     }
 
     @Test
-    public void testSetPositiveButtonWithParamInt() throws Throwable {
-       runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setPositiveButton(android.R.string.yes, mOnClickListener);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mButton = mDialog.getButton(DialogInterface.BUTTON_POSITIVE);
-                mButton.performClick();
-            }
+    public void testSetPositiveButtonWithParamInt() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setPositiveButton(android.R.string.ok, mOnClickListener);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mButton = mDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+            mButton.performClick();
         });
         mInstrumentation.waitForIdleSync();
 
-        assertEquals(mContext.getText(android.R.string.yes), mButton.getText());
+        assertEquals(mDialogActivity.getText(android.R.string.ok), mButton.getText());
         verify(mOnClickListener, times(1)).onClick(mDialog, DialogInterface.BUTTON_POSITIVE);
         verifyNoMoreInteractions(mOnClickListener);
         // Button click should also dismiss the dialog and notify the listener
@@ -183,19 +156,17 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetPositiveButtonWithParamCharSequence() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setPositiveButton(android.R.string.yes, mOnClickListener);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mButton = mDialog.getButton(DialogInterface.BUTTON_POSITIVE);
-                mButton.performClick();
-            }
+    public void testSetPositiveButtonWithParamCharSequence() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setPositiveButton(android.R.string.ok, mOnClickListener);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mButton = mDialog.getButton(DialogInterface.BUTTON_POSITIVE);
+            mButton.performClick();
         });
         mInstrumentation.waitForIdleSync();
-        assertEquals(mContext.getText(android.R.string.yes), mButton.getText());
+        assertEquals(mDialogActivity.getText(android.R.string.ok), mButton.getText());
         verify(mOnClickListener, times(1)).onClick(mDialog, DialogInterface.BUTTON_POSITIVE);
         verifyNoMoreInteractions(mOnClickListener);
         // Button click should also dismiss the dialog and notify the listener
@@ -204,16 +175,14 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetNegativeButtonWithParamCharSequence() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setNegativeButton(mTitle, mOnClickListener);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mButton = mDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
-                mButton.performClick();
-            }
+    public void testSetNegativeButtonWithParamCharSequence() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setNegativeButton(mTitle, mOnClickListener);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mButton = mDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
+            mButton.performClick();
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(mTitle, mButton.getText());
@@ -225,19 +194,17 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetNegativeButtonWithParamInt() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setNegativeButton(R.string.notify, mOnClickListener);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mButton = mDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
-                mButton.performClick();
-            }
+    public void testSetNegativeButtonWithParamInt() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setNegativeButton(R.string.notify, mOnClickListener);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mButton = mDialog.getButton(DialogInterface.BUTTON_NEGATIVE);
+            mButton.performClick();
         });
         mInstrumentation.waitForIdleSync();
-        assertEquals(mContext.getText(R.string.notify), mButton.getText());
+        assertEquals(mDialogActivity.getText(R.string.notify), mButton.getText());
         verify(mOnClickListener, times(1)).onClick(mDialog, DialogInterface.BUTTON_NEGATIVE);
         verifyNoMoreInteractions(mOnClickListener);
         // Button click should also dismiss the dialog and notify the listener
@@ -246,19 +213,17 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetNeutralButtonWithParamInt() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setNeutralButton(R.string.notify, mOnClickListener);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mButton = mDialog.getButton(DialogInterface.BUTTON_NEUTRAL);
-                mButton.performClick();
-            }
+    public void testSetNeutralButtonWithParamInt() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setNeutralButton(R.string.notify, mOnClickListener);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mButton = mDialog.getButton(DialogInterface.BUTTON_NEUTRAL);
+            mButton.performClick();
         });
         mInstrumentation.waitForIdleSync();
-        assertEquals(mContext.getText(R.string.notify), mButton.getText());
+        assertEquals(mDialogActivity.getText(R.string.notify), mButton.getText());
         verify(mOnClickListener, times(1)).onClick(mDialog, DialogInterface.BUTTON_NEUTRAL);
         verifyNoMoreInteractions(mOnClickListener);
         // Button click should also dismiss the dialog and notify the listener
@@ -267,16 +232,14 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetNeutralButtonWithParamCharSequence() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setNeutralButton(mTitle, mOnClickListener);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mButton = mDialog.getButton(DialogInterface.BUTTON_NEUTRAL);
-                mButton.performClick();
-            }
+    public void testSetNeutralButtonWithParamCharSequence() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setNeutralButton(mTitle, mOnClickListener);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mButton = mDialog.getButton(DialogInterface.BUTTON_NEUTRAL);
+            mButton.performClick();
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(mTitle, mButton.getText());
@@ -287,13 +250,12 @@ public class AlertDialog_BuilderTest  {
         verifyNoMoreInteractions(mOnDismissListener);
     }
 
-    private void testCancelable(final boolean cancelable) throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setCancelable(cancelable);
-                mDialog = mBuilder.show();
-            }
+    private void testCancelable(final boolean cancelable) {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setCancelable(cancelable);
+            mDialog = mBuilder.show();
+
         });
         mInstrumentation.waitForIdleSync();
         PollingCheck.waitFor(mDialog::isShowing);
@@ -317,24 +279,22 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetCancelable() throws Throwable {
+    public void testSetCancelable() {
         testCancelable(true);
     }
 
     @Test
-    public void testDisableCancelable() throws Throwable {
+    public void testDisableCancelable() {
         testCancelable(false);
     }
 
     @Test
-    public void testSetOnCancelListener() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setOnCancelListener(mOnCancelListener);
-                mDialog = mBuilder.show();
-                mDialog.cancel();
-            }
+    public void testSetOnCancelListener() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setOnCancelListener(mOnCancelListener);
+            mDialog = mBuilder.show();
+            mDialog.cancel();
         });
         mInstrumentation.waitForIdleSync();
         verify(mOnCancelListener, times(1)).onCancel(mDialog);
@@ -342,14 +302,12 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetOnDismissListener() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setOnDismissListener(mOnDismissListener);
-                mDialog = mBuilder.show();
-                mDialog.dismiss();
-            }
+    public void testSetOnDismissListener() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setOnDismissListener(mOnDismissListener);
+            mDialog = mBuilder.show();
+            mDialog.dismiss();
         });
         mInstrumentation.waitForIdleSync();
         verify(mOnDismissListener, times(1)).onDismiss(mDialog);
@@ -357,13 +315,11 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetOnKeyListener() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setOnKeyListener(mOnKeyListener);
-                mDialog = mBuilder.show();
-            }
+    public void testSetOnKeyListener() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setOnKeyListener(mOnKeyListener);
+            mDialog = mBuilder.show();
         });
         mInstrumentation.waitForIdleSync();
         sendKeySync(KeyEvent.KEYCODE_0);
@@ -385,71 +341,67 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetItemsWithParamInt() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setItems(R.array.difficultyLevel, mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-            }
+    public void testSetItemsWithParamInt() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setItems(R.array.difficultyLevel, mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
         });
         mInstrumentation.waitForIdleSync();
 
-        final CharSequence[] levels = mContext.getResources().getTextArray(
+        final CharSequence[] levels = mDialogActivity.getResources().getTextArray(
                 R.array.difficultyLevel);
         assertEquals(levels[0], mListView.getItemAtPosition(0));
     }
 
     @Test
-    public void testSetItemsWithParamCharSequence() throws Throwable {
-        final CharSequence[] expect = mContext.getResources().getTextArray(
+    public void testSetItemsWithParamCharSequence() {
+        final CharSequence[] expect = mDialogActivity.getResources().getTextArray(
                 R.array.difficultyLevel);
 
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setItems(expect, mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setItems(expect, mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(expect[0], mListView.getItemAtPosition(0));
     }
 
     @Test
-    public void testSetAdapter() throws Throwable {
+    public void testSetAdapter() {
         final ListAdapter adapter = new AdapterTest();
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setAdapter(adapter, mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setAdapter(adapter, mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(adapter, mListView.getAdapter());
     }
 
     @Test
-    public void testSetMultiChoiceItemsWithParamInt() throws Throwable {
-
-        final CharSequence[] items = mContext.getResources().getTextArray(
+    public void testSetMultiChoiceItemsWithParamInt() {
+        final CharSequence[] items = mDialogActivity.getResources().getTextArray(
                 R.array.difficultyLevel);
 
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setMultiChoiceItems(R.array.difficultyLevel, null,
-                        mOnMultiChoiceClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-                mSelectedItem = (CharSequence)mListView.getSelectedItem();
-                mListView.performItemClick(null, 0, 0);
-                mListView.performItemClick(null, 1, 0);
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setMultiChoiceItems(R.array.difficultyLevel, null,
+                    mOnMultiChoiceClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+        });
+        if (mListView.isInTouchMode()) {
+            reAttachListViewAdapter(mListView);
+        }
+        mActivityRule.getScenario().onActivity(unused -> {
+            mSelectedItem = (CharSequence) mListView.getSelectedItem();
+            mListView.performItemClick(null, 0, 0);
+            mListView.performItemClick(null, 1, 0);
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(items[0], mSelectedItem);
@@ -460,20 +412,23 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetMultiChoiceItemsWithParamCharSequence() throws Throwable {
-        final CharSequence[] items = mContext.getResources().getTextArray(
+    public void testSetMultiChoiceItemsWithParamCharSequence() {
+        final CharSequence[] items = mDialogActivity.getResources().getTextArray(
                 R.array.difficultyLevel);
 
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setMultiChoiceItems(items, null, mOnMultiChoiceClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-                mSelectedItem = (CharSequence)mListView.getSelectedItem();
-                mListView.performItemClick(null, 0, 0);
-                mListView.performItemClick(null, 1, 0);
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setMultiChoiceItems(items, null, mOnMultiChoiceClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+        });
+        if (mListView.isInTouchMode()) {
+            reAttachListViewAdapter(mListView);
+        }
+        mActivityRule.getScenario().onActivity(unused -> {
+            mSelectedItem = (CharSequence) mListView.getSelectedItem();
+            mListView.performItemClick(null, 0, 0);
+            mListView.performItemClick(null, 1, 0);
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(items[0], mSelectedItem);
@@ -484,20 +439,50 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetSingleChoiceItemsWithParamInt() throws Throwable {
-        final CharSequence[] items = mContext.getResources().getTextArray(
+    public void testSetSingleChoiceItemsWithParamInt() {
+        final CharSequence[] items = mDialogActivity.getResources().getTextArray(
                 R.array.difficultyLevel);
 
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setSingleChoiceItems(R.array.difficultyLevel, 0,
-                        mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-                mSelectedItem = (CharSequence)mListView.getSelectedItem();
-                mListView.performItemClick(null, 0, 0);
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(mDialogActivity);
+            mBuilder.setSingleChoiceItems(R.array.difficultyLevel, 0,
+                    mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+        });
+        if (mListView.isInTouchMode()) {
+            reAttachListViewAdapter(mListView);
+        }
+        mActivityRule.getScenario().onActivity(unused -> {
+            mSelectedItem = (CharSequence) mListView.getSelectedItem();
+            mListView.performItemClick(null, 0, 0);
+        });
+
+        mInstrumentation.waitForIdleSync();
+        assertEquals(items[0], mSelectedItem);
+        assertEquals(items[0], mListView.getItemAtPosition(0));
+        verify(mOnClickListener, times(1)).onClick(mDialog, 0);
+        verifyNoMoreInteractions(mOnClickListener);
+    }
+
+    @Test
+    public void testSetSingleChoiceItemsWithParamCharSequence() {
+        final CharSequence[] items = mDialogActivity.getResources().getTextArray(
+                R.array.difficultyLevel);
+
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(mDialogActivity);
+            mBuilder.setSingleChoiceItems(items, 0, mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+
+        });
+        if (mListView.isInTouchMode()) {
+            reAttachListViewAdapter(mListView);
+        }
+        mActivityRule.getScenario().onActivity(unused -> {
+            mSelectedItem = (CharSequence) mListView.getSelectedItem();
+            mListView.performItemClick(null, 0, 0);
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(items[0], mSelectedItem);
@@ -507,19 +492,25 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetSingleChoiceItemsWithParamCharSequence() throws Throwable {
-        final CharSequence[] items = mContext.getResources().getTextArray(
+    public void testSetSingleChoiceItems() {
+        final CharSequence[] items = mDialogActivity.getResources().getTextArray(
                 R.array.difficultyLevel);
 
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setSingleChoiceItems(items, 0, mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-                mSelectedItem = (CharSequence)mListView.getSelectedItem();
-                mListView.performItemClick(null, 0, 0);
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setSingleChoiceItems(new ArrayAdapter<>(activity,
+                            android.R.layout.select_dialog_singlechoice, android.R.id.text1,
+                            items), 0,
+                    mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+        });
+        if (mListView.isInTouchMode()) {
+            reAttachListViewAdapter(mListView);
+        }
+        mActivityRule.getScenario().onActivity(unused -> {
+            mSelectedItem = (CharSequence) mListView.getSelectedItem();
+            mListView.performItemClick(null, 0, 0);
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(items[0], mSelectedItem);
@@ -529,40 +520,14 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetSingleChoiceItems() throws Throwable {
-        final CharSequence[] items = mContext.getResources().getTextArray(
-                R.array.difficultyLevel);
-
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setSingleChoiceItems(new ArrayAdapter<CharSequence>(mContext,
-                        android.R.layout.select_dialog_singlechoice, android.R.id.text1, items), 0,
-                        mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-                mSelectedItem = (CharSequence)mListView.getSelectedItem();
-                mListView.performItemClick(null, 0, 0);
-            }
-        });
-        mInstrumentation.waitForIdleSync();
-        assertEquals(items[0], mSelectedItem);
-        assertEquals(items[0], mListView.getItemAtPosition(0));
-        verify(mOnClickListener, times(1)).onClick(mDialog, 0);
-        verifyNoMoreInteractions(mOnClickListener);
-    }
-
-    @Test
-    public void testSetOnItemSelectedListener() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setOnItemSelectedListener(mOnItemSelectedListener);
-                mBuilder.setItems(R.array.difficultyLevel, mOnClickListener);
-                mDialog = mBuilder.show();
-                mListView = mDialog.getListView();
-                mListView.pointToPosition(0, 0);
-            }
+    public void testSetOnItemSelectedListener() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setOnItemSelectedListener(mOnItemSelectedListener);
+            mBuilder.setItems(R.array.difficultyLevel, mOnClickListener);
+            mDialog = mBuilder.show();
+            mListView = mDialog.getListView();
+            mListView.pointToPosition(0, 0);
         });
         mInstrumentation.waitForIdleSync();
         verify(mOnItemSelectedListener, times(1)).onItemSelected(eq(mListView), any(View.class),
@@ -571,31 +536,27 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetView() throws Throwable {
-        final View view = new View(mContext);
+    public void testSetView() {
+        final View view = new View(mDialogActivity);
         view.setId(100);
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setView(view);
-                mDialog = mBuilder.show();
-                mView = mDialog.getWindow().findViewById(100);
-            }
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setView(view);
+            mDialog = mBuilder.show();
+            mView = mDialog.getWindow().findViewById(100);
         });
         mInstrumentation.waitForIdleSync();
         assertEquals(view, mView);
     }
 
     @Test
-    public void testSetViewFromInflater() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setView(LayoutInflater.from(mBuilder.getContext()).inflate(
-                        R.layout.alert_dialog_text_entry_2, null, false));
-                mDialog = mBuilder.show();
-                mView = mDialog.getWindow().findViewById(R.id.username_form);
-            }
+    public void testSetViewFromInflater() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setView(LayoutInflater.from(mBuilder.getContext()).inflate(
+                    R.layout.alert_dialog_text_entry_2, null, false));
+            mDialog = mBuilder.show();
+            mView = mDialog.getWindow().findViewById(R.id.username_form);
         });
         mInstrumentation.waitForIdleSync();
         assertNotNull(mView);
@@ -604,14 +565,12 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetViewById() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setView(R.layout.alert_dialog_text_entry_2);
-                mDialog = mBuilder.show();
-                mView = mDialog.getWindow().findViewById(R.id.username_form);
-            }
+    public void testSetViewById() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setView(R.layout.alert_dialog_text_entry_2);
+            mDialog = mBuilder.show();
+            mView = mDialog.getWindow().findViewById(R.id.username_form);
         });
         mInstrumentation.waitForIdleSync();
         assertNotNull(mView);
@@ -620,39 +579,33 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testSetCustomTitle() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setCustomTitle(LayoutInflater.from(mBuilder.getContext()).inflate(
-                        R.layout.alertdialog_custom_title, null, false));
-                mDialog = mBuilder.show();
-            }
+    public void testSetCustomTitle() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setCustomTitle(LayoutInflater.from(mBuilder.getContext()).inflate(
+                    R.layout.alertdialog_custom_title, null, false));
+            mDialog = mBuilder.show();
         });
         mInstrumentation.waitForIdleSync();
     }
 
     @Test
-    public void testSetInverseBackgroundForced() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mBuilder.setInverseBackgroundForced(true);
-                mDialog = mBuilder.create();
-                mDialog.show();
-            }
+    public void testSetInverseBackgroundForced() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mBuilder.setInverseBackgroundForced(true);
+            mDialog = mBuilder.create();
+            mDialog.show();
         });
         mInstrumentation.waitForIdleSync();
     }
 
     @Test
-    public void testCreate() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mDialog = mBuilder.create();
-                mDialog.show();
-            }
+    public void testCreate() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mDialog = mBuilder.create();
+            mDialog.show();
         });
         mInstrumentation.waitForIdleSync();
         assertNotNull(mDialog);
@@ -660,12 +613,10 @@ public class AlertDialog_BuilderTest  {
     }
 
     @Test
-    public void testShow() throws Throwable {
-        runOnUiThread(new Runnable() {
-            public void run() {
-                mBuilder = new AlertDialog.Builder(mContext);
-                mDialog = mBuilder.show();
-            }
+    public void testShow() {
+        mActivityRule.getScenario().onActivity(activity -> {
+            mBuilder = new AlertDialog.Builder(activity);
+            mDialog = mBuilder.show();
         });
         mInstrumentation.waitForIdleSync();
         assertTrue(mDialog.isShowing());
@@ -707,9 +658,9 @@ public class AlertDialog_BuilderTest  {
             return 0;
         }
 
-        public android.view.View getView( int position,
-                                          android.view.View convertView,
-                                          android.view.ViewGroup parent){
+        public android.view.View getView(int position,
+                android.view.View convertView,
+                android.view.ViewGroup parent) {
             return null;
         }
 
@@ -726,11 +677,11 @@ public class AlertDialog_BuilderTest  {
         }
 
         public void registerDataSetObserver(
-            android.database.DataSetObserver observer) {
+                android.database.DataSetObserver observer) {
         }
 
         public void unregisterDataSetObserver(
-            android.database.DataSetObserver observer) {
+                android.database.DataSetObserver observer) {
         }
     }
 }

@@ -27,9 +27,9 @@ import com.android.queryable.Queryable;
  */
 public interface NotificationQuery<E extends Queryable> extends Query<Notification> {
 
-    /** Query for a {@link Notification}. */
-    static NotificationQuery<NotificationQuery<?>> notification() {
-        return new NotificationQueryHelper<>();
+    /** Queries a {@link Notification}. */
+    static NotificationQueryHelper.NotificationQueryBase notification() {
+        return new NotificationQueryHelper.NotificationQueryBase();
     }
 
     /** Query the {@link Notification#getChannelId()}. */

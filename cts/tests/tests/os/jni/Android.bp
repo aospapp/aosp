@@ -34,6 +34,11 @@ cc_defaults {
         "libandroid",
     ],
     stl: "libc++_static",
+    // FIXME: -Wno-inline-asm is not passed through to LTO.
+    // http://b/204729712
+    lto: {
+        never: true,
+    },
 }
 
 cc_library_shared {

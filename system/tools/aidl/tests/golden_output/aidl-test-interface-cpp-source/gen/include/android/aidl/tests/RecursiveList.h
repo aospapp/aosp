@@ -9,6 +9,9 @@
 #include <tuple>
 #include <utils/String16.h>
 
+namespace android::aidl::tests {
+class RecursiveList;
+}  // namespace android::aidl::tests
 namespace android {
 namespace aidl {
 namespace tests {
@@ -38,8 +41,8 @@ public:
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
   ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
   static const ::android::String16& getParcelableDescriptor() {
-    static const ::android::StaticString16 DESCIPTOR (u"android.aidl.tests.RecursiveList");
-    return DESCIPTOR;
+    static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.RecursiveList");
+    return DESCRIPTOR;
   }
   inline std::string toString() const {
     std::ostringstream os;

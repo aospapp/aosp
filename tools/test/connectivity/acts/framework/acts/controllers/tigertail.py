@@ -1,7 +1,6 @@
 """Module manager the required definitions for tigertail"""
 
 import logging
-import os
 import time
 
 from enum import Enum
@@ -12,6 +11,7 @@ MOBLY_CONTROLLER_CONFIG_NAME = "Tigertail"
 ACTS_CONTROLLER_REFERENCE_NAME = "tigertails"
 
 TIGERTAIL_SLEEP_TIME = 5
+
 
 def create(configs):
     """Takes a list of Tigertail serial numbers and returns Tigertail Controllers.
@@ -31,7 +31,8 @@ def create(configs):
             tigertail = Tigertail(serial_no)
             tigertails.append(tigertail)
     else:
-        raise ValueError('Invalid config for tigertail, should be a list of serial number')
+        raise ValueError(
+            'Invalid config for tigertail, should be a list of serial number')
 
     return tigertails
 
@@ -39,18 +40,23 @@ def create(configs):
 def destroy(tigertails):
     pass
 
+
 def get_info(tigertails):
     return [tigertail.get_info() for tigertail in tigertails]
+
 
 class TigertailError(Exception):
     pass
 
+
 class TigertailState(Enum):
     def __str__(self):
         return str(self.value)
+
     A = 'A'
     B = 'B'
     Off = 'off'
+
 
 class Tigertail(object):
     def __init__(self, serial_number):
@@ -82,7 +88,8 @@ class Tigertail(object):
         if self.tigertool_bin is None:
             raise TigertailError('Tigertail binary not found')
 
-        logging.getLogger().debug(f'Setup {self.serial_number} with binary at {self.tigertool_bin}')
+        logging.getLogger().debug(
+            f'Setup {self.serial_number} with binary at {self.tigertool_bin}')
 
     def turn_on_mux_A(self):
         self._set_tigertail_state(TigertailState.A)
@@ -102,12 +109,12 @@ class Tigertail(object):
             B  : enable port B
             Off: turn off both ports
         """
-        result = job.run([self.tigertool_bin,
-            '--serialno',
-            str(self.serial_number),
-            '--mux',
-            str(state)],
-            timeout=10)
+        result = job.run([
+            self.tigertool_bin, '--serialno',
+            str(self.serial_number), '--mux',
+            str(state)
+        ],
+                         timeout=10)
 
         if result.stderr != '':
             raise TigertailError(result.stderr)

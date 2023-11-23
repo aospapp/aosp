@@ -47,10 +47,10 @@
 #define LOG_TAG  "WifiHAL"
 #include <log/log.h>
 
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
+#include <hardware_legacy/rtt.h>
 #include "common.h"
 #include "cpp_bindings.h"
-#include "rtt.h"
 #include "brcm_version.h"
 #include <stdio.h>
 #include <string>
@@ -98,6 +98,13 @@ static wifi_error wifi_get_supported_radio_combinations_matrix(wifi_handle handl
 		u32 max_size, u32* size, wifi_radio_combination_matrix *radio_combination_matrix);
 
 static void wifi_cleanup_dynamic_ifaces(wifi_handle handle);
+static wifi_error wifi_enable_tx_power_limits(wifi_interface_handle iface,
+        bool isEnable);
+wifi_error wifi_get_cached_scan_results(wifi_interface_handle iface,
+    wifi_cached_scan_result_handler handler);
+wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
+    u32 channelCategoryEnableFlag);
+
 typedef enum wifi_attr {
     ANDR_WIFI_ATTRIBUTE_INVALID                    = 0,
     ANDR_WIFI_ATTRIBUTE_NUM_FEATURE_SET            = 1,
@@ -114,6 +121,7 @@ typedef enum wifi_attr {
     ANDR_WIFI_ATTRIBUTE_THERMAL_COMPLETION_WINDOW  = 12,
     ANDR_WIFI_ATTRIBUTE_VOIP_MODE                  = 13,
     ANDR_WIFI_ATTRIBUTE_DTIM_MULTIPLIER            = 14,
+    ANDR_WIFI_ATTRIBUTE_CHAN_POLICY                = 15,
      // Add more attribute here
     ANDR_WIFI_ATTRIBUTE_MAX
 } wifi_attr_t;
@@ -194,6 +202,13 @@ enum wifi_multista_attr {
 enum multista_request_type {
     SET_PRIMARY_CONNECTION,
     SET_USE_CASE
+};
+
+enum wifi_tx_power_limits {
+    TX_POWER_CAP_ATTRIBUTE_INVALID    = 0,
+    TX_POWER_CAP_ENABLE_ATTRIBUTE     = 1,
+    /* Add more attributes here */
+    TX_POWER_ATTRIBUTE_MAX
 };
 
 /* Initialize/Cleanup */
@@ -344,7 +359,9 @@ wifi_error init_wifi_vendor_hal_func_table(wifi_hal_fn *fn)
     fn->wifi_nan_rtt_chre_enable_request = nan_chre_enable_request;
     fn->wifi_nan_rtt_chre_disable_request = nan_chre_disable_request;
     fn->wifi_chre_register_handler = nan_chre_register_handler;
-
+    fn->wifi_enable_tx_power_limits = wifi_enable_tx_power_limits;
+    fn->wifi_get_cached_scan_results = wifi_get_cached_scan_results;
+    fn->wifi_enable_sta_channel_for_peer_network = wifi_enable_sta_channel_for_peer_network;
     return WIFI_SUCCESS;
 }
 #ifdef GOOGLE_WIFI_FW_CONFIG_VERSION_C_WRAPPER
@@ -554,12 +571,13 @@ wifi_error wifi_wait_for_driver_ready(void)
     // Function times out after 10 seconds
     int count = (POLL_DRIVER_MAX_TIME_MS * 1000) / POLL_DRIVER_DURATION_US;
     FILE *fd;
+    wifi_error status = WIFI_SUCCESS;
 
     do {
         if ((fd = fopen("/sys/class/net/wlan0", "r")) != NULL) {
             fclose(fd);
-            wifi_pre_initialize();
-            return WIFI_SUCCESS;
+            status = wifi_pre_initialize();
+            return status;
         }
         usleep(POLL_DRIVER_DURATION_US);
     } while(--count > 0);
@@ -644,10 +662,13 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
     if (wlan0Handle != NULL) {
         ALOGE("Calling hal cleanup");
         if (!get_halutil_mode()) {
+            wifi_cleanup_dynamic_ifaces(handle);
+            ALOGI("Cleaned dynamic virtual ifaces\n");
             result = wifi_stop_hal(wlan0Handle);
             if (result != WIFI_SUCCESS) {
                 ALOGE("wifi_stop_hal failed");
             }
+            ALOGI("wifi_stop_hal success");
         }
 
     } else {
@@ -702,9 +723,6 @@ void wifi_cleanup(wifi_handle handle, wifi_cleaned_up_handler handler)
         }
         WifiCommand *cmd = (WifiCommand *)cbi->cb_arg;
         ALOGE("Leaked command %p", cmd);
-    }
-    if (!get_halutil_mode()) {
-        wifi_cleanup_dynamic_ifaces(handle);
     }
     pthread_mutex_unlock(&info->cb_lock);
 
@@ -2506,7 +2524,7 @@ public:
     }
 
     int createIface() {
-        ALOGE("Creating virtual interface");
+        ALOGD("Creating virtual interface");
         WifiRequest request(familyId(), ifaceId());
         int result = createRequest(request, mIfname, mType, mwlan0_id);
         if (result != WIFI_SUCCESS) {
@@ -2519,7 +2537,7 @@ public:
             ALOGE("failed to get the virtual iface create response; result = %d\n", result);
             return result;
         }
-        ALOGE("Created virtual interface");
+        ALOGD("Created virtual interface");
         return WIFI_SUCCESS;
     }
 
@@ -2537,6 +2555,7 @@ public:
             ALOGE("failed to get response of delete virtual interface; result = %d\n", result);
             return result;
         }
+        ALOGD("Deleted virtual interface");
         return WIFI_SUCCESS;
     }
 protected:
@@ -2552,8 +2571,11 @@ static std::vector<std::string> added_ifaces;
 static void wifi_cleanup_dynamic_ifaces(wifi_handle handle)
 {
     int len = added_ifaces.size();
+    ALOGI("%s: virtual iface size %d\n", __FUNCTION__, len);
     while (len--) {
         wifi_virtual_interface_delete(handle, added_ifaces.front().c_str());
+        ALOGI("%s: deleted virtual iface %s\n",
+            __FUNCTION__, added_ifaces.front().c_str());
     }
     added_ifaces.clear();
 }
@@ -3000,4 +3022,87 @@ wifi_error wifi_get_usable_channels(wifi_handle handle, u32 band_mask, u32 iface
     UsableChannelCommand command(wlan0Handle, band_mask, iface_mode_mask,
                                     filter_mask, max_size, size, channels);
     return (wifi_error)command.start();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+class EnableTxPowerLimit : public WifiCommand {
+private:
+    bool mEnableTxLimits;
+public:
+    EnableTxPowerLimit(wifi_interface_handle handle, bool enable_tx_pwr_limits)
+        : WifiCommand("EnableTxPowerLimit", handle, 0)
+    {
+        mEnableTxLimits = enable_tx_pwr_limits;
+    }
+
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_ENABLE_TX_POWER_LIMIT);
+        if (ret < 0) {
+            ALOGE("Can't create message to send to driver - %d", ret);
+            return ret;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u8(TX_POWER_CAP_ENABLE_ATTRIBUTE, mEnableTxLimits);
+        if (ret < 0) {
+             ALOGE("Failed to put enable tx power limit param %d\n", mEnableTxLimits);
+             return ret;
+        }
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+};
+
+wifi_error wifi_enable_tx_power_limits(wifi_interface_handle handle, bool isEnable)
+{
+    ALOGD("Configuring the tx power limits , halHandle = %p\n", handle);
+
+    EnableTxPowerLimit command(handle, isEnable);
+    return (wifi_error) command.requestResponse();
+}
+
+//////////////////////////////////////////////////////
+class EnableStaChannel : public WifiCommand {
+
+private:
+    u32 mChannelCatEnabFlag;
+public:
+    EnableStaChannel(wifi_interface_handle handle, u32 channelCategoryEnableFlag)
+        : WifiCommand("EnableStaChannel", handle, 0) {
+        mChannelCatEnabFlag = channelCategoryEnableFlag;
+    }
+    virtual int create() {
+        int ret;
+
+        ret = mMsg.create(GOOGLE_OUI, WIFI_SUBCMD_CHANNEL_POLICY);
+        if (ret < 0) {
+            ALOGE("Can't create message to send to driver - %d", ret);
+            return ret;
+        }
+
+        nlattr *data = mMsg.attr_start(NL80211_ATTR_VENDOR_DATA);
+        ret = mMsg.put_u32(ANDR_WIFI_ATTRIBUTE_CHAN_POLICY, mChannelCatEnabFlag);
+        if (ret < 0) {
+             return ret;
+        }
+
+        mMsg.attr_end(data);
+        return WIFI_SUCCESS;
+    }
+};
+
+/* enable or disable the feature of allowing current STA-connected
+ * channel for WFA GO, SAP and Wi-Fi Aware when the regulatory allows.
+ */
+wifi_error wifi_enable_sta_channel_for_peer_network(wifi_handle handle,
+        u32 channelCategoryEnableFlag) {
+    int numIfaceHandles = 0;
+    wifi_interface_handle *ifaceHandles = NULL;
+    wifi_interface_handle wlan0Handle;
+
+    wlan0Handle = wifi_get_wlan_interface((wifi_handle)handle, ifaceHandles, numIfaceHandles);
+    EnableStaChannel command(wlan0Handle, channelCategoryEnableFlag);
+    return (wifi_error) command.requestResponse();
 }

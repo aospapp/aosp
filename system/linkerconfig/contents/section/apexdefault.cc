@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include "linkerconfig/namespace.h"
 #include "linkerconfig/sectionbuilder.h"
 
 #include <functional>
@@ -112,17 +113,17 @@ Section BuildApexDefaultSection(Context& ctx, const ApexInfo& apex_info) {
     // same library being loaded from two namespaces (sphal and vendor). As
     // SPHAL itself is not required from vendor (APEX) section, add vendor
     // namespace instead.
-    libs_providers[":sphal"] = LibProvider{
+    libs_providers[":sphal"] = {LibProvider{
         "vendor",
         std::bind(BuildVendorNamespace, ctx, "vendor"),
         {},
-    };
+    }};
   } else {
-    libs_providers[":sphal"] = LibProvider{
+    libs_providers[":sphal"] = {LibProvider{
         "sphal",
         std::bind(BuildSphalNamespace, ctx),
         {},
-    };
+    }};
   }
   if (ctx.IsVndkAvailable()) {
     VndkUserPartition user_partition = VndkUserPartition::Vendor;
@@ -131,23 +132,18 @@ Section BuildApexDefaultSection(Context& ctx, const ApexInfo& apex_info) {
       user_partition = VndkUserPartition::Product;
       user_partition_suffix = "PRODUCT";
     }
-    libs_providers[":sanitizer"] = LibProvider{
+    libs_providers[":sanitizer"] = {LibProvider{
         ctx.GetSystemNamespaceName(),
         std::bind(BuildApexPlatformNamespace,
                   ctx),  // "system" should be available
         {Var("SANITIZER_DEFAULT_" + user_partition_suffix)},
-    };
-    libs_providers[":vndk"] = LibProvider{
-        "vndk",
-        std::bind(BuildVndkNamespace, ctx, user_partition),
-        {Var("VNDK_SAMEPROCESS_LIBRARIES_" + user_partition_suffix),
-         Var("VNDK_CORE_LIBRARIES_" + user_partition_suffix)},
-    };
-    libs_providers[":vndksp"] = LibProvider{
+    }};
+    libs_providers[":vndk"] = GetVndkProvider(ctx, user_partition);
+    libs_providers[":vndksp"] = {LibProvider{
         "vndk",
         std::bind(BuildVndkNamespace, ctx, user_partition),
         {Var("VNDK_SAMEPROCESS_LIBRARIES_" + user_partition_suffix)},
-    };
+    }};
   }
 
   return BuildSection(

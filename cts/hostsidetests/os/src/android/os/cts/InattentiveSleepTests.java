@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static android.os.PowerManagerInternalProto.Wakefulness.WAKEFULNESS_ASLEEP;
 
 import static org.junit.Assert.assertTrue;
@@ -139,7 +140,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
         mDevice.executeShellCommand(CMD_ENABLE_STAY_ON);
 
         wakeUpToHome();
-        Thread.sleep(TIME_BEFORE_WARNING_MS);
+        RunUtil.getDefault().sleep(TIME_BEFORE_WARNING_MS);
         assertWarningShown(
                 "Warning was shown, although the stay-on developer option was enabled.", false);
     }
@@ -147,7 +148,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
     @Test
     public void testInattentiveSleep_warningShowsBeforeSleep() throws Exception {
         wakeUpToHome();
-        Thread.sleep(TIME_BEFORE_WARNING_MS);
+        RunUtil.getDefault().sleep(TIME_BEFORE_WARNING_MS);
         assertWarningShown(
                 "Warning was not shown before the attentive sleep timeout expired.", true);
     }
@@ -172,7 +173,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
     public void testInattentiveSleep_noWarningShownIfInattentiveSleepDisabled() throws Exception {
         setInattentiveSleepTimeout(-1);
         wakeUpToHome();
-        Thread.sleep(TIME_BEFORE_WARNING_MS);
+        RunUtil.getDefault().sleep(TIME_BEFORE_WARNING_MS);
         assertWarningShown(
                 "Warning was shown, even though the attentive sleep timeout is disabled.", false);
     }
@@ -183,7 +184,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
                 getPowerManagerDump().getSettingsAndConfiguration().getMinimumScreenOffTimeoutConfigMs();
         setInattentiveSleepTimeout(minScreenOffTimeout);
         wakeUpToHome();
-        Thread.sleep(minScreenOffTimeout);
+        RunUtil.getDefault().sleep(minScreenOffTimeout);
         PollingCheck.check("Expected device to be asleep after timeout", TIME_BEFORE_WARNING_MS,
                 () -> getWakefulness() == WAKEFULNESS_ASLEEP);
     }
@@ -195,7 +196,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
         setInattentiveSleepTimeout(minScreenOffTimeout);
         wakeUpToHome();
         startKeepScreenOnActivity();
-        Thread.sleep(minScreenOffTimeout);
+        RunUtil.getDefault().sleep(minScreenOffTimeout);
         PollingCheck.check("Expected device to be asleep after timeout", 1000,
                 () -> getWakefulness() == WAKEFULNESS_ASLEEP);
     }
@@ -204,7 +205,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
     public void testInattentiveSleep_showsSleepWarningWithWakeLock() throws Exception {
         wakeUpToHome();
         startKeepScreenOnActivity();
-        Thread.sleep(TIME_BEFORE_WARNING_MS);
+        RunUtil.getDefault().sleep(TIME_BEFORE_WARNING_MS);
         assertWarningShown(
                 "Warning was not shown before the attentive sleep timeout expired.", true);
     }
@@ -228,7 +229,7 @@ public class InattentiveSleepTests extends BaseHostJUnit4Test {
         long sleepTime = warningShown + mWarningDurationConfig - eps;
         while (System.currentTimeMillis() < sleepTime) {
             assertTrue("Warning dismissed early", isWarningShown());
-            Thread.sleep(50);
+            RunUtil.getDefault().sleep(50);
         }
     }
 

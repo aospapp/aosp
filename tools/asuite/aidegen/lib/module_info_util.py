@@ -69,6 +69,9 @@ _LINKFILE_WARNING = (
 _RUST_PROJECT_JSON = 'out/soong/rust-project.json'
 
 
+# Generators are slightly more inefficient when all the values have to be
+# traversed most of the time.
+# pylint: disable=use-a-generator
 # pylint: disable=dangerous-default-value
 @common_util.back_to_cwd
 @common_util.time_logged
@@ -76,7 +79,7 @@ def generate_merged_module_info(env_on=_BUILD_BP_JSON_ENV_ON):
     """Generate a merged dictionary.
 
     Linked functions:
-        _build_bp_info(module_info, project, verbose, skip_build)
+        _build_bp_info(module_info, project, skip_build)
         _get_soong_build_json_dict()
         _merge_dict(mk_dict, bp_dict)
 
@@ -94,14 +97,14 @@ def generate_merged_module_info(env_on=_BUILD_BP_JSON_ENV_ON):
     skip_build = config.is_skip_build
     main_project = projects[0] if projects else None
     _build_bp_info(
-        module_info, main_project, verbose, skip_build, env_on)
+        module_info, main_project, skip_build, env_on)
     json_path = common_util.get_blueprint_json_path(
         constant.BLUEPRINT_JAVA_JSONFILE_NAME)
     bp_dict = common_util.get_json_dict(json_path)
     return _merge_dict(module_info.name_to_module_info, bp_dict)
 
 
-def _build_bp_info(module_info, main_project=None, verbose=False,
+def _build_bp_info(module_info, main_project=None,
                    skip_build=False, env_on=_BUILD_BP_JSON_ENV_ON):
     """Make nothing to create module_bp_java_deps.json, module_bp_cc_deps.json.
 
@@ -112,7 +115,6 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
     Args:
         module_info: A ModuleInfo instance contains data of module-info.json.
         main_project: A string of the main project name.
-        verbose: A boolean, if true displays full build output.
         skip_build: A boolean, if true, skip building if
                     get_blueprint_json_path(file_name) file exists, otherwise
                     build it.
@@ -140,7 +142,8 @@ def _build_bp_info(module_info, main_project=None, verbose=False,
 
     logging.warning(
         '\nGenerate files:\n %s by atest build method.', files)
-    build_with_on_cmd = atest_utils.build([_TARGET], verbose, env_on)
+    atest_utils.update_build_env(env_on)
+    build_with_on_cmd = atest_utils.build([_TARGET])
 
     # For Android Rust projects, we need to create a symbolic link to the file
     # out/soong/rust-project.json to launch the rust projects in IDEs.
@@ -281,9 +284,9 @@ def _copy_needed_items_from(mk_dict):
     Returns:
         A merged dictionary.
     """
-    merged_dict = dict()
+    merged_dict = {}
     for module in mk_dict.keys():
-        merged_dict[module] = dict()
+        merged_dict[module] = {}
         for key in mk_dict[module].keys():
             if key in _MERGE_NEEDED_ITEMS and mk_dict[module][key] != []:
                 merged_dict[module][key] = mk_dict[module][key]
@@ -305,8 +308,8 @@ def _merge_dict(mk_dict, bp_dict):
     """
     merged_dict = _copy_needed_items_from(mk_dict)
     for module in bp_dict.keys():
-        if module not in merged_dict.keys():
-            merged_dict[module] = dict()
+        if module not in merged_dict:
+            merged_dict[module] = {}
         _merge_module_keys(merged_dict[module], bp_dict[module])
     return merged_dict
 

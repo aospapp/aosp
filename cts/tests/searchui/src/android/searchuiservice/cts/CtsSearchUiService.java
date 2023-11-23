@@ -26,8 +26,8 @@ import android.util.Log;
 
 import org.mockito.Mockito;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.function.Consumer;
 
 public class CtsSearchUiService extends SearchUiService {
@@ -65,7 +65,7 @@ public class CtsSearchUiService extends SearchUiService {
     public void onSearchSessionCreated(SearchContext context,
             SearchSessionId sessionId) {
         if (DEBUG) Log.d(TAG, "onCreateSearchSession");
-
+        super.onSearchSessionCreated(context, sessionId);
         if (sWatcher.verifier != null) {
             Log.e(TAG, "onCreateSearchSession, trying to set verifier when it already exists");
         }
@@ -95,6 +95,20 @@ public class CtsSearchUiService extends SearchUiService {
         }
     }
 
+    @Override
+    public void onStartUpdateEmptyQueryResult() {
+        super.onStartUpdateEmptyQueryResult();
+        sWatcher.startedUpdateEmptyQueryResult.countDown();
+        sWatcher.verifier.onStartUpdateEmptyQueryResult();
+    }
+
+    @Override
+    public void onStopUpdateEmptyQueryResult() {
+        super.onStopUpdateEmptyQueryResult();
+        sWatcher.stoppedUpdateEmptyQueryResult.countDown();
+        sWatcher.verifier.onStopUpdateEmptyQueryResult();
+    }
+
     public static Watcher setWatcher() {
         if (DEBUG) {
             Log.d(TAG, "");
@@ -117,6 +131,9 @@ public class CtsSearchUiService extends SearchUiService {
         public CountDownLatch created = new CountDownLatch(1);
         public CountDownLatch destroyed = new CountDownLatch(1);
         public CountDownLatch queried = new CountDownLatch(1);
+        public CountDownLatch startedUpdateEmptyQueryResult = new CountDownLatch(1);
+        public CountDownLatch requestEmptyQueryResultUpdate = new CountDownLatch(1);
+        public CountDownLatch stoppedUpdateEmptyQueryResult = new CountDownLatch(1);
 
         /**
          * Can be used to verify that API specific service methods are called. Not a real mock as

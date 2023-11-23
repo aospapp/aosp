@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2021 NXP
+ *  Copyright 2018-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
  *
  ******************************************************************************/
 #define LOG_TAG "nxpese@1.2-service"
+#include <aidl/android/hardware/nfc/INfc.h>
 #include <android/hardware/nfc/1.2/INfc.h>
 #include <android/hardware/secure_element/1.2/ISecureElement.h>
 #include <hidl/LegacySupport.h>
@@ -42,33 +43,46 @@ using android::hardware::configureRpcThreadpool;
 using android::hardware::defaultPassthroughServiceImplementation;
 using android::hardware::joinRpcThreadpool;
 using android::hardware::registerPassthroughServiceImplementation;
-using android::hardware::nfc::V1_2::INfc;
+using INfc = android::hardware::nfc::V1_2::INfc;
 using android::hardware::secure_element::V1_2::ISecureElement;
 using android::hardware::secure_element::V1_2::implementation::SecureElement;
 using vendor::nxp::nxpese::V1_0::INxpEse;
 using vendor::nxp::nxpese::V1_0::implementation::NxpEse;
 using vendor::nxp::virtual_iso::V1_0::implementation::VirtualISO;
+using INfcAidl = ::aidl::android::hardware::nfc::INfc;
 
 using android::OK;
 using android::sp;
 using android::status_t;
 
+std::string NFC_AIDL_HAL_SERVICE_NAME = "android.hardware.nfc.INfc/default";
+
 static inline void waitForNFCHAL() {
   int retry = 0;
   android::sp<INfc> nfc_service = nullptr;
+  std::shared_ptr<INfcAidl> nfc_aidl_service = nullptr;
 
   ALOGI("Waiting for NFC HAL .. ");
   do {
-    nfc_service = INfc::tryGetService();
-    if (nfc_service != nullptr) {
+    ::ndk::SpAIBinder binder(
+        AServiceManager_checkService(NFC_AIDL_HAL_SERVICE_NAME.c_str()));
+    nfc_aidl_service = INfcAidl::fromBinder(binder);
+    if (nfc_aidl_service != nullptr) {
       ALOGI("NFC HAL service is registered");
       break;
     }
     /* Wait for 100 MS for HAL RETRY*/
     usleep(NFC_GET_SERVICE_DELAY_MS * 1000);
   } while (retry++ < MAX_NFC_GET_RETRY);
-  if (nfc_service == nullptr) {
-    ALOGE("Failed to get NFC HAL Service");
+
+  if (nfc_aidl_service == nullptr) {
+    ALOGE("Failed to get NFC AIDLHAL Service, trying to get HIDL service");
+    nfc_service = INfc::tryGetService();
+    if (nfc_service != nullptr) {
+      ALOGI("NFC HAL service is registered");
+    } else {
+      ALOGE("Failed to get NFC HAL Service");
+    }
   }
 }
 

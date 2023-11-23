@@ -28,12 +28,14 @@ class GnssBlankingThTest(GnssBlankingBase):
         first_wait = self.user_params.get('first_wait', 300)
 
         # Start the test item with gnss_init_power_setting.
-        if self.gnss_init_power_setting(first_wait):
-            self.log.info('Successfully set the GNSS power level to %d' %
-                          self.sa_sensitivity)
+        ret, pwr_lvl = self.gnss_init_power_setting(first_wait)
+        if ret:
+            self.log.info(f'Successfully set the GNSS power level to {pwr_lvl}')
             self.log.info('Start searching for cellular power level threshold')
             # After the GNSS power initialization is done, start the cellular power sweep.
             self.result_cell_pwr = self.cell_power_sweep()
+        else:
+            raise AttributeError('Init power sweep is missing')
 
     def test_gnss_gsm850_sweep(self):
         """

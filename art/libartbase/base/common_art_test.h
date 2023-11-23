@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "android-base/logging.h"
+#include "android-base/scopeguard.h"
 #include "base/file_utils.h"
 #include "base/globals.h"
 #include "base/memory_tool.h"
@@ -122,6 +123,12 @@ class ScopedUnsetEnvironmentVariable {
   DISALLOW_COPY_AND_ASSIGN(ScopedUnsetEnvironmentVariable);
 };
 
+// Temporarily drops all root capabilities when the test is run as root. This is a noop otherwise.
+android::base::ScopeGuard<std::function<void()>> ScopedUnroot();
+
+// Temporarily drops all permissions on a file/directory.
+android::base::ScopeGuard<std::function<void()>> ScopedInaccessible(const std::string& path);
+
 class CommonArtTestImpl {
  public:
   CommonArtTestImpl() = default;
@@ -138,6 +145,8 @@ class CommonArtTestImpl {
   static void SetUpAndroidDataDir(std::string& android_data);
 
   static void TearDownAndroidDataDir(const std::string& android_data, bool fail_on_error);
+
+  static void ClearDirectory(const char* dirpath, bool recursive = true);
 
   // Get the names of the libcore modules.
   virtual std::vector<std::string> GetLibCoreModuleNames() const;
@@ -164,13 +173,12 @@ class CommonArtTestImpl {
   bool MutateDexFile(File* output_dex, const std::string& input_jar, const Mutator& mutator) {
     std::vector<std::unique_ptr<const DexFile>> dex_files;
     std::string error_msg;
-    const ArtDexFileLoader dex_file_loader;
-    CHECK(dex_file_loader.Open(input_jar.c_str(),
-                               input_jar.c_str(),
-                               /*verify*/ true,
+    ArtDexFileLoader dex_file_loader(input_jar);
+    CHECK(dex_file_loader.Open(/*verify*/ true,
                                /*verify_checksum*/ true,
                                &error_msg,
-                               &dex_files)) << error_msg;
+                               &dex_files))
+        << error_msg;
     EXPECT_EQ(dex_files.size(), 1u) << "Only one input dex is supported";
     const std::unique_ptr<const DexFile>& dex = dex_files[0];
     CHECK(dex->EnableWrite()) << "Failed to enable write";
@@ -230,8 +238,6 @@ class CommonArtTestImpl {
   static std::string GetCoreOatLocation();
 
   std::unique_ptr<const DexFile> LoadExpectSingleDexFile(const char* location);
-
-  void ClearDirectory(const char* dirpath, bool recursive = true);
 
   // Open a file (allows reading of framework jars).
   std::vector<std::unique_ptr<const DexFile>> OpenDexFiles(const char* filename);

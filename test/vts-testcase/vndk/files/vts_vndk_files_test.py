@@ -64,19 +64,21 @@ class VtsVndkFilesTest(unittest.TestCase):
             return []
         return self._dut.FindFiles(dir_path, "*", "!", "-type", "d")
 
-    def _Fail(self, unexpected_paths):
+    def _Fail(self, unexpected_paths, message):
         """Logs error and fails current test.
 
         Args:
             unexpected_paths: A list of strings, the paths to be shown in the
                               log message.
+            message: A string, the error message.
         """
         logging.error("Unexpected files:\n%s", "\n".join(unexpected_paths))
         assert_lines = unexpected_paths[:20]
         if len(unexpected_paths) > 20:
-            assert_lines.append("...")
-        assert_lines.append(
-            "Total number of errors: %d" % len(unexpected_paths))
+            assert_lines.extend([
+                "...",
+                "Total number of errors: %d" % len(unexpected_paths)])
+        assert_lines.append(message)
         self.fail("\n".join(assert_lines))
 
     def _TestVndkDirectory(self, vndk_dir, vndk_list_names):
@@ -95,7 +97,9 @@ class VtsVndkFilesTest(unittest.TestCase):
         unexpected = [x for x in self._ListFiles(vndk_dir) if
                       target_path_module.basename(x) not in vndk_set]
         if unexpected:
-            self._Fail(unexpected)
+            self._Fail(unexpected,
+                       "The above libraries are not %s." %
+                       ", ".join(vndk_list_names))
 
     def _TestNotInVndkDirecotory(self, vndk_dir, vndk_list_names, except_libs):
         """Verifies that VNDK directory doesn't contain specific files.
@@ -116,7 +120,9 @@ class VtsVndkFilesTest(unittest.TestCase):
         unexpected = [x for x in self._ListFiles(vndk_dir) if
                       target_path_module.basename(x) in vndk_set]
         if unexpected:
-            self._Fail(unexpected)
+            self._Fail(unexpected,
+                       "%s must not contain %s libraries." %
+                       (vndk_dir, ", ",join(vndk_list_names)))
 
     def _TestVndkCoreDirectory(self, bitness):
         """Verifies that VNDK directory doesn't contain extra files."""

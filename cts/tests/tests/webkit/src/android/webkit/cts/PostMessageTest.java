@@ -16,52 +16,86 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+
+import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
-import android.net.Uri;
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.WebMessage;
 import android.webkit.WebMessagePort;
 import android.webkit.WebView;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
+
 import com.google.common.util.concurrent.SettableFuture;
 
 import junit.framework.Assert;
 
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class PostMessageTest extends SharedWebViewTest {
     private WebView mWebView;
     private WebViewOnUiThread mOnUiThread;
 
     private static final String WEBVIEW_MESSAGE = "from_webview";
     private static final String BASE_URI = "http://www.example.com";
 
-    public PostMessageTest() {
-        super("android.webkit.cts", WebViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        final WebViewCtsActivity activity = getActivity();
-        mWebView = activity.getWebView();
+    @Before
+    public void setUp() throws Exception {
+        mWebView = getTestEnvironment().getWebView();
         if (mWebView != null) {
             mOnUiThread = new WebViewOnUiThread(mWebView);
             mOnUiThread.getSettings().setJavaScriptEnabled(true);
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
-        super.tearDown();
+    }
+
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((WebViewCtsActivity) activity).getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                activity))
+                                    .setWebView(webView);
+                        });
+
+        return builder.build();
     }
 
     private static final String TITLE_FROM_POST_MESSAGE =
@@ -108,6 +142,7 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * should be reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Post a string message to main frame and make sure it is received.
+    @Test
     public void testSimpleMessageToMainFrame() throws Throwable {
         verifyPostMessageToOrigin(Uri.parse(BASE_URI));
     }
@@ -118,6 +153,7 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * test should be reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Post a string message to main frame passing a wildcard as target origin
+    @Test
     public void testWildcardOriginMatchesAnything() throws Throwable {
         verifyPostMessageToOrigin(Uri.parse("*"));
     }
@@ -128,14 +164,12 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * this test should be reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Post a string message to main frame passing an empty string as target origin
+    @Test
     public void testEmptyStringOriginMatchesAnything() throws Throwable {
         verifyPostMessageToOrigin(Uri.parse(""));
     }
 
     private void verifyPostMessageToOrigin(Uri origin) throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         loadPage(TITLE_FROM_POST_MESSAGE);
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE);
         mOnUiThread.postWebMessage(message, origin);
@@ -149,10 +183,8 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      */
     // Post multiple messages to main frame and make sure they are received in
     // correct order.
+    @Test
     public void testMultipleMessagesToMainFrame() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         loadPage(TITLE_FROM_POST_MESSAGE);
         for (int i = 0; i < 10; i++) {
             mOnUiThread.postWebMessage(new WebMessage(Integer.toString(i)),
@@ -167,10 +199,8 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Create a message channel and make sure it can be used for data transfer to/from js.
+    @Test
     public void testMessageChannel() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         loadPage(CHANNEL_MESSAGE);
         final WebMessagePort[] channel = mOnUiThread.createWebMessageChannel();
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE, new WebMessagePort[]{channel[1]});
@@ -205,10 +235,8 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * that test as necessary. See http://go/modifying-webview-cts.
      */
     // Test that a message port that is closed cannot used to send a message
+    @Test
     public void testClose() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         loadPage(CHANNEL_MESSAGE);
         final WebMessagePort[] channel = mOnUiThread.createWebMessageChannel();
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE, new WebMessagePort[]{channel[1]});
@@ -249,11 +277,10 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * be reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Test a message port created in JS can be received and used for message transfer.
+    @Test
     public void testReceiveMessagePort() throws Throwable {
         final String hello = "HELLO";
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
+
         loadPage(CHANNEL_FROM_JS);
         final WebMessagePort[] channel = mOnUiThread.createWebMessageChannel();
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE, new WebMessagePort[]{channel[1]});
@@ -275,10 +302,8 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * be reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Ensure the callback is invoked on the correct Handler.
+    @Test
     public void testWebMessageHandler() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         loadPage(CHANNEL_MESSAGE);
         final WebMessagePort[] channel = mOnUiThread.createWebMessageChannel();
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE, new WebMessagePort[]{channel[1]});
@@ -311,10 +336,8 @@ public class PostMessageTest extends ActivityInstrumentationTestCase2<WebViewCts
      * should be reflected in that test as necessary. See http://go/modifying-webview-cts.
      */
     // Ensure the callback is invoked on the MainLooper by default.
+    @Test
     public void testWebMessageDefaultHandler() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         loadPage(CHANNEL_MESSAGE);
         final WebMessagePort[] channel = mOnUiThread.createWebMessageChannel();
         WebMessage message = new WebMessage(WEBVIEW_MESSAGE, new WebMessagePort[]{channel[1]});

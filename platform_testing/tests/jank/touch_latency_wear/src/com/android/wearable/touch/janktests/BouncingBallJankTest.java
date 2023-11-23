@@ -18,11 +18,11 @@ package com.android.wearable.touch.janktests;
 
 import android.os.Bundle;
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.jank.GfxMonitor;
 import androidx.test.jank.JankTest;
 import androidx.test.jank.JankTestBase;
+import androidx.test.uiautomator.UiDevice;
 
 public class BouncingBallJankTest extends JankTestBase {
 

@@ -41,7 +41,7 @@ public class PhoneAccountSuggestionServiceTest extends BaseTelecomTestWithMockSe
     public void setUp() throws Exception {
         super.setUp();
 
-        if (shouldTestTelecom(mContext)) {
+        if (shouldTestTelecom(mContext) && TestUtils.hasTelephonyFeature(mContext)) {
             TestUtils.setCtsPhoneAccountSuggestionService(getInstrumentation(),
                     new ComponentName(mContext, CtsPhoneAccountSuggestionService.class));
             mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT);
@@ -58,7 +58,7 @@ public class PhoneAccountSuggestionServiceTest extends BaseTelecomTestWithMockSe
 
     @Override
     public void tearDown() throws Exception {
-        if (shouldTestTelecom(mContext)) {
+        if (shouldTestTelecom(mContext) && TestUtils.hasTelephonyFeature(mContext)) {
             if (mInCallCallbacks.getService().getLastCall() != null) {
                 mInCallCallbacks.getService().getLastCall().disconnect();
             }
@@ -73,20 +73,17 @@ public class PhoneAccountSuggestionServiceTest extends BaseTelecomTestWithMockSe
     }
 
     public void testSuggestionFlow() throws Exception {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
-        CtsPhoneAccountSuggestionService.sSuggestionsToProvide =
-                new ArrayList<PhoneAccountSuggestion>() {{
-                    add(new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE,
-                            PhoneAccountSuggestion.REASON_NONE,
-                            false));
-
-                    add(new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2,
-                            PhoneAccountSuggestion.REASON_FREQUENT,
-                            true));
-                }};
+        CtsPhoneAccountSuggestionService.sSuggestionsToProvide = List.of(
+                new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE,
+                        PhoneAccountSuggestion.REASON_NONE,
+                        false),
+                new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2,
+                        PhoneAccountSuggestion.REASON_FREQUENT,
+                        true));
 
         Uri number = createTestNumber();
         mTelecomManager.placeCall(number, new Bundle());
@@ -113,20 +110,17 @@ public class PhoneAccountSuggestionServiceTest extends BaseTelecomTestWithMockSe
     }
 
     public void testSuggestionTimeout() throws Exception {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
-        CtsPhoneAccountSuggestionService.sSuggestionsToProvide =
-                new ArrayList<PhoneAccountSuggestion>() {{
-                    add(new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE,
-                            PhoneAccountSuggestion.REASON_NONE,
-                            false));
-
-                    add(new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2,
-                            PhoneAccountSuggestion.REASON_FREQUENT,
-                            true));
-                }};
+        CtsPhoneAccountSuggestionService.sSuggestionsToProvide = List.of(
+                new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE,
+                        PhoneAccountSuggestion.REASON_NONE,
+                        false),
+                new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2,
+                        PhoneAccountSuggestion.REASON_FREQUENT,
+                        true));
 
         // Force a Telecom time out
         CtsPhoneAccountSuggestionService.sSuggestionWaitTime =
@@ -161,7 +155,7 @@ public class PhoneAccountSuggestionServiceTest extends BaseTelecomTestWithMockSe
     }
 
     public void testEmptySuggestions() throws Exception {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -193,16 +187,14 @@ public class PhoneAccountSuggestionServiceTest extends BaseTelecomTestWithMockSe
     }
 
     public void testPartialSuggestions() throws Exception {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
-        CtsPhoneAccountSuggestionService.sSuggestionsToProvide =
-                new ArrayList<PhoneAccountSuggestion>() {{
-                    add(new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2,
-                            PhoneAccountSuggestion.REASON_FREQUENT,
-                            true));
-                }};
+        CtsPhoneAccountSuggestionService.sSuggestionsToProvide = List.of(
+                new PhoneAccountSuggestion(TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2,
+                        PhoneAccountSuggestion.REASON_FREQUENT,
+                        true));
 
         Uri number = createTestNumber();
         mTelecomManager.placeCall(number, new Bundle());

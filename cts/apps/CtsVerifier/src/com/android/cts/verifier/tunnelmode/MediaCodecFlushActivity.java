@@ -66,9 +66,9 @@ public class MediaCodecFlushActivity extends PassFailButtons.Activity {
 
     private void playVideo() {
         try {
-            mPlayer.start();
             mPlayer.prepare();
-            mPlayer.startThread();
+            mPlayer.startCodec();
+            mPlayer.play();
             mHandler.postDelayed(this::pauseStep, 5000);
         } catch(Exception e) {
             Log.d(TAG, "Could not play video", e);
@@ -95,7 +95,7 @@ public class MediaCodecFlushActivity extends PassFailButtons.Activity {
 
     private void resumeStep() {
         try {
-            mPlayer.start();
+            mPlayer.resume();
             mHandler.postDelayed(this::enablePassButton, 3000);
         } catch(Exception e) {
             Log.d(TAG, "Could not resume video", e);

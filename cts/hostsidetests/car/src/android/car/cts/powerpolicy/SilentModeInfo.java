@@ -71,11 +71,7 @@ public final class SilentModeInfo {
         boolean[] attrs = new boolean[ATTR_HEADERS.length];
         String[] lines = cmdOutput.split("\n");
 
-        if (lines.length != SilentModeInfo.ATTR_HEADERS.length) {
-            throw new IllegalArgumentException(
-                    "SilentModeQueryResult.parse(): malformatted cmd output: " + cmdOutput);
-        }
-        for (int idx = 0; idx < ATTR_HEADERS.length; idx++) {
+        for (int idx = 0; idx < lines.length; idx++) {
             String[] tokens = lines[idx].trim().split(":");
             if (tokens.length != 2) {
                 throw new IllegalArgumentException(
@@ -90,8 +86,7 @@ public final class SilentModeInfo {
                 }
             }
             if (hdrIdx == ATTR_HEADERS.length) {
-                throw new IllegalArgumentException(
-                        "SilentModeQueryResult.parse(): unknown header: " + hdr);
+                continue;
             }
             attrs[hdrIdx] = Boolean.parseBoolean(val.trim());
         }

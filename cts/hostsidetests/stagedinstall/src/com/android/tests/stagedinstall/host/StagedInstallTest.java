@@ -536,6 +536,9 @@ public class StagedInstallTest extends BaseHostJUnit4Test {
 
     @Test
     public void testFailOverlappingMultipleStagedInstall_BothSinglePackage_Apk() throws Exception {
+        assumeTrue("Device does not support file-system checkpoint",
+                mHostUtils.isCheckpointSupported());
+
         runPhase("testFailOverlappingMultipleStagedInstall_BothSinglePackage_Apk");
     }
 

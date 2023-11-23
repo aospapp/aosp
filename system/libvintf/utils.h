@@ -109,9 +109,11 @@ static bool mergeField(T* dst, T* src, const T& empty = T{}) {
 // Check legacy instances (i.e. <version> + <interface> + <instance>) can be
 // converted into FqInstance because forEachInstance relies on FqInstance.
 // If error and appendedError is not null, error message is appended to appendedError.
-[[nodiscard]] bool canConvertToFqInstance(const std::string& package, const Version& version,
-                                          const std::string& interface, const std::string& instance,
-                                          HalFormat format, std::string* appendedError);
+// Return the corresponding value in <fqname> (i.e. @ver::Interface/instance for
+// HIDL, Interface/instance for AIDL, @ver[::Interface]/instance for native)
+[[nodiscard]] std::optional<FqInstance> convertLegacyInstanceIntoFqInstance(
+    const std::string& package, const Version& version, const std::string& interface,
+    const std::string& instance, HalFormat format, std::string* appendedError);
 
 }  // namespace details
 }  // namespace vintf

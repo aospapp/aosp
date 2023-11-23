@@ -24,12 +24,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentSender;
 import android.os.Bundle;
-import android.support.test.uiautomator.UiObject2;
 import android.text.TextUtils;
 import android.util.Log;
 import android.widget.TextView;
 
 import androidx.annotation.Nullable;
+import androidx.test.uiautomator.UiObject2;
 
 /**
  * Activity that displays a "Welcome USER" message after login.

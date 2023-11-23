@@ -74,7 +74,11 @@ public class HdmiSwitchClientTest {
         final boolean mhl = false;
         final boolean arc = true;
         final HdmiPortInfo info =
-                new HdmiPortInfo(id, HdmiPortInfo.PORT_INPUT, address, cec, mhl, arc);
+                new HdmiPortInfo.Builder(id, HdmiPortInfo.PORT_INPUT, address)
+                        .setCecSupported(cec)
+                        .setMhlSupported(mhl)
+                        .setArcSupported(arc)
+                        .build();
         mExpectedInfo.add(info);
         mService.setPortInfo(mExpectedInfo);
 

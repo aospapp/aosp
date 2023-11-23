@@ -167,41 +167,29 @@ public class BluetoothCodecsTest extends AndroidTestCase {
                                  BluetoothCodecConfig.CHANNEL_MODE_STEREO,
                                  1000, 2000, 3000, 4000);
 
-    private static final List<BluetoothCodecConfig> LOCAL_CAPABILITY_A =
-            new ArrayList() {{
-                    add(local_capability1_A);
-                    add(local_capability2_A);
-            }};
+    private static final List<BluetoothCodecConfig> LOCAL_CAPABILITY_A = List.of(
+            local_capability1_A,
+            local_capability2_A);
 
-    private static final List<BluetoothCodecConfig> LOCAL_CAPABILITY_B =
-            new ArrayList() {{
-                    add(local_capability1_B);
-                    add(local_capability2_B);
-            }};
+    private static final List<BluetoothCodecConfig> LOCAL_CAPABILITY_B = List.of(
+            local_capability1_B,
+            local_capability2_B);
 
-    private static final List<BluetoothCodecConfig> LOCAL_CAPABILITY_C =
-            new ArrayList() {{
-                    add(local_capability1_C);
-                    add(local_capability2_C);
-            }};
+    private static final List<BluetoothCodecConfig> LOCAL_CAPABILITY_C = List.of(
+            local_capability1_C,
+            local_capability2_C);
 
-    private static final List<BluetoothCodecConfig> SELECTABLE_CAPABILITY_A =
-            new ArrayList() {{
-                    add(selectable_capability1_A);
-                    add(selectable_capability2_A);
-            }};
+    private static final List<BluetoothCodecConfig> SELECTABLE_CAPABILITY_A = List.of(
+            selectable_capability1_A,
+            selectable_capability2_A);
 
-    private static final List<BluetoothCodecConfig> SELECTABLE_CAPABILITY_B =
-            new ArrayList() {{
-                    add(selectable_capability1_B);
-                    add(selectable_capability2_B);
-            }};
+    private static final List<BluetoothCodecConfig> SELECTABLE_CAPABILITY_B = List.of(
+            selectable_capability1_B,
+            selectable_capability2_B);
 
-    private static final List<BluetoothCodecConfig> SELECTABLE_CAPABILITY_C =
-            new ArrayList() {{
-                    add(selectable_capability1_C);
-                    add(selectable_capability2_C);
-            }};
+    private static final List<BluetoothCodecConfig> SELECTABLE_CAPABILITY_C = List.of(
+            selectable_capability1_C,
+            selectable_capability2_C);
 
     private static final BluetoothCodecStatus bcs_A =
             new BluetoothCodecStatus.Builder()

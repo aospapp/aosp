@@ -246,7 +246,7 @@ public class ViewUnbufferedTest {
         }
 
         mReceivedEvents.add(new ReceivedEvent(event.getEventTime(), event.getAction(),
-                (int) event.getX(), (int) event.getY(), event.getSource()));
+                Math.round(event.getX()), Math.round(event.getY()), event.getSource()));
 
         // Always return true to make sure the event has been handled.
         return true;

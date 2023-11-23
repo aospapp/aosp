@@ -24,6 +24,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Process;
 
+import com.android.compatibility.common.util.SystemUtil;
+
 /**
  * Schedules jobs with the {@link android.app.job.JobScheduler} that grant permissions through
  * ClipData.
@@ -42,6 +44,10 @@ public class ClipDataJobTest extends ConstraintTest {
     public void setUp() throws Exception {
         super.setUp();
 
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd tare set-vip "
+                + Process.myUserHandle().getIdentifier() + " "
+                + kJobServiceComponent.getPackageName() + " true");
+
         mBuilder = new JobInfo.Builder(CLIP_DATA_JOB_ID, kJobServiceComponent);
         mProvider = getContext().getContentResolver().acquireContentProviderClient(mFirstUri);
         assertNotNull(mProvider);
@@ -52,6 +58,9 @@ public class ClipDataJobTest extends ConstraintTest {
         super.tearDown();
         mProvider.close();
         mJobScheduler.cancel(CLIP_DATA_JOB_ID);
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd tare set-vip "
+                + Process.myUserHandle().getIdentifier() + " "
+                + kJobServiceComponent.getPackageName() + " default");
     }
 
     /**

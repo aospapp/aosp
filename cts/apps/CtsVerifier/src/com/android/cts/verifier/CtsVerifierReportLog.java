@@ -74,6 +74,10 @@ public class CtsVerifierReportLog extends ReportLog {
         }
     }
 
+    public boolean isOpen() {
+        return mStore != null;
+    }
+
     /**
      * Closes report file. Static functions that do not have access to instrumentation can
      * use this to close report logs. Summary, if present, is not reported to instrumentation, hence

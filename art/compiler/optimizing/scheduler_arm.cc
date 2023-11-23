@@ -23,7 +23,7 @@
 #include "mirror/array-inl.h"
 #include "mirror/string.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace arm {
 
 using helpers::Int32ConstantFrom;
@@ -669,7 +669,7 @@ void SchedulingLatencyVisitorARM::VisitArrayGet(HArrayGet* instruction) {
     }
 
     case DataType::Type::kReference: {
-      if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+      if (gUseReadBarrier && kUseBakerReadBarrier) {
         last_visited_latency_ = kArmLoadWithBakerReadBarrierLatency;
       } else {
         if (index->IsConstant()) {
@@ -937,7 +937,7 @@ void SchedulingLatencyVisitorARM::HandleFieldGetLatencies(HInstruction* instruct
       break;
 
     case DataType::Type::kReference:
-      if (kEmitCompilerReadBarrier && kUseBakerReadBarrier) {
+      if (gUseReadBarrier && kUseBakerReadBarrier) {
         last_visited_internal_latency_ = kArmMemoryLoadLatency + kArmIntegerOpLatency;
         last_visited_latency_ = kArmMemoryLoadLatency;
       } else {

@@ -21,10 +21,10 @@ package {
 java_library_host {
     name: "LongevityHostLibSamples",
     static_libs: [
-        "guavalib",
+        "guava",
         "junit-host",
-        "test-composers",
         "longevity-host-lib",
+        "test-composers",
     ],
     srcs: ["src/**/*.java"],
 }

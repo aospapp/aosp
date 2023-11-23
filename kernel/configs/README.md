@@ -157,26 +157,6 @@ Build rules from the aforementioned files to a
 [this link](https://source.android.com/devices/architecture/vintf/match-rules#kernel)
 for details of the output format.
 
-## I want to freeze/release the current kernel requirements. What do I do?
-
-Prior to a [FCM Version release](https://source.android.com/devices/architecture/vintf/fcm#new-fcm-versions)
-(often accompanied with a dessert release as well), the kernel requirements must
-be frozen. Follow the following steps
-
-* Copy the top-level `android-*` directories to a release directory, preferably
-  with the dessert name (for example, `q`).
-  * Remove top-level `android-*` directories. This change is not propagated to
-    master.
-* Edit the new `<dessert>/android-*/Android.bp` files and rename the modules.
-  For example, change `kernel_config_current_4.9` in `q/android-4.9/Android.bp`
-  to `kernel_config_q_4.9`
-* Under `hardware/interfaces/compatibility_matrices/Android.bp`, edit
-  `kernel_configs` field for the `framework_compatibility_matrix.current.xml`
-  to use the new modules.
-  * `framework_compatibility_matrix.current.xml` will be renamed to
-    `framework_compatibility_matrix.<level>.xml` as part of the FCM Version
-    release, which is a separate process.
-
 ## I want to edit a released kernel requirement. What do I do?
 
 Don't edit a released kernel requirement unless necessary. If you have to make

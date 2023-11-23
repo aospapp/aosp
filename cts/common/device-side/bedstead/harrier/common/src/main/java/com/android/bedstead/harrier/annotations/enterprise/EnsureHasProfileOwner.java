@@ -23,6 +23,8 @@ import static com.android.bedstead.nene.packages.CommonPackages.FEATURE_DEVICE_A
 import com.android.bedstead.harrier.UserType;
 import com.android.bedstead.harrier.annotations.AnnotationRunPrecedence;
 import com.android.bedstead.harrier.annotations.RequireFeature;
+import com.android.bedstead.harrier.annotations.RequireNotInstantApp;
+import com.android.queryable.annotations.Query;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -39,13 +41,30 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @RequireFeature(FEATURE_DEVICE_ADMIN)
+// TODO(b/206441366): Add instant app support
+@RequireNotInstantApp(reason = "Instant Apps cannot run Enterprise Tests")
 public @interface EnsureHasProfileOwner {
-    /** Which user type the work profile should be attached to. */
+    /** Which user type the profile owner should be installed on. */
     UserType onUser() default INSTRUMENTED_USER;
 
+    String DEFAULT_KEY = "profileOwner";
+
     /**
-     * Whether this DPC should be returned by calls to {@code Devicestate#dpc()} or
-     * {@code Devicestate#policyManager()}}.
+     * The key used to identify this DPC.
+     *
+     * <p>This can be used with {@link AdditionalQueryParameters} to modify the requirements for
+     * the DPC. */
+    String key() default DEFAULT_KEY;
+
+    /**
+     * Requirements for the DPC
+     *
+     * <p>Defaults to the default version of RemoteDPC.
+     */
+    Query dpc() default @Query();
+
+    /**
+     * Whether this DPC should be returned by calls to {@code Devicestate#dpc()}.
      *
      * <p>Only one policy manager per test should be marked as primary.
      */

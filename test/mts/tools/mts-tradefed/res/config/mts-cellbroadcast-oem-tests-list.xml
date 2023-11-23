@@ -16,8 +16,10 @@
 <configuration description="List MTS cellbroadcast tests.">
     <option name="compatibility:include-filter" value="CellBroadcastReceiverOemUnitTests" />
     <option name="compatibility:include-filter" value="CellBroadcastServiceTests" />
+    <option name="compatibility:include-filter" value="CellBroadcastReceiverComplianceTests" />
 
     <!-- Enable MainlineTestModuleController -->
     <option name="compatibility:module-arg" value="CellBroadcastReceiverOemUnitTests:enable:true" />
     <option name="compatibility:module-arg" value="CellBroadcastServiceTests:enable:true" />
+    <option name="compatibility:module-arg" value="CellBroadcastReceiverComplianceTests:enable:true" />
 </configuration>

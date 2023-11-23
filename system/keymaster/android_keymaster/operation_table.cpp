@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <utility>
+
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/operation.h>
 #include <keymaster/operation_table.h>
@@ -27,7 +29,7 @@ keymaster_error_t OperationTable::Add(OperationPtr&& operation) {
     }
     for (size_t i = 0; i < table_size_; ++i) {
         if (!table_[i]) {
-            table_[i] = move(operation);
+            table_[i] = std::move(operation);
             return KM_ERROR_OK;
         }
     }

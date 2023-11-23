@@ -76,6 +76,10 @@ extern "C" {
 #endif  // CHPP_DEBUG_ASSERT_ENABLED
 #endif  // CHPP_DEBUG_ASSERT
 
+#ifndef CHPP_DEBUG_NOT_NULL
+#define CHPP_DEBUG_NOT_NULL(var) CHPP_DEBUG_ASSERT((var) != NULL)
+#endif
+
 #ifndef CHPP_DEBUG_ASSERT_LOG
 #define CHPP_DEBUG_ASSERT_LOG(var, fmt, ...) \
   do {                                       \
@@ -91,21 +95,18 @@ extern "C" {
 #define PRIu64 "llu"
 #endif
 
-#if defined(__GNUC__) && (__STDC_VERSION__ >= 201112L)
-#define CHPP_C11_OR_NEWER
-#endif
+#if (defined(__cpp_static_assert) && (__cpp_static_assert >= 200410)) || \
+    (defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 201112L))
+#define CHPP_STATIC_ASSERT static_assert
 
-#ifdef CHPP_C11_OR_NEWER
-#define CHPP_STATIC_ASSERT _Static_assert
-
-#else
+#else  // Use fallback implementation as static_assert is not available.
 #define CHPP_STATIC_ASSERT4(cond, var) typedef char var[(!!(cond)) * 2 - 1]
 #define CHPP_STATIC_ASSERT3(cond, line) \
   CHPP_STATIC_ASSERT4(cond, static_assertion_at_line_##line)
 #define CHPP_STATIC_ASSERT2(cond, line) CHPP_STATIC_ASSERT3(cond, line)
 #define CHPP_STATIC_ASSERT(cond, msg) CHPP_STATIC_ASSERT2(cond, __LINE__)
 
-#endif  // CHPP_C11_OR_NEWER
+#endif  // Use C11 or C++11 static_assert
 
 // Time-related macros
 #define CHPP_TIME_NONE 0

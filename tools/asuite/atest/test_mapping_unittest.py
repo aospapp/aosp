@@ -22,8 +22,8 @@ import unittest
 
 from unittest import mock
 
-import test_mapping
-import unittest_constants as uc
+from atest import test_mapping
+from atest import unittest_constants as uc
 
 
 class TestMappingUnittests(unittest.TestCase):
@@ -56,7 +56,7 @@ class TestMappingUnittests(unittest.TestCase):
         self.assertEqual(
             'host can only have boolean value.', str(context.exception))
 
-    @mock.patch("atest_utils.get_modified_files")
+    @mock.patch("atest.atest_utils.get_modified_files")
     def test_is_match_file_patterns(self, mock_modified_files):
         """Test mathod is_match_file_patterns."""
         test_mapping_file = ''

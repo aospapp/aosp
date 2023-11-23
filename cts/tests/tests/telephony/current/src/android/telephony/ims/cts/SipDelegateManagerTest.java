@@ -37,7 +37,7 @@ import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.telephony.cts.TelephonyUtils;
+import android.telephony.cts.util.TelephonyUtils;
 import android.telephony.ims.DelegateRegistrationState;
 import android.telephony.ims.DelegateRequest;
 import android.telephony.ims.FeatureTagState;
@@ -47,6 +47,8 @@ import android.telephony.ims.ImsService;
 import android.telephony.ims.ImsStateCallback;
 import android.telephony.ims.SipDelegateConfiguration;
 import android.telephony.ims.SipDelegateManager;
+import android.telephony.ims.SipDialogState;
+import android.telephony.ims.SipDialogStateCallback;
 import android.telephony.ims.SipMessage;
 import android.telephony.ims.feature.ImsFeature;
 import android.telephony.ims.stub.ImsFeatureConfiguration;
@@ -68,6 +70,7 @@ import org.junit.runner.RunWith;
 import java.net.InetSocketAddress;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
@@ -183,6 +186,8 @@ public class SipDelegateManagerTest {
     private static int sTestSub = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     private static ImsServiceConnector sServiceConnector;
     private static CarrierConfigReceiver sReceiver;
+    private static int sUpdatedStateSize = 0;
+    private static boolean sUpdatedState = false;
 
     @BeforeClass
     public static void beforeAllTests() throws Exception {
@@ -256,18 +261,9 @@ public class SipDelegateManagerTest {
             fail("This test requires that there is a SIM in the device!");
         }
         // Correctness check: ensure that the subscription hasn't changed between tests.
-        int[] subs = SubscriptionManager.getSubId(sTestSlot);
-
-        if (subs == null) {
-            fail("This test requires there is an active subscription in slot " + sTestSlot);
-        }
-        boolean isFound = false;
-        for (int sub : subs) {
-            isFound |= (sTestSub == sub);
-        }
-        if (!isFound) {
-            fail("Invalid state found: the test subscription in slot " + sTestSlot + " changed "
-                    + "during this test.");
+        int subId = SubscriptionManager.getSubscriptionId(sTestSlot);
+        if (subId != sTestSub) {
+            fail("The found subId " + subId + " does not match the test sub id " + sTestSub);
         }
     }
 
@@ -383,6 +379,189 @@ public class SipDelegateManagerTest {
             // unreachable, already passed permission check
             fail("uregisterImsStateCallback requires no permission.");
         }
+    }
+
+    @Test
+    public void testSipDialogStateChanges() throws Exception {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+        SipDialogStateCallback callback = new SipDialogStateCallback() {
+            @Override
+            public void onActiveSipDialogsChanged(List<SipDialogState> dialogs) {
+                int confirmedSize = dialogs.stream().filter(
+                        d -> d.getState() == SipDialogState.STATE_CONFIRMED)
+                        .collect(Collectors.toSet()).size();
+                if (confirmedSize > 0) {
+                    sUpdatedState = true;
+                } else {
+                    sUpdatedState = false;
+                }
+            }
+            @Override
+            public void onError() { }
+        };
+
+        TransportInterfaces ifaces = new TransportInterfaces(getDefaultRequest(),
+                Collections.emptySet(), 0);
+        ifaces.connect();
+        try {
+            ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(ifaces.manager,
+                    m -> m.registerSipDialogStateCallback(Runnable::run, callback),
+                    ImsException.class, "android.permission.READ_PRIVILEGED_PHONE_STATE");
+        } catch (SecurityException e) {
+            fail("registerSipDialogStateCallback requires READ_PRIVILEGED_PHONE_STATE permission.");
+        } catch (ImsException ignore) {
+            // don't care, permission check passed
+        }
+        ifaces.delegateConn.setOperationCountDownLatch(1);
+        ifaces.delegateConn.waitForCountDown(1000);
+        // Send invite
+        SipDialogAttributes attr = new SipDialogAttributes();
+        sendChatInvite(attr, ifaces);
+        assertFalse(sUpdatedState);
+        // receive 200 OK
+        receive200OkResponse(attr, ifaces);
+        ifaces.delegateConn.setOperationCountDownLatch(1);
+        ifaces.delegateConn.waitForCountDown(1000);
+        // SipDialog Confirmed
+        assertTrue(sUpdatedState);
+        // Send ACK
+        sendAck(attr, ifaces);
+        // Send BYE
+        sendByeRequest(attr, ifaces);
+        // SipDialog Closed
+        ifaces.delegateConn.setOperationCountDownLatch(1);
+        ifaces.delegateConn.waitForCountDown(1000);
+        assertFalse(sUpdatedState);
+
+        // Send the cleanup, which will trigger destroy to complete.
+        ifaces.delegateConn.sendCleanupSession(attr.callId);
+        ifaces.delegate.verifyCleanupSession(attr.callId);
+        ifaces.delegateConn.setOperationCountDownLatch(1);
+        ifaces.delegateConn.waitForCountDown(1000);
+        try {
+            ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(ifaces.manager,
+                    m -> m.unregisterSipDialogStateCallback(callback),
+                    ImsException.class, "android.permission.READ_PRIVILEGED_PHONE_STATE");
+        } catch (SecurityException e) {
+            fail("registerSipDialogStateCallback requires READ_PRIVILEGED_PHONE_STATE permission.");
+        }
+        destroySipDelegateAndVerify(ifaces);
+        assertEquals("There should be no more delegates", 0,
+                ifaces.transport.getDelegates().size());
+        verifyUpdateRegistrationCalled(ifaces.reg);
+    }
+
+    @Test
+    public void testSipDialogStateChangesOnMultipleDelegates() throws Exception {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+        InetSocketAddress localAddr = new InetSocketAddress(
+                InetAddresses.parseNumericAddress("1.1.1.1"), 80);
+        InetSocketAddress serverAddr = new InetSocketAddress(
+                InetAddresses.parseNumericAddress("2.2.2.2"), 81);
+        SipDelegateConfiguration c = new SipDelegateConfiguration.Builder(1,
+                SipDelegateConfiguration.SIP_TRANSPORT_TCP, localAddr, serverAddr).build();
+
+        SipDialogStateCallback callback = new SipDialogStateCallback() {
+            @Override
+            public void onActiveSipDialogsChanged(List<SipDialogState> dialogs) {
+                sUpdatedStateSize = dialogs.stream()
+                        .filter(d -> d.getState() == SipDialogState.STATE_CONFIRMED)
+                        .collect(Collectors.toList()).size();
+            }
+            @Override
+            public void onError() { }
+        };
+
+        SipDelegateManager manager = getSipDelegateManager();
+        assertTrue(sServiceConnector.setDefaultSmsApp());
+        connectTestImsServiceWithSipTransportAndConfig();
+        TestSipTransport transportImpl = sServiceConnector.getCarrierService().getSipTransport();
+        TestImsRegistration regImpl = sServiceConnector.getCarrierService().getImsRegistration();
+
+        // create delegate#1
+        DelegateRequest request1 = getChatOnlyRequest();
+        TestSipDelegateConnection delegateConn1 = new TestSipDelegateConnection(request1);
+        TestSipDelegate delegate1 = createSipDelegateConnectionAndVerify(manager, delegateConn1,
+                transportImpl, Collections.emptySet(), 0);
+        Set<String> registeredTags1 = new ArraySet<>(request1.getFeatureTags());
+        assertNotNull(delegate1);
+        verifyRegisteredAndSendSipConfig(delegateConn1, delegate1, registeredTags1,
+                Collections.emptySet(), c);
+        //delegate : 1, dialog confirmed : 0
+        assertEquals(0, sUpdatedStateSize);
+        try {
+            ShellIdentityUtils.invokeThrowableMethodWithShellPermissionsNoReturn(manager,
+                    m -> m.registerSipDialogStateCallback(Runnable::run, callback),
+                    ImsException.class, "android.permission.READ_PRIVILEGED_PHONE_STATE");
+        } catch (SecurityException e) {
+            fail("registerSipDialogStateCallback requires READ_PRIVILEGED_PHONE_STATE permission.");
+        } catch (ImsException ignore) {
+            // don't care, permission check passed
+        }
+        // INVITE/200OK on Delegate#1
+        SipDialogAttributes attr = new SipDialogAttributes();
+        SipDialogAttributes invAttr = attr.fromExisting().copyWithNewBranch();
+        invAttr.addAcceptContactTag(GROUP_CHAT_TAG);
+        SipMessage invite = SipMessageUtils.generateSipRequest(SipMessageUtils.INVITE_SIP_METHOD,
+                invAttr);
+        delegateConn1.sendMessageAndVerifyCompletedSuccessfully(invite);
+        SipMessage resp = SipMessageUtils.generateSipResponse("200", "OK",
+                attr);
+        delegate1.receiveMessageAndVerifyReceivedCalled(resp);
+        delegateConn1.verifyMessageReceived(resp);
+        delegateConn1.setOperationCountDownLatch(1);
+        delegateConn1.waitForCountDown(/*ImsUtils.TEST_TIMEOUT_MS*/1000);
+        //delegate : 1, dialog confirmed : 1
+        assertEquals(1, sUpdatedStateSize);
+
+        // create delegate#2
+        DelegateRequest request2 = getDefaultRequest();
+        TestSipDelegateConnection delegateConn2 = new TestSipDelegateConnection(request2);
+        Set<String> registeredTags2 = new ArraySet<>(request2.getFeatureTags());
+        TestSipDelegate delegate2 = createSipDelegateConnectionAndVerify(manager, delegateConn2,
+                transportImpl, Collections.emptySet(), 1);
+        assertNotNull(delegate2);
+        verifyUpdateRegistrationCalled(regImpl);
+        Set<FeatureTagState> deniedSet = generateDeniedSetFromRequest(request1.getFeatureTags(),
+                request2.getFeatureTags(),
+                SipDelegateManager.DENIED_REASON_IN_USE_BY_ANOTHER_DELEGATE);
+        verifyRegisteredAndSendSipConfig(delegateConn2, delegate2, registeredTags2, deniedSet, c);
+        // INVITE/200OK on Delegate#2
+        SipDialogAttributes attr2 = new SipDialogAttributes();
+        SipDialogAttributes invAttr2 = attr2.fromExisting().copyWithNewBranch();
+        invAttr2.addAcceptContactTag(CHATBOT_COMMUNICATION_USING_SESSION_TAG);
+        SipMessage invite2 = SipMessageUtils.generateSipRequest(SipMessageUtils.INVITE_SIP_METHOD,
+                invAttr2);
+        delegateConn2.sendMessageAndVerifyCompletedSuccessfully(invite2);
+        SipMessage resp2 = SipMessageUtils.generateSipResponse("200", "OK",
+                attr2);
+        delegate2.receiveMessageAndVerifyReceivedCalled(resp2);
+        delegateConn2.verifyMessageReceived(resp2);
+        delegateConn2.setOperationCountDownLatch(1);
+        delegateConn2.waitForCountDown(/*ImsUtils.TEST_TIMEOUT_MS*/1000);
+        //delegate : 2, dialog confirmed : 2
+        assertEquals(2, sUpdatedStateSize);
+        // Destroying delegate 1 will transfer all feature tags over to delegate 2
+        destroySipDelegate(manager, transportImpl, delegateConn1, delegate1);
+        // If one delegate is destroyed in multiple delegates,
+        // it internally triggers the destruction of the remaining delegates
+        // and then the recreation of another delegate with the new feature set that it supports.
+        verifySipDelegateDestroyed(transportImpl, delegate2);
+        delegateConn2.setOperationCountDownLatch(1);
+        delegateConn2.waitForCountDown(/*ImsUtils.TEST_TIMEOUT_MS*/1000);
+        //delegate : 1, dialog confirmed : 0
+        assertEquals(0, sUpdatedStateSize);
+        delegate2 = getSipDelegate(transportImpl, Collections.emptySet(), 0);
+        verifyUpdateRegistrationCalled(regImpl);
+        verifyRegisteredAndSendSipConfig(delegateConn2, delegate2, request2.getFeatureTags(),
+                Collections.emptySet(), c);
+        destroySipDelegateAndVerifyConnDestroyed(manager, transportImpl, delegateConn2, delegate2);
+        assertEquals("There should be no more delegates", 0,
+                transportImpl.getDelegates().size());
     }
 
     @Test
@@ -1032,6 +1211,27 @@ public class SipDelegateManagerTest {
         SipDelegateConfiguration unparcelConfig =
                 SipDelegateConfiguration.CREATOR.createFromParcel(p);
         assertEquals(c, unparcelConfig);
+    }
+
+    // this test is required to avoid pre-submit check (API coverage check FAIL)
+    @Test
+    public void testSipDialogStateDescribeContents() {
+        SipDialogState state = new SipDialogState.Builder(SipDialogState.STATE_CONFIRMED).build();
+        assertNotNull(state);
+        int describe = state.describeContents();
+        assertTrue(describe == 0);
+    }
+
+    @Test
+    public void testParcelUnparcelSipDialogState() {
+        SipDialogState state = new SipDialogState.Builder(SipDialogState.STATE_CONFIRMED).build();
+        assertEquals(SipDialogState.STATE_CONFIRMED, state.getState());
+        Parcel p = Parcel.obtain();
+        state.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        SipDialogState unparcelled = SipDialogState.CREATOR.createFromParcel(p);
+        assertEquals(state, unparcelled);
+        assertEquals(state.getState() , unparcelled.getState());
     }
 
     @Test

@@ -24,16 +24,16 @@ import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRouting;
 import android.media.cts.AudioHelper;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Build;
 import android.platform.test.annotations.Presubmit;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Assert;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioNativeTest extends CtsAndroidTestCase {
     public static final int MAX_CHANNEL_COUNT = 2;
     public static final int MAX_INDEX_MASK = (1 << MAX_CHANNEL_COUNT) - 1;

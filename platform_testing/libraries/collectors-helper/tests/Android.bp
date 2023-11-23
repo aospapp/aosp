@@ -21,10 +21,12 @@ android_test {
     defaults: ["tradefed_errorprone_defaults"],
 
     static_libs: [
-        "perfetto-helper-test",
+        "adservices-helper-test",
         "app-collector-helper-test",
+        "generic-helper-test",
         "jank-helper-test",
         "memory-helper-test",
+        "perfetto-helper-test",
         "system-helper-test",
     ],
 

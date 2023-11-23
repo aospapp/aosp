@@ -41,9 +41,9 @@ public class DropCachesRuleTest {
         TestableDropCachesRule rule = new TestableDropCachesRule(new Bundle());
         rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd"))
             .evaluate();
-        assertThat(rule.getOperations()).containsExactly(
-                rule.getDropCacheScriptPath(), "test")
-            .inOrder();
+        assertThat(rule.getOperations())
+                .containsExactly("sync", rule.getDropCacheScriptPath(), "test")
+                .inOrder();
     }
 
     /**
@@ -59,6 +59,20 @@ public class DropCachesRuleTest {
             .evaluate();
         assertThat(rule.getOperations()).containsExactly("test")
             .inOrder();
+    }
+
+    /** Tests no sync if the sync flag is set to false. */
+    @Test
+    public void testNoSync() throws Throwable {
+        Bundle noSyncBundle = new Bundle();
+        noSyncBundle.putString(DropCachesRule.KEY_SYNC_BEFORE_DROP, "false");
+        TestableDropCachesRule rule = new TestableDropCachesRule(noSyncBundle);
+
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd"))
+                .evaluate();
+        assertThat(rule.getOperations())
+                .containsExactly(rule.getDropCacheScriptPath(), "test")
+                .inOrder();
     }
 
     private static class TestableDropCachesRule extends DropCachesRule {

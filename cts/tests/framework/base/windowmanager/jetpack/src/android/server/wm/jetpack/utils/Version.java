@@ -81,7 +81,8 @@ public final class Version implements Comparable<Version> {
         return matcher.matches();
     }
 
-    int getMajor() {
+    /** Major version of the vendor implementation. */
+    public int getMajor() {
         return mMajor;
     }
 

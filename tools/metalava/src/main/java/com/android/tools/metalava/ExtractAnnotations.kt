@@ -193,9 +193,7 @@ class ExtractAnnotations(
                 if (annotation.isTypeDefAnnotation()) {
                     // Imported typedef
                     addItem(item, AnnotationHolder(null, annotation, null))
-                } else if (annotation.targets.contains(AnnotationTarget.EXTERNAL_ANNOTATIONS_FILE) &&
-                    !options.includeSourceRetentionAnnotations
-                ) {
+                } else if (annotation.targets.contains(AnnotationTarget.EXTERNAL_ANNOTATIONS_FILE)) {
                     addItem(item, AnnotationHolder(null, annotation, null))
                 }
 
@@ -457,8 +455,8 @@ class ExtractAnnotations(
 
                 if (isConstructor()) {
                     sb.append(escapeXml(containingClass().simpleName()))
-                } else if (returnType() != null) {
-                    sb.append(escapeXml(returnType()!!.toTypeString()))
+                } else {
+                    sb.append(escapeXml(returnType().toTypeString()))
                     sb.append(' ')
                     sb.append(escapeXml(name()))
                 }

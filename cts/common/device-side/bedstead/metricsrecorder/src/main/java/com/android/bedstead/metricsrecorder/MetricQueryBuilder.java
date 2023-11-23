@@ -16,6 +16,8 @@
 
 package com.android.bedstead.metricsrecorder;
 
+import android.util.Log;
+
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.queryable.Queryable;
 import com.android.queryable.queries.BooleanQuery;
@@ -28,12 +30,21 @@ import com.android.queryable.queries.StringQueryHelper;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
+/**
+ * {@link Queryable} for querying logged metrics.
+ */
 public class MetricQueryBuilder implements Queryable {
+
+    private static final String LOG_TAG = "MetricQueryBuilder";
+
     private final EnterpriseMetricsRecorder mRecorder;
     private boolean hasStartedFetchingResults = false;
     private int mSkippedNextResults = 0;
     private int mSkippedPollResults = 0;
+    private Set<EnterpriseMetricInfo> mNonMatchingMetrics = new HashSet<>();
 
     private final IntegerQueryHelper<MetricQueryBuilder> mTypeQuery =
             new IntegerQueryHelper<>(this);
@@ -41,7 +52,7 @@ public class MetricQueryBuilder implements Queryable {
             new StringQueryHelper<>(this);
     private final BooleanQueryHelper<MetricQueryBuilder> mBooleanQuery =
             new BooleanQueryHelper<>(this);
-    private final ListQueryHelper<MetricQueryBuilder, String, StringQuery<?>> mStringsQuery =
+    private final ListQueryHelper<MetricQueryBuilder, String> mStringsQuery =
             new ListQueryHelper<>(this);
     private final IntegerQueryHelper<MetricQueryBuilder> mIntegerQuery =
             new IntegerQueryHelper<>(this);
@@ -82,7 +93,7 @@ public class MetricQueryBuilder implements Queryable {
         return mIntegerQuery;
     }
 
-    public ListQueryHelper<MetricQueryBuilder, String, StringQuery<?>> whereStrings() {
+    public ListQueryHelper<MetricQueryBuilder, String> whereStrings() {
         if (hasStartedFetchingResults) {
             throw new IllegalStateException("Cannot modify query after fetching results");
         }
@@ -101,6 +112,9 @@ public class MetricQueryBuilder implements Queryable {
                 if (skipResults < 0) {
                     return m;
                 }
+            } else {
+                Log.d(LOG_TAG, "Found non-matching metric " + m);
+                mNonMatchingMetrics.add(m);
             }
         }
 
@@ -141,6 +155,22 @@ public class MetricQueryBuilder implements Queryable {
         }
 
         return null;
+    }
+
+    /**
+     * Get metrics which were received but didn't match the query.
+     */
+    public Set<EnterpriseMetricInfo> nonMatchingMetrics() {
+        return mNonMatchingMetrics;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mAdminPackageNameQuery)
+                && Queryable.isEmptyQuery(mTypeQuery)
+                && Queryable.isEmptyQuery(mBooleanQuery)
+                && Queryable.isEmptyQuery(mStringsQuery)
+                && Queryable.isEmptyQuery(mIntegerQuery);
     }
 
     private boolean matches(EnterpriseMetricInfo metric) {

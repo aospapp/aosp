@@ -68,6 +68,10 @@ class TestAdapter extends BaseAdapter {
         tests.get(position).mPassed = true;
     }
 
+    public void clearTestPass(int position) {
+        tests.get(position).mPassed = false;
+    }
+
     @Override
     public long getItemId(int position) {
         return position;

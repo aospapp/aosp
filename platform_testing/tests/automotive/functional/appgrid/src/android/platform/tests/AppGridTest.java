@@ -19,12 +19,11 @@ package android.platform.tests;
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
-import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoAppGridHelper;
+
 import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -37,10 +36,6 @@ public class AppGridTest {
         mAppGridHelper = new HelperAccessor<>(IAutoAppGridHelper.class);
     }
 
-    @BeforeClass
-    public static void exitSuw() {
-        AutoUtility.exitSuw();
-    }
 
     @Test
     public void testOpen() {
@@ -67,12 +62,13 @@ public class AppGridTest {
         // Re-enter app grid.
         mAppGridHelper.get().exit();
         mAppGridHelper.get().open();
-        assertTrue("Not on top of App Grid.", mAppGridHelper.get().isTop());
+
+        mAppGridHelper.get().scrollToBeginning();
         // Test scroll only when there are more than one page in app grid.
-        if (!mAppGridHelper.get().isBottom()) {
-            mAppGridHelper.get().scrollDownOnePage();
-            assertFalse("Scrolling did not work.", mAppGridHelper.get().isTop());
-            mAppGridHelper.get().scrollUpOnePage();
+        if (!mAppGridHelper.get().isAtEnd()) {
+            mAppGridHelper.get().scrollForward();
+            assertFalse("Scrolling did not work.", mAppGridHelper.get().isAtBeginning());
+            mAppGridHelper.get().scrollBackward();
         }
     }
 }

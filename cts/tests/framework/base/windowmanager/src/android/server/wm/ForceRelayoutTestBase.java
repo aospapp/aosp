@@ -28,6 +28,8 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 
 import android.app.Activity;
+import android.content.res.Resources;
+import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.os.Bundle;
 import android.view.View;
@@ -55,6 +57,7 @@ public class ForceRelayoutTestBase {
         assertNotNull("test setup failed", activity.mLastContentInsets);
         assumeFalse(Insets.NONE.equals(activity.mLastContentInsets.getInsetsIgnoringVisibility(
                 statusBars() | navigationBars())));
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
 
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             activity.mLayoutHappened = false;
@@ -112,5 +115,16 @@ public class ForceRelayoutTestBase {
             });
             setContentView(view);
         }
+    }
+
+    private static boolean remoteInsetsControllerControlsSystemBars() {
+        return InstrumentationRegistry.getInstrumentation().getTargetContext().getResources()
+                    .getBoolean(android.R.bool.config_remoteInsetsControllerControlsSystemBars);
+    }
+
+    private boolean isCar() {
+        PackageManager pm = InstrumentationRegistry.getInstrumentation().getContext()
+                              .getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
     }
 }

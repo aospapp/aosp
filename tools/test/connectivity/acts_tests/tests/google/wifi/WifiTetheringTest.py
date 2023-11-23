@@ -13,7 +13,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import logging
 import random
 import socket
 import time
@@ -35,6 +34,7 @@ from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 
 WAIT_TIME = 5
 
+
 class WifiTetheringTest(WifiBaseTest):
     """ Tests for Wifi Tethering """
 
@@ -45,8 +45,10 @@ class WifiTetheringTest(WifiBaseTest):
         self.tethered_devices = self.android_devices[1:]
         req_params = ("url", "open_network", "wifi6_models")
         self.unpack_userparams(req_params)
-        self.network = {"SSID": "hotspot_%s" % utils.rand_ascii_str(6),
-                        "password": "pass_%s" % utils.rand_ascii_str(6)}
+        self.network = {
+            "SSID": "hotspot_%s" % utils.rand_ascii_str(6),
+            "password": "pass_%s" % utils.rand_ascii_str(6)
+        }
         self.new_ssid = "hs_%s" % utils.rand_ascii_str(6)
 
         nutils.verify_lte_data_and_tethering_supported(self.hotspot_device)
@@ -95,11 +97,13 @@ class WifiTetheringTest(WifiBaseTest):
             False: if not
         """
         # Currently only Verizon support IPv6 tethering
-        carrier_supports_tethering = ["vzw", "tmo", "Far EasTone", "Chunghwa Telecom"]
+        carrier_supports_tethering = [
+            "vzw", "tmo", "Far EasTone", "Chunghwa Telecom"
+        ]
         operator = get_operator_name(self.log, dut)
         return operator in carrier_supports_tethering
 
-    def _carrier_supports_ipv6(self,dut):
+    def _carrier_supports_ipv6(self, dut):
         """ Verify if carrier supports ipv6
             Currently, only verizon and t-mobile supports IPv6
 
@@ -107,7 +111,9 @@ class WifiTetheringTest(WifiBaseTest):
             True: if carrier supports ipv6
             False: if not
         """
-        carrier_supports_ipv6 = ["vzw", "tmo", "Far EasTone", "Chunghwa Telecom"]
+        carrier_supports_ipv6 = [
+            "vzw", "tmo", "Far EasTone", "Chunghwa Telecom"
+        ]
         operator = get_operator_name(self.log, dut)
         self.log.info("Carrier is %s" % operator)
         return operator in carrier_supports_ipv6
@@ -119,8 +125,9 @@ class WifiTetheringTest(WifiBaseTest):
         active_link_addrs = dut.droid.connectivityGetAllAddressesOfActiveLink()
         if dut==self.hotspot_device and self._carrier_supports_ipv6(dut)\
             or self._supports_ipv6_tethering(self.hotspot_device):
-            asserts.assert_true(self._is_ipaddress_ipv6(http_response),
-                                "The http response did not return IPv6 address")
+            asserts.assert_true(
+                self._is_ipaddress_ipv6(http_response),
+                "The http response did not return IPv6 address")
             asserts.assert_true(
                 active_link_addrs and http_response in str(active_link_addrs),
                 "Could not find IPv6 address in link properties")
@@ -148,9 +155,9 @@ class WifiTetheringTest(WifiBaseTest):
         """ Randomly connect and disconnect devices from the
             self.tethered_devices list to hotspot device
         """
-        device_connected = [ False ] * len(self.tethered_devices)
+        device_connected = [False] * len(self.tethered_devices)
         for _ in range(50):
-            dut_id = random.randint(0, len(self.tethered_devices)-1)
+            dut_id = random.randint(0, len(self.tethered_devices) - 1)
             dut = self.tethered_devices[dut_id]
             # wait for 1 sec between connect & disconnect stress test
             time.sleep(1)
@@ -201,13 +208,13 @@ class WifiTetheringTest(WifiBaseTest):
         total_devices = num_android_devices + num_wifi_dongles
         device_connected = [False] * total_devices
         for _ in range(50):
-            dut_id = random.randint(0, total_devices-1)
+            dut_id = random.randint(0, total_devices - 1)
             wifi_state = device_connected[dut_id]
             if dut_id < num_android_devices:
-              self._connect_disconnect_android_device(dut_id, wifi_state)
+                self._connect_disconnect_android_device(dut_id, wifi_state)
             else:
-              self._connect_disconnect_wifi_dongle(dut_id-num_android_devices,
-                                                   wifi_state)
+                self._connect_disconnect_wifi_dongle(
+                    dut_id - num_android_devices, wifi_state)
             device_connected[dut_id] = not device_connected[dut_id]
 
     def _verify_ping(self, dut, ip, isIPv6=False):
@@ -252,10 +259,10 @@ class WifiTetheringTest(WifiBaseTest):
         remote_ip = wd.ip_address()
         port = 8888
 
-        time.sleep(6) # wait until UDP packets method is invoked
+        time.sleep(6)  # wait until UDP packets method is invoked
         socket = sutils.open_datagram_socket(ad, local_ip, port)
-        sutils.send_recv_data_datagram_sockets(
-            ad, ad, socket, socket, remote_ip, port)
+        sutils.send_recv_data_datagram_sockets(ad, ad, socket, socket,
+                                               remote_ip, port)
         sutils.close_datagram_socket(ad, socket)
 
     def _ping_hotspot_interfaces_from_tethered_device(self, dut):
@@ -274,8 +281,8 @@ class WifiTetheringTest(WifiBaseTest):
             iface_name = interface.split()[0].split(':')[1]
             if iface_name == "lo":
                 continue
-            ip_list = self._return_ip_for_interface(
-                self.hotspot_device, iface_name)
+            ip_list = self._return_ip_for_interface(self.hotspot_device,
+                                                    iface_name)
             for ip in ip_list:
                 ping_result = self._verify_ping(dut, ip)
                 self.log.info("Ping result: %s %s %s" %
@@ -294,8 +301,11 @@ class WifiTetheringTest(WifiBaseTest):
         asserts.assert_true(ad.droid.wifiSetWifiApConfiguration(config),
                             "Failed to set WifiAp Configuration")
         wifi_ap = ad.droid.wifiGetApConfiguration()
-        asserts.assert_true(wifi_ap[wutils.WifiEnums.SSID_KEY] == config[wutils.WifiEnums.SSID_KEY],
-                            "Configured wifi hotspot SSID does not match with the expected SSID")
+        asserts.assert_true(
+            wifi_ap[wutils.WifiEnums.SSID_KEY] == config[
+                wutils.WifiEnums.SSID_KEY],
+            "Configured wifi hotspot SSID does not match with the expected SSID"
+        )
 
     def _turn_on_wifi_hotspot(self, ad):
         """ Turn on wifi hotspot with a config that is already saved
@@ -307,8 +317,8 @@ class WifiTetheringTest(WifiBaseTest):
         ad.droid.connectivityStartTethering(tel_defines.TETHERING_WIFI, False)
         try:
             ad.ed.pop_event("ConnectivityManagerOnTetheringStarted")
-            ad.ed.wait_for_event("TetherStateChanged",
-                                  lambda x: x["data"]["ACTIVE_TETHER"], 30)
+            ad.ed.wait_for_event(
+                "TetherStateChanged", lambda x: x["data"]["ACTIVE_TETHER"], 30)
         except:
             asserts.fail("Didn't receive wifi tethering starting confirmation")
         ad.droid.wifiStopTrackingTetherStateChange()
@@ -363,15 +373,17 @@ class WifiTetheringTest(WifiBaseTest):
         self.hotspot_device.droid.telephonyToggleDataConnection(False)
         asserts.assert_equal(
             self.hotspot_device.droid.telephonyGetDataConnectionState(),
-            tel_defines.DATA_STATE_CONNECTED,
-            "Could not disable cell data")
+            tel_defines.DATA_STATE_CONNECTED, "Could not disable cell data")
 
-        time.sleep(WAIT_TIME) # wait until the IPv6 is removed from link properties
+        time.sleep(
+            WAIT_TIME)  # wait until the IPv6 is removed from link properties
 
-        result = self.tethered_devices[0].droid.connectivityHasIPv6DefaultRoute()
+        result = self.tethered_devices[
+            0].droid.connectivityHasIPv6DefaultRoute()
         self.hotspot_device.droid.telephonyToggleDataConnection(True)
         if result:
-            asserts.fail("Found IPv6 default route in link properties:Data off")
+            asserts.fail(
+                "Found IPv6 default route in link properties:Data off")
         self.log.info("Did not find IPv6 address in link properties")
 
         # Disable wifi tethering
@@ -389,8 +401,8 @@ class WifiTetheringTest(WifiBaseTest):
                         "No wifi dongles connected. Skipping test")
         wutils.toggle_wifi_off_and_on(self.hotspot_device)
         self._start_wifi_tethering(WIFI_CONFIG_APBAND_2G)
-        self._test_traffic_between_two_tethered_devices(self.tethered_devices[0],
-                                                        self.arduino_wifi_dongles[0])
+        self._test_traffic_between_two_tethered_devices(
+            self.tethered_devices[0], self.arduino_wifi_dongles[0])
         wutils.stop_wifi_tethering(self.hotspot_device)
 
     @test_tracker_info(uuid="953f6e2e-27bd-4b73-85a6-d2eaa4e755d5")
@@ -403,8 +415,8 @@ class WifiTetheringTest(WifiBaseTest):
         """
         wutils.toggle_wifi_off_and_on(self.hotspot_device)
         self._start_wifi_tethering(WIFI_CONFIG_APBAND_5G)
-        self._test_traffic_between_two_tethered_devices(self.tethered_devices[0],
-                                                        self.arduino_wifi_dongles[0])
+        self._test_traffic_between_two_tethered_devices(
+            self.tethered_devices[0], self.arduino_wifi_dongles[0])
         wutils.stop_wifi_tethering(self.hotspot_device)
 
     @test_tracker_info(uuid="d7d5aa51-682d-4882-a334-61966d93b68c")
@@ -446,8 +458,7 @@ class WifiTetheringTest(WifiBaseTest):
                                        self.network,
                                        check_connectivity=True)
         wutils.verify_11ax_softap(self.hotspot_device,
-                                  self.tethered_devices[0],
-                                  self.wifi6_models)
+                                  self.tethered_devices[0], self.wifi6_models)
 
     @test_tracker_info(uuid="17e450f4-795f-4e67-adab-984940dffedc")
     def test_wifi_tethering_wpapsk_network_5g(self):
@@ -462,8 +473,7 @@ class WifiTetheringTest(WifiBaseTest):
                                        self.network,
                                        check_connectivity=True)
         wutils.verify_11ax_softap(self.hotspot_device,
-                                  self.tethered_devices[0],
-                                  self.wifi6_models)
+                                  self.tethered_devices[0], self.wifi6_models)
 
     @test_tracker_info(uuid="2bc344cb-0277-4f06-b6cc-65b3972086ed")
     def test_change_wifi_hotspot_ssid_when_hotspot_enabled(self):
@@ -487,12 +497,12 @@ class WifiTetheringTest(WifiBaseTest):
             "Configured wifi hotspot SSID did not match with the expected SSID")
         wutils.connect_to_wifi_network(self.tethered_devices[0], self.network)
         wutils.verify_11ax_softap(self.hotspot_device,
-                                  self.tethered_devices[0],
-                                  self.wifi6_models)
+                                  self.tethered_devices[0], self.wifi6_models)
 
         # update the wifi ap configuration with new ssid
         config = {wutils.WifiEnums.SSID_KEY: self.new_ssid}
-        config[wutils.WifiEnums.PWD_KEY] = self.network[wutils.WifiEnums.PWD_KEY]
+        config[wutils.WifiEnums.PWD_KEY] = self.network[
+            wutils.WifiEnums.PWD_KEY]
         config[wutils.WifiEnums.AP_BAND_KEY] = WIFI_CONFIG_APBAND_2G
         self._save_wifi_softap_configuration(dut, config)
 
@@ -506,8 +516,7 @@ class WifiTetheringTest(WifiBaseTest):
                        self.network[wutils.WifiEnums.PWD_KEY]}
         wutils.connect_to_wifi_network(self.tethered_devices[0], new_network)
         wutils.verify_11ax_softap(self.hotspot_device,
-                                  self.tethered_devices[0],
-                                  self.wifi6_models)
+                                  self.tethered_devices[0], self.wifi6_models)
 
     @test_tracker_info(uuid="4cf7ab26-ca2d-46f6-9d3f-a935c7e04c97")
     def test_wifi_tethering_open_network_2g(self):
@@ -521,17 +530,14 @@ class WifiTetheringTest(WifiBaseTest):
         open_network = {
             wutils.WifiEnums.SSID_KEY: "hs_2g_%s" % utils.rand_ascii_str(6)
         }
-        wutils.start_wifi_tethering(
-            self.hotspot_device,
-            open_network[wutils.WifiEnums.SSID_KEY],
-            None,
-            WIFI_CONFIG_APBAND_2G)
+        wutils.start_wifi_tethering(self.hotspot_device,
+                                    open_network[wutils.WifiEnums.SSID_KEY],
+                                    None, WIFI_CONFIG_APBAND_2G)
         wutils.connect_to_wifi_network(self.tethered_devices[0],
                                        open_network,
                                        check_connectivity=True)
         wutils.verify_11ax_softap(self.hotspot_device,
-                                  self.tethered_devices[0],
-                                  self.wifi6_models)
+                                  self.tethered_devices[0], self.wifi6_models)
 
     @test_tracker_info(uuid="f407049b-1324-40ea-a8d1-f90587933310")
     def test_wifi_tethering_open_network_5g(self):
@@ -545,17 +551,14 @@ class WifiTetheringTest(WifiBaseTest):
         open_network = {
             wutils.WifiEnums.SSID_KEY: "hs_5g_%s" % utils.rand_ascii_str(6)
         }
-        wutils.start_wifi_tethering(
-            self.hotspot_device,
-            open_network[wutils.WifiEnums.SSID_KEY],
-            None,
-            WIFI_CONFIG_APBAND_5G)
+        wutils.start_wifi_tethering(self.hotspot_device,
+                                    open_network[wutils.WifiEnums.SSID_KEY],
+                                    None, WIFI_CONFIG_APBAND_5G)
         wutils.connect_to_wifi_network(self.tethered_devices[0],
                                        open_network,
                                        check_connectivity=True)
         wutils.verify_11ax_softap(self.hotspot_device,
-                                  self.tethered_devices[0],
-                                  self.wifi6_models)
+                                  self.tethered_devices[0], self.wifi6_models)
 
     @test_tracker_info(uuid="d964f2e6-0acb-417c-ada9-eb9fc5a470e4")
     def test_wifi_tethering_open_network_2g_stress(self):
@@ -569,17 +572,20 @@ class WifiTetheringTest(WifiBaseTest):
             5. Repeat steps 2 to 4
         """
         # save open network wifi ap configuration with 2G band
-        config = {wutils.WifiEnums.SSID_KEY:
-                  self.open_network[wutils.WifiEnums.SSID_KEY]}
+        config = {
+            wutils.WifiEnums.SSID_KEY:
+            self.open_network[wutils.WifiEnums.SSID_KEY]
+        }
         config[wutils.WifiEnums.AP_BAND_KEY] = WIFI_CONFIG_APBAND_2G
         self._save_wifi_softap_configuration(self.hotspot_device, config)
 
         # turn on/off wifi hotspot, connect device
         for _ in range(9):
             self._turn_on_wifi_hotspot(self.hotspot_device)
-            wutils.connect_to_wifi_network(self.tethered_devices[0], self.open_network)
+            wutils.connect_to_wifi_network(self.tethered_devices[0],
+                                           self.open_network)
             wutils.stop_wifi_tethering(self.hotspot_device)
-            time.sleep(1) # wait for some time before turning on hotspot
+            time.sleep(1)  # wait for some time before turning on hotspot
 
     @test_tracker_info(uuid="c7ef840c-4003-41fc-80e3-755f9057b542")
     def test_wifi_tethering_open_network_5g_stress(self):
@@ -593,14 +599,17 @@ class WifiTetheringTest(WifiBaseTest):
             5. Repeat steps 2 to 4
         """
         # save open network wifi ap configuration with 5G band
-        config = {wutils.WifiEnums.SSID_KEY:
-                  self.open_network[wutils.WifiEnums.SSID_KEY]}
+        config = {
+            wutils.WifiEnums.SSID_KEY:
+            self.open_network[wutils.WifiEnums.SSID_KEY]
+        }
         config[wutils.WifiEnums.AP_BAND_KEY] = WIFI_CONFIG_APBAND_5G
         self._save_wifi_softap_configuration(self.hotspot_device, config)
 
         # turn on/off wifi hotspot, connect device
         for _ in range(9):
             self._turn_on_wifi_hotspot(self.hotspot_device)
-            wutils.connect_to_wifi_network(self.tethered_devices[0], self.open_network)
+            wutils.connect_to_wifi_network(self.tethered_devices[0],
+                                           self.open_network)
             wutils.stop_wifi_tethering(self.hotspot_device)
-            time.sleep(1) # wait for some time before turning on hotspot
+            time.sleep(1)  # wait for some time before turning on hotspot

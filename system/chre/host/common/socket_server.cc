@@ -34,28 +34,6 @@ namespace chre {
 
 std::atomic<bool> SocketServer::sSignalReceived(false);
 
-namespace {
-
-void maskAllSignals() {
-  sigset_t signalMask;
-  sigfillset(&signalMask);
-  if (sigprocmask(SIG_SETMASK, &signalMask, NULL) != 0) {
-    LOG_ERROR("Couldn't mask all signals", errno);
-  }
-}
-
-void maskAllSignalsExceptIntAndTerm() {
-  sigset_t signalMask;
-  sigfillset(&signalMask);
-  sigdelset(&signalMask, SIGINT);
-  sigdelset(&signalMask, SIGTERM);
-  if (sigprocmask(SIG_SETMASK, &signalMask, NULL) != 0) {
-    LOG_ERROR("Couldn't mask all signals except INT/TERM", errno);
-  }
-}
-
-}  // anonymous namespace
-
 SocketServer::SocketServer() {
   // Initialize the socket fds field for all inactive client slots to -1, so
   // poll skips over it, and we don't attempt to send on it
@@ -259,18 +237,16 @@ void SocketServer::serviceSocket() {
   sigdelset(&signalMask, SIGINT);
   sigdelset(&signalMask, SIGTERM);
 
-  // Masking signals here ensure that after this point, we won't handle INT/TERM
-  // until after we call into ppoll()
-  maskAllSignals();
-  std::signal(SIGINT, signalHandler);
-  std::signal(SIGTERM, signalHandler);
-
   LOGI("Ready to accept connections");
   while (!sSignalReceived) {
-    int ret = TEMP_FAILURE_RETRY(
-        ppoll(mPollFds, 1 + kMaxActiveClients, nullptr, &signalMask));
-    maskAllSignalsExceptIntAndTerm();
+    int ret = ppoll(mPollFds, 1 + kMaxActiveClients, nullptr, &signalMask);
     if (ret == -1) {
+      // Don't use TEMP_FAILURE_RETRY since our logic needs to check
+      // sSignalReceived to see if it should exit where as TEMP_FAILURE_RETRY
+      // is a tight retry loop around ppoll.
+      if (errno == EINTR) {
+        continue;
+      }
       LOGI("Exiting poll loop: %s", strerror(errno));
       break;
     }
@@ -288,16 +264,7 @@ void SocketServer::serviceSocket() {
         handleClientData(mPollFds[i].fd);
       }
     }
-
-    // Mask all signals to ensure that sSignalReceived can't become true between
-    // checking it in the while condition and calling into ppoll()
-    maskAllSignals();
   }
-}
-
-void SocketServer::signalHandler(int signal) {
-  LOGD("Caught signal %d", signal);
-  sSignalReceived = true;
 }
 
 }  // namespace chre

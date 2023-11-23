@@ -15,8 +15,6 @@
 #   limitations under the License.
 
 import itertools
-import pprint
-import queue
 import time
 
 from acts_contrib.test_utils.net import ui_utils as uutils
@@ -45,6 +43,7 @@ EDIT_TEXT_CLASS_NAME = "android.widget.EditText"
 PASSWORD_TEXT = "Password"
 PASSPOINT_BUTTON = "Get Passpoint"
 
+
 class WifiPasspointLanguageTest(WifiBaseTest):
     """Tests for APIs in Android's WifiManager class.
 
@@ -56,20 +55,20 @@ class WifiPasspointLanguageTest(WifiBaseTest):
     BOINGO_UI_TEXT = {
         'CHT': "線上註冊",
         'FRA': "Inscription en ligne",
-        'US' : "Online Sign Up",
+        'US': "Online Sign Up",
         'SPA': "Registro online",
-        'ARA' : "الاشتراك على الإنترنت"
+        'ARA': "الاشتراك على الإنترنت"
     }
 
     def setup_class(self):
         super().setup_class()
         self.dut = self.android_devices[0]
         wutils.wifi_test_device_init(self.dut)
-        req_params = ["passpoint_networks",
-                      "boingo_username",
-                      "boingo_password",
-                      "osu_configs"]
-        self.unpack_userparams(req_param_names=req_params,)
+        req_params = [
+            "passpoint_networks", "boingo_username", "boingo_password",
+            "osu_configs"
+        ]
+        self.unpack_userparams(req_param_names=req_params, )
         asserts.assert_true(
             len(self.passpoint_networks) > 0,
             "Need at least one Passpoint network.")
@@ -93,7 +92,6 @@ class WifiPasspointLanguageTest(WifiBaseTest):
         wutils.reset_wifi(self.dut)
         self.language_change('US')
 
-
     """Helper Functions"""
 
     def install_passpoint_profile(self, passpoint_config):
@@ -103,9 +101,10 @@ class WifiPasspointLanguageTest(WifiBaseTest):
             passpoint_config: A JSON dict of the Passpoint configuration.
 
         """
-        asserts.assert_true(WifiEnums.SSID_KEY in passpoint_config,
-                "Key '%s' must be present in network definition." %
-                WifiEnums.SSID_KEY)
+        asserts.assert_true(
+            WifiEnums.SSID_KEY in passpoint_config,
+            "Key '%s' must be present in network definition." %
+            WifiEnums.SSID_KEY)
         # Install the Passpoint profile.
         self.dut.droid.addUpdatePasspointConfig(passpoint_config)
 
@@ -129,8 +128,8 @@ class WifiPasspointLanguageTest(WifiBaseTest):
         self.log.info("Network Info: %s" % network_info)
         if not network_info or not network_info[WifiEnums.SSID_KEY] or \
             network_info[WifiEnums.SSID_KEY] not in passpoint_network:
-              raise signals.TestFailure(
-                  "Device did not connect to passpoint network.")
+            raise signals.TestFailure(
+                "Device did not connect to passpoint network.")
 
     def get_configured_passpoint_and_delete(self):
         """Get configured Passpoint network and delete using its FQDN."""
@@ -139,8 +138,9 @@ class WifiPasspointLanguageTest(WifiBaseTest):
             raise signals.TestFailure("Failed to fetch the list of configured"
                                       "passpoint networks.")
         if not wutils.delete_passpoint(self.dut, passpoint_config[0]):
-            raise signals.TestFailure("Failed to delete Passpoint configuration"
-                                      " with FQDN = %s" % passpoint_config[0])
+            raise signals.TestFailure(
+                "Failed to delete Passpoint configuration"
+                " with FQDN = %s" % passpoint_config[0])
 
     def language_change(self, lang):
         """Run UI automator for boingo passpoint.
@@ -150,14 +150,15 @@ class WifiPasspointLanguageTest(WifiBaseTest):
 
         """
         langs = {
-          'CHT':"zh-TW",
-          'FRA':"fr-FR",
-          'US': "en-US",
-          'ARA': "ar-SA",
-          'SPA': "es-ES"
+            'CHT': "zh-TW",
+            'FRA': "fr-FR",
+            'US': "en-US",
+            'ARA': "ar-SA",
+            'SPA': "es-ES"
         }
         self.dut.ed.clear_all_events()
-        self.dut.adb.shell('settings put system system_locales %s ' % langs[lang])
+        self.dut.adb.shell('settings put system system_locales %s ' %
+                           langs[lang])
         self.dut.reboot()
         time.sleep(DEFAULT_TIMEOUT)
 
@@ -170,9 +171,8 @@ class WifiPasspointLanguageTest(WifiBaseTest):
         """
         # Verify the boingo login page shows
         langtext = self.BOINGO_UI_TEXT[lang]
-        asserts.assert_true(
-            uutils.has_element(self.dut, text=langtext),
-            "Failed to launch boingohotspot login page")
+        asserts.assert_true(uutils.has_element(self.dut, text=langtext),
+                            "Failed to launch boingohotspot login page")
         # Go to the bottom of the page
         for _ in range(3):
             self.dut.adb.shell("input swipe 300 900 300 300")
@@ -187,7 +187,8 @@ class WifiPasspointLanguageTest(WifiBaseTest):
                 time.sleep(2)
                 if index == 0:
                     #stop the ime launch
-                    self.dut.adb.shell("am force-stop com.google.android.inputmethod.latin")
+                    self.dut.adb.shell(
+                        "am force-stop com.google.android.inputmethod.latin")
                     self.dut.adb.shell("input text %s" % self.boingo_username)
                     index += 1
                 else:
@@ -195,7 +196,8 @@ class WifiPasspointLanguageTest(WifiBaseTest):
                     break
                 self.dut.adb.shell("input keyevent 111")
         self.dut.adb.shell("input keyevent 111")  # collapse keyboard
-        self.dut.adb.shell("input swipe 300 900 300 750")  # swipe up to show text
+        self.dut.adb.shell(
+            "input swipe 300 900 300 750")  # swipe up to show text
 
         # Login
         uutils.wait_and_click(self.dut, text=PASSPOINT_BUTTON)
@@ -209,10 +211,9 @@ class WifiPasspointLanguageTest(WifiBaseTest):
 
         """
         self.language_change(lang)
-        self.unpack_userparams(('osu_configs',))
+        self.unpack_userparams(('osu_configs', ))
         asserts.assert_true(
-            len(self.osu_configs) > 0,
-            "Need at least one osu config.")
+            len(self.osu_configs) > 0, "Need at least one osu config.")
         osu_config = self.osu_configs[OSU_BOINGO]
         # Clear all previous events.
         self.dut.ed.clear_all_events()
@@ -227,13 +228,11 @@ class WifiPasspointLanguageTest(WifiBaseTest):
             if dut_event['data']['tag'] == 'failure':
                 raise signals.TestFailure(
                     "Passpoint Provisioning is failed with %s" %
-                    dut_event['data'][
-                        'reason'])
+                    dut_event['data']['reason'])
                 break
             if dut_event['data']['tag'] == 'status':
-                self.log.info(
-                    "Passpoint Provisioning status %s" % dut_event['data'][
-                        'status'])
+                self.log.info("Passpoint Provisioning status %s" %
+                              dut_event['data']['status'])
                 if int(dut_event['data']['status']) == 7:
                     time.sleep(DEFAULT_TIMEOUT)
                     self.ui_automator_boingo(lang)
@@ -243,11 +242,11 @@ class WifiPasspointLanguageTest(WifiBaseTest):
         # Verify device connects to the Passpoint network.
         time.sleep(DEFAULT_TIMEOUT)
         current_passpoint = self.dut.droid.wifiGetConnectionInfo()
-        if current_passpoint[WifiEnums.SSID_KEY] not in osu_config[
-            "expected_ssids"]:
+        if current_passpoint[
+                WifiEnums.SSID_KEY] not in osu_config["expected_ssids"]:
             raise signals.TestFailure("Device did not connect to the %s"
-                                      " passpoint network" % osu_config[
-                                          "expected_ssids"])
+                                      " passpoint network" %
+                                      osu_config["expected_ssids"])
         self.get_configured_passpoint_and_delete()
         wutils.wait_for_disconnect(self.dut, timeout=15)
 

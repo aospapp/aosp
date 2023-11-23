@@ -206,21 +206,21 @@ class AidegenConfigUnittests(unittest.TestCase):
         """Test deprecated_intellij_version."""
         # Test the idea.sh file contains the deprecated string.
         cfg = config.AidegenConfig()
-        expacted_data = ('#!/bin/sh\n\n'
+        expected_data = ('#!/bin/sh\n\n'
                          'SUMMARY="This version of IntelliJ Community Edition '
                          'is no longer supported."\n')
         mock_open.side_effect = [
-            mock.mock_open(read_data=expacted_data).return_value
+            mock.mock_open(read_data=expected_data).return_value
         ]
         mock_isfile.return_value = True
         self.assertTrue(cfg.deprecated_intellij_version(0))
 
-        # Test the idea.sh file doesn't contains the deprecated string.
-        expacted_data = ('#!/bin/sh\n\n'
+        # Test the idea.sh file doesn't contain the deprecated string.
+        expected_data = ('#!/bin/sh\n\n'
                          'JAVA_BIN="$JDK/bin/java"\n'
                          '"$JAVA_BIN" \\n')
         mock_open.side_effect = [
-            mock.mock_open(read_data=expacted_data).return_value
+            mock.mock_open(read_data=expected_data).return_value
         ]
         self.assertFalse(cfg.deprecated_intellij_version(0))
 
@@ -368,7 +368,7 @@ class IdeaPropertiesUnittests(unittest.TestCase):
         cfg._reset_max_file_size()
         generated_file = os.path.join(IdeaPropertiesUnittests._CONFIG_DIR,
                                       cfg._PROPERTIES_FILE)
-        with open(generated_file) as properties_file:
+        with open(generated_file, 'r', encoding='utf-8') as properties_file:
             generated_content = properties_file.read()
         self.assertEqual(expected_data, generated_content)
 

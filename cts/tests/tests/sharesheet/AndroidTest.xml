@@ -21,6 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <option name="not-shardable" value="true" />
     
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -29,6 +30,7 @@
         <option name="test-file-name" value="CtsSharesheetActivityLabelTester.apk" />
         <option name="test-file-name" value="CtsSharesheetIntentFilterLabelTester.apk" />
         <option name="test-file-name" value="CtsSharesheetExcludeTester.apk" />
+        <option name="test-file-name" value="CtsSharesheetAlternateType.apk" />
     </target_preparer>
     
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

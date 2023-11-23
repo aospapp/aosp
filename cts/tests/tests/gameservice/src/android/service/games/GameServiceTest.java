@@ -21,6 +21,7 @@ import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentat
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
@@ -60,6 +61,7 @@ import android.view.WindowManager;
 import android.view.WindowMetrics;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.FlakyTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
@@ -88,6 +90,7 @@ import java.util.regex.Pattern;
 /**
  * CTS tests for {@link android.service.games.GameService}.
  */
+@FlakyTest(bugId = 263181277)
 @RunWith(AndroidJUnit4.class)
 public final class GameServiceTest {
     static final String TAG = "GameServiceTest";
@@ -450,6 +453,21 @@ public final class GameServiceTest {
         assertThat(result.getGameSessionPackageName()).isEqualTo(GAME_PACKAGE_NAME);
         assertThat(result.getFailure().getClazz()).isEqualTo(ActivityNotFoundException.class);
     }
+    @Test
+    public void restartGame_noPermission() throws Exception {
+        assumeGameServiceFeaturePresent();
+        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        clearCache(RESTART_GAME_VERIFIER_PACKAGE_NAME);
+        RestartGameVerifierPage.launch();
+
+        RestartGameVerifierPage.assertTimesStarted(1);
+        RestartGameVerifierPage.assertHasSavedInstanceState(false);
+
+        getTestService().restartFocusedGameSession();
+
+        RestartGameVerifierPage.assertTimesStarted(1);
+        RestartGameVerifierPage.assertHasSavedInstanceState(false);
+    }
 
     @Test
     public void restartGame_gameAppIsRestarted() throws Exception {
@@ -599,6 +617,16 @@ public final class GameServiceTest {
                     }
                 },
                 "Timed out waiting for game session to be re-created.");
+    }
+
+    @Test
+    public void takeScreenshot_noPermission() throws Exception {
+        assumeGameServiceFeaturePresent();
+        launchAndWaitForPackage(TAKE_SCREENSHOT_VERIFIER_PACKAGE_NAME);
+        waitForTouchableOverlayBounds();
+        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        final boolean ret = getTestService().takeScreenshotForFocusedGameSession();
+        assertFalse(ret);
     }
 
     @Test
@@ -784,7 +812,7 @@ public final class GameServiceTest {
     }
 
     private void waitForGameServiceConnected() {
-        PollingCheck.waitFor(TimeUnit.SECONDS.toMillis(20), () -> isGameServiceConnected(),
+        PollingCheck.waitFor(TimeUnit.SECONDS.toMillis(40), () -> isGameServiceConnected(),
                 "Timed out waiting for game service to connect");
     }
 

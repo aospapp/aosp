@@ -185,9 +185,7 @@ ssize_t __android_log_pmsg_file_read(log_id_t logId, char prio, const char* pref
   struct logger_list logger_list = {
       .mode = static_cast<int>(ANDROID_LOG_PSTORE | ANDROID_LOG_NONBLOCK),
       .log_mask = (unsigned)-1};
-  if (logId != LOG_ID_ANY) {
-    logger_list.log_mask = (1 << logId);
-  }
+  logger_list.log_mask = (1 << logId);
   logger_list.log_mask &= ~((1 << LOG_ID_KERNEL) | (1 << LOG_ID_EVENTS) | (1 << LOG_ID_SECURITY));
   if (!logger_list.log_mask) {
     return -EINVAL;

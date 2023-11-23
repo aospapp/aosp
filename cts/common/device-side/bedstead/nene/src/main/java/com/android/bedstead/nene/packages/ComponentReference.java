@@ -17,6 +17,7 @@
 package com.android.bedstead.nene.packages;
 
 import android.content.ComponentName;
+import android.text.TextUtils;
 
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.annotations.Experimental;
@@ -24,6 +25,8 @@ import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.utils.ShellCommand;
+
+import java.util.Objects;
 
 /**
  * A representation of a component on device which may or may not exist.
@@ -33,6 +36,19 @@ public class ComponentReference {
 
     final Package mPackage;
     final String mClassName;
+
+    private static final String CONFIG_KEY_RESOLVER_ACTIVITY = "config_customResolverActivity";
+    private static final String DEFAULT_STRING_TYPE = "string";
+    private static final String DEFAULT_PACKAGE_ANDROID = "android";
+    private static final ComponentReference DEFAULT_RESOLVER_ACTIVITY =
+            new ComponentReference(TestApis.packages().find(DEFAULT_PACKAGE_ANDROID),
+                    "com.android.internal.app.ResolverActivity");
+
+    /** See {@link ComponentName#unflattenFromString(String)}. */
+    public static ComponentReference unflattenFromString(String string) {
+        return new ComponentReference(
+                Objects.requireNonNull(ComponentName.unflattenFromString(string)));
+    }
 
     public ComponentReference(Package packageName, String className) {
         mPackage = packageName;
@@ -80,6 +96,13 @@ public class ComponentReference {
     }
 
     /**
+     * See {@link ComponentName#flattenToString()}.
+     */
+    public String flattenToString() {
+        return componentName().flattenToString();
+    }
+
+    /**
      * Enable this component for the instrumented user.
      */
     public ComponentReference enable() {
@@ -106,6 +129,25 @@ public class ComponentReference {
      */
     public ComponentReference disable() {
         return disable(TestApis.users().instrumented());
+    }
+
+    /**
+     * Checks if the activity is a {@link com.android.internal.app.ResolverActivity}
+     */
+    public boolean isResolver() {
+        return equals(getResolverActivity());
+    }
+
+    private ComponentReference getResolverActivity() {
+        String resolverActivity = TestApis.resources().system().getString(
+                /* name= */ CONFIG_KEY_RESOLVER_ACTIVITY,
+                /* defType= */ DEFAULT_STRING_TYPE,
+                /* defPackage= */ DEFAULT_PACKAGE_ANDROID);
+        if (TextUtils.isEmpty(resolverActivity)) {
+            return DEFAULT_RESOLVER_ACTIVITY;
+        }
+
+        return ComponentReference.unflattenFromString(resolverActivity);
     }
 
     @Override

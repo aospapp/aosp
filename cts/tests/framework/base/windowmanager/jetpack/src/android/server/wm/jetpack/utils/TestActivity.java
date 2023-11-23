@@ -19,6 +19,7 @@ package android.server.wm.jetpack.utils;
 import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.getActivityBounds;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Bundle;
@@ -44,7 +45,7 @@ public class TestActivity extends Activity implements View.OnLayoutChangeListene
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        final View contentView = new View(this);
+        final View contentView = new TestContentViewForConfigurationChange(this);
         mRootViewId = View.generateViewId();
         contentView.setId(mRootViewId);
         setContentView(contentView);
@@ -72,17 +73,6 @@ public class TestActivity extends Activity implements View.OnLayoutChangeListene
     protected void onResume() {
         super.onResume();
         sResumeLatch.countDown();
-    }
-
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-        super.onConfigurationChanged(newConfig);
-
-        final Rect newActivityBounds = getActivityBounds(this);
-        if (!newActivityBounds.equals(mPreviousBounds)) {
-            mPreviousBounds.set(newActivityBounds);
-            mBoundsChangeLatch.countDown();
-        }
     }
 
     /**
@@ -149,6 +139,26 @@ public class TestActivity extends Activity implements View.OnLayoutChangeListene
             return sResumeLatch.await(3, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             return false;
+        }
+    }
+
+    /**
+     * Sometimes activity configuration change does not trigger when embedding status change, need
+     * to use View's instead.
+     */
+    class TestContentViewForConfigurationChange extends View {
+        public TestContentViewForConfigurationChange(Context context) {
+            super(context);
+        }
+
+        @Override
+        protected void onConfigurationChanged(Configuration newConfig) {
+            super.onConfigurationChanged(newConfig);
+            final Rect newActivityBounds = getActivityBounds(TestActivity.this);
+            if (!newActivityBounds.equals(mPreviousBounds)) {
+                mPreviousBounds.set(newActivityBounds);
+                mBoundsChangeLatch.countDown();
+            }
         }
     }
 }

@@ -150,4 +150,11 @@ class TestUtil {
         }
         return false;
     }
+
+    // Returns true if the device supports secure lock screen.
+    static boolean isLockScreenSupported() {
+        Context appContext = InstrumentationRegistry.getTargetContext();
+        PackageManager pm = appContext.getPackageManager();
+        return pm.hasSystemFeature(PackageManager.FEATURE_SECURE_LOCK_SCREEN);
+    }
 }

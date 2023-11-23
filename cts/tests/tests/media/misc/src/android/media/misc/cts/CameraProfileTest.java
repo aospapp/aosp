@@ -19,13 +19,12 @@ package android.media.misc.cts;
 
 import android.hardware.Camera;
 import android.media.CameraProfile;
-import android.media.cts.NonMediaMainlineTest;
 import android.test.AndroidTestCase;
 import android.util.Log;
 
-import java.util.List;
+import com.android.compatibility.common.util.NonMainlineTest;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class CameraProfileTest extends AndroidTestCase {
 
     private static final String TAG = "CameraProfileTest";

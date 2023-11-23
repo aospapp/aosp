@@ -357,7 +357,7 @@ public class InlineAugmentedLoginActivityTest
     @AppModeFull(reason = "WRITE_SECURE_SETTING permission can't be grant to instant apps")
     public void testSwitchInputMethod_mainServiceDisabled() throws Exception {
         // Set services
-        Helper.disableAutofillService(sContext);
+        Helper.disableAutofillService();
         enableAugmentedService();
 
         // Set expectations

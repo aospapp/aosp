@@ -36,7 +36,9 @@
 #include "optimizing_unit_test.h"
 #include "scoped_thread_state_change.h"
 
-namespace art {
+namespace art HIDDEN {
+
+static constexpr bool kDebugLseTests = false;
 
 #define CHECK_SUBROUTINE_FAILURE() \
   do {                             \
@@ -54,12 +56,16 @@ class LoadStoreEliminationTestBase : public SuperTest, public OptimizingUnitTest
 
   void SetUp() override {
     SuperTest::SetUp();
-    gLogVerbosity.compiler = true;
+    if (kDebugLseTests) {
+      gLogVerbosity.compiler = true;
+    }
   }
 
   void TearDown() override {
     SuperTest::TearDown();
-    gLogVerbosity.compiler = false;
+    if (kDebugLseTests) {
+      gLogVerbosity.compiler = false;
+    }
   }
 
   void PerformLSE(bool with_partial = true) {
@@ -67,15 +73,40 @@ class LoadStoreEliminationTestBase : public SuperTest, public OptimizingUnitTest
     LoadStoreElimination lse(graph_, /*stats=*/nullptr);
     lse.Run(with_partial);
     std::ostringstream oss;
-    EXPECT_TRUE(CheckGraphSkipRefTypeInfoChecks(oss)) << oss.str();
+    EXPECT_TRUE(CheckGraph(oss)) << oss.str();
   }
 
-  void PerformLSEWithPartial() {
-    PerformLSE(true);
+  void PerformLSEWithPartial(const AdjacencyListGraph& blks) {
+    // PerformLSE expects this to be empty.
+    graph_->ClearDominanceInformation();
+    if (kDebugLseTests) {
+      LOG(INFO) << "Pre LSE " << blks;
+    }
+    PerformLSE(/*with_partial=*/ true);
+    if (kDebugLseTests) {
+      LOG(INFO) << "Post LSE " << blks;
+    }
   }
 
-  void PerformLSENoPartial() {
-    PerformLSE(false);
+  void PerformLSENoPartial(const AdjacencyListGraph& blks) {
+    // PerformLSE expects this to be empty.
+    graph_->ClearDominanceInformation();
+    if (kDebugLseTests) {
+      LOG(INFO) << "Pre LSE " << blks;
+    }
+    PerformLSE(/*with_partial=*/ false);
+    if (kDebugLseTests) {
+      LOG(INFO) << "Post LSE " << blks;
+    }
+  }
+
+  void PerformSimplifications(const AdjacencyListGraph& blks) {
+    InstructionSimplifier simp(graph_, /*codegen=*/nullptr);
+    simp.Run();
+
+    if (kDebugLseTests) {
+      LOG(INFO) << "Post simplification " << blks;
+    }
   }
 
   // Create instructions shared among tests.
@@ -542,6 +573,7 @@ TEST_F(LoadStoreEliminationTest, SameHeapValue2) {
   AddVecStore(entry_block_, array_, j_);
   HInstruction* vstore = AddVecStore(entry_block_, array_, i_);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vstore));
@@ -557,6 +589,7 @@ TEST_F(LoadStoreEliminationTest, SameHeapValue3) {
   AddVecStore(entry_block_, array_, i_add1_);
   HInstruction* vstore = AddVecStore(entry_block_, array_, i_);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vstore));
@@ -601,6 +634,7 @@ TEST_F(LoadStoreEliminationTest, OverlappingLoadStore) {
   AddArraySet(entry_block_, array_, i_, c1);
   HInstruction* vload5 = AddVecLoad(entry_block_, array_, i_);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_TRUE(IsRemoved(load1));
@@ -634,6 +668,7 @@ TEST_F(LoadStoreEliminationTest, StoreAfterLoopWithoutSideEffects) {
   // a[j] = 1;
   HInstruction* array_set = AddArraySet(return_block_, array_, j_, c1);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_TRUE(IsRemoved(array_set));
@@ -671,6 +706,7 @@ TEST_F(LoadStoreEliminationTest, StoreAfterSIMDLoopWithSideEffects) {
   // a[j] = 0;
   HInstruction* a_set = AddArraySet(return_block_, array_, j_, c0);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_TRUE(IsRemoved(vload));
@@ -709,6 +745,7 @@ TEST_F(LoadStoreEliminationTest, LoadAfterSIMDLoopWithSideEffects) {
   // x = a[j];
   HInstruction* load = AddArrayGet(return_block_, array_, j_);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_TRUE(IsRemoved(vload));
@@ -749,6 +786,7 @@ TEST_F(LoadStoreEliminationTest, MergePredecessorVecStores) {
   // down: a[i,... i + 3] = [1,...1]
   HInstruction* vstore4 = AddVecStore(down, array_, i_, vdata);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_TRUE(IsRemoved(vstore2));
@@ -839,6 +877,7 @@ TEST_F(LoadStoreEliminationTest, RedundantVStoreVLoadInLoop) {
   HInstruction* vstore2 = AddVecStore(loop_, array_b, phi_, vload->AsVecLoad());
   HInstruction* vstore3 = AddVecStore(loop_, array_a, phi_, vstore1->InputAt(2));
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vstore1));
@@ -894,7 +933,7 @@ TEST_F(LoadStoreEliminationTest, StoreAfterLoopWithSideEffects2) {
   // loop:
   //   array2[i] = array[i]
   // array[0] = 2
-  HInstruction* store1 = AddArraySet(entry_block_, array_, c0, c2);
+  HInstruction* store1 = AddArraySet(pre_header_, array_, c0, c2);
 
   HInstruction* load = AddArrayGet(loop_, array_, phi_);
   HInstruction* store2 = AddArraySet(loop_, array2, phi_, load);
@@ -926,6 +965,7 @@ TEST_F(LoadStoreEliminationTest, VLoadDefaultValueInLoopWithoutWriteSideEffects)
   HInstruction* vload = AddVecLoad(loop_, array_a, phi_);
   HInstruction* vstore = AddVecStore(return_block_, array_, c0, vload->AsVecLoad());
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vload));
@@ -949,6 +989,7 @@ TEST_F(LoadStoreEliminationTest, VLoadDefaultValue) {
   HInstruction* vload = AddVecLoad(pre_header_, array_a, c0);
   HInstruction* vstore = AddVecStore(return_block_, array_, c0, vload->AsVecLoad());
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vload));
@@ -1025,6 +1066,7 @@ TEST_F(LoadStoreEliminationTest, VLoadAndLoadDefaultValueInLoopWithoutWriteSideE
   HInstruction* vstore = AddVecStore(return_block_, array_, c0, vload->AsVecLoad());
   HInstruction* store = AddArraySet(return_block_, array_, c0, load);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vload));
@@ -1055,6 +1097,7 @@ TEST_F(LoadStoreEliminationTest, VLoadAndLoadDefaultValue) {
   HInstruction* vstore = AddVecStore(return_block_, array_, c0, vload->AsVecLoad());
   HInstruction* store = AddArraySet(return_block_, array_, c0, load);
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vload));
@@ -1086,6 +1129,7 @@ TEST_F(LoadStoreEliminationTest, VLoadDefaultValueAndVLoadInLoopWithoutWriteSide
   HInstruction* vstore1 = AddVecStore(return_block_, array_, c0, vload1->AsVecLoad());
   HInstruction* vstore2 = AddVecStore(return_block_, array_, c128, vload2->AsVecLoad());
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vload1));
@@ -1116,6 +1160,7 @@ TEST_F(LoadStoreEliminationTest, VLoadDefaultValueAndVLoad) {
   HInstruction* vstore1 = AddVecStore(return_block_, array_, c0, vload1->AsVecLoad());
   HInstruction* vstore2 = AddVecStore(return_block_, array_, c128, vload2->AsVecLoad());
 
+  graph_->SetHasSIMD(true);
   PerformLSE();
 
   ASSERT_FALSE(IsRemoved(vload1));
@@ -2024,10 +2069,7 @@ TEST_F(LoadStoreEliminationTest, PartialUnknownMerge) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSENoPartial();
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_RETAINED(read_bottom);
   EXPECT_INS_RETAINED(write_c1);
@@ -2174,9 +2216,8 @@ TEST_F(LoadStoreEliminationTest, PartialLoadPreserved) {
   HInstruction* return_exit = new (GetAllocator()) HReturn(read_bottom);
   exit->AddInstruction(read_bottom);
   exit->AddInstruction(return_exit);
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  PerformLSENoPartial();
+
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_RETAINED(read_bottom) << *read_bottom;
   EXPECT_INS_RETAINED(write_right) << *write_right;
@@ -2266,9 +2307,8 @@ TEST_F(LoadStoreEliminationTest, PartialLoadPreserved2) {
   HInstruction* return_exit = new (GetAllocator()) HReturn(read_bottom);
   exit->AddInstruction(read_bottom);
   exit->AddInstruction(return_exit);
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  PerformLSENoPartial();
+
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_RETAINED(read_bottom);
   EXPECT_INS_RETAINED(write_right_first);
@@ -2499,11 +2539,7 @@ TEST_F(LoadStoreEliminationTest, PartialPhiPropagation) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_);
@@ -2656,11 +2692,7 @@ TEST_P(OrderDependentTestGroup, PredicatedUse) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_RETAINED(call_left_left);
   EXPECT_INS_REMOVED(read1);
@@ -2814,11 +2846,7 @@ TEST_P(OrderDependentTestGroup, PredicatedEnvUse) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HNewInstance* moved_new_inst1;
   HInstanceFieldSet* moved_set1;
@@ -2954,11 +2982,7 @@ TEST_P(OrderDependentTestGroup, FieldSetOrderEnv) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(write_entry1);
   EXPECT_INS_REMOVED(write_entry2);
@@ -3115,11 +3139,7 @@ TEST_P(OrderDependentTestGroup, MaterializationMovedUse) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(new_inst1);
   EXPECT_INS_REMOVED(new_inst2);
@@ -3205,11 +3225,7 @@ TEST_F(LoadStoreEliminationTest, MovePredicatedAlloc) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HNewInstance* moved_new_inst = nullptr;
   HInstanceFieldSet* moved_set = nullptr;
@@ -3320,11 +3336,7 @@ TEST_F(LoadStoreEliminationTest, MutiPartialLoadStore) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HNewInstance* moved_new_inst = nullptr;
   HInstanceFieldSet* moved_set = nullptr;
@@ -3497,11 +3509,7 @@ TEST_F(LoadStoreEliminationTest, MutiPartialLoadStore2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HNewInstance* moved_new_inst = nullptr;
   HInstanceFieldSet* moved_set = nullptr;
@@ -3639,11 +3647,7 @@ TEST_F(LoadStoreEliminationTest, MovePredicatedAlloc2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HNewInstance* moved_new_inst;
   HInstanceFieldSet* moved_set;
@@ -3746,11 +3750,7 @@ TEST_F(LoadStoreEliminationTest, MovePredicatedAlloc3) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   // Each escaping switch path gets its own materialization block.
   // Blocks:
@@ -3877,11 +3877,7 @@ TEST_F(LoadStoreEliminationTest, MovePredicatedAlloc4) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_early);
   EXPECT_EQ(return_early->InputAt(0), c0);
@@ -4013,11 +4009,7 @@ TEST_F(LoadStoreEliminationTest, MovePredicatedAlloc5) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   // Normal LSE can get rid of these two.
   EXPECT_INS_REMOVED(store_one);
@@ -4504,9 +4496,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoadPreserved3) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  PerformLSENoPartial();
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_RETAINED(write_left_pre) << *write_left_pre;
   EXPECT_INS_RETAINED(read_return) << *read_return;
@@ -4612,9 +4602,7 @@ TEST_F(LoadStoreEliminationTest, DISABLED_PartialLoadPreserved4) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  PerformLSENoPartial();
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_RETAINED(read_return);
   EXPECT_INS_RETAINED(write_right);
@@ -4700,9 +4688,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoadPreserved5) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  PerformLSENoPartial();
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_RETAINED(read_bottom);
   EXPECT_INS_RETAINED(write_right);
@@ -4785,12 +4771,7 @@ TEST_F(LoadStoreEliminationTest, DISABLED_PartialLoadPreserved6) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSENoPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSENoPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_REMOVED(write_right);
@@ -4829,8 +4810,9 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonBeforeCohort) {
   CreateGraph(/*handles=*/&vshs);
   AdjacencyListGraph blks(SetupFromAdjacencyList("entry",
                                                  "exit",
-                                                 {{"entry", "critical_break"},
-                                                  {"entry", "partial"},
+                                                 {{"entry", "first_block"},
+                                                  {"first_block", "critical_break"},
+                                                  {"first_block", "partial"},
                                                   {"partial", "merge"},
                                                   {"critical_break", "merge"},
                                                   {"merge", "left"},
@@ -4839,7 +4821,7 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonBeforeCohort) {
                                                   {"right", "breturn"},
                                                   {"breturn", "exit"}}));
 #define GET_BLOCK(name) HBasicBlock* name = blks.Get(#name)
-  GET_BLOCK(entry);
+  GET_BLOCK(first_block);
   GET_BLOCK(merge);
   GET_BLOCK(partial);
   GET_BLOCK(critical_break);
@@ -4858,12 +4840,12 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonBeforeCohort) {
   HInstruction* write_entry = MakeIFieldSet(new_inst, c3, MemberOffset(32));
   ComparisonInstructions cmp_instructions = GetComparisonInstructions(new_inst);
   HInstruction* if_inst = new (GetAllocator()) HIf(cmp_instructions.cmp_);
-  entry->AddInstruction(cls);
-  entry->AddInstruction(new_inst);
-  entry->AddInstruction(write_entry);
-  cmp_instructions.AddSetup(entry);
-  entry->AddInstruction(cmp_instructions.cmp_);
-  entry->AddInstruction(if_inst);
+  first_block->AddInstruction(cls);
+  first_block->AddInstruction(new_inst);
+  first_block->AddInstruction(write_entry);
+  cmp_instructions.AddSetup(first_block);
+  first_block->AddInstruction(cmp_instructions.cmp_);
+  first_block->AddInstruction(if_inst);
   ManuallyBuildEnvFor(cls, {});
   cmp_instructions.AddEnvironment(cls->GetEnvironment());
   new_inst->CopyEnvironmentFrom(cls->GetEnvironment());
@@ -4897,12 +4879,7 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonBeforeCohort) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   std::vector<HPhi*> merges;
   HPredicatedInstanceFieldGet* pred_get;
@@ -5026,11 +5003,7 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonInCohortBeforeEscape) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   std::vector<HPhi*> merges;
   HInstanceFieldSet* init_set =
@@ -5157,11 +5130,7 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonAfterCohort) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   std::vector<HPhi*> merges;
   HInstanceFieldSet* init_set =
@@ -5290,12 +5259,7 @@ TEST_P(PartialComparisonTestGroup, PartialComparisonInCohortAfterEscape) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   std::vector<HPhi*> merges;
   std::vector<HInstanceFieldSet*> sets;
@@ -5424,12 +5388,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedStore1) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_RETAINED(write_bottom);
   EXPECT_TRUE(write_bottom->AsInstanceFieldSet()->GetIsPredicatedSet());
@@ -5539,11 +5498,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedStore2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_RETAINED(write_bottom);
   EXPECT_TRUE(write_bottom->AsInstanceFieldSet()->GetIsPredicatedSet()) << *write_bottom;
@@ -5627,11 +5582,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedLoad1) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_REMOVED(write_right);
@@ -5748,11 +5699,7 @@ TEST_F(LoadStoreEliminationTest, MultiPredicatedLoad1) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom1);
   EXPECT_INS_REMOVED(read_bottom2);
@@ -5901,11 +5848,7 @@ TEST_F(LoadStoreEliminationTest, MultiPredicatedLoad2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom1);
   EXPECT_INS_REMOVED(read_bottom2);
@@ -6078,11 +6021,7 @@ TEST_F(LoadStoreEliminationTest, MultiPredicatedLoad3) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(early_exit_left_read);
   EXPECT_INS_REMOVED(early_exit_right_read);
@@ -6212,11 +6151,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedLoad4) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_REMOVED(read_right);
@@ -6334,11 +6269,7 @@ TEST_F(LoadStoreEliminationTest, MultiPredicatedLoad4) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_REMOVED(read_early_return);
@@ -6447,11 +6378,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedLoad2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_REMOVED(write_right);
@@ -6585,11 +6512,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedLoad3) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_REMOVED(write_right);
@@ -6688,11 +6611,7 @@ TEST_F(LoadStoreEliminationTest, PredicatedLoadDefaultValue) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_REMOVED(read_bottom);
   EXPECT_INS_RETAINED(write_left);
@@ -6861,11 +6780,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoopPhis1) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_, breturn);
@@ -7045,11 +6960,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoopPhis2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_, breturn);
@@ -7196,11 +7107,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoopPhis3) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_, breturn);
@@ -7344,11 +7251,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoopPhis4) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_, breturn);
@@ -7492,11 +7395,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoopPhis5) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_, breturn);
@@ -7657,11 +7556,7 @@ TEST_F(LoadStoreEliminationTest, PartialLoopPhis6) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSEWithPartial();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   HPredicatedInstanceFieldGet* pred_get =
       FindSingleInstruction<HPredicatedInstanceFieldGet>(graph_, breturn);
@@ -7757,17 +7652,10 @@ TEST_F(LoadStoreEliminationTest, SimplifyTest) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
+  PerformLSEWithPartial(blks);
 
   // Run the code-simplifier too
-  LOG(INFO) << "Pre simplification " << blks;
-  InstructionSimplifier simp(graph_, /*codegen=*/nullptr);
-  simp.Run();
-
-  LOG(INFO) << "Post LSE " << blks;
+  PerformSimplifications(blks);
 
   EXPECT_INS_REMOVED(write_right);
   EXPECT_INS_REMOVED(write_start);
@@ -7851,17 +7739,10 @@ TEST_F(LoadStoreEliminationTest, SimplifyTest2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
+  PerformLSEWithPartial(blks);
 
   // Run the code-simplifier too
-  LOG(INFO) << "Pre simplification " << blks;
-  InstructionSimplifier simp(graph_, /*codegen=*/nullptr);
-  simp.Run();
-
-  LOG(INFO) << "Post LSE " << blks;
+  PerformSimplifications(blks);
 
   EXPECT_INS_REMOVED(write_right);
   EXPECT_INS_REMOVED(write_start);
@@ -7961,17 +7842,10 @@ TEST_F(LoadStoreEliminationTest, SimplifyTest3) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
+  PerformLSEWithPartial(blks);
 
   // Run the code-simplifier too
-  LOG(INFO) << "Pre simplification " << blks;
-  InstructionSimplifier simp(graph_, /*codegen=*/nullptr);
-  simp.Run();
-
-  LOG(INFO) << "Post LSE " << blks;
+  PerformSimplifications(blks);
 
   EXPECT_INS_REMOVED(write_case2);
   EXPECT_INS_REMOVED(write_case3);
@@ -8069,17 +7943,10 @@ TEST_F(LoadStoreEliminationTest, SimplifyTest4) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
+  PerformLSEWithPartial(blks);
 
   // Run the code-simplifier too
-  LOG(INFO) << "Pre simplification " << blks;
-  InstructionSimplifier simp(graph_, /*codegen=*/nullptr);
-  simp.Run();
-
-  LOG(INFO) << "Post LSE " << blks;
+  PerformSimplifications(blks);
 
   EXPECT_INS_REMOVED(write_case2);
   EXPECT_INS_REMOVED(write_case3);
@@ -8225,11 +8092,7 @@ TEST_F(LoadStoreEliminationTest, PartialIrreducibleLoop) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_TRUE(loop_header->IsLoopHeader());
   EXPECT_TRUE(loop_header->GetLoopInformation()->IsIrreducible());
@@ -8382,11 +8245,7 @@ TEST_P(UsesOrderDependentTestGroup, RecordPredicatedReplacements1) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_RETAINED(cls);
   EXPECT_INS_REMOVED(new_inst);
@@ -8544,11 +8403,7 @@ TEST_P(UsesOrderDependentTestGroup, RecordPredicatedReplacements2) {
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_RETAINED(cls);
   EXPECT_INS_REMOVED(new_inst);
@@ -8752,11 +8607,7 @@ TEST_P(UsesOrderDependentTestGroupForThreeItems, RecordPredicatedReplacements3) 
 
   SetupExit(exit);
 
-  // PerformLSE expects this to be empty.
-  graph_->ClearDominanceInformation();
-  LOG(INFO) << "Pre LSE " << blks;
-  PerformLSE();
-  LOG(INFO) << "Post LSE " << blks;
+  PerformLSEWithPartial(blks);
 
   EXPECT_INS_RETAINED(cls);
   EXPECT_INS_REMOVED(new_inst);

@@ -1,15 +1,15 @@
 {
   "presubmit": [
     {
-      "name": "BedsteadQueryableTest"
-    },
-    {
       "name": "ActivityContextTest"
     },
     {
       "name": "ActivityContextInstrumentOtherAppTest"
     }
   ], "postsubmit": [
+    {
+      "name": "BedsteadQueryableTest"
+    },
     {
       "name": "NeneTest"
     },

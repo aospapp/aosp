@@ -37,7 +37,7 @@ public:
 
 private:
     void buildMatchStream();
-    bool matchStream(uint8_t* bytes, int count);
+    int matchStream(uint8_t* bytes, int count);
 
     int sendMessages();
 

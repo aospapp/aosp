@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os.path
 
 from mobly import test_runner
@@ -79,10 +80,11 @@ class ConsistencyTest(its_base_test.ItsBaseTest):
       else:
         iso_exp_tol = _ISO_EXP_ISP_TOL
 
-      # Do 3A and save data.
       iso_exps = []
       g_gains = []
       fds = []
+      cam.do_3a()  # do 3A 1x up front to 'prime the pump'
+      # Do 3A _NUM_TEST_ITERATIONS times and save data.
       for i in range(_NUM_TEST_ITERATIONS):
         try:
           iso, exposure, awb_gains, awb_transform, focus_distance = cam.do_3a(
@@ -97,8 +99,8 @@ class ConsistencyTest(its_base_test.ItsBaseTest):
           cap = cam.do_capture(req, cam.CAP_YUV)
           if debug:
             img = image_processing_utils.convert_capture_to_rgb_image(cap)
-            img_name = '%s_%d.jpg' % (os.path.join(self.log_path, _NAME), i)
-            image_processing_utils.write_image(img, img_name)
+            image_processing_utils.write_image(
+                img, f'{os.path.join(self.log_path, _NAME)}_{i}.jpg')
 
           # Extract and save metadata.
           iso_result = cap['metadata']['android.sensor.sensitivity']
@@ -125,18 +127,18 @@ class ConsistencyTest(its_base_test.ItsBaseTest):
                              f'NUM_TEST_ITERATIONS: {_NUM_TEST_ITERATIONS}.')
       iso_exp_min = np.amin(iso_exps)
       iso_exp_max = np.amax(iso_exps)
-      if not np.isclose(iso_exp_max, iso_exp_min, iso_exp_tol):
+      if not math.isclose(iso_exp_max, iso_exp_min, rel_tol=iso_exp_tol):
         raise AssertionError(f'ISO*exp min: {iso_exp_min}, max: {iso_exp_max}, '
                              f'TOL:{iso_exp_tol}')
       g_gain_min = np.amin(g_gains)
       g_gain_max = np.amax(g_gains)
-      if not np.isclose(g_gain_max, g_gain_min, _GGAIN_TOL):
+      if not math.isclose(g_gain_max, g_gain_min, rel_tol=_GGAIN_TOL):
         raise AssertionError(f'G gain min: {g_gain_min}, max: {g_gain_min}, '
                              f'TOL: {_GGAIN_TOL}')
       fd_min = np.amin(fds)
       fd_max = np.amax(fds)
-      if not np.isclose(fd_max, fd_min, _FD_TOL):
-        raise AssertionError(f'FD min: {fd_min}, max: {fd_min} TOL: {_FD_TOL}')
+      if not math.isclose(fd_max, fd_min, rel_tol=_FD_TOL):
+        raise AssertionError(f'FD min: {fd_min}, max: {fd_max} TOL: {_FD_TOL}')
       for g in awb_gains:
         if np.isnan(g):
           raise AssertionError('AWB gain entry is not a number.')

@@ -30,7 +30,7 @@ _MY_COMPILER_PATH = 'myCompilerPath'
 _CONFIG = 'configurations'
 _NAME = 'name'
 _LINUX = 'Linux'
-_INTELL_SENSE = 'intelliSenseMode'
+_INTELLI_SENSE = 'intelliSenseMode'
 _GCC_X64 = 'clang-x64'
 _INC_PATH = 'includePath'
 _SYS_INC_PATH = 'systemIncludePath'
@@ -50,7 +50,7 @@ _DB_FILE_NAME = 'databaseFilename'
 _COMPILER_PATH = '/usr/bin/gcc'
 _COMPILER_EMPTY = '"compilerPath" is empty and will skip querying a compiler.'
 _FALSE = 'false'
-_INTELI_SENSE_ENGINE = 'C_Cpp.intelliSenseEngine'
+_INTELLI_SENSE_ENGINE = 'C_Cpp.intelliSenseEngine'
 _DEFAULT = 'Default'
 
 
@@ -85,7 +85,8 @@ class VSCodeNativeProjectFileGenerator:
             os.path.join(self.config_dir, _C_CPP_PROPERTIES_CONFIG_FILE_NAME),
             data)
 
-    def _create_c_cpp_properties_dict(self, native_mod_info, mod_names):
+    @staticmethod
+    def _create_c_cpp_properties_dict(native_mod_info, mod_names):
         """Creates the dictionary of 'c_cpp_properties.json' file.
 
         Args:
@@ -96,12 +97,11 @@ class VSCodeNativeProjectFileGenerator:
         Returns:
             A dictionary contains the formats of c_cpp_properties.json file.
         """
-        configs = {}
-        configs[_NAME] = _LINUX
+        configs = {_NAME: _LINUX}
         includes = set()
         for mod_name in mod_names:
             includes.update(native_mod_info.get_module_includes(mod_name))
-        browse = {_LIMIT_SYM: _FALSE, _INTELI_SENSE_ENGINE: _DEFAULT}
+        browse = {_LIMIT_SYM: _FALSE, _INTELLI_SENSE_ENGINE: _DEFAULT}
         if includes:
             paths = _make_header_file_paths(includes)
             configs[_INC_PATH] = paths
@@ -117,9 +117,8 @@ class VSCodeNativeProjectFileGenerator:
         configs[_COMPILE_CMD] = os.path.join(
             root_dir, _COMPILE_COMMANDS_FILE_DIR, _COMPILE_COMMANDS_FILE_NAME)
         configs[_BROWSE] = browse
-        configs[_INTELL_SENSE] = _GCC_X64
-        data = {}
-        data[_CONFIG] = [configs]
+        configs[_INTELLI_SENSE] = _GCC_X64
+        data = {_CONFIG: [configs]}
         return data
 
 

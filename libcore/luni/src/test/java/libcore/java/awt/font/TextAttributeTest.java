@@ -31,9 +31,9 @@ public class TextAttributeTest extends TestCase {
     }
 
     public void testAttributeValues() {
-        assertEquals(new Integer(1), TextAttribute.KERNING_ON);
-        assertEquals(new Integer(1), TextAttribute.LIGATURES_ON);
-        assertEquals(new Float(0.04f), TextAttribute.TRACKING_LOOSE);
-        assertEquals(new Float(-0.04f), TextAttribute.TRACKING_TIGHT);
+        assertEquals(Integer.valueOf(1), TextAttribute.KERNING_ON);
+        assertEquals(Integer.valueOf(1), TextAttribute.LIGATURES_ON);
+        assertEquals(Float.valueOf(0.04f), TextAttribute.TRACKING_LOOSE);
+        assertEquals(Float.valueOf(-0.04f), TextAttribute.TRACKING_TIGHT);
     }
 }

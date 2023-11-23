@@ -17,6 +17,7 @@
 #ifndef UPDATE_ENGINE_COMMON_METRICS_CONSTANTS_H_
 #define UPDATE_ENGINE_COMMON_METRICS_CONSTANTS_H_
 
+#include <chrono>
 namespace chromeos_update_engine {
 
 namespace metrics {
@@ -139,6 +140,8 @@ enum class RollbackResult {
 
   kNumConstants
 };
+
+constexpr auto kMetricFlushInterval = std::chrono::seconds(3);
 
 }  // namespace metrics
 

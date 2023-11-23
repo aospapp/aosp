@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2020-2021 NXP
+ *  Copyright 2020-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -22,7 +22,15 @@ int NfccTransport::NfccReset(__attribute__((unused)) void* pDevHandle,
                              __attribute__((unused)) NfccResetType eType) {
   return NFCSTATUS_SUCCESS;
 }
-
+int NfccTransport::UpdateReadPending(__attribute__((unused)) void* pDevHandle,
+                                     __attribute__((unused))
+                                     NfcReadPending eType) {
+  return NFCSTATUS_SUCCESS;
+}
+int NfccTransport::NfcGetGpioStatus(__attribute__((unused)) void* pDevHandle,
+                                    __attribute__((unused)) uint32_t* status) {
+  return NFCSTATUS_SUCCESS;
+}
 int NfccTransport::EseReset(__attribute__((unused)) void* pDevHandle,
                             __attribute__((unused)) EseResetType eType) {
   return NFCSTATUS_SUCCESS;

@@ -19,6 +19,9 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CollectorDeviceLibTest.apk" />
     </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="push" value="simpleperf_record_sample.data->/data/local/tmp/simpleperf/testdata/simpleperf_record_sample.data" />
+    </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.device.collectors" />
         <option name="runtime-hint" value="5s" />

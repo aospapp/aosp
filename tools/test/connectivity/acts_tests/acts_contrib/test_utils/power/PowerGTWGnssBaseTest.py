@@ -41,6 +41,7 @@ class PowerGTWGnssBaseTest(PowerBaseTest):
         self.set_xtra_data()
 
     def setup_test(self):
+        gutils.log_current_epoch_time(self.ad, "test_start_time")
         super().setup_test()
         # Enable DPO
         self.enable_DPO(True)
@@ -53,6 +54,7 @@ class PowerGTWGnssBaseTest(PowerBaseTest):
         begin_time = utils.get_current_epoch_time()
         self.ad.take_bug_report(self.test_name, begin_time)
         gutils.get_gnss_qxdm_log(self.ad, self.qdsp6m_path)
+        gutils.log_current_epoch_time(self.ad, "test_end_time")
 
     def set_xtra_data(self):
         gutils.disable_xtra_throttle(self.ad)

@@ -31,8 +31,10 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.HashMap;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 
 /**
@@ -203,6 +205,43 @@ public class BaseCollectionListenerTest {
         mListener.onTestEnd(mListener.createDataRecord(), FAKE_TEST_DESCRIPTION);
         // Metrics should not be collected.
         verify(helper, times(0)).getMetrics();
+        verify(helper, times(1)).stopCollecting();
+    }
+
+    /** Verify metric collection is stopped even if collecting the metrics throws. */
+    @Test
+    public void testStopCollectingOnTestEndIfCollectionThrows() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(BaseCollectionListener.COLLECT_PER_RUN, "false");
+        b.putString(BaseCollectionListener.SKIP_TEST_FAILURE_METRICS, "false");
+
+        mListener = initListener(b);
+        when(helper.getMetrics()).thenThrow(RuntimeException.class);
+
+        mListener.testRunStarted(FAKE_DESCRIPTION);
+        mListener.testStarted(FAKE_TEST_DESCRIPTION);
+        assertThrows(
+                RuntimeException.class,
+                () -> mListener.onTestEnd(mListener.createDataRecord(), FAKE_TEST_DESCRIPTION));
+        verify(helper, times(1)).stopCollecting();
+    }
+
+    /** Verify metric collection is stopped even if collecting the metrics throws. */
+    @Test
+    public void testStopCollectingOnTestRunEndIfCollectionThrows() throws Exception {
+        Bundle b = new Bundle();
+        b.putString(BaseCollectionListener.COLLECT_PER_RUN, "true");
+        b.putString(BaseCollectionListener.SKIP_TEST_FAILURE_METRICS, "false");
+
+        mListener = initListener(b);
+        when(helper.getMetrics()).thenThrow(RuntimeException.class);
+
+        mListener.testRunStarted(FAKE_DESCRIPTION);
+        mListener.testStarted(FAKE_TEST_DESCRIPTION);
+        mListener.testFinished(FAKE_TEST_DESCRIPTION);
+        assertThrows(
+                RuntimeException.class,
+                () -> mListener.onTestRunEnd(mListener.createDataRecord(), new Result()));
         verify(helper, times(1)).stopCollecting();
     }
 

@@ -20,6 +20,7 @@ This test only requires two fuchsia devices.
 
 from acts import signals
 from acts.base_test import BaseTestClass
+from acts.controllers.fuchsia_lib.ssh import FuchsiaSSHError
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.bt_test_utils import generate_id_by_size
 from acts_contrib.test_utils.fuchsia.bt_test_utils import bredr_scan_for_device_by_name
@@ -49,7 +50,7 @@ class BtFuchsiaEPTest(BaseTestClass):
     def setup_class(self):
         super().setup_class()
         for fd in self.fuchsia_devices:
-            fd.bts_lib.initBluetoothSys()
+            fd.sl4f.bts_lib.initBluetoothSys()
         self.pri_dut = self.fuchsia_devices[0]
         self.sec_dut = self.fuchsia_devices[1]
 
@@ -57,7 +58,7 @@ class BtFuchsiaEPTest(BaseTestClass):
         for fd in self.fuchsia_devices:
             fd.take_bug_report(test_name, begin_time)
         self._unbond_all_known_devices()
-        self.sec_dut.ble_lib.bleStopBleAdvertising()
+        self.sec_dut.sl4f.ble_lib.bleStopBleAdvertising()
         self._kill_media_services()
 
     def teardown_class(self):
@@ -68,12 +69,11 @@ class BtFuchsiaEPTest(BaseTestClass):
         """
         ssh_timeout = 30
         for fd in self.fuchsia_devices:
-            fd.send_command_ssh("killall bt-a2dp*",
-                                timeout=ssh_timeout,
-                                skip_status_code_check=True)
-            fd.send_command_ssh("killall bt-avrcp*",
-                                timeout=ssh_timeout,
-                                skip_status_code_check=True)
+            try:
+                fd.ssh.run("killall bt-a2dp*", timeout_sec=ssh_timeout)
+                fd.ssh.run("killall bt-avrcp*", timeout_sec=ssh_timeout)
+            except FuchsiaSSHError:
+                pass
 
     def _unbond_all_known_devices(self):
         """For all Fuchsia devices, unbond any known pairings.
@@ -103,14 +103,14 @@ class BtFuchsiaEPTest(BaseTestClass):
         Priority: 0
         """
 
-        self.sec_dut.ble_lib.bleStartBleAdvertising(
+        self.sec_dut.sl4f.ble_lib.bleStartBleAdvertising(
             self.test_adv_data, self.test_scan_response,
             self.ble_advertise_interval, self.test_connectable)
 
         device = le_scan_for_device_by_name(self.pri_dut, self.log,
                                             self.adv_name,
                                             self.scan_timeout_seconds)
-        self.sec_dut.ble_lib.bleStopBleAdvertising()
+        self.sec_dut.sl4f.ble_lib.bleStopBleAdvertising()
         if device is None:
             raise signals.TestFailure("Scanner unable to find advertisement.")
         raise signals.TestPass("Success")
@@ -141,9 +141,9 @@ class BtFuchsiaEPTest(BaseTestClass):
         self._unbond_all_known_devices()
 
         source_device_name = generate_id_by_size(10)
-        self.pri_dut.bts_lib.setName(source_device_name)
+        self.pri_dut.sl4f.bts_lib.setName(source_device_name)
 
-        self.sec_dut.ble_lib.bleStartBleAdvertising(
+        self.sec_dut.sl4f.ble_lib.bleStartBleAdvertising(
             self.test_adv_data, self.test_scan_response,
             self.ble_advertise_interval, self.test_connectable)
 
@@ -153,7 +153,7 @@ class BtFuchsiaEPTest(BaseTestClass):
         if device is None:
             raise signals.TestFailure("Scanner unable to find advertisement.")
 
-        connect_result = self.pri_dut.gattc_lib.bleConnectToPeripheral(
+        connect_result = self.pri_dut.sl4f.gattc_lib.bleConnectToPeripheral(
             device["id"])
         if connect_result.get("error") is not None:
             raise signals.TestFailure("GATT Connection failed with: {}".format(
@@ -172,8 +172,8 @@ class BtFuchsiaEPTest(BaseTestClass):
         security_level = "ENCRYPTED"
         non_bondable = False
         transport = 2  #LE
-        self.pri_dut.bts_lib.pair(device["id"], security_level, non_bondable,
-                                  transport)
+        self.pri_dut.sl4f.bts_lib.pair(device["id"], security_level,
+                                       non_bondable, transport)
 
         services = None
         if not verify_device_state_by_name(self.pri_dut, self.log,
@@ -187,14 +187,14 @@ class BtFuchsiaEPTest(BaseTestClass):
             raise signals.TestFailure(
                 "Failed to pair device {}.".format(source_device_name))
 
-        disconnect_result = self.pri_dut.gattc_lib.bleDisconnectPeripheral(
+        disconnect_result = self.pri_dut.sl4f.gattc_lib.bleDisconnectPeripheral(
             device["id"])
         if disconnect_result.get("error") is not None:
             raise signals.TestFailure(
                 "GATT Disconnection failed with: {}".format(
                     connect_result.get("error")))
 
-        self.sec_dut.ble_lib.bleStopBleAdvertising()
+        self.sec_dut.sl4f.ble_lib.bleStopBleAdvertising()
 
         # TODO: Setup Proper GATT server and verify services published are found
 
@@ -236,22 +236,22 @@ class BtFuchsiaEPTest(BaseTestClass):
         source_device_name = generate_id_by_size(10)
         target_device_name = generate_id_by_size(10)
 
-        self.pri_dut.bts_lib.setName(source_device_name)
-        self.sec_dut.bts_lib.setName(target_device_name)
+        self.pri_dut.sl4f.bts_lib.setName(source_device_name)
+        self.sec_dut.sl4f.bts_lib.setName(target_device_name)
 
         input_capabilities = "NONE"
         output_capabilities = "NONE"
 
         # Initialize a2dp on both devices.
-        self.pri_dut.avdtp_lib.init()
-        self.sec_dut.avdtp_lib.init()
+        self.pri_dut.sl4f.avdtp_lib.init()
+        self.sec_dut.sl4f.avdtp_lib.init()
 
-        self.pri_dut.bts_lib.acceptPairing(input_capabilities,
-                                           output_capabilities)
+        self.pri_dut.sl4f.bts_lib.acceptPairing(input_capabilities,
+                                                output_capabilities)
 
-        self.sec_dut.bts_lib.acceptPairing(input_capabilities,
-                                           output_capabilities)
-        self.sec_dut.bts_lib.setDiscoverable(True)
+        self.sec_dut.sl4f.bts_lib.acceptPairing(input_capabilities,
+                                                output_capabilities)
+        self.sec_dut.sl4f.bts_lib.setDiscoverable(True)
 
         unique_mac_addr_id = bredr_scan_for_device_by_name(
             self.pri_dut, self.log, target_device_name,
@@ -261,7 +261,8 @@ class BtFuchsiaEPTest(BaseTestClass):
             raise signals.TestFailure(
                 "Failed to find device {}.".format(target_device_name))
 
-        connect_result = self.pri_dut.bts_lib.connectDevice(unique_mac_addr_id)
+        connect_result = self.pri_dut.sl4f.bts_lib.connectDevice(
+            unique_mac_addr_id)
         if connect_result.get("error") is not None:
             raise signals.TestFailure("Failed to connect with {}.".format(
                 connect_result.get("error")))
@@ -272,9 +273,9 @@ class BtFuchsiaEPTest(BaseTestClass):
         security_level = "NONE"
         bondable = True
         transport = 1  #BREDR
-        pair_result = self.pri_dut.bts_lib.pair(unique_mac_addr_id,
-                                                security_level, bondable,
-                                                transport)
+        pair_result = self.pri_dut.sl4f.bts_lib.pair(unique_mac_addr_id,
+                                                     security_level, bondable,
+                                                     transport)
         if pair_result.get("error") is not None:
             raise signals.TestFailure("Failed to pair with {}.".format(
                 pair_result.get("error")))

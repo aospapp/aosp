@@ -299,11 +299,11 @@ public class SurfaceViewPreviewTest extends Camera2SurfaceViewTestCase {
         if (mStaticInfo.isHardwareLevelAtLeastLimited()) {
             mCollector.expectTrue(
                 String.format("Camera %s: Preview peak frame interval affected by use of new " +
-                        " stream: preview avg frame duration: %f ms, peak with new stream: %f ms",
+                        " stream: preview peak frame interval: %f ms, peak with new stream: %f ms",
                         cameraId,
-                        frameDurationStats.first / 1e6, preparedFrameDurationStats.second / 1e6),
+                        frameDurationStats.second / 1e6, preparedFrameDurationStats.second / 1e6),
                 (preparedFrameDurationStats.second <=
-                        Math.max(frameDurationStats.first, readerMinFrameDuration) *
+                        Math.max(frameDurationStats.second, readerMinFrameDuration) *
                         (1 + PREPARE_PEAK_RATE_BOUNDS)));
             mCollector.expectTrue(
                 String.format("Camera %s: Preview average frame interval affected by use of new " +

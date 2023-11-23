@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,6 +34,7 @@ package java.util;
  * @serial exclude
  */
 class JumboEnumSet<E extends Enum<E>> extends EnumSet<E> {
+    @java.io.Serial
     private static final long serialVersionUID = 334349849919042784L;
 
     /**
@@ -247,10 +248,9 @@ class JumboEnumSet<E extends Enum<E>> extends EnumSet<E> {
      * @throws NullPointerException if the specified collection is null
      */
     public boolean containsAll(Collection<?> c) {
-        if (!(c instanceof JumboEnumSet))
+        if (!(c instanceof JumboEnumSet<?> es))
             return super.containsAll(c);
 
-        JumboEnumSet<?> es = (JumboEnumSet<?>)c;
         if (es.elementType != elementType)
             return es.isEmpty();
 
@@ -269,10 +269,9 @@ class JumboEnumSet<E extends Enum<E>> extends EnumSet<E> {
      *     its elements are null
      */
     public boolean addAll(Collection<? extends E> c) {
-        if (!(c instanceof JumboEnumSet))
+        if (!(c instanceof JumboEnumSet<?> es))
             return super.addAll(c);
 
-        JumboEnumSet<?> es = (JumboEnumSet<?>)c;
         if (es.elementType != elementType) {
             if (es.isEmpty())
                 return false;
@@ -295,10 +294,9 @@ class JumboEnumSet<E extends Enum<E>> extends EnumSet<E> {
      * @throws NullPointerException if the specified collection is null
      */
     public boolean removeAll(Collection<?> c) {
-        if (!(c instanceof JumboEnumSet))
+        if (!(c instanceof JumboEnumSet<?> es))
             return super.removeAll(c);
 
-        JumboEnumSet<?> es = (JumboEnumSet<?>)c;
         if (es.elementType != elementType)
             return false;
 
@@ -316,10 +314,9 @@ class JumboEnumSet<E extends Enum<E>> extends EnumSet<E> {
      * @throws NullPointerException if the specified collection is null
      */
     public boolean retainAll(Collection<?> c) {
-        if (!(c instanceof JumboEnumSet))
+        if (!(c instanceof JumboEnumSet<?> es))
             return super.retainAll(c);
 
-        JumboEnumSet<?> es = (JumboEnumSet<?>)c;
         if (es.elementType != elementType) {
             boolean changed = (size != 0);
             clear();
@@ -349,10 +346,9 @@ class JumboEnumSet<E extends Enum<E>> extends EnumSet<E> {
      * @return {@code true} if the specified object is equal to this set
      */
     public boolean equals(Object o) {
-        if (!(o instanceof JumboEnumSet))
+        if (!(o instanceof JumboEnumSet<?> es))
             return super.equals(o);
 
-        JumboEnumSet<?> es = (JumboEnumSet<?>)o;
         if (es.elementType != elementType)
             return size == 0 && es.size == 0;
 

@@ -16,19 +16,21 @@
 
 package android.server.wm.backgroundactivity.appa;
 
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_BACKGROUND_ACTIVITY;
-import static android.server.wm.backgroundactivity.appa.Components.APP_A_START_ACTIVITY_RECEIVER;
-
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.os.storage.StorageManager;
 
 public class BackgroundActivityTestService extends Service {
     private final IBackgroundActivityTestService mBinder = new MyBinder();
+    private Components mA;
+
+    @Override
+    public void onCreate() {
+        mA = Components.get(getApplicationContext());
+    }
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -42,13 +44,13 @@ public class BackgroundActivityTestService extends Service {
                 // Create a pendingIntent to launch send broadcast to appA and appA will start
                 // background activity.
                 Intent newIntent = new Intent();
-                newIntent.setComponent(APP_A_START_ACTIVITY_RECEIVER);
+                newIntent.setComponent(mA.START_ACTIVITY_RECEIVER);
                 return PendingIntent.getBroadcast(BackgroundActivityTestService.this, 0, newIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             } else {
                 // Create a pendingIntent to launch appA's BackgroundActivity
                 Intent newIntent = new Intent();
-                newIntent.setComponent(APP_A_BACKGROUND_ACTIVITY);
+                newIntent.setComponent(mA.BACKGROUND_ACTIVITY);
                 newIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 return PendingIntent.getActivity(BackgroundActivityTestService.this, 0, newIntent,
                         PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);

@@ -203,7 +203,7 @@ public class TimeZoneIds {
             Map<String, TzIdsProto.TimeZoneReplacement> replacementLookupMap,
             Instant replacementThreshold) {
         TzIdsProto.TimeZoneReplacement current = start;
-        while(current.getFromMillis() <= replacementThreshold.toEpochMilli()) {
+        while (current.getFromMillis() <= replacementThreshold.toEpochMilli()) {
             TzIdsProto.TimeZoneReplacement next =
                     replacementLookupMap.get(current.getReplacementId());
             if (next == null) {

@@ -41,7 +41,8 @@ class EatClaim {
 
     public static final int RSA_PUBLIC_EXPONENT =
             PRIVATE_BASE - (0x0FFFFFFF & KeymasterDefs.KM_TAG_RSA_PUBLIC_EXPONENT);
-
+    public static final int RSA_OAEP_MGF_DIGEST =
+            PRIVATE_BASE - (0x0FFFFFFF & KeymasterDefs.KM_TAG_RSA_OAEP_MGF_DIGEST);
     public static final int ROLLBACK_RESISTANCE = PRIVATE_BASE - 303;
     public static final int EARLY_BOOT_ONLY = PRIVATE_BASE - 305;
 

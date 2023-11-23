@@ -21,6 +21,7 @@ cc_library_shared {
         "p73/pal/phNxpEsePal.cpp",
         "p73/pal/EseTransportFactory.cpp",
         "p73/pal/spi/EseSpiTransport.cpp",
+        "p73/pal/NxpTimer.cpp",
         "p73/spm/phNxpEse_Spm.cpp",
         "p73/utils/ese_config.cpp",
         "p73/utils/config.cpp",
@@ -43,8 +44,10 @@ cc_library_shared {
         "src/include",
     ],
     include_dirs: [
+        "hardware/nxp/nfc/snxxx/extns/impl/nxpnfc/aidl",
         "hardware/nxp/nfc/snxxx/extns/impl/nxpnfc/2.0",
         "hardware/nxp/secure_element/snxxx/extns/impl",
+        "hardware/nxp/secure_element/snxxx/ese-clients/inc"
 ],
 
     cflags: [
@@ -69,11 +72,14 @@ cc_library_shared {
         "libhardware",
         "libhidlbase",
         "libutils",
+        "libbinder",
+        "libbinder_ndk",
         "liblog",
         "libbase",
         "libchrome",
         "vendor.nxp.nxpese@1.0",
         "vendor.nxp.nxpnfc@2.0",
+        "vendor.nxp.nxpnfc_aidl-V1-ndk",
     ],
 
     product_variables: {

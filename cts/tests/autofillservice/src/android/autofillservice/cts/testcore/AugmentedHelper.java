@@ -65,18 +65,21 @@ public final class AugmentedHelper {
     /**
      * Sets the augmented capture service.
      */
-    public static void setAugmentedService(@NonNull String service) {
-        Log.d(TAG, "Setting service to " + service);
-        runShellCommand("cmd autofill set temporary-augmented-service 0 %s %d", service,
-                MAX_TEMP_AUGMENTED_SERVICE_DURATION_MS);
+    public static void setAugmentedService(@NonNull String service, Context context) {
+        int userId = context.getUserId();
+        Log.d(TAG, "Setting service to " + service + " for user " + userId);
+
+        runShellCommand("cmd autofill set temporary-augmented-service %d %s %d", userId,
+                service, MAX_TEMP_AUGMENTED_SERVICE_DURATION_MS);
     }
 
     /**
      * Resets the content capture service.
      */
-    public static void resetAugmentedService() {
-        Log.d(TAG, "Resetting back to default service");
-        runShellCommand("cmd autofill set temporary-augmented-service 0");
+    public static void resetAugmentedService(Context context) {
+        int userId = context.getUserId();
+        Log.d(TAG, "Resetting back to default service" + " for user " + userId);
+        runShellCommand("cmd autofill set temporary-augmented-service %d", userId);
     }
 
     /**

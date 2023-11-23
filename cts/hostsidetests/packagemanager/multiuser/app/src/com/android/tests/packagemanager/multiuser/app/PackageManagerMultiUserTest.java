@@ -26,6 +26,8 @@ import android.os.Bundle;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.cts.install.lib.LocalIntentSender;
+
 import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -53,7 +55,9 @@ public class PackageManagerMultiUserTest {
         PackageManager packageManager = context.getPackageManager();
         PackageInstaller packageInstaller = packageManager.getPackageInstaller();
 
-        packageInstaller.uninstallExistingPackage(pkgName, null);
+        LocalIntentSender sender = new LocalIntentSender();
+        packageInstaller.uninstallExistingPackage(pkgName, sender.getIntentSender());
+        sender.getResult(); // Wait for the operation to complete
     }
 
     /**

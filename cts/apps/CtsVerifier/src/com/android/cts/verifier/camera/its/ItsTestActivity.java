@@ -21,34 +21,20 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Configuration;
-import android.hardware.camera2.CameraCharacteristics;
+import android.content.res.Resources;
 import android.hardware.camera2.CameraManager;
-import android.os.Build;
+import android.hardware.cts.helpers.CameraUtils;
+import android.hardware.devicestate.DeviceStateManager;
+import android.mediapc.cts.common.PerformanceClassEvaluator;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
+import android.util.Pair;
 import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
@@ -56,9 +42,30 @@ import com.android.cts.verifier.ArrayTestListAdapter;
 import com.android.cts.verifier.DialogTestListActivity;
 import com.android.cts.verifier.R;
 import com.android.cts.verifier.TestResult;
+import com.android.internal.util.ArrayUtils;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.junit.rules.TestName;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Test for Camera features that require that the camera be aimed at a specific test scene.
@@ -81,49 +88,65 @@ public class ItsTestActivity extends DialogTestListActivity {
             Arrays.asList(new String[] {RESULT_PASS, RESULT_FAIL, RESULT_NOT_EXECUTED}));
     private static final int MAX_SUMMARY_LEN = 200;
 
-    private static final int MPC12_CAMERA_LAUNCH_THRESHOLD = 600; // ms
-    private static final int MPC12_JPEG_CAPTURE_THRESHOLD = 1000; // ms
-
-    private static final String MPC_TESTS_REPORT_LOG_NAME = "MediaPerformanceClassLogs";
-    private static final String MPC_TESTS_REPORT_LOG_SECTION = "CameraIts";
-
     private static final Pattern MPC12_CAMERA_LAUNCH_PATTERN =
             Pattern.compile("camera_launch_time_ms:(\\d+(\\.\\d+)?)");
     private static final Pattern MPC12_JPEG_CAPTURE_PATTERN =
             Pattern.compile("1080p_jpeg_capture_time_ms:(\\d+(\\.\\d+)?)");
+    private static final int AVAILABILITY_TIMEOUT_MS = 10;
 
     private final ResultReceiver mResultsReceiver = new ResultReceiver();
     private boolean mReceiverRegistered = false;
 
+    public final TestName mTestName = new TestName();
+    private  boolean mIsFoldableDevice = false;
+    private  boolean mIsDeviceFolded = false;
+    private  boolean mFoldedTestSetupDone = false;
+    private  boolean mUnfoldedTestSetupDone = false;
+    private  Set<Pair<String, String>> mUnavailablePhysicalCameras =
+            new HashSet<Pair<String, String>>();
+    private CameraManager mCameraManager = null;
+    private DeviceStateManager mDeviceStateManager = null;
+    private HandlerThread mCameraThread = null;
+    private Handler mCameraHandler = null;
+
     // Initialized in onCreate
     List<String> mToBeTestedCameraIds = null;
+    private  String mPrimaryRearCameraId = null;
+    private  String mPrimaryFrontCameraId = null;
+    private  List<String> mToBeTestedCameraIdsUnfolded = null;
+    private  List<String> mToBeTestedCameraIdsFolded = null;
+    private  String mPrimaryRearCameraIdUnfolded = null;
+    private  String mPrimaryFrontCameraIdUnfolded = null;
+    private ArrayTestListAdapter mAdapter;
 
     // Scenes
-    private static final ArrayList<String> mSceneIds = new ArrayList<String> () {{
-            add("scene0");
-            add("scene1_1");
-            add("scene1_2");
-            add("scene2_a");
-            add("scene2_b");
-            add("scene2_c");
-            add("scene2_d");
-            add("scene2_e");
-            add("scene3");
-            add("scene4");
-            add("scene5");
-            add("scene6");
-            add("sensor_fusion");
-        }};
+    private static final List<String> mSceneIds = List.of(
+            "scene0",
+            "scene1_1",
+            "scene1_2",
+            "scene2_a",
+            "scene2_b",
+            "scene2_c",
+            "scene2_d",
+            "scene2_e",
+            "scene2_f",
+            "scene3",
+            "scene4",
+            "scene5",
+            "scene6",
+            "scene_extensions/scene_hdr",
+            "scene_extensions/scene_night",
+            "sensor_fusion");
+
     // This must match scenes of SUB_CAMERA_TESTS in tools/run_all_tests.py
-    private static final ArrayList<String> mHiddenPhysicalCameraSceneIds =
-            new ArrayList<String> () {{
-                    add("scene0");
-                    add("scene1_1");
-                    add("scene1_2");
-                    add("scene2_a");
-                    add("scene4");
-                    add("sensor_fusion");
-            }};
+    private static final List<String> mHiddenPhysicalCameraSceneIds = List.of(
+            "scene0",
+            "scene1_1",
+            "scene1_2",
+            "scene2_a",
+            "scene4",
+            "sensor_fusion");
+
     // TODO: cache the following in saved bundle
     private Set<ResultKey> mAllScenes = null;
     // (camera, scene) -> (pass, fail)
@@ -132,8 +155,27 @@ public class ItsTestActivity extends DialogTestListActivity {
     private final HashMap<ResultKey, String> mSummaryMap = new HashMap<>();
     // All primary cameras for which MPC level test has run
     private Set<ResultKey> mExecutedMpcTests = null;
-    // Map primary camera id to MPC level
-    private final HashMap<String, Integer> mMpcLevelMap = new HashMap<>();
+    private static final String MPC_LAUNCH_REQ_NUM = "2.2.7.2/7.5/H-1-6";
+    private static final String MPC_JPEG_CAPTURE_REQ_NUM = "2.2.7.2/7.5/H-1-5";
+    // Performance class evaluator used for writing test result
+    PerformanceClassEvaluator mPce = new PerformanceClassEvaluator(mTestName);
+    PerformanceClassEvaluator.CameraLatencyRequirement mJpegLatencyReq =
+            mPce.addR7_5__H_1_5();
+    PerformanceClassEvaluator.CameraLatencyRequirement mLaunchLatencyReq =
+            mPce.addR7_5__H_1_6();
+
+    private static class HandlerExecutor implements Executor {
+        private final Handler mHandler;
+
+        HandlerExecutor(Handler handler) {
+            mHandler = handler;
+        }
+
+        @Override
+        public void execute(Runnable runCmd) {
+            mHandler.post(runCmd);
+        }
+    }
 
     final class ResultKey {
         public final String cameraId;
@@ -200,9 +242,23 @@ public class ItsTestActivity extends DialogTestListActivity {
                     return;
                 }
 
-                if (!mToBeTestedCameraIds.contains(cameraId)) {
-                    Log.e(TAG, "Unknown camera id " + cameraId + " reported to ITS");
-                    return;
+                if (mIsFoldableDevice) {
+                    if (!mIsDeviceFolded) {
+                        if (!mToBeTestedCameraIdsUnfolded.contains(cameraId)) {
+                            Log.e(TAG, "Unknown camera id " + cameraId + " reported to ITS");
+                            return;
+                        }
+                    } else {
+                        if (!mToBeTestedCameraIdsFolded.contains(cameraId)) {
+                            Log.e(TAG, "Unknown camera id " + cameraId + " reported to ITS");
+                            return;
+                        }
+                    }
+                } else {
+                    if (!mToBeTestedCameraIds.contains(cameraId)) {
+                        Log.e(TAG, "Unknown camera id " + cameraId + " reported to ITS");
+                        return;
+                    }
                 }
 
                 try {
@@ -266,10 +322,7 @@ public class ItsTestActivity extends DialogTestListActivity {
                         JSONArray metrics = sceneResult.getJSONArray("mpc_metrics");
                         for (int i = 0; i < metrics.length(); i++) {
                             String mpcResult = metrics.getString(i);
-                            if (!matchMpcResult(cameraId, mpcResult, MPC12_CAMERA_LAUNCH_PATTERN,
-                                    "2.2.7.2/7.5/H-1-6", MPC12_CAMERA_LAUNCH_THRESHOLD) &&
-                                    !matchMpcResult(cameraId, mpcResult, MPC12_JPEG_CAPTURE_PATTERN,
-                                    "2.2.7.2/7.5/H-1-5", MPC12_JPEG_CAPTURE_THRESHOLD)) {
+                            if (!matchMpcResult(cameraId, mpcResult)) {
                                 Log.e(TAG, "Error parsing MPC result string:" + mpcResult);
                                 return;
                             }
@@ -292,17 +345,6 @@ public class ItsTestActivity extends DialogTestListActivity {
                     }
                     ItsTestActivity.this.getReportLog().setSummary(
                             summary.toString(), 1.0, ResultType.NEUTRAL, ResultUnit.NONE);
-                }
-
-                //  Save MPC info once both front primary and rear primary data are collected.
-                if (mExecutedMpcTests.size() == 4) {
-                    ItsTestActivity.this.getReportLog().addValue(
-                            "Version", "0.0.1", ResultType.NEUTRAL, ResultUnit.NONE);
-                    for (Map.Entry<String, Integer> entry : mMpcLevelMap.entrySet()) {
-                        ItsTestActivity.this.getReportLog().addValue(entry.getKey(),
-                                entry.getValue(), ResultType.NEUTRAL, ResultUnit.NONE);
-                    }
-                    ItsTestActivity.this.getReportLog().submit();
                 }
 
                 // Display current progress
@@ -367,58 +409,141 @@ public class ItsTestActivity extends DialogTestListActivity {
             }
         }
 
-        private boolean matchMpcResult(String cameraId, String mpcResult, Pattern pattern,
-                String reqNum, float threshold) {
-            Matcher matcher = pattern.matcher(mpcResult);
-            boolean match = matcher.matches();
-            final int LATEST_MPC_LEVEL = Build.VERSION_CODES.TIRAMISU;
+        private boolean matchMpcResult(String cameraId, String mpcResult) {
+            Matcher launchMatcher = MPC12_CAMERA_LAUNCH_PATTERN.matcher(mpcResult);
+            boolean launchMatches = launchMatcher.matches();
 
-            if (match) {
-                // Store test result
-                ItsTestActivity.this.getReportLog().addValue("Cam" + cameraId,
-                        mpcResult, ResultType.NEUTRAL, ResultUnit.NONE);
+            Matcher jpegMatcher = MPC12_JPEG_CAPTURE_PATTERN.matcher(mpcResult);
+            boolean jpegMatches = jpegMatcher.matches();
 
-                float latency = Float.parseFloat(matcher.group(1));
-                int mpcLevel = latency < threshold ? LATEST_MPC_LEVEL : 0;
-                mExecutedMpcTests.add(new ResultKey(cameraId, reqNum));
-
-                if (mMpcLevelMap.containsKey(reqNum)) {
-                    mpcLevel = Math.min(mpcLevel, mMpcLevelMap.get(reqNum));
-                }
-                mMpcLevelMap.put(reqNum, mpcLevel);
+            if (!launchMatches && !jpegMatches) {
+                return false;
+            }
+            if (!cameraId.equals(mPrimaryRearCameraId) &&
+                    !cameraId.equals(mPrimaryFrontCameraId)) {
+                return false;
             }
 
-            return match;
+            if (launchMatches) {
+                float latency = Float.parseFloat(launchMatcher.group(1));
+                if (cameraId.equals(mPrimaryRearCameraId)) {
+                    mLaunchLatencyReq.setRearCameraLatency(latency);
+                } else {
+                    mLaunchLatencyReq.setFrontCameraLatency(latency);
+                }
+                mExecutedMpcTests.add(new ResultKey(cameraId, MPC_LAUNCH_REQ_NUM));
+            } else {
+                float latency = Float.parseFloat(jpegMatcher.group(1));
+                if (cameraId.equals(mPrimaryRearCameraId)) {
+                    mJpegLatencyReq.setRearCameraLatency(latency);
+                } else {
+                    mJpegLatencyReq.setFrontCameraLatency(latency);
+                }
+                mExecutedMpcTests.add(new ResultKey(cameraId, MPC_JPEG_CAPTURE_REQ_NUM));
+            }
+
+            // Save MPC info once both front primary and rear primary data are collected.
+            if (mExecutedMpcTests.size() == 4) {
+                mPce.submitAndVerify();
+            }
+            return true;
+        }
+    }
+
+    private class FoldStateListener implements
+            DeviceStateManager.DeviceStateCallback {
+        private int[] mFoldedDeviceStates;
+        private boolean mFirstFoldCheck = false;
+
+        FoldStateListener(Context context) {
+            Resources systemRes = Resources.getSystem();
+            int foldedStatesArrayIdentifier = systemRes.getIdentifier("config_foldedDeviceStates",
+                    "array", "android");
+            mFoldedDeviceStates = systemRes.getIntArray(foldedStatesArrayIdentifier);
+        }
+
+        @Override
+        public final void onStateChanged(int state) {
+            boolean folded = ArrayUtils.contains(mFoldedDeviceStates, state);
+            Log.i(TAG, "Is device folded? " + mIsDeviceFolded);
+            if (!mFirstFoldCheck || mIsDeviceFolded != folded) {
+                mIsDeviceFolded = folded;
+                mFirstFoldCheck = true;
+                if (mFoldedTestSetupDone && mUnfoldedTestSetupDone) {
+                    Log.i(TAG, "Setup is done for both the states.");
+                } else {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Log.i(TAG, "set up from onStateChanged");
+                            getCameraIdsForFoldableDevice();
+                            setupItsTestsForFoldableDevice(mAdapter);
+                        }
+                    });
+                }
+            } else {
+                Log.i(TAG, "Last state is same as new state.");
+            }
         }
     }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         // Hide the test if all camera devices are legacy
-        CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
-        try {
-            ItsUtils.ItsCameraIdList cameraIdList = ItsUtils.getItsCompatibleCameraIds(manager);
-            mToBeTestedCameraIds = cameraIdList.mCameraIdCombos;
-        } catch (ItsException e) {
-            Toast.makeText(ItsTestActivity.this,
-                    "Received error from camera service while checking device capabilities: "
-                            + e, Toast.LENGTH_SHORT).show();
+        mCameraManager = this.getSystemService(CameraManager.class);
+        Context context = this.getApplicationContext();
+        if (mAllScenes == null) {
+            mAllScenes = new TreeSet<>(mComparator);
+        }
+        if (mExecutedMpcTests == null) {
+            mExecutedMpcTests = new TreeSet<>(mComparator);
+        }
+        mCameraThread = new HandlerThread("ItsTestActivityThread");
+        mCameraThread.start();
+        mCameraHandler = new Handler(mCameraThread.getLooper());
+        HandlerExecutor handlerExecutor = new HandlerExecutor(mCameraHandler);
+        // mIsFoldableDevice is set True for foldables to listen to callback
+        // in FoldStateListener
+        mIsFoldableDevice = isFoldableDevice();
+        Log.i(TAG, "Is device foldable? " + mIsFoldableDevice);
+        if (mIsFoldableDevice) {
+            FoldStateListener foldStateListener = new FoldStateListener(context);
+            mDeviceStateManager = context.getSystemService(DeviceStateManager.class);
+            // onStateChanged will be called upon registration which helps determine
+            // if the foldable device has changed the folded/unfolded state or not.
+            mDeviceStateManager.registerCallback(handlerExecutor, foldStateListener);
+        }
+        if (!mIsFoldableDevice) {
+            try {
+                ItsUtils.ItsCameraIdList cameraIdList =
+                        ItsUtils.getItsCompatibleCameraIds(mCameraManager);
+                mToBeTestedCameraIds = cameraIdList.mCameraIdCombos;
+                mPrimaryRearCameraId = cameraIdList.mPrimaryRearCameraId;
+                mPrimaryFrontCameraId = cameraIdList.mPrimaryFrontCameraId;
+            } catch (ItsException e) {
+                Toast.makeText(ItsTestActivity.this,
+                        "Received error from camera service while checking device capabilities: "
+                                + e, Toast.LENGTH_SHORT).show();
+            }
         }
 
         super.onCreate(savedInstanceState);
-        if (mToBeTestedCameraIds.size() == 0) {
-            showToast(R.string.all_exempted_devices);
-            ItsTestActivity.this.getReportLog().setSummary(
-                    "PASS: all cameras on this device are exempted from ITS"
-                    , 1.0, ResultType.NEUTRAL, ResultUnit.NONE);
-            setTestResultAndFinish(true);
+
+        if (!mIsFoldableDevice) {
+            if (mToBeTestedCameraIds.size() == 0) {
+                showToast(R.string.all_exempted_devices);
+                ItsTestActivity.this.getReportLog().setSummary(
+                        "PASS: all cameras on this device are exempted from ITS",
+                        1.0, ResultType.NEUTRAL, ResultUnit.NONE);
+                setTestResultAndFinish(true);
+            }
         }
         // Default locale must be set to "en-us"
         Locale locale = Locale.getDefault();
         if (!Locale.US.equals(locale)) {
-            String toastMessage = "Unsupported default language " + locale + "! " +
-                    "Please switch the default language to English (United States) in " +
-                    "Settings > Language & input > Languages";
+            String toastMessage = "Unsupported default language " + locale + "! "
+                    + "Please switch the default language to English (United States) in "
+                    + "Settings > Language & input > Languages";
             Toast.makeText(ItsTestActivity.this, toastMessage, Toast.LENGTH_LONG).show();
             ItsTestActivity.this.getReportLog().setSummary(
                     "FAIL: Default language is not set to " + Locale.US,
@@ -426,6 +551,53 @@ public class ItsTestActivity extends DialogTestListActivity {
             setTestResultAndFinish(false);
         }
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+    }
+
+    private List<String> getCameraIdsAvailableForTesting() {
+        List<String> toBeTestedCameraIds = new ArrayList<String>();
+        List<String> availableCameraIdList = new ArrayList<String>();
+        try {
+            ItsUtils.ItsCameraIdList cameraIdList =
+                    ItsUtils.getItsCompatibleCameraIds(mCameraManager);
+            toBeTestedCameraIds = cameraIdList.mCameraIdCombos;
+            mPrimaryRearCameraId = cameraIdList.mPrimaryRearCameraId;
+            mPrimaryFrontCameraId = cameraIdList.mPrimaryFrontCameraId;
+            mUnavailablePhysicalCameras = getUnavailablePhysicalCameras();
+            Log.i(TAG, "unavailablePhysicalCameras:"
+                    + mUnavailablePhysicalCameras.toString());
+            for (String str : toBeTestedCameraIds) {
+                if (str.contains(".")) {
+                    String[] strArr = str.split("\\.");
+                    if (mUnavailablePhysicalCameras.contains(new Pair<>(strArr[0], strArr[1]))) {
+                        toBeTestedCameraIds.remove(str);
+                    }
+                }
+            }
+            Log.i(TAG, "AvailablePhysicalCameras to be tested:"
+                    + Arrays.asList(toBeTestedCameraIds.toString()));
+        } catch (ItsException e) {
+            Log.i(TAG, "Received error from camera service while checking device capabilities: "
+                    + e);
+        } catch (Exception e) {
+            Log.i(TAG, "Exception: " + e);
+        }
+
+        return toBeTestedCameraIds;
+    }
+
+    // Get camera ids available for testing for device in
+    // each state: folded and unfolded.
+    protected void getCameraIdsForFoldableDevice() {
+        boolean deviceFolded = mIsDeviceFolded;
+        try {
+            if (mIsDeviceFolded) {
+                mToBeTestedCameraIdsFolded = getCameraIdsAvailableForTesting();
+            } else {
+                mToBeTestedCameraIdsUnfolded = getCameraIdsAvailableForTesting();
+            }
+        } catch (Exception e) {
+            Log.i(TAG, "Exception: " + e);
+        }
     }
 
     @Override
@@ -438,47 +610,144 @@ public class ItsTestActivity extends DialogTestListActivity {
         return "Camera: " + cam + ", " + scene;
     }
 
+    // CtsVerifier has a "Folded" toggle that selectively surfaces some tests.
+    // To separate the tests in folded and unfolded states, CtsVerifier adds a [folded]
+    // suffix to the test id in its internal database depending on the state of the "Folded"
+    // toggle button. However, CameraITS has tests that it needs to persist across both folded
+    // and unfolded states.To get the test results to persist, we need CtsVerifier to store and
+    // look up the same test id regardless of the toggle button state.
+    // TODO(b/282804139): Update CTS tests to allow activities to write tests that persist
+    // across the states
     protected String testId(String cam, String scene) {
-        return "Camera_ITS_" + cam + "_" + scene;
+        return "Camera_ITS_" + cam + "_" + scene + "[folded]";
+    }
+
+    protected boolean isFoldableDevice() {
+        Context context = this.getApplicationContext();
+        return CameraUtils.isDeviceFoldable(context);
+    }
+
+    protected boolean isDeviceFolded() {
+        return mIsDeviceFolded;
+    }
+
+    protected Set<Pair<String, String>> getUnavailablePhysicalCameras() throws ItsException {
+        final LinkedBlockingQueue<Pair<String, String>> unavailablePhysicalCamEventQueue =
+                new LinkedBlockingQueue<>();
+        mCameraThread = new HandlerThread("ItsCameraThread");
+        mCameraThread.start();
+        mCameraHandler = new Handler(mCameraThread.getLooper());
+        try {
+            CameraManager.AvailabilityCallback ac = new CameraManager.AvailabilityCallback() {
+                @Override
+                public void onPhysicalCameraUnavailable(String cameraId, String physicalCameraId) {
+                    unavailablePhysicalCamEventQueue.offer(new Pair<>(cameraId, physicalCameraId));
+                }
+            };
+            mCameraManager.registerAvailabilityCallback(ac, mCameraHandler);
+            Set<Pair<String, String>> unavailablePhysicalCameras =
+                    new HashSet<Pair<String, String>>();
+            Pair<String, String> candidatePhysicalIds =
+                    unavailablePhysicalCamEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                    java.util.concurrent.TimeUnit.MILLISECONDS);
+            while (candidatePhysicalIds != null) {
+                unavailablePhysicalCameras.add(candidatePhysicalIds);
+                candidatePhysicalIds =
+                        unavailablePhysicalCamEventQueue.poll(AVAILABILITY_TIMEOUT_MS,
+                        java.util.concurrent.TimeUnit.MILLISECONDS);
+            }
+            mCameraManager.unregisterAvailabilityCallback(ac);
+            return unavailablePhysicalCameras;
+        } catch (Exception e) {
+            throw new ItsException("Exception: ", e);
+        }
     }
 
     protected void setupItsTests(ArrayTestListAdapter adapter) {
         for (String cam : mToBeTestedCameraIds) {
-            List<String> scenes = cam.contains(ItsUtils.CAMERA_ID_TOKENIZER) ?
-                    mHiddenPhysicalCameraSceneIds : mSceneIds;
+            List<String> scenes = cam.contains(ItsUtils.CAMERA_ID_TOKENIZER)
+                    ? mHiddenPhysicalCameraSceneIds : mSceneIds;
             for (String scene : scenes) {
                 // Add camera and scene combinations in mAllScenes to avoid adding n/a scenes for
                 // devices with sub-cameras.
-                if(mAllScenes == null){
-                    mAllScenes = new TreeSet<>(mComparator);
-                }
                 mAllScenes.add(new ResultKey(cam, scene));
                 adapter.add(new DialogTestListItem(this,
-                testTitle(cam, scene),
-                testId(cam, scene)));
+                        testTitle(cam, scene),
+                        testId(cam, scene)));
             }
             if (mExecutedMpcTests == null) {
                 mExecutedMpcTests = new TreeSet<>(mComparator);
             }
-            Log.d(TAG,"Total combinations to test on this device:" + mAllScenes.size());
+            Log.d(TAG, "Total combinations to test on this device:" + mAllScenes.size());
         }
+    }
+
+    protected void setupItsTestsForFoldableDevice(ArrayTestListAdapter adapter) {
+        List<String> toBeTestedCameraIds = new ArrayList<String>();
+        if (mIsDeviceFolded) {
+            toBeTestedCameraIds = mToBeTestedCameraIdsFolded;
+        } else {
+            toBeTestedCameraIds = mToBeTestedCameraIdsUnfolded;
+        }
+
+        for (String cam : toBeTestedCameraIds) {
+            List<String> scenes = cam.contains(ItsUtils.CAMERA_ID_TOKENIZER)
+                    ? mHiddenPhysicalCameraSceneIds : mSceneIds;
+            for (String scene : scenes) {
+                // Add camera and scene combinations in mAllScenes to avoid adding n/a scenes for
+                // devices with sub-cameras.
+                if (cam.contains(mPrimaryFrontCameraId) && mIsDeviceFolded) {
+                    scene = scene + "_folded";
+                }
+                // Rear camera scenes will be added only once.
+                if (mAllScenes.contains(new ResultKey(cam, scene))) {
+                    continue;
+                }
+                // TODO(ruchamk): Remove extra logging after testing.
+                Log.i(TAG, "Adding cam_id: " + cam + "scene: " + scene);
+                mAllScenes.add(new ResultKey(cam, scene));
+                adapter.add(new DialogTestListItem(this,
+                        testTitle(cam, scene),
+                        testId(cam, scene)));
+            }
+        }
+        Log.d(TAG, "Total combinations to test on this device:"
+                + mAllScenes.size() + " folded? " + mIsDeviceFolded);
+        if (mIsDeviceFolded) {
+            mFoldedTestSetupDone = true;
+            Log.i(TAG, "mFoldedTestSetupDone");
+        } else {
+            mUnfoldedTestSetupDone = true;
+            Log.i(TAG, "mUnfoldedTestSetupDone");
+        }
+        if (mFoldedTestSetupDone && mUnfoldedTestSetupDone) {
+            Log.d(TAG, "Total combinations to test on this foldable "
+                    + "device for both states:" + mAllScenes.size());
+        }
+        adapter.loadTestResults();
     }
 
     @Override
     protected void setupTests(ArrayTestListAdapter adapter) {
-        setupItsTests(adapter);
+        mAdapter = adapter;
+        if (mIsFoldableDevice) {
+            if (mFoldedTestSetupDone && mUnfoldedTestSetupDone) {
+                Log.i(TAG, "Set up is done");
+            }
+        } else {
+            setupItsTests(adapter);
+        }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        CameraManager manager = (CameraManager) this.getSystemService(Context.CAMERA_SERVICE);
-        if (manager == null) {
+        if (mCameraManager == null) {
             showToast(R.string.no_camera_manager);
         } else {
             Log.d(TAG, "register ITS result receiver");
             IntentFilter filter = new IntentFilter(ACTION_ITS_RESULT);
-            registerReceiver(mResultsReceiver, filter);
+            registerReceiver(mResultsReceiver, filter, Context.RECEIVER_EXPORTED);
             mReceiverRegistered = true;
         }
     }
@@ -498,15 +767,7 @@ public class ItsTestActivity extends DialogTestListActivity {
         setContentView(R.layout.its_main);
         setInfoResources(R.string.camera_its_test, R.string.camera_its_test_info, -1);
         setPassFailButtonClickListeners();
-    }
-
-    @Override
-    public String getReportFileName() {
-        return MPC_TESTS_REPORT_LOG_NAME;
-    }
-
-    @Override
-    public String getReportSectionName() {
-        return MPC_TESTS_REPORT_LOG_SECTION;
+        // Changing folded state can incorrectly enable pass button
+        ItsTestActivity.this.getPassButton().setEnabled(false);
     }
 }

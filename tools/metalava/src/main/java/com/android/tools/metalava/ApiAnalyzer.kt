@@ -189,36 +189,22 @@ class ApiAnalyzer(
         }
 
         // Find default constructor, if one doesn't exist
-        val allConstructors = cls.constructors()
-        if (allConstructors.isNotEmpty()) {
+        val constructors = cls.filteredConstructors(filter).toList()
+        if (constructors.isNotEmpty()) {
+            // Try to pick the constructor, select first by fewest throwables,
+            // then fewest parameters, then based on order in listFilter.test(cls)
+            cls.stubConstructor = constructors.reduce { first, second -> pickBest(first, second) }
+            return
+        }
 
-            // Try and use a publicly accessible constructor first.
-            val constructors = cls.filteredConstructors(filter).toList()
-            if (constructors.isNotEmpty()) {
-                // Try to pick the constructor, select first by fewest throwables, then fewest parameters,
-                // then based on order in listFilter.test(cls)
-                cls.stubConstructor = constructors.reduce { first, second -> pickBest(first, second) }
-                return
-            }
-
-            // No accessible constructors are available so one will have to be created, either a private constructor to
-            // prevent instances of the class from being created, or a package private constructor for use by subclasses
-            // in the package to use. Subclasses outside the package would need a protected or public constructor which
-            // would already be part of the API so should have dropped out above.
-            //
-            // The visibility levels on the constructors from the source can give a clue as to what is required. e.g.
-            // if all constructors are private then it is ok for the generated constructor to be private, otherwise it
-            // should be package private.
-            val allPrivate = allConstructors.asSequence()
-                .map { it.isPrivate }
-                .reduce { v1, v2 -> v1 and v2 }
-
-            val visibilityLevel = if (allPrivate) VisibilityLevel.PRIVATE else VisibilityLevel.PACKAGE_PRIVATE
-
-            // No constructors, yet somebody extends this (or private constructor): we have to invent one, such that
-            // subclasses can dispatch to it in the stub files etc
+        // For text based codebase, stub constructor needs to be generated even if
+        // cls.constructors() is empty, so that public default constructor is not created.
+        if (cls.constructors().isNotEmpty() || cls.codebase.preFiltered) {
+            // No accessible constructors are available so a package private constructor is created.
+            // Technically, the stub now has a constructor that isn't available at runtime,
+            // but apps creating subclasses inside the android.* package is not supported.
             cls.stubConstructor = cls.createDefaultConstructor().also {
-                it.mutableModifiers().setVisibilityLevel(visibilityLevel)
+                it.mutableModifiers().setVisibilityLevel(VisibilityLevel.PACKAGE_PRIVATE)
                 it.hidden = false
                 it.superConstructor = superClass?.stubConstructor
             }
@@ -870,7 +856,7 @@ class ApiAnalyzer(
                 if (!method.isConstructor()) {
                     checkTypeReferencesHidden(
                         method,
-                        method.returnType()!!
+                        method.returnType()
                     ) // returnType is nullable only for constructors
                 }
 
@@ -894,7 +880,7 @@ class ApiAnalyzer(
                         method.mutableModifiers().removeAnnotation(it)
                         // Have to also clear the annotation out of the return type itself, if it's a type
                         // use annotation
-                        method.returnType()?.scrubAnnotations()
+                        method.returnType().scrubAnnotations()
                     }
                 }
             }
@@ -1001,7 +987,7 @@ class ApiAnalyzer(
                     }
 
                     val returnType = m.returnType()
-                    if (!m.deprecated && !cl.deprecated && returnType != null && returnType.asClass()?.deprecated == true) {
+                    if (!m.deprecated && !cl.deprecated && returnType.asClass()?.deprecated == true) {
                         reporter.report(
                             Issues.REFERENCES_DEPRECATED, m,
                             "Return type of deprecated type $returnType in ${cl.qualifiedName()}.${m.name()}(): this method should also be deprecated"
@@ -1010,7 +996,7 @@ class ApiAnalyzer(
 
                     var hiddenClass = findHiddenClasses(returnType, stubImportPackages)
                     if (hiddenClass != null && !hiddenClass.isFromClassPath()) {
-                        if (hiddenClass.qualifiedName() == returnType?.asClass()?.qualifiedName()) {
+                        if (hiddenClass.qualifiedName() == returnType.asClass()?.qualifiedName()) {
                             // Return type is hidden
                             reporter.report(
                                 Issues.UNAVAILABLE_SYMBOL, m,
@@ -1057,7 +1043,7 @@ class ApiAnalyzer(
                     }
 
                     val t = m.returnType()
-                    if (t != null && !t.primitive && !m.deprecated && !cl.deprecated && t.asClass()?.deprecated == true) {
+                    if (!t.primitive && !m.deprecated && !cl.deprecated && t.asClass()?.deprecated == true) {
                         reporter.report(
                             Issues.REFERENCES_DEPRECATED, m,
                             "Returning deprecated type $t from ${cl.qualifiedName()}.${m.name()}(): this method should also be deprecated"
@@ -1248,7 +1234,7 @@ class ApiAnalyzer(
                 cantStripThis(thrown, filter, notStrippable, stubImportPackages, method, "as exception")
             }
             val returnType = method.returnType()
-            if (returnType != null && !returnType.primitive) {
+            if (!returnType.primitive) {
                 val returnTypeClass = returnType.asClass()
                 if (returnTypeClass != null) {
                     cantStripThis(returnTypeClass, filter, notStrippable, stubImportPackages, method, "as return type")

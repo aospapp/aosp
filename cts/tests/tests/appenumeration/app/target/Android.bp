@@ -81,6 +81,18 @@ android_test_helper_app {
 }
 
 android_test_helper_app {
+    name: "CtsAppEnumerationStubSharedUser",
+    manifest: "AndroidManifest-stub-sharedUser.xml",
+    defaults: ["CtsAppEnumerationTargetDefaults"],
+    certificate: ":cts-testkey1",
+    // Tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
     name: "CtsAppEnumerationSharedUidTarget",
     manifest: "AndroidManifest-noapi-sharedUser.xml",
     defaults: ["CtsAppEnumerationTargetDefaults"],

@@ -747,7 +747,10 @@ public final class DexPathList {
             }
 
             try {
-                urlHandler = new ClassPathURLStreamHandler(path.getPath());
+                // Disable zip path validation for loading APKs as it does not pose a risk of the
+                // zip path traversal vulnerability.
+                urlHandler = new ClassPathURLStreamHandler(path.getPath(),
+                        /* enableZipPathValidator */ false);
             } catch (IOException ioe) {
                 /*
                  * Note: ZipException (a subclass of IOException)
@@ -855,7 +858,10 @@ public final class DexPathList {
             }
 
             try {
-                urlHandler = new ClassPathURLStreamHandler(path.getPath());
+                // Disable zip path validation for loading APKs as it does not pose a risk of the
+                // zip path traversal vulnerability.
+                urlHandler = new ClassPathURLStreamHandler(path.getPath(),
+                        /* enableZipPathValidator */ false);
             } catch (IOException ioe) {
                 /*
                  * Note: ZipException (a subclass of IOException)

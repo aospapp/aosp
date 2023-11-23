@@ -977,7 +977,8 @@ class EnumValue(Node):
     id: An optional numeric string, e.g. '0' or '0xFF'
     deprecated: A boolean, True if the enum should be deprecated.
     optional: A boolean
-    visibility: A string, one of "system", "java_public", "ndk_public", "hidden", "public"
+    visibility: A string, one of "system", "java_public", "ndk_public", "hidden", "public",
+                "fwk_java_public"
     notes: A string describing the notes, or None.
     sdk_notes: A string describing extra notes for public SDK only
     ndk_notes: A string describing extra notes for public NDK only
@@ -1032,7 +1033,8 @@ class EnumValue(Node):
     parent_enum = None
     if (self.parent is not None and self.parent.parent is not None):
       parent_enum = self.parent.parent
-    if parent_enum is not None and parent_enum.visibility == 'fwk_only' or self._visibility == 'fwk_only':
+    if parent_enum is not None and parent_enum.visibility in ('fwk_only', 'fwk_java_public') \
+        or self._visibility in ('fwk_only', 'fwk_java_public'):
       return ','
     return ', // HIDL v' + str(self._hal_major_version) + '.' + str(self.hal_minor_version)
 
@@ -1249,8 +1251,8 @@ class Entry(Node):
 
   @property
   def hidl_comment_string(self):
-    if self._visibility == 'fwk_only':
-      return 'fwk_only'
+    if self._visibility in ('fwk_only', 'fwk_java_public'):
+      return self._visibility
     visibility_lj = str(self.applied_visibility).ljust(12)
     return visibility_lj + ' | HIDL v' + str(self._hal_major_version) + '.' + str(self._hal_minor_version)
 

@@ -19,7 +19,6 @@ This command will pull the log files from a remote instance for AVD troubleshoot
 from __future__ import print_function
 import logging
 import os
-import subprocess
 import tempfile
 
 from acloud import errors
@@ -34,10 +33,6 @@ from acloud.public import report
 
 logger = logging.getLogger(__name__)
 
-# REMOTE_LOG_FOLDER and the log files can be symbolic links. The -H flag makes
-# the command skip the links except REMOTE_LOG_FOLDER. The returned logs are
-# unique.
-_FIND_LOG_FILE_CMD = "find -H %s -type f" % constants.REMOTE_LOG_FOLDER
 # Black list for log files.
 _KERNEL = "kernel"
 _IMG_FILE_EXTENSION = ".img"
@@ -148,7 +143,7 @@ def SelectLogFileToPull(ssh, file_name=None):
     Raises:
         errors.CheckPathError: Can't find log files.
     """
-    log_files = GetAllLogFilePaths(ssh)
+    log_files = GetAllLogFilePaths(ssh, constants.REMOTE_LOG_FOLDER)
     if file_name:
         file_path = os.path.join(constants.REMOTE_LOG_FOLDER, file_name)
         if file_path in log_files:
@@ -167,39 +162,21 @@ def SelectLogFileToPull(ssh, file_name=None):
                                 "remote instance." % constants.REMOTE_LOG_FOLDER)
 
 
-def GetAllLogFilePaths(ssh):
-    """Get the file paths of all log files.
-
-    Args:
-        ssh: Ssh object.
-
-    Returns:
-        List of all log file paths.
-    """
-    ssh_cmd = [ssh.GetBaseCmd(constants.SSH_BIN), _FIND_LOG_FILE_CMD]
-    log_files = []
-    try:
-        files_output = utils.CheckOutput(" ".join(ssh_cmd), shell=True)
-        log_files = FilterLogfiles(files_output.splitlines())
-    except subprocess.CalledProcessError:
-        logger.debug("The folder(%s) that running launch_cvd doesn't exist.",
-                     constants.REMOTE_LOG_FOLDER)
-    return log_files
-
-
-def FilterLogfiles(files):
-    """Filter some unused files.
+def GetAllLogFilePaths(ssh, remote_log_folder):
+    """Get all file paths under the log folder.
 
     Two rules to filter out files.
     1. File name is "kernel".
     2. File type is image "*.img".
 
     Args:
-        files: List of file paths in the remote instance.
+        ssh: Ssh object.
+        remote_log_folder: The path to the remote log folder.
 
-    Return:
-        List of log files.
+    Returns:
+        List of strings, the log file paths.
     """
+    files = utils.FindRemoteFiles(ssh, [remote_log_folder])
     log_files = list(files)
     for file_path in files:
         file_name = os.path.basename(file_path)

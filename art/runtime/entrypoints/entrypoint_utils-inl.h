@@ -34,7 +34,6 @@
 #include "imt_conflict_table.h"
 #include "imtable-inl.h"
 #include "indirect_reference_table.h"
-#include "jni/jni_internal.h"
 #include "mirror/array-alloc-inl.h"
 #include "mirror/class-alloc-inl.h"
 #include "mirror/class-inl.h"
@@ -122,7 +121,7 @@ inline ArtMethod* GetResolvedMethod(ArtMethod* outer_method,
     uint32_t method_index = code_info.GetMethodIndexOf(inline_info);
     if (inline_info.GetDexPc() == static_cast<uint32_t>(-1)) {
       // "charAt" special case. It is the only non-leaf method we inline across dex files.
-      ArtMethod* inlined_method = jni::DecodeArtMethod(WellKnownClasses::java_lang_String_charAt);
+      ArtMethod* inlined_method = WellKnownClasses::java_lang_String_charAt;
       DCHECK_EQ(inlined_method->GetDexMethodIndex(), method_index);
       return inlined_method;
     }
@@ -290,7 +289,6 @@ inline ObjPtr<mirror::Object> AllocObjectFromCodeInitialized(ObjPtr<mirror::Clas
 }
 
 
-template <bool kAccessCheck>
 ALWAYS_INLINE
 inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_idx,
                                              int32_t component_count,
@@ -312,7 +310,7 @@ inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_idx,
     }
     CHECK(klass->IsArrayClass()) << klass->PrettyClass();
   }
-  if (kAccessCheck) {
+  if (!method->SkipAccessChecks()) {
     ObjPtr<mirror::Class> referrer = method->GetDeclaringClass();
     if (UNLIKELY(!referrer->CanAccess(klass))) {
       ThrowIllegalAccessErrorClass(referrer, klass);
@@ -327,7 +325,7 @@ inline ObjPtr<mirror::Class> CheckArrayAlloc(dex::TypeIndex type_idx,
 // it cannot be resolved, throw an error. If it can, use it to create an array.
 // When verification/compiler hasn't been able to verify access, optionally perform an access
 // check.
-template <bool kAccessCheck, bool kInstrumented>
+template <bool kInstrumented>
 ALWAYS_INLINE
 inline ObjPtr<mirror::Array> AllocArrayFromCode(dex::TypeIndex type_idx,
                                                 int32_t component_count,
@@ -335,8 +333,7 @@ inline ObjPtr<mirror::Array> AllocArrayFromCode(dex::TypeIndex type_idx,
                                                 Thread* self,
                                                 gc::AllocatorType allocator_type) {
   bool slow_path = false;
-  ObjPtr<mirror::Class> klass =
-      CheckArrayAlloc<kAccessCheck>(type_idx, component_count, method, &slow_path);
+  ObjPtr<mirror::Class> klass = CheckArrayAlloc(type_idx, component_count, method, &slow_path);
   if (UNLIKELY(slow_path)) {
     if (klass == nullptr) {
       return nullptr;
@@ -376,76 +373,77 @@ inline ObjPtr<mirror::Array> AllocArrayFromCodeResolved(ObjPtr<mirror::Class> kl
                                              allocator_type);
 }
 
-template<FindFieldType type, bool access_check>
+FLATTEN
+inline ArtField* ResolveFieldWithAccessChecks(Thread* self,
+                                              ClassLinker* class_linker,
+                                              uint16_t field_index,
+                                              ArtMethod* caller,
+                                              bool is_static,
+                                              bool is_put,
+                                              size_t resolve_field_type)  // Resolve if not zero
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (caller->SkipAccessChecks()) {
+    return class_linker->ResolveField(field_index, caller, is_static);
+  }
+
+  caller = caller->GetInterfaceMethodIfProxy(class_linker->GetImagePointerSize());
+
+  StackHandleScope<2> hs(self);
+  Handle<mirror::DexCache> h_dex_cache(hs.NewHandle(caller->GetDexCache()));
+  Handle<mirror::ClassLoader> h_class_loader(hs.NewHandle(caller->GetClassLoader()));
+
+  ArtField* resolved_field = class_linker->ResolveFieldJLS(field_index,
+                                                           h_dex_cache,
+                                                           h_class_loader);
+  if (resolved_field == nullptr) {
+    return nullptr;
+  }
+
+  ObjPtr<mirror::Class> fields_class = resolved_field->GetDeclaringClass();
+  if (UNLIKELY(resolved_field->IsStatic() != is_static)) {
+    ThrowIncompatibleClassChangeErrorField(resolved_field, is_static, caller);
+    return nullptr;
+  }
+  ObjPtr<mirror::Class> referring_class = caller->GetDeclaringClass();
+  if (UNLIKELY(!referring_class->CheckResolvedFieldAccess(fields_class,
+                                                          resolved_field,
+                                                          caller->GetDexCache(),
+                                                          field_index))) {
+    DCHECK(self->IsExceptionPending());
+    return nullptr;
+  }
+  if (UNLIKELY(is_put && !resolved_field->CanBeChangedBy(caller))) {
+    ThrowIllegalAccessErrorFinalField(caller, resolved_field);
+    return nullptr;
+  }
+
+  if (resolve_field_type != 0u) {
+    StackArtFieldHandleScope<1> rhs(self);
+    ReflectiveHandle<ArtField> field_handle(rhs.NewHandle(resolved_field));
+    if (resolved_field->ResolveType().IsNull()) {
+      DCHECK(self->IsExceptionPending());
+      return nullptr;
+    }
+    resolved_field = field_handle.Get();
+  }
+  return resolved_field;
+}
+
+template<FindFieldType type>
 inline ArtField* FindFieldFromCode(uint32_t field_idx,
                                    ArtMethod* referrer,
                                    Thread* self,
-                                   size_t expected_size) {
-  constexpr bool is_primitive = (type & FindFieldFlags::PrimitiveBit) != 0;
+                                   bool should_resolve_type = false) {
   constexpr bool is_set = (type & FindFieldFlags::WriteBit) != 0;
   constexpr bool is_static = (type & FindFieldFlags::StaticBit) != 0;
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
-
-  ArtField* resolved_field;
-  if (access_check) {
-    // Slow path: According to JLS 13.4.8, a linkage error may occur if a compile-time
-    // qualifying type of a field and the resolved run-time qualifying type of a field differed
-    // in their static-ness.
-    //
-    // In particular, don't assume the dex instruction already correctly knows if the
-    // real field is static or not. The resolution must not be aware of this.
-    ArtMethod* method = referrer->GetInterfaceMethodIfProxy(kRuntimePointerSize);
-
-    StackHandleScope<2> hs(self);
-    Handle<mirror::DexCache> h_dex_cache(hs.NewHandle(method->GetDexCache()));
-    Handle<mirror::ClassLoader> h_class_loader(hs.NewHandle(method->GetClassLoader()));
-
-    resolved_field = class_linker->ResolveFieldJLS(field_idx,
-                                                   h_dex_cache,
-                                                   h_class_loader);
-  } else {
-    // Fast path: Verifier already would've called ResolveFieldJLS and we wouldn't
-    // be executing here if there was a static/non-static mismatch.
-    resolved_field = class_linker->ResolveField(field_idx, referrer, is_static);
-  }
-
-  if (UNLIKELY(resolved_field == nullptr)) {
-    DCHECK(self->IsExceptionPending());  // Throw exception and unwind.
-    return nullptr;  // Failure.
-  }
-  ObjPtr<mirror::Class> fields_class = resolved_field->GetDeclaringClass();
-  if (access_check) {
-    if (UNLIKELY(resolved_field->IsStatic() != is_static)) {
-      ThrowIncompatibleClassChangeErrorField(resolved_field, is_static, referrer);
-      return nullptr;
-    }
-    ObjPtr<mirror::Class> referring_class = referrer->GetDeclaringClass();
-    if (UNLIKELY(!referring_class->CheckResolvedFieldAccess(fields_class,
-                                                            resolved_field,
-                                                            referrer->GetDexCache(),
-                                                            field_idx))) {
-      DCHECK(self->IsExceptionPending());  // Throw exception and unwind.
-      return nullptr;  // Failure.
-    }
-    if (UNLIKELY(is_set && !resolved_field->CanBeChangedBy(referrer))) {
-      ThrowIllegalAccessErrorFinalField(referrer, resolved_field);
-      return nullptr;  // Failure.
-    } else {
-      if (UNLIKELY(resolved_field->IsPrimitiveType() != is_primitive ||
-                   resolved_field->FieldSize() != expected_size)) {
-        self->ThrowNewExceptionF("Ljava/lang/NoSuchFieldError;",
-                                 "Attempted read of %zd-bit %s on field '%s'",
-                                 expected_size * (32 / sizeof(int32_t)),
-                                 is_primitive ? "primitive" : "non-primitive",
-                                 resolved_field->PrettyField(true).c_str());
-        return nullptr;  // Failure.
-      }
-    }
-  }
-  if (!is_static) {
+  ArtField* resolved_field = ResolveFieldWithAccessChecks(
+      self, class_linker, field_idx, referrer, is_static, is_set, should_resolve_type ? 1u : 0u);
+  if (!is_static || resolved_field == nullptr) {
     // instance fields must be being accessed on an initialized class
     return resolved_field;
   } else {
+    ObjPtr<mirror::Class> fields_class = resolved_field->GetDeclaringClass();
     // If the class is initialized we're done.
     if (LIKELY(fields_class->IsVisiblyInitialized())) {
       return resolved_field;
@@ -463,28 +461,147 @@ inline ArtField* FindFieldFromCode(uint32_t field_idx,
   }
 }
 
+// NOLINTBEGIN(bugprone-macro-parentheses)
 // Explicit template declarations of FindFieldFromCode for all field access types.
-#define EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(_type, _access_check) \
+#define EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(_type) \
 template REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE \
-ArtField* FindFieldFromCode<_type, _access_check>(uint32_t field_idx, \
-                                                  ArtMethod* referrer, \
-                                                  Thread* self, size_t expected_size) \
+ArtField* FindFieldFromCode<_type>(uint32_t field_idx, \
+                                   ArtMethod* referrer, \
+                                   Thread* self, \
+                                   bool should_resolve_type = false) \
 
-#define EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(_type) \
-    EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(_type, false); \
-    EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(_type, true)
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(InstanceObjectRead);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(InstanceObjectWrite);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(InstancePrimitiveRead);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(InstancePrimitiveWrite);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(StaticObjectRead);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(StaticObjectWrite);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(StaticPrimitiveRead);
+EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL(StaticPrimitiveWrite);
 
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(InstanceObjectRead);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(InstanceObjectWrite);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(InstancePrimitiveRead);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(InstancePrimitiveWrite);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(StaticObjectRead);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(StaticObjectWrite);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(StaticPrimitiveRead);
-EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL(StaticPrimitiveWrite);
-
-#undef EXPLICIT_FIND_FIELD_FROM_CODE_TYPED_TEMPLATE_DECL
 #undef EXPLICIT_FIND_FIELD_FROM_CODE_TEMPLATE_DECL
+// NOLINTEND(bugprone-macro-parentheses)
+
+static inline bool IsStringInit(const DexFile* dex_file, uint32_t method_idx)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  const dex::MethodId& method_id = dex_file->GetMethodId(method_idx);
+  const char* class_name = dex_file->StringByTypeIdx(method_id.class_idx_);
+  const char* method_name = dex_file->GetMethodName(method_id);
+  // Instead of calling ResolveMethod() which has suspend point and can trigger
+  // GC, look up the method symbolically.
+  // Compare method's class name and method name against string init.
+  // It's ok since it's not allowed to create your own java/lang/String.
+  // TODO: verify that assumption.
+  if ((strcmp(class_name, "Ljava/lang/String;") == 0) &&
+      (strcmp(method_name, "<init>") == 0)) {
+    return true;
+  }
+  return false;
+}
+
+static inline bool IsStringInit(const Instruction& instr, ArtMethod* caller)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  if (instr.Opcode() == Instruction::INVOKE_DIRECT ||
+      instr.Opcode() == Instruction::INVOKE_DIRECT_RANGE) {
+    uint16_t callee_method_idx = (instr.Opcode() == Instruction::INVOKE_DIRECT_RANGE) ?
+        instr.VRegB_3rc() : instr.VRegB_35c();
+    return IsStringInit(caller->GetDexFile(), callee_method_idx);
+  }
+  return false;
+}
+
+extern "C" size_t NterpGetMethod(Thread* self, ArtMethod* caller, const uint16_t* dex_pc_ptr);
+
+template <InvokeType type>
+ArtMethod* FindMethodToCall(Thread* self,
+                            ArtMethod* caller,
+                            ObjPtr<mirror::Object>* this_object,
+                            const Instruction& inst,
+                            bool only_lookup_tls_cache,
+                            /*out*/ bool* string_init)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
+
+  // Try to find the method in thread-local cache.
+  size_t tls_value = 0u;
+  if (!self->GetInterpreterCache()->Get(self, &inst, &tls_value)) {
+    if (only_lookup_tls_cache) {
+      return nullptr;
+    }
+    DCHECK(!self->IsExceptionPending());
+    // NterpGetMethod can suspend, so save this_object.
+    StackHandleScope<1> hs(self);
+    HandleWrapperObjPtr<mirror::Object> h_this(hs.NewHandleWrapper(this_object));
+    tls_value = NterpGetMethod(self, caller, reinterpret_cast<const uint16_t*>(&inst));
+    if (self->IsExceptionPending()) {
+      return nullptr;
+    }
+  }
+
+  if (type != kStatic && UNLIKELY((*this_object) == nullptr)) {
+    if (UNLIKELY(IsStringInit(inst, caller))) {
+      // Hack for String init:
+      //
+      // We assume that the input of String.<init> in verified code is always
+      // an uninitialized reference. If it is a null constant, it must have been
+      // optimized out by the compiler and we arrive here after deoptimization.
+      // Do not throw NullPointerException.
+    } else {
+      // Maintain interpreter-like semantics where NullPointerException is thrown
+      // after potential NoSuchMethodError from class linker.
+      const uint32_t method_idx = inst.VRegB();
+      ThrowNullPointerExceptionForMethodAccess(method_idx, type);
+      return nullptr;
+    }
+  }
+
+  static constexpr size_t kStringInitMethodFlag = 0b1;
+  static constexpr size_t kInvokeInterfaceOnObjectMethodFlag = 0b1;
+  static constexpr size_t kMethodMask = ~0b11;
+
+  ArtMethod* called_method = nullptr;
+  switch (type) {
+    case kDirect:
+    case kSuper:
+    case kStatic:
+      // Note: for the interpreter, the String.<init> special casing for invocation is handled
+      // in DoCallCommon.
+      *string_init = ((tls_value & kStringInitMethodFlag) != 0);
+      DCHECK_EQ(*string_init, IsStringInit(inst, caller));
+      called_method = reinterpret_cast<ArtMethod*>(tls_value & kMethodMask);
+      break;
+    case kInterface:
+      if ((tls_value & kInvokeInterfaceOnObjectMethodFlag) != 0) {
+        // invokeinterface on a j.l.Object method.
+        uint16_t method_index = tls_value >> 16;
+        called_method = (*this_object)->GetClass()->GetVTableEntry(method_index, pointer_size);
+      } else {
+        ArtMethod* interface_method = reinterpret_cast<ArtMethod*>(tls_value & kMethodMask);
+        called_method = (*this_object)->GetClass()->GetImt(pointer_size)->Get(
+            interface_method->GetImtIndex(), pointer_size);
+        if (called_method->IsRuntimeMethod()) {
+          called_method = (*this_object)->GetClass()->FindVirtualMethodForInterface(
+              interface_method, pointer_size);
+          if (UNLIKELY(called_method == nullptr)) {
+            ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(
+                interface_method, *this_object, caller);
+            return nullptr;
+          }
+        }
+      }
+      break;
+    case kVirtual:
+      called_method = (*this_object)->GetClass()->GetVTableEntry(tls_value, pointer_size);
+      break;
+  }
+
+  if (UNLIKELY(!called_method->IsInvokable())) {
+    called_method->ThrowInvocationTimeError((type == kStatic) ? nullptr : *this_object);
+    return nullptr;
+  }
+  DCHECK(!called_method->IsRuntimeMethod()) << called_method->PrettyMethod();
+  return called_method;
+}
 
 template<bool access_check>
 ALWAYS_INLINE ArtMethod* FindSuperMethodToCall(uint32_t method_idx,
@@ -546,130 +663,6 @@ ALWAYS_INLINE ArtMethod* FindSuperMethodToCall(uint32_t method_idx,
   return super_class->GetVTableEntry(vtable_index, linker->GetImagePointerSize());
 }
 
-// Follow virtual/interface indirections if applicable.
-// Will throw null-pointer exception the if the object is null.
-template<InvokeType type, bool access_check>
-ALWAYS_INLINE ArtMethod* FindMethodToCall(uint32_t method_idx,
-                                          ArtMethod* resolved_method,
-                                          ObjPtr<mirror::Object>* this_object,
-                                          ArtMethod* referrer,
-                                          Thread* self)
-    REQUIRES_SHARED(Locks::mutator_lock_) {
-  ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
-  // Null pointer check.
-  if (UNLIKELY(*this_object == nullptr && type != kStatic)) {
-    if (UNLIKELY(resolved_method->GetDeclaringClass()->IsStringClass() &&
-                 resolved_method->IsConstructor())) {
-      // Hack for String init:
-      //
-      // We assume that the input of String.<init> in verified code is always
-      // an unitialized reference. If it is a null constant, it must have been
-      // optimized out by the compiler. Do not throw NullPointerException.
-    } else {
-      // Maintain interpreter-like semantics where NullPointerException is thrown
-      // after potential NoSuchMethodError from class linker.
-      ThrowNullPointerExceptionForMethodAccess(method_idx, type);
-      return nullptr;  // Failure.
-    }
-  }
-  switch (type) {
-    case kStatic:
-    case kDirect:
-      return resolved_method;
-    case kVirtual: {
-      ObjPtr<mirror::Class> klass = (*this_object)->GetClass();
-      uint16_t vtable_index = resolved_method->GetMethodIndex();
-      if (access_check &&
-          (!klass->HasVTable() ||
-           vtable_index >= static_cast<uint32_t>(klass->GetVTableLength()))) {
-        // Behavior to agree with that of the verifier.
-        ThrowNoSuchMethodError(type, resolved_method->GetDeclaringClass(),
-                               resolved_method->GetName(), resolved_method->GetSignature());
-        return nullptr;  // Failure.
-      }
-      DCHECK(klass->HasVTable()) << klass->PrettyClass();
-      return klass->GetVTableEntry(vtable_index, class_linker->GetImagePointerSize());
-    }
-    case kSuper: {
-      return FindSuperMethodToCall<access_check>(method_idx, resolved_method, referrer, self);
-    }
-    case kInterface: {
-      size_t imt_index = resolved_method->GetImtIndex();
-      PointerSize pointer_size = class_linker->GetImagePointerSize();
-      ObjPtr<mirror::Class> klass = (*this_object)->GetClass();
-      ArtMethod* imt_method = klass->GetImt(pointer_size)->Get(imt_index, pointer_size);
-      if (!imt_method->IsRuntimeMethod()) {
-        if (kIsDebugBuild) {
-          ArtMethod* method = klass->FindVirtualMethodForInterface(
-              resolved_method, class_linker->GetImagePointerSize());
-          CHECK_EQ(imt_method, method) << ArtMethod::PrettyMethod(resolved_method) << " / "
-                                       << imt_method->PrettyMethod() << " / "
-                                       << ArtMethod::PrettyMethod(method) << " / "
-                                       << klass->PrettyClass();
-        }
-        return imt_method;
-      } else {
-        ArtMethod* interface_method = klass->FindVirtualMethodForInterface(
-            resolved_method, class_linker->GetImagePointerSize());
-        if (UNLIKELY(interface_method == nullptr)) {
-          ThrowIncompatibleClassChangeErrorClassForInterfaceDispatch(resolved_method,
-                                                                     *this_object, referrer);
-          return nullptr;  // Failure.
-        }
-        return interface_method;
-      }
-    }
-    default:
-      LOG(FATAL) << "Unknown invoke type " << type;
-      return nullptr;  // Failure.
-  }
-}
-
-template<InvokeType type, bool access_check>
-inline ArtMethod* FindMethodFromCode(uint32_t method_idx,
-                                     ObjPtr<mirror::Object>* this_object,
-                                     ArtMethod* referrer,
-                                     Thread* self) {
-  ClassLinker* const class_linker = Runtime::Current()->GetClassLinker();
-  constexpr ClassLinker::ResolveMode resolve_mode =
-      access_check ? ClassLinker::ResolveMode::kCheckICCEAndIAE
-                   : ClassLinker::ResolveMode::kNoChecks;
-  ArtMethod* resolved_method;
-  if (type == kStatic) {
-    resolved_method = class_linker->ResolveMethod<resolve_mode>(self, method_idx, referrer, type);
-  } else {
-    StackHandleScope<1> hs(self);
-    HandleWrapperObjPtr<mirror::Object> h_this(hs.NewHandleWrapper(this_object));
-    resolved_method = class_linker->ResolveMethod<resolve_mode>(self, method_idx, referrer, type);
-  }
-  if (UNLIKELY(resolved_method == nullptr)) {
-    DCHECK(self->IsExceptionPending());  // Throw exception and unwind.
-    return nullptr;  // Failure.
-  }
-  return FindMethodToCall<type, access_check>(
-      method_idx, resolved_method, this_object, referrer, self);
-}
-
-// Explicit template declarations of FindMethodFromCode for all invoke types.
-#define EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL(_type, _access_check)                 \
-  template REQUIRES_SHARED(Locks::mutator_lock_) ALWAYS_INLINE                       \
-  ArtMethod* FindMethodFromCode<_type, _access_check>(uint32_t method_idx,         \
-                                                      ObjPtr<mirror::Object>* this_object, \
-                                                      ArtMethod* referrer, \
-                                                      Thread* self)
-#define EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(_type) \
-    EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL(_type, false);   \
-    EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL(_type, true)
-
-EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kStatic);
-EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kDirect);
-EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kVirtual);
-EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kSuper);
-EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL(kInterface);
-
-#undef EXPLICIT_FIND_METHOD_FROM_CODE_TYPED_TEMPLATE_DECL
-#undef EXPLICIT_FIND_METHOD_FROM_CODE_TEMPLATE_DECL
-
 inline ObjPtr<mirror::Class> ResolveVerifyAndClinit(dex::TypeIndex type_idx,
                                                     ArtMethod* referrer,
                                                     Thread* self,
@@ -722,13 +715,6 @@ inline INT_TYPE art_float_to_integral(FLOAT_TYPE f) {
   } else {
     return (f != f) ? 0 : kMinInt;  // f != f implies NaN
   }
-}
-
-inline bool NeedsClinitCheckBeforeCall(ArtMethod* method) {
-  // The class needs to be visibly initialized before we can use entrypoints to
-  // compiled code for static methods. See b/18161648 . The class initializer is
-  // special as it is invoked during initialization and does not need the check.
-  return method->IsStatic() && !method->IsConstructor();
 }
 
 inline ObjPtr<mirror::Object> GetGenericJniSynchronizationObject(Thread* self, ArtMethod* called)

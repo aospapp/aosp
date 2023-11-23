@@ -23,7 +23,7 @@
 #include "base/bit_utils.h"
 #include "utils/x86_64/managed_register_x86_64.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace x86_64 {
 
 static constexpr ManagedRegister kCoreArgumentRegisters[] = {
@@ -145,6 +145,10 @@ ManagedRegister X86_64JniCallingConvention::IntReturnRegister() const {
 
 ManagedRegister X86_64ManagedRuntimeCallingConvention::MethodRegister() {
   return X86_64ManagedRegister::FromCpuRegister(RDI);
+}
+
+ManagedRegister X86_64ManagedRuntimeCallingConvention::ArgumentRegisterForMethodExitHook() {
+  return X86_64ManagedRegister::FromCpuRegister(R8);
 }
 
 bool X86_64ManagedRuntimeCallingConvention::IsCurrentParamInRegister() {

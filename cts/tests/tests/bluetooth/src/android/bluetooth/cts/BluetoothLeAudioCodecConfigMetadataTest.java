@@ -35,8 +35,10 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -45,14 +47,23 @@ import org.junit.runner.RunWith;
 @SmallTest
 public class BluetoothLeAudioCodecConfigMetadataTest {
     private static final long TEST_AUDIO_LOCATION_FRONT_LEFT = 0x01;
+    private static final int TEST_SAMPLE_RATE_44100 = 0x01 << 6;
+    private static final int TEST_FRAME_DURATION_10000 = 0x01 << 1;
+    private static final int TEST_OCTETS_PER_FRAME = 100;
+
     // See Page 5 of Generic Audio assigned number specification
     private static final byte[] TEST_METADATA_BYTES = {
             // length = 0x05, type = 0x03, value = 0x00000001 (front left)
-            0x05, 0x03, 0x01, 0x00, 0x00, 0x00
+            0x05, 0x03, 0x01, 0x00, 0x00, 0x00,
+            // length = 0x02, type = 0x01, value = 0x07 (44100 hz)
+            0x02, 0x01, 0x07,
+            // length = 0x02, type = 0x02, value = 0x01 (10 ms)
+            0x02, 0x02, 0x01,
+            // length = 0x03, type = 0x04, value = 0x64 (100)
+            0x03, 0x04, 0x64, 0x00
     };
 
     private Context mContext;
-    private boolean mHasBluetooth;
     private BluetoothAdapter mAdapter;
     private boolean mIsBroadcastSourceSupported;
     private boolean mIsBroadcastAssistantSupported;
@@ -60,13 +71,10 @@ public class BluetoothLeAudioCodecConfigMetadataTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU)) {
-            return;
-        }
-        mHasBluetooth = TestUtils.hasBluetooth();
-        if (!mHasBluetooth) {
-            return;
-        }
+
+        Assume.assumeTrue(ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU));
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+
         TestUtils.adoptPermissionAsShellUid(BLUETOOTH_CONNECT);
         mAdapter = TestUtils.getBluetoothAdapterOrDie();
         assertTrue(BTAdapterUtils.enableAdapter(mAdapter, mContext));
@@ -88,61 +96,65 @@ public class BluetoothLeAudioCodecConfigMetadataTest {
             assertTrue("Config must be true when profile is supported",
                     isBroadcastSourceEnabledInConfig);
         }
+
+        Assume.assumeTrue(mIsBroadcastAssistantSupported || mIsBroadcastSourceSupported);
     }
 
     @After
     public void tearDown() {
-        if (mHasBluetooth) {
-            if (mAdapter != null) {
-                assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-            }
-            mAdapter = null;
-            TestUtils.dropPermissionAsShellUid();
-        }
+        mAdapter = null;
+        TestUtils.dropPermissionAsShellUid();
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @Test
     public void testCreateCodecConfigMetadataFromBuilder() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioCodecConfigMetadata codecMetadata =
                 new BluetoothLeAudioCodecConfigMetadata.Builder()
-                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT).build();
+                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT)
+                        .setSampleRate(TEST_SAMPLE_RATE_44100)
+                        .setFrameDuration(TEST_FRAME_DURATION_10000)
+                        .setOctetsPerFrame(TEST_OCTETS_PER_FRAME)
+                        .build();
         assertEquals(TEST_AUDIO_LOCATION_FRONT_LEFT, codecMetadata.getAudioLocation());
+        assertEquals(TEST_SAMPLE_RATE_44100, codecMetadata.getSampleRate());
+        assertEquals(TEST_FRAME_DURATION_10000, codecMetadata.getFrameDuration());
+        assertEquals(TEST_OCTETS_PER_FRAME, codecMetadata.getOctetsPerFrame());
         // TODO: Implement implicit LTV byte conversion in the API class
         // assertArrayEquals(TEST_METADATA_BYTES, codecMetadata.getRawMetadata());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @Test
     public void testCreateCodecConfigMetadataFromCopy() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioCodecConfigMetadata codecMetadata =
                 new BluetoothLeAudioCodecConfigMetadata.Builder()
-                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT).build();
+                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT)
+                        .setSampleRate(TEST_SAMPLE_RATE_44100)
+                        .setFrameDuration(TEST_FRAME_DURATION_10000)
+                        .setOctetsPerFrame(TEST_OCTETS_PER_FRAME)
+                        .build();
         BluetoothLeAudioCodecConfigMetadata codecMetadataCopy =
                 new BluetoothLeAudioCodecConfigMetadata.Builder(codecMetadata).build();
         assertEquals(codecMetadata, codecMetadataCopy);
         assertEquals(TEST_AUDIO_LOCATION_FRONT_LEFT, codecMetadataCopy.getAudioLocation());
+        assertEquals(TEST_SAMPLE_RATE_44100, codecMetadataCopy.getSampleRate());
+        assertEquals(TEST_FRAME_DURATION_10000, codecMetadataCopy.getFrameDuration());
+        assertEquals(TEST_OCTETS_PER_FRAME, codecMetadataCopy.getOctetsPerFrame());
         assertArrayEquals(codecMetadata.getRawMetadata(), codecMetadataCopy.getRawMetadata());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @Test
     public void testCreateCodecConfigMetadataFromBytes() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioCodecConfigMetadata codecMetadata =
                 BluetoothLeAudioCodecConfigMetadata.fromRawBytes(TEST_METADATA_BYTES);
         byte[] metadataBytes = codecMetadata.getRawMetadata();
         assertNotNull(metadataBytes);
         assertArrayEquals(TEST_METADATA_BYTES, metadataBytes);
         assertEquals(TEST_AUDIO_LOCATION_FRONT_LEFT, codecMetadata.getAudioLocation());
-    }
-
-    private boolean shouldSkipTest() {
-        return !mHasBluetooth || (!mIsBroadcastSourceSupported && !mIsBroadcastAssistantSupported);
+        assertEquals(TEST_SAMPLE_RATE_44100, codecMetadata.getSampleRate());
+        assertEquals(TEST_FRAME_DURATION_10000, codecMetadata.getFrameDuration());
+        assertEquals(TEST_OCTETS_PER_FRAME, codecMetadata.getOctetsPerFrame());
     }
 }

@@ -58,7 +58,7 @@ public final class BroadcastReceivedEventTest {
     @Test
     public void whereIntent_works() {
         Intent intent = new Intent(STRING_VALUE);
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, intent).log();
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, intent, 0).log();
 
         EventLogs<BroadcastReceivedEvent> eventLogs =
                 BroadcastReceivedEvent.queryPackage(sContext.getPackageName())
@@ -72,8 +72,8 @@ public final class BroadcastReceivedEventTest {
         Intent intent = new Intent(STRING_VALUE);
         Intent differentIntent = new Intent();
         differentIntent.setAction(DIFFERENT_STRING_VALUE);
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, differentIntent).log();
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, intent).log();
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, differentIntent, 0).log();
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, intent, 0).log();
 
         EventLogs<BroadcastReceivedEvent> eventLogs =
                 BroadcastReceivedEvent.queryPackage(sContext.getPackageName())
@@ -84,14 +84,14 @@ public final class BroadcastReceivedEventTest {
 
     @Test
     public void whereBroadcastReceiver_customValueOnLogger_works() {
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT)
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT, 0)
                 .setBroadcastReceiver(CUSTOM_BROADCAST_RECEIVER_CLASS_NAME)
                 .log();
 
         EventLogs<BroadcastReceivedEvent> eventLogs =
                 BroadcastReceivedEvent.queryPackage(sContext.getPackageName())
                         .whereBroadcastReceiver().receiverClass().className().isEqualTo(
-                        CUSTOM_BROADCAST_RECEIVER_CLASS_NAME);
+                                CUSTOM_BROADCAST_RECEIVER_CLASS_NAME);
 
         assertThat(eventLogs.poll().broadcastReceiver().className()).isEqualTo(
                 CUSTOM_BROADCAST_RECEIVER_CLASS_NAME);
@@ -99,10 +99,10 @@ public final class BroadcastReceivedEventTest {
 
     @Test
     public void whereBroadcastReceiver_customValueOnLogger_skipsNonMatching() {
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT)
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT, 0)
                 .setBroadcastReceiver(DIFFERENT_CUSTOM_ACTIVITY_CLASS_NAME)
                 .log();
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT)
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT, 0)
                 .setBroadcastReceiver(CUSTOM_BROADCAST_RECEIVER_CLASS_NAME)
                 .log();
 
@@ -117,7 +117,7 @@ public final class BroadcastReceivedEventTest {
 
     @Test
     public void whereBroadcastReceiver_defaultValue_works() {
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT).log();
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT, 0).log();
 
         EventLogs<BroadcastReceivedEvent> eventLogs =
                 BroadcastReceivedEvent.queryPackage(sContext.getPackageName())
@@ -130,10 +130,10 @@ public final class BroadcastReceivedEventTest {
 
     @Test
     public void whereBroadcastReceiver_defaultValue_skipsNonMatching() {
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT)
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT, 0)
                 .setBroadcastReceiver(CUSTOM_BROADCAST_RECEIVER_CLASS_NAME)
                 .log();
-        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT)
+        BroadcastReceivedEvent.logger(BROADCAST_RECEIVER, sContext, INTENT, 0)
                 .log();
 
         EventLogs<BroadcastReceivedEvent> eventLogs =

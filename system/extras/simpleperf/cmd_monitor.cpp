@@ -80,8 +80,8 @@ constexpr size_t DESIRED_PAGES_IN_MAPPED_BUFFER = 1024;
 // buffer size on a 8 core system. For system-wide recording, it is 8K pages *
 // 4K page_size * 8 cores = 256MB. For non system-wide recording, it is 1K pages
 // * 4K page_size * 8 cores = 64MB.
-static constexpr size_t kRecordBufferSize = 64 * 1024 * 1024;
-static constexpr size_t kSystemWideRecordBufferSize = 256 * 1024 * 1024;
+static constexpr size_t kRecordBufferSize = 64 * kMegabyte;
+static constexpr size_t kSystemWideRecordBufferSize = 256 * kMegabyte;
 
 class MonitorCommand : public Command {
  public:
@@ -252,7 +252,7 @@ bool MonitorCommand::PrepareMonitoring() {
 
   // Use first perf_event_attr and first event id to dump mmap and comm records.
   EventAttrWithId dumping_attr_id = event_selection_set_.GetEventAttrWithId()[0];
-  map_record_reader_.emplace(*dumping_attr_id.attr, dumping_attr_id.ids[0],
+  map_record_reader_.emplace(dumping_attr_id.attr, dumping_attr_id.ids[0],
                              event_selection_set_.RecordNotExecutableMaps());
   map_record_reader_->SetCallback([this](Record* r) { return ProcessRecord(r); });
 

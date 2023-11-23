@@ -24,6 +24,8 @@
 #include <string>
 #include <vector>
 
+#include "perf_event.h"
+
 namespace simpleperf {
 
 inline const std::string kETMEventName = "cs-etm";
@@ -50,6 +52,9 @@ struct EventType {
 
   bool IsPmuEvent() const { return name.find('/') != std::string::npos; }
   bool IsEtmEvent() const { return name == kETMEventName; }
+  bool IsHardwareEvent() const {
+    return type == PERF_TYPE_HARDWARE || type == PERF_TYPE_HW_CACHE || type == PERF_TYPE_RAW;
+  }
 
   std::vector<int> GetPmuCpumask();
 

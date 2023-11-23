@@ -23,7 +23,7 @@ android_test_helper_app {
     defaults: ["mts-target-sdk-version-current"],
     // TODO ntmyren: change to "33" when it is a valid target
     sdk_version: "test_current",
-    min_sdk_version: "test_current",
+    min_sdk_version: "current",
 
     static_libs: [
         "kotlin-stdlib",

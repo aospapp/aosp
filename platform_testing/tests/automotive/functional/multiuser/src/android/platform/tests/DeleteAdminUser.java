@@ -19,16 +19,16 @@ package android.platform.tests;
 import static junit.framework.Assert.assertFalse;
 
 import android.os.SystemClock;
-import android.platform.helpers.AutoConfigConstants;
-import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.MultiUserHelper;
+import android.platform.helpers.SettingsConstants;
 import android.platform.scenario.multiuser.MultiUserConstants;
+
 import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.After;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -50,11 +50,6 @@ public class DeleteAdminUser {
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
     }
 
-    @BeforeClass
-    public static void exitSuw() {
-        AutoUtility.exitSuw();
-    }
-
     @After
     public void goBackToHomeScreen() {
         mSettingHelper.get().goBackToSettingsScreen();
@@ -66,9 +61,9 @@ public class DeleteAdminUser {
         mTargetUserId = mMultiUserHelper.createUser(userName, false);
         SystemClock.sleep(WAIT_TIME);
         // make the new user admin and delete new user
-        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.PROFILE_ACCOUNT_SETTINGS);
         mUsersHelper.get().makeUserAdmin(userName);
-        mSettingHelper.get().openSetting(AutoConfigConstants.PROFILE_ACCOUNT_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.PROFILE_ACCOUNT_SETTINGS);
         mUsersHelper.get().deleteUser(userName);
         // verify new user was deleted
         assertFalse(mUsersHelper.get().isUserPresent(userName));

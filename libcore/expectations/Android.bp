@@ -35,6 +35,8 @@ java_library {
     visibility: expectations_visibility,
     java_resources: ["knownfailures.txt"],
     sdk_version: "core_current",
+    // Make sure that this will be added to the sdk snapshot for S.
+    min_sdk_version: "S",
 }
 
 java_library {
@@ -42,4 +44,6 @@ java_library {
     visibility: expectations_visibility,
     java_resources: ["virtualdeviceknownfailures.txt"],
     sdk_version: "core_current",
+    // Make sure that this will be added to the sdk snapshot for S.
+    min_sdk_version: "S",
 }

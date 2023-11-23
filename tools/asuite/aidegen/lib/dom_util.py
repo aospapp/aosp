@@ -24,10 +24,10 @@ relevant objects.
 
 
 def find_special_node(parent, element_name, attributes=None):
-    """Finds the node contains the specific element.
+    """Finds the node that contains the specific element.
 
-    Find the node of the element contains the tag of element_name and the
-    attribute values listed in the attributes dict. There're two cases as
+    Find the node of the element that contains the tag of element_name and the
+    attribute values listed in the attributes dict. There are two cases as
     follows,
         1. The case with attributes is as below <component name="...">.
         2. The case without attributes is as below <findStrings>.

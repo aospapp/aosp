@@ -41,6 +41,7 @@ import com.android.os.StatsLog;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -53,9 +54,14 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-/** Host-side CTS tests for the location time zone manager service stats logging. */
+/**
+ * Host-side CTS tests for the location time zone manager service stats logging. Very similar to
+ * {@link LocationTimeZoneManagerHostTest} but focused on stats logging.
+ */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
+
+    private static final String NON_EXISTENT_TZPS_APP_PACKAGE = "foobar";
 
     private static final int PRIMARY_PROVIDER_INDEX = 0;
     private static final int SECONDARY_PROVIDER_INDEX = 1;
@@ -69,6 +75,7 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
     private DeviceConfigShellHelper mDeviceConfigShellHelper;
     private DeviceConfigShellHelper.PreTestState mDeviceConfigPreTestState;
 
+    private boolean mIsTelephonyDetectionSupported;
     private boolean mOriginalLocationEnabled;
     private boolean mOriginalAutoDetectionEnabled;
     private boolean mOriginalGeoDetectionEnabled;
@@ -80,8 +87,8 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
         mLocationTimeZoneManagerShellHelper =
                 new LocationTimeZoneManagerShellHelper(shellCommandExecutor);
 
-        // Confirm the service being tested is present. It can be turned off, in which case there's
-        // nothing to test.
+        // Confirm the service being tested is present. It can be turned off permanently in config,
+        // in which case there's nothing about it to test.
         mLocationTimeZoneManagerShellHelper.assumeLocationTimeZoneManagerIsPresent();
 
         // Install the app that hosts the fake providers.
@@ -92,34 +99,71 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
         mLocationShellHelper = new LocationShellHelper(shellCommandExecutor);
         mDeviceConfigShellHelper = new DeviceConfigShellHelper(shellCommandExecutor);
 
+        // Stop device_config updates for the duration of the test.
         mDeviceConfigPreTestState = mDeviceConfigShellHelper.setSyncModeForTest(
                 SYNC_DISABLED_MODE_UNTIL_REBOOT, NAMESPACE_SYSTEM_TIME);
 
-        // All tests start with the location_time_zone_manager disabled so that providers can be
-        // configured.
+        // The isGeoDetectionEnabled() setting is only used when both time zone detection algorithms
+        // are supported on a device. It allows the user to select between them. When only
+        // location-based detection is supported then the setting is not used, i.e. the device
+        // behaves like it is hardcode to ON. Attempts to change the geo detection enabled setting
+        // when it isn't used by a device will fail so must be avoided.
+        // Location detection must be supported to reach this point. Capture the state of telephony
+        // algorithm support for later checks.
+        mIsTelephonyDetectionSupported =
+                mTimeZoneDetectorShellHelper.isTelephonyDetectionSupported();
+
+        // These original values try to record the raw value of the settings before the test ran:
+        // they may be ignored by the location_time_zone_manager service when they have no meaning.
+        // Unfortunately, we cannot tell if the value returned is the result of setting defaults or
+        // real values, which means we may not return things exactly as they were. To do better
+        // would require looking at raw settings values and use internal knowledge of settings keys.
+        mOriginalAutoDetectionEnabled = mTimeZoneDetectorShellHelper.isAutoDetectionEnabled();
+        mOriginalGeoDetectionEnabled = mTimeZoneDetectorShellHelper.isGeoDetectionEnabled();
+
         mLocationTimeZoneManagerShellHelper.stop();
 
-        // Make sure locations is enabled, otherwise the geo detection feature will be disabled
-        // whatever the geolocation detection setting is set to.
+        // Make sure location is enabled, otherwise the geo detection feature cannot operate.
         mOriginalLocationEnabled = mLocationShellHelper.isLocationEnabledForCurrentUser();
         if (!mOriginalLocationEnabled) {
             mLocationShellHelper.setLocationEnabledForCurrentUser(true);
         }
 
-        // Make sure automatic time zone detection is enabled, otherwise the geo detection feature
-        // will be disabled whatever the geolocation detection setting is set to
-        mOriginalAutoDetectionEnabled = mTimeZoneDetectorShellHelper.isAutoDetectionEnabled();
-        if (!mOriginalAutoDetectionEnabled) {
-            mTimeZoneDetectorShellHelper.setAutoDetectionEnabled(true);
+        // Restart the location_time_zone_manager with a do-nothing test config; some settings
+        // values cannot be set when the service knows that the settings won't be used. Devices
+        // can be encountered with the location_time_zone_manager enabled but with no providers
+        // installed. Starting the service with a valid-looking test provider config means we know
+        // settings changes will be accepted regardless of the real config.
+        String testPrimaryLocationTimeZoneProviderPackageName = NON_EXISTENT_TZPS_APP_PACKAGE;
+        String testSecondaryLocationTimeZoneProviderPackageName = null;
+        mLocationTimeZoneManagerShellHelper.startWithTestProviders(
+                testPrimaryLocationTimeZoneProviderPackageName,
+                testSecondaryLocationTimeZoneProviderPackageName,
+                false /* recordProviderStates */);
+
+        // Begin all tests with auto detection turned off.
+        if (mOriginalAutoDetectionEnabled) {
+            mTimeZoneDetectorShellHelper.setAutoDetectionEnabled(false);
         }
 
-        // On devices with no location time zone providers (e.g. AOSP), we cannot turn geo detection
-        // on until the test LTZPs are configured as the time_zone_detector will refuse.
-        mOriginalGeoDetectionEnabled = mTimeZoneDetectorShellHelper.isGeoDetectionEnabled();
+        if (mIsTelephonyDetectionSupported) {
+            // When the telephony detection algorithm is also supported on the device, we need to
+            // set the device settings so that location detection will be used. This behavior is
+            // implicit when the device only supports the location detection algorithm.
+            if (!mOriginalGeoDetectionEnabled) {
+                mTimeZoneDetectorShellHelper.setGeoDetectionEnabled(true);
+            }
+        }
 
-        // Make sure that the fake providers used in the tests are available.
+        // All tests begin with the location_time_zone_manager stopped so that fake providers can be
+        // configured.
+        mLocationTimeZoneManagerShellHelper.stop();
+
+        // Make sure the fake provider APK install started above has completed before tests try to
+        // use the fake providers.
         FakeTimeZoneProviderAppShellHelper fakeTimeZoneProviderAppShellHelper =
                 new FakeTimeZoneProviderAppShellHelper(shellCommandExecutor);
+        // Delay until the fake TZPS app can be found.
         fakeTimeZoneProviderAppShellHelper.waitForInstallation();
 
         ConfigUtils.removeConfig(device);
@@ -133,27 +177,39 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
             return;
         }
 
-        // Reset the geoDetectionEnabled state while there is at least one LTZP configured: this
-        // setting cannot be modified if there are no LTZPs on the device, e.g. on AOSP.
-        mTimeZoneDetectorShellHelper.setGeoDetectionEnabled(mOriginalGeoDetectionEnabled);
-
-        // Turn off the service before we reset configuration, otherwise it will restart itself
-        // repeatedly.
+        // Restart the location_time_zone_manager with a test config so that the device can be set
+        // back to the starting state regardless of how the test left things.
         mLocationTimeZoneManagerShellHelper.stop();
+        String testPrimaryLocationTimeZoneProviderPackageName = NON_EXISTENT_TZPS_APP_PACKAGE;
+        String testSecondaryLocationTimeZoneProviderPackageName = null;
+        mLocationTimeZoneManagerShellHelper.startWithTestProviders(
+                testPrimaryLocationTimeZoneProviderPackageName,
+                testSecondaryLocationTimeZoneProviderPackageName,
+                false /* recordProviderStates */);
 
-        // Reset settings and server flags as best we can.
+        if (mIsTelephonyDetectionSupported) {
+            if (mTimeZoneDetectorShellHelper.isGeoDetectionEnabled()
+                    != mOriginalGeoDetectionEnabled) {
+                mTimeZoneDetectorShellHelper.setGeoDetectionEnabled(mOriginalGeoDetectionEnabled);
+            }
+        }
+
         if (mTimeZoneDetectorShellHelper.isAutoDetectionEnabled()
                 != mOriginalAutoDetectionEnabled) {
             mTimeZoneDetectorShellHelper.setAutoDetectionEnabled(mOriginalAutoDetectionEnabled);
         }
+
+        // Everything else can be reset without worrying about the providers.
+        mLocationTimeZoneManagerShellHelper.stop();
+
         mLocationShellHelper.setLocationEnabledForCurrentUser(mOriginalLocationEnabled);
 
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         mDeviceConfigShellHelper.restoreDeviceConfigStateForTest(mDeviceConfigPreTestState);
 
-        // Attempt to start the service. It may not start if there are no providers configured,
-        // but that is ok.
+        // Attempt to start the service without test providers. It may not start if there are no
+        // providers configured, but that is ok.
         mLocationTimeZoneManagerShellHelper.start();
     }
 
@@ -169,12 +225,12 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
                 testSecondaryLocationTimeZoneProviderPackageName,
                 true /* recordProviderStates */);
 
-        // Turn geo detection on and off, twice.
+        // Turn the location detection algorithm on and off, twice.
         for (int i = 0; i < 2; i++) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
-            mTimeZoneDetectorShellHelper.setGeoDetectionEnabled(true);
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
-            mTimeZoneDetectorShellHelper.setGeoDetectionEnabled(false);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            mTimeZoneDetectorShellHelper.setAutoDetectionEnabled(true);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            mTimeZoneDetectorShellHelper.setAutoDetectionEnabled(false);
         }
 
         // Sorted list of events in order in which they occurred.
@@ -183,8 +239,6 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
         // States.
         Set<Integer> primaryProviderCreated = singletonStateId(PRIMARY_PROVIDER_INDEX,
                 LocationTimeZoneProviderStateChanged.State.STOPPED);
-        Set<Integer> primaryProviderStarted = singletonStateId(PRIMARY_PROVIDER_INDEX,
-                LocationTimeZoneProviderStateChanged.State.INITIALIZING);
         Set<Integer> primaryProviderFailed = singletonStateId(PRIMARY_PROVIDER_INDEX,
                 LocationTimeZoneProviderStateChanged.State.PERM_FAILED);
         Set<Integer> secondaryProviderCreated = singletonStateId(SECONDARY_PROVIDER_INDEX,
@@ -203,8 +257,8 @@ public class LocationTimeZoneManagerStatsTest extends BaseHostJUnit4Test {
         // Assert that the events happened in the expected order. This does not check "wait" (the
         // time between events).
         List<Set<Integer>> stateSets = Arrays.asList(
-                primaryProviderCreated, secondaryProviderCreated,
-                primaryProviderStarted, primaryProviderFailed,
+                primaryProviderCreated, primaryProviderFailed,
+                secondaryProviderCreated,
                 secondaryProviderStarted, secondaryProviderStopped,
                 secondaryProviderStarted, secondaryProviderStopped);
         AtomTestUtils.assertStatesOccurredInOrder(stateSets, data,

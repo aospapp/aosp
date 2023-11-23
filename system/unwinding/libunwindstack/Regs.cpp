@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include <errno.h>
 #include <stdint.h>
+#include <string.h>
 #include <sys/ptrace.h>
 #include <sys/uio.h>
 
@@ -22,14 +24,17 @@
 #include <vector>
 
 #include <unwindstack/Elf.h>
+#include <unwindstack/Log.h>
 #include <unwindstack/MapInfo.h>
 #include <unwindstack/Regs.h>
 #include <unwindstack/RegsArm.h>
 #include <unwindstack/RegsArm64.h>
+#include <unwindstack/RegsRiscv64.h>
 #include <unwindstack/RegsX86.h>
 #include <unwindstack/RegsX86_64.h>
 #include <unwindstack/UserArm.h>
 #include <unwindstack/UserArm64.h>
+#include <unwindstack/UserRiscv64.h>
 #include <unwindstack/UserX86.h>
 #include <unwindstack/UserX86_64.h>
 
@@ -43,7 +48,7 @@ static constexpr size_t kMaxUserRegsSize = std::max(
 
 // This function assumes that reg_data is already aligned to a 64 bit value.
 // If not this could crash with an unaligned access.
-Regs* Regs::RemoteGet(pid_t pid) {
+Regs* Regs::RemoteGet(pid_t pid, ErrorCode* error_code) {
   // Make the buffer large enough to contain the largest registers type.
   std::vector<uint64_t> buffer(kMaxUserRegsSize / sizeof(uint64_t));
   struct iovec io;
@@ -51,6 +56,10 @@ Regs* Regs::RemoteGet(pid_t pid) {
   io.iov_len = buffer.size() * sizeof(uint64_t);
 
   if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, reinterpret_cast<void*>(&io)) == -1) {
+    Log::Error("PTRACE_GETREGSET failed for pid %d: %s", pid, strerror(errno));
+    if (error_code != nullptr) {
+      *error_code = ERROR_PTRACE_CALL;
+    }
     return nullptr;
   }
 
@@ -64,11 +73,18 @@ Regs* Regs::RemoteGet(pid_t pid) {
     return RegsArm::Read(buffer.data());
   case sizeof(arm64_user_regs):
     return RegsArm64::Read(buffer.data());
+  case sizeof(riscv64_user_regs):
+    return RegsRiscv64::Read(buffer.data());
+  }
+
+  Log::Error("No matching size of user regs structure for pid %d: size %zu", pid, io.iov_len);
+  if (error_code != nullptr) {
+    *error_code = ERROR_UNSUPPORTED;
   }
   return nullptr;
 }
 
-ArchEnum Regs::RemoteGetArch(pid_t pid) {
+ArchEnum Regs::RemoteGetArch(pid_t pid, ErrorCode* error_code) {
   // Make the buffer large enough to contain the largest registers type.
   std::vector<uint64_t> buffer(kMaxUserRegsSize / sizeof(uint64_t));
   struct iovec io;
@@ -76,6 +92,10 @@ ArchEnum Regs::RemoteGetArch(pid_t pid) {
   io.iov_len = buffer.size() * sizeof(uint64_t);
 
   if (ptrace(PTRACE_GETREGSET, pid, NT_PRSTATUS, reinterpret_cast<void*>(&io)) == -1) {
+    Log::Error("PTRACE_GETREGSET failed for pid %d: %s", pid, strerror(errno));
+    if (error_code != nullptr) {
+      *error_code = ERROR_PTRACE_CALL;
+    }
     return ARCH_UNKNOWN;
   }
 
@@ -90,6 +110,11 @@ ArchEnum Regs::RemoteGetArch(pid_t pid) {
     case sizeof(arm64_user_regs):
       return ARCH_ARM64;
   }
+
+  Log::Error("No matching size of user regs structure for pid %d: size %zu", pid, io.iov_len);
+  if (error_code != nullptr) {
+    *error_code = ERROR_UNSUPPORTED;
+  }
   return ARCH_UNKNOWN;
 }
 
@@ -103,6 +128,9 @@ Regs* Regs::CreateFromUcontext(ArchEnum arch, void* ucontext) {
       return RegsArm::CreateFromUcontext(ucontext);
     case ARCH_ARM64:
       return RegsArm64::CreateFromUcontext(ucontext);
+    case ARCH_RISCV64:
+      return RegsRiscv64::CreateFromUcontext(ucontext);
+    case ARCH_UNKNOWN:
     default:
       return nullptr;
   }
@@ -117,6 +145,8 @@ ArchEnum Regs::CurrentArch() {
   return ARCH_X86;
 #elif defined(__x86_64__)
   return ARCH_X86_64;
+#elif defined(__riscv)
+  return ARCH_RISCV64;
 #else
   abort();
 #endif
@@ -132,6 +162,8 @@ Regs* Regs::CreateFromLocal() {
   regs = new RegsX86();
 #elif defined(__x86_64__)
   regs = new RegsX86_64();
+#elif defined(__riscv)
+  regs = new RegsRiscv64();
 #else
   abort();
 #endif
@@ -170,12 +202,13 @@ uint64_t GetPcAdjustment(uint64_t rel_pc, Elf* elf, ArchEnum arch) {
       }
       return 4;
     }
-  case ARCH_ARM64: {
-    if (rel_pc < 4) {
-      return 0;
+    case ARCH_ARM64:
+    case ARCH_RISCV64: {
+      if (rel_pc < 4) {
+        return 0;
+      }
+      return 4;
     }
-    return 4;
-  }
   case ARCH_MIPS:
   case ARCH_MIPS64: {
     if (rel_pc < 8) {

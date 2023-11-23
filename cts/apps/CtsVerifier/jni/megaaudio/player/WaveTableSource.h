@@ -49,10 +49,7 @@ public:
      * Sets the playback sample rate for which samples will be generated.
      * @param sampleRate
      */
-    void setSampleRate(float sampleRate) {
-        mSampleRate = sampleRate;
-        calcFN();
-    }
+    void setSampleRate(int sampleRate);
 
     /**
      * Set the frequency of the output signal.

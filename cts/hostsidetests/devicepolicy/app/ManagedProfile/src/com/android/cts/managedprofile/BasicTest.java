@@ -59,7 +59,7 @@ public class BasicTest {
                 new BlockingBroadcastReceiver(mContext, ACTIVITY_LAUNCHED_ACTION);
         try {
             receiver.register();
-            Intent intent = new Intent();
+            Intent intent = new Intent(Intent.ACTION_MAIN);
             intent.setComponent(SIMPLE_APP_ACTIVITY);
             // Finish the activity after that.
             intent.putExtra("finish", true);

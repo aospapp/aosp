@@ -66,6 +66,9 @@ public abstract class AndroidSdkVersion {
     /** Android Sv2. */
     public static final int Sv2 = 32;
 
-    /** Android T. */
+    /** Android Tiramisu. */
     public static final int T = 33;
+
+    /** Android Upside Down Cake. */
+    public static final int U = 34;
 }

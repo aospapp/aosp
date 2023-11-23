@@ -30,8 +30,9 @@ var prepareForBpfTest = android.GroupFixturePreparers(
 	cc.PrepareForTestWithCcDefaultModules,
 	android.FixtureMergeMockFs(
 		map[string][]byte{
-			"bpf.c":       nil,
-			"BpfTest.cpp": nil,
+			"bpf.c":              nil,
+			"bpf_invalid_name.c": nil,
+			"BpfTest.cpp":        nil,
 		},
 	),
 	PrepareForTestWithBpf,
@@ -57,4 +58,39 @@ func TestBpfDataDependency(t *testing.T) {
 	// We only verify the above BP configuration is processed successfully since the data property
 	// value is not available for testing from this package.
 	// TODO(jungjw): Add a check for data or move this test to the cc package.
+}
+
+func TestBpfSourceName(t *testing.T) {
+	bp := `
+		bpf {
+			name: "bpf_invalid_name.o",
+			srcs: ["bpf_invalid_name.c"],
+		}
+	`
+	prepareForBpfTest.ExtendWithErrorHandler(android.FixtureExpectsOneErrorPattern(
+		`\QAndroid.bp:2:3: module "bpf_invalid_name.o" variant "android_common": invalid character '_' in source name\E`)).
+		RunTestWithBp(t, bp)
+}
+
+func TestBpfWithBazel(t *testing.T) {
+	bp := `
+		bpf {
+			name: "bpf.o",
+			srcs: ["bpf.c"],
+			bazel_module: { label: "//bpf" },
+		}
+	`
+
+	result := android.GroupFixturePreparers(
+		prepareForBpfTest, android.FixtureModifyConfig(func(config android.Config) {
+			config.BazelContext = android.MockBazelContext{
+				OutputBaseDir: "outputbase",
+				LabelToOutputFiles: map[string][]string{
+					"//bpf": []string{"bpf.o"}}}
+		})).RunTestWithBp(t, bp)
+
+	output := result.Module("bpf.o", "android_common").(*bpf)
+
+	expectedOutputFiles := []string{"outputbase/execroot/__main__/bpf.o"}
+	android.AssertDeepEquals(t, "output files", expectedOutputFiles, output.objs.Strings())
 }

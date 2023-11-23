@@ -5,6 +5,8 @@ package {
 
 cc_test {
     name: "CtsSimpleperfTestCases",
+    defaults: ["simpleperf_static_libs"],
+    host_supported: false,
     compile_multilib: "both",
     multilib: {
         lib32: {
@@ -16,34 +18,21 @@ cc_test {
     },
     whole_static_libs: ["libsimpleperf_cts_test"],
     static_libs: [
-        "libsimpleperf_etm_decoder",
-        "libunwindstack",
         "libdexfile_static",
-        "libziparchive",
-        "libz",
         "libgtest",
-        "libbase",
-        "libcutils",
-        "liblog",
-        "libprocinfo",
-        "libutils",
-        "liblzma",
-        "libLLVMObject",
-        "libLLVMBitReader",
-        "libLLVMMC",
-        "libLLVMMCParser",
-        "libLLVMCore",
-        "libLLVMSupport",
-        "libprotobuf-cpp-lite",
-        "libevent",
-        "libopencsd_decoder",
-        "libc++fs",
     ],
+    target: {
+        windows: {
+            enabled: false,
+        },
+    },
+    use_version_lib: false,
     per_testcase_directory: true,
     data: [
         ":CtsSimpleperfProfileableApp",
         ":CtsSimpleperfDebuggableApp",
-        ":system-extras-simpleperf-testdata"],
+        ":system-extras-simpleperf-testdata",
+    ],
     test_suites: [
         "cts",
         "general-tests",

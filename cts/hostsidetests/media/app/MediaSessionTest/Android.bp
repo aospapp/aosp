@@ -25,7 +25,9 @@ android_test_helper_app {
     ],
     srcs: [
         "src/**/*.java",
-        ":CtsMediaSessionTestCommon",
+    ],
+    libs: [
+        "CtsMediaHostTestCommon",
     ],
     static_libs: [
         "androidx.test.rules",

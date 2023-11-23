@@ -16,28 +16,38 @@
 
 package android.webkit.cts;
 
-import android.test.ActivityInstrumentationTestCase2;
+import static org.junit.Assert.assertEquals;
 
 import android.webkit.JavascriptInterface;
-import android.webkit.ServiceWorkerController;
 import android.webkit.ServiceWorkerClient;
-import android.webkit.WebResourceResponse;
+import android.webkit.ServiceWorkerController;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
-import android.webkit.WebViewClient;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
+
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
 
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
 
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.ByteArrayInputStream;
-import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-
-public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class ServiceWorkerClientTest extends SharedWebViewTest {
 
     // The BASE_URL does not matter since the tests will intercept the load, but it should be https
     // for the Service Worker registration to succeed.
@@ -74,12 +84,12 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
             + "   console.error(err);"
             + "});";
 
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
+
     private JavascriptStatusReceiver mJavascriptStatusReceiver;
     private WebViewOnUiThread mOnUiThread;
-
-    public ServiceWorkerClientTest() throws Exception {
-        super("android.webkit.cts", WebViewCtsActivity.class);
-    }
 
     // Both this test and WebViewOnUiThread need to override some of the methods on WebViewClient,
     // so this test subclasses the WebViewClient from WebViewOnUiThread.
@@ -124,10 +134,9 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
         }
     }
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        WebView webview = getActivity().getWebView();
+    @Before
+    public void setUp() throws Exception {
+        WebView webview = getTestEnvironment().getWebView();
         if (webview == null) return;
         mOnUiThread = new WebViewOnUiThread(webview);
         mOnUiThread.getSettings().setJavaScriptEnabled(true);
@@ -137,13 +146,33 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
         mOnUiThread.setWebViewClient(new InterceptClient(mOnUiThread));
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
             ServiceWorkerController.getInstance().setServiceWorkerClient(null);
         }
-        super.tearDown();
+    }
+
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((WebViewCtsActivity) activity).getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                activity))
+                                    .setContext(activity)
+                                    .setWebView(webView);
+                        });
+
+        return builder.build();
     }
 
     /**
@@ -153,11 +182,8 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
      * http://go/modifying-webview-cts.
      */
     // Test correct invocation of shouldInterceptRequest for Service Workers.
+    @Test
     public void testServiceWorkerClientInterceptCallback() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         final InterceptServiceWorkerClient mInterceptServiceWorkerClient =
                 new InterceptServiceWorkerClient();
         ServiceWorkerController swController = ServiceWorkerController.getInstance();
@@ -207,11 +233,8 @@ public class ServiceWorkerClientTest extends ActivityInstrumentationTestCase2<We
      * http://go/modifying-webview-cts.
      */
     // Test setting a null ServiceWorkerClient.
+    @Test
     public void testSetNullServiceWorkerClient() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         ServiceWorkerController swController = ServiceWorkerController.getInstance();
         swController.setServiceWorkerClient(null);
         mOnUiThread.loadUrlAndWaitForCompletion(INDEX_URL);

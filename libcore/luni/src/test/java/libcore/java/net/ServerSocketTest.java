@@ -21,6 +21,8 @@ import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketOption;
+import java.net.StandardSocketOptions;
 import libcore.junit.junit3.TestCaseWithRules;
 import libcore.junit.util.ResourceLeakageDetector;
 import org.junit.Rule;
@@ -82,5 +84,31 @@ public class ServerSocketTest extends TestCaseWithRules {
 
         InetSocketAddress localAddressAfterClose = (InetSocketAddress) ss.getLocalSocketAddress();
         assertEquals(boundAddress, localAddressAfterClose);
+    }
+
+    public void testSetGetOption() throws Exception {
+        try (ServerSocket ss = new ServerSocket()) {
+            ss.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+            assertTrue(ss.getOption(StandardSocketOptions.SO_REUSEADDR));
+
+            ss.setOption(StandardSocketOptions.SO_REUSEADDR, false);
+            assertFalse(ss.getOption(StandardSocketOptions.SO_REUSEADDR));
+        }
+
+        try (ServerSocket ss = new ServerSocket()) {
+            ss.setOption(new SocketOption<>() {
+                @Override
+                public String name() {
+                    return "non-existent invalid option";
+                }
+
+                @Override
+                public Class<Boolean> type() {
+                    return Boolean.class;
+                }
+            }, true);
+            fail("Expected to fail setting an invalid option");
+        } catch (UnsupportedOperationException expected) {
+        }
     }
 }

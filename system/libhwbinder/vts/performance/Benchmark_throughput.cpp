@@ -261,12 +261,12 @@ Pipe make_service(string service_name) {
     pid_t pid = fork();
     if (pid) {
         /* parent */
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     } else {
         /* child */
-        service_fx(service_name, move(get<1>(pipe_pair)));
+        service_fx(service_name, std::move(get<1>(pipe_pair)));
         /* never get here */
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     }
 }
 
@@ -275,13 +275,13 @@ Pipe make_worker(int num, int iterations, int service_count, bool get_stub) {
     pid_t pid = fork();
     if (pid) {
         /* parent */
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     } else {
         /* child */
         worker_fx(num, iterations, service_count, get_stub,
-                  move(get<1>(pipe_pair)));
+                  std::move(get<1>(pipe_pair)));
         /* never get here */
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     }
 }
 

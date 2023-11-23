@@ -21,6 +21,7 @@
 #include <android-base/strings.h>
 #include <android/hidl/manager/1.0/IServiceManager.h>
 #include <binder/IServiceManager.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <hidl-hash/Hash.h>
 #include <hidl-util/FQName.h>
@@ -80,62 +81,51 @@ using std::set;
 using std::string;
 using std::vector;
 
-void VtsTrebleVintfTestBase::SetUp() {
-  default_manager_ = ::android::hardware::defaultServiceManager();
-  ASSERT_NE(default_manager_, nullptr)
-      << "Failed to get default service manager." << endl;
+using ::testing::AnyOf;
+using ::testing::Eq;
+
+sp<IServiceManager> VtsTrebleVintfTestBase::default_manager() {
+  static auto default_manager = ::android::hardware::defaultServiceManager();
+  if (default_manager == nullptr) {
+    ADD_FAILURE() << "Failed to get default service manager.";
+  }
+  return default_manager;
 }
 
-void VtsTrebleVintfTestBase::ForEachHidlHalInstance(
-    const HalManifestPtr &manifest, HidlVerifyFn fn) {
-  manifest->forEachInstance([manifest, fn](const auto &manifest_instance) {
-    if (manifest_instance.format() != HalFormat::HIDL) {
-      return true;  // continue to next instance
-    }
-    const FQName fq_name{manifest_instance.package(),
-                         to_string(manifest_instance.version()),
-                         manifest_instance.interface()};
-    const Transport transport = manifest_instance.transport();
-    const std::string instance_name = manifest_instance.instance();
-
-    auto future_result =
-        std::async([&]() { fn(fq_name, instance_name, transport); });
-    int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
-    auto timeout = timeout_multiplier * std::chrono::seconds(1);
-    std::future_status status = future_result.wait_for(timeout);
-    if (status != std::future_status::ready) {
-      cout << "Timed out on: " << fq_name.string() << " " << instance_name
-           << endl;
+std::vector<HidlInstance> VtsTrebleVintfTestBase::GetHidlInstances(
+    const HalManifestPtr &manifest) {
+  std::vector<HidlInstance> ret;
+  manifest->forEachInstance([manifest, &ret](const auto &manifest_instance) {
+    if (manifest_instance.format() == HalFormat::HIDL) {
+      ret.emplace_back(manifest_instance);
     }
     return true;  // continue to next instance
   });
+  return ret;
 }
 
-void VtsTrebleVintfTestBase::ForEachAidlHalInstance(
-    const HalManifestPtr &manifest, AidlVerifyFn fn) {
-  manifest->forEachInstance([manifest, fn](const auto &manifest_instance) {
-    if (manifest_instance.format() != HalFormat::AIDL) {
-      return true;  // continue to next instance
-    }
-    const std::string &package = manifest_instance.package();
-    uint64_t version = manifest_instance.version().minorVer;
-    const std::string &interface = manifest_instance.interface();
-    const std::string &instance = manifest_instance.instance();
-    const std::optional<std::string> &updatable_via_apex =
-        manifest_instance.updatableViaApex();
-
-    auto future_result = std::async([&]() {
-      fn(package, version, interface, instance, updatable_via_apex);
-    });
-    int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
-    auto timeout = timeout_multiplier * std::chrono::seconds(1);
-    std::future_status status = future_result.wait_for(timeout);
-    if (status != std::future_status::ready) {
-      cout << "Timed out on: " << package << "." << interface << "/" << instance
-           << endl;
+std::vector<AidlInstance> VtsTrebleVintfTestBase::GetAidlInstances(
+    const HalManifestPtr &manifest) {
+  std::vector<AidlInstance> ret;
+  manifest->forEachInstance([manifest, &ret](const auto &manifest_instance) {
+    if (manifest_instance.format() == HalFormat::AIDL) {
+      ret.emplace_back(manifest_instance);
     }
     return true;  // continue to next instance
   });
+  return ret;
+}
+
+std::vector<NativeInstance> VtsTrebleVintfTestBase::GetNativeInstances(
+    const HalManifestPtr &manifest) {
+  std::vector<NativeInstance> ret;
+  manifest->forEachInstance([manifest, &ret](const auto &manifest_instance) {
+    if (manifest_instance.format() == HalFormat::NATIVE) {
+      ret.emplace_back(manifest_instance);
+    }
+    return true;  // continue to next instance
+  });
+  return ret;
 }
 
 sp<IBase> VtsTrebleVintfTestBase::GetHidlService(const FQName &fq_name,
@@ -189,8 +179,7 @@ sp<IBinder> VtsTrebleVintfTestBase::GetAidlService(const string &name) {
   });
 
   int timeout_multiplier = base::GetIntProperty("ro.hw_timeout_multiplier", 1);
-  // TODO(b/205347235)
-  auto max_time = timeout_multiplier * std::chrono::seconds(2);
+  auto max_time = timeout_multiplier * std::chrono::seconds(1);
   auto future = task.get_future();
   std::thread(std::move(task)).detach();
   auto status = future.wait_for(max_time);
@@ -228,55 +217,38 @@ Partition VtsTrebleVintfTestBase::GetPartition(sp<IBase> hal_service) {
   return partition;
 }
 
-set<string> VtsTrebleVintfTestBase::GetPassthroughHals(
-    HalManifestPtr manifest) {
-  std::set<std::string> manifest_passthrough_hals_;
-
-  auto add_manifest_hals = [&manifest_passthrough_hals_](
-                               const FQName &fq_name,
-                               const string &instance_name,
-                               Transport transport) {
-    if (transport == Transport::HWBINDER) {
-      // ignore
-    } else if (transport == Transport::PASSTHROUGH) {
-      // 1.n in manifest => 1.0, 1.1, ... 1.n are all served (if they exist)
-      FQName fq = fq_name;
-      while (true) {
-        manifest_passthrough_hals_.insert(fq.string() + "/" + instance_name);
-        if (fq.getPackageMinorVersion() <= 0) break;
-        fq = fq.downRev();
-      }
-    } else {
-      ADD_FAILURE() << "Unrecognized transport: " << transport;
+set<string> VtsTrebleVintfTestBase::GetDeclaredHidlHalsOfTransport(
+    HalManifestPtr manifest, Transport transport) {
+  EXPECT_THAT(transport,
+              AnyOf(Eq(Transport::HWBINDER), Eq(Transport::PASSTHROUGH)))
+      << "Unrecognized transport of HIDL: " << transport;
+  std::set<std::string> ret;
+  for (const auto &hidl_instance : GetHidlInstances(manifest)) {
+    if (hidl_instance.transport() != transport) {
+      continue;  // ignore
     }
-  };
-  ForEachHidlHalInstance(manifest, add_manifest_hals);
-  return manifest_passthrough_hals_;
+
+    // 1.n in manifest => 1.0, 1.1, ... 1.n are all served (if they exist)
+    FQName fq = hidl_instance.fq_name();
+    while (true) {
+      ret.insert(fq.string() + "/" + hidl_instance.instance_name());
+      if (fq.getPackageMinorVersion() <= 0) break;
+      fq = fq.downRev();
+    }
+  }
+  return ret;
 }
 
-set<string> VtsTrebleVintfTestBase::GetHwbinderHals(HalManifestPtr manifest) {
-  std::set<std::string> manifest_hwbinder_hals_;
-
-  auto add_manifest_hals = [&manifest_hwbinder_hals_](
-                               const FQName &fq_name,
-                               const string &instance_name,
-                               Transport transport) {
-    if (transport == Transport::HWBINDER) {
-      // 1.n in manifest => 1.0, 1.1, ... 1.n are all served (if they exist)
-      FQName fq = fq_name;
-      while (true) {
-        manifest_hwbinder_hals_.insert(fq.string() + "/" + instance_name);
-        if (fq.getPackageMinorVersion() <= 0) break;
-        fq = fq.downRev();
-      }
-    } else if (transport == Transport::PASSTHROUGH) {
-      // ignore
-    } else {
-      ADD_FAILURE() << "Unrecognized transport: " << transport;
-    }
-  };
-  ForEachHidlHalInstance(manifest, add_manifest_hals);
-  return manifest_hwbinder_hals_;
+std::vector<std::string> VtsTrebleVintfTestBase::ListRegisteredHwbinderHals() {
+  std::vector<std::string> return_value;
+  EXPECT_NE(default_manager(), nullptr);
+  if (default_manager() == nullptr) return {};
+  Return<void> ret = default_manager()->list([&](const auto &list) {
+    return_value.reserve(list.size());
+    for (const auto &s : list) return_value.push_back(s);
+  });
+  EXPECT_TRUE(ret.isOk());
+  return return_value;
 }
 
 }  // namespace testing

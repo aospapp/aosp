@@ -38,6 +38,8 @@ public final class LocaleConstants {
 
     public static final String INSTALLER_PACKAGE = "android.localemanager.cts.installer";
 
+    public static final String IME_APP_PACKAGE = "android.localemanager.cts.ime";
+
     public static final String NON_EXISTENT_PACKAGE = "android.localemanager.nonexistentapp";
 
     public static final ComponentName TEST_APP_MAIN_ACTIVITY = new ComponentName(TEST_APP_PACKAGE,
@@ -45,6 +47,9 @@ public final class LocaleConstants {
 
     public static final ComponentName INSTALLER_APP_MAIN_ACTIVITY =
             new ComponentName(INSTALLER_PACKAGE, INSTALLER_PACKAGE + ".MainActivity");
+
+    public static final ComponentName IME_APP_MAIN_ACTIVITY = new ComponentName(IME_APP_PACKAGE,
+            IME_APP_PACKAGE + ".MainActivity");
 
     public static final String TEST_APP_BROADCAST_INFO_PROVIDER_ACTION =
             "android.locale.cts.action.TEST_APP_BROADCAST_INFO_PROVIDER";
@@ -67,8 +72,17 @@ public final class LocaleConstants {
     public static final String INSTALLER_APP_BROADCAST_RECEIVER = INSTALLER_PACKAGE
             + ".InstallerBroadcastReceiver";
 
+    public static final String APP_RECEIVER_ACTION =
+            "android.locale.cts.action.RECEIVER_ACTION";
+
+    public static final String IME_APP_CREATION_INFO_PROVIDER_ACTION =
+            "android.locale.cts.action.IME_APP_CREATION_INFO_PROVIDER";
+
     public static final String EXTRA_QUERY_LOCALES = "query_locales";
 
     public static final String EXTRA_SET_LOCALES = "set_locales";
 
+    public static final String EXTRA_SET_LOCALECONFIG = "set_localeconfig";
+
+    public static final String EXTRA_QUERY_LOCALECONFIG = "query_localeconfig";
 }

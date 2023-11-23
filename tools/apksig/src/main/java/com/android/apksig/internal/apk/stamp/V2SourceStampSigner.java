@@ -55,19 +55,32 @@ import java.util.Map;
  *
  * <p>V2 of the source stamp allows signing the digests of more than one signature schemes.
  */
-public abstract class V2SourceStampSigner {
+public class V2SourceStampSigner {
     public static final int V2_SOURCE_STAMP_BLOCK_ID =
             SourceStampConstants.V2_SOURCE_STAMP_BLOCK_ID;
 
+    private final SignerConfig mSourceStampSignerConfig;
+    private final Map<Integer, Map<ContentDigestAlgorithm, byte[]>> mSignatureSchemeDigestInfos;
+    private final boolean mSourceStampTimestampEnabled;
+
     /** Hidden constructor to prevent instantiation. */
-    private V2SourceStampSigner() {
+    private V2SourceStampSigner(Builder builder) {
+        mSourceStampSignerConfig = builder.mSourceStampSignerConfig;
+        mSignatureSchemeDigestInfos = builder.mSignatureSchemeDigestInfos;
+        mSourceStampTimestampEnabled = builder.mSourceStampTimestampEnabled;
     }
 
     public static Pair<byte[], Integer> generateSourceStampBlock(
             SignerConfig sourceStampSignerConfig,
             Map<Integer, Map<ContentDigestAlgorithm, byte[]>> signatureSchemeDigestInfos)
             throws SignatureException, NoSuchAlgorithmException, InvalidKeyException {
-        if (sourceStampSignerConfig.certificates.isEmpty()) {
+        return new Builder(sourceStampSignerConfig,
+                signatureSchemeDigestInfos).build().generateSourceStampBlock();
+    }
+
+    public Pair<byte[], Integer> generateSourceStampBlock()
+            throws SignatureException, NoSuchAlgorithmException, InvalidKeyException {
+        if (mSourceStampSignerConfig.certificates.isEmpty()) {
             throw new SignatureException("No certificates configured for signer");
         }
 
@@ -75,18 +88,18 @@ public abstract class V2SourceStampSigner {
         List<Pair<Integer, byte[]>> signatureSchemeDigests = new ArrayList<>();
         getSignedDigestsFor(
                 VERSION_APK_SIGNATURE_SCHEME_V3,
-                signatureSchemeDigestInfos,
-                sourceStampSignerConfig,
+                mSignatureSchemeDigestInfos,
+                mSourceStampSignerConfig,
                 signatureSchemeDigests);
         getSignedDigestsFor(
                 VERSION_APK_SIGNATURE_SCHEME_V2,
-                signatureSchemeDigestInfos,
-                sourceStampSignerConfig,
+                mSignatureSchemeDigestInfos,
+                mSourceStampSignerConfig,
                 signatureSchemeDigests);
         getSignedDigestsFor(
                 VERSION_JAR_SIGNATURE_SCHEME,
-                signatureSchemeDigestInfos,
-                sourceStampSignerConfig,
+                mSignatureSchemeDigestInfos,
+                mSourceStampSignerConfig,
                 signatureSchemeDigests);
         Collections.sort(signatureSchemeDigests, Comparator.comparing(Pair::getFirst));
 
@@ -94,7 +107,7 @@ public abstract class V2SourceStampSigner {
 
         try {
             sourceStampBlock.stampCertificate =
-                    sourceStampSignerConfig.certificates.get(0).getEncoded();
+                    mSourceStampSignerConfig.certificates.get(0).getEncoded();
         } catch (CertificateEncodingException e) {
             throw new SignatureException(
                     "Retrieving the encoded form of the stamp certificate failed", e);
@@ -103,9 +116,9 @@ public abstract class V2SourceStampSigner {
         sourceStampBlock.signedDigests = signatureSchemeDigests;
 
         sourceStampBlock.stampAttributes = encodeStampAttributes(
-                generateStampAttributes(sourceStampSignerConfig.mSigningCertificateLineage));
+                generateStampAttributes(mSourceStampSignerConfig.signingCertificateLineage));
         sourceStampBlock.signedStampAttributes =
-                ApkSigningBlockUtils.generateSignaturesOverData(sourceStampSignerConfig,
+                ApkSigningBlockUtils.generateSignaturesOverData(mSourceStampSignerConfig,
                         sourceStampBlock.stampAttributes);
 
         // FORMAT:
@@ -136,16 +149,16 @@ public abstract class V2SourceStampSigner {
 
     private static void getSignedDigestsFor(
             int signatureSchemeVersion,
-            Map<Integer, Map<ContentDigestAlgorithm, byte[]>> signatureSchemeDigestInfos,
-            SignerConfig sourceStampSignerConfig,
+            Map<Integer, Map<ContentDigestAlgorithm, byte[]>> mSignatureSchemeDigestInfos,
+            SignerConfig mSourceStampSignerConfig,
             List<Pair<Integer, byte[]>> signatureSchemeDigests)
             throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
-        if (!signatureSchemeDigestInfos.containsKey(signatureSchemeVersion)) {
+        if (!mSignatureSchemeDigestInfos.containsKey(signatureSchemeVersion)) {
             return;
         }
 
         Map<ContentDigestAlgorithm, byte[]> digestInfo =
-                signatureSchemeDigestInfos.get(signatureSchemeVersion);
+                mSignatureSchemeDigestInfos.get(signatureSchemeVersion);
         List<Pair<Integer, byte[]>> digests = new ArrayList<>();
         for (Map.Entry<ContentDigestAlgorithm, byte[]> digest : digestInfo.entrySet()) {
             digests.add(Pair.of(digest.getKey().getId(), digest.getValue()));
@@ -165,7 +178,7 @@ public abstract class V2SourceStampSigner {
         //   * length-prefixed bytes: signed digest for the respective signature algorithm
         List<Pair<Integer, byte[]>> signedDigest =
                 ApkSigningBlockUtils.generateSignaturesOverData(
-                        sourceStampSignerConfig, digestBytes);
+                        mSourceStampSignerConfig, digestBytes);
 
         // FORMAT:
         // * length-prefixed sequence of length-prefixed signed signature scheme digests:
@@ -201,22 +214,25 @@ public abstract class V2SourceStampSigner {
         return result.array();
     }
 
-    private static Map<Integer, byte[]> generateStampAttributes(SigningCertificateLineage lineage) {
+    private Map<Integer, byte[]> generateStampAttributes(SigningCertificateLineage lineage) {
         HashMap<Integer, byte[]> stampAttributes = new HashMap<>();
 
-        // Write the current epoch time as the timestamp for the source stamp.
-        long timestamp = Instant.now().getEpochSecond();
-        if (timestamp > 0) {
-            ByteBuffer attributeBuffer = ByteBuffer.allocate(8);
-            attributeBuffer.order(ByteOrder.LITTLE_ENDIAN);
-            attributeBuffer.putLong(timestamp);
-            stampAttributes.put(SourceStampConstants.STAMP_TIME_ATTR_ID, attributeBuffer.array());
-        } else {
-            // The epoch time should never be <= 0, and since security decisions can potentially
-            // be made based on the value in the timestamp, throw an Exception to ensure the issues
-            // with the environment are resolved before allowing the signing.
-            throw new IllegalStateException(
-                    "Received an invalid value from Instant#getTimestamp: " + timestamp);
+        if (mSourceStampTimestampEnabled) {
+            // Write the current epoch time as the timestamp for the source stamp.
+            long timestamp = Instant.now().getEpochSecond();
+            if (timestamp > 0) {
+                ByteBuffer attributeBuffer = ByteBuffer.allocate(8);
+                attributeBuffer.order(ByteOrder.LITTLE_ENDIAN);
+                attributeBuffer.putLong(timestamp);
+                stampAttributes.put(SourceStampConstants.STAMP_TIME_ATTR_ID,
+                        attributeBuffer.array());
+            } else {
+                // The epoch time should never be <= 0, and since security decisions can potentially
+                // be made based on the value in the timestamp, throw an Exception to ensure the
+                // issues with the environment are resolved before allowing the signing.
+                throw new IllegalStateException(
+                        "Received an invalid value from Instant#getTimestamp: " + timestamp);
+            }
         }
 
         if (lineage != null) {
@@ -232,5 +248,39 @@ public abstract class V2SourceStampSigner {
         // Optional stamp attributes that are not required for verification.
         public byte[] stampAttributes;
         public List<Pair<Integer, byte[]>> signedStampAttributes;
+    }
+
+    /** Builder of {@link V2SourceStampSigner} instances. */
+    public static class Builder {
+        private final SignerConfig mSourceStampSignerConfig;
+        private final Map<Integer, Map<ContentDigestAlgorithm, byte[]>> mSignatureSchemeDigestInfos;
+        private boolean mSourceStampTimestampEnabled = true;
+
+        /**
+         * Instantiates a new {@code Builder} with the provided {@code sourceStampSignerConfig}
+         * and the {@code signatureSchemeDigestInfos}.
+         */
+        public Builder(SignerConfig sourceStampSignerConfig,
+                Map<Integer, Map<ContentDigestAlgorithm, byte[]>> signatureSchemeDigestInfos) {
+            mSourceStampSignerConfig = sourceStampSignerConfig;
+            mSignatureSchemeDigestInfos = signatureSchemeDigestInfos;
+        }
+
+        /**
+         * Sets whether the source stamp should contain the timestamp attribute with the time
+         * at which the source stamp was signed.
+         */
+        public Builder setSourceStampTimestampEnabled(boolean value) {
+            mSourceStampTimestampEnabled = value;
+            return this;
+        }
+
+        /**
+         * Builds a new V2SourceStampSigner that can be used to generate a new source stamp
+         * block signed with the specified signing config.
+         */
+        public V2SourceStampSigner build() {
+            return new V2SourceStampSigner(this);
+        }
     }
 }

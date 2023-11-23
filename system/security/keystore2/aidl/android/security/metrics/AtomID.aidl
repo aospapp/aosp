@@ -23,7 +23,7 @@ package android.security.metrics;
 @Backing(type="int")
 enum AtomID {
     STORAGE_STATS = 10103,
-    RKP_POOL_STATS = 10104,
+    // reserved 10104
     KEY_CREATION_WITH_GENERAL_INFO = 10118,
     KEY_CREATION_WITH_AUTH_INFO = 10119,
     KEY_CREATION_WITH_PURPOSE_AND_MODES_INFO = 10120,

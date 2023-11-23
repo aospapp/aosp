@@ -29,6 +29,7 @@ import android.accessibilityservice.cts.activities.AccessibilityDragAndDropActiv
 import android.accessibilityservice.cts.utils.AccessibilityEventFilterUtils;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.platform.test.annotations.Presubmit;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -36,6 +37,8 @@ import android.widget.TextView;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -45,6 +48,8 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityDragAndDropTest {
     private static Instrumentation sInstrumentation;
     private static UiAutomation sUiAutomation;
@@ -87,7 +92,9 @@ public class AccessibilityDragAndDropTest {
     @After
     public void tearDown() {
         // Reset system drag state
-        mSourceView.cancelDragAndDrop();
+        if (mSourceView != null) {
+            mSourceView.cancelDragAndDrop();
+        }
     }
 
     @Test

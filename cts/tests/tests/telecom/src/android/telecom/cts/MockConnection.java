@@ -21,7 +21,7 @@ import static android.telecom.CallAudioState.*;
 import android.net.Uri;
 import android.os.Bundle;
 import android.telecom.CallAudioState;
-import android.telecom.CallScreeningService;
+import android.telecom.CallEndpoint;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
@@ -53,6 +53,7 @@ public class MockConnection extends Connection {
 
     private CallAudioState mCallAudioState =
             new CallAudioState(false, CallAudioState.ROUTE_EARPIECE, ROUTE_EARPIECE | ROUTE_SPEAKER);
+    private boolean mEndpointIsMute = false;
     private int mState = STATE_NEW;
     public int videoState = VideoProfile.STATE_AUDIO_ONLY;
     private String mDtmfString = "";
@@ -179,6 +180,21 @@ public class MockConnection extends Connection {
     }
 
     @Override
+    public void onCallEndpointChanged(CallEndpoint callendpoint) {
+        super.onCallEndpointChanged(callendpoint);
+    }
+
+    @Override
+    public void onAvailableCallEndpointsChanged(List<CallEndpoint> availableEndpoints) {
+        super.onAvailableCallEndpointsChanged(availableEndpoints);
+    }
+    @Override
+    public void onMuteStateChanged(boolean isMuted) {
+        super.onMuteStateChanged(isMuted);
+        mEndpointIsMute = isMuted;
+    }
+
+    @Override
     public void onStateChanged(int state) {
         super.onStateChanged(state);
         mState = state;
@@ -294,6 +310,10 @@ public class MockConnection extends Connection {
 
     public CallAudioState getCurrentCallAudioState() {
         return mCallAudioState;
+    }
+
+    public boolean getEndpointMuteState() {
+        return mEndpointIsMute;
     }
 
     public String getDtmfString() {

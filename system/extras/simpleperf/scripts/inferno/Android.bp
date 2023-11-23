@@ -32,9 +32,4 @@ python_library_host {
         "inferno.b64",
         "script.js",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-    },
 }

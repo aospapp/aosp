@@ -16,6 +16,8 @@
 
 set -e
 
+clang_format=clang-format
+
 # future considerations:
 # - could we make this work with git-clang-format instead?
 # - should we have our own formatter?
@@ -74,7 +76,7 @@ function _aidl-format() (
       local style="$2"
       local temp="$(mktemp)"
       local styletext="$([ -f "$style" ] && cat "$style" | tr '\n' ',' 2> /dev/null)"
-      cat "$input" | clang-format \
+      cat "$input" | $clang_format \
         --style='{BasedOnStyle: Google,
         ColumnLimit: 100,
         IndentWidth: 4,
@@ -104,7 +106,7 @@ function _aidl-format() (
       # @Anno(a=1, b=2) @Anno(c=3, d=4) int foo = 3;
       # [^@,=] ensures that the match doesn't cross the characters, otherwise
       # "a = 1, b = 2" would match only once and will become "a = 1, b=2".
-      gawk -i inplace \
+      awk -i inplace \
         '/@[^@]+\(.*=.*\)/ { # matches a line having @anno(param = val) \
               print(gensub(/([^@,=]+) = ([^@,=]+|"[^"]*")/, "\\1=\\2", "g", $0)); \
               done=1;\
@@ -147,19 +149,21 @@ function _aidl-format() (
       echo "  -d: display diff instead of the formatted result"
       echo "  -w: rewrite the result back to the source file, instead of stdout"
       echo "  -h: show this help message"
+      echo "  --clang-format-path <PATH>: set the path to the clang-format to <PATH>"
       echo "  [path...]: source files. if none, input is read from stdin"
       exit 1
     }
 
     local mode=print
-    if [ $# -gt 0 ]; then
+    while [ $# -gt 0 ]; do
       case "$1" in
         -d) mode=diff; shift;;
         -w) mode=write; shift;;
         -h) show-help-and-exit;;
-        -*) echo "$1" is wrong option; show-help-and-exit;;
+	--clang-format-path) clang_format="$2"; shift 2;;
+	*) break;;
       esac
-    fi
+    done
 
     if [ $# -lt 1 ]; then
       if [ $mode = "write" ]; then

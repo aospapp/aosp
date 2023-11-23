@@ -36,8 +36,5 @@ public class PressHomeRule extends TestWatcher {
         }
 
         getUiDevice().pressHome();
-        // Sleep for statsd to update the metrics.
-        SystemClock.sleep(3000);
-
     }
 }

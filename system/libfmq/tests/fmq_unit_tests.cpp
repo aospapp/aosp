@@ -230,6 +230,7 @@ template <typename T>
 class BadQueueConfig : public TestBase<T> {};
 
 class AidlOnlyBadQueueConfig : public ::testing::Test {};
+class HidlOnlyBadQueueConfig : public ::testing::Test {};
 class Hidl2AidlOperation : public ::testing::Test {};
 class DoubleFdFailures : public ::testing::Test {};
 
@@ -301,13 +302,76 @@ void TestBase<T>::ReaderThreadBlocking2(typename T::MQType* fmq, std::atomic<uin
 
 TYPED_TEST(BadQueueConfig, QueueSizeTooLarge) {
     size_t numElementsInQueue = SIZE_MAX / sizeof(uint16_t) + 1;
-    typename TypeParam::MQType* fmq =
-            new (std::nothrow) typename TypeParam::MQType(numElementsInQueue);
-    ASSERT_NE(nullptr, fmq);
+    typename TypeParam::MQType fmq(numElementsInQueue);
     /*
      * Should fail due to size being too large to fit into size_t.
      */
-    ASSERT_FALSE(fmq->isValid());
+    ASSERT_FALSE(fmq.isValid());
+}
+
+// {flags, fdIndex, offset, extent}
+static const std::vector<android::hardware::GrantorDescriptor> kGrantors = {
+        {0, 0, 0, 4096},
+        {0, 0, 0, 4096},
+        {0, 0, 0, 4096},
+};
+
+// Make sure this passes without invalid index/extent for the next two test
+// cases
+TEST_F(HidlOnlyBadQueueConfig, SanityCheck) {
+    std::vector<android::hardware::GrantorDescriptor> grantors = kGrantors;
+
+    native_handle_t* handle = native_handle_create(1, 0);
+    int ashmemFd = ashmem_create_region("QueueHidlOnlyBad", 4096);
+    ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
+    handle->data[0] = ashmemFd;
+
+    android::hardware::MQDescriptor<uint16_t, kSynchronizedReadWrite> desc(grantors, handle,
+                                                                           sizeof(uint16_t));
+    android::hardware::MessageQueue<uint16_t, kSynchronizedReadWrite> fmq(desc);
+    EXPECT_TRUE(fmq.isValid());
+
+    close(ashmemFd);
+}
+
+TEST_F(HidlOnlyBadQueueConfig, BadFdIndex) {
+    std::vector<android::hardware::GrantorDescriptor> grantors = kGrantors;
+    grantors[0].fdIndex = 5;
+
+    native_handle_t* handle = native_handle_create(1, 0);
+    int ashmemFd = ashmem_create_region("QueueHidlOnlyBad", 4096);
+    ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
+    handle->data[0] = ashmemFd;
+
+    android::hardware::MQDescriptor<uint16_t, kSynchronizedReadWrite> desc(grantors, handle,
+                                                                           sizeof(uint16_t));
+    android::hardware::MessageQueue<uint16_t, kSynchronizedReadWrite> fmq(desc);
+    /*
+     * Should fail due fdIndex being out of range of the native_handle.
+     */
+    EXPECT_FALSE(fmq.isValid());
+
+    close(ashmemFd);
+}
+
+TEST_F(HidlOnlyBadQueueConfig, ExtentTooLarge) {
+    std::vector<android::hardware::GrantorDescriptor> grantors = kGrantors;
+    grantors[0].extent = 0xfffff041;
+
+    native_handle_t* handle = native_handle_create(1, 0);
+    int ashmemFd = ashmem_create_region("QueueHidlOnlyBad", 4096);
+    ashmem_set_prot_region(ashmemFd, PROT_READ | PROT_WRITE);
+    handle->data[0] = ashmemFd;
+
+    android::hardware::MQDescriptor<uint16_t, kSynchronizedReadWrite> desc(grantors, handle,
+                                                                           sizeof(uint16_t));
+    android::hardware::MessageQueue<uint16_t, kSynchronizedReadWrite> fmq(desc);
+    /*
+     * Should fail due to extent being too large.
+     */
+    EXPECT_FALSE(fmq.isValid());
+
+    close(ashmemFd);
 }
 
 // If this test fails and we do leak FDs, the next test will cause a crash
@@ -329,10 +393,9 @@ TEST_F(Hidl2AidlOperation, ConvertDescriptorsSync) {
     size_t numElementsInQueue = 64;
 
     // Create HIDL side and get MQDescriptor
-    MessageQueueSync8* fmq = new (std::nothrow) MessageQueueSync8(numElementsInQueue);
-    ASSERT_NE(nullptr, fmq);
-    ASSERT_TRUE(fmq->isValid());
-    const HidlMQDescSync8* hidlDesc = fmq->getDesc();
+    MessageQueueSync8 fmq(numElementsInQueue);
+    ASSERT_TRUE(fmq.isValid());
+    const HidlMQDescSync8* hidlDesc = fmq.getDesc();
     ASSERT_NE(nullptr, hidlDesc);
 
     // Create AIDL MQDescriptor to send to another process based off the HIDL MQDescriptor
@@ -341,17 +404,16 @@ TEST_F(Hidl2AidlOperation, ConvertDescriptorsSync) {
                                                                                   &aidlDesc);
 
     // Other process will create the other side of the queue using the AIDL MQDescriptor
-    AidlMessageQueueSync8* aidlFmq = new (std::nothrow) AidlMessageQueueSync8(aidlDesc);
-    ASSERT_NE(nullptr, aidlFmq);
-    ASSERT_TRUE(aidlFmq->isValid());
+    AidlMessageQueueSync8 aidlFmq(aidlDesc);
+    ASSERT_TRUE(aidlFmq.isValid());
 
     // Make sure a write to the HIDL side, will show up for the AIDL side
     constexpr size_t dataLen = 4;
     uint8_t data[dataLen] = {12, 11, 10, 9};
-    fmq->write(data, dataLen);
+    fmq.write(data, dataLen);
 
     int8_t readData[dataLen];
-    ASSERT_TRUE(aidlFmq->read(readData, dataLen));
+    ASSERT_TRUE(aidlFmq.read(readData, dataLen));
 
     ASSERT_EQ(data[0], readData[0]);
     ASSERT_EQ(data[1], readData[1]);
@@ -363,10 +425,9 @@ TEST_F(Hidl2AidlOperation, ConvertDescriptorsUnsync) {
     size_t numElementsInQueue = 64;
 
     // Create HIDL side and get MQDescriptor
-    MessageQueueUnsync8* fmq = new (std::nothrow) MessageQueueUnsync8(numElementsInQueue);
-    ASSERT_NE(nullptr, fmq);
-    ASSERT_TRUE(fmq->isValid());
-    const HidlMQDescUnsync8* hidlDesc = fmq->getDesc();
+    MessageQueueUnsync8 fmq(numElementsInQueue);
+    ASSERT_TRUE(fmq.isValid());
+    const HidlMQDescUnsync8* hidlDesc = fmq.getDesc();
     ASSERT_NE(nullptr, hidlDesc);
 
     // Create AIDL MQDescriptor to send to another process based off the HIDL MQDescriptor
@@ -375,24 +436,22 @@ TEST_F(Hidl2AidlOperation, ConvertDescriptorsUnsync) {
                                                                                 &aidlDesc);
 
     // Other process will create the other side of the queue using the AIDL MQDescriptor
-    AidlMessageQueueUnsync8* aidlFmq = new (std::nothrow) AidlMessageQueueUnsync8(aidlDesc);
-    ASSERT_NE(nullptr, aidlFmq);
-    ASSERT_TRUE(aidlFmq->isValid());
+    AidlMessageQueueUnsync8 aidlFmq(aidlDesc);
+    ASSERT_TRUE(aidlFmq.isValid());
 
     // Can have multiple readers with unsync flavor
-    AidlMessageQueueUnsync8* aidlFmq2 = new (std::nothrow) AidlMessageQueueUnsync8(aidlDesc);
-    ASSERT_NE(nullptr, aidlFmq2);
-    ASSERT_TRUE(aidlFmq2->isValid());
+    AidlMessageQueueUnsync8 aidlFmq2(aidlDesc);
+    ASSERT_TRUE(aidlFmq2.isValid());
 
     // Make sure a write to the HIDL side, will show up for the AIDL side
     constexpr size_t dataLen = 4;
     uint8_t data[dataLen] = {12, 11, 10, 9};
-    fmq->write(data, dataLen);
+    fmq.write(data, dataLen);
 
     int8_t readData[dataLen];
-    ASSERT_TRUE(aidlFmq->read(readData, dataLen));
+    ASSERT_TRUE(aidlFmq.read(readData, dataLen));
     int8_t readData2[dataLen];
-    ASSERT_TRUE(aidlFmq2->read(readData2, dataLen));
+    ASSERT_TRUE(aidlFmq2.read(readData2, dataLen));
 
     ASSERT_EQ(data[0], readData[0]);
     ASSERT_EQ(data[1], readData[1]);
@@ -417,12 +476,12 @@ TEST_F(Hidl2AidlOperation, ConvertFdIndex1) {
     grantors[1] = {0, 1 /* fdIndex */, 16, 16};
     grantors[2] = {0, 1 /* fdIndex */, 16, 16};
 
-    HidlMQDescUnsync8* hidlDesc = new (std::nothrow) HidlMQDescUnsync8(grantors, mqHandle, 10);
-    ASSERT_TRUE(hidlDesc->isHandleValid());
+    HidlMQDescUnsync8 hidlDesc(grantors, mqHandle, 10);
+    ASSERT_TRUE(hidlDesc.isHandleValid());
 
     AidlMQDescUnsync8 aidlDesc;
     bool ret = android::unsafeHidlToAidlMQDescriptor<uint8_t, int8_t, UnsynchronizedWrite>(
-            *hidlDesc, &aidlDesc);
+            hidlDesc, &aidlDesc);
     ASSERT_TRUE(ret);
 }
 
@@ -439,16 +498,14 @@ TEST_F(Hidl2AidlOperation, ConvertMultipleFds) {
     grantors[1] = {0, 1 /* fdIndex */, 16, 16};
     grantors[2] = {0, 0 /* fdIndex */, 16, 16};
 
-    HidlMQDescUnsync8* hidlDesc = new (std::nothrow) HidlMQDescUnsync8(grantors, mqHandle, 10);
-    ASSERT_TRUE(hidlDesc->isHandleValid());
+    HidlMQDescUnsync8 hidlDesc(grantors, mqHandle, 10);
+    ASSERT_TRUE(hidlDesc.isHandleValid());
 
     AidlMQDescUnsync8 aidlDesc;
     bool ret = android::unsafeHidlToAidlMQDescriptor<uint8_t, int8_t, UnsynchronizedWrite>(
-            *hidlDesc, &aidlDesc);
+            hidlDesc, &aidlDesc);
     ASSERT_TRUE(ret);
     EXPECT_EQ(aidlDesc.handle.fds.size(), 2);
-    native_handle_close(mqHandle);
-    native_handle_delete(mqHandle);
 }
 
 // TODO(b/165674950) Since AIDL does not support unsigned integers, it can only support
@@ -456,23 +513,21 @@ TEST_F(Hidl2AidlOperation, ConvertMultipleFds) {
 // lifted. Until then, check against SSIZE_MAX instead of SIZE_MAX.
 TEST_F(AidlOnlyBadQueueConfig, QueueSizeTooLargeForAidl) {
     size_t numElementsInQueue = SSIZE_MAX / sizeof(uint16_t) + 1;
-    AidlMessageQueueSync16* fmq = new (std::nothrow) AidlMessageQueueSync16(numElementsInQueue);
-    ASSERT_NE(nullptr, fmq);
+    AidlMessageQueueSync16 fmq(numElementsInQueue);
     /*
      * Should fail due to size being too large to fit into size_t.
      */
-    ASSERT_FALSE(fmq->isValid());
+    ASSERT_FALSE(fmq.isValid());
 }
 
 TEST_F(AidlOnlyBadQueueConfig, NegativeAidlDescriptor) {
     aidl::android::hardware::common::fmq::MQDescriptor<uint16_t, SynchronizedReadWrite> desc;
     desc.quantum = -10;
-    AidlMessageQueueSync16* fmq = new (std::nothrow) AidlMessageQueueSync16(desc);
-    ASSERT_NE(nullptr, fmq);
+    AidlMessageQueueSync16 fmq(desc);
     /*
      * Should fail due to quantum being negative.
      */
-    ASSERT_FALSE(fmq->isValid());
+    ASSERT_FALSE(fmq.isValid());
 }
 
 TEST_F(AidlOnlyBadQueueConfig, NegativeAidlDescriptorGrantor) {
@@ -481,12 +536,11 @@ TEST_F(AidlOnlyBadQueueConfig, NegativeAidlDescriptorGrantor) {
     desc.flags = 0;
     desc.grantors.push_back(
             aidl::android::hardware::common::fmq::GrantorDescriptor{.offset = 12, .extent = -10});
-    AidlMessageQueueSync16* fmq = new (std::nothrow) AidlMessageQueueSync16(desc);
-    ASSERT_NE(nullptr, fmq);
+    AidlMessageQueueSync16 fmq(desc);
     /*
      * Should fail due to grantor having negative extent.
      */
-    ASSERT_FALSE(fmq->isValid());
+    ASSERT_FALSE(fmq.isValid());
 }
 
 /*
@@ -516,8 +570,8 @@ TEST_F(AidlOnlyBadQueueConfig, MismatchedPayloadSize) {
  */
 TEST_F(DoubleFdFailures, InvalidFd) {
     android::base::SetLogger(android::base::StdioLogger);
-    EXPECT_DEATH_IF_SUPPORTED(AidlMessageQueueSync(64, false, android::base::unique_fd(3000), 64),
-                              "Check failed: exp mRing is null");
+    auto queue = AidlMessageQueueSync(64, false, android::base::unique_fd(3000), 64);
+    EXPECT_FALSE(queue.isValid());
 }
 
 /*

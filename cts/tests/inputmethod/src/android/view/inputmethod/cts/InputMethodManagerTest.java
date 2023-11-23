@@ -18,6 +18,8 @@ package android.view.inputmethod.cts;
 
 import static android.content.Intent.ACTION_CLOSE_SYSTEM_DIALOGS;
 import static android.content.Intent.FLAG_RECEIVER_FOREGROUND;
+import static android.content.pm.PackageManager.FEATURE_INPUT_METHODS;
+import static android.view.inputmethod.cts.util.TestUtils.isInputMethodPickerShown;
 import static android.view.inputmethod.cts.util.TestUtils.waitOnMainUntil;
 
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
@@ -26,6 +28,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -34,7 +37,9 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Debug;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.SecurityTest;
 import android.text.TextUtils;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -55,13 +60,19 @@ import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.Until;
 
+import com.android.compatibility.common.util.PollingCheck;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.File;
+import java.io.IOException;
+import java.lang.ref.Cleaner;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -93,6 +104,45 @@ public class InputMethodManagerTest {
             runShellCommand("ime reset");
             mNeedsImeReset = false;
         }
+    }
+
+    /**
+     * Verifies that the test API {@link InputMethodManager#isInputMethodPickerShown()} is properly
+     * protected with some permission.
+     *
+     * <p>This is a regression test for Bug 237317525.</p>
+     */
+    @SecurityTest(minPatchLevel = "unknown")
+    @Test
+    public void testIsInputMethodPickerShownProtection() {
+        assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS));
+        assertThrows("InputMethodManager#isInputMethodPickerShown() must not be accessible to "
+                + "normal apps.", SecurityException.class, mImManager::isInputMethodPickerShown);
+    }
+
+    /**
+     * Verifies that the test API {@link InputMethodManager#addVirtualStylusIdForTestSession()} is
+     * properly protected with some permission.
+     */
+    @Test
+    public void testAddVirtualStylusIdForTestSessionProtection() {
+        assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS));
+        assertThrows("InputMethodManager#addVirtualStylusIdForTestSession() must not be accessible "
+                + "to normal apps.", SecurityException.class,
+                mImManager::addVirtualStylusIdForTestSession);
+    }
+
+    /**
+     * Verifies that the test API {@link InputMethodManager#setStylusWindowIdleTimeoutForTest(long)}
+     * is properly protected with some permission.
+     */
+    @Test
+    public void testSetStylusWindowIdleTimeoutForTestProtection() {
+        assumeTrue(mContext.getPackageManager().hasSystemFeature(FEATURE_INPUT_METHODS));
+
+        assertThrows("InputMethodManager#setStylusWindowIdleTimeoutForTest(long) must not"
+                        + " be accessible to normal apps.", SecurityException.class,
+                () -> mImManager.setStylusWindowIdleTimeoutForTest(0));
     }
 
     @Test
@@ -218,12 +268,12 @@ public class InputMethodManagerTest {
         // Make sure that InputMethodPicker is not shown in the initial state.
         mContext.sendBroadcast(
                 new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
-        waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
+        waitOnMainUntil(() -> !isInputMethodPickerShown(mImManager), TIMEOUT,
                 "InputMethod picker should be closed");
 
         // Test InputMethodManager#showInputMethodPicker() works as expected.
         mImManager.showInputMethodPicker();
-        waitOnMainUntil(() -> mImManager.isInputMethodPickerShown(), TIMEOUT,
+        waitOnMainUntil(() -> isInputMethodPickerShown(mImManager), TIMEOUT,
                 "InputMethod picker should be shown");
 
         // UiDevice.getInstance(Instrumentation) may return a cached instance if it's already called
@@ -246,8 +296,49 @@ public class InputMethodManagerTest {
         // Make sure that InputMethodPicker can be closed with ACTION_CLOSE_SYSTEM_DIALOGS
         mContext.sendBroadcast(
                 new Intent(ACTION_CLOSE_SYSTEM_DIALOGS).setFlags(FLAG_RECEIVER_FOREGROUND));
-        waitOnMainUntil(() -> !mImManager.isInputMethodPickerShown(), TIMEOUT,
+        waitOnMainUntil(() -> !isInputMethodPickerShown(mImManager), TIMEOUT,
                 "InputMethod picker should be closed");
+    }
+
+    @Test
+    public void testNoStrongServedViewReferenceAfterWindowDetached() throws IOException {
+        var receivedSignalCleaned = new CountDownLatch(1);
+        Runnable r = () -> {
+            var viewRef = new View[1];
+            TestActivity testActivity = TestActivity.startSync(activity -> {
+                viewRef[0] = new EditText(activity);
+                viewRef[0].setLayoutParams(new LayoutParams(
+                        LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+                viewRef[0].requestFocus();
+                return viewRef[0];
+            });
+            // wait until editText becomes active
+            PollingCheck.waitFor(
+                    () -> testActivity.getSystemService(InputMethodManager.class).isActive(
+                            viewRef[0]));
+
+            Cleaner.create().register(viewRef[0], receivedSignalCleaned::countDown);
+            viewRef[0] = null;
+
+            // finishing the activity should destroy the reference inside IMM
+            testActivity.finish();
+        };
+        r.run();
+
+        waitForWithGc(() -> receivedSignalCleaned.getCount() == 0);
+    }
+
+    private void waitForWithGc(PollingCheck.PollingCheckCondition condition) throws IOException {
+        try {
+            PollingCheck.waitFor(() -> {
+                Runtime.getRuntime().gc();
+                return condition.canProceed();
+            });
+        } catch (AssertionError e) {
+            File heap = new File(mContext.getExternalFilesDir(null), "dump.hprof");
+            Debug.dumpHprofData(heap.getAbsolutePath());
+            throw new AssertionError("Dumped heap in device at " + heap.getAbsolutePath(), e);
+        }
     }
 
     private void enableImes(String... ids) {

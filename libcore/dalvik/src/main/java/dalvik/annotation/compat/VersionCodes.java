@@ -83,4 +83,10 @@ public class VersionCodes {
      */
     @IntraCoreApi
     public static final int TIRAMISU = 33;
+
+    /**
+     * Upside Down Cake.
+     */
+    @IntraCoreApi
+    public static final int UPSIDE_DOWN_CAKE = 34;
 }

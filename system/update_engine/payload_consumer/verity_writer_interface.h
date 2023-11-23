@@ -22,6 +22,7 @@
 
 #include <base/macros.h>
 
+#include "common/utils.h"
 #include "payload_consumer/file_descriptor.h"
 #include "update_engine/payload_consumer/install_plan.h"
 
@@ -38,8 +39,24 @@ class VerityWriterInterface {
   // blocks has passed.
   virtual bool Update(uint64_t offset, const uint8_t* buffer, size_t size) = 0;
 
+  // Deprecated function -> use IncrementalFinalize to allow verity writes to be
+  // interrupted. left for backwards compatibility
+  virtual bool Finalize(FileDescriptor* read_fd, FileDescriptor* write_fd) {
+    while (!FECFinished()) {
+      TEST_AND_RETURN_FALSE(IncrementalFinalize(read_fd, write_fd));
+    }
+    return true;
+  }
+
   // Write hash tree && FEC data to underlying fd, if they are present
-  virtual bool Finalize(FileDescriptor* read_fd, FileDescriptor* write_fd) = 0;
+  virtual bool IncrementalFinalize(FileDescriptor* read_fd,
+                                   FileDescriptor* write_fd) = 0;
+
+  // Returns true once FEC data is finished writing
+  virtual bool FECFinished() const = 0;
+
+  // Gets progress report on FEC write
+  virtual double GetProgress() = 0;
 
  protected:
   VerityWriterInterface() = default;

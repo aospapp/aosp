@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include <fstream>
 #include <getopt.h>
 #include <gtest/gtest.h>
+#include <inttypes.h>
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -37,6 +39,39 @@ void initRenderTest(int argc, char** argv) {
     ::teeui::test::TeeuiRenderTest::Instance()->initFromOptions(argc, argv);
 }
 
+void saveToPpm(const uint32_t* data, uint32_t w, uint32_t h, uint32_t linestride) {
+    const testing::TestInfo* const test_info =
+        testing::UnitTest::GetInstance()->current_test_info();
+    std::string testname = test_info->name();
+    std::ofstream out;
+
+    out.open(testname + ".ppm", std::ios::binary);
+    if (out.is_open()) {
+        uint32_t linestart = 0;
+
+        /* Write the header */
+        out << "P6\n" << w << " " << h << "\n255\n";
+
+        /* Write binary Pixel data */
+        for (uint32_t line = 0; line < h; line++) {
+            for (uint32_t col = 0; col < w; col++) {
+                const uint32_t color = data[linestart + col];
+                char rgb[3];
+
+                rgb[0] = color >> 16;
+                rgb[1] = color >> 8;
+                rgb[2] = color;
+
+                out.write(rgb, sizeof(rgb));
+            }
+
+            linestart += linestride;
+        }
+
+        out.close();
+    }
+}
+
 int runRenderTest(const char* language, bool magnified, bool inverted,
                   const char* confirmationMessage, const char* layout) {
     std::unique_ptr<ITeeuiExample> sCurrentExample = createExample(
@@ -54,39 +89,15 @@ int runRenderTest(const char* language, bool magnified, bool inverted,
 
     int error =
         sCurrentExample->renderUIIntoBuffer(0, 0, w, h, linestride, buffer.data(), buffer_size);
+
+    if (TeeuiRenderTest::Instance()->saveScreen()) {
+        saveToPpm(buffer.data(), w, h, linestride);
+    }
+
     return error;
 }
 
-/*
- * Configures device with test parameters
- * widthPx, heightPx : pixel dimension of devices
- * dp2px : density pixel to pixel
- * mm2px : millimeter to pixel
- * powerButtonTopMm : location of the top of the power button in mm
- * powerButtonBottomMm : location of the bottom of the power button in mm
- * volUpButtonTopMm : location of the top of the up volume button in mm
- * volUpButtonBottomMm : location of the bottom of the up power button in mm
- */
-void TeeuiRenderTest::createDevice(int widthPx, int heightPx, double dp2px, double mm2px,
-                                   double powerButtonTopMm, double powerButtonBottomMm,
-                                   double volUpButtonTopMm, double volUpButtonBottomMm) {
-    DeviceInfo* device_info_ptr = &TeeuiRenderTest::Instance()->device_info;
-    device_info_ptr->width_ = widthPx;
-    device_info_ptr->height_ = heightPx;
-    device_info_ptr->dp2px_ = dp2px;
-    device_info_ptr->mm2px_ = mm2px;
-    device_info_ptr->powerButtonTopMm_ = powerButtonTopMm;
-    device_info_ptr->powerButtonBottomMm_ = powerButtonBottomMm;
-    device_info_ptr->volUpButtonTopMm_ = volUpButtonTopMm;
-    device_info_ptr->volUpButtonBottomMm_ = volUpButtonBottomMm;
-}
-
 void TeeuiRenderTest::initFromOptions(int argc, char** argv) {
-
-    uint width = 0, height = 0;
-    double dp2px = 0, mm2px = 0;
-    double powerBottonTopMm = 0, powerButtonBottomMm = 0;
-    double volUpButtonTopMm = 0, volUpButtonBottomMm = 0;
 
     int option_index = 0;
     static struct option options[] = {{"width", required_argument, 0, 'w'},
@@ -97,43 +108,40 @@ void TeeuiRenderTest::initFromOptions(int argc, char** argv) {
                                       {"powerButtonBottom", required_argument, 0, 'b'},
                                       {"volUpButtonTop", required_argument, 0, 'u'},
                                       {"volUpButtonBottom", required_argument, 0, 'v'},
+                                      {"saveScreen", 0, 0, 's'},
                                       {"help", 0, 0, 'h'},
                                       {"?", 0, 0, '?'},
                                       {0, 0, 0, 0}};
     while (true) {
         int c = getopt_long(argc, argv, "w:l:d:m:t:b:u:v:h?", options, &option_index);
         if (c == -1) break;
-        double numeric_value = 0;
         switch (c) {
         case 'w':
-            width = atoi(optarg);
+            device_info.width_ = strtol(optarg, NULL, 10);
             break;
         case 'l':
-            height = atoi(optarg);
+            device_info.height_ = strtol(optarg, NULL, 10);
             break;
         case 'd':
-            numeric_value = strtod(optarg, NULL);
-            dp2px = numeric_value;
+            device_info.dp2px_ = strtod(optarg, NULL);
             break;
         case 'm':
-            numeric_value = strtod(optarg, NULL);
-            mm2px = numeric_value;
+            device_info.mm2px_ = strtod(optarg, NULL);
             break;
         case 't':
-            numeric_value = strtod(optarg, NULL);
-            powerBottonTopMm = numeric_value;
+            device_info.powerButtonTopMm_ = strtod(optarg, NULL);
             break;
         case 'b':
-            numeric_value = strtod(optarg, NULL);
-            powerButtonBottomMm = numeric_value;
+            device_info.powerButtonBottomMm_ = strtod(optarg, NULL);
             break;
         case 'u':
-            numeric_value = strtod(optarg, NULL);
-            volUpButtonTopMm = numeric_value;
+            device_info.volUpButtonTopMm_ = strtod(optarg, NULL);
             break;
         case 'v':
-            numeric_value = strtod(optarg, NULL);
-            volUpButtonBottomMm = numeric_value;
+            device_info.volUpButtonBottomMm_ = strtod(optarg, NULL);
+            break;
+        case 's':
+            saveScreen_ = true;
             break;
         case '?':
         case 'h':
@@ -156,11 +164,11 @@ void TeeuiRenderTest::initFromOptions(int argc, char** argv) {
             std::cout << "--volUpButtonBottom=<distance from the bottom of the UP power button to "
                          "the top of the screen in mm>"
                       << std::endl;
+            std::cout << "--saveScreen - save rendered screen to ppm files in working directory"
+                      << std::endl;
             exit(0);
         }
     }
-    createDevice(width, height, dp2px, mm2px, powerBottonTopMm, powerButtonBottomMm,
-                 volUpButtonTopMm, volUpButtonBottomMm);
 }
 
 }  // namespace test

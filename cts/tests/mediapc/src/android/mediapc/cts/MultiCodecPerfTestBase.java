@@ -19,6 +19,7 @@ package android.mediapc.cts;
 import static android.media.MediaCodecInfo.CodecCapabilities.FEATURE_SecurePlayback;
 import static android.mediapc.cts.CodecDecoderTestBase.WIDEVINE_UUID;
 import static android.mediapc.cts.CodecTestBase.selectHardwareCodecs;
+
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -31,20 +32,19 @@ import android.media.UnsupportedSchemeException;
 import android.mediapc.cts.common.Utils;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
-import android.net.Network;
 import android.os.Build;
 import android.util.Log;
 import android.util.Pair;
+
+import org.junit.Assume;
+import org.junit.Before;
+
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.junit.Assume;
-import org.junit.Before;
 
 public class MultiCodecPerfTestBase {
     private static final String LOG_TAG = MultiCodecPerfTestBase.class.getSimpleName();
@@ -52,12 +52,22 @@ public class MultiCodecPerfTestBase {
     static final int REQUIRED_MIN_CONCURRENT_INSTANCES = 6;
     static final int REQUIRED_MIN_CONCURRENT_INSTANCES_FOR_VP9 = 2;
     static final int REQUIRED_MIN_CONCURRENT_SECURE_INSTANCES = 2;
+    static final int REQUIRED_MIN_CONCURRENT_4K_DECODER_INSTANCES = 3;
+    static final int REQUIRED_MIN_CONCURRENT_4K_ENCODER_INSTANCES = 2;
+    static final int REQUIRED_MIN_CONCURRENT_1080_DECODER_INSTANCES =
+            REQUIRED_MIN_CONCURRENT_INSTANCES - REQUIRED_MIN_CONCURRENT_4K_DECODER_INSTANCES;
+    static final int REQUIRED_MIN_CONCURRENT_1080_ENCODER_INSTANCES =
+            REQUIRED_MIN_CONCURRENT_INSTANCES - REQUIRED_MIN_CONCURRENT_4K_ENCODER_INSTANCES;
 
     static ArrayList<String> mMimeList = new ArrayList<>();
     static Map<String, String> mTestFiles = new HashMap<>();
     static Map<String, String> m720pTestFiles = new HashMap<>();
     static Map<String, String> m1080pTestFiles = new HashMap<>();
+    static Map<String, String> m2160pTestFiles = new HashMap<>();
+    static Map<String, String> m2160p10bitTestFiles = new HashMap<>();
     static Map<String, String> m1080pWidevineTestFiles = new HashMap<>();
+    static Map<String, String> m2160pWidevineTestFiles = new HashMap<>();
+    static Map<String, String> m2160p10bitWidevineTestFiles = new HashMap<>();
 
     static {
         mMimeList.add(MediaFormat.MIMETYPE_VIDEO_AVC);
@@ -79,6 +89,18 @@ public class MultiCodecPerfTestBase {
         m1080pTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP9, "bbb_1920x1080_4mbps_30fps_vp9.webm");
         m1080pTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AV1, "bbb_1920x1080_4mbps_30fps_av1.mp4");
 
+        m2160pTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AVC, "bbb_3840x2160_18mbps_30fps_avc.mp4");
+        m2160pTestFiles.put(MediaFormat.MIMETYPE_VIDEO_HEVC, "bbb_3840x2160_12mbps_30fps_hevc.mp4");
+        m2160pTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP9, "bbb_3840x2160_12mbps_30fps_vp9.webm");
+        m2160pTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AV1, "bbb_3840x2160_12mbps_30fps_av1.mp4");
+
+        m2160p10bitTestFiles.put(MediaFormat.MIMETYPE_VIDEO_HEVC,
+                "bbb_3840x2160_12mbps_30fps_hevc_10bit.mp4");
+        m2160p10bitTestFiles.put(MediaFormat.MIMETYPE_VIDEO_VP9,
+                "bbb_3840x2160_12mbps_30fps_vp9_10bit.webm");
+        m2160p10bitTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AV1,
+                "bbb_3840x2160_12mbps_30fps_av1_10bit.mp4");
+
         m1080pWidevineTestFiles
                 .put(MediaFormat.MIMETYPE_VIDEO_AVC, "bbb_1920x1080_6mbps_30fps_avc_cenc.mp4");
         m1080pWidevineTestFiles
@@ -88,6 +110,21 @@ public class MultiCodecPerfTestBase {
         //         .put(MediaFormat.MIMETYPE_VIDEO_VP9, "bbb_1920x1080_4mbps_30fps_vp9_cenc.webm");
         m1080pWidevineTestFiles
                 .put(MediaFormat.MIMETYPE_VIDEO_AV1, "bbb_1920x1080_4mbps_30fps_av1_cenc.mp4");
+
+        m2160pWidevineTestFiles
+                .put(MediaFormat.MIMETYPE_VIDEO_AVC, "bbb_3840x2160_18mbps_30fps_avc_cenc.mp4");
+        m2160pWidevineTestFiles
+                .put(MediaFormat.MIMETYPE_VIDEO_HEVC, "bbb_3840x2160_12mbps_30fps_hevc_cenc.mp4");
+        // TODO(b/230682028)
+        // m2160pWidevineTestFiles
+        //         .put(MediaFormat.MIMETYPE_VIDEO_VP9, "bbb_3840x2160_12mbps_30fps_vp9_cenc.webm");
+        m2160pWidevineTestFiles
+                .put(MediaFormat.MIMETYPE_VIDEO_AV1, "bbb_3840x2160_12mbps_30fps_av1_cenc.mp4");
+
+        m2160p10bitWidevineTestFiles.put(MediaFormat.MIMETYPE_VIDEO_HEVC,
+                "bbb_3840x2160_12mbps_30fps_hevc_10bit_cenc.mp4");
+        m2160p10bitWidevineTestFiles.put(MediaFormat.MIMETYPE_VIDEO_AV1,
+                "bbb_3840x2160_12mbps_30fps_av1_10bit_cenc.mp4");
     }
 
     String mMime;
@@ -126,11 +163,18 @@ public class MultiCodecPerfTestBase {
     // supports. It also checks that the each codec supports a PerformancePoint that covers
     // required number of 30 fps instances.
     public int checkAndGetMaxSupportedInstancesForCodecCombinations(int height, int width,
-            ArrayList<Pair<String, String>> mimeCodecPairs, int requiredMinInstances)
-            throws IOException {
+            ArrayList<Pair<String, String>> mimeCodecPairs, boolean isEncoder,
+            int requiredMinInstances) throws IOException {
         int[] maxInstances = new int[mimeCodecPairs.size()];
         int[] maxFrameRates = new int[mimeCodecPairs.size()];
         int[] maxMacroBlockRates = new int[mimeCodecPairs.size()];
+        int[] maxFrameRates1080p = new int[mimeCodecPairs.size()];
+        int[] maxMacroBlockRates1080p = new int[mimeCodecPairs.size()];
+        int required4kInstances = isEncoder ? REQUIRED_MIN_CONCURRENT_4K_ENCODER_INSTANCES :
+                REQUIRED_MIN_CONCURRENT_4K_DECODER_INSTANCES;
+        int required1080pInstances =
+                isEncoder ? REQUIRED_MIN_CONCURRENT_1080_ENCODER_INSTANCES :
+                        REQUIRED_MIN_CONCURRENT_1080_DECODER_INSTANCES;
         int loopCount = 0;
         for (Pair<String, String> mimeCodecPair : mimeCodecPairs) {
             MediaCodec codec = MediaCodec.createByCodecName(mimeCodecPair.second);
@@ -140,19 +184,30 @@ public class MultiCodecPerfTestBase {
             assertTrue(pps.size() > 0);
 
             boolean hasVP9 = mimeCodecPair.first.equals(MediaFormat.MIMETYPE_VIDEO_VP9);
-            int requiredFrameRate = requiredMinInstances * 30;
+            int requiredFrameRate =
+                    height > 1080 ? required4kInstances * 30 : requiredMinInstances * 30;
+            int requiredFrameRate1080p = required1080pInstances * 30;
 
             maxInstances[loopCount] = cap.getMaxSupportedInstances();
             PerformancePoint PPRes = new PerformancePoint(width, height, requiredFrameRate);
+            PerformancePoint PPRes1080p = new PerformancePoint(1920, 1080, requiredFrameRate1080p);
 
             maxMacroBlockRates[loopCount] = 0;
             boolean supportsResolutionPerformance = false;
+            boolean supportsResolutionPerformance1080p = false;
             for (PerformancePoint pp : pps) {
                 if (pp.covers(PPRes)) {
                     supportsResolutionPerformance = true;
                     if (pp.getMaxMacroBlockRate() > maxMacroBlockRates[loopCount]) {
                         maxMacroBlockRates[loopCount] = (int) pp.getMaxMacroBlockRate();
                         maxFrameRates[loopCount] = pp.getMaxFrameRate();
+                    }
+                }
+                if (height > 1080 && pp.covers(PPRes1080p)) {
+                    supportsResolutionPerformance1080p = true;
+                    if (pp.getMaxMacroBlockRate() > maxMacroBlockRates1080p[loopCount]) {
+                        maxMacroBlockRates1080p[loopCount] = (int) pp.getMaxMacroBlockRate();
+                        maxFrameRates1080p[loopCount] = pp.getMaxFrameRate();
                     }
                 }
             }
@@ -163,24 +218,60 @@ public class MultiCodecPerfTestBase {
                                 requiredFrameRate + " performance point");
                 return 0;
             }
+            if (height > 1080 && !supportsResolutionPerformance1080p) {
+                Log.e(LOG_TAG, "Codec " + mimeCodecPair.second + " doesn't support 1080p/"
+                        + requiredFrameRate1080p + " performance point");
+                return 0;
+            }
             loopCount++;
         }
         Arrays.sort(maxInstances);
         Arrays.sort(maxFrameRates);
         Arrays.sort(maxMacroBlockRates);
+        Arrays.sort(maxFrameRates1080p);
+        Arrays.sort(maxMacroBlockRates1080p);
         int minOfMaxInstances = maxInstances[0];
         int minOfMaxFrameRates = maxFrameRates[0];
         int minOfMaxMacroBlockRates = maxMacroBlockRates[0];
+        int minOfMaxFrameRates1080p = maxFrameRates1080p[0];
+        int minOfMaxMacroBlockRates1080p = maxMacroBlockRates1080p[0];
 
         // Calculate how many 30fps max instances it can support from it's mMaxFrameRate
         // amd maxMacroBlockRate. (assuming 16x16 macroblocks)
+        if (height > 1080) {
+            int blocksIn4k = (3840 / 16) * (2160 / 16);
+            int blocksPerSecond4k = blocksIn4k * 30;
+            int instances4k = Math.min((int) (minOfMaxFrameRates / 30.0),
+                    (int) (minOfMaxMacroBlockRates / blocksPerSecond4k));
+            if (instances4k < required4kInstances) {
+                Log.e(LOG_TAG, "Less than required 4k instances supported.");
+                return 0;
+            }
+
+            int blocksIn1080p = (1920 / 16) * (1080 / 16);
+            int blocksPerSecond1080p = blocksIn1080p * 30;
+            int instances1080p = Math.min((int) (minOfMaxFrameRates1080p / 30.0),
+                    (int) (minOfMaxMacroBlockRates1080p / blocksPerSecond1080p));
+            if (instances1080p < required1080pInstances) {
+                Log.e(LOG_TAG, "Less than required 1080p instances supported.");
+                return 0;
+            }
+
+            int totalBlockRates =
+                    (blocksIn4k * required4kInstances + blocksIn1080p * required1080pInstances)
+                            * 30;
+            if(totalBlockRates < Math.max(minOfMaxMacroBlockRates, minOfMaxMacroBlockRates1080p)){
+                return requiredMinInstances;
+            }
+            return 0;
+        }
         return Math.min(minOfMaxInstances, Math.min((int) (minOfMaxFrameRates / 30.0),
                 (int) (minOfMaxMacroBlockRates / ((width / 16) * (height / 16)) / 30.0)));
     }
 
     public int getRequiredMinConcurrentInstances720p(boolean hasVP9) throws IOException {
         // Below T, VP9 requires 60 fps at 720p and minimum of 2 instances
-        if (!Utils.isTPerfClass() && hasVP9) {
+        if (Utils.isBeforeTPerfClass() && hasVP9) {
             return REQUIRED_MIN_CONCURRENT_INSTANCES_FOR_VP9;
         }
         return REQUIRED_MIN_CONCURRENT_INSTANCES;

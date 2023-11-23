@@ -31,6 +31,7 @@ import androidx.test.runner.AndroidJUnit4;
 import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.UiccUtil.ApduCommand;
+import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -86,8 +87,13 @@ public class CsimRemover {
         Log.i(TAG, "Removing CSIM applet record");
         ApduScriptUtil.runApduScript(subId, REMOVE_CSIM_SCRIPT);
 
-        // The script will internally wait for the SIM to power back up, so this may indicate an
-        // internal timing issue inside telephony if we still don't have carrier privileges by now.
+        // The script will internally wait for the SIM to power back up.
+
+        // Additionally, TC Should wait until loading CarrierPrivileges successfully
+        // in CarrierPrivileagesTracker
+        PollingCheck.waitFor(5000, () -> getContext().getSystemService(TelephonyManager.class)
+                .hasCarrierPrivileges(),"Timeout when waiting to gain carrier privileges again.");
+
         assertWithMessage("Carrier privileges not restored after executing CSIM removal script")
                 .that(getContext().getSystemService(TelephonyManager.class).hasCarrierPrivileges())
                 .isTrue();

@@ -21,6 +21,7 @@ import static org.junit.Assume.assumeTrue;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
 import org.junit.Before;
@@ -28,7 +29,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public final class Bug_183411210 extends SecurityTestCase {
+public final class Bug_183411210 extends NonRootSecurityTestCase {
     private static final String TEST_PKG = "android.security.cts.BUG_183411210";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";
     private static final String TEST_APP = "BUG-183411210.apk";

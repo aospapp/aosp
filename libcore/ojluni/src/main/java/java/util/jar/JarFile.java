@@ -149,6 +149,7 @@ class JarFile extends ZipFile {
     }
 
 
+    // Android-changed: Use of the hidden constructor with a new argument for zip path validation.
     /**
      * Creates a new <code>JarFile</code> to read from the specified
      * <code>File</code> object in the specified mode.  The mode argument
@@ -166,7 +167,20 @@ class JarFile extends ZipFile {
      * @since 1.3
      */
     public JarFile(File file, boolean verify, int mode) throws IOException {
-        super(file, mode);
+        this(file, /* enableZipPathValidator */ true, verify, mode);
+    }
+
+    // Android-added: New hidden constructor with an argument for zip path validation and verify.
+    /** @hide */
+    public JarFile(String name, boolean enableZipPathValidator, boolean verify) throws IOException {
+        this(new File(name), enableZipPathValidator, verify, ZipFile.OPEN_READ);
+    }
+
+    // Android-added: New hidden constructor with all available arguments.
+    /** @hide */
+    public JarFile(File file, boolean enableZipPathValidator, boolean verify, int mode) throws
+            IOException {
+        super(file, mode, enableZipPathValidator);
         this.verify = verify;
     }
 
@@ -201,7 +215,7 @@ class JarFile extends ZipFile {
                     byte[] b = getBytes(manEntry);
                     man = new Manifest(new ByteArrayInputStream(b));
                     if (!jvInitialized) {
-                        jv = new JarVerifier(b);
+                        jv = new JarVerifier(manEntry.getName(), b);
                     }
                 } else {
                     man = new Manifest(super.getInputStream(manEntry));

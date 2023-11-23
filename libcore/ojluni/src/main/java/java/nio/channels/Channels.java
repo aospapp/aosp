@@ -422,8 +422,17 @@ public final class Channels {
      *
      * @return  A new writable byte channel
      */
-    public static WritableByteChannel newChannel(final OutputStream out) {
+    public static WritableByteChannel newChannel(OutputStream out) {
         Objects.requireNonNull(out, "out");
+
+        // Android-removed: App compat issue. Create a new channel for FileOutputStream
+        // Avoid ChannelClosedException on write after close().
+        // See ChannelsTest#testNewChannelOutputStream and the commit 1d857a6.
+        /*
+        if (out.getClass() == FileOutputStream.class) {
+            return ((FileOutputStream) out).getChannel();
+        }
+        */
         return new WritableByteChannelImpl(out);
     }
 

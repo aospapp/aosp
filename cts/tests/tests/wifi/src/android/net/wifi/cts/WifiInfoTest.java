@@ -35,7 +35,6 @@ import android.telephony.SubscriptionManager;
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
-import com.android.compatibility.common.util.SystemUtil;
 
 import java.nio.charset.StandardCharsets;
 
@@ -120,11 +119,8 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
     private void setWifiEnabled(boolean enable) throws Exception {
         synchronized (mMySync) {
             mMySync.expectedState = STATE_WIFI_CHANGING;
-            if (enable) {
-                SystemUtil.runShellCommand("svc wifi enable");
-            } else {
-                SystemUtil.runShellCommand("svc wifi disable");
-            }
+            ShellIdentityUtils.invokeWithShellPermissions(
+                    () -> mWifiManager.setWifiEnabled(enable));
             long timeout = System.currentTimeMillis() + TIMEOUT_MSEC;
             while (System.currentTimeMillis() < timeout
                     && mMySync.expectedState == STATE_WIFI_CHANGING)
@@ -180,6 +176,7 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         wifiInfo.getIpAddress();
         wifiInfo.getHiddenSSID();
         wifiInfo.getScore();
+        wifiInfo.isApTidToLinkMappingNegotiationSupported();
 
         // null for saved networks
         assertThat(wifiInfo.getRequestingPackageName()).isNull();
@@ -240,6 +237,7 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
             assertFalse(info1.isOemPrivate());
             assertFalse(info1.isCarrierMerged());
         }
+        assertFalse(info1.isApTidToLinkMappingNegotiationSupported());
 
         WifiInfo info2 = builder
                 .setNetworkId(TEST_NETWORK_ID2)
@@ -259,6 +257,7 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         assertThat(info2.getBSSID()).isEqualTo(TEST_BSSID);
         assertThat(info2.getRssi()).isEqualTo(TEST_RSSI);
         assertThat(info2.getNetworkId()).isEqualTo(TEST_NETWORK_ID2);
+        assertFalse(info1.isApTidToLinkMappingNegotiationSupported());
     }
 
     /**
@@ -300,5 +299,8 @@ public class WifiInfoTest extends WifiJUnit3TestBase {
         assertEquals(MloLink.INVALID_MLO_LINK_ID, wifiInfo.getApMloLinkId());
         assertNotNull(wifiInfo.getAffiliatedMloLinks());
         assertTrue(wifiInfo.getAffiliatedMloLinks().isEmpty());
+        assertNotNull(wifiInfo.getAssociatedMloLinks());
+        assertTrue(wifiInfo.getAssociatedMloLinks().isEmpty());
+        assertFalse(wifiInfo.isApTidToLinkMappingNegotiationSupported());
     }
 }

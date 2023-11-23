@@ -104,6 +104,18 @@ public class PhoneAccountUtils {
     }
 
     /**
+     * Retrieves a specific phone account
+     * @param context the context
+     * @param pah phoneAccountHandle request
+     * @return PhoneAccount corresponding to the phoneAccountHandle
+     */
+    public static PhoneAccount getSpecificPhoneAccount(Context context, PhoneAccountHandle pah) {
+        TelecomManager telecomManager = context.getSystemService(TelecomManager.class);
+        if (telecomManager == null) return null;
+        return telecomManager.getPhoneAccount(pah);
+    }
+
+    /**
      * Unregisters the test phone account.
      * @param context The context.
      */
@@ -166,5 +178,32 @@ public class PhoneAccountUtils {
         TelecomManager telecomManager = (TelecomManager) context.getSystemService(
                 Context.TELECOM_SERVICE);
         return telecomManager.getPhoneAccount(TEST_SELF_MANAGED_PHONE_ACCOUNT_HANDLE_2);
+    }
+
+    /**
+     * cleans up all ongoing cts connections
+     * @param context the context
+     */
+    public static void cleanupConnectionServices(Context context) {
+        CtsSelfManagedConnectionService ctsSelfConnSvr =
+                CtsSelfManagedConnectionService.getConnectionService();
+        if (ctsSelfConnSvr != null) {
+            ctsSelfConnSvr.getConnections()
+                    .stream()
+                    .forEach((c) -> {
+                        c.onDisconnect();
+                    });
+        }
+
+        CtsConnectionService ctsConnectionService =
+                CtsConnectionService.getConnectionService();
+        if (ctsConnectionService != null) {
+            ctsConnectionService.getConnections()
+                    .stream()
+                    .forEach((c) -> {
+                        c.onDisconnect();
+                    });
+        }
+        PhoneAccountUtils.unRegisterTestSelfManagedPhoneAccount(context);
     }
 }

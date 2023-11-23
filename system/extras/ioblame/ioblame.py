@@ -60,7 +60,7 @@ def signal_handler(sig, frame):
 
 def init_arguments():
   parser = argparse.ArgumentParser(
-      description="Collect and process android_fs traces")
+      description="Collect and process f2fs traces")
   parser.add_argument(
       "-s",
       "--serial",
@@ -73,14 +73,14 @@ def init_arguments():
       default=False,
       action="store_true",
       dest="traceReads",
-      help="Trace android_fs_dataread_start")
+      help="Trace f2fs_dataread_start")
   parser.add_argument(
       "-w",
       "--trace_writes",
       default=False,
       action="store_true",
       dest="traceWrites",
-      help="Trace android_fs_datawrite_start")
+      help="Trace f2fs_datawrite_start")
   parser.add_argument(
       "-d",
       "--trace_duration",
@@ -187,7 +187,7 @@ def setup_tracepoints(shouldTraceReads, shouldTraceWrites):
   # This is a good point to check if the Android FS tracepoints are enabled in the
   # kernel or not
   isTraceEnabled = run_adb_shell_cmd(
-      "'if [ -d /sys/kernel/tracing/events/android_fs ]; then echo 0; else echo 1; fi'"
+      "'if [ -d /sys/kernel/tracing/events/f2fs ]; then echo 0; else echo 1; fi'"
   )
 
   if isTraceEnabled == 0:
@@ -200,12 +200,12 @@ def setup_tracepoints(shouldTraceReads, shouldTraceWrites):
 
   if shouldTraceReads:
     run_adb_shell_cmd(
-        "'echo 1 > /sys/kernel/tracing/events/android_fs/android_fs_dataread_start/enable'"
+        "'echo 1 > /sys/kernel/tracing/events/f2fs/f2fs_dataread_start/enable'"
     )
 
   if shouldTraceWrites:
     run_adb_shell_cmd(
-        "'echo 1 > /sys/kernel/tracing/events/android_fs/android_fs_datawrite_start/enable'"
+        "'echo 1 > /sys/kernel/tracing/events/f2fs/f2fs_datawrite_start/enable'"
     )
 
   run_adb_shell_cmd("'echo 1 > /sys/kernel/tracing/tracing_on'")
@@ -214,12 +214,12 @@ def setup_tracepoints(shouldTraceReads, shouldTraceWrites):
 def clear_tracing(shouldTraceReads, shouldTraceWrites):
   if shouldTraceReads:
     run_adb_shell_cmd(
-        "'echo 0 > /sys/kernel/tracing/events/android_fs/android_fs_dataread_start/enable'"
+        "'echo 0 > /sys/kernel/tracing/events/f2fs/f2fs_dataread_start/enable'"
     )
 
   if shouldTraceWrites:
     run_adb_shell_cmd(
-        "'echo 0 > /sys/kernel/tracing/events/android_fs/android_fs_datawrite_start/enable'"
+        "'echo 0 > /sys/kernel/tracing/events/f2fs/f2fs_datawrite_start/enable'"
     )
 
   run_adb_shell_cmd("'echo 0 > /sys/kernel/tracing/tracing_on'")
@@ -227,7 +227,7 @@ def clear_tracing(shouldTraceReads, shouldTraceWrites):
 
 def start_streaming_trace(traceFile):
   return run_bg_adb_shell_cmd(
-      "'cat /sys/kernel/tracing/trace_pipe | grep -e android_fs_data -e android_fs_writepages'\
+      "'cat /sys/kernel/tracing/trace_pipe | grep -e f2fs_data -e f2fs_writepages'\
       > {}".format(traceFile))
 
 

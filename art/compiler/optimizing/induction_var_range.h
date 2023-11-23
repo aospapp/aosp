@@ -17,9 +17,10 @@
 #ifndef ART_COMPILER_OPTIMIZING_INDUCTION_VAR_RANGE_H_
 #define ART_COMPILER_OPTIMIZING_INDUCTION_VAR_RANGE_H_
 
+#include "base/macros.h"
 #include "induction_var_analysis.h"
 
-namespace art {
+namespace art HIDDEN {
 
 /**
  * This class implements range analysis on expressions within loops. It takes the results
@@ -316,6 +317,15 @@ class InductionVarRange {
                                 /*out*/ int64_t* stride_value,
                                 /*out*/ bool* needs_finite_test,
                                 /*out*/ bool* needs_taken_test) const;
+
+  bool GenerateLastValueLinear(const HBasicBlock* context,
+                               const HLoopInformation* loop,
+                               HInductionVarAnalysis::InductionInfo* info,
+                               HInductionVarAnalysis::InductionInfo* trip,
+                               HGraph* graph,
+                               HBasicBlock* block,
+                               bool is_min,
+                               /*out*/ HInstruction** result) const;
 
   bool GenerateLastValuePolynomial(const HBasicBlock* context,
                                    const HLoopInformation* loop,

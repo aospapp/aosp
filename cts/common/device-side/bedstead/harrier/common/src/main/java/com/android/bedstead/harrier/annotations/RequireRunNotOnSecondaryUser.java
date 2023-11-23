@@ -16,7 +16,7 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.REQUIRE_RUN_ON_PRECEDENCE;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -29,18 +29,17 @@ import java.lang.annotation.Target;
  * <p>Your test configuration should be such that this test is only run where a non-secondary user
  * is created and the test is being run on that user.
  *
- * <p>Optionally, you can guarantee that these methods do not run on a secondary user by
- * using {@code Devicestate}.
+ * <p>Optionally, you can guarantee that these methods do not run on a secondary user by using
+ * {@code Devicestate}.
  *
  * <p>This annotation by default opts a test into multi-user presubmit. New tests should also be
- * annotated {@link Postsubmit} until they are shown to meet the multi-user presubmit
- * requirements.
+ * annotated {@link Postsubmit} until they are shown to meet the multi-user presubmit requirements.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 // To ensure that the test doesn't run on the secondary user we require that the test run on
-// the primary user to ensure consistent behaviour.
-@RequireRunOnPrimaryUser
+// the system user to ensure consistent behaviour.
+@RequireRunOnSystemUser
 public @interface RequireRunNotOnSecondaryUser {
     /**
      * Weight sets the order that annotations will be resolved.
@@ -52,5 +51,5 @@ public @interface RequireRunNotOnSecondaryUser {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default EARLY;
+    int weight() default REQUIRE_RUN_ON_PRECEDENCE;
 }

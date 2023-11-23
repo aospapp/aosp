@@ -101,6 +101,15 @@ cc_library {
   recovery_available: true,
 }
 
+genrule {
+  name: "statslog_odsign.h",
+  tools: ["stats-log-api-gen"],
+  cmd: "$(location stats-log-api-gen) --header $(genDir)/statslog_odsign.h --module art --namespace art,metrics,statsd",
+  out: [
+    "statslog_odsign.h",
+  ],
+}
+
 cc_binary {
   name: "odsign",
   defaults: [
@@ -114,6 +123,7 @@ cc_binary {
     "odsign_main.cpp",
     "StatsReporter.cpp",
   ],
+  generated_headers: ["statslog_odsign.h"],
 
   header_libs: ["odrefresh_headers"],
 

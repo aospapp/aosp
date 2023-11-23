@@ -31,4 +31,7 @@ java_test_host {
     test_options: {
         unit_test: false,
     },
+    data: [
+        ":LibcoreHeapDumper",
+    ],
 }

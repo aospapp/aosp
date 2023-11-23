@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -47,6 +47,8 @@
 #include "zip_util.h"
 #include <zlib.h>
 
+extern jmethodID jzOnZipEntryAccessID;
+
 // Android-changed: Fuchsia: Alias *64 on Fuchsia builds. http://b/119496969
 // #ifdef _ALLBSD_SOURCE
 #if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
@@ -80,6 +82,13 @@ static void freeCEN(jzfile *);
 static jint INITIAL_META_COUNT = 2;   /* initial number of entries in meta name array */
 
 /*
+ * Declare library specific JNI_Onload entry if static build
+ */
+#ifdef STATIC_BUILD
+DEF_STATIC_JNI_OnLoad
+#endif
+
+/*
  * The ZFILE_* functions exist to provide some platform-independence with
  * respect to file access needs.
  */
@@ -96,6 +105,9 @@ static jint INITIAL_META_COUNT = 2;   /* initial number of entries in meta name 
 static ZFILE
 ZFILE_Open(const char *fname, int flags) {
 #ifdef WIN32
+    WCHAR *wfname, *wprefixed_fname;
+    size_t fname_length;
+    jlong fhandle;
     const DWORD access =
         (flags & O_RDWR)   ? (GENERIC_WRITE | GENERIC_READ) :
         (flags & O_WRONLY) ?  GENERIC_WRITE :
@@ -117,16 +129,46 @@ ZFILE_Open(const char *fname, int flags) {
         FILE_ATTRIBUTE_NORMAL;
     const DWORD flagsAndAttributes = maybeWriteThrough | maybeDeleteOnClose;
 
-    return (jlong) CreateFile(
-        fname,          /* Wide char path name */
-        access,         /* Read and/or write permission */
-        sharing,        /* File sharing flags */
-        NULL,           /* Security attributes */
-        disposition,        /* creation disposition */
-        flagsAndAttributes, /* flags and attributes */
-        NULL);
+    fname_length = strlen(fname);
+    if (fname_length < MAX_PATH) {
+        return (jlong)CreateFile(
+            fname,              /* path name in multibyte char */
+            access,             /* Read and/or write permission */
+            sharing,            /* File sharing flags */
+            NULL,               /* Security attributes */
+            disposition,        /* creation disposition */
+            flagsAndAttributes, /* flags and attributes */
+            NULL);
+    } else {
+        /* Get required buffer size to convert to Unicode */
+        int wfname_len = MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS,
+                                             fname, -1, NULL, 0);
+        if (wfname_len == 0) {
+            return (jlong)INVALID_HANDLE_VALUE;
+        }
+        if ((wfname = (WCHAR*)malloc(wfname_len * sizeof(WCHAR))) == NULL) {
+            return (jlong)INVALID_HANDLE_VALUE;
+        }
+        if (MultiByteToWideChar(CP_ACP, MB_ERR_INVALID_CHARS,
+                                fname, -1, wfname, wfname_len) == 0) {
+            free(wfname);
+            return (jlong)INVALID_HANDLE_VALUE;
+        }
+        wprefixed_fname = getPrefixed(wfname, (int)fname_length);
+        fhandle = (jlong)CreateFileW(
+            wprefixed_fname,    /* Wide char path name */
+            access,             /* Read and/or write permission */
+            sharing,            /* File sharing flags */
+            NULL,               /* Security attributes */
+            disposition,        /* creation disposition */
+            flagsAndAttributes, /* flags and attributes */
+            NULL);
+        free(wfname);
+        free(wprefixed_fname);
+        return fhandle;
+    }
 #else
-    return JVM_Open(fname, flags, 0);
+    return open(fname, flags, 0);
 #endif
 }
 
@@ -139,23 +181,18 @@ ZFILE_Close(ZFILE zfd) {
 #ifdef WIN32
     CloseHandle((HANDLE) zfd);
 #else
-    JVM_Close(zfd);
+    close(zfd);
 #endif
 }
 
+// Android-changed: also pass offset and use pread instead of read
+// syscall. The former does not change file offset. See b/30407219.
 static int
 ZFILE_read(ZFILE zfd, char *buf, jint nbytes, jlong offset) {
 #ifdef WIN32
     return (int) IO_Read(zfd, buf, nbytes);
 #else
-    /*
-     * Calling JVM_Read will return JVM_IO_INTR when Thread.interrupt is called
-     * only on Solaris. Continue reading jar file in this case is the best
-     * thing to do since zip file reading is relatively fast and it is very onerous
-     * for a interrupted thread to deal with this kind of hidden I/O. However, handling
-     * JVM_IO_INTR is tricky and could cause undesired side effect. So we decided
-     * to simply call "read" on Solaris/Linux. See details in bug 6304463.
-     */
+    // return read(zfd, buf, nbytes);
     return pread64(zfd, buf, nbytes, offset);
 #endif
 }
@@ -202,9 +239,8 @@ readFullyAt(ZFILE zfd, void *buf, jlong len, jlong offset) {
             bp += n;
             offset += n;
             len -= n;
-        } else if (n == JVM_IO_ERR && errno == EINTR) {
-          /* Retry after EINTR (interrupted by signal).
-             We depend on the fact that JVM_IO_ERR == -1. */
+        } else if (n == -1 && errno == EINTR) {
+          /* Retry after EINTR (interrupted by signal). */
             continue;
         } else { /* EOF or IO error */
             return -1;
@@ -281,9 +317,9 @@ static jboolean verifyEND(jzfile *zip, jlong endpos, char *endbuf) {
     return (cenpos >= 0 &&
             locpos >= 0 &&
             readFullyAt(zip->zfd, buf, sizeof(buf), cenpos) != -1 &&
-            GETSIG(buf) == CENSIG &&
+            CENSIG_AT(buf) &&
             readFullyAt(zip->zfd, buf, sizeof(buf), locpos) != -1 &&
-            GETSIG(buf) == LOCSIG);
+            LOCSIG_AT(buf));
 }
 
 /*
@@ -538,6 +574,13 @@ countCENHeaders(unsigned char *beg, unsigned char *end)
 #define ZIP_FORMAT_ERROR(message) \
 if (1) { zip->msg = message; goto Catch; } else ((void)0)
 
+// Android-added: Retrieve ZipFile's variable that determines if zip path validation is enabled.
+static jboolean isZipPathValidatorEnabled(JNIEnv *env, jobject thiz) {
+    jclass cls = (*env)->FindClass(env, "java/util/zip/ZipFile");
+    jfieldID fid = (*env)->GetFieldID(env, cls, "isZipPathValidatorEnabled", "Z");
+    return (*env)->GetBooleanField(env, thiz, fid);
+}
+
 /*
  * Reads zip file central directory. Returns the file position of first
  * CEN header, otherwise returns -1 if an error occurred. If zip->msg != NULL
@@ -545,7 +588,8 @@ if (1) { zip->msg = message; goto Catch; } else ((void)0)
  * Always pass in -1 for knownTotal; it's used for a recursive call.
  */
 static jlong
-readCEN(jzfile *zip, jint knownTotal)
+// Android changed: Pass jni env and thiz object into the method.
+readCEN(JNIEnv *env, jobject thiz, jzfile *zip, jint knownTotal)
 {
     /* Following are unsigned 32-bit */
     jlong endpos, end64pos, cenpos, cenlen, cenoff;
@@ -599,7 +643,6 @@ readCEN(jzfile *zip, jint knownTotal)
     if (zip->locpos < 0) {
         ZIP_FORMAT_ERROR("invalid END header (bad central directory offset)");
     }
-
 #ifdef USE_MMAP
     if (zip->usemmap) {
       /* On Solaris & Linux prior to JDK 6, we used to mmap the whole jar file to
@@ -671,28 +714,34 @@ readCEN(jzfile *zip, jint knownTotal)
     if ((entries == NULL && total != 0) || table == NULL) goto Catch;
     for (j = 0; j < tablelen; j++)
         table[j] = ZIP_ENDCHAIN;
-
+    // Android-added: Retrieve ZipFile's variable that determines if zip path validation is enabled.
+    jboolean isZipFilePathValidatorEnabled = isZipPathValidatorEnabled(env, thiz);
     /* Iterate through the entries in the central directory */
     for (i = 0, cp = cenbuf; cp <= cenend - CENHDR; i++, cp += CENSIZE(cp)) {
         /* Following are unsigned 16-bit */
-        jint method, nlen;
+        // Android-changed: A new variable flag because its value is used more than once.
+        jint method, nlen, flag;
         unsigned int hsh;
 
         if (i >= total) {
             /* This will only happen if the zip file has an incorrect
              * ENDTOT field, which usually means it contains more than
              * 65535 entries. */
-            cenpos = readCEN(zip, countCENHeaders(cenbuf, cenend));
+            // Android changed: Pass jni env and thiz object into the method.
+            cenpos = readCEN(env, thiz, zip, countCENHeaders(cenbuf, cenend));
             goto Finally;
         }
 
         method = CENHOW(cp);
         nlen   = CENNAM(cp);
+        // Android-added: A new variable flag because its value is used more than once.
+        flag   = CENFLG(cp);
 
-        if (GETSIG(cp) != CENSIG) {
+        if (!CENSIG_AT(cp)) {
             ZIP_FORMAT_ERROR("invalid CEN header (bad signature)");
         }
-        if (CENFLG(cp) & 1) {
+        // Android-changed: Use of the flag variable instead of the direct call to CENFLG.
+        if (flag & 1) {
             ZIP_FORMAT_ERROR("invalid CEN header (encrypted entry)");
         }
         if (method != STORED && method != DEFLATED) {
@@ -702,10 +751,18 @@ readCEN(jzfile *zip, jint knownTotal)
             ZIP_FORMAT_ERROR("invalid CEN header (bad header size)");
         }
 
+        // BEGIN Android-changed: Use strict mode to validate zip entry name,
+        // and throw exception if policy throws exception.
         const char* entryName = (const char *)cp + CENHDR;
         if (!isValidEntryName(entryName, nlen)) {
             ZIP_FORMAT_ERROR("invalid CEN header (invalid entry name)");
         }
+        if (isZipFilePathValidatorEnabled &&
+            ZIP_OnZipEntryAccess(env, thiz, entryName, nlen, flag)) {
+            ZIP_FORMAT_ERROR("restricted zip entry name");
+        }
+        // END Android-changed: Use strict mode to validate zip entry name,
+        // and throw exception if policy throws exception.
 
         /* if the entry is metadata add it to our metadata names */
         if (isMetaName(entryName, nlen)) {
@@ -746,7 +803,6 @@ readCEN(jzfile *zip, jint knownTotal)
     if (cp != cenend) {
         ZIP_FORMAT_ERROR("invalid CEN header (bad header size)");
     }
-
     zip->total = i;
     goto Finally;
 
@@ -770,20 +826,21 @@ readCEN(jzfile *zip, jint knownTotal)
  * set to NULL. Caller is responsible to free the error message.
  */
 jzfile *
-ZIP_Open_Generic(const char *name, char **pmsg, int mode, jlong lastModified)
+// Android changed: Pass jni env and thiz object into the method.
+ZIP_Open_Generic(JNIEnv *env, jobject thiz, const char *name, char **pmsg, int mode, jlong lastModified)
 {
     jzfile *zip = NULL;
 
     /* Clear zip error message */
     // BEGIN Android-changed: Don't crash crash if `pmsg` is NULL and getting from the cache fails.
     /*
-    if (pmsg != 0) {
+    if (pmsg != NULL) {
         *pmsg = NULL;
     }
 
     zip = ZIP_Get_From_Cache(name, pmsg, lastModified);
 
-    if (zip == NULL && *pmsg == NULL) {
+    if (zip == NULL && pmsg != NULL && *pmsg == NULL) {
         ZFILE zfd = ZFILE_Open(name, mode);
         zip = ZIP_Put_In_Cache(name, zfd, pmsg, lastModified);
     }
@@ -798,7 +855,8 @@ ZIP_Open_Generic(const char *name, char **pmsg, int mode, jlong lastModified)
 
     if (zip == NULL && localPmsg == NULL) {
         ZFILE zfd = ZFILE_Open(name, mode);
-        zip = ZIP_Put_In_Cache(name, zfd, &localPmsg, lastModified);
+        // Android changed: Pass jni env and thiz object into the method.
+        zip = ZIP_Put_In_Cache(env, thiz, name, zfd, &localPmsg, lastModified);
     }
 
     if (pmsg == NULL) {
@@ -864,13 +922,16 @@ ZIP_Get_From_Cache(const char *name, char **pmsg, jlong lastModified)
  */
 
 jzfile *
-ZIP_Put_In_Cache(const char *name, ZFILE zfd, char **pmsg, jlong lastModified)
+// Android changed: Pass jni env and thiz object into the method.
+ZIP_Put_In_Cache(JNIEnv *env, jobject thiz, const char *name, ZFILE zfd, char **pmsg, jlong lastModified)
 {
-    return ZIP_Put_In_Cache0(name, zfd, pmsg, lastModified, JNI_TRUE);
+    // Android changed: Pass jni env and thiz object into the method.
+    return ZIP_Put_In_Cache0(env, thiz, name, zfd, pmsg, lastModified, JNI_TRUE);
 }
 
 jzfile *
-ZIP_Put_In_Cache0(const char *name, ZFILE zfd, char **pmsg, jlong lastModified,
+// Android changed: Pass jni env and thiz object into the method.
+ZIP_Put_In_Cache0(JNIEnv *env, jobject thiz, const char *name, ZFILE zfd, char **pmsg, jlong lastModified,
                  jboolean usemmap)
 {
     char errbuf[256];
@@ -888,18 +949,15 @@ ZIP_Put_In_Cache0(const char *name, ZFILE zfd, char **pmsg, jlong lastModified,
     zip->lastModified = lastModified;
 
     if (zfd == -1) {
-        if (pmsg && JVM_GetLastErrorString(errbuf, sizeof(errbuf)) > 0)
+        if (pmsg && getLastErrorString(errbuf, sizeof(errbuf)) > 0)
             *pmsg = strdup(errbuf);
         freeZip(zip);
         return NULL;
     }
 
-    // Trivially, reuse errbuf.
+    // Assumption, zfd refers to start of file. Trivially, reuse errbuf.
     if (readFullyAt(zfd, errbuf, 4, 0 /* offset */) != -1) {  // errors will be handled later
-        if (GETSIG(errbuf) == LOCSIG)
-            zip->locsig = JNI_TRUE;
-        else
-            zip->locsig = JNI_FALSE;
+        zip->locsig = LOCSIG_AT(errbuf) ? JNI_TRUE : JNI_FALSE;
     }
 
     // This lseek is safe because it happens during construction of the ZipFile
@@ -912,7 +970,7 @@ ZIP_Put_In_Cache0(const char *name, ZFILE zfd, char **pmsg, jlong lastModified,
                 *pmsg = strdup("zip file is empty");
             }
         } else { /* error */
-            if (pmsg && JVM_GetLastErrorString(errbuf, sizeof(errbuf)) > 0)
+            if (pmsg && getLastErrorString(errbuf, sizeof(errbuf)) > 0)
                 *pmsg = strdup(errbuf);
         }
         ZFILE_Close(zfd);
@@ -921,7 +979,8 @@ ZIP_Put_In_Cache0(const char *name, ZFILE zfd, char **pmsg, jlong lastModified,
     }
 
     zip->zfd = zfd;
-    if (readCEN(zip, -1) < 0) {
+    // Android changed: Pass jni env and thiz object into the method.
+    if (readCEN(env, thiz, zip, -1) < 0) {
         /* An error occurred while trying to read the zip file */
         if (pmsg != 0) {
             /* Set the zip error message */
@@ -945,10 +1004,12 @@ ZIP_Put_In_Cache0(const char *name, ZFILE zfd, char **pmsg, jlong lastModified,
  * set to the error message text if msg != 0. Otherwise, *msg will be
  * set to NULL. Caller doesn't need to free the error message.
  */
-jzfile * JNICALL
-ZIP_Open(const char *name, char **pmsg)
+JNIEXPORT jzfile *
+// Android changed: Pass jni env and thiz object into the method.
+ZIP_Open(JNIEnv *env, jobject thiz, const char *name, char **pmsg)
 {
-    jzfile *file = ZIP_Open_Generic(name, pmsg, O_RDONLY, 0);
+    // Android changed: Pass jni env and thiz object into the method.
+    jzfile *file = ZIP_Open_Generic(env, thiz, name, pmsg, O_RDONLY, 0);
     if (file == NULL && pmsg != NULL && *pmsg != NULL) {
         free(*pmsg);
         *pmsg = "Zip file open error";
@@ -959,7 +1020,7 @@ ZIP_Open(const char *name, char **pmsg)
 /*
  * Closes the specified zip file object.
  */
-void JNICALL
+JNIEXPORT void
 ZIP_Close(jzfile *zip)
 {
     MLOCK(zfiles_lock);
@@ -1183,7 +1244,7 @@ jzentry *
 ZIP_GetEntry(jzfile *zip, char *name, jint ulen)
 {
     if (ulen == 0) {
-        return ZIP_GetEntry2(zip, name, strlen(name), JNI_FALSE);
+        return ZIP_GetEntry2(zip, name, (jint)strlen(name), JNI_FALSE);
     }
     return ZIP_GetEntry2(zip, name, ulen, JNI_TRUE);
 }
@@ -1281,7 +1342,7 @@ ZIP_GetEntry2(jzfile *zip, char *name, jint ulen, jboolean addSlash)
         }
 
         /* Slash is already there? */
-        if (name[ulen-1] == '/') {
+        if (ulen > 0 && name[ulen - 1] == '/') {
             break;
         }
 
@@ -1302,7 +1363,7 @@ Finally:
  * Returns the n'th (starting at zero) zip file entry, or NULL if the
  * specified index was out of range.
  */
-jzentry * JNICALL
+JNIEXPORT jzentry *
 ZIP_GetNextEntry(jzfile *zip, jint n)
 {
     jzentry *result;
@@ -1356,7 +1417,7 @@ ZIP_GetEntryDataOffset(jzfile *zip, jzentry *entry)
             zip->msg = "error reading zip file";
             return -1;
         }
-        if (GETSIG(loc) != LOCSIG) {
+        if (!LOCSIG_AT(loc)) {
             zip->msg = "invalid LOC header (bad signature)";
             return -1;
         }
@@ -1483,6 +1544,8 @@ InflateFully(jzfile *zip, jzentry *entry, void *buf, char **msg)
             case Z_OK:
                 break;
             case Z_STREAM_END:
+                // Android-changed: added entry->size < 0 check.
+                // if (count != 0 || strm.total_out != (uInt)entry->size) {
                 if (count != 0 || entry->size < 0 || strm.total_out != (uint64_t)entry->size) {
                     *msg = "inflateFully: Unexpected end of stream";
                     inflateEnd(&strm);
@@ -1494,6 +1557,7 @@ InflateFully(jzfile *zip, jzentry *entry, void *buf, char **msg)
             }
         } while (strm.avail_in > 0);
     }
+
     inflateEnd(&strm);
     return JNI_TRUE;
 }
@@ -1502,13 +1566,13 @@ InflateFully(jzfile *zip, jzentry *entry, void *buf, char **msg)
  * The current implementation does not support reading an entry that
  * has the size bigger than 2**32 bytes in ONE invocation.
  */
-jzentry * JNICALL
+JNIEXPORT jzentry *
 ZIP_FindEntry(jzfile *zip, char *name, jint *sizeP, jint *nameLenP)
 {
     jzentry *entry = ZIP_GetEntry(zip, name, 0);
     if (entry) {
         *sizeP = (jint)entry->size;
-        *nameLenP = strlen(entry->name);
+        *nameLenP = (jint)strlen(entry->name);
     }
     return entry;
 }
@@ -1519,7 +1583,7 @@ ZIP_FindEntry(jzfile *zip, char *name, jint *sizeP, jint *nameLenP)
  * Note: this is called from the separately delivered VM (hotspot/classic)
  * so we have to be careful to maintain the expected behaviour.
  */
-jboolean JNICALL
+JNIEXPORT jboolean
 ZIP_ReadEntry(jzfile *zip, jzentry *entry, unsigned char *buf, char *entryname)
 {
     char *msg;
@@ -1577,3 +1641,178 @@ ZIP_ReadEntry(jzfile *zip, jzentry *entry, unsigned char *buf, char *entryname)
 
     return JNI_TRUE;
 }
+
+// BEGIN Android-added: Use strict mode to validate zip entry name.
+jboolean
+ZIP_OnZipEntryAccess(JNIEnv *env, jobject thiz, const char* entryName, int len, jint flag) {
+    jbyteArray array = (*env)->NewByteArray(env, len);
+    (*env)->SetByteArrayRegion(env, array, 0, len, (jbyte*) entryName);
+    (*env)->CallVoidMethod(env, thiz, jzOnZipEntryAccessID, array, flag);
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionClear(env);
+        return true;
+    }
+    return false;
+}
+// END Android-added:  Use strict mode to validate zip entry name.
+
+// BEGIN Android-removed: following methods are used outside of java.util.zip and
+// that code is absent from Android.
+/*
+JNIEXPORT jboolean
+ZIP_InflateFully(void *inBuf, jlong inLen, void *outBuf, jlong outLen, char **pmsg)
+{
+    z_stream strm;
+    int i = 0;
+    memset(&strm, 0, sizeof(z_stream));
+
+    *pmsg = 0; * Reset error message *
+
+    if (inflateInit2(&strm, MAX_WBITS) != Z_OK) {
+        *pmsg = strm.msg;
+        return JNI_FALSE;
+    }
+
+    strm.next_out = (Bytef *) outBuf;
+    strm.avail_out = (uInt)outLen;
+    strm.next_in = (Bytef *) inBuf;
+    strm.avail_in = (uInt)inLen;
+
+    do {
+        switch (inflate(&strm, Z_PARTIAL_FLUSH)) {
+            case Z_OK:
+                break;
+            case Z_STREAM_END:
+                if (strm.total_out != (uInt)outLen) {
+                    *pmsg = "INFLATER_inflateFully: Unexpected end of stream";
+                    inflateEnd(&strm);
+                    return JNI_FALSE;
+                }
+                break;
+            case Z_DATA_ERROR:
+                *pmsg = "INFLATER_inflateFully: Compressed data corrupted";
+                inflateEnd(&strm);
+                return JNI_FALSE;
+            case Z_MEM_ERROR:
+                *pmsg = "INFLATER_inflateFully: out of memory";
+                inflateEnd(&strm);
+                return JNI_FALSE;
+            default:
+                *pmsg = "INFLATER_inflateFully: internal error";
+                inflateEnd(&strm);
+                return JNI_FALSE;
+        }
+    } while (strm.avail_in > 0);
+
+    inflateEnd(&strm);
+    return JNI_TRUE;
+}
+
+static voidpf tracking_zlib_alloc(voidpf opaque, uInt items, uInt size) {
+  size_t* needed = (size_t*) opaque;
+  *needed += (size_t) items * (size_t) size;
+  return (voidpf) calloc((size_t) items, (size_t) size);
+}
+
+static void tracking_zlib_free(voidpf opaque, voidpf address) {
+  free((void*) address);
+}
+
+static voidpf zlib_block_alloc(voidpf opaque, uInt items, uInt size) {
+  char** range = (char**) opaque;
+  voidpf result = NULL;
+  size_t needed = (size_t) items * (size_t) size;
+
+  if (range[1] - range[0] >= (ptrdiff_t) needed) {
+    result = (voidpf) range[0];
+    range[0] += needed;
+  }
+
+  return result;
+}
+
+static void zlib_block_free(voidpf opaque, voidpf address) {
+  * Nothing to do. *
+}
+
+static char const* deflateInit2Wrapper(z_stream* strm, int level) {
+  int err = deflateInit2(strm, level >= 0 && level <= 9 ? level : Z_DEFAULT_COMPRESSION,
+                         Z_DEFLATED, 31, 8, Z_DEFAULT_STRATEGY);
+  if (err == Z_MEM_ERROR) {
+    return "Out of memory in deflateInit2";
+  }
+
+  if (err != Z_OK) {
+    return "Internal error in deflateInit2";
+  }
+
+  return NULL;
+}
+
+JNIEXPORT char const*
+ZIP_GZip_InitParams(size_t inLen, size_t* outLen, size_t* tmpLen, int level) {
+  z_stream strm;
+  *tmpLen = 0;
+  char const* errorMsg;
+
+  memset(&strm, 0, sizeof(z_stream));
+  strm.zalloc = tracking_zlib_alloc;
+  strm.zfree = tracking_zlib_free;
+  strm.opaque = (voidpf) tmpLen;
+
+  errorMsg = deflateInit2Wrapper(&strm, level);
+
+  if (errorMsg == NULL) {
+    *outLen = (size_t) deflateBound(&strm, (uLong) inLen);
+    deflateEnd(&strm);
+  }
+
+  return errorMsg;
+}
+
+JNIEXPORT size_t
+ZIP_GZip_Fully(char* inBuf, size_t inLen, char* outBuf, size_t outLen, char* tmp, size_t tmpLen,
+               int level, char* comment, char const** pmsg) {
+  z_stream strm;
+  gz_header hdr;
+  int err;
+  char* block[] = {tmp, tmpLen + tmp};
+  size_t result = 0;
+
+  memset(&strm, 0, sizeof(z_stream));
+  strm.zalloc = zlib_block_alloc;
+  strm.zfree = zlib_block_free;
+  strm.opaque = (voidpf) block;
+
+  *pmsg = deflateInit2Wrapper(&strm, level);
+
+  if (*pmsg == NULL) {
+    strm.next_out = (Bytef *) outBuf;
+    strm.avail_out = (uInt) outLen;
+    strm.next_in = (Bytef *) inBuf;
+    strm.avail_in = (uInt) inLen;
+
+    if (comment != NULL) {
+      memset(&hdr, 0, sizeof(hdr));
+      hdr.comment = (Bytef*) comment;
+      deflateSetHeader(&strm, &hdr);
+    }
+
+    err = deflate(&strm, Z_FINISH);
+
+    if (err == Z_OK || err == Z_BUF_ERROR) {
+      *pmsg = "Buffer too small";
+    } else if (err != Z_STREAM_END) {
+      *pmsg = "Intern deflate error";
+    } else {
+      result = (size_t) strm.total_out;
+    }
+
+    deflateEnd(&strm);
+  }
+
+  return result;
+}
+*/
+// END Android-removed: following methods are used outside of java.util.zip and
+// that code is absent from Android.

@@ -17,6 +17,19 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.server.wm.backgroundactivity.cts">
+    <application>
+        <uses-library android:name="androidx.window.extensions"
+            android:required="false" />
+    </application>
+
+    <queries>
+        <package android:name="android.server.wm.backgroundactivity.appa" />
+        <package android:name="android.server.wm.backgroundactivity.appa33" />
+        <package android:name="android.server.wm.backgroundactivity.appb" />
+        <package android:name="android.server.wm.backgroundactivity.appb33" />
+        <package android:name="android.server.wm.backgroundactivity.appc" />
+        <package android:name="android.server.wm.backgroundactivity.appc33" />
+    </queries>
 
     <instrumentation
         android:name="androidx.test.runner.AndroidJUnitRunner"

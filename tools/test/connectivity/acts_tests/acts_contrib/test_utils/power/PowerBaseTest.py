@@ -27,6 +27,7 @@ from acts import asserts
 from acts import base_test
 from acts import utils
 from acts.metrics.loggers.blackbox import BlackboxMetricLogger
+from acts.controllers.adb_lib.error import AdbError
 from acts_contrib.test_utils.power.loggers.power_metric_logger import PowerMetricLogger
 from acts_contrib.test_utils.power import plot_utils
 
@@ -35,6 +36,8 @@ IPERF_TIMEOUT = 180
 THRESHOLD_TOLERANCE_DEFAULT = 0.2
 GET_FROM_PHONE = 'get_from_dut'
 GET_FROM_AP = 'get_from_ap'
+GET_PROPERTY_HARDWARE_PLATFORM = 'getprop ro.boot.hardware.platform'
+POWER_STATS_DUMPSYS_CMD = 'dumpsys android.hardware.power.stats.IPowerStats/default delta'
 PHONE_BATTERY_VOLTAGE_DEFAULT = 4.2
 MONSOON_MAX_CURRENT = 8.0
 DEFAULT_MONSOON_FREQUENCY = 500
@@ -76,6 +79,7 @@ class PowerBaseTest(base_test.BaseTestClass):
         self.dut = None
         self.power_logger = PowerMetricLogger.for_test_case()
         self.power_monitor = None
+        self.odpm_folder = None
 
     @property
     def final_test(self):
@@ -150,12 +154,22 @@ class PowerBaseTest(base_test.BaseTestClass):
                                iperf_duration=None,
                                pass_fail_tolerance=THRESHOLD_TOLERANCE_DEFAULT,
                                mon_voltage=PHONE_BATTERY_VOLTAGE_DEFAULT,
-                               ap_dtim_period=None)
+                               ap_dtim_period=None,
+                               bits_root_rail_csv_export=False)
 
         # Setup the must have controllers, phone and monsoon
         self.dut = self.android_devices[0]
         self.mon_data_path = os.path.join(self.log_path, 'Monsoon')
         os.makedirs(self.mon_data_path, exist_ok=True)
+
+        # Make odpm path for P21 or later
+        platform = self.dut.adb.shell(GET_PROPERTY_HARDWARE_PLATFORM)
+        self.log.info('The hardware platform is {}'.format(platform))
+        if platform.startswith('gs'):
+            self.odpm_folder = os.path.join(self.log_path, 'odpm')
+            os.makedirs(self.odpm_folder, exist_ok=True)
+            self.log.info('For P21 or later, create odpm folder {}'.format(
+                self.odpm_folder))
 
         # Initialize the power monitor object that will be used to measure
         self.initialize_power_monitor()
@@ -278,6 +292,26 @@ class PowerBaseTest(base_test.BaseTestClass):
 
     def on_pass(self, test_name, begin_time):
         self.power_logger.set_pass_fail_status('PASS')
+
+    def dut_save_odpm(self, tag):
+        """Dumpsys ODPM data and save it to self.odpm_folder.
+
+        Args:
+            tag: the moment of save ODPM data
+        """
+        odpm_file_name = '{}.{}.dumpsys_odpm_{}.txt'.format(
+            self.__class__.__name__,
+            self.current_test_name,
+            tag)
+        odpm_file_path = os.path.join(self.odpm_folder, odpm_file_name)
+
+        try:
+            stats = self.dut.adb.shell(POWER_STATS_DUMPSYS_CMD)
+            with open(odpm_file_path, 'w') as f:
+                f.write(stats)
+        except AdbError as e:
+            self.log.warning('Odpm data with tag {} did not save due to adb '
+                             'error {}'.format(e))
 
     def dut_rockbottom(self):
         """Set the dut to rockbottom state
@@ -464,6 +498,11 @@ class PowerBaseTest(base_test.BaseTestClass):
         # Start the power measurement using monsoon.
         self.dut.stop_services()
         time.sleep(1)
+
+        # P21 or later device, save the odpm data before power measurement
+        if self.odpm_folder:
+            self.dut_save_odpm('before')
+
         self.power_monitor.disconnect_usb()
         measurement_args = dict(duration=self.mon_info.duration,
                                 measure_after_seconds=self.mon_info.offset,
@@ -473,9 +512,15 @@ class PowerBaseTest(base_test.BaseTestClass):
                                    start_time=device_to_host_offset,
                                    monsoon_output_path=data_path)
         self.power_monitor.release_resources()
+        self.collect_raw_data_samples()
         self.power_monitor.connect_usb()
         self.dut.wait_for_boot_completion()
         time.sleep(10)
+
+        # For P21 or later device, save the odpm data after power measurement
+        if self.odpm_folder:
+            self.dut_save_odpm('after')
+
         self.dut.start_services()
 
         return self.power_monitor.get_waveform(file_path=data_path)
@@ -510,3 +555,9 @@ class PowerBaseTest(base_test.BaseTestClass):
             self.log.warning('Cannot get iperf result. Setting to 0')
             throughput = 0
         return throughput
+
+    def collect_raw_data_samples(self):
+        if hasattr(self, 'bitses') and self.bits_root_rail_csv_export:
+            path = os.path.join(os.path.dirname(self.mon_info.data_path),
+                                'Kibble')
+            self.power_monitor.get_bits_root_rail_csv_export(path, self.test_name)

@@ -21,8 +21,6 @@
 #include <android-base/chrono_utils.h>
 #include <pixelstats/BatteryCapacityReporter.h>
 #include <pixelstats/ChargeStatsReporter.h>
-#include <pixelstats/PcaChargeStats.h>
-#include <pixelstats/WlcReporter.h>
 
 namespace android {
 namespace hardware {
@@ -39,10 +37,6 @@ using aidl::android::frameworks::stats::IStats;
  */
 class UeventListener {
   public:
-    /* Both WirelessChargerPtmcUevent and WirelessChargerPtmcPath is use to get
-     * wireless charger ptmx id, for most case we don't need asisign both of
-     * them.
-     **/
     struct UeventPaths {
         const char *const AudioUevent;
         const char *const SsocDetailsPath;
@@ -51,8 +45,8 @@ class UeventListener {
         const char *const TypeCPartnerUevent;
         const char *const TypeCPartnerVidPath;
         const char *const TypeCPartnerPidPath;
-        const char *const WirelessChargerPtmcUevent;
-        const char *const WirelessChargerPtmcPath;
+        const char *const WirelessChargerPtmcUevent;  // Deprecated.
+        const char *const WirelessChargerPtmcPath;    // Deprecated.
     };
     constexpr static const char *const ssoc_details_path =
             "/sys/class/power_supply/battery/ssoc_details";
@@ -91,8 +85,6 @@ class UeventListener {
     void ReportVoltageTierStats(const std::shared_ptr<IStats> &stats_client, const char *line,
                                 const bool has_wireless, const std::string wfile_contents);
     void ReportChargeMetricsEvent(const std::shared_ptr<IStats> &stats_client, const char *driver);
-    void ReportWlc(const std::shared_ptr<IStats> &stats_client, const bool pow_wireless,
-                   const bool online, const char *ptmc);
     void ReportBatteryCapacityFGEvent(const std::shared_ptr<IStats> &stats_client,
                                       const char *subsystem);
     void ReportTypeCPartnerId(const std::shared_ptr<IStats> &stats_client);
@@ -104,8 +96,6 @@ class UeventListener {
     const std::string kTypeCPartnerUevent;
     const std::string kTypeCPartnerVidPath;
     const std::string kTypeCPartnerPidPath;
-    const std::string kWirelessChargerPtmcUevent;
-    const std::string kWirelessChargerPtmcPath;
 
     BatteryCapacityReporter battery_capacity_reporter_;
     ChargeStatsReporter charge_stats_reporter_;
@@ -117,8 +107,6 @@ class UeventListener {
 
     int uevent_fd_;
     int log_fd_;
-
-    WlcReporter wlc_reporter_ = WlcReporter(kWirelessChargerPtmcPath.c_str());
 };
 
 }  // namespace pixel

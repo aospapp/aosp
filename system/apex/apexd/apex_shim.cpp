@@ -56,14 +56,20 @@ static constexpr const char* kExpectedCtsShimFiles[] = {
     "app/CtsShim@1/CtsShim.apk",
     "app/CtsShim@2/CtsShim.apk",
     "app/CtsShim@3/CtsShim.apk",
+    "app/CtsShim@AOSP.MASTER/CtsShim.apk",
+    "app/CtsShim@MASTER/CtsShim.apk",
     "app/CtsShimTargetPSdk/CtsShimTargetPSdk.apk",
     "app/CtsShimTargetPSdk@1/CtsShimTargetPSdk.apk",
     "app/CtsShimTargetPSdk@2/CtsShimTargetPSdk.apk",
     "app/CtsShimTargetPSdk@3/CtsShimTargetPSdk.apk",
+    "app/CtsShimTargetPSdk@AOSP.MASTER/CtsShimTargetPSdk.apk",
+    "app/CtsShimTargetPSdk@MASTER/CtsShimTargetPSdk.apk",
     "priv-app/CtsShimPriv/CtsShimPriv.apk",
     "priv-app/CtsShimPriv@1/CtsShimPriv.apk",
     "priv-app/CtsShimPriv@2/CtsShimPriv.apk",
     "priv-app/CtsShimPriv@3/CtsShimPriv.apk",
+    "priv-app/CtsShimPriv@AOSP.MASTER/CtsShimPriv.apk",
+    "priv-app/CtsShimPriv@MASTER/CtsShimPriv.apk",
 };
 
 Result<std::string> CalculateSha512(const std::string& path) {

@@ -22,6 +22,7 @@ import android.net.Uri;
 import android.os.Environment;
 import android.util.Base64;
 import android.util.Log;
+import android.util.Pair;
 import android.webkit.MimeTypeMap;
 
 import org.apache.http.Header;
@@ -103,6 +104,8 @@ public class CtsTestServer {
     public static final String USERAGENT_PATH = "/useragent.html";
 
     public static final String TEST_DOWNLOAD_PATH = "/download.html";
+    public static final String CACHEABLE_TEST_DOWNLOAD_PATH =
+            "/cacheable-download.html";
     private static final String DOWNLOAD_ID_PARAMETER = "downloadId";
     private static final String NUM_BYTES_PARAMETER = "numBytes";
 
@@ -113,6 +116,7 @@ public class CtsTestServer {
     private static final String APPCACHE_MANIFEST_PATH = "/appcache.manifest";
     private static final String REDIRECT_PREFIX = "/redirect";
     private static final String QUERY_REDIRECT_PATH = "/alt_redirect";
+    private static final String ECHO_HEADERS_PREFIX = "/echo_headers";
     private static final String DELAY_PREFIX = "/delayed";
     private static final String BINARY_PREFIX = "/binary";
     private static final String SET_COOKIE_PREFIX = "/setcookie";
@@ -121,6 +125,8 @@ public class CtsTestServer {
     private static final String AUTH_PREFIX = "/auth";
     public static final String NOLENGTH_POSTFIX = "nolength";
     private static final int DELAY_MILLIS = 2000;
+
+    public static final String ECHOED_RESPONSE_HEADER_PREFIX = "x-request-header-";
 
     public static final String AUTH_REALM = "Android CTS";
     public static final String AUTH_USER = "cts";
@@ -132,14 +138,6 @@ public class CtsTestServer {
     public static final String MESSAGE_403 = "403 forbidden";
     public static final String MESSAGE_404 = "404 not found";
 
-    public enum SslMode {
-        INSECURE,
-        NO_CLIENT_AUTH,
-        WANTS_CLIENT_AUTH,
-        NEEDS_CLIENT_AUTH,
-        TRUST_ANY_CLIENT
-    }
-
     private static Hashtable<Integer, String> sReasons;
 
     private ServerThread mServerThread;
@@ -147,11 +145,13 @@ public class CtsTestServer {
     private AssetManager mAssets;
     private Context mContext;
     private Resources mResources;
-    private SslMode mSsl;
+    private @SslMode int mSsl;
     private MimeTypeMap mMap;
     private Vector<String> mQueries;
     private ArrayList<HttpEntity> mRequestEntities;
+    private final Map<String, Integer> mRequestCountMap = new HashMap<String, Integer>();
     private final Map<String, HttpRequest> mLastRequestMap = new HashMap<String, HttpRequest>();
+    private final Map<String, HttpResponse> mResponseMap = new HashMap<String, HttpResponse>();
     private long mDocValidity;
     private long mDocAge;
     private X509TrustManager mTrustManager;
@@ -162,7 +162,7 @@ public class CtsTestServer {
      * @throws IOException
      */
     public CtsTestServer(Context context) throws Exception {
-        this(context, false);
+        this(context, SslMode.INSECURE);
     }
 
     public static String getReasonString(int status) {
@@ -181,7 +181,7 @@ public class CtsTestServer {
      * @param context The application context to use for fetching assets.
      * @param ssl True if the server should be using secure sockets.
      * @throws Exception
-     */
+    */
     public CtsTestServer(Context context, boolean ssl) throws Exception {
         this(context, ssl ? SslMode.NO_CLIENT_AUTH : SslMode.INSECURE);
     }
@@ -192,7 +192,7 @@ public class CtsTestServer {
      * @param sslMode Whether to use SSL, and if so, what client auth (if any) to use.
      * @throws Exception
      */
-    public CtsTestServer(Context context, SslMode sslMode) throws Exception {
+    public CtsTestServer(Context context, @SslMode int sslMode) throws Exception {
         this(context, sslMode, 0, 0);
     }
 
@@ -203,7 +203,7 @@ public class CtsTestServer {
      * @param trustManager the trustManager
      * @throws Exception
      */
-    public CtsTestServer(Context context, SslMode sslMode, X509TrustManager trustManager)
+    public CtsTestServer(Context context, @SslMode int sslMode, X509TrustManager trustManager)
             throws Exception {
         this(context, sslMode, trustManager, 0, 0);
     }
@@ -216,7 +216,7 @@ public class CtsTestServer {
      * @param certResId Raw resource ID of the server certificate to use.
      * @throws Exception
      */
-    public CtsTestServer(Context context, SslMode sslMode, int keyResId, int certResId)
+    public CtsTestServer(Context context, @SslMode int sslMode, int keyResId, int certResId)
             throws Exception {
         this(context, sslMode, new CtsTrustManager(), keyResId, certResId);
     }
@@ -230,7 +230,7 @@ public class CtsTestServer {
      * @param certResId Raw resource ID of the server certificate to use.
      * @throws Exception
      */
-    public CtsTestServer(Context context, SslMode sslMode, X509TrustManager trustManager,
+    public CtsTestServer(Context context, @SslMode int sslMode, X509TrustManager trustManager,
             int keyResId, int certResId) throws Exception {
         mContext = context;
         mAssets = mContext.getAssets();
@@ -275,7 +275,7 @@ public class CtsTestServer {
      * for shutdown by blindly trusting the {@link CtsTestServer}'s
      * credentials.
      */
-    private static class CtsTrustManager implements X509TrustManager {
+    static class CtsTrustManager implements X509TrustManager {
         public void checkClientTrusted(X509Certificate[] chain, String authType) {
             // Trust the CtSTestServer's client...
         }
@@ -308,10 +308,47 @@ public class CtsTestServer {
     }
 
     /**
+     * Sets a response to be returned when a particular request path is passed in (with the option
+     * to specify additional headers).
+     *
+     * @param requestPath The path to respond to.
+     * @param responseString The response body that will be returned.
+     * @param responseHeaders Any additional headers that should be returned along with the response
+     *     (null is acceptable).
+     * @return The full URL including the path that should be requested to get the expected
+     *     response.
+     */
+    public synchronized String setResponse(
+            String requestPath, String responseString, List<Pair<String, String>> responseHeaders) {
+        HttpResponse response = createResponse(HttpStatus.SC_OK);
+        response.setEntity(createEntity(responseString));
+        if (responseHeaders != null) {
+            for (Pair<String, String> headerPair : responseHeaders) {
+                response.setHeader(headerPair.first, headerPair.second);
+            }
+        }
+        mResponseMap.put(requestPath, response);
+
+        StringBuilder sb = new StringBuilder(getBaseUri());
+        sb.append(requestPath);
+
+        return sb.toString();
+    }
+
+    /**
      * Return the URI that points to the server root.
      */
     public String getBaseUri() {
         return mServerUri;
+    }
+
+    /**
+     * Return the absolute URL that refers to a path.
+     */
+    public String getAbsoluteUrl(String path) {
+        StringBuilder sb = new StringBuilder(getBaseUri());
+        sb.append(path);
+        return sb.toString();
     }
 
     /**
@@ -361,6 +398,14 @@ public class CtsTestServer {
         sb.append(ASSET_PREFIX);
         sb.append(path);
         return sb.toString();
+    }
+
+    /**
+     * Return an absolute URL that refers to an endpoint which will send received headers back to
+     * the sender with a prefix.
+     */
+    public String getEchoHeadersUrl() {
+        return getBaseUri() + ECHO_HEADERS_PREFIX;
     }
 
     /**
@@ -507,6 +552,21 @@ public class CtsTestServer {
     }
 
     /**
+     * @param downloadId used to differentiate the files created for each test
+     * @param numBytes of the content that the CTS server should send back
+     * @return url to get the file from
+     */
+    public String getCacheableTestDownloadUrl(String downloadId, int numBytes) {
+        return Uri.parse(getBaseUri())
+                .buildUpon()
+                .path(CACHEABLE_TEST_DOWNLOAD_PATH)
+                .appendQueryParameter(DOWNLOAD_ID_PARAMETER, downloadId)
+                .appendQueryParameter(NUM_BYTES_PARAMETER, Integer.toString(numBytes))
+                .build()
+                .toString();
+    }
+
+    /**
      * Returns true if the resource identified by url has been requested since
      * the server was started or the last call to resetRequestState().
      *
@@ -530,8 +590,20 @@ public class CtsTestServer {
         return mRequestEntities;
     }
 
+    /**
+     * Returns the total number of requests made.
+     */
     public synchronized int getRequestCount() {
         return mQueries.size();
+    }
+
+    /**
+     * Returns the number of requests made for a path.
+     */
+    public synchronized int getRequestCount(String requestPath) {
+        Integer count = mRequestCountMap.get(requestPath);
+        if (count == null) throw new IllegalArgumentException("Path not set: " + requestPath);
+        return count.intValue();
     }
 
     /**
@@ -562,14 +634,25 @@ public class CtsTestServer {
     }
 
     /**
-     * Returns the last HttpRequest at this path. Can return null if it is never requested.
+     * Returns the last HttpRequest at this path.
+     * Can return null if it is never requested.
+     *
+     * Use this method if the request you're looking for was
+     * for an asset.
      */
-    public synchronized HttpRequest getLastRequest(String requestPath) {
-        String relativeUrl = getRelativeUrl(requestPath);
-        if (!mLastRequestMap.containsKey(relativeUrl))
-            return null;
+    public HttpRequest getLastAssetRequest(String requestPath) {
+        String relativeUrl = getRelativeAssetUrl(requestPath);
         return mLastRequestMap.get(relativeUrl);
     }
+
+    /**
+     * Returns the last HttpRequest at this path.
+     * Can return null if it is never requested.
+     */
+    public HttpRequest getLastRequest(String requestPath) {
+        return mLastRequestMap.get(requestPath);
+    }
+
     /**
      * Hook for adding stuffs for HTTP POST. Default implementation does nothing.
      * @return null to use the default response mechanism of sending the requested uri as it is.
@@ -583,7 +666,7 @@ public class CtsTestServer {
      * Return the relative URL that refers to the given asset.
      * @param path The path of the asset. See {@link AssetManager#open(String)}
      */
-    private String getRelativeUrl(String path) {
+    private String getRelativeAssetUrl(String path) {
         StringBuilder sb = new StringBuilder(ASSET_PREFIX);
         sb.append(path);
         return sb.toString();
@@ -602,6 +685,11 @@ public class CtsTestServer {
 
         synchronized (this) {
             mQueries.add(uriString);
+            int requestCount = 0;
+            if (mRequestCountMap.containsKey(uriString)) {
+                requestCount = mRequestCountMap.get(uriString);
+            }
+            mRequestCountMap.put(uriString, requestCount + 1);
             mLastRequestMap.put(uriString, request);
             if (request instanceof HttpEntityEnclosingRequest) {
                 mRequestEntities.add(((HttpEntityEnclosingRequest)request).getEntity());
@@ -618,6 +706,14 @@ public class CtsTestServer {
         URI uri = URI.create(uriString);
         String path = uri.getPath();
         String query = uri.getQuery();
+
+        if (path.startsWith(ECHO_HEADERS_PREFIX)) {
+            response = createResponse(HttpStatus.SC_OK);
+            for (Header header : request.getAllHeaders()) {
+                response.addHeader(
+                        ECHOED_RESPONSE_HEADER_PREFIX + header.getName(), header.getValue());
+            }
+        }
         if (path.equals(FAVICON_PATH)) {
             path = FAVICON_ASSET_PATH;
         }
@@ -715,10 +811,23 @@ public class CtsTestServer {
             Log.i(TAG, "Redirecting to: " + location);
             response.addHeader("Location", location);
         } else if (path.equals(QUERY_REDIRECT_PATH)) {
-            String location = Uri.parse(uriString).getQueryParameter("dest");
+            Uri androidUri = Uri.parse(uriString);
+            String location = androidUri.getQueryParameter("dest");
+
+            int statusCode = HttpStatus.SC_MOVED_TEMPORARILY;
+            String statusCodeParam = androidUri.getQueryParameter("statusCode");
+            if (statusCodeParam != null) {
+                try {
+                    int parsedStatusCode = Integer.parseInt(statusCodeParam);
+                    if (300 <= parsedStatusCode && parsedStatusCode < 400) {
+                        statusCode = parsedStatusCode;
+                    }
+                } catch (NumberFormatException ignored) { }
+            }
+
             if (location != null) {
                 Log.i(TAG, "Redirecting to: " + location);
-                response = createResponse(HttpStatus.SC_MOVED_TEMPORARILY);
+                response = createResponse(statusCode);
                 response.addHeader("Location", location);
             }
         } else if (path.startsWith(COOKIE_PREFIX)) {
@@ -773,6 +882,8 @@ public class CtsTestServer {
             response.setEntity(createPage(agent, agent));
         } else if (path.equals(TEST_DOWNLOAD_PATH)) {
             response = createTestDownloadResponse(mContext, Uri.parse(uriString));
+        } else if (path.equals(CACHEABLE_TEST_DOWNLOAD_PATH)) {
+            response = createCacheableTestDownloadResponse(mContext, Uri.parse(uriString));
         } else if (path.equals(APPCACHE_PATH)) {
             response = createResponse(HttpStatus.SC_OK);
             response.setEntity(createEntity("<!DOCTYPE HTML>" +
@@ -811,6 +922,12 @@ public class CtsTestServer {
                 Log.w(TAG, "Unexpected UnsupportedEncodingException");
             }
         }
+
+        // If a response was set, it should override whatever was generated
+        if (mResponseMap.containsKey(path)) {
+            response = mResponseMap.get(path);
+        }
+
         if (response == null) {
             response = createResponse(HttpStatus.SC_NOT_FOUND);
         }
@@ -885,6 +1002,13 @@ public class CtsTestServer {
         return response;
     }
 
+    private static HttpResponse createCacheableTestDownloadResponse(Context context, Uri uri)
+            throws IOException {
+        HttpResponse response = createTestDownloadResponse(context, uri);
+        response.setHeader("Cache-Control", "max-age=300");
+        return response;
+    }
+
     private static FileEntity createFileEntity(Context context, String downloadId, int numBytes)
             throws IOException {
         String storageState = Environment.getExternalStorageState();
@@ -918,7 +1042,7 @@ public class CtsTestServer {
     private static class ServerThread extends Thread {
         private CtsTestServer mServer;
         private ServerSocket mSocket;
-        private SslMode mSsl;
+        private @SslMode int mSsl;
         private boolean mWillShutDown = false;
         private SSLContext mSslContext;
         private ExecutorService mExecutorService = Executors.newFixedThreadPool(20);
@@ -1005,7 +1129,7 @@ public class CtsTestServer {
             return keyManagerFactory.getKeyManagers();
         }
 
-        ServerThread(CtsTestServer server, SslMode sslMode, InputStream key,
+        ServerThread(CtsTestServer server, @SslMode int sslMode, InputStream key,
                 InputStream cert) throws Exception {
             super("ServerThread");
             mServer = server;
@@ -1136,13 +1260,21 @@ public class CtsTestServer {
                     HttpResponse response = mServer.getResponse(mRequest);
                     mConnection.sendResponseHeader(response);
                     mConnection.sendResponseEntity(response);
-                    mConnection.close();
+                } catch (Exception e) {
+                    Log.e(TAG, "Error handling request:", e);
+                } finally {
+                    try {
+                        mConnection.close();
+                    } catch (IOException e) {
+                        Log.e(TAG, "Failed to close http connection", e);
+                    }
 
+                    // mConnection.close() closes mSocket.
+                    // mConnection only throws an IOException when the socket.close() call fails, at
+                    // which point, there is not much that can be done anyways.
                     synchronized(mLock) {
                         ServerThread.this.mSockets.remove(mSocket);
                     }
-                } catch (Exception e) {
-                    Log.e(TAG, "Error handling request:", e);
                 }
             }
         }

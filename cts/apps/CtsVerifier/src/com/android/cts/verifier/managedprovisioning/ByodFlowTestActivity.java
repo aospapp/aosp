@@ -85,23 +85,19 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
 
     private DialogTestListItem mProfileOwnerInstalled;
     private DialogTestListItem mDiskEncryptionTest;
-    private DialogTestListItem mProfileAccountVisibleTest;
-    private DialogTestListItem mDeviceAdminVisibleTest;
     private DialogTestListItem mWorkAppVisibleTest;
     private DialogTestListItem mCrossProfileIntentFiltersTestFromPersonal;
     private DialogTestListItem mCrossProfileIntentFiltersTestFromWork;
     private TestListItem mCrossProfilePermissionControl;
-    private DialogTestListItem mAppLinkingTest;
     private TestListItem mNonMarketAppsTest;
-    private DialogTestListItem mWorkNotificationBadgedTest;
     private DialogTestListItem mWorkStatusBarIconTest;
-    private DialogTestListItem mWorkStatusBarToastTest;
     private DialogTestListItem mUserSettingsVisibleTest;
     private DialogTestListItem mAppSettingsVisibleTest;
     private DialogTestListItem mLocationSettingsVisibleTest;
     private DialogTestListItem mWiFiDataUsageSettingsVisibleTest;
     private DialogTestListItem mCellularDataUsageSettingsVisibleTest;
     private DialogTestListItem mCredSettingsVisibleTest;
+    private DialogTestListItem mAllowNonDismissibleNotificationTest;
     private DialogTestListItem mPrintSettingsVisibleTest;
     private DialogTestListItem mIntentFiltersTest;
     private DialogTestListItem mPermissionLockdownTest;
@@ -121,6 +117,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
     private DialogTestListItem mPatternWorkChallenge;
     private DialogTestListItem mParentProfilePassword;
     private DialogTestListItem mPersonalRingtonesTest;
+    private TestListItem mScreenshotTest;
     private TestListItem mVpnTest;
     private TestListItem mKeyChainTest;
     private TestListItem mAlwaysOnVpnSettingsTest;
@@ -311,22 +308,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                     new Intent(Settings.ACTION_SETTINGS));
         }
 
-        mWorkNotificationBadgedTest = new DialogTestListItemWithIcon(this,
-                R.string.provisioning_byod_work_notification,
-                "BYOD_WorkNotificationBadgedTest",
-                R.string.provisioning_byod_work_notification_instruction,
-                new Intent(ByodHelperActivity.ACTION_NOTIFICATION),
-                R.drawable.ic_corp_icon);
-
-        Intent workStatusIcon = new Intent(WorkStatusTestActivity.ACTION_WORK_STATUS_ICON);
-        workStatusIcon.setFlags(FLAG_ACTIVITY_NEW_TASK);
-        mWorkStatusBarIconTest = new DialogTestListItemWithIcon(this,
-                R.string.provisioning_byod_work_status_icon,
-                "BYOD_WorkStatusBarIconTest",
-                R.string.provisioning_byod_work_status_icon_instruction,
-                workStatusIcon,
-                R.drawable.stat_sys_managed_profile_status);
-
         /* Disable due to b/111734436.
         Intent workStatusToast = new Intent(WorkStatusTestActivity.ACTION_WORK_STATUS_TOAST);
         workStatusToast.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -342,12 +323,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 NonMarketAppsActivity.class.getName(),
                 new Intent(this, NonMarketAppsActivity.class), null);
 
-        mProfileAccountVisibleTest = new DialogTestListItem(this,
-                R.string.provisioning_byod_profile_visible,
-                "BYOD_ProfileAccountVisibleTest",
-                R.string.provisioning_byod_profile_visible_instruction,
-                new Intent(Settings.ACTION_SETTINGS));
-
         mUserSettingsVisibleTest = new DialogTestListItem(this,
             R.string.provisioning_byod_user_settings,
             "BYOD_UserSettingsVisibleTest",
@@ -360,17 +335,17 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_app_settings_instruction,
                 new Intent(Settings.ACTION_APPLICATION_SETTINGS));
 
-        mDeviceAdminVisibleTest = new DialogTestListItem(this,
-                R.string.provisioning_byod_admin_visible,
-                "BYOD_DeviceAdminVisibleTest",
-                R.string.provisioning_byod_admin_visible_instruction,
-                new Intent(Settings.ACTION_SECURITY_SETTINGS));
-
         mCredSettingsVisibleTest = new DialogTestListItem(this,
                 R.string.provisioning_byod_cred_settings,
                 "BYOD_CredSettingsVisibleTest",
                 R.string.provisioning_byod_cred_settings_instruction,
                 new Intent(Settings.ACTION_SECURITY_SETTINGS));
+
+        mAllowNonDismissibleNotificationTest = new DialogTestListItem(this,
+                R.string.provisioning_byod_allow_nondismissible_notification,
+                "BYOD_AllowNonDismissibleNotificationTest",
+                R.string.provisioning_byod_allow_nondismissible_notification_instructions,
+                new Intent(this, NotificationActivity.class));
 
         mLocationSettingsVisibleTest = new DialogTestListItem(this,
                 R.string.provisioning_byod_location_settings,
@@ -509,6 +484,12 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 R.string.provisioning_byod_personal_ringtones_instruction,
                 new Intent(Settings.ACTION_SOUND_SETTINGS));
 
+        mScreenshotTest = TestListItem.newTest(/* context= */ this,
+                R.string.provisioning_byod_screenshot,
+                ScreenshotTestActivity.class.getName(),
+                new Intent(ScreenshotTestActivity.ACTION_SCREENSHOT_TEST),
+                /* requiredFeatures= */ null);
+
         final Intent policyTransparencyTestIntent = new Intent(this,
                 PolicyTransparencyTestListActivity.class);
         policyTransparencyTestIntent.putExtra(
@@ -529,7 +510,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
             adapter.add(mWorkAppVisibleTest);
         }
 
-        adapter.add(mWorkNotificationBadgedTest);
         adapter.add(mWorkStatusBarIconTest);
 
         /* Disable due to b/111734436.
@@ -537,8 +517,6 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         */
 
         // Settings related tests.
-        adapter.add(mProfileAccountVisibleTest);
-        adapter.add(mDeviceAdminVisibleTest);
         adapter.add(mCredSettingsVisibleTest);
         adapter.add(mUserSettingsVisibleTest);
         adapter.add(mAppSettingsVisibleTest);
@@ -599,7 +577,7 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
         } else {
             // Capture image intent cannot be resolved in primary profile, so skip test.
             Toast.makeText(ByodFlowTestActivity.this,
-                    R.string.provisioning_byod_no_image_capture_resolver, Toast.LENGTH_SHORT)
+                            R.string.provisioning_byod_no_image_capture_resolver, Toast.LENGTH_SHORT)
                     .show();
         }
 
@@ -732,6 +710,9 @@ public class ByodFlowTestActivity extends DialogTestListActivity {
                 "BYOD_LaunchWorkTab",
                 R.string.provisioning_byod_launch_work_tab_instruction,
                 createLaunchWorkTabIntent()));
+
+        adapter.add(mScreenshotTest);
+        adapter.add(mAllowNonDismissibleNotificationTest);
     }
 
     private Intent createInstallWorkProfileAppIntent() {

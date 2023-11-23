@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.junit.rules.TestRule;
+
 /**
  * Helper class to save, set, and restore global system-level preferences.
  * <p>
@@ -107,6 +109,15 @@ public class SettingsSession<T> implements AutoCloseable {
                     + (mHasInitialValue ? " value=" + mInitialValue : " undefined"));
             sSessionCounters.open(uri);
         }
+    }
+
+    public static <T> TestRule overrideForTest(final Uri uri, final SettingsGetter<T> getter,
+            final SettingsSetter<T> setter, final @NonNull T value) {
+            return new AutoCloseableRule(() -> {
+                SettingsSession<T> session = new SettingsSession<>(uri, getter, setter);
+                session.set(value);
+                return session;
+            });
     }
 
     public void set(final @NonNull T value) {

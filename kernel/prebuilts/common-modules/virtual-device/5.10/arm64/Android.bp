@@ -35,14 +35,3 @@ filegroup {
     name: "virt_device_prebuilts_kernel_modules_all-5.10-arm64",
     srcs: ["*.ko"],
 }
-
-filegroup {
-    name: "virt_device_prebuilts_kernel_modules_microdroid-5.10-arm64",
-    srcs: [
-        "virtio_blk.ko",
-        "virtio_console.ko",
-        "virtio_pci.ko",
-        "vmw_vsock_virtio_transport.ko",
-        "open-dice.ko",
-    ],
-}

@@ -23,6 +23,7 @@
 #include <android-base/logging.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
 
 #include "CredentialStoreFactory.h"
 
@@ -32,6 +33,7 @@ using ::std::string;
 
 using ::android::IPCThreadState;
 using ::android::IServiceManager;
+using ::android::ProcessState;
 using ::android::sp;
 using ::android::String16;
 using ::android::base::InitLogging;
@@ -53,8 +55,10 @@ int main(int argc, char* argv[]) {
     CHECK(ret == ::android::OK) << "Couldn't register binder service";
     LOG(INFO) << "Registered binder service";
 
-    // Credstore is a single-threaded process. So devote the main thread
-    // to handling binder messages.
+    // Credstore needs one thread to handle binder messages and one to handle
+    // asynchronous responses from RKPD.
+    ProcessState::self()->setThreadPoolMaxThreadCount(2);
+    ProcessState::self()->startThreadPool();
     IPCThreadState::self()->joinThreadPool();
 
     return 0;

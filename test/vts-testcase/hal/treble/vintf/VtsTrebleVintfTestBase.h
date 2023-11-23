@@ -39,11 +39,11 @@ using android::hidl::manager::V1_0::IServiceManager;
 class VtsTrebleVintfTestBase : public ::testing::Test {
  public:
   virtual ~VtsTrebleVintfTestBase() {}
-  virtual void SetUp() override;
 
   // Applies given function to each HAL instance in VINTF.
-  static void ForEachAidlHalInstance(const HalManifestPtr &, AidlVerifyFn);
-  static void ForEachHidlHalInstance(const HalManifestPtr &, HidlVerifyFn);
+  static std::vector<AidlInstance> GetAidlInstances(const HalManifestPtr &);
+  static std::vector<HidlInstance> GetHidlInstances(const HalManifestPtr &);
+  static std::vector<NativeInstance> GetNativeInstances(const HalManifestPtr &);
 
   // Retrieves an existing HAL service.
   static sp<IBase> GetHidlService(const string &fq_name,
@@ -59,12 +59,16 @@ class VtsTrebleVintfTestBase : public ::testing::Test {
 
   static vector<string> GetInterfaceChain(const sp<IBase> &service);
 
-  static set<string> GetPassthroughHals(HalManifestPtr manifest);
-  static set<string> GetHwbinderHals(HalManifestPtr manifest);
+  static set<string> GetDeclaredHidlHalsOfTransport(HalManifestPtr manifest,
+                                                Transport transport);
+
   Partition GetPartition(sp<IBase> hal_service);
 
-  // Default service manager.
-  sp<IServiceManager> default_manager_;
+  static sp<IServiceManager> default_manager();
+
+  // List HALs registered through hwservicemanager. Return the list of FQ
+  // instance names.
+  static std::vector<std::string> ListRegisteredHwbinderHals();
 };
 
 }  // namespace testing

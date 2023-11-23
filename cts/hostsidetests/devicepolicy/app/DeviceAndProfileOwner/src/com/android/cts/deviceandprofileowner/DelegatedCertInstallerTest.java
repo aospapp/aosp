@@ -104,7 +104,7 @@ public class DelegatedCertInstallerTest extends BaseDeviceAdminTest {
         mReceivedException = null;
         IntentFilter filter = new IntentFilter();
         filter.addAction(ACTION_CERT_OPERATION_DONE);
-        mContext.registerReceiver(receiver, filter);
+        mContext.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
     }
 
     @Override

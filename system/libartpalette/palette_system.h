@@ -27,7 +27,7 @@ static constexpr int32_t kNormalManagedThreadPriority = 5;
 static constexpr int32_t kMinManagedThreadPriority = 1;
 static constexpr int32_t kMaxManagedThreadPriority = 10;
 static constexpr int32_t kNumManagedThreadPriorities =
-        kMaxManagedThreadPriority - kMinManagedThreadPriority + 1;
+    kMaxManagedThreadPriority - kMinManagedThreadPriority + 1;
 
 }  // namespace palette
 }  // namespace art

@@ -23,15 +23,14 @@ import camera_properties_utils
 import capture_request_utils
 import image_processing_utils
 import its_session_utils
-import target_exposure_utils
 
-MAX_IMG_SIZE = (1920, 1080)
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-PATCH_H = 0.1  # center 10%
-PATCH_W = 0.1
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
-THRESHOLD_MAX_RMS_DIFF = 0.01
+_MAX_IMG_SIZE = (1920, 1080)
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_THRESHOLD_MAX_RMS_DIFF = 0.01
 
 
 def compute_means_and_save(cap, img_name, log_path):
@@ -46,9 +45,9 @@ def compute_means_and_save(cap, img_name, log_path):
   """
   img = image_processing_utils.convert_capture_to_rgb_image(cap, True)
   image_processing_utils.write_image(
-      img, '%s_%s.jpg' % (os.path.join(log_path, NAME), img_name))
+      img, f'{os.path.join(log_path, _NAME)}_{img_name}.jpg')
   patch = image_processing_utils.get_image_patch(
-      img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+      img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
   rgb_means = image_processing_utils.compute_image_means(patch)
   logging.debug('%s rbg_means: %s', img_name, rgb_means)
   return rgb_means
@@ -58,7 +57,7 @@ class YuvPlusJpegTest(its_base_test.ItsBaseTest):
   """Test capturing a single frame as both YUV and JPEG outputs."""
 
   def test_yuv_plus_jpeg(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -67,33 +66,37 @@ class YuvPlusJpegTest(its_base_test.ItsBaseTest):
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
 
-      # check SKIP conditions
+      # Check SKIP conditions
       camera_properties_utils.skip_unless(
-          camera_properties_utils.compute_target_exposure(props))
+          camera_properties_utils.linear_tonemap(props))
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Create requests
       max_jpeg_size = capture_request_utils.get_available_output_sizes(
           'jpeg', props)[0]
       if capture_request_utils.is_common_aspect_ratio(max_jpeg_size):
         w, h = capture_request_utils.get_available_output_sizes(
-            'yuv', props, MAX_IMG_SIZE, max_jpeg_size)[0]
+            'yuv', props, _MAX_IMG_SIZE, max_jpeg_size)[0]
       else:
         w, h = capture_request_utils.get_available_output_sizes(
-            'yuv', props, max_size=MAX_IMG_SIZE)[0]
+            'yuv', props, max_size=_MAX_IMG_SIZE)[0]
       logging.debug('YUV size: (%d, %d)', w, h)
       logging.debug('JPEG size: %s', max_jpeg_size)
       fmt_yuv = {'format': 'yuv', 'width': w, 'height': h}
       fmt_jpg = {'format': 'jpeg'}
+      if camera_properties_utils.stream_use_case(props):
+        fmt_yuv['useCase'] = camera_properties_utils.USE_CASE_STILL_CAPTURE
+        fmt_jpg['useCase'] = camera_properties_utils.USE_CASE_STILL_CAPTURE
 
-      # Use a manual request with a linear tonemap so that the YUV and JPEG
+      # Use an auto_capture_request with linear tonemap so that the YUV and JPEG
       # should look the same (once converted by the image_processing_utils).
-      e, s = target_exposure_utils.get_target_exposure_combos(
-          log_path, cam)['midExposureTime']
-      req = capture_request_utils.manual_capture_request(s, e, 0.0, True, props)
+      # Do not use AF to match manual capture request.
+      req = capture_request_utils.auto_capture_request(
+          linear_tonemap=True, props=props, do_af=False)
 
       cap_yuv, cap_jpg = cam.do_capture(req, [fmt_yuv, fmt_jpg])
       rgb_means_yuv = compute_means_and_save(cap_yuv, 'yuv', log_path)
@@ -103,8 +106,8 @@ class YuvPlusJpegTest(its_base_test.ItsBaseTest):
           rgb_means_yuv, rgb_means_jpg)
       msg = f'RMS diff: {rms_diff:.4f}'
       logging.debug('%s', msg)
-      if rms_diff >= THRESHOLD_MAX_RMS_DIFF:
-        raise AssertionError(msg + f', spec: {THRESHOLD_MAX_RMS_DIFF}')
+      if rms_diff >= _THRESHOLD_MAX_RMS_DIFF:
+        raise AssertionError(msg + f', spec: {_THRESHOLD_MAX_RMS_DIFF}')
 
 if __name__ == '__main__':
   test_runner.main()

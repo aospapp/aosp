@@ -35,6 +35,7 @@ public class DropCachesRule extends TestWatcher {
     private static final String LOG_TAG = DropCachesRule.class.getSimpleName();
 
     @VisibleForTesting static final String KEY_DROP_CACHE = "drop-cache";
+    @VisibleForTesting static final String KEY_SYNC_BEFORE_DROP = "sync-before-drop-cache";
 
     private String mDropCacheScriptPath;
 
@@ -80,6 +81,12 @@ public class DropCachesRule extends TestWatcher {
         boolean dropCache = Boolean.parseBoolean(getArguments().getString(KEY_DROP_CACHE, "true"));
         if (!dropCache) {
             return;
+        }
+
+        boolean syncFlag =
+                Boolean.parseBoolean(getArguments().getString(KEY_SYNC_BEFORE_DROP, "true"));
+        if (syncFlag) {
+            executeShellCommand("sync");
         }
 
         executeDropCachesImpl();

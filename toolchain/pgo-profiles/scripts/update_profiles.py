@@ -162,7 +162,7 @@ def main():
         worklist = [args.benchmark]
 
     profiles_project = os.path.join(utils.android_build_top(), 'toolchain',
-                                    'pgo-profiles')
+                                    'pgo-profiles', 'pgo')
     os.chdir(profiles_project)
 
     if not args.use_current_branch:

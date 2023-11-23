@@ -22,7 +22,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.os.Bundle
 import android.os.Handler
 import android.os.Process
 import android.sensorprivacy.cts.testapp.utils.Cam
@@ -54,8 +53,8 @@ class UseMicCamera : Activity() {
                 "android.sensorprivacy.cts.usemiccamera.extra.RETRY_CAM_EXTRA"
     }
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+    override fun onStart() {
+        super.onStart()
 
         val handler = Handler(mainLooper)
         appOpsManager = applicationContext.getSystemService(AppOpsManager::class.java)!!
@@ -85,12 +84,12 @@ class UseMicCamera : Activity() {
         val useMic = intent.getBooleanExtra(USE_MIC_EXTRA, false)
         val useCam = intent.getBooleanExtra(USE_CAM_EXTRA, false)
         if (useMic) {
-            handler.postDelayed({ mic = openMic() }, 1000)
+            handler.postDelayed({ mic = openMic() }, 5000)
         }
         if (useCam) {
             handler.postDelayed({
                 cam = openCam(this, intent.getBooleanExtra(UseMicCamera.RETRY_CAM_EXTRA, false))
-            }, 1000)
+            }, 5000)
         }
     }
 }

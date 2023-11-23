@@ -1,14 +1,19 @@
 package bp2build
 
 import (
+	"android/soong/starlark_fmt"
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
 	"android/soong/android"
+	"android/soong/cc"
 	cc_config "android/soong/cc/config"
 	java_config "android/soong/java/config"
+
+	"android/soong/apex"
 
 	"github.com/google/blueprint/proptools"
 )
@@ -19,16 +24,36 @@ type BazelFile struct {
 	Contents string
 }
 
-func CreateSoongInjectionFiles(cfg android.Config, metrics CodegenMetrics) []BazelFile {
+// PRIVATE: Use CreateSoongInjectionDirFiles instead
+func soongInjectionFiles(cfg android.Config, metrics CodegenMetrics) ([]BazelFile, error) {
 	var files []BazelFile
 
+	files = append(files, newFile("android", GeneratedBuildFileName, "")) // Creates a //cc_toolchain package.
+	files = append(files, newFile("android", "constants.bzl", android.BazelCcToolchainVars(cfg)))
+
 	files = append(files, newFile("cc_toolchain", GeneratedBuildFileName, "")) // Creates a //cc_toolchain package.
-	files = append(files, newFile("cc_toolchain", "constants.bzl", cc_config.BazelCcToolchainVars(cfg)))
+	files = append(files, newFile("cc_toolchain", "config_constants.bzl", cc_config.BazelCcToolchainVars(cfg)))
+	files = append(files, newFile("cc_toolchain", "sanitizer_constants.bzl", cc.BazelCcSanitizerToolchainVars(cfg)))
 
 	files = append(files, newFile("java_toolchain", GeneratedBuildFileName, "")) // Creates a //java_toolchain package.
 	files = append(files, newFile("java_toolchain", "constants.bzl", java_config.BazelJavaToolchainVars(cfg)))
 
-	files = append(files, newFile("metrics", "converted_modules.txt", strings.Join(metrics.convertedModules, "\n")))
+	files = append(files, newFile("apex_toolchain", GeneratedBuildFileName, "")) // Creates a //apex_toolchain package.
+	apexToolchainVars, err := apex.BazelApexToolchainVars()
+	if err != nil {
+		return nil, err
+	}
+	files = append(files, newFile("apex_toolchain", "constants.bzl", apexToolchainVars))
+
+	files = append(files, newFile("metrics", "converted_modules.txt", strings.Join(metrics.Serialize().ConvertedModules, "\n")))
+
+	convertedModulePathMap, err := json.MarshalIndent(metrics.convertedModulePathMap, "", "\t")
+	if err != nil {
+		panic(err)
+	}
+	files = append(files, newFile("metrics", GeneratedBuildFileName, "")) // Creates a //metrics package.
+	files = append(files, newFile("metrics", "converted_modules_path_map.json", string(convertedModulePathMap)))
+	files = append(files, newFile("metrics", "converted_modules_path_map.bzl", "modules = "+strings.ReplaceAll(string(convertedModulePathMap), "\\", "\\\\")))
 
 	files = append(files, newFile("product_config", "soong_config_variables.bzl", cfg.Bp2buildSoongConfigDefinitions.String()))
 
@@ -36,20 +61,50 @@ func CreateSoongInjectionFiles(cfg android.Config, metrics CodegenMetrics) []Baz
 
 	apiLevelsContent, err := json.Marshal(android.GetApiLevelsMap(cfg))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	files = append(files, newFile("api_levels", GeneratedBuildFileName, `exports_files(["api_levels.json"])`))
+	// TODO(b/269691302)  value of apiLevelsContent is product variable dependent and should be avoided for soong injection
 	files = append(files, newFile("api_levels", "api_levels.json", string(apiLevelsContent)))
 	files = append(files, newFile("api_levels", "api_levels.bzl", android.StarlarkApiLevelConfigs(cfg)))
+	files = append(files, newFile("api_levels", "platform_versions.bzl", platformVersionContents(cfg)))
 
-	return files
+	files = append(files, newFile("allowlists", GeneratedBuildFileName, ""))
+	files = append(files, newFile("allowlists", "env.bzl", android.EnvironmentVarsFile(cfg)))
+	// TODO(b/262781701): Create an alternate soong_build entrypoint for writing out these files only when requested
+	files = append(files, newFile("allowlists", "mixed_build_prod_allowlist.txt", strings.Join(android.GetBazelEnabledModules(android.BazelProdMode), "\n")+"\n"))
+	files = append(files, newFile("allowlists", "mixed_build_staging_allowlist.txt", strings.Join(android.GetBazelEnabledModules(android.BazelStagingMode), "\n")+"\n"))
+
+	return files, nil
 }
 
-func convertedModules(convertedModules []string) string {
-	return strings.Join(convertedModules, "\n")
+func platformVersionContents(cfg android.Config) string {
+	// Despite these coming from cfg.productVariables, they are actually hardcoded in global
+	// makefiles, not set in individual product config makesfiles, so they're safe to just export
+	// and load() directly.
+
+	platformVersionActiveCodenames := make([]string, 0, len(cfg.PlatformVersionActiveCodenames()))
+	for _, codename := range cfg.PlatformVersionActiveCodenames() {
+		platformVersionActiveCodenames = append(platformVersionActiveCodenames, fmt.Sprintf("%q", codename))
+	}
+
+	platformSdkVersion := "None"
+	if cfg.RawPlatformSdkVersion() != nil {
+		platformSdkVersion = strconv.Itoa(*cfg.RawPlatformSdkVersion())
+	}
+
+	return fmt.Sprintf(`
+platform_versions = struct(
+    platform_sdk_final = %s,
+    platform_sdk_version = %s,
+    platform_sdk_codename = %q,
+    platform_version_active_codenames = [%s],
+)
+`, starlark_fmt.PrintBool(cfg.PlatformSdkFinal()), platformSdkVersion, cfg.PlatformSdkCodename(), strings.Join(platformVersionActiveCodenames, ", "))
 }
 
 func CreateBazelFiles(
+	cfg android.Config,
 	ruleShims map[string]RuleShim,
 	buildToTargets map[string]BazelTargets,
 	mode CodegenMode) []BazelFile {
@@ -81,32 +136,24 @@ func CreateBazelFiles(
 
 func createBuildFiles(buildToTargets map[string]BazelTargets, mode CodegenMode) []BazelFile {
 	files := make([]BazelFile, 0, len(buildToTargets))
-	for _, dir := range android.SortedStringKeys(buildToTargets) {
-		if mode == Bp2Build && android.ShouldKeepExistingBuildFileForDir(dir) {
-			fmt.Printf("[bp2build] Not writing generated BUILD file for dir: '%s'\n", dir)
-			continue
-		}
+	for _, dir := range android.SortedKeys(buildToTargets) {
 		targets := buildToTargets[dir]
 		targets.sort()
 
 		var content string
-		if mode == Bp2Build {
+		if mode == Bp2Build || mode == ApiBp2build {
 			content = `# READ THIS FIRST:
 # This file was automatically generated by bp2build for the Bazel migration project.
 # Feel free to edit or test it, but do *not* check it into your version control system.
 `
-			if targets.hasHandcraftedTargets() {
-				// For BUILD files with both handcrafted and generated targets,
-				// don't hardcode actual content, like package() declarations.
-				// Leave that responsibility to the checked-in BUILD file
-				// instead.
-				content += `# This file contains generated targets and handcrafted targets that are manually managed in the source tree.`
-			} else {
-				// For fully-generated BUILD files, hardcode the default visibility.
-				content += "package(default_visibility = [\"//visibility:public\"])"
-			}
-			content += "\n"
 			content += targets.LoadStatements()
+			content += "\n\n"
+			// Get package rule from the handcrafted BUILD file, otherwise emit the default one.
+			prText := "package(default_visibility = [\"//visibility:public\"])\n"
+			if pr := targets.packageRule(); pr != nil {
+				prText = pr.content
+			}
+			content += prText
 		} else if mode == QueryView {
 			content = soongModuleLoad
 		}
@@ -143,15 +190,17 @@ const (
 var (
 	// Certain module property names are blocklisted/ignored here, for the reasons commented.
 	ignoredPropNames = map[string]bool{
-		"name":       true, // redundant, since this is explicitly generated for every target
-		"from":       true, // reserved keyword
-		"in":         true, // reserved keyword
-		"size":       true, // reserved for tests
-		"arch":       true, // interface prop type is not supported yet.
-		"multilib":   true, // interface prop type is not supported yet.
-		"target":     true, // interface prop type is not supported yet.
-		"visibility": true, // Bazel has native visibility semantics. Handle later.
-		"features":   true, // There is already a built-in attribute 'features' which cannot be overridden.
+		"name":               true, // redundant, since this is explicitly generated for every target
+		"from":               true, // reserved keyword
+		"in":                 true, // reserved keyword
+		"size":               true, // reserved for tests
+		"arch":               true, // interface prop type is not supported yet.
+		"multilib":           true, // interface prop type is not supported yet.
+		"target":             true, // interface prop type is not supported yet.
+		"visibility":         true, // Bazel has native visibility semantics. Handle later.
+		"features":           true, // There is already a built-in attribute 'features' which cannot be overridden.
+		"for":                true, // reserved keyword, b/233579439
+		"versions_with_info": true, // TODO(b/245730552) struct properties not fully supported
 	}
 )
 
@@ -165,7 +214,7 @@ func shouldSkipStructField(field reflect.StructField) bool {
 		// internal to Soong only, and these fields do not have PkgPath.
 		return true
 	}
-	// fields with tag `blueprint:"mutated"` are exported to enable modification in mutators, etc
+	// fields with tag `blueprint:"mutated"` are exported to enable modification in mutators, etc.
 	// but cannot be set in a .bp file
 	if proptools.HasTag(field, "blueprint", "mutated") {
 		return true

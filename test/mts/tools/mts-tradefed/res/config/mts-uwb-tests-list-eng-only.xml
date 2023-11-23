@@ -15,11 +15,11 @@
 -->
 
 <configuration description="List of UWB MTS tests that need root access.">
+    <option name="compatibility:include-filter" value="libuwb_core_tests" />
     <option name="compatibility:include-filter" value="libuwb_uci_jni_rust_tests" />
     <option name="compatibility:include-filter" value="libuwb_uci_packet_tests" />
-    <option name="compatibility:include-filter" value="libuwb_uci_rust_tests" />
 
+    <option name="compatibility:module-arg" value="libuwb_core_tests:enable:true" />
     <option name="compatibility:module-arg" value="libuwb_uci_jni_rust_tests:enable:true" />
     <option name="compatibility:module-arg" value="libuwb_uci_packet_tests:enable:true" />
-    <option name="compatibility:module-arg" value="libuwb_uci_rust_tests:enable:true" />
 </configuration>

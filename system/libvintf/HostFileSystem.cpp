@@ -55,6 +55,17 @@ status_t HostFileSystem::listFiles(const std::string& path, std::vector<std::str
     return status;
 }
 
+status_t HostFileSystem::modifiedTime(const std::string& path, int64_t* mtime,
+                                      std::string* error) const {
+    auto resolved = resolve(path, error);
+    if (resolved.empty()) {
+        return mMissingError;
+    }
+    status_t status = mImpl->modifiedTime(resolved, mtime, error);
+    LOG(INFO) << "Get modified time '" << resolved << "': " << statusToString(status);
+    return status;
+}
+
 std::string HostFileSystem::resolve(const std::string& path, std::string* error) const {
     for (auto [prefix, mappedPath] : mDirMap) {
         if (path == prefix) {

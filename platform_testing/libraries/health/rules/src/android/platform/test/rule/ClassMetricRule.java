@@ -35,6 +35,9 @@ import androidx.test.InstrumentationRegistry;
  * evaluation order would be {@code Collector1#testStarted()}, {@code Collector2#testStarted()}, the
  * entire test class, {@code Collector1#testFinished()}, {@code Collector1#testFinished()}.
  *
+ * <p>The above FIFO ordering of listeners can be changed to LIFO if the {@code
+ * class-metric-collectors-fifo-order} option is set to {@code false}.
+ *
  * <p>For {@code Microbenchmark}s, this rule can be dynamically injected either inside or outside
  * hardcoded rules (see {@code Microbenchmark})'s JavaDoc).
  *
@@ -48,6 +51,7 @@ import androidx.test.InstrumentationRegistry;
  */
 public class ClassMetricRule extends TestMetricRule {
     @VisibleForTesting static final String METRIC_COLLECTORS_OPTION = "class-metric-collectors";
+    @VisibleForTesting static final String FIFO_ORDER_OPTION = "class-metric-collectors-fifo-order";
 
     public ClassMetricRule() {
         this(InstrumentationRegistry.getArguments(), InstrumentationRegistry.getInstrumentation());
@@ -59,6 +63,7 @@ public class ClassMetricRule extends TestMetricRule {
                 args,
                 instrumentation,
                 METRIC_COLLECTORS_OPTION,
+                FIFO_ORDER_OPTION,
                 ClassMetricRule.class.getSimpleName());
         for (BaseMetricListener listener : mMetricListeners) {
             listener.setReportAsInstrumentationResults(true);

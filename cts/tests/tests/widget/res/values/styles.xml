@@ -284,6 +284,12 @@
         <item name="android:fontVariationSettings">\'wdth\' 50, \'wght\' 200</item>
     </style>
 
+    <!-- Tests line height 3x the text size -->
+    <style name="TextAppearance.FontScaling">
+        <item name="android:textSize">@dimen/textview_fontScaling_textSize</item>
+        <item name="android:lineHeight">@dimen/textview_fontScaling_lineHeight</item>
+    </style>
+
     <style name="AllCapsPassword">
         <item name="android:textAllCaps">true</item>
         <item name="android:password">true</item>
@@ -400,6 +406,8 @@
     </style>
 
     <style name="Theme.PopupWindowCtsActivity" parent="@android:style/Theme.Holo">
+        <item name="android:windowSwipeToDismiss">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">never</item>
     </style>
 
     <style name="TextView_FontResource">

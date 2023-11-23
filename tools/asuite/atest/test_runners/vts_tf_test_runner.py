@@ -19,11 +19,14 @@ VTS Tradefed test runner class.
 import copy
 import logging
 
-import atest_utils
-import constants
+from typing import List
 
-from atest_enum import ExitCode
-from test_runners import atest_tf_test_runner
+from atest import atest_utils
+from atest import constants
+
+from atest.atest_enum import ExitCode
+from atest.test_finders import test_info
+from atest.test_runners import atest_tf_test_runner
 
 class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """TradeFed Test Runner class."""
@@ -42,14 +45,17 @@ class VtsTradefedTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
                              'test': '',
                              'args': ''}
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Return the build requirements.
+
+        Args:
+            test_infos: List of TestInfo.
 
         Returns:
             Set of build targets.
         """
         build_req = self._BUILD_REQ
-        build_req |= super().get_test_runner_build_reqs()
+        build_req |= super().get_test_runner_build_reqs(test_infos)
         return build_req
 
     def run_tests(self, test_infos, extra_args, reporter):

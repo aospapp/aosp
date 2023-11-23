@@ -22,13 +22,47 @@
 
 namespace chre {
 
-template <typename ElementType, size_t kSize>
-bool FixedSizeBlockingQueue<ElementType, kSize>::push(
+namespace blocking_queue_internal {
+
+template <typename ElementType, typename QueueStorageType>
+bool BlockingQueueCore<ElementType, QueueStorageType>::empty() {
+  LockGuard<Mutex> lock(mMutex);
+  return QueueStorageType::empty();
+}
+
+template <typename ElementType, typename QueueStorageType>
+size_t BlockingQueueCore<ElementType, QueueStorageType>::size() {
+  LockGuard<Mutex> lock(mMutex);
+  return QueueStorageType::size();
+}
+
+template <typename ElementType, typename QueueStorageType>
+bool BlockingQueueCore<ElementType, QueueStorageType>::remove(size_t index) {
+  LockGuard<Mutex> lock(mMutex);
+  return QueueStorageType::remove(index);
+}
+
+template <typename ElementType, typename QueueStorageType>
+ElementType &BlockingQueueCore<ElementType, QueueStorageType>::operator[](
+    size_t index) {
+  LockGuard<Mutex> lock(mMutex);
+  return QueueStorageType::operator[](index);
+}
+
+template <typename ElementType, typename QueueStorageType>
+const ElementType &BlockingQueueCore<ElementType, QueueStorageType>::operator[](
+    size_t index) const {
+  LockGuard<Mutex> lock(mMutex);
+  return QueueStorageType::operator[](index);
+}
+
+template <typename ElementType, typename QueueStorageType>
+bool BlockingQueueCore<ElementType, QueueStorageType>::push(
     const ElementType &element) {
   bool success;
   {
     LockGuard<Mutex> lock(mMutex);
-    success = mQueue.push(element);
+    success = QueueStorageType::push(element);
   }
   if (success) {
     mConditionVariable.notify_one();
@@ -36,12 +70,13 @@ bool FixedSizeBlockingQueue<ElementType, kSize>::push(
   return success;
 }
 
-template <typename ElementType, size_t kSize>
-bool FixedSizeBlockingQueue<ElementType, kSize>::push(ElementType &&element) {
+template <typename ElementType, typename QueueStorageType>
+bool BlockingQueueCore<ElementType, QueueStorageType>::push(
+    ElementType &&element) {
   bool success;
   {
     LockGuard<Mutex> lock(mMutex);
-    success = mQueue.push(std::move(element));
+    success = QueueStorageType::push(std::move(element));
   }
   if (success) {
     mConditionVariable.notify_one();
@@ -49,49 +84,19 @@ bool FixedSizeBlockingQueue<ElementType, kSize>::push(ElementType &&element) {
   return success;
 }
 
-template <typename ElementType, size_t kSize>
-ElementType FixedSizeBlockingQueue<ElementType, kSize>::pop() {
+template <typename ElementType, typename QueueStorageType>
+ElementType BlockingQueueCore<ElementType, QueueStorageType>::pop() {
   LockGuard<Mutex> lock(mMutex);
-  while (mQueue.empty()) {
+  while (QueueStorageType::empty()) {
     mConditionVariable.wait(mMutex);
   }
 
-  ElementType element(std::move(mQueue.front()));
-  mQueue.pop();
+  ElementType element(std::move(QueueStorageType::front()));
+  QueueStorageType::pop();
   return element;
 }
 
-template <typename ElementType, size_t kSize>
-bool FixedSizeBlockingQueue<ElementType, kSize>::empty() {
-  LockGuard<Mutex> lock(mMutex);
-  return mQueue.empty();
-}
-
-template <typename ElementType, size_t kSize>
-size_t FixedSizeBlockingQueue<ElementType, kSize>::size() {
-  LockGuard<Mutex> lock(mMutex);
-  return mQueue.size();
-}
-
-template <typename ElementType, size_t kSize>
-bool FixedSizeBlockingQueue<ElementType, kSize>::remove(size_t index) {
-  LockGuard<Mutex> lock(mMutex);
-  return mQueue.remove(index);
-}
-
-template <typename ElementType, size_t kCapacity>
-ElementType &FixedSizeBlockingQueue<ElementType, kCapacity>::operator[](
-    size_t index) {
-  LockGuard<Mutex> lock(mMutex);
-  return mQueue[index];
-}
-
-template <typename ElementType, size_t kCapacity>
-const ElementType &FixedSizeBlockingQueue<ElementType, kCapacity>::operator[](
-    size_t index) const {
-  LockGuard<Mutex> lock(mMutex);
-  return mQueue[index];
-}
+}  // namespace blocking_queue_internal
 
 }  // namespace chre
 

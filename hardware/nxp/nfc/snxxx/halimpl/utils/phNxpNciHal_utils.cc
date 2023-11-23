@@ -1,6 +1,6 @@
 /*
  *
- *  Copyright 2013-2021 NXP
+ *  Copyright 2013-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -432,32 +432,57 @@ void phNxpNciHal_releaseall_cb_data(void) {
 *******************************************************************************/
 void phNxpNciHal_print_packet(const char* pString, const uint8_t* p_data,
                               uint16_t len) {
+  tNFC_printType printType = getPrintType(pString);
+  if (!nfc_debug_enabled && (printType == PRINT_UNKNOWN))
+    return;  // logging is disabled
   uint32_t i;
-#if (NXP_EXTNS == TRUE)
   char* print_buffer = (char*)calloc((len * 3 + 1), sizeof(char));
   if (NULL != print_buffer) {
-#else
-  char print_buffer[len * 3 + 1];
-
-  memset(print_buffer, 0, sizeof(print_buffer));
-#endif
     for (i = 0; i < len; i++) {
       snprintf(&print_buffer[i * 2], 3, "%02X", p_data[i]);
     }
-    if (0 == memcmp(pString, "SEND", 0x04)) {
-      NXPLOG_NCIX_D("len = %3d > %s", len, print_buffer);
-    } else if (0 == memcmp(pString, "RECV", 0x04)) {
-      NXPLOG_NCIR_D("len = %3d > %s", len, print_buffer);
-    } else if (0 == memcmp(pString, "DEBUG", 0x05)) {
-      NXPLOG_NCIHAL_D(" Debug Info > len = %3d > %s", len, print_buffer);
+    switch (printType) {
+      case PRINT_SEND:
+        NXPLOG_NCIX_I("len = %3d > %s", len, print_buffer);
+        break;
+      case PRINT_RECV:
+        NXPLOG_NCIR_I("len = %3d > %s", len, print_buffer);
+        break;
+      case PRINT_DEBUG:
+        NXPLOG_NCIHAL_D(" Debug Info > len = %3d > %s", len, print_buffer);
+        break;
+      default:
+        // Nothing to do
+        break;
     }
-#if (NXP_EXTNS == TRUE)
     free(print_buffer);
   } else {
     NXPLOG_NCIX_E("\nphNxpNciHal_print_packet:Failed to Allocate memory\n");
   }
-#endif
   return;
+}
+
+/*******************************************************************************
+**
+** Function         getPrintType
+**
+** Description      get Print packet type (TX or RX or Debug)
+**
+** Returns          tNFC_printType enum.
+**
+*******************************************************************************/
+tNFC_printType getPrintType(const char* pString) {
+  if ((0 == memcmp(pString, "SEND", 0x04)) &&
+      (gLog_level.ncix_log_level >= NXPLOG_LOG_INFO_LOGLEVEL)) {
+    return PRINT_SEND;
+  } else if ((0 == memcmp(pString, "RECV", 0x04)) &&
+             (gLog_level.ncir_log_level >= NXPLOG_LOG_INFO_LOGLEVEL)) {
+    return PRINT_RECV;
+  } else if ((0 == memcmp(pString, "DEBUG", 0x05)) &&
+             (gLog_level.hal_log_level >= NXPLOG_LOG_DEBUG_LOGLEVEL)) {
+    return PRINT_DEBUG;
+  }
+  return PRINT_UNKNOWN;
 }
 
 /*******************************************************************************
@@ -465,8 +490,7 @@ void phNxpNciHal_print_packet(const char* pString, const uint8_t* p_data,
 ** Function         phNxpNciHal_emergency_recovery
 **
 ** Description      Abort the process in case of ESE_OVER_TEMP_ERROR, FW Assert,
-*Watchdog Reset,
-**                  Input Clock lost and unrecoverable error.
+**                  Watchdog Reset, Input Clock lost and unrecoverable error.
 **                  Ignore the other status.
 **
 ** Returns          None
@@ -482,11 +506,14 @@ void phNxpNciHal_emergency_recovery(uint8_t status) {
     case CORE_RESET_TRIGGER_TYPE_WATCHDOG_RESET:
     case CORE_RESET_TRIGGER_TYPE_INPUT_CLOCK_LOST:
     case CORE_RESET_TRIGGER_TYPE_UNRECOVERABLE_ERROR: {
+      phNxpNciHal_decodeGpioStatus();
       NXPLOG_NCIHAL_E("abort()");
       abort();
     }
     case CORE_RESET_TRIGGER_TYPE_POWERED_ON: {
-      if (nxpncihal_ctrl.hal_open_status == true) {
+      if (nxpncihal_ctrl.hal_open_status == true &&
+          nxpncihal_ctrl.power_reset_triggered == false) {
+        phNxpNciHal_decodeGpioStatus();
         NXPLOG_NCIHAL_E("abort()");
         abort();
       }

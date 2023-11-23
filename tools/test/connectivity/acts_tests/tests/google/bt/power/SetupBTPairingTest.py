@@ -13,7 +13,6 @@
 # WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 # License for the specific language governing permissions and limitations under
 # the License.
-
 """
 This test script leverages the relay_lib to pair different BT devices. This
 script will be invoked from Tradefed test. The test will first setup pairing
@@ -23,13 +22,12 @@ to power down the BT device
 
 import logging
 import socket
-import sys
 import time
 
 from acts import base_test
 
-class SetupBTPairingTest(base_test.BaseTestClass):
 
+class SetupBTPairingTest(base_test.BaseTestClass):
     def __init__(self, controllers):
         base_test.BaseTestClass.__init__(self, controllers)
 
@@ -40,7 +38,8 @@ class SetupBTPairingTest(base_test.BaseTestClass):
         return self.relay_devices[0]
 
     def setup_test(self):
-        self.bt_device = self.select_device_by_mac_address(self.user_params["mac_address"])
+        self.bt_device = self.select_device_by_mac_address(
+            self.user_params["mac_address"])
 
     def wait_for_test_completion(self):
         port = int(self.user_params["socket_port"])
@@ -68,7 +67,6 @@ class SetupBTPairingTest(base_test.BaseTestClass):
                 sock.shutdown(socket.SHUT_RDWR)
                 sock.close()
 
-
     def enable_pairing_mode(self):
         self.bt_device.setup()
         self.bt_device.power_on()
@@ -77,12 +75,10 @@ class SetupBTPairingTest(base_test.BaseTestClass):
         self.bt_device.enter_pairing_mode()
 
     def test_bt_pairing(self):
-        req_params = [
-            "RelayDevice", "socket_port", "socket_timeout_secs"
-        ]
+        req_params = ["RelayDevice", "socket_port", "socket_timeout_secs"]
         opt_params = []
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_params)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_params)
         # Setup BT pairing mode
         self.enable_pairing_mode()
         # BT pairing mode is turned on

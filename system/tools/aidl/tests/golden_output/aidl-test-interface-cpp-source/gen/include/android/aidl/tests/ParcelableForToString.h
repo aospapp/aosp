@@ -13,6 +13,12 @@
 #include <utils/String16.h>
 #include <vector>
 
+namespace android::aidl::tests {
+template <typename T, typename U, typename B>
+class GenericStructuredParcelable;
+class OtherParcelableForToString;
+class StructuredParcelable;
+}  // namespace android::aidl::tests
 namespace android {
 namespace aidl {
 namespace tests {
@@ -63,8 +69,8 @@ public:
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
   ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
   static const ::android::String16& getParcelableDescriptor() {
-    static const ::android::StaticString16 DESCIPTOR (u"android.aidl.tests.ParcelableForToString");
-    return DESCIPTOR;
+    static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.ParcelableForToString");
+    return DESCRIPTOR;
   }
   inline std::string toString() const {
     std::ostringstream os;

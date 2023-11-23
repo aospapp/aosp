@@ -36,7 +36,8 @@ class SingleScanSettings : public ::android::Parcelable {
   bool operator==(const SingleScanSettings& rhs) const {
     return (scan_type_ == rhs.scan_type_ &&
             channel_settings_ == rhs.channel_settings_ &&
-            hidden_networks_ == rhs.hidden_networks_);
+            hidden_networks_ == rhs.hidden_networks_ &&
+            vendor_ies_ == rhs.vendor_ies_);
   }
   ::android::status_t writeToParcel(::android::Parcel* parcel) const override;
   ::android::status_t readFromParcel(const ::android::Parcel* parcel) override;
@@ -45,6 +46,7 @@ class SingleScanSettings : public ::android::Parcelable {
   bool enable_6ghz_rnr_;
   std::vector<ChannelSettings> channel_settings_;
   std::vector<HiddenNetwork> hidden_networks_;
+  std::vector<uint8_t> vendor_ies_;
 
  private:
   bool isValidScanType() const;

@@ -249,6 +249,46 @@ TEST(RoundTrip, GenerateCsrResponse) {
     }
 }
 
+TEST(RoundTrip, GenerateCsrV2Request) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        GenerateCsrV2Request req(ver);
+        EXPECT_TRUE(req.InitKeysToSign(2));
+        for (size_t i = 0; i < req.num_keys; i++) {
+            req.SetKeyToSign(i, dup_array(TEST_DATA), array_length(TEST_DATA));
+        }
+        req.SetChallenge(dup_array(TEST_DATA), array_length(TEST_DATA));
+        UniquePtr<GenerateCsrV2Request> deserialized(round_trip(ver, req, 49));
+        EXPECT_EQ(deserialized->num_keys, req.num_keys);
+        for (int i = 0; i < (int)req.num_keys; i++) {
+            EXPECT_EQ(deserialized->keys_to_sign_array[i].data_length,
+                      req.keys_to_sign_array[i].data_length);
+            EXPECT_EQ(0, std::memcmp(deserialized->keys_to_sign_array[i].data,
+                                     req.keys_to_sign_array[i].data,
+                                     req.keys_to_sign_array[i].data_length));
+        }
+        EXPECT_EQ(deserialized->challenge.data_length, req.challenge.data_length);
+        EXPECT_EQ(0, std::memcmp(deserialized->challenge.data, req.challenge.data,
+                                 req.challenge.data_length));
+    }
+}
+
+TEST(RoundTrip, GenerateCsrV2Response) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        GenerateCsrV2Response rsp(ver);
+        rsp.error = KM_ERROR_OK;
+        rsp.csr.data = dup_array(TEST_DATA);
+        rsp.csr.data_length = array_length(TEST_DATA);
+
+        UniquePtr<GenerateCsrV2Response> deserialized;
+        deserialized.reset(round_trip(ver, rsp, 19));
+
+        EXPECT_EQ(KM_ERROR_OK, deserialized->error);
+        EXPECT_EQ(deserialized->csr.data_length, rsp.csr.data_length);
+        EXPECT_EQ(0,
+                  std::memcmp(deserialized->csr.data, rsp.csr.data, deserialized->csr.data_length));
+    }
+}
+
 TEST(RoundTrip, GetKeyCharacteristicsRequest) {
     for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
         GetKeyCharacteristicsRequest req(ver);
@@ -867,6 +907,28 @@ TEST(RoundTrip, GetRootOfTrustResponse) {
     }
 }
 
+TEST(RoundTrip, GetHwInfoResponse) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        GetHwInfoResponse rsp(ver);
+        rsp.error = KM_ERROR_OK;
+        rsp.version = 17;
+        rsp.rpcAuthorName = "AAAAA";
+        rsp.supportedEekCurve = 48;
+        rsp.uniqueId = "BBBBB";
+        rsp.supportedNumKeysInCsr = 549;
+
+        UniquePtr<GetHwInfoResponse> deserialized;
+        deserialized.reset(round_trip(ver, rsp, 34));
+
+        EXPECT_EQ(KM_ERROR_OK, deserialized->error);
+        EXPECT_EQ(deserialized->version, rsp.version);
+        EXPECT_EQ(deserialized->rpcAuthorName, rsp.rpcAuthorName);
+        EXPECT_EQ(deserialized->supportedEekCurve, rsp.supportedEekCurve);
+        EXPECT_EQ(deserialized->uniqueId, rsp.uniqueId);
+        EXPECT_EQ(deserialized->supportedNumKeysInCsr, rsp.supportedNumKeysInCsr);
+    }
+}
+
 #define SET_ATTESTATION_ID(x) msg.x.Reinitialize(#x, strlen(#x))
 
 void check_id(const Buffer& id, const char* value) {
@@ -897,6 +959,31 @@ TEST(RoundTrip, SetAttestationIdsRequest) {
         CHECK_ID(serial);
         CHECK_ID(imei);
         CHECK_ID(model);
+    }
+}
+
+TEST(RoundTrip, SetAttestationIdsKM3Request) {
+    for (int ver = 0; ver <= kMaxMessageVersion; ++ver) {
+        SetAttestationIdsKM3Request msg(ver);
+        SET_ATTESTATION_ID(base.brand);
+        SET_ATTESTATION_ID(base.device);
+        SET_ATTESTATION_ID(base.product);
+        SET_ATTESTATION_ID(base.serial);
+        SET_ATTESTATION_ID(base.imei);
+        SET_ATTESTATION_ID(base.meid);
+        SET_ATTESTATION_ID(base.manufacturer);
+        SET_ATTESTATION_ID(base.model);
+        SET_ATTESTATION_ID(second_imei);
+
+        UniquePtr<SetAttestationIdsKM3Request> deserialized(round_trip(ver, msg, 136));
+        ASSERT_TRUE(deserialized);
+        CHECK_ID(base.brand);
+        CHECK_ID(base.device);
+        CHECK_ID(base.product);
+        CHECK_ID(base.serial);
+        CHECK_ID(base.imei);
+        CHECK_ID(base.model);
+        CHECK_ID(second_imei);
     }
 }
 
@@ -966,7 +1053,9 @@ template <typename Message> void parse_garbage() {
 }
 
 #define GARBAGE_TEST(Message)                                                                      \
-    TEST(GarbageTest, Message) { parse_garbage<Message>(); }
+    TEST(GarbageTest, Message) {                                                                   \
+        parse_garbage<Message>();                                                                  \
+    }
 
 GARBAGE_TEST(AbortOperationRequest);
 GARBAGE_TEST(EmptyKeymasterResponse);
@@ -994,6 +1083,7 @@ GARBAGE_TEST(UpgradeKeyResponse);
 GARBAGE_TEST(GenerateTimestampTokenRequest);
 GARBAGE_TEST(GenerateTimestampTokenResponse);
 GARBAGE_TEST(SetAttestationIdsRequest);
+GARBAGE_TEST(SetAttestationIdsKM3Request);
 GARBAGE_TEST(ConfigureVerifiedBootInfoRequest);
 GARBAGE_TEST(GetRootOfTrustRequest);
 GARBAGE_TEST(GetRootOfTrustResponse);

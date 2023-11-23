@@ -244,6 +244,16 @@ public class BleAdvertisingSetTestActivity extends PassFailButtons.Activity {
     // The following order of commands follows the diagram of Bluetooth Core Specification,
     // Version 5.3, Vol 6, Part D, Figure 3.7: Periodic advertising.
     private void testPeriodicAdvertising() throws InterruptedException {
+        if (!mBluetoothAdapter.isLePeriodicAdvertisingSupported()) {
+            mAllTestsPassed |= PASS_FLAG_SET_PERIODIC_ADVERTISING_PARAMS
+                    | PASS_FLAG_SET_PERIODIC_ADVERTISING_DATA
+                    | PASS_FLAG_SET_PERIODIC_ADVERTISING_ENABLED_DISABLED;
+            mTestAdapter.setTestPass(TEST_ADAPTER_INDEX_SET_PERIODIC_ADVERTISING_PARAMS);
+            mTestAdapter.setTestPass(TEST_ADAPTER_INDEX_SET_PERIODIC_ADVERTISING_DATA);
+            mTestAdapter.setTestPass(TEST_ADAPTER_INDEX_SET_PERIODIC_ADVERTISING_ENABLED_DISABLED);
+            return;
+        }
+
         mCallback.reset();
 
         mCallback.mAdvertisingSet.get().setAdvertisingParameters(

@@ -59,8 +59,10 @@ int main() {
 #if (NXP_NFC_RECOVERY == TRUE)
     phNxpNciHal_RecoverFWTearDown();
 #endif
+#ifdef NXP_BOOTTIME_UPDATE
     initializeEseClient();
     checkEseClientUpdate();
+#endif
     status = nfc_service->registerAsService();
     if (status != OK) {
       LOG_ALWAYS_FATAL("Could not register service for NFC HAL Iface (%d).",
@@ -78,9 +80,11 @@ int main() {
     if (status != OK) {
       ALOGE("Could not register service for NXP NFC Extn Iface (%d).", status);
     }
+#ifdef NXP_BOOTTIME_UPDATE
     ALOGE("Before calling JCOP JCOS_doDownload");
     perform_eSEClientUpdate();
     ALOGE("After calling JCOS_doDownload");
+#endif
     ALOGI("NFC service is ready");
     joinRpcThreadpool();
   } catch (const std::length_error& le) {

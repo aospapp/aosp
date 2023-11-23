@@ -16,6 +16,8 @@
 
 #include "hmac_operation.h"
 
+#include <utility>
+
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 
@@ -69,7 +71,7 @@ OperationPtr HmacOperationFactory::CreateOperation(Key&& key, const Authorizatio
     }
 
     UniquePtr<HmacOperation> op(new (std::nothrow) HmacOperation(
-        move(key), purpose(), digest, mac_length_bits / 8, min_mac_length_bits / 8));
+        std::move(key), purpose(), digest, mac_length_bits / 8, min_mac_length_bits / 8));
     if (!op.get())
         *error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
     else
@@ -77,7 +79,7 @@ OperationPtr HmacOperationFactory::CreateOperation(Key&& key, const Authorizatio
 
     if (*error != KM_ERROR_OK) return nullptr;
 
-    return move(op);
+    return std::move(op);
 }
 
 static keymaster_digest_t supported_digests[] = {KM_DIGEST_SHA1, KM_DIGEST_SHA_2_224,

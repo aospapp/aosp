@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <deque>
 #include <memory>
 #include <string>
 #include <utility>
@@ -49,15 +50,14 @@
 #endif  // __CHROMEOS__
 #include <brillo/streams/file_stream.h>
 #include <brillo/streams/stream.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "update_engine/common/fake_hardware.h"
 #include "update_engine/common/file_fetcher.h"
 #include "update_engine/common/http_common.h"
 #include "update_engine/common/mock_http_fetcher.h"
-#include "update_engine/common/mock_proxy_resolver.h"
 #include "update_engine/common/multi_range_http_fetcher.h"
-#include "update_engine/common/proxy_resolver.h"
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
 #include "update_engine/libcurl_http_fetcher.h"
@@ -141,7 +141,7 @@ class PythonHttpServer : public HttpServer {
     vector<char> buf(128);
     string line;
     while (line.find('\n') == string::npos) {
-      size_t read;
+      size_t read{};
       if (!stdout->ReadBlocking(buf.data(), buf.size(), &read, nullptr)) {
         ADD_FAILURE() << "error reading http server stdout";
         return;
@@ -200,18 +200,15 @@ class AnyHttpFetcherFactory {
   AnyHttpFetcherFactory() {}
   virtual ~AnyHttpFetcherFactory() {}
 
-  virtual HttpFetcher* NewLargeFetcher(ProxyResolver* proxy_resolver) = 0;
+  virtual HttpFetcher* NewLargeFetcher() = 0;
   HttpFetcher* NewLargeFetcher(size_t num_proxies) {
-    proxy_resolver_.set_num_proxies(num_proxies);
-    return NewLargeFetcher(&proxy_resolver_);
-  }
-  HttpFetcher* NewLargeFetcher() { return NewLargeFetcher(1); }
+    auto res = NewLargeFetcher();
 
-  virtual HttpFetcher* NewSmallFetcher(ProxyResolver* proxy_resolver) = 0;
-  HttpFetcher* NewSmallFetcher() {
-    proxy_resolver_.set_num_proxies(1);
-    return NewSmallFetcher(&proxy_resolver_);
+    res->SetProxies(std::deque<std::string>(num_proxies, kNoProxy));
+    return res;
   }
+
+  virtual HttpFetcher* NewSmallFetcher() = 0;
 
   virtual string BigUrl(in_port_t port) const { return kUnusedUrl; }
   virtual string SmallUrl(in_port_t port) const { return kUnusedUrl; }
@@ -229,7 +226,6 @@ class AnyHttpFetcherFactory {
   FakeHardware* fake_hardware() { return &fake_hardware_; }
 
  protected:
-  DirectProxyResolver proxy_resolver_;
   FakeHardware fake_hardware_;
 };
 
@@ -237,16 +233,15 @@ class MockHttpFetcherFactory : public AnyHttpFetcherFactory {
  public:
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewLargeFetcher;
-  HttpFetcher* NewLargeFetcher(ProxyResolver* proxy_resolver) override {
+  HttpFetcher* NewLargeFetcher() override {
     brillo::Blob big_data(1000000);
-    return new MockHttpFetcher(
-        big_data.data(), big_data.size(), proxy_resolver);
+    return new MockHttpFetcher(big_data.data(), big_data.size());
   }
 
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewSmallFetcher;
-  HttpFetcher* NewSmallFetcher(ProxyResolver* proxy_resolver) override {
-    return new MockHttpFetcher("x", 1, proxy_resolver);
+  HttpFetcher* NewSmallFetcher() override {
+    return new MockHttpFetcher("x", 1);
   }
 
   bool IsMock() const override { return true; }
@@ -261,9 +256,8 @@ class LibcurlHttpFetcherFactory : public AnyHttpFetcherFactory {
  public:
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewLargeFetcher;
-  HttpFetcher* NewLargeFetcher(ProxyResolver* proxy_resolver) override {
-    LibcurlHttpFetcher* ret =
-        new LibcurlHttpFetcher(proxy_resolver, &fake_hardware_);
+  HttpFetcher* NewLargeFetcher() override {
+    LibcurlHttpFetcher* ret = new LibcurlHttpFetcher(&fake_hardware_);
     // Speed up test execution.
     ret->set_idle_seconds(1);
     ret->set_retry_seconds(1);
@@ -273,9 +267,8 @@ class LibcurlHttpFetcherFactory : public AnyHttpFetcherFactory {
 
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewSmallFetcher;
-  HttpFetcher* NewSmallFetcher(ProxyResolver* proxy_resolver) override {
-    return NewLargeFetcher(proxy_resolver);
-  }
+
+  HttpFetcher* NewSmallFetcher() override { return NewLargeFetcher(); }
 
   string BigUrl(in_port_t port) const override {
     return LocalServerUrlForPath(
@@ -304,9 +297,9 @@ class MultiRangeHttpFetcherFactory : public LibcurlHttpFetcherFactory {
  public:
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewLargeFetcher;
-  HttpFetcher* NewLargeFetcher(ProxyResolver* proxy_resolver) override {
-    MultiRangeHttpFetcher* ret = new MultiRangeHttpFetcher(
-        new LibcurlHttpFetcher(proxy_resolver, &fake_hardware_));
+  HttpFetcher* NewLargeFetcher() override {
+    MultiRangeHttpFetcher* ret =
+        new MultiRangeHttpFetcher(new LibcurlHttpFetcher(&fake_hardware_));
     ret->ClearRanges();
     ret->AddRange(0);
     // Speed up test execution.
@@ -318,9 +311,7 @@ class MultiRangeHttpFetcherFactory : public LibcurlHttpFetcherFactory {
 
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewSmallFetcher;
-  HttpFetcher* NewSmallFetcher(ProxyResolver* proxy_resolver) override {
-    return NewLargeFetcher(proxy_resolver);
-  }
+  HttpFetcher* NewSmallFetcher() override { return NewLargeFetcher(); }
 
   bool IsMulti() const override { return true; }
 };
@@ -329,15 +320,11 @@ class FileFetcherFactory : public AnyHttpFetcherFactory {
  public:
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewLargeFetcher;
-  HttpFetcher* NewLargeFetcher(ProxyResolver* /* proxy_resolver */) override {
-    return new FileFetcher();
-  }
+  HttpFetcher* NewLargeFetcher() override { return new FileFetcher(); }
 
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewSmallFetcher;
-  HttpFetcher* NewSmallFetcher(ProxyResolver* proxy_resolver) override {
-    return NewLargeFetcher(proxy_resolver);
-  }
+  HttpFetcher* NewSmallFetcher() override { return NewLargeFetcher(); }
 
   string BigUrl(in_port_t port) const override {
     static string big_contents = []() {
@@ -378,7 +365,7 @@ class MultiRangeHttpFetcherOverFileFetcherFactory : public FileFetcherFactory {
  public:
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewLargeFetcher;
-  HttpFetcher* NewLargeFetcher(ProxyResolver* /* proxy_resolver */) override {
+  HttpFetcher* NewLargeFetcher() override {
     MultiRangeHttpFetcher* ret = new MultiRangeHttpFetcher(new FileFetcher());
     ret->ClearRanges();
     // FileFetcher doesn't support range with unspecified length.
@@ -392,9 +379,7 @@ class MultiRangeHttpFetcherOverFileFetcherFactory : public FileFetcherFactory {
 
   // Necessary to unhide the definition in the base class.
   using AnyHttpFetcherFactory::NewSmallFetcher;
-  HttpFetcher* NewSmallFetcher(ProxyResolver* proxy_resolver) override {
-    return NewLargeFetcher(proxy_resolver);
-  }
+  HttpFetcher* NewSmallFetcher() override { return NewLargeFetcher(); }
 
   bool IsMulti() const override { return true; }
 };
@@ -636,7 +621,7 @@ TYPED_TEST(HttpFetcherTest, PauseTest) {
   unique_ptr<HttpServer> server(this->test_.CreateServer());
   ASSERT_TRUE(server->started_);
 
-  MessageLoop::TaskId callback_id;
+  MessageLoop::TaskId callback_id{};
   callback_id = this->loop_.PostDelayedTask(
       FROM_HERE,
       base::Bind(&UnpausingTimeoutCallback, &delegate, &callback_id),
@@ -652,23 +637,16 @@ TYPED_TEST(HttpFetcherTest, PauseTest) {
 TYPED_TEST(HttpFetcherTest, PauseWhileResolvingProxyTest) {
   if (this->test_.IsMock() || !this->test_.IsHttpSupported())
     return;
-  MockProxyResolver mock_resolver;
-  unique_ptr<HttpFetcher> fetcher(this->test_.NewLargeFetcher(&mock_resolver));
+  unique_ptr<HttpFetcher> fetcher(this->test_.NewLargeFetcher());
 
   // Saved arguments from the proxy call.
-  ProxiesResolvedFn proxy_callback;
-  EXPECT_CALL(mock_resolver, GetProxiesForUrl("http://fake_url", _))
-      .WillOnce(DoAll(SaveArg<1>(&proxy_callback), Return(true)));
   fetcher->BeginTransfer("http://fake_url");
-  testing::Mock::VerifyAndClearExpectations(&mock_resolver);
 
   // Pausing and unpausing while resolving the proxy should not affect anything.
   fetcher->Pause();
   fetcher->Unpause();
   fetcher->Pause();
   // Proxy resolver comes back after we paused the fetcher.
-  ASSERT_FALSE(proxy_callback.is_null());
-  proxy_callback.Run({1, kNoProxy});
 }
 
 class AbortingHttpFetcherTestDelegate : public HttpFetcherDelegate {
@@ -740,21 +718,16 @@ TYPED_TEST(HttpFetcherTest, AbortTest) {
 TYPED_TEST(HttpFetcherTest, TerminateTransferWhileResolvingProxyTest) {
   if (this->test_.IsMock() || !this->test_.IsHttpSupported())
     return;
-  MockProxyResolver mock_resolver;
-  unique_ptr<HttpFetcher> fetcher(this->test_.NewLargeFetcher(&mock_resolver));
+  unique_ptr<HttpFetcher> fetcher(this->test_.NewLargeFetcher());
 
   HttpFetcherTestDelegate delegate;
   fetcher->set_delegate(&delegate);
 
-  EXPECT_CALL(mock_resolver, GetProxiesForUrl(_, _)).WillOnce(Return(123));
   fetcher->BeginTransfer("http://fake_url");
   // Run the message loop until idle. This must call the MockProxyResolver with
   // the request.
   while (this->loop_.RunOnce(false)) {
   }
-  testing::Mock::VerifyAndClearExpectations(&mock_resolver);
-
-  EXPECT_CALL(mock_resolver, CancelProxyRequest(123)).WillOnce(Return(true));
 
   // Terminate the transfer right before the proxy resolution response.
   fetcher->TerminateTransfer();
@@ -1300,7 +1273,7 @@ TYPED_TEST(HttpFetcherTest, MultiHttpFetcherErrorIfOffsetUnrecoverableTest) {
   vector<pair<off_t, off_t>> ranges;
   ranges.push_back(make_pair(0, 25));
   ranges.push_back(make_pair(99, 0));
-  MultiTest(this->test_.NewLargeFetcher(2),
+  MultiTest(this->test_.NewLargeFetcher(),
             this->test_.fake_hardware(),
             LocalServerUrlForPath(
                 server->GetPort(),

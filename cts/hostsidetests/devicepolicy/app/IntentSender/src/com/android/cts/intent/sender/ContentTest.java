@@ -24,9 +24,11 @@ import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.HandlerThread;
-import androidx.core.content.FileProvider;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
+
+import androidx.core.content.FileProvider;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -66,6 +68,8 @@ public class ContentTest extends InstrumentationTestCase {
         super.setUp();
         mContext = getInstrumentation().getTargetContext();
         mActivity = launchActivity(mContext.getPackageName(), IntentSenderActivity.class, null);
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity();
     }
 
     @Override

@@ -34,10 +34,11 @@ cc_test {
         "-fno-inline-functions",
         "-DMSC_CLOCK",
         "-DCLK_TCK=1000000",
-        "-Wno-incompatible-library-redeclaration",
-        "-Wno-return-type",
+        "-Wno-deprecated-non-prototype",
         "-Wno-implicit-function-declaration",
         "-Wno-implicit-int",
+        "-Wno-incompatible-library-redeclaration",
+        "-Wno-return-type",
     ],
     // Include both the 32 and 64 bit versions
     compile_multilib: "both",
@@ -52,5 +53,6 @@ cc_test {
     test_suites: [
         "cts",
         "general-tests",
+        "tvts",
     ],
 }

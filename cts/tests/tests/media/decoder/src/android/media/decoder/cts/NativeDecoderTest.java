@@ -28,22 +28,19 @@ import android.media.MediaCodec.BufferInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.MediaTestBase;
-import android.media.cts.NonMediaMainlineTest;
-import android.media.cts.Preconditions;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
-import android.view.Surface;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -51,13 +48,11 @@ import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.zip.Adler32;
 
 @SmallTest
@@ -127,81 +122,6 @@ public class NativeDecoderTest extends MediaTestBase {
         ParcelFileDescriptor parcelFD =
                 ParcelFileDescriptor.open(inpFile, ParcelFileDescriptor.MODE_READ_ONLY);
         return new AssetFileDescriptor(parcelFD, 0, parcelFD.getStatSize());
-    }
-
-    private static int[] getSampleSizes(String path, String[] keys, String[] values)
-            throws IOException {
-        MediaExtractor ex = new MediaExtractor();
-        if (keys == null || values == null) {
-            ex.setDataSource(path);
-        } else {
-            Map<String, String> headers = null;
-            int numheaders = Math.min(keys.length, values.length);
-            for (int i = 0; i < numheaders; i++) {
-                if (headers == null) {
-                    headers = new HashMap<>();
-                }
-                String key = keys[i];
-                String value = values[i];
-                headers.put(key, value);
-            }
-            ex.setDataSource(path, headers);
-        }
-
-        return getSampleSizes(ex);
-    }
-
-    private static int[] getSampleSizes(FileDescriptor fd, long offset, long size)
-            throws IOException {
-        MediaExtractor ex = new MediaExtractor();
-        ex.setDataSource(fd, offset, size);
-        return getSampleSizes(ex);
-    }
-
-    private static int[] getSampleSizes(MediaExtractor ex) {
-        ArrayList<Integer> foo = new ArrayList<Integer>();
-        ByteBuffer buf = ByteBuffer.allocate(1024*1024);
-        int numtracks = ex.getTrackCount();
-        assertTrue("no tracks", numtracks > 0);
-        foo.add(numtracks);
-        for (int i = 0; i < numtracks; i++) {
-            MediaFormat format = ex.getTrackFormat(i);
-            String mime = format.getString(MediaFormat.KEY_MIME);
-            if (mime.startsWith("audio/")) {
-                foo.add(0);
-                foo.add(format.getInteger(MediaFormat.KEY_SAMPLE_RATE));
-                foo.add(format.getInteger(MediaFormat.KEY_CHANNEL_COUNT));
-                foo.add((int)format.getLong(MediaFormat.KEY_DURATION));
-            } else if (mime.startsWith("video/")) {
-                foo.add(1);
-                foo.add(format.getInteger(MediaFormat.KEY_WIDTH));
-                foo.add(format.getInteger(MediaFormat.KEY_HEIGHT));
-                foo.add((int)format.getLong(MediaFormat.KEY_DURATION));
-            } else {
-                fail("unexpected mime type: " + mime);
-            }
-            ex.selectTrack(i);
-        }
-        while(true) {
-            int n = ex.readSampleData(buf, 0);
-            if (n < 0) {
-                break;
-            }
-            foo.add(n);
-            foo.add(ex.getSampleTrackIndex());
-            foo.add(ex.getSampleFlags());
-            foo.add((int)ex.getSampleTime()); // just the low bits should be OK
-            byte[] foobar = new byte[n];
-            buf.get(foobar, 0, n);
-            foo.add(adler32(foobar));
-            ex.advance();
-        }
-
-        int [] ret = new int[foo.size()];
-        for (int i = 0; i < ret.length; i++) {
-            ret[i] = foo.get(i);
-        }
-        return ret;
     }
 
     @Test

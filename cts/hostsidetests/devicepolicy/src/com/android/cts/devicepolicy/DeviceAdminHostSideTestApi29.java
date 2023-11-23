@@ -20,7 +20,7 @@ import org.junit.Test;
 /**
  * BaseDeviceAdminHostSideTest for device admin targeting API level 29.
  */
-public class DeviceAdminHostSideTestApi29 extends DeviceAdminHostSideTestApi24 {
+public final class DeviceAdminHostSideTestApi29 extends DeviceAdminHostSideTestApi24 {
     @Override
     protected int getTargetApiVersion() {
         return 29;

@@ -137,14 +137,23 @@ class WifiRvrTest(base_test.BaseTestClass):
                     primary_y_label='Throughput (Mbps)')
             plots[plot_id].add_line(result['total_attenuation'],
                                     result['throughput_receive'],
-                                    result['test_name'],
+                                    result['test_name'].strip('test_rvr_'),
                                     hover_text=result['hover_text'],
                                     marker='circle')
             plots[plot_id].add_line(result['total_attenuation'],
-                                    result['avg_phy_rate'],
-                                    result['test_name'] + ' (PHY)',
+                                    result['rx_phy_rate'],
+                                    result['test_name'].strip('test_rvr_') +
+                                    ' (Rx PHY)',
                                     hover_text=result['hover_text'],
-                                    marker='circle')
+                                    style='dashed',
+                                    marker='inverted_triangle')
+            plots[plot_id].add_line(result['total_attenuation'],
+                                    result['tx_phy_rate'],
+                                    result['test_name'].strip('test_rvr_') +
+                                    ' (Tx PHY)',
+                                    hover_text=result['hover_text'],
+                                    style='dashed',
+                                    marker='triangle')
 
         figure_list = []
         for plot_id, plot in plots.items():
@@ -311,39 +320,36 @@ class WifiRvrTest(base_test.BaseTestClass):
                 ) for rssi in rvr_result['rssi']
             ]
         }
-        if 'DL' in self.current_test_name:
-            rvr_result['avg_phy_rate'] = [
-                curr_llstats['summary'].get('mean_rx_phy_rate', 0)
-                for curr_llstats in rvr_result['llstats']
-            ]
-        else:
-            rvr_result['avg_phy_rate'] = [
-                curr_llstats['summary'].get('mean_tx_phy_rate', 0)
-                for curr_llstats in rvr_result['llstats']
-            ]
+
         figure.add_line(rvr_result['total_attenuation'],
                         rvr_result['throughput_receive'],
                         'Measured Throughput',
                         hover_text=rvr_result['hover_text'],
-                        color='red',
+                        color='black',
                         marker='circle')
-        rvr_result['avg_phy_rate'].extend(
-            [0] * (len(rvr_result['total_attenuation']) -
-                   len(rvr_result['avg_phy_rate'])))
-        figure.add_line(rvr_result['total_attenuation'],
-                        rvr_result['avg_phy_rate'],
-                        'Average PHY Rate',
-                        hover_text=rvr_result['hover_text'],
-                        color='red',
-                        style='dashed',
-                        marker='square')
+        figure.add_line(
+            rvr_result['total_attenuation'][0:len(rvr_result['rx_phy_rate'])],
+            rvr_result['rx_phy_rate'],
+            'Rx PHY Rate',
+            hover_text=rvr_result['hover_text'],
+            color='blue',
+            style='dashed',
+            marker='inverted_triangle')
+        figure.add_line(
+            rvr_result['total_attenuation'][0:len(rvr_result['rx_phy_rate'])],
+            rvr_result['tx_phy_rate'],
+            'Tx PHY Rate',
+            hover_text=rvr_result['hover_text'],
+            color='red',
+            style='dashed',
+            marker='triangle')
 
         output_file_path = os.path.join(
             self.log_path, '{}.html'.format(self.current_test_name))
         figure.generate_figure(output_file_path)
 
     def compute_test_metrics(self, rvr_result):
-        #Set test metrics
+        # Set test metrics
         rvr_result['metrics'] = {}
         rvr_result['metrics']['peak_tput'] = max(
             rvr_result['throughput_receive'])
@@ -362,7 +368,7 @@ class WifiRvrTest(base_test.BaseTestClass):
         for idx in range(len(tput_below_limit)):
             if all(tput_below_limit[idx:]):
                 if idx == 0:
-                    #Throughput was never above limit
+                    # Throughput was never above limit
                     rvr_result['metrics']['high_tput_range'] = -1
                 else:
                     rvr_result['metrics']['high_tput_range'] = rvr_result[
@@ -411,6 +417,8 @@ class WifiRvrTest(base_test.BaseTestClass):
             self.testclass_params.get('monitor_llstats', 1))
         zero_counter = 0
         throughput = []
+        rx_phy_rate = []
+        tx_phy_rate = []
         llstats = []
         rssi = []
         for atten in testcase_params['atten_range']:
@@ -479,6 +487,10 @@ class WifiRvrTest(base_test.BaseTestClass):
             llstats_obj.update_stats()
             curr_llstats = llstats_obj.llstats_incremental.copy()
             llstats.append(curr_llstats)
+            rx_phy_rate.append(curr_llstats['summary'].get(
+                'mean_rx_phy_rate', 0))
+            tx_phy_rate.append(curr_llstats['summary'].get(
+                'mean_tx_phy_rate', 0))
             self.log.info(
                 ('Throughput at {0:.2f} dB is {1:.2f} Mbps. '
                  'RSSI = {2:.2f} [{3:.2f}, {4:.2f}].').format(
@@ -492,9 +504,11 @@ class WifiRvrTest(base_test.BaseTestClass):
             if zero_counter == self.MAX_CONSECUTIVE_ZEROS:
                 self.log.info(
                     'Throughput stable at 0 Mbps. Stopping test now.')
-                throughput.extend(
-                    [0] *
-                    (len(testcase_params['atten_range']) - len(throughput)))
+                zero_padding = len(
+                    testcase_params['atten_range']) - len(throughput)
+                throughput.extend([0] * zero_padding)
+                rx_phy_rate.extend([0] * zero_padding)
+                tx_phy_rate.extend([0] * zero_padding)
                 break
         for attenuator in self.attenuators:
             attenuator.set_atten(0, strict=False, retry=True)
@@ -512,6 +526,8 @@ class WifiRvrTest(base_test.BaseTestClass):
         ]
         rvr_result['rssi'] = rssi
         rvr_result['throughput_receive'] = throughput
+        rvr_result['rx_phy_rate'] = rx_phy_rate
+        rvr_result['tx_phy_rate'] = tx_phy_rate
         rvr_result['llstats'] = llstats
         return rvr_result
 
@@ -556,8 +572,9 @@ class WifiRvrTest(base_test.BaseTestClass):
             self.sta_dut.droid.wakeLockAcquireDim()
         else:
             self.sta_dut.go_to_sleep()
-        if wputils.validate_network(self.sta_dut,
-                                    testcase_params['test_network']['SSID']):
+        if (wputils.validate_network(self.sta_dut,
+                                     testcase_params['test_network']['SSID'])
+                and not self.testclass_params.get('force_reconnect', 0)):
             self.log.info('Already connected to desired network')
         else:
             wutils.wifi_toggle_state(self.sta_dut, False)
@@ -733,6 +750,7 @@ class WifiRvrTest(base_test.BaseTestClass):
 
 
 class WifiRvr_TCP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -746,6 +764,7 @@ class WifiRvr_TCP_Test(WifiRvrTest):
 
 
 class WifiRvr_VHT_TCP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -756,6 +775,7 @@ class WifiRvr_VHT_TCP_Test(WifiRvrTest):
 
 
 class WifiRvr_HE_TCP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -769,6 +789,7 @@ class WifiRvr_HE_TCP_Test(WifiRvrTest):
 
 
 class WifiRvr_SampleUDP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -779,6 +800,7 @@ class WifiRvr_SampleUDP_Test(WifiRvrTest):
 
 
 class WifiRvr_VHT_SampleUDP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -789,6 +811,7 @@ class WifiRvr_VHT_SampleUDP_Test(WifiRvrTest):
 
 
 class WifiRvr_HE_SampleUDP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -799,6 +822,7 @@ class WifiRvr_HE_SampleUDP_Test(WifiRvrTest):
 
 
 class WifiRvr_SampleDFS_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -809,6 +833,7 @@ class WifiRvr_SampleDFS_Test(WifiRvrTest):
 
 
 class WifiRvr_SingleChain_TCP_Test(WifiRvrTest):
+
     def __init__(self, controllers):
         super().__init__(controllers)
         self.tests = self.generate_test_cases(
@@ -867,6 +892,7 @@ class WifiOtaRvrTest(WifiRvrTest):
     setting turntable orientation and other chamber parameters to study
     performance in varying channel conditions
     """
+
     def __init__(self, controllers):
         base_test.BaseTestClass.__init__(self, controllers)
         self.testcase_metric_logger = (
@@ -902,7 +928,12 @@ class WifiOtaRvrTest(WifiRvrTest):
                 ]).items())
             if test_id not in plots:
                 # Initialize test id data when not present
-                compiled_data[test_id] = {'throughput': [], 'metrics': {}}
+                compiled_data[test_id] = {
+                    'throughput': [],
+                    'rx_phy_rate': [],
+                    'tx_phy_rate': [],
+                    'metrics': {}
+                }
                 compiled_data[test_id]['metrics'] = {
                     key: []
                     for key in result['metrics'].keys()
@@ -927,6 +958,8 @@ class WifiOtaRvrTest(WifiRvrTest):
             # Compile test id data and metrics
             compiled_data[test_id]['throughput'].append(
                 result['throughput_receive'])
+            compiled_data[test_id]['rx_phy_rate'].append(result['rx_phy_rate'])
+            compiled_data[test_id]['tx_phy_rate'].append(result['tx_phy_rate'])
             compiled_data[test_id]['total_attenuation'] = result[
                 'total_attenuation']
             for metric_key, metric_value in result['metrics'].items():
@@ -935,18 +968,27 @@ class WifiOtaRvrTest(WifiRvrTest):
             # Add test id to plots
             plots[test_id].add_line(result['total_attenuation'],
                                     result['throughput_receive'],
-                                    result['test_name'],
+                                    result['test_name'].strip('test_rvr_'),
                                     hover_text=result['hover_text'],
                                     width=1,
                                     style='dashed',
                                     marker='circle')
-            plots[test_id_phy].add_line(result['total_attenuation'],
-                                        result['avg_phy_rate'],
-                                        result['test_name'] + ' PHY',
-                                        hover_text=result['hover_text'],
-                                        width=1,
-                                        style='dashed',
-                                        marker='circle')
+            plots[test_id_phy].add_line(
+                result['total_attenuation'],
+                result['rx_phy_rate'],
+                result['test_name'].strip('test_rvr_') + ' Rx PHY Rate',
+                hover_text=result['hover_text'],
+                width=1,
+                style='dashed',
+                marker='inverted_triangle')
+            plots[test_id_phy].add_line(
+                result['total_attenuation'],
+                result['tx_phy_rate'],
+                result['test_name'].strip('test_rvr_') + ' Tx PHY Rate',
+                hover_text=result['hover_text'],
+                width=1,
+                style='dashed',
+                marker='triangle')
 
         # Compute average RvRs and compute metrics over orientations
         for test_id, test_data in compiled_data.items():
@@ -966,6 +1008,10 @@ class WifiOtaRvrTest(WifiRvrTest):
                     metric_key, metric_value)
             test_data['avg_rvr'] = numpy.mean(test_data['throughput'], 0)
             test_data['median_rvr'] = numpy.median(test_data['throughput'], 0)
+            test_data['avg_rx_phy_rate'] = numpy.mean(test_data['rx_phy_rate'],
+                                                      0)
+            test_data['avg_tx_phy_rate'] = numpy.mean(test_data['tx_phy_rate'],
+                                                      0)
             plots[test_id].add_line(test_data['total_attenuation'],
                                     test_data['avg_rvr'],
                                     legend='Average Throughput',
@@ -974,6 +1020,15 @@ class WifiOtaRvrTest(WifiRvrTest):
                                     test_data['median_rvr'],
                                     legend='Median Throughput',
                                     marker='square')
+            test_id_phy = test_id + tuple('PHY')
+            plots[test_id_phy].add_line(test_data['total_attenuation'],
+                                        test_data['avg_rx_phy_rate'],
+                                        legend='Average Rx Rate',
+                                        marker='inverted_triangle')
+            plots[test_id_phy].add_line(test_data['total_attenuation'],
+                                        test_data['avg_tx_phy_rate'],
+                                        legend='Average Tx Rate',
+                                        marker='triangle')
 
         figure_list = []
         for plot_id, plot in plots.items():
@@ -1019,6 +1074,7 @@ class WifiOtaRvrTest(WifiRvrTest):
 
 
 class WifiOtaRvr_StandardOrientation_Test(WifiOtaRvrTest):
+
     def __init__(self, controllers):
         WifiOtaRvrTest.__init__(self, controllers)
         self.tests = self.generate_test_cases(
@@ -1028,6 +1084,7 @@ class WifiOtaRvr_StandardOrientation_Test(WifiOtaRvrTest):
 
 
 class WifiOtaRvr_SampleChannel_Test(WifiOtaRvrTest):
+
     def __init__(self, controllers):
         WifiOtaRvrTest.__init__(self, controllers)
         self.tests = self.generate_test_cases([6], ['bw20'],
@@ -1042,6 +1099,7 @@ class WifiOtaRvr_SampleChannel_Test(WifiOtaRvrTest):
 
 
 class WifiOtaRvr_SingleOrientation_Test(WifiOtaRvrTest):
+
     def __init__(self, controllers):
         WifiOtaRvrTest.__init__(self, controllers)
         self.tests = self.generate_test_cases(
@@ -1050,6 +1108,7 @@ class WifiOtaRvr_SingleOrientation_Test(WifiOtaRvrTest):
 
 
 class WifiOtaRvr_SingleChain_Test(WifiOtaRvrTest):
+
     def __init__(self, controllers):
         WifiOtaRvrTest.__init__(self, controllers)
         self.tests = self.generate_test_cases([6], ['bw20'],

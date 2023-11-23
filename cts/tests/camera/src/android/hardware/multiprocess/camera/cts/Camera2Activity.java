@@ -17,6 +17,7 @@
 package android.hardware.multiprocess.camera.cts;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Rect;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraDevice;
@@ -24,6 +25,7 @@ import android.hardware.camera2.CameraManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Process;
 import android.util.Log;
 import android.view.WindowMetrics;
 
@@ -42,11 +44,23 @@ public class Camera2Activity extends Activity {
     StateCallback mStateCallback;
     Handler mCameraHandler;
     HandlerThread mCameraHandlerThread;
+    boolean mIgnoreCameraAccess = false;
+    boolean mIgnoreTopActivityResumed = false;
+    boolean mIgnoreActivityPaused = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "onCreate called.");
+        Log.i(TAG, "onCreate called: uid " + Process.myUid() + ".");
         super.onCreate(savedInstanceState);
+
+        Intent intent = getIntent();
+        mIgnoreCameraAccess = intent.getBooleanExtra(
+                TestConstants.EXTRA_IGNORE_CAMERA_ACCESS, false);
+        mIgnoreTopActivityResumed = intent.getBooleanExtra(
+                TestConstants.EXTRA_IGNORE_TOP_ACTIVITY_RESUMED, false);
+        mIgnoreActivityPaused = intent.getBooleanExtra(
+                TestConstants.EXTRA_IGNORE_ACTIVITY_PAUSED, false);
+
         mCameraHandlerThread = new HandlerThread("CameraHandlerThread");
         mCameraHandlerThread.start();
         mCameraHandler = new Handler(mCameraHandlerThread.getLooper());
@@ -58,6 +72,10 @@ public class Camera2Activity extends Activity {
     protected void onPause() {
         Log.i(TAG, "onPause called.");
         super.onPause();
+
+        if (!mIgnoreActivityPaused) {
+            mErrorServiceConnection.logAsync(TestConstants.EVENT_ACTIVITY_PAUSED, "");
+        }
     }
 
     @Override
@@ -103,6 +121,28 @@ public class Camera2Activity extends Activity {
                     " camera exception during connection: " + e);
             Log.e(TAG, "Access exception: " + e);
         }
+
+        Log.i(TAG, "onResume finished.");
+    }
+
+    @Override
+    public void onTopResumedActivityChanged(boolean topResumed) {
+        /**
+         * Log here for easier debugging in split screen mode. We will receive this instead of
+         * onResume because in split screen both activities are always in the resumed state.
+         */
+        Log.i(TAG, "onTopResumedActivityChanged(" + topResumed + ")");
+        super.onTopResumedActivityChanged(topResumed);
+
+        if (!mIgnoreTopActivityResumed) {
+            if (topResumed) {
+                mErrorServiceConnection.logAsync(
+                        TestConstants.EVENT_ACTIVITY_TOP_RESUMED_TRUE, "");
+            } else {
+                mErrorServiceConnection.logAsync(
+                        TestConstants.EVENT_ACTIVITY_TOP_RESUMED_FALSE, "");
+            }
+        }
     }
 
     @Override
@@ -138,6 +178,16 @@ public class Camera2Activity extends Activity {
             mErrorServiceConnection.logAsync(TestConstants.EVENT_CAMERA_UNAVAILABLE,
                     cameraId);
             Log.i(TAG, "Camera " + cameraId + " is unavailable");
+        }
+
+        @Override
+        public void onCameraAccessPrioritiesChanged() {
+            super.onCameraAccessPrioritiesChanged();
+            if (!mIgnoreCameraAccess) {
+                mErrorServiceConnection.logAsync(
+                        TestConstants.EVENT_CAMERA_ACCESS_PRIORITIES_CHANGED, "");
+            }
+            Log.i(TAG, "Camera access priorities changed");
         }
 
         @Override

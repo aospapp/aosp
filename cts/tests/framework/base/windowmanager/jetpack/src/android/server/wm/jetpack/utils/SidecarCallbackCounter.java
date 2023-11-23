@@ -18,7 +18,6 @@ package android.server.wm.jetpack.utils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.fail;
 
 import android.os.IBinder;
 
@@ -27,18 +26,13 @@ import androidx.window.sidecar.SidecarDeviceState;
 import androidx.window.sidecar.SidecarInterface.SidecarCallback;
 import androidx.window.sidecar.SidecarWindowLayoutInfo;
 
-import java.util.concurrent.CountDownLatch;
-
 public class SidecarCallbackCounter implements SidecarCallback {
 
     private final IBinder mWindowToken;
-    private final int mExpectedCallbackCount;
-    private final CountDownLatch mCountDownLatch;
+    private int mCallbackCount;
 
-    public SidecarCallbackCounter(IBinder windowToken, int expectedCallbackCount) {
+    public SidecarCallbackCounter(IBinder windowToken) {
         mWindowToken = windowToken;
-        mExpectedCallbackCount = expectedCallbackCount;
-        mCountDownLatch = new CountDownLatch(mExpectedCallbackCount);
     }
 
     @Override
@@ -50,15 +44,14 @@ public class SidecarCallbackCounter implements SidecarCallback {
             @NonNull SidecarWindowLayoutInfo sidecarWindowLayoutInfo) {
         assertEquals(iBinder, mWindowToken);
         assertNotNull(sidecarWindowLayoutInfo);
-        if (mCountDownLatch.getCount() == 0) {
-            fail("onWindowLayoutChanged callback count has exceeded expected amount of: "
-                    + mExpectedCallbackCount);
-        }
-        mCountDownLatch.countDown();
+        mCallbackCount++;
     }
 
-    public void assertZeroCount() {
-        assertEquals("Callback count should be zero", 0, mCountDownLatch.getCount());
+    public void resetCallbackCount() {
+        mCallbackCount = 0;
     }
 
+    public long getCallbackCount() {
+        return mCallbackCount;
+    }
 }

@@ -356,6 +356,15 @@ public class TextAppearanceSpanTest {
     }
 
     @Test
+    public void testCreateFromStyle_letterSpacing() {
+        final TextAppearanceSpan span = new TextAppearanceSpan(mContext,
+                android.text.cts.R.style.textAppearanceWithLetterSpacing);
+        final TextPaint tp = new TextPaint();
+        span.updateDrawState(tp);
+        assertEquals(1.0f, tp.getLetterSpacing(), 0f);
+    }
+
+    @Test
     public void testWriteReadParcel_FontResource() {
         final TextAppearanceSpan span = new TextAppearanceSpan(mContext,
                 android.text.cts.R.style.customFont);
@@ -427,6 +436,7 @@ public class TextAppearanceSpanTest {
         assertEquals(span.getFontFeatureSettings(), unparceledSpan.getFontFeatureSettings());
         assertEquals(span.getFontVariationSettings(), unparceledSpan.getFontVariationSettings());
         assertEquals(span.isElegantTextHeight(), unparceledSpan.isElegantTextHeight());
+        assertEquals(span.getLetterSpacing(), unparceledSpan.getLetterSpacing(), 0f);
     }
 
     @Test

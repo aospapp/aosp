@@ -94,6 +94,7 @@ class ScanUtils {
   // If |ssids| contains an empty string, it will a scan for all ssids.
   // - |freqs| is a vector of frequencies we request to scan.
   // If |freqs| is an empty vector, it will scan all supported frequencies.
+  // - |vendor_ies| is a vector of vendor ies we add it in probe req.
   // - |error_code| contains the errno kernel replied when this returns false.
   // Returns true on success.
   virtual bool Scan(uint32_t interface_index,
@@ -102,6 +103,7 @@ class ScanUtils {
                     bool enable_6ghz_rnr,
                     const std::vector<std::vector<uint8_t>>& ssids,
                     const std::vector<uint32_t>& freqs,
+                    const std::vector<uint8_t>& vendor_ies,
                     int* error_code);
 
   // Send scan request to kernel for interface with index |interface_index|.

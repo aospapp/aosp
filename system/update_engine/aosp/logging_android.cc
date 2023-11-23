@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <functional>
 #include <iomanip>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -35,6 +36,7 @@
 #include <base/strings/stringprintf.h>
 #include <log/log.h>
 
+#include "android/log.h"
 #include "update_engine/common/utils.h"
 
 using std::string;
@@ -204,8 +206,23 @@ class CombinedLogger {
     }
   }
   void operator()(const struct __android_log_message* log_message) {
-    for (auto&& logger : loggers_) {
-      logger(log_message);
+    if (log_message->file != nullptr && log_message->line != 0) {
+      __android_log_message formatted = *log_message;
+      std::stringstream ss;
+      ss << "[" << LogPriorityToCString(formatted.priority) << ":"
+         << formatted.file << "(" << formatted.line << ")] "
+         << formatted.message;
+      formatted.file = nullptr;
+      formatted.line = 0;
+      const auto str = ss.str();
+      formatted.message = str.c_str();
+      for (auto&& logger : loggers_) {
+        logger(&formatted);
+      }
+    } else {
+      for (auto&& logger : loggers_) {
+        logger(log_message);
+      }
     }
   }
 
@@ -248,7 +265,17 @@ bool RedirectToLiblog(int severity,
   } else {
     // This will eventually be redirected to CombinedLogger.
     // Use nullptr as tag so that liblog infers log tag from getprogname().
-    __android_log_write(priority, nullptr /* tag */, str.c_str());
+    if (file == nullptr || file[0] == 0 || line == 0 || message_start != 0) {
+      __android_log_write(priority, nullptr /* tag */, str.c_str());
+    } else {
+      __android_log_print(priority,
+                          nullptr,
+                          "[%s:%s(%d)] %s",
+                          LogPriorityToCString(priority),
+                          file,
+                          line,
+                          str.c_str());
+    }
   }
   return true;
 }

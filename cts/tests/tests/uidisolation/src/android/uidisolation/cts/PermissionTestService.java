@@ -26,13 +26,14 @@ import android.os.Messenger;
 import android.os.RemoteException;
 import android.util.Log;
 import android.webkit.cts.CtsTestServer;
+import android.webkit.cts.SslMode;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
 
@@ -214,8 +215,7 @@ public class PermissionTestService extends Service {
         CtsTestServer webServer = null;
         try {
             try {
-                webServer = new CtsTestServer(getApplication(),
-                        CtsTestServer.SslMode.TRUST_ANY_CLIENT);
+                webServer = new CtsTestServer(getApplication(), SslMode.TRUST_ANY_CLIENT);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to create CtsTestServer.");
                 return false;

@@ -108,6 +108,12 @@ impl DB {
                 .prepare("SELECT alias FROM profiles WHERE owner = ? ORDER BY alias ASC;")
                 .context("In list: Failed to prepare statement.")?;
 
+            // This allow is necessary to avoid the following error:
+            //
+            // error[E0597]: `stmt` does not live long enough
+            //
+            // See: https://github.com/rust-lang/rust-clippy/issues/8114
+            #[allow(clippy::let_and_return)]
             let aliases = stmt
                 .query_map(params![caller_uid], |row| row.get(0))?
                 .collect::<rusqlite::Result<Vec<String>>>()
@@ -172,7 +178,7 @@ impl DB {
 
 /// This is the main LegacyKeystore error type, it wraps binder exceptions and the
 /// LegacyKeystore errors.
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, thiserror::Error, PartialEq, Eq)]
 pub enum Error {
     /// Wraps a LegacyKeystore error code.
     #[error("Error::Error({0:?})")]
@@ -387,7 +393,7 @@ impl LegacyKeystore {
         let uid = Self::get_effective_uid(uid).context("In list.")?;
         let mut result = self.list_legacy(uid).context("In list.")?;
         result.append(&mut db.list(uid).context("In list: Trying to get list of entries.")?);
-        result = result.into_iter().filter(|s| s.starts_with(prefix)).collect();
+        result.retain(|s| s.starts_with(prefix));
         result.sort_unstable();
         result.dedup();
         Ok(result)
@@ -496,10 +502,8 @@ impl LegacyKeystore {
     ) -> Result<bool> {
         let blob = legacy_loader
             .read_legacy_keystore_entry(uid, alias, |ciphertext, iv, tag, _salt, _key_size| {
-                if let Some(key) = SUPER_KEY
-                    .read()
-                    .unwrap()
-                    .get_per_boot_key_by_user_id(uid_to_android_user(uid as u32))
+                if let Some(key) =
+                    SUPER_KEY.read().unwrap().get_per_boot_key_by_user_id(uid_to_android_user(uid))
                 {
                     key.decrypt(ciphertext, iv, tag)
                 } else {

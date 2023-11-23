@@ -771,6 +771,7 @@ struct _JNIEnv {
     CALL_STATIC_TYPE(jfloat, Float)
     CALL_STATIC_TYPE(jdouble, Double)
 
+    __attribute__((no_stack_protector))
     void CallStaticVoidMethod(jclass clazz, jmethodID methodID, ...)
     {
         va_list args;

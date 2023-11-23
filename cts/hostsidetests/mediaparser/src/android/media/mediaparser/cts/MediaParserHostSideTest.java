@@ -28,7 +28,6 @@ import com.android.internal.os.StatsdConfigProto.SimpleAtomMatcher;
 import com.android.internal.os.StatsdConfigProto.StatsdConfig;
 import com.android.os.AtomsProto;
 import com.android.os.AtomsProto.MediametricsMediaParserReported;
-import com.android.os.StatsLog;
 import com.android.os.StatsLog.ConfigMetricsReportList;
 import com.android.os.StatsLog.EventMetricData;
 import com.android.tradefed.build.IBuildInfo;
@@ -42,9 +41,7 @@ import com.android.tradefed.testtype.IBuildReceiver;
 import com.google.common.io.Files;
 
 import java.io.File;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -203,12 +200,20 @@ public class MediaParserHostSideTest extends DeviceTestCase implements IBuildRec
     }
 
     public void testTrackCodecs() throws Exception {
-        String[] expectedCodecs = new String[] {"", "mp4a.40.2"};
         runDeviceTest("testMp4");
-        String trackMimeTypesField = getSingleMediaParserReportedEvent().getTrackCodecs();
-        List<String> actualTrackMimeTypes =
-                Arrays.asList(trackMimeTypesField.split(MEDIAPARSER_METRICS_SEPARATOR));
-        assertThat(actualTrackMimeTypes).containsExactlyElementsIn(expectedCodecs);
+        String trackCodecs = getSingleMediaParserReportedEvent().getTrackCodecs();
+        List<String> actualTrackCodecs =
+                Arrays.asList(trackCodecs.split(MEDIAPARSER_METRICS_SEPARATOR));
+        assertThat(actualTrackCodecs.get(1)).isEqualTo("mp4a.40.2");
+        // In one of MediaParser's updates, the backing ExoPlayer version added support for video
+        // codec parsing, so this test must support both old and new MediaParser versions (in some
+        // Android branches, a new version of the test can run against an older Mainline version).
+        // The old version would output an empty video codec string, and the new version reports the
+        // correct "avc1.64001F" value. The test should pass only in these two cases.
+        String videoCodec = actualTrackCodecs.get(0);
+        if (!videoCodec.isEmpty()) {
+            assertThat(videoCodec).isEqualTo("avc1.64001F");
+        }
     }
 
     public void testAlteredParameters() throws Exception {

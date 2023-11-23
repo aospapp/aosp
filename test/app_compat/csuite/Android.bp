@@ -15,15 +15,3 @@
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
-
-python_defaults {
-    name: "csuite_python_defaults",
-    version: {
-        py2: {
-            enabled: false,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
-}

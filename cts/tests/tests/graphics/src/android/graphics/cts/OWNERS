@@ -1,0 +1,4 @@
+# Bug template url: https://b.corp.google.com/issues/new?component=122570&template=195524 = per-file Vulkan*.java
+ per-file Vulkan*.java = ianelliott@google.com, cclao@google.com, cnorthrop@google.com, vantablack@google.com, chrisforbes@google.com
+ per-file SystemPaletteTest.kt = arteiro@google.com, dupin@google.com
+ per-file ColorTest.java = arteiro@google.com, dupin@google.com

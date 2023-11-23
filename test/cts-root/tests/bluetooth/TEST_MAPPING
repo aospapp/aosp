@@ -1,0 +1,29 @@
+{
+  "presubmit": [
+    {
+      "name": "CtsRootBluetoothTestCases",
+      "options": [
+        {
+          // TODO(b/275847929)
+          "exclude-filter": "android.bluetooth.cts_root.BluetoothCddRootTest#test_C_12_1_Bluetooth5Requirements"
+        }
+      ]
+    }
+  ],
+  "hwasan-postsubmit": [
+    {
+      "name": "CtsRootBluetoothTestCases"
+    }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "CtsRootBluetoothTestCases",
+      "options": [
+        {
+          // TODO(b/275847929)
+          "exclude-filter": "android.bluetooth.cts_root.BluetoothCddRootTest#test_C_12_1_Bluetooth5Requirements"
+        }
+      ]
+    }
+  ]
+}

@@ -70,6 +70,13 @@
             </intent-filter>
         </service>
 
+        <service android:name="android.translation.cts.OtherProcessService1"
+                 android:process=":otherTranslationProcess1"
+                 android:exported="false" />
+        <service android:name="android.translation.cts.OtherProcessService2"
+                 android:process=":otherTranslationProcess2"
+                 android:exported="false" />
+
         <!-- TODO(b/184617863): move to its own apk -->
         <service android:name=".CtsTestIme"
                  android:label="Test IME"

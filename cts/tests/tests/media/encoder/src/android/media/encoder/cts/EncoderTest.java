@@ -16,20 +16,32 @@
 
 package android.media.encoder.cts;
 
+import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectELD;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectHE;
+import static android.media.MediaCodecInfo.CodecProfileLevel.AACObjectLC;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
+
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.media.cts.Preconditions;
 import android.media.cts.TestArgs;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
 
 import androidx.test.filters.SmallTest;
-import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -40,23 +52,11 @@ import java.nio.BufferOverflowException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 @SmallTest
 @RequiresDevice
@@ -69,6 +69,7 @@ public class EncoderTest {
     static final String mInpPrefix = WorkDir.getMediaDirString();
     private static final int kNumInputBytes = 512 * 1024;
     private static final long kTimeoutUs = 100;
+    public static final int PER_TEST_TIMEOUT_SMALL_TEST_MS = 60000;
 
     // not all combinations are valid
     private static final int MODE_SILENT = 0;
@@ -87,11 +88,11 @@ public class EncoderTest {
 
     private final String mEncoderName;
     private final String mMime;
-    private final int[] mProfiles;
-    private final int[] mBitrates;
-    private final int[] mSampleRates;
-    private final int[] mChannelCounts;
-    private ArrayList<MediaFormat> mFormats;
+    private final int mProfile;
+    private final int mBitrate;
+    private final int mSampleRate;
+    private final int mChannelCount;
+    private final MediaFormat mFormat = new MediaFormat();
 
     static boolean isDefaultCodec(String codecName, String mime)
             throws IOException {
@@ -103,6 +104,34 @@ public class EncoderTest {
         mDefaultEncoders.put(mime, codec.getName());
         codec.release();
         return isDefault;
+    }
+
+    private static List<Object[]> flattenParams(List<Object[]> params) {
+        List<Object[]> argsList = new ArrayList<>();
+        for (Object[] param : params) {
+            String mediaType = (String) param[0];
+            int[] profiles = (int[]) param[1];
+            int[] bitRates = (int[]) param[2];
+            int[] sampleRates = (int[]) param[3];
+            int[] channelCounts = (int[]) param[4];
+            for (int profile : profiles) {
+                for (int bitrate : bitRates) {
+                    for (int channelCount : channelCounts) {
+                        for (int sampleRate : sampleRates) {
+                            if (mediaType.equals(MediaFormat.MIMETYPE_AUDIO_AAC)
+                                    && profile == AACObjectHE && sampleRate < 22050) {
+                                // Is this right? HE does not support sample rates < 22050Hz?
+                                continue;
+                            }
+                            argsList.add(
+                                    new Object[]{mediaType, profile, bitrate, sampleRate,
+                                            channelCount});
+                        }
+                    }
+                }
+            }
+        }
+        return argsList;
     }
 
     static private List<Object[]> prepareParamList(List<Object[]> exhaustiveArgsList) {
@@ -127,12 +156,13 @@ public class EncoderTest {
         return argsList;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{2}_{3}_{4}_{5}")
     public static Collection<Object[]> input() {
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 // Audio - CodecMime, arrays of profiles, bit-rates, sample rates, channel counts
-                {MediaFormat.MIMETYPE_AUDIO_AAC, new int[]{2, 5, 39}, new int[]{64000, 128000},
-                        new int[]{8000, 11025, 22050, 44100, 48000}, new int[]{1, 2}},
+                {MediaFormat.MIMETYPE_AUDIO_AAC, new int[]{AACObjectLC, AACObjectHE,
+                        AACObjectELD}, new int[]{64000, 128000}, new int[]{8000, 11025, 22050,
+                        44100, 48000}, new int[]{1, 2}},
                 {MediaFormat.MIMETYPE_AUDIO_OPUS, new int[]{-1}, new int[]{8000, 12000, 16000,
                         24000, 48000}, new int[]{16000}, new int[]{1, 2}},
                 {MediaFormat.MIMETYPE_AUDIO_AMR_NB, new int[]{-1}, new int[]{4750, 5150, 5900, 6700
@@ -140,99 +170,42 @@ public class EncoderTest {
                 {MediaFormat.MIMETYPE_AUDIO_AMR_WB, new int[]{-1}, new int[]{6600, 8850, 12650,
                         14250, 15850, 18250, 19850, 23050, 23850}, new int[]{16000}, new int[]{1}},
         });
-        return prepareParamList(exhaustiveArgsList);
+        List<Object[]> argsList = flattenParams(exhaustiveArgsList);
+        return prepareParamList(argsList);
     }
 
-    public EncoderTest(String encodername, String mime, int[] profiles, int[] bitrates,
-            int samplerates[], int channelcounts[]) {
+    public EncoderTest(String encodername, String mime, int profile, int bitrate,
+            int samplerate, int channelcount) {
         mEncoderName = encodername;
         mMime = mime;
-        mProfiles = profiles;
-        mBitrates = bitrates;
-        mSampleRates = samplerates;
-        mChannelCounts = channelcounts;
+        mProfile = profile;
+        mBitrate = bitrate;
+        mSampleRate = samplerate;
+        mChannelCount = channelcount;
     }
 
-    private void setUpFormats() {
-        mFormats = new ArrayList<MediaFormat>();
-        // TODO(b/218887182) Explore parameterizing based on the following loop params as well
-        for (int profile : mProfiles) {
-            for (int rate : mSampleRates) {
-                if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC) && profile == 5 && rate < 22050) {
-                    // Is this right? HE does not support sample rates < 22050Hz?
-                    continue;
-                }
-                for (int bitrate : mBitrates) {
-                    for (int channels : mChannelCounts) {
-                        MediaFormat format = new MediaFormat();
-                        format.setString(MediaFormat.KEY_MIME, mMime);
-                        format.setInteger(MediaFormat.KEY_SAMPLE_RATE, rate);
-                        format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, channels);
-                        format.setInteger(MediaFormat.KEY_AAC_PROFILE, profile);
-                        format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
-                        mFormats.add(format);
-                    }
-                }
+    private void setUpFormat() {
+        mFormat.setString(MediaFormat.KEY_MIME, mMime);
+        mFormat.setInteger(MediaFormat.KEY_SAMPLE_RATE, mSampleRate);
+        mFormat.setInteger(MediaFormat.KEY_CHANNEL_COUNT, mChannelCount);
+        if (mProfile >= 0) {
+            mFormat.setInteger(MediaFormat.KEY_PROFILE, mProfile);
+            if (mMime.equals(MediaFormat.MIMETYPE_AUDIO_AAC)) {
+                mFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, mProfile);
             }
         }
+        mFormat.setInteger(MediaFormat.KEY_BIT_RATE, mBitrate);
     }
 
-    @Test
-    public void testEncoders() {
-        setUpFormats();
-        testEncoderWithFormats();
-    }
-
-    private void testEncoderWithFormatsParallel(String mime, ArrayList<MediaFormat> formats,
-            String componentName, int ThreadCount) {
-        int testsStarted = 0;
-        int totalDurationSeconds = 0;
-        ExecutorService pool = Executors.newFixedThreadPool(ThreadCount);
-
-        for (MediaFormat format : formats) {
-            assertEquals(mime, format.getString(MediaFormat.KEY_MIME));
-            pool.execute(new EncoderRun(componentName, format));
-            int sampleRate = format.getInteger(MediaFormat.KEY_SAMPLE_RATE);
-            int channelCount = format.getInteger(MediaFormat.KEY_CHANNEL_COUNT);
-            int bytesQueuedPerSecond = 2 * channelCount * sampleRate;
-            int durationSeconds =
-                    (kNumInputBytes + bytesQueuedPerSecond - 1) / bytesQueuedPerSecond;
-            totalDurationSeconds += durationSeconds * kNumEncoderTestsPerRun;
-            testsStarted++;
-        }
-        try {
-            pool.shutdown();
-            Log.i(TAG, "waiting up to " + totalDurationSeconds + " seconds for "
-                            + testsStarted + " sub-tests to finish");
-            assertTrue("timed out waiting for encoder threads",
-                    pool.awaitTermination(totalDurationSeconds, TimeUnit.SECONDS));
-        } catch (InterruptedException e) {
-            fail("interrupted while waiting for encoder threads");
-        }
-    }
-
-    private void testEncoderWithFormats() {
-        for (MediaFormat fmt : mFormats) {
-            if (!MediaUtils.supports(mEncoderName, fmt)) {
-                MediaUtils.skipTest("no encoders found for " + fmt.toString());
-                return;
-            }
-        }
-        final int ThreadPoolCount = 3;
-        int instances = ThreadPoolCount;
-        MediaCodec codec = null;
-        try {
-            codec = MediaCodec.createByCodecName(mEncoderName);
-            MediaCodecInfo info = codec.getCodecInfo();
-            MediaCodecInfo.CodecCapabilities cap = info.getCapabilitiesForType(mMime);
-            instances = Math.min(cap.getMaxSupportedInstances(), instances);
-            assertTrue(instances >= 1);
-        } catch (Exception e) {
-            fail("codec '" + mEncoderName + "' failed construction.");
-        } finally {
-            codec.release();
-        }
-        testEncoderWithFormatsParallel(mMime, mFormats, mEncoderName, instances);
+    // "5.1.3" is covered partially. For instance aac is not tested for 5.0 and 5.1, Opus is not
+    // tested for different sample rates.
+    // TODO (b/272014629): Update test accordingly
+    @CddTest(requirements = "5.1.3")
+    @Test(timeout = PER_TEST_TIMEOUT_SMALL_TEST_MS)
+    public void testEncoders() throws FileNotFoundException {
+        setUpFormat();
+        assertEquals(mMime, mFormat.getString(MediaFormat.KEY_MIME));
+        testEncoder(mEncoderName, mFormat);
     }
 
     // See bug 25843966
@@ -301,25 +274,6 @@ public class EncoderTest {
             MediaCodec codec, ByteBuffer[] outputBuffers,
             int index, MediaCodec.BufferInfo info) {
         codec.releaseOutputBuffer(index, false /* render */);
-    }
-
-    class EncoderRun implements Runnable {
-        String mComponentName;
-        MediaFormat mFormat;
-
-        EncoderRun(String componentName, MediaFormat format) {
-            mComponentName = componentName;
-            mFormat = format;
-        }
-        @Override
-        public void run() {
-            try {
-                testEncoder(mComponentName, mFormat);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-                fail("Received exception " + e);
-            }
-        }
     }
 
     // Number of tests called in testEncoder(String componentName, MediaFormat format)

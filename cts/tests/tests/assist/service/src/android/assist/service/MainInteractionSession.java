@@ -56,6 +56,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
     private int mCurColor;
     private int mDisplayHeight;
     private int mDisplayWidth;
+    private Rect mDisplayAreaBounds;
     private BroadcastReceiver mReceiver;
     private String mTestName;
     private View mContentView;
@@ -84,7 +85,8 @@ public class MainInteractionSession extends VoiceInteractionSession {
         };
         IntentFilter filter = new IntentFilter();
         filter.addAction(Utils.HIDE_SESSION);
-        mContext.registerReceiver(mReceiver, filter, Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+        mContext.registerReceiver(mReceiver, filter,
+                Context.RECEIVER_VISIBLE_TO_INSTANT_APPS | Context.RECEIVER_EXPORTED);
     }
 
     @Override
@@ -106,7 +108,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
     public void onPrepareShow(Bundle args, int showFlags) {
         if (Utils.LIFECYCLE_NOUI.equals(args.getString(Utils.TESTCASE_TYPE, ""))) {
             setUiEnabled(false);
-        } else  {
+        } else {
             setUiEnabled(true);
         }
     }
@@ -122,6 +124,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
         mCurColor = args.getInt(Utils.SCREENSHOT_COLOR_KEY);
         mDisplayHeight = args.getInt(Utils.DISPLAY_HEIGHT_KEY);
         mDisplayWidth = args.getInt(Utils.DISPLAY_WIDTH_KEY);
+        mDisplayAreaBounds = args.getParcelable(Utils.DISPLAY_AREA_BOUNDS_KEY);
         mRemoteCallback = args.getParcelable(Utils.EXTRA_REMOTE_CALLBACK);
         super.onShow(args, showFlags);
         if (mContentView == null) return; // Happens when ui is not enabled.
@@ -256,6 +259,11 @@ public class MainInteractionSession extends VoiceInteractionSession {
         int[] pixels = new int[size.x * size.y];
         screenshot.getPixels(pixels, 0, size.x, 0, 0, size.x, size.y);
 
+        // screenshot bitmap contains the screenshot for the entire physical display. A single
+        // physical display could have multiple display area with different applications.
+        // Let's grab the region of the display area from the original screenshot.
+        Bitmap displayAreaScreenshot = Bitmap.createBitmap(screenshot, mDisplayAreaBounds.left,
+                mDisplayAreaBounds.top, mDisplayAreaBounds.width(), mDisplayAreaBounds.height());
         int expectedColor = 0;
         for (int pixel : pixels) {
             // Check for roughly the same because there are rounding errors converting from the
@@ -267,7 +275,7 @@ public class MainInteractionSession extends VoiceInteractionSession {
             }
         }
 
-        int pixelCount = screenshot.getWidth() * screenshot.getHeight();
+        int pixelCount = displayAreaScreenshot.getWidth() * displayAreaScreenshot.getHeight();
         double colorRatio = (double) expectedColor / pixelCount;
         Log.i(TAG, "the ratio is " + colorRatio);
         return colorRatio >= 0.6;

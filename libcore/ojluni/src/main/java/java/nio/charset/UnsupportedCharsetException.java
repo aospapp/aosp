@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2021, Oracle and/or its affiliates. All rights reserved.
  *
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -41,8 +41,12 @@ public class UnsupportedCharsetException
     extends IllegalArgumentException
 {
 
+    @java.io.Serial
     private static final long serialVersionUID = 1490765524727386367L;
 
+    /**
+     * The name of the unsupported charset.
+     */
     private String charsetName;
 
     /**

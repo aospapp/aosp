@@ -20,6 +20,7 @@ import android.aidl.sdkversion.ITestService;
 import android.aidl.sdkversion.ITestService.TypedObject;
 import android.os.Binder;
 import android.os.ServiceManager;
+import java.util.List;
 
 public class AidlJavaVersionTestService {
   static class TestServiceServer extends ITestService.Stub {
@@ -30,6 +31,11 @@ public class AidlJavaVersionTestService {
 
     @Override
     public TypedObject RepeatTypedObject(TypedObject token) {
+      return token;
+    }
+
+    @Override
+    public List<TypedObject> RepeatTypedList(List<TypedObject> token) {
       return token;
     }
   }

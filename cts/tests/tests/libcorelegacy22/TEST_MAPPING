@@ -8,5 +8,10 @@
     {
       "name": "CtsLibcoreLegacy22TestCases"
     }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "CtsLibcoreLegacy22TestCases"
+    }
   ]
 }

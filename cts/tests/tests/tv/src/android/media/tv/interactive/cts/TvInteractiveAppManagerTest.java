@@ -184,7 +184,10 @@ public class TvInteractiveAppManagerTest {
             if (info.getServiceInfo().name.equals(StubTvInteractiveAppService.class.getName())
                     && info.getSupportedTypes()
                     == (TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_HBBTV
-                            | TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA)) {
+                            | TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_GINGA
+                            | TvInteractiveAppServiceInfo.INTERACTIVE_APP_TYPE_OTHER)) {
+                assertThat(info.getCustomSupportedTypes())
+                        .containsExactly("custom_type", "another");
                 return;
             }
         }
@@ -192,6 +195,22 @@ public class TvInteractiveAppManagerTest {
                 "getTvInteractiveAppServiceList() doesn't contain valid "
                         + "TvInteractiveAppServiceInfo: "
                         + StubTvInteractiveAppService.class.getName());
+    }
+
+    @Test
+    public void testGetAppLinkInfoList() {
+        List<AppLinkInfo> infos = mManager.getAppLinkInfoList();
+        String packageName = "android.tv.cts";
+        for (AppLinkInfo info : infos) {
+            if (info.getComponentName().getPackageName().equals(packageName)
+                    && info.getComponentName().getClassName().equals(
+                            "android.media.tv.cts.TvInputSetupActivityStub")
+                    && info.getUri().toString().equals("https://example.test")) {
+                return;
+            }
+        }
+        throw new AssertionFailedError(
+                "getAppLinkInfoList() doesn't contain expected AppLinkInfo of " + packageName);
     }
 
     @Test

@@ -124,7 +124,7 @@ validateAndExtractEekPubAndId(bool testMode, const KeymasterBlob& endpointEncryp
                           eek->getBstrValue(CoseKey::KEY_ID).value());
 }
 
-StatusOr<std::vector<uint8_t> /* pubkeys */>
+StatusOr<cppbor::Array /* pubkeys */>
 validateAndExtractPubkeys(bool testMode, uint32_t numKeys, KeymasterBlob* keysToSign,
                           const cppcose::HmacSha256Function& macFunction) {
     auto pubKeysToMac = cppbor::Array();
@@ -186,7 +186,7 @@ validateAndExtractPubkeys(bool testMode, uint32_t numKeys, KeymasterBlob* keysTo
         pubKeysToMac.add(pubKey->moveMap());
     }
 
-    return pubKeysToMac.encode();
+    return pubKeysToMac;
 }
 
 cppbor::Array buildCertReqRecipients(const std::vector<uint8_t>& pubkey,

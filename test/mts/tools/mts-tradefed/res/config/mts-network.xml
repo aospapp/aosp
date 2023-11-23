@@ -17,7 +17,8 @@
 
     <include name="mts" />
 
-    <include name="mts-network-tests-list" />
+    <include name="mts-network-tests-list-user" />
+    <include name="mts-network-tests-list-eng-only" />
 
     <option name="plan" value="mts-network" />
 </configuration>

@@ -49,8 +49,10 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -75,15 +77,20 @@ public class BluetoothLeBroadcastAssistantTest {
 
     private static final String TEST_ADDRESS_1 = "EF:11:22:33:44:55";
     private static final String TEST_ADDRESS_2 = "EF:11:22:33:44:66";
+    private static final String TEST_BROADCAST_NAME = "TEST";
     private static final int TEST_BROADCAST_ID = 42;
     private static final int TEST_ADVERTISER_SID = 1234;
     private static final int TEST_PA_SYNC_INTERVAL = 100;
     private static final int TEST_PRESENTATION_DELAY_MS = 345;
+    private static final int TEST_AUDIO_QUALITY_STANDARD = 0x1 << 0;
 
     private static final int TEST_CODEC_ID = 42;
 
     // For BluetoothLeAudioCodecConfigMetadata
     private static final long TEST_AUDIO_LOCATION_FRONT_LEFT = 0x01;
+    private static final int TEST_SAMPLE_RATE_44100 = 0x01 << 6;
+    private static final int TEST_FRAME_DURATION_10000 = 0x01 << 1;
+    private static final int TEST_OCTETS_PER_FRAME = 100;
 
     // For BluetoothLeAudioContentMetadata
     private static final String TEST_PROGRAM_INFO = "Test";
@@ -91,15 +98,13 @@ public class BluetoothLeBroadcastAssistantTest {
     private static final String TEST_LANGUAGE = "deu";
 
     private Context mContext;
-    private boolean mHasBluetooth;
     private BluetoothAdapter mAdapter;
     Executor mExecutor;
 
     private BluetoothLeBroadcastAssistant mBluetoothLeBroadcastAssistant;
-    private boolean mIsBroadcastAssistantSupported;
     private boolean mIsProfileReady;
-    private Condition mConditionProfileIsConnected;
-    private ReentrantLock mProfileConnectedLock;
+    private Condition mConditionProfileConnection;
+    private ReentrantLock mProfileConnectionlock;
 
     @Mock
     BluetoothLeBroadcastAssistant.Callback mCallbacks;
@@ -107,32 +112,24 @@ public class BluetoothLeBroadcastAssistantTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU)) {
-            return;
-        }
-        mHasBluetooth = TestUtils.hasBluetooth();
-        if (!mHasBluetooth) {
-            return;
-        }
+
+        Assume.assumeTrue(ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU));
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+
         MockitoAnnotations.initMocks(this);
         mExecutor = mContext.getMainExecutor();
         TestUtils.adoptPermissionAsShellUid(BLUETOOTH_CONNECT,BLUETOOTH_PRIVILEGED,BLUETOOTH_SCAN);
         mAdapter = TestUtils.getBluetoothAdapterOrDie();
         assertTrue(BTAdapterUtils.enableAdapter(mAdapter, mContext));
 
-        mProfileConnectedLock = new ReentrantLock();
-        mConditionProfileIsConnected = mProfileConnectedLock.newCondition();
+        mProfileConnectionlock = new ReentrantLock();
+        mConditionProfileConnection = mProfileConnectionlock.newCondition();
         mIsProfileReady = false;
         mBluetoothLeBroadcastAssistant = null;
 
-        mIsBroadcastAssistantSupported =
-                mAdapter.isLeAudioBroadcastAssistantSupported() == FEATURE_SUPPORTED;
-        if (mIsBroadcastAssistantSupported) {
-            boolean isBroadcastAssistantEnabledInConfig =
-                    TestUtils.isProfileEnabled(BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT);
-            assertTrue("Config must be true when profile is supported",
-                    isBroadcastAssistantEnabledInConfig);
-        }
+        Assume.assumeTrue(mAdapter.isLeAudioBroadcastAssistantSupported() == FEATURE_SUPPORTED);
+        assertTrue("Config must be true when profile is supported",
+                TestUtils.isProfileEnabled(BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT));
 
         mAdapter.getProfileProxy(mContext, new ServiceListener(),
                 BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT);
@@ -140,26 +137,32 @@ public class BluetoothLeBroadcastAssistantTest {
 
     @After
     public void tearDown() {
-        if (mHasBluetooth) {
-            if (mAdapter != null && mBluetoothLeBroadcastAssistant != null) {
-                mAdapter.closeProfileProxy(BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT,
-                        mBluetoothLeBroadcastAssistant);
-                mBluetoothLeBroadcastAssistant = null;
-                mIsProfileReady = false;
-            }
-            if (mAdapter != null) {
-                assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-            }
-            mAdapter = null;
-            TestUtils.dropPermissionAsShellUid();
+        if (mAdapter != null && mBluetoothLeBroadcastAssistant != null) {
+            mAdapter.closeProfileProxy(BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT,
+                    mBluetoothLeBroadcastAssistant);
+            mBluetoothLeBroadcastAssistant = null;
+            mIsProfileReady = false;
         }
+        mAdapter = null;
+        TestUtils.dropPermissionAsShellUid();
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
+    @Test
+    public void testCloseProfileProxy() {
+        assertTrue(waitForProfileConnect());
+        assertNotNull(mBluetoothLeBroadcastAssistant);
+        assertTrue(mIsProfileReady);
+
+        mAdapter.closeProfileProxy(
+                BluetoothProfile.LE_AUDIO_BROADCAST_ASSISTANT, mBluetoothLeBroadcastAssistant);
+        assertTrue(waitForProfileDisconnect());
+        assertFalse(mIsProfileReady);
+    }
+
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testAddSource() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -168,14 +171,22 @@ public class BluetoothLeBroadcastAssistantTest {
         BluetoothDevice testSourceDevice = mAdapter.getRemoteLeDevice(TEST_ADDRESS_1,
                 BluetoothDevice.ADDRESS_TYPE_RANDOM);
 
+        BluetoothLeAudioContentMetadata publicBroadcastMetadata =
+                new BluetoothLeAudioContentMetadata.Builder()
+                        .setProgramInfo(TEST_PROGRAM_INFO).build();
+
         BluetoothLeBroadcastMetadata.Builder builder = new BluetoothLeBroadcastMetadata.Builder()
                 .setEncrypted(false)
+                .setPublicBroadcast(false)
+                .setBroadcastName(TEST_BROADCAST_NAME)
                 .setSourceDevice(testSourceDevice, BluetoothDevice.ADDRESS_TYPE_RANDOM)
                 .setSourceAdvertisingSid(TEST_ADVERTISER_SID)
                 .setBroadcastId(TEST_BROADCAST_ID)
                 .setBroadcastCode(null)
                 .setPaSyncInterval(TEST_PA_SYNC_INTERVAL)
-                .setPresentationDelayMicros(TEST_PRESENTATION_DELAY_MS);
+                .setPresentationDelayMicros(TEST_PRESENTATION_DELAY_MS)
+                .setAudioConfigQuality(TEST_AUDIO_QUALITY_STANDARD)
+                .setPublicBroadcastMetadata(publicBroadcastMetadata);
 
         BluetoothLeBroadcastSubgroup[] subgroups = new BluetoothLeBroadcastSubgroup[] {
                 createBroadcastSubgroup()
@@ -217,11 +228,9 @@ public class BluetoothLeBroadcastAssistantTest {
         mBluetoothLeBroadcastAssistant.unregisterCallback(mCallbacks);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testGetAllSources() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -240,11 +249,9 @@ public class BluetoothLeBroadcastAssistantTest {
         assertTrue(mBluetoothLeBroadcastAssistant.getAllSources(testDevice).isEmpty());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testSetConnectionPolicy() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -264,11 +271,9 @@ public class BluetoothLeBroadcastAssistantTest {
                 mBluetoothLeBroadcastAssistant.getConnectionPolicy(testDevice));
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testGetMaximumSourceCapacity() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -283,11 +288,9 @@ public class BluetoothLeBroadcastAssistantTest {
                 () -> mBluetoothLeBroadcastAssistant.getMaximumSourceCapacity(null));
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testIsSearchInProgress() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -295,11 +298,9 @@ public class BluetoothLeBroadcastAssistantTest {
         assertFalse(mBluetoothLeBroadcastAssistant.isSearchInProgress());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testModifySource() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -310,6 +311,8 @@ public class BluetoothLeBroadcastAssistantTest {
 
         BluetoothLeBroadcastMetadata.Builder builder = new BluetoothLeBroadcastMetadata.Builder()
                 .setEncrypted(false)
+                .setPublicBroadcast(false)
+                .setBroadcastName(TEST_BROADCAST_NAME)
                 .setSourceDevice(testSourceDevice, BluetoothDevice.ADDRESS_TYPE_RANDOM)
                 .setSourceAdvertisingSid(TEST_ADVERTISER_SID)
                 .setBroadcastId(TEST_BROADCAST_ID)
@@ -345,11 +348,9 @@ public class BluetoothLeBroadcastAssistantTest {
                 testDevice, 0, BluetoothStatusCodes.ERROR_REMOTE_LINK_ERROR);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testRegisterCallback() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -413,11 +414,9 @@ public class BluetoothLeBroadcastAssistantTest {
         mBluetoothLeBroadcastAssistant.unregisterCallback(callback);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testStartSearchingForSources() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -451,11 +450,9 @@ public class BluetoothLeBroadcastAssistantTest {
         mBluetoothLeBroadcastAssistant.unregisterCallback(mCallbacks);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testGetConnectedDevices() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -473,11 +470,9 @@ public class BluetoothLeBroadcastAssistantTest {
         assertTrue(connectedDevices.isEmpty());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testGetDevicesMatchingConnectionStates() {
-        if (shouldSkipTest()) {
-            return;
-        }
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -501,12 +496,9 @@ public class BluetoothLeBroadcastAssistantTest {
         assertTrue(connectedDevices.isEmpty());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testGetConnectionState() {
-        if (shouldSkipTest()) {
-            return;
-        }
-
         assertTrue(waitForProfileConnect());
         assertNotNull(mBluetoothLeBroadcastAssistant);
 
@@ -523,29 +515,12 @@ public class BluetoothLeBroadcastAssistantTest {
                 mBluetoothLeBroadcastAssistant.getConnectionState(testDevice));
     }
 
-    @Test
-    public void testProfileSupportLogic() {
-        if (!mHasBluetooth) {
-            return;
-        }
-        if (mAdapter.isLeAudioBroadcastAssistantSupported()
-                == BluetoothStatusCodes.FEATURE_NOT_SUPPORTED) {
-            assertFalse(mIsBroadcastAssistantSupported);
-            return;
-        }
-        assertTrue(mIsBroadcastAssistantSupported);
-    }
-
-    private boolean shouldSkipTest() {
-        return !(mHasBluetooth && mIsBroadcastAssistantSupported);
-    }
-
     private boolean waitForProfileConnect() {
-        mProfileConnectedLock.lock();
+        mProfileConnectionlock.lock();
         try {
             // Wait for the Adapter to be disabled
             while (!mIsProfileReady) {
-                if (!mConditionProfileIsConnected.await(
+                if (!mConditionProfileConnection.await(
                         PROXY_CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
                     // Timeout
                     Log.e(TAG, "Timeout while waiting for Profile Connect");
@@ -555,34 +530,65 @@ public class BluetoothLeBroadcastAssistantTest {
         } catch (InterruptedException e) {
             Log.e(TAG, "waitForProfileConnect: interrrupted");
         } finally {
-            mProfileConnectedLock.unlock();
+            mProfileConnectionlock.unlock();
         }
         return mIsProfileReady;
+    }
+
+    private boolean waitForProfileDisconnect() {
+        mConditionProfileConnection = mProfileConnectionlock.newCondition();
+        mProfileConnectionlock.lock();
+        try {
+            while (mIsProfileReady) {
+                if (!mConditionProfileConnection.await(
+                        PROXY_CONNECTION_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    // Timeout
+                    Log.e(TAG, "Timeout while waiting for Profile Disconnect");
+                    break;
+                } // else spurious wakeups
+            }
+        } catch (InterruptedException e) {
+            Log.e(TAG, "waitForProfileDisconnect: interrrupted");
+        } finally {
+            mProfileConnectionlock.unlock();
+        }
+        return !mIsProfileReady;
     }
 
     private final class ServiceListener implements BluetoothProfile.ServiceListener {
 
         @Override
         public void onServiceConnected(int profile, BluetoothProfile proxy) {
-            mProfileConnectedLock.lock();
+            mProfileConnectionlock.lock();
             mBluetoothLeBroadcastAssistant = (BluetoothLeBroadcastAssistant) proxy;
             mIsProfileReady = true;
             try {
-                mConditionProfileIsConnected.signal();
+                mConditionProfileConnection.signal();
             } finally {
-                mProfileConnectedLock.unlock();
+                mProfileConnectionlock.unlock();
             }
         }
 
         @Override
         public void onServiceDisconnected(int profile) {
+            mProfileConnectionlock.lock();
+            mIsProfileReady = false;
+            try {
+                mConditionProfileConnection.signal();
+            } finally {
+                mProfileConnectionlock.unlock();
+            }
         }
     }
 
     static BluetoothLeBroadcastSubgroup createBroadcastSubgroup() {
         BluetoothLeAudioCodecConfigMetadata codecMetadata =
                 new BluetoothLeAudioCodecConfigMetadata.Builder()
-                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT).build();
+                        .setAudioLocation(TEST_AUDIO_LOCATION_FRONT_LEFT)
+                        .setSampleRate(TEST_SAMPLE_RATE_44100)
+                        .setFrameDuration(TEST_FRAME_DURATION_10000)
+                        .setOctetsPerFrame(TEST_OCTETS_PER_FRAME)
+                        .build();
         BluetoothLeAudioContentMetadata contentMetadata =
                 new BluetoothLeAudioContentMetadata.Builder()
                         .setProgramInfo(TEST_PROGRAM_INFO).setLanguage(TEST_LANGUAGE).build();

@@ -16,15 +16,29 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library {
+    name: "CtsSoundTriggerInstrumentation",
+    libs: [
+        "guava",
+        "androidx.annotation_annotation",
+        "truth",
+    ],
+    srcs: ["src/android/soundtrigger/cts/instrumentation/*.java"],
+    errorprone: {
+        enabled: true,
+    },
+}
+
 android_test {
     name: "CtsSoundTriggerTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
         "ctstestrunner-axt",
+        "CtsSoundTriggerInstrumentation",
         "compatibility-device-util-axt",
         "androidx.test.ext.junit",
     ],
-    srcs: ["src/**/*.java"],
+    srcs: ["src/android/soundtrigger/cts/*.java"],
     // Tag this module as a cts test artifact
     test_suites: [
         "cts",

@@ -1,1 +1,2 @@
-type touch_context_service, service_manager_type, vendor_service;
+type gril_antenna_tuning_service, service_manager_type, hal_service_type;
+type touch_context_service, service_manager_type, hal_service_type;

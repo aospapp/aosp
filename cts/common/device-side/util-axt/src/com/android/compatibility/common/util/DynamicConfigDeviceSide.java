@@ -52,6 +52,7 @@ public class DynamicConfigDeviceSide extends DynamicConfig {
         String uriPath = String.format("%s/%s/%s.dynamic", CONTENT_PROVIDER, configFolder.getAbsolutePath(), moduleName);
         Uri sdcardUri = Uri.parse(uriPath);
         Context appContext = InstrumentationRegistry.getTargetContext();
+        FileNotFoundException original = null;
         try {
             ContentResolver resolver = appContext.getContentResolver();
             ParcelFileDescriptor descriptor = resolver.openFileDescriptor(sdcardUri,"r");
@@ -61,9 +62,17 @@ public class DynamicConfigDeviceSide extends DynamicConfig {
         } catch (FileNotFoundException e) {
             // Log the error and use the fallback too
             Log.e("DynamicConfigDeviceSide", "Error while using content provider for config", e);
+            original = e;
         }
         // Fallback to the direct search
-        File configFile = getConfigFile(configFolder, moduleName);
-        initializeConfig(configFile);
+        try {
+            File configFile = getConfigFile(configFolder, moduleName);
+            initializeConfig(configFile);
+            return;
+        } catch (FileNotFoundException e) {
+            Log.e("DynamicConfigDeviceSide", "Failed the direct search fallback for " + moduleName);
+        }
+        // Throw the original exception as it was the expected one.
+        throw original;
     }
 }

@@ -16,16 +16,17 @@
 
 #include "send_message.h"
 
-#include <chre.h>
 #include <pb_encode.h>
 #include <cinttypes>
 
-#include "chre_test_common.nanopb.h"
-
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/nanoapp/log.h"
+#include "chre_api/chre.h"
+#include "chre_test_common.nanopb.h"
 
+#ifndef LOG_TAG
 #define LOG_TAG "[TestShared]"
+#endif
 
 namespace chre {
 namespace test_shared {
@@ -63,25 +64,9 @@ void sendTestResultWithMsgToHost(uint16_t hostEndpointId, uint32_t messageType,
                            .arg = const_cast<char *>(errMessage)};
     LOGE("%s", errMessage);
   }
-  size_t size;
-  if (!pb_get_encoded_size(&size, chre_test_common_TestResult_fields,
-                           &result)) {
-    LOGE("Failed to get message size");
-  } else {
-    pb_byte_t *bytes = static_cast<pb_byte_t *>(chreHeapAlloc(size));
-    if (bytes == nullptr) {
-      LOG_OOM();
-    } else {
-      pb_ostream_t stream = pb_ostream_from_buffer(bytes, size);
-      if (!pb_encode(&stream, chre_test_common_TestResult_fields, &result)) {
-        LOGE("Failed to encode test result error %s", PB_GET_ERROR(&stream));
-        chreHeapFree(bytes);
-      } else {
-        chreSendMessageToHostEndpoint(bytes, size, messageType, hostEndpointId,
-                                      heapFreeMessageCallback);
-      }
-    }
-  }
+
+  sendMessageToHost(hostEndpointId, &result, chre_test_common_TestResult_fields,
+                    messageType);
 
   if (!success && abortOnFailure) {
     chreAbort(0);
@@ -106,6 +91,29 @@ void sendEmptyMessageToHost(uint16_t hostEndpointId, uint32_t messageType) {
   chreSendMessageToHostEndpoint(nullptr /* message */, 0 /* messageSize */,
                                 messageType, hostEndpointId,
                                 nullptr /* freeCallback */);
+}
+
+void sendMessageToHost(uint16_t hostEndpointId, const void *message,
+                       const pb_field_t *fields, uint32_t messageType) {
+  size_t size;
+  if (!pb_get_encoded_size(&size, fields, message)) {
+    LOGE("Failed to get message size");
+  } else {
+    pb_byte_t *bytes = static_cast<pb_byte_t *>(chreHeapAlloc(size));
+    if (size > 0 && bytes == nullptr) {
+      LOG_OOM();
+    } else {
+      pb_ostream_t stream = pb_ostream_from_buffer(bytes, size);
+      if (!pb_encode(&stream, fields, message)) {
+        LOGE("Failed to encode message error %s", PB_GET_ERROR(&stream));
+        chreHeapFree(bytes);
+      } else if (!chreSendMessageToHostEndpoint(bytes, size, messageType,
+                                                hostEndpointId,
+                                                heapFreeMessageCallback)) {
+        LOGE("Failed to send message to host");
+      }
+    }
+  }
 }
 
 }  // namespace test_shared

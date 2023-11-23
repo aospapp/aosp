@@ -22,7 +22,6 @@ import static com.android.systemui.shared.system.QuickStepContract.NAV_BAR_MODE_
 import static com.android.systemui.shared.system.QuickStepContract.NAV_BAR_MODE_GESTURAL_OVERLAY;
 
 import android.content.pm.PackageManager;
-import android.os.SystemClock;
 import android.util.Log;
 
 import androidx.test.uiautomator.UiDevice;
@@ -40,8 +39,15 @@ public class NavigationModeRule extends TestWatcher {
 
     private final String mRequestedOverlayPackage;
     private final String mOriginalOverlayPackage;
+    private final boolean mChangeNavigationModeAfterTest;
 
     public NavigationModeRule(String requestedOverlayPackage) {
+        this(requestedOverlayPackage, /* changeNavigationModeAfterTest */ true);
+    }
+
+    public NavigationModeRule(
+            String requestedOverlayPackage, boolean changeNavigationModeAfterTest) {
+        mChangeNavigationModeAfterTest = changeNavigationModeAfterTest;
         mRequestedOverlayPackage = requestedOverlayPackage;
         mOriginalOverlayPackage =
                 getCurrentOverlayPackage(
@@ -71,12 +77,13 @@ public class NavigationModeRule extends TestWatcher {
         try {
             UiDevice.getInstance(getInstrumentation()).executeShellCommand(
                     "cmd overlay enable-exclusive --category " + overlayPackage);
+            UiDevice.getInstance(getInstrumentation())
+                    .executeShellCommand("am wait-for-broadcast-barrier");
         } catch (IOException e) {
             e.printStackTrace();
             return false;
         }
 
-        SystemClock.sleep(2000);
         return true;
     }
 
@@ -102,7 +109,8 @@ public class NavigationModeRule extends TestWatcher {
     protected void finished(Description description) {
         super.finished(description);
 
-        if (!mOriginalOverlayPackage.equals(mRequestedOverlayPackage)) {
+        if (mChangeNavigationModeAfterTest
+                && !mOriginalOverlayPackage.equals(mRequestedOverlayPackage)) {
             if (!setActiveOverlay(mOriginalOverlayPackage)) {
                 throw new RuntimeException(
                         "Couldn't set the original overlay package " + mOriginalOverlayPackage);

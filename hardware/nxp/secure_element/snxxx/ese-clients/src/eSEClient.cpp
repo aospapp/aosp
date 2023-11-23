@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2020 NXP
+ *  Copyright 2018-2020, 2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@
 #include <IChannel.h>
 #include <JcDnld.h>
 #include <LsClient.h>
+#include <aidl/vendor/nxp/nxpnfc_aidl/INxpNfc.h>
 #include <dirent.h>
 #include <ese_config.h>
 #include <log/log.h>
@@ -41,8 +42,14 @@ using android::sp;
 using android::hardware::hidl_vec;
 using android::hardware::Void;
 using vendor::nxp::nxpese::V1_0::implementation::NxpEse;
-using vendor::nxp::nxpnfc::V2_0::INxpNfc;
+using INxpNfc = vendor::nxp::nxpnfc::V2_0::INxpNfc;
+using INxpNfcAidl = ::aidl::vendor::nxp::nxpnfc_aidl::INxpNfc;
+
+std::string NXPNFC_AIDL_HAL_SERVICE_NAME =
+    "vendor.nxp.nxpnfc_aidl.INxpNfc/default";
+
 sp<INxpNfc> mHalNxpNfc = nullptr;
+std::shared_ptr<INxpNfcAidl> mAidlHalNxpNfc = nullptr;
 
 void seteSEClientState(uint8_t state);
 
@@ -102,7 +109,7 @@ uint8_t SE_getInterfaceInfo() { return INTF_SE; }
 ** Function:        checkEseClientUpdate
 **
 ** Description:     Check the initial condition
-                    and interafce for eSE Client update for LS and JCOP download
+                    and interface for eSE Client update for LS and JCOP download
 **
 ** Returns:         SUCCESS of ok
 **
@@ -156,7 +163,6 @@ SESTATUS ESE_ChannelInit(IChannel* ch) {
 **
 *******************************************************************************/
 void eSEClientUpdate_Thread() {
-  SESTATUS status = SESTATUS_FAILED;
   pthread_t thread;
   pthread_attr_t attr;
   pthread_attr_init(&attr);
@@ -164,9 +170,7 @@ void eSEClientUpdate_Thread() {
   if (pthread_create(&thread, &attr, &eSEClientUpdate_ThreadHandler, NULL) !=
       0) {
     ALOGD("Thread creation failed");
-    status = SESTATUS_FAILED;
   } else {
-    status = SESTATUS_SUCCESS;
     ALOGD("Thread creation success");
   }
   pthread_attr_destroy(&attr);
@@ -181,16 +185,13 @@ void eSEClientUpdate_Thread() {
 **
 *******************************************************************************/
 void eSEClientUpdate_SE_Thread() {
-  SESTATUS status = SESTATUS_FAILED;
   pthread_t thread;
   pthread_attr_t attr;
   pthread_attr_init(&attr);
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
   if (pthread_create(&thread, &attr, &eSEUpdate_SE_SeqHandler, NULL) != 0) {
     ALOGD("Thread creation failed");
-    status = SESTATUS_FAILED;
   } else {
-    status = SESTATUS_SUCCESS;
     ALOGD("Thread creation success");
   }
   pthread_attr_destroy(&attr);
@@ -225,25 +226,41 @@ void* eSEClientUpdate_ThreadHandler(void* data) {
   int cnt = 0;
 
   ALOGD("%s Enter\n", __func__);
-  while (((mHalNxpNfc == nullptr) && (cnt < 3))) {
+  if (mAidlHalNxpNfc == nullptr) {
+    do {
+      ::ndk::SpAIBinder binder(
+          AServiceManager_checkService(NXPNFC_AIDL_HAL_SERVICE_NAME.c_str()));
+      mAidlHalNxpNfc = INxpNfcAidl::fromBinder(binder);
+      if (!mAidlHalNxpNfc) {
+        usleep(100 * 1000);
+        cnt++;
+      }
+    } while (((mAidlHalNxpNfc == nullptr) && (cnt < 3)));
+  }
+
+  if (mAidlHalNxpNfc) {
+    ALOGD("Boot Time Update not supported for mAidlHalNxpNfc.");
+    ALOGD("%s Exit\n", __func__);
+    pthread_exit(NULL);
+    return NULL;
+  } else {
     mHalNxpNfc = INxpNfc::tryGetService();
     if (mHalNxpNfc == nullptr) ALOGD(": Failed to retrieve the NXP NFC HAL!");
     if (mHalNxpNfc != nullptr) {
       ALOGD("INxpNfc::getService() returned %p (%s)", mHalNxpNfc.get(),
             (mHalNxpNfc->isRemote() ? "remote" : "local"));
     }
-    usleep(100 * 1000);
-    cnt++;
-  }
 
-  if (mHalNxpNfc != nullptr) {
-    if (!se_intf.isJcopUpdateRequired && mHalNxpNfc->isJcopUpdateRequired()) {
-      se_intf.isJcopUpdateRequired = true;
-      ALOGD(" se_intf.isJcopUpdateRequired = %d", se_intf.isJcopUpdateRequired);
-    }
-    if (!se_intf.isLSUpdateRequired && mHalNxpNfc->isLsUpdateRequired()) {
-      se_intf.isLSUpdateRequired = true;
-      ALOGD("se_intf.isLSUpdateRequired = %d", se_intf.isLSUpdateRequired);
+    if (mHalNxpNfc != nullptr) {
+      if (!se_intf.isJcopUpdateRequired && mHalNxpNfc->isJcopUpdateRequired()) {
+        se_intf.isJcopUpdateRequired = true;
+        ALOGD(" se_intf.isJcopUpdateRequired = %d",
+              se_intf.isJcopUpdateRequired);
+      }
+      if (!se_intf.isLSUpdateRequired && mHalNxpNfc->isLsUpdateRequired()) {
+        se_intf.isLSUpdateRequired = true;
+        ALOGD("se_intf.isLSUpdateRequired = %d", se_intf.isLSUpdateRequired);
+      }
     }
   }
 

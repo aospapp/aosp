@@ -374,6 +374,47 @@ public class SourceStampVerifierTest {
                 ApkVerificationIssue.SOURCE_STAMP_DID_NOT_VERIFY);
     }
 
+    @Test
+    public void verifySourceStamp_unknownAttribute_verificationSucceeds() throws Exception {
+        // When a new attribute is added to the source stamp, verifiers previously released to
+        // prod will not recognize this new attribute. This test verifies an unknown attribute
+        // will not cause the verification to fail by using an attribute with ID 0xe43c5945.
+        Result verificationResult = verifySourceStamp("stamp-unknown-attr.apk");
+
+        assertVerified(verificationResult);
+        assertTrue(verificationResult.getSourceStampInfo().containsInfoMessages());
+        assertTrue(verificationResult.getSourceStampInfo().getInfoMessages().stream().anyMatch(
+                info -> info.getIssueId() == ApkVerificationIssue.SOURCE_STAMP_UNKNOWN_ATTRIBUTE));
+    }
+
+    @Test
+    public void verifySourceStamp_unknownSigAlgorithm_verificationSucceeds() throws Exception {
+        // When a new signature algorithm is added to the source stamp, verifiers previously
+        // released to prod will not recognize the new algorithm. This test verifies an unknown
+        // signature algorithm will not cause the verification to fail as long as there is a
+        // known signature that can be verified; this test uses a signature algorithm with ID
+        // 0x1ee.
+        Result verificationResult = verifySourceStamp("stamp-unknown-sig.apk");
+
+        assertVerified(verificationResult);
+        assertTrue(verificationResult.getSourceStampInfo().containsInfoMessages());
+        assertTrue(verificationResult.getSourceStampInfo().getInfoMessages().stream().anyMatch(
+                info -> info.getIssueId()
+                        == ApkVerificationIssue.SOURCE_STAMP_UNKNOWN_SIG_ALGORITHM));
+    }
+
+    @Test
+    public void verifySourceStamp_onlyUnknownSigAlgorithms_verificationFails() throws Exception {
+        // When a new signature algorithm is added to the source stamp, previously supported
+        // signature algorithms should still be written to the stamp to ensure existing verifiers
+        // can continue verifying the stamp. This test verifies if a stamp only contains signature
+        // algorithms unknown to the verifier then the verification fails as it is not able to
+        // verify any signatures; this test uses signature algorithms with IDs 0x1ee and 0x1ef.
+        Result verificationResult = verifySourceStamp("stamp-only-unknown-sigs.apk");
+
+        assertSourceStampVerificationFailure(verificationResult,
+                ApkVerificationIssue.SOURCE_STAMP_NO_SIGNATURE);
+    }
 
     private Result verifySourceStamp(String apkFilenameInResources)
             throws Exception {

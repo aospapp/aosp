@@ -48,36 +48,52 @@ static constexpr const char kArgumentPrefix[] = "_arg_";
 static constexpr const char kGetInterfaceVersion[] = "getInterfaceVersion";
 static constexpr const char kGetInterfaceHash[] = "getInterfaceHash";
 
+struct MangledAliasVisitor : AidlVisitor {
+  CodeWriter& out;
+  MangledAliasVisitor(CodeWriter& out) : out(out) {}
+  void Visit(const AidlStructuredParcelable& type) override { VisitType(type); }
+  void Visit(const AidlInterface& type) override { VisitType(type); }
+  void Visit(const AidlEnumDeclaration& type) override { VisitType(type); }
+  void Visit(const AidlUnionDecl& type) override { VisitType(type); }
+  template <typename T>
+  void VisitType(const T& type) {
+    out << " pub use " << Qname(type) << " as " << Mangled(type) << ";\n";
+  }
+  // Return a mangled name for a type (including AIDL package)
+  template <typename T>
+  string Mangled(const T& type) const {
+    ostringstream alias;
+    for (const auto& component : Split(type.GetCanonicalName(), ".")) {
+      alias << "_" << component.size() << "_" << component;
+    }
+    return alias.str();
+  }
+  template <typename T>
+  string Typename(const T& type) const {
+    if constexpr (std::is_same_v<T, AidlInterface>) {
+      return ClassName(type, cpp::ClassNames::INTERFACE);
+    } else {
+      return type.GetName();
+    }
+  }
+  // Return a fully qualified name for a type in the current file (excluding AIDL package)
+  template <typename T>
+  string Qname(const T& type) const {
+    return Module(type) + "::r#" + Typename(type);
+  }
+  // Return a module name for a type (relative to the file)
+  template <typename T>
+  string Module(const T& type) const {
+    if (type.GetParentType()) {
+      return Module(*type.GetParentType()) + "::r#" + type.GetName();
+    } else {
+      return "super";
+    }
+  }
+};
+
 void GenerateMangledAliases(CodeWriter& out, const AidlDefinedType& type) {
-  struct Visitor : AidlVisitor {
-    CodeWriter& out;
-    Visitor(CodeWriter& out) : out(out) {}
-    void Visit(const AidlStructuredParcelable& type) override { VisitType(type); }
-    void Visit(const AidlInterface& type) override { VisitType(type); }
-    void Visit(const AidlEnumDeclaration& type) override { VisitType(type); }
-    void Visit(const AidlUnionDecl& type) override { VisitType(type); }
-    void VisitType(const AidlDefinedType& type) {
-      out << " pub use " << Qname(type) << " as " << Mangled(type) << ";\n";
-    }
-    // Return a mangled name for a type (including AIDL package)
-    string Mangled(const AidlDefinedType& type) const {
-      ostringstream alias;
-      for (const auto& component : Split(type.GetCanonicalName(), ".")) {
-        alias << "_" << component.size() << "_" << component;
-      }
-      return alias.str();
-    }
-    // Return a fully qualified name for a type in the current file (excluding AIDL package)
-    string Qname(const AidlDefinedType& type) const { return Module(type) + "::" + type.GetName(); }
-    // Return a module name for a type (relative to the file)
-    string Module(const AidlDefinedType& type) const {
-      if (type.GetParentType()) {
-        return Module(*type.GetParentType()) + "::" + type.GetName();
-      } else {
-        return "super";
-      }
-    }
-  } v(out);
+  MangledAliasVisitor v(out);
   out << "pub(crate) mod mangled {\n";
   VisitTopDown(v, type);
   out << "}\n";
@@ -148,7 +164,7 @@ string BuildMethod(const AidlMethod& method, const AidlTypenames& typenames,
     parameters += BuildArg(*arg, typenames, lifetime);
   }
 
-  return fn_prefix + "fn " + method.GetName() + lifetime_str + "(" + parameters + ") -> " +
+  return fn_prefix + "fn r#" + method.GetName() + lifetime_str + "(" + parameters + ") -> " +
          return_type;
 }
 
@@ -219,7 +235,7 @@ void GenerateClientMethodHelpers(CodeWriter& out, const AidlInterface& iface,
     out << "if let Err(binder::StatusCode::UNKNOWN_TRANSACTION) = _aidl_reply {\n";
     out << "  if let Some(_aidl_default_impl) = <Self as " << default_trait_name
         << ">::getDefaultImpl() {\n";
-    out << "    return _aidl_default_impl." << method.GetName() << "(" << default_args << ");\n";
+    out << "    return _aidl_default_impl.r#" << method.GetName() << "(" << default_args << ");\n";
     out << "  }\n";
     out << "}\n";
   }
@@ -336,7 +352,7 @@ void GenerateClientMethod(CodeWriter& out, const AidlInterface& iface, const Aid
       out << "let _aidl_data = self.build_parcel_" + method.GetName() + "(" + build_parcel_args +
                  ")?;\n";
       // Submit transaction.
-      out << "let _aidl_reply = self.binder.submit_transact(transactions::" << method.GetName()
+      out << "let _aidl_reply = self.binder.submit_transact(transactions::r#" << method.GetName()
           << ", _aidl_data, " << transact_flags << ");\n";
       // Deserialize response.
       out << "self.read_response_" + method.GetName() + "(" + read_response_args + ")\n";
@@ -351,7 +367,7 @@ void GenerateClientMethod(CodeWriter& out, const AidlInterface& iface, const Aid
       out.Dedent();
       out << "};\n";
       // Submit transaction.
-      out << "let _aidl_reply = self.binder.submit_transact(transactions::" << method.GetName()
+      out << "let _aidl_reply = self.binder.submit_transact(transactions::r#" << method.GetName()
           << ", _aidl_data, " << transact_flags << ");\n";
       // Deserialize response.
       out << "std::future::ready(self.read_response_" + method.GetName() + "(" +
@@ -370,8 +386,8 @@ void GenerateClientMethod(CodeWriter& out, const AidlInterface& iface, const Aid
       out << "let binder = self.binder.clone();\n";
       out << "P::spawn(\n";
       out.Indent();
-      out << "move || binder.submit_transact(transactions::" << method.GetName() << ", _aidl_data, "
-          << transact_flags << "),\n";
+      out << "move || binder.submit_transact(transactions::r#" << method.GetName()
+          << ", _aidl_data, " << transact_flags << "),\n";
       out << "move |_aidl_reply| async move {\n";
       out.Indent();
       // Deserialize response.
@@ -389,7 +405,7 @@ void GenerateClientMethod(CodeWriter& out, const AidlInterface& iface, const Aid
 
 void GenerateServerTransaction(CodeWriter& out, const AidlInterface& interface,
                                const AidlMethod& method, const AidlTypenames& typenames) {
-  out << "transactions::" << method.GetName() << " => {\n";
+  out << "transactions::r#" << method.GetName() << " => {\n";
   out.Indent();
 
   if (interface.EnforceExpression() || method.GetType().EnforceExpression()) {
@@ -423,7 +439,7 @@ void GenerateServerTransaction(CodeWriter& out, const AidlInterface& interface,
     }
     args += TakeReference(ref_mode, arg_name);
   }
-  out << "let _aidl_return = _aidl_service." << method.GetName() << "(" << args << ");\n";
+  out << "let _aidl_return = _aidl_service.r#" << method.GetName() << "(" << args << ");\n";
 
   if (!method.IsOneway()) {
     out << "match &_aidl_return {\n";
@@ -484,7 +500,7 @@ void GenerateServerItems(CodeWriter& out, const AidlInterface* iface,
       args += arg->GetName();
     }
     out << BuildMethod(*method, typenames) << " { "
-        << "self.0." << method->GetName() << "(" << args << ") }\n";
+        << "self.0.r#" << method->GetName() << "(" << args << ") }\n";
   }
   out.Dedent();
   out << "}\n";
@@ -532,14 +548,15 @@ void GenerateConstantDeclarations(CodeWriter& out, const TypeWithConstants& type
     if (type.Signature() == "String") {
       const_type = "&str";
     } else if (type.Signature() == "byte" || type.Signature() == "int" ||
-               type.Signature() == "long") {
+               type.Signature() == "long" || type.Signature() == "float" ||
+               type.Signature() == "double") {
       const_type = RustNameOf(type, typenames, StorageMode::VALUE, Lifetime::NONE);
     } else {
       AIDL_FATAL(value) << "Unrecognized constant type: " << type.Signature();
     }
 
     GenerateDeprecated(out, *constant);
-    out << "pub const " << constant->GetName() << ": " << const_type << " = "
+    out << "pub const r#" << constant->GetName() << ": " << const_type << " = "
         << constant->ValueString(ConstantValueDecoratorRef) << ";\n";
   }
 }
@@ -729,7 +746,7 @@ void GenerateRustInterface(CodeWriter* code_writer, const AidlInterface* iface,
 
       *code_writer << BuildMethod(*method, typenames) << " {\n";
       code_writer->Indent();
-      *code_writer << "self._rt.block_on(self._inner." << method->GetName() << "(" << args
+      *code_writer << "self._rt.block_on(self._inner.r#" << method->GetName() << "(" << args
                    << "))\n";
       code_writer->Dedent();
       *code_writer << "}\n";
@@ -770,7 +787,7 @@ void GenerateRustInterface(CodeWriter* code_writer, const AidlInterface* iface,
   code_writer->Indent();
   for (const auto& method : iface->GetMethods()) {
     // Generate the transaction code constant
-    *code_writer << "pub const " << method->GetName()
+    *code_writer << "pub const r#" << method->GetName()
                  << ": binder::binder_impl::TransactionCode = "
                     "binder::binder_impl::FIRST_CALL_TRANSACTION + " +
                         std::to_string(method->GetId()) + ";\n";
@@ -837,30 +854,77 @@ void GenerateRustInterface(CodeWriter* code_writer, const AidlInterface* iface,
   GenerateServerItems(*code_writer, iface, typenames);
 }
 
+void RemoveUsed(std::set<std::string>* params, const AidlTypeSpecifier& type) {
+  if (!type.IsResolved()) {
+    params->erase(type.GetName());
+  }
+  if (type.IsGeneric()) {
+    for (const auto& param : type.GetTypeParameters()) {
+      RemoveUsed(params, *param);
+    }
+  }
+}
+
+std::set<std::string> FreeParams(const AidlStructuredParcelable* parcel) {
+  if (!parcel->IsGeneric()) {
+    return std::set<std::string>();
+  }
+  auto typeParams = parcel->GetTypeParameters();
+  std::set<std::string> unusedParams(typeParams.begin(), typeParams.end());
+  for (const auto& variable : parcel->GetFields()) {
+    RemoveUsed(&unusedParams, variable->GetType());
+  }
+  return unusedParams;
+}
+
+void WriteParams(CodeWriter& out, const AidlParameterizable<std::string>* parcel,
+                 std::string extra) {
+  if (parcel->IsGeneric()) {
+    out << "<";
+    for (const auto& param : parcel->GetTypeParameters()) {
+      out << param << extra << ",";
+    }
+    out << ">";
+  }
+}
+
+void WriteParams(CodeWriter& out, const AidlParameterizable<std::string>* parcel) {
+  WriteParams(out, parcel, "");
+}
+
 void GenerateParcelBody(CodeWriter& out, const AidlStructuredParcelable* parcel,
                         const AidlTypenames& typenames) {
   GenerateDeprecated(out, *parcel);
-  out << "pub struct " << parcel->GetName() << " {\n";
+  out << "pub struct r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << " {\n";
   out.Indent();
   for (const auto& variable : parcel->GetFields()) {
     GenerateDeprecated(out, *variable);
     auto field_type =
         RustNameOf(variable->GetType(), typenames, StorageMode::PARCELABLE_FIELD, Lifetime::NONE);
-    out << "pub " << variable->GetName() << ": " << field_type << ",\n";
+    out << "pub r#" << variable->GetName() << ": " << field_type << ",\n";
+  }
+  for (const auto& unused_param : FreeParams(parcel)) {
+    out << "_phantom_" << unused_param << ": std::marker::PhantomData<" << unused_param << ">,\n";
   }
   out.Dedent();
   out << "}\n";
 }
 
 void GenerateParcelDefault(CodeWriter& out, const AidlStructuredParcelable* parcel) {
-  out << "impl Default for " << parcel->GetName() << " {\n";
+  out << "impl";
+  WriteParams(out, parcel, ": Default");
+  out << " Default for r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << " {\n";
   out.Indent();
   out << "fn default() -> Self {\n";
   out.Indent();
   out << "Self {\n";
   out.Indent();
   for (const auto& variable : parcel->GetFields()) {
-    out << variable->GetName() << ": ";
+    out << "r#" << variable->GetName() << ": ";
     if (variable->GetDefaultValue()) {
       out << variable->ValueString(ConstantValueDecorator);
     } else {
@@ -883,6 +947,9 @@ void GenerateParcelDefault(CodeWriter& out, const AidlStructuredParcelable* parc
     }
     out << ",\n";
   }
+  for (const auto& unused_param : FreeParams(parcel)) {
+    out << "r#_phantom_" << unused_param << ": Default::default(),\n";
+  }
   out.Dedent();
   out << "}\n";
   out.Dedent();
@@ -897,11 +964,11 @@ void GenerateParcelSerializeBody(CodeWriter& out, const AidlStructuredParcelable
   out.Indent();
   for (const auto& variable : parcel->GetFields()) {
     if (TypeNeedsOption(variable->GetType(), typenames)) {
-      out << "let __field_ref = self." << variable->GetName()
+      out << "let __field_ref = self.r#" << variable->GetName()
           << ".as_ref().ok_or(binder::StatusCode::UNEXPECTED_NULL)?;\n";
       out << "subparcel.write(__field_ref)?;\n";
     } else {
-      out << "subparcel.write(&self." << variable->GetName() << ")?;\n";
+      out << "subparcel.write(&self.r#" << variable->GetName() << ")?;\n";
     }
   }
   out << "Ok(())\n";
@@ -918,9 +985,9 @@ void GenerateParcelDeserializeBody(CodeWriter& out, const AidlStructuredParcelab
     out << "if subparcel.has_more_data() {\n";
     out.Indent();
     if (TypeNeedsOption(variable->GetType(), typenames)) {
-      out << "self." << variable->GetName() << " = Some(subparcel.read()?);\n";
+      out << "self.r#" << variable->GetName() << " = Some(subparcel.read()?);\n";
     } else {
-      out << "self." << variable->GetName() << " = subparcel.read()?;\n";
+      out << "self.r#" << variable->GetName() << " = subparcel.read()?;\n";
     }
     out.Dedent();
     out << "}\n";
@@ -933,7 +1000,7 @@ void GenerateParcelDeserializeBody(CodeWriter& out, const AidlStructuredParcelab
 void GenerateParcelBody(CodeWriter& out, const AidlUnionDecl* parcel,
                         const AidlTypenames& typenames) {
   GenerateDeprecated(out, *parcel);
-  out << "pub enum " << parcel->GetName() << " {\n";
+  out << "pub enum r#" << parcel->GetName() << " {\n";
   out.Indent();
   for (const auto& variable : parcel->GetFields()) {
     GenerateDeprecated(out, *variable);
@@ -946,7 +1013,11 @@ void GenerateParcelBody(CodeWriter& out, const AidlUnionDecl* parcel,
 }
 
 void GenerateParcelDefault(CodeWriter& out, const AidlUnionDecl* parcel) {
-  out << "impl Default for " << parcel->GetName() << " {\n";
+  out << "impl";
+  WriteParams(out, parcel, ": Default");
+  out << " Default for r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << " {\n";
   out.Indent();
   out << "fn default() -> Self {\n";
   out.Indent();
@@ -1024,7 +1095,11 @@ void GenerateParcelDeserializeBody(CodeWriter& out, const AidlUnionDecl* parcel,
 template <typename ParcelableType>
 void GenerateParcelableTrait(CodeWriter& out, const ParcelableType* parcel,
                              const AidlTypenames& typenames) {
-  out << "impl binder::Parcelable for " << parcel->GetName() << " {\n";
+  out << "impl";
+  WriteParams(out, parcel);
+  out << " binder::Parcelable for r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << " {\n";
   out.Indent();
 
   out << "fn write_to_parcel(&self, "
@@ -1048,13 +1123,21 @@ void GenerateParcelableTrait(CodeWriter& out, const ParcelableType* parcel,
   out << "}\n";
 
   // Emit the outer (de)serialization traits
-  out << "binder::impl_serialize_for_parcelable!(" << parcel->GetName() << ");\n";
-  out << "binder::impl_deserialize_for_parcelable!(" << parcel->GetName() << ");\n";
+  out << "binder::impl_serialize_for_parcelable!(r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << ");\n";
+  out << "binder::impl_deserialize_for_parcelable!(r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << ");\n";
 }
 
 template <typename ParcelableType>
 void GenerateMetadataTrait(CodeWriter& out, const ParcelableType* parcel) {
-  out << "impl binder::binder_impl::ParcelableMetadata for " << parcel->GetName() << " {\n";
+  out << "impl";
+  WriteParams(out, parcel);
+  out << " binder::binder_impl::ParcelableMetadata for r#" << parcel->GetName();
+  WriteParams(out, parcel);
+  out << " {\n";
   out.Indent();
 
   out << "fn get_descriptor() -> &'static str { \"" << parcel->GetCanonicalName() << "\" }\n";
@@ -1071,18 +1154,12 @@ void GenerateMetadataTrait(CodeWriter& out, const ParcelableType* parcel) {
 template <typename ParcelableType>
 void GenerateRustParcel(CodeWriter* code_writer, const ParcelableType* parcel,
                         const AidlTypenames& typenames) {
+  vector<string> derives = parcel->RustDerive();
+
   // Debug is always derived because all Rust AIDL types implement it
   // ParcelFileDescriptor doesn't support any of the others because
   // it's a newtype over std::fs::File which only implements Debug
-  vector<string> derives{"Debug"};
-  const AidlAnnotation* derive_annotation = parcel->RustDerive();
-  if (derive_annotation != nullptr) {
-    for (const auto& name_and_param : derive_annotation->AnnotationParams(ConstantValueDecorator)) {
-      if (name_and_param.second == "true") {
-        derives.push_back(name_and_param.first);
-      }
-    }
-  }
+  derives.insert(derives.begin(), "Debug");
 
   *code_writer << "#[derive(" << Join(derives, ", ") << ")]\n";
   GenerateParcelBody(*code_writer, parcel, typenames);
@@ -1103,13 +1180,13 @@ void GenerateRustEnumDeclaration(CodeWriter* code_writer, const AidlEnumDeclarat
   code_writer->Indent();
 
   GenerateDeprecated(*code_writer, *enum_decl);
-  *code_writer << enum_decl->GetName() << " : [" << backing_type << "; "
+  *code_writer << "r#" << enum_decl->GetName() << " : [" << backing_type << "; "
                << std::to_string(enum_decl->GetEnumerators().size()) << "] {\n";
   code_writer->Indent();
   for (const auto& enumerator : enum_decl->GetEnumerators()) {
     auto value = enumerator->GetValue()->ValueString(aidl_backing_type, ConstantValueDecorator);
     GenerateDeprecated(*code_writer, *enumerator);
-    *code_writer << enumerator->GetName() << " = " << value << ",\n";
+    *code_writer << "r#" << enumerator->GetName() << " = " << value << ",\n";
   }
   code_writer->Dedent();
   *code_writer << "}\n";
@@ -1136,7 +1213,7 @@ void GenerateClass(CodeWriter* code_writer, const AidlDefinedType& defined_type,
   }
 
   for (const auto& nested : defined_type.GetNestedTypes()) {
-    (*code_writer) << "pub mod " << nested->GetName() << " {\n";
+    (*code_writer) << "pub mod r#" << nested->GetName() << " {\n";
     code_writer->Indent();
     GenerateClass(code_writer, *nested, types, options);
     code_writer->Dedent();

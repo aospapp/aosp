@@ -32,6 +32,8 @@ public class ActivityForSettingLocalesOfAnotherApp extends Activity {
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         setLocalesForOtherApplication();
+
+        finish();
     }
 
     public void setLocalesForOtherApplication() {

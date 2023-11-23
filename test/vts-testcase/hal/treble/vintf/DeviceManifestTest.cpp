@@ -23,6 +23,10 @@
 
 #include "SingleManifestTest.h"
 
+using testing::Combine;
+using testing::Values;
+using testing::ValuesIn;
+
 namespace android {
 namespace vintf {
 namespace testing {
@@ -42,28 +46,6 @@ TEST_F(DeviceManifestTest, ShippingFcmVersion) {
   Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
   auto res = TestTargetFcmVersion(shipping_fcm_version, board_api_level);
   ASSERT_RESULT_OK(res);
-}
-
-TEST_F(DeviceManifestTest, KernelFcmVersion) {
-  const char* kHeader =
-      "Kernel FCM version (specified in VINTF manifests with <kernel "
-      "target-level=\"[0-9]+\"/> if not by /proc/version) ";
-  Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
-
-  if (shipping_fcm_version == Level::UNSPECIFIED ||
-      shipping_fcm_version < Level::R) {
-    GTEST_SKIP() << kHeader << " not enforced on target FCM version "
-                 << shipping_fcm_version;
-  }
-  std::string error;
-  Level kernel_fcm_version = VintfObject::GetInstance()->getKernelLevel(&error);
-  ASSERT_NE(Level::UNSPECIFIED, kernel_fcm_version)
-      << kHeader << " must be specified for target FCM version '"
-      << shipping_fcm_version << "': " << error;
-  ASSERT_GE(kernel_fcm_version, shipping_fcm_version)
-      << kHeader << " is " << kernel_fcm_version
-      << ", but it must be greater or equal to target FCM version "
-      << shipping_fcm_version;
 }
 
 // Tests that deprecated HALs are not in the manifest, unless a higher,
@@ -111,6 +93,35 @@ TEST_F(DeviceManifestTest, HealthHal) {
       << "Device must have either health HIDL HAL or AIDL HAL";
 }
 
+// Devices with Shipping FCM version 5+ must have the
+// AIDL power HAL.
+//
+// The specific versions are handled by the framework compatibility matrix.
+TEST_F(DeviceManifestTest, PowerHal) {
+  Level fcm_version = VintfObject::GetDeviceHalManifest()->level();
+  if (fcm_version == Level::UNSPECIFIED || fcm_version < Level::R) {
+    GTEST_SKIP() << "Power HAL is only required on launching R+ devices";
+  }
+  ASSERT_TRUE(vendor_manifest_->hasAidlInstance("android.hardware.power",
+                                                "IPower", "default"))
+      << "Device must have the android.hardware.power.IPower/default HAL";
+}
+
+// Devices must have either the HIDL or the AIDL gatekeeper HAL.
+// Because compatibility matrices cannot express OR condition
+// between <hal>'s, add a test here.
+//
+// There's no need to enforce minimum HAL versions because
+// NoDeprecatedHalsOnManifest already checks it.
+TEST_F(DeviceManifestTest, GatekeeperHal) {
+  bool has_hidl = vendor_manifest_->hasHidlInstance(
+      "android.hardware.gatekeeper", {1, 0}, "IGatekeeper", "default");
+  bool has_aidl = vendor_manifest_->hasAidlInstance(
+      "android.hardware.gatekeeper", "IGatekeeper", "default");
+  ASSERT_TRUE(has_hidl || has_aidl)
+      << "Device must have either gatekeeper HIDL HAL or AIDL HAL";
+}
+
 // Devices with Shipping FCM version 7 must have either the HIDL or the
 // AIDL composer HAL. Because compatibility matrices cannot express OR condition
 // between <hal>'s, add a test here.
@@ -146,6 +157,24 @@ TEST_F(DeviceManifestTest, GrallocHal) {
       << "Device must have either graphics allocator HIDL HAL or AIDL HAL";
 }
 
+// Devices after Android T must have either the HIDL or the
+// AIDL thermal HAL. Because compatibility matrices cannot express OR condition
+// between <hal>'s, add a test here.
+TEST_F(DeviceManifestTest, ThermalHal) {
+  Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
+  if (shipping_fcm_version == Level::UNSPECIFIED ||
+      shipping_fcm_version < Level::T) {
+    GTEST_SKIP()
+        << "Thermal HAL is only required on devices launching in T or later";
+  }
+  bool has_hidl = vendor_manifest_->hasHidlInstance(
+      "android.hardware.thermal", {2, 0}, "IThermal", "default");
+  bool has_aidl = vendor_manifest_->hasAidlInstance("android.hardware.thermal",
+                                                    "IThermal", "default");
+  ASSERT_TRUE(has_hidl || has_aidl)
+      << "Device must have either thermal HIDL HAL or AIDL HAL";
+}
+
 // Tests that devices launching T support allocator@4.0 or AIDL.
 // Go devices are exempt
 // from this requirement, so we use this test to enforce instead of the
@@ -171,14 +200,66 @@ TEST_F(DeviceManifestTest, GrallocHalVersionCompatibility) {
       "android.hardware.graphics.allocator", {3, 0}, "IAllocator", "default"));
 }
 
-static std::vector<HalManifestPtr> GetTestManifests() {
-  return {
-      VintfObject::GetDeviceHalManifest(),
-  };
+// Devices must have either the HIDL or the AIDL audio HAL, both "core" and
+// "effect" parts must be of the same type. Checked by a test because
+// compatibility matrices cannot express these conditions.
+TEST_F(DeviceManifestTest, AudioHal) {
+  Level shipping_fcm_version = VintfObject::GetDeviceHalManifest()->level();
+  if (shipping_fcm_version == Level::UNSPECIFIED ||
+      shipping_fcm_version < Level::U) {
+    GTEST_SKIP() << "AIDL Audio HAL can only appear on launching U devices";
+  }
+  bool has_hidl_core = false;
+  for (const auto v :
+       {Version(5, 0), Version(6, 0), Version(7, 0), Version(7, 1)}) {
+    has_hidl_core |= vendor_manifest_->hasHidlInstance(
+        "android.hardware.audio", v, "IDevicesFactory", "default");
+  }
+  bool has_hidl_effect = false;
+  for (const auto v : {Version(5, 0), Version(6, 0), Version(7, 0)}) {
+    has_hidl_effect |= vendor_manifest_->hasHidlInstance(
+        "android.hardware.audio.effect", v, "IEffectsFactory", "default");
+  }
+  bool has_aidl_core = vendor_manifest_->hasAidlInstance(
+      "android.hardware.audio.core", "IConfig", "default");
+  bool has_aidl_effect = vendor_manifest_->hasAidlInstance(
+      "android.hardware.audio.effect", "IFactory", "default");
+  EXPECT_EQ(has_hidl_core, has_hidl_effect)
+      << "Device must have both Audio Core and Effect HALs of the same type";
+  EXPECT_EQ(has_aidl_core, has_aidl_effect)
+      << "Device must have both Audio Core and Effect HALs of the same type";
+  EXPECT_TRUE(has_hidl_core || has_aidl_core)
+      << "Device must have either Audio HIDL HAL or AIDL HAL";
 }
 
-INSTANTIATE_TEST_CASE_P(DeviceManifest, SingleManifestTest,
-                        ::testing::ValuesIn(GetTestManifests()));
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SingleHidlTest);
+INSTANTIATE_TEST_CASE_P(
+    DeviceManifest, SingleHidlTest,
+    Combine(ValuesIn(VtsTrebleVintfTestBase::GetHidlInstances(
+                VintfObject::GetDeviceHalManifest())),
+            Values(VintfObject::GetDeviceHalManifest())),
+    &GetTestCaseSuffix<SingleHidlTest>);
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(SingleHwbinderHalTest);
+INSTANTIATE_TEST_CASE_P(
+    DeviceManifest, SingleHwbinderHalTest,
+    Combine(ValuesIn(SingleHwbinderHalTest::ListRegisteredHwbinderHals()),
+            Values(VintfObject::GetDeviceHalManifest())),
+    &SingleHwbinderHalTest::GetTestCaseSuffix);
+
+INSTANTIATE_TEST_CASE_P(
+    DeviceManifest, SingleAidlTest,
+    Combine(ValuesIn(VtsTrebleVintfTestBase::GetAidlInstances(
+                VintfObject::GetDeviceHalManifest())),
+            Values(VintfObject::GetDeviceHalManifest())),
+    &GetTestCaseSuffix<SingleAidlTest>);
+
+INSTANTIATE_TEST_CASE_P(
+    DeviceManifest, SingleNativeTest,
+    Combine(ValuesIn(VtsTrebleVintfTestBase::GetNativeInstances(
+                VintfObject::GetDeviceHalManifest())),
+            Values(VintfObject::GetDeviceHalManifest())),
+    &GetTestCaseSuffix<SingleNativeTest>);
 
 }  // namespace testing
 }  // namespace vintf

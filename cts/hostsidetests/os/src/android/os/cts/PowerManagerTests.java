@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.assertFalse;
 
@@ -72,7 +73,7 @@ public class PowerManagerTests extends BaseHostJUnit4Test {
         mDevice.executeShellCommand("input keyevent 26; input keyevent 82");
         makeCachedProcess(PACKAGE_NAME);
         // Short wait before checking cached process
-        Thread.sleep(1000);
+        RunUtil.getDefault().sleep(1000);
         String processes = mDevice.executeShellCommand(CHECK_CACHED_CMD);
         assertTrue(CACHED_PATTERN.matcher(processes).find());
 

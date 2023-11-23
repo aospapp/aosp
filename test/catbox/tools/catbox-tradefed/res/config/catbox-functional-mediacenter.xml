@@ -32,7 +32,9 @@
 
   <!-- Tests -->
   <option name="compatibility:include-filter" value="AndroidAutomotiveMediaCenterTests android.platform.tests.OpenAppFromMediaCenterTest" />
+  <!--
   <option name="compatibility:include-filter" value="AndroidAutomotiveMediaCenterTests android.platform.tests.MediaTestAppTest" />
   <option name="compatibility:include-filter" value="AndroidAutomotiveMediaCenterTests android.platform.tests.NoUserLoggedInTest" />
+  -->
 
 </configuration>

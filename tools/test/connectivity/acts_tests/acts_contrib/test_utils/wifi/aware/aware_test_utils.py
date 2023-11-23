@@ -714,7 +714,8 @@ def create_discovery_config(service_name,
                             match_filter=None,
                             match_filter_list=None,
                             ttl=0,
-                            term_cb_enable=True):
+                            term_cb_enable=True,
+                            instant_mode=None):
     """Create a publish discovery configuration based on input parameters.
 
   Args:
@@ -726,6 +727,7 @@ def create_discovery_config(service_name,
     ttl: Time-to-live - defaults to 0 (i.e. non-self terminating)
     term_cb_enable: True (default) to enable callback on termination, False
                     means that no callback is called when session terminates.
+    instant_mode: set the band to use instant communication mode, 2G or 5G
   Returns:
     publish discovery configuration object.
   """
@@ -738,6 +740,8 @@ def create_discovery_config(service_name,
         config[aconsts.DISCOVERY_KEY_MATCH_FILTER] = match_filter
     if match_filter_list is not None:
         config[aconsts.DISCOVERY_KEY_MATCH_FILTER_LIST] = match_filter_list
+    if instant_mode is not None:
+        config[aconsts.DISCOVERY_KEY_INSTANT_COMMUNICATION_MODE] = instant_mode
     config[aconsts.DISCOVERY_KEY_TTL] = ttl
     config[aconsts.DISCOVERY_KEY_TERM_CB_ENABLED] = term_cb_enable
     return config

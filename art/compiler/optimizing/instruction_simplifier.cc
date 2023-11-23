@@ -31,13 +31,13 @@
 #include "sharpening.h"
 #include "string_builder_append.h"
 
-namespace art {
+namespace art HIDDEN {
 
 // Whether to run an exhaustive test of individual HInstructions cloning when each instruction
 // is replaced with its copy if it is clonable.
 static constexpr bool kTestInstructionClonerExhaustively = false;
 
-class InstructionSimplifierVisitor : public HGraphDelegateVisitor {
+class InstructionSimplifierVisitor final : public HGraphDelegateVisitor {
  public:
   InstructionSimplifierVisitor(HGraph* graph,
                                CodeGenerator* codegen,
@@ -970,7 +970,7 @@ void InstructionSimplifierVisitor::VisitPredicatedInstanceFieldGet(
                           pred_get->GetFieldInfo().GetDexFile(),
                           pred_get->GetDexPc());
     if (pred_get->GetType() == DataType::Type::kReference) {
-      replace_with->SetReferenceTypeInfo(pred_get->GetReferenceTypeInfo());
+      replace_with->SetReferenceTypeInfoIfValid(pred_get->GetReferenceTypeInfo());
     }
     pred_get->GetBlock()->InsertInstructionBefore(replace_with, pred_get);
     pred_get->ReplaceWith(replace_with);
@@ -1117,6 +1117,10 @@ void InstructionSimplifierVisitor::VisitIf(HIf* instruction) {
   }
 }
 
+// TODO(solanes): This optimization should be in ConstantFolding since we are folding to a constant.
+// However, we get code size regressions when we do that since we sometimes have a NullCheck between
+// HArrayLength and IsNewArray, and said NullCheck is eliminated in InstructionSimplifier. If we run
+// ConstantFolding and InstructionSimplifier in lockstep this wouldn't be an issue.
 void InstructionSimplifierVisitor::VisitArrayLength(HArrayLength* instruction) {
   HInstruction* input = instruction->InputAt(0);
   // If the array is a NewArray with constant size, replace the array length
@@ -1142,13 +1146,13 @@ void InstructionSimplifierVisitor::VisitArraySet(HArraySet* instruction) {
   if (value->IsArrayGet()) {
     if (value->AsArrayGet()->GetArray() == instruction->GetArray()) {
       // If the code is just swapping elements in the array, no need for a type check.
-      instruction->ClearNeedsTypeCheck();
+      instruction->ClearTypeCheck();
       return;
     }
   }
 
   if (value->IsNullConstant()) {
-    instruction->ClearNeedsTypeCheck();
+    instruction->ClearTypeCheck();
     return;
   }
 
@@ -1160,13 +1164,13 @@ void InstructionSimplifierVisitor::VisitArraySet(HArraySet* instruction) {
   }
 
   if (value_rti.IsValid() && array_rti.CanArrayHold(value_rti)) {
-    instruction->ClearNeedsTypeCheck();
+    instruction->ClearTypeCheck();
     return;
   }
 
   if (array_rti.IsObjectArray()) {
     if (array_rti.IsExact()) {
-      instruction->ClearNeedsTypeCheck();
+      instruction->ClearTypeCheck();
       return;
     }
     instruction->SetStaticTypeOfArrayIsObjectArray();
@@ -1860,13 +1864,16 @@ void InstructionSimplifierVisitor::VisitDiv(HDiv* instruction) {
 
 // Search HDiv having the specified dividend and divisor which is in the specified basic block.
 // Return nullptr if nothing has been found.
-static HInstruction* FindDivWithInputsInBasicBlock(HInstruction* dividend,
-                                                   HInstruction* divisor,
-                                                   HBasicBlock* basic_block) {
+static HDiv* FindDivWithInputsInBasicBlock(HInstruction* dividend,
+                                           HInstruction* divisor,
+                                           HBasicBlock* basic_block) {
   for (const HUseListNode<HInstruction*>& use : dividend->GetUses()) {
     HInstruction* user = use.GetUser();
-    if (user->GetBlock() == basic_block && user->IsDiv() && user->InputAt(1) == divisor) {
-      return user;
+    if (user->GetBlock() == basic_block &&
+        user->IsDiv() &&
+        user->InputAt(0) == dividend &&
+        user->InputAt(1) == divisor) {
+      return user->AsDiv();
     }
   }
   return nullptr;
@@ -1900,7 +1907,7 @@ void InstructionSimplifierVisitor::TryToReuseDiv(HRem* rem) {
     }
   }
 
-  HInstruction* quotient = FindDivWithInputsInBasicBlock(dividend, divisor, basic_block);
+  HDiv* quotient = FindDivWithInputsInBasicBlock(dividend, divisor, basic_block);
   if (quotient == nullptr) {
     return;
   }
@@ -2458,7 +2465,7 @@ void InstructionSimplifierVisitor::SimplifySystemArrayCopy(HInvoke* instruction)
       DCHECK(method != nullptr);
       DCHECK(method->IsStatic());
       DCHECK(method->GetDeclaringClass() == system);
-      invoke->SetResolvedMethod(method);
+      invoke->SetResolvedMethod(method, !codegen_->GetGraph()->IsDebuggable());
       // Sharpen the new invoke. Note that we do not update the dex method index of
       // the invoke, as we would need to look it up in the current dex file, and it
       // is unlikely that it exists. The most usual situation for such typed
@@ -2647,15 +2654,13 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
   // Collect args and check for unexpected uses.
   // We expect one call to a constructor with no arguments, one constructor fence (unless
   // eliminated), some number of append calls and one call to StringBuilder.toString().
-  bool constructor_inlined = false;
   bool seen_constructor = false;
   bool seen_constructor_fence = false;
   bool seen_to_string = false;
   uint32_t format = 0u;
   uint32_t num_args = 0u;
+  bool has_fp_args = false;
   HInstruction* args[StringBuilderAppend::kMaxArgs];  // Added in reverse order.
-  // When inlining, `maybe_new_array` tracks an environment use that we want to allow.
-  HInstruction* maybe_new_array = nullptr;
   for (HBackwardInstructionIterator iter(block->GetInstructions()); !iter.Done(); iter.Advance()) {
     HInstruction* user = iter.Current();
     // Instructions of interest apply to `sb`, skip those that do not involve `sb`.
@@ -2700,6 +2705,14 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
         case Intrinsics::kStringBuilderAppendLong:
           arg = StringBuilderAppend::Argument::kLong;
           break;
+        case Intrinsics::kStringBuilderAppendFloat:
+          arg = StringBuilderAppend::Argument::kFloat;
+          has_fp_args = true;
+          break;
+        case Intrinsics::kStringBuilderAppendDouble:
+          arg = StringBuilderAppend::Argument::kDouble;
+          has_fp_args = true;
+          break;
         case Intrinsics::kStringBuilderAppendCharSequence: {
           ReferenceTypeInfo rti = user->AsInvokeVirtual()->InputAt(1)->GetReferenceTypeInfo();
           if (!rti.IsValid()) {
@@ -2719,10 +2732,6 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
           }
           break;
         }
-        case Intrinsics::kStringBuilderAppendFloat:
-        case Intrinsics::kStringBuilderAppendDouble:
-          // TODO: Unimplemented, needs to call FloatingDecimal.getBinaryToASCIIConverter().
-          return false;
         default: {
           return false;
         }
@@ -2736,25 +2745,13 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
       format = (format << StringBuilderAppend::kBitsPerArg) | static_cast<uint32_t>(arg);
       args[num_args] = as_invoke_virtual->InputAt(1u);
       ++num_args;
-    } else if (!seen_constructor) {
-      // At this point, we should see the constructor. However, we might have inlined it so we have
-      // to take care of both cases. We accept only the constructor with no extra arguments. This
-      // means that if we inline it, we have to check it is setting its field to a new array.
-      if (user->IsInvokeStaticOrDirect() &&
-          user->AsInvokeStaticOrDirect()->GetResolvedMethod() != nullptr &&
-          user->AsInvokeStaticOrDirect()->GetResolvedMethod()->IsConstructor() &&
-          user->AsInvokeStaticOrDirect()->GetNumberOfArguments() == 1u) {
-        constructor_inlined = false;
-      } else if (user->IsInstanceFieldSet() &&
-                 user->AsInstanceFieldSet()->GetFieldType() == DataType::Type::kReference &&
-                 user->AsInstanceFieldSet()->InputAt(0) == sb &&
-                 user->AsInstanceFieldSet()->GetValue()->IsNewArray()) {
-        maybe_new_array = user->AsInstanceFieldSet()->GetValue();
-        constructor_inlined = true;
-      } else {
-        // We were expecting a constructor but we haven't seen it. Abort optimization.
-        return false;
-      }
+    } else if (user->IsInvokeStaticOrDirect() &&
+               user->AsInvokeStaticOrDirect()->GetResolvedMethod() != nullptr &&
+               user->AsInvokeStaticOrDirect()->GetResolvedMethod()->IsConstructor() &&
+               user->AsInvokeStaticOrDirect()->GetNumberOfArguments() == 1u) {
+      // After arguments, we should see the constructor.
+      // We accept only the constructor with no extra arguments.
+      DCHECK(!seen_constructor);
       DCHECK(!seen_constructor_fence);
       seen_constructor = true;
     } else if (user->IsConstructorFence()) {
@@ -2780,17 +2777,6 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
     // Accept only calls on the StringBuilder (which shall all be removed).
     // TODO: Carve-out for const-string? Or rely on environment pruning (to be implemented)?
     if (holder->InputCount() == 0 || holder->InputAt(0) != sb) {
-      // When inlining the constructor, we have a NewArray and may have a LoadClass as an
-      // environment use.
-      if (constructor_inlined) {
-        if (holder == maybe_new_array) {
-          continue;
-        }
-        if (holder == maybe_new_array->InputAt(0)) {
-          DCHECK(holder->IsLoadClass());
-          continue;
-        }
-      }
       return false;
     }
   }
@@ -2798,9 +2784,9 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
   // Create replacement instruction.
   HIntConstant* fmt = block->GetGraph()->GetIntConstant(static_cast<int32_t>(format));
   ArenaAllocator* allocator = block->GetGraph()->GetAllocator();
-  HStringBuilderAppend* append =
-      new (allocator) HStringBuilderAppend(fmt, num_args, allocator, invoke->GetDexPc());
-  append->SetReferenceTypeInfo(invoke->GetReferenceTypeInfo());
+  HStringBuilderAppend* append = new (allocator) HStringBuilderAppend(
+      fmt, num_args, has_fp_args, allocator, invoke->GetDexPc());
+  append->SetReferenceTypeInfoIfValid(invoke->GetReferenceTypeInfo());
   for (size_t i = 0; i != num_args; ++i) {
     append->SetArgumentAt(i, args[num_args - 1u - i]);
   }
@@ -2823,33 +2809,6 @@ static bool TryReplaceStringBuilderAppend(HInvoke* invoke) {
   // Remove the StringBuilder's uses and StringBuilder.
   while (sb->HasNonEnvironmentUses()) {
     block->RemoveInstruction(sb->GetUses().front().GetUser());
-  }
-  if (constructor_inlined) {
-    // We need to remove the inlined constructor instructions,
-    // and all remaining environment uses (if any).
-    DCHECK(sb->HasEnvironmentUses());
-    DCHECK(maybe_new_array != nullptr);
-    DCHECK(maybe_new_array->IsNewArray());
-    DCHECK(maybe_new_array->HasNonEnvironmentUses());
-    HInstruction* fence = maybe_new_array->GetUses().front().GetUser();
-    DCHECK(fence->IsConstructorFence());
-    block->RemoveInstruction(fence);
-    block->RemoveInstruction(maybe_new_array);
-    if (sb->HasEnvironmentUses()) {
-      // We know the only remaining uses are from the LoadClass.
-      HInstruction* load_class = maybe_new_array->InputAt(0);
-      DCHECK(load_class->IsLoadClass());
-      for (HEnvironment* env = load_class->GetEnvironment();
-           env != nullptr;
-           env = env->GetParent()) {
-        for (size_t i = 0, size = env->Size(); i != size; ++i) {
-          if (env->GetInstructionAt(i) == sb) {
-            env->RemoveAsUserOfInput(i);
-            env->SetRawEnvAt(i, /*instruction=*/ nullptr);
-          }
-        }
-      }
-    }
   }
   DCHECK(!sb->HasEnvironmentUses());
   block->RemoveInstruction(sb);

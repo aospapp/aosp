@@ -26,6 +26,7 @@ import com.android.tradefed.result.FileInputStreamSource;
 import com.android.tradefed.result.InputStreamSource;
 import com.android.tradefed.result.LogDataType;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner.TestLogData;
+import com.android.tradefed.util.ZipUtil;
 
 import com.google.common.annotations.VisibleForTesting;
 
@@ -37,6 +38,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,6 +50,19 @@ public class TestUtils {
     private final TestArtifactReceiver mTestArtifactReceiver;
     private final DeviceUtils mDeviceUtils;
     private static final int MAX_CRASH_SNIPPET_LINES = 60;
+    // Pattern for finding a package name following one of the tags such as "Process:" or
+    // "Package:".
+    private static final Pattern DROPBOX_PACKAGE_NAME_PATTERN =
+            Pattern.compile(
+                    "(Process|Cmdline|Package|Cmd line):("
+                            + " *)([a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+)");
+
+    public enum TakeEffectWhen {
+        NEVER,
+        ON_FAIL,
+        ON_PASS,
+        ALWAYS,
+    }
 
     public static TestUtils getInstance(TestInformation testInformation, TestLogData testLogData) {
         return new TestUtils(
@@ -113,6 +129,37 @@ public class TestUtils {
                         CLog.e("Failed to get screen recording.");
                     }
                 });
+    }
+
+    /**
+     * Saves test APK files when conditions on the test result is met.
+     *
+     * @param when Conditions to save the apks based on the test result.
+     * @param testPassed The test result.
+     * @param prefix Output file name prefix
+     * @param apks A list of files that can be files, directories, or a mix of both.
+     * @return true if apk files are saved as artifacts. False otherwise.
+     */
+    public boolean saveApks(
+            TakeEffectWhen when, boolean testPassed, String prefix, List<File> apks) {
+        if (apks.isEmpty() || when == TakeEffectWhen.NEVER) {
+            return false;
+        }
+
+        if ((when == TakeEffectWhen.ON_FAIL && testPassed)
+                || (when == TakeEffectWhen.ON_PASS && !testPassed)) {
+            return false;
+        }
+
+        try {
+            File outputZip = ZipUtil.createZip(apks);
+            getTestArtifactReceiver().addTestArtifact(prefix + "-apks", LogDataType.ZIP, outputZip);
+            return true;
+        } catch (IOException e) {
+            CLog.e("Failed to zip the apks: " + e);
+        }
+
+        return false;
     }
 
     /**
@@ -195,7 +242,10 @@ public class TestUtils {
         List<DropboxEntry> entries =
                 mDeviceUtils.getDropboxEntries(DeviceUtils.DROPBOX_APP_CRASH_TAGS).stream()
                         .filter(entry -> (entry.getTime() >= startTimeOnDevice.get()))
-                        .filter(entry -> entry.getData().contains(packageName))
+                        .filter(
+                                entry ->
+                                        isDropboxEntryFromPackageProcess(
+                                                entry.getData(), packageName))
                         .collect(Collectors.toList());
 
         if (entries.size() == 0) {
@@ -228,17 +278,47 @@ public class TestUtils {
         return truncatedText;
     }
 
+    @VisibleForTesting
+    boolean isDropboxEntryFromPackageProcess(String entryData, String packageName) {
+        Matcher m = DROPBOX_PACKAGE_NAME_PATTERN.matcher(entryData);
+
+        boolean matched = false;
+        while (m.find()) {
+            matched = true;
+            if (m.group(3).equals(packageName)) {
+                return true;
+            }
+        }
+
+        if (matched) {
+            return false;
+        }
+
+        // If the process name is not identified, fall back to checking if the package name is
+        // present in the entry. This is because the process name detection logic above does not
+        // guarantee to identify the process name.
+        return Pattern.compile(
+                        String.format(
+                                // Pattern for checking whether a given package name exists.
+                                "(.*(?:[^a-zA-Z0-9_\\.]+)|^)%s((?:[^a-zA-Z0-9_\\.]+).*|$)",
+                                packageName.replaceAll("\\.", "\\\\.")))
+                .matcher(entryData)
+                .find();
+    }
+
     /**
      * Generates a list of APK paths where the base.apk of split apk files are always on the first
      * index if exists.
      *
-     * <p>If the apk path is a single apk, then the apk is returned. If the apk path is a directory
-     * containing only one non-split apk file, the apk file is returned. If the apk path is a
-     * directory containing split apk files for one package, then the list of apks are returned and
-     * the base.apk sits on the first index. If the apk path does not contain any apk files, or
-     * multiple apk files without base.apk, then an IOException is thrown.
+     * <p>If the input path points to a single apk file, then the same path is returned. If the
+     * input path is a directory containing only one non-split apk file, the apk file path is
+     * returned. If the apk path is a directory containing split apk files for one package, then the
+     * list of apks are returned and the base.apk sits on the first index. If the path contains obb
+     * files, then they will be included at the end of the returned path list. If the apk path does
+     * not contain any apk files, or multiple apk files without base.apk, then an IOException is
+     * thrown.
      *
-     * @return A list of APK paths.
+     * @return A list of APK paths with OBB files if available.
      * @throws TestUtilsException If failed to read the apk path or unexpected number of apk files
      *     are found under the path.
      */
@@ -252,44 +332,80 @@ public class TestUtils {
             return List.of(root);
         }
 
-        List<Path> apks;
+        List<Path> apksAndObbs;
         CLog.d("APK path = " + root);
         try (Stream<Path> fileTree = Files.walk(root)) {
-            apks =
+            apksAndObbs =
                     fileTree.filter(Files::isRegularFile)
-                            .filter(path -> path.getFileName().toString().endsWith(".apk"))
+                            .filter(
+                                    path ->
+                                            path.getFileName()
+                                                            .toString()
+                                                            .toLowerCase()
+                                                            .endsWith(".apk")
+                                                    || path.getFileName()
+                                                            .toString()
+                                                            .toLowerCase()
+                                                            .endsWith(".obb"))
                             .collect(Collectors.toList());
         } catch (IOException e) {
             throw new TestUtilsException("Failed to list apk files.", e);
         }
 
-        if (apks.isEmpty()) {
-            throw new TestUtilsException("The apk directory does not contain any apk files");
+        List<Path> apkFiles =
+                apksAndObbs.stream()
+                        .filter(path -> path.getFileName().toString().endsWith(".apk"))
+                        .collect(Collectors.toList());
+
+        if (apkFiles.isEmpty()) {
+            throw new TestUtilsException(
+                    "Empty APK directory. Cannot find any APK files under " + root);
         }
 
-        // The apk path contains a single non-split apk or the base.apk of a split-apk.
-        if (apks.size() == 1) {
-            return apks;
-        }
-
-        if (apks.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
+        if (apkFiles.stream().map(path -> path.getParent().toString()).distinct().count() != 1) {
             throw new TestUtilsException(
                     "Apk files are not all in the same folder: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
-        if (apks.stream().filter(path -> path.getFileName().toString().equals("base.apk")).count()
-                == 0) {
+        if (apkFiles.size() > 1
+                && apkFiles.stream()
+                                .filter(path -> path.getFileName().toString().equals("base.apk"))
+                                .count()
+                        == 0) {
             throw new TestUtilsException(
-                    "Multiple non-split apk files detected: "
-                            + Arrays.deepToString(apks.toArray(new Path[apks.size()])));
+                    "Base apk is not found: "
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
+        }
+
+        if (apksAndObbs.stream()
+                        .filter(
+                                path ->
+                                        path.getFileName().toString().endsWith(".obb")
+                                                && path.getFileName().toString().startsWith("main"))
+                        .count()
+                > 1) {
+            throw new TestUtilsException(
+                    "Multiple main obb files are found: "
+                            + Arrays.deepToString(
+                                    apksAndObbs.toArray(new Path[apksAndObbs.size()])));
         }
 
         Collections.sort(
-                apks,
-                (first, second) -> first.getFileName().toString().equals("base.apk") ? -1 : 0);
+                apksAndObbs,
+                (first, second) -> {
+                    if (first.getFileName().toString().equals("base.apk")) {
+                        return -1;
+                    } else if (first.getFileName().toString().toLowerCase().endsWith(".obb")) {
+                        return 1;
+                    } else {
+                        return first.getFileName().compareTo(second.getFileName());
+                    }
+                });
 
-        return apks;
+        return apksAndObbs;
     }
 
     /** Returns the test information. */

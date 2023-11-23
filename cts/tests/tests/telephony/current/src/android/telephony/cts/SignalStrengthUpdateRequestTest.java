@@ -44,12 +44,14 @@ public class SignalStrengthUpdateRequestTest {
             .setRadioAccessNetworkType(AccessNetworkConstants.AccessNetworkType.GERAN)
             .setSignalMeasurementType(SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSSI)
             .setThresholds(new int[]{-109, -103, -97, -89})
+            .setHysteresisDb(0)
             .build();
 
     private SignalThresholdInfo mRscpInfo = new SignalThresholdInfo.Builder()
             .setRadioAccessNetworkType(AccessNetworkConstants.AccessNetworkType.UTRAN)
             .setSignalMeasurementType(SignalThresholdInfo.SIGNAL_MEASUREMENT_TYPE_RSCP)
             .setThresholds(new int[]{-115, -105, -95, -85})
+            .setHysteresisDb(1)
             .build();
 
     @Before

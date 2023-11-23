@@ -51,7 +51,8 @@ try:
 except ImportError as e:
     logging.debug('Import error due to: %s', e)
 
-import constants
+from atest import constants
+from atest import metrics
 
 
 class BuildClient:
@@ -78,6 +79,19 @@ class BuildClient:
         """List all target in the branch."""
         return self.client.target().list(branch=branch,
                                          maxResults=10000).execute()
+
+    def get_branch(self, branch):
+        """Get BuildInfo for specific branch.
+        Args:
+            branch: A string of branch name to query.
+        """
+        query_branch = ''
+        try:
+            query_branch = self.client.branch().get(resourceId=branch).execute()
+        # pylint: disable=broad-except
+        except Exception:
+            return ''
+        return query_branch
 
     def insert_local_build(self, external_id, target, branch):
         """Insert a build record.
@@ -129,6 +143,7 @@ class BuildClient:
             A build invocation object.
         """
         sponge_invocation_id = str(uuid.uuid4())
+        user_email = metrics.metrics_base.get_user_email()
         invocation = {
             "primaryBuild": {
                 "buildId": build_record['buildId'],
@@ -138,6 +153,7 @@ class BuildClient:
             "schedulerState": "running",
             "runner": "atest",
             "scheduler": "atest",
+            "users": [user_email],
             "properties": [{
                 'name': 'sponge_invocation_id',
                 'value': sponge_invocation_id,

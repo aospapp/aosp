@@ -32,5 +32,8 @@ interface ICommandReceiver {
     boolean indexNotGloballySearchableDocument(in String databaseName, in String namespace,
         in String id);
 
+    boolean indexAction(in String databaseName, in String namespace, in String id,
+        in String entityId, in boolean globallySearchable);
+
     boolean clearData(in String databaseName);
 }

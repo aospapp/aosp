@@ -139,6 +139,8 @@ class TestBase(unittest.TestCase):
         elif result.failures and result.failures[-1][0] == self:
             status = 'FAILED'
             err_info = result.failures[-1][1]
+        elif result.skipped and result.skipped[-1][0] == self:
+            status = 'SKIPPED'
         else:
             status = 'OK'
 
@@ -146,7 +148,7 @@ class TestBase(unittest.TestCase):
         TestHelper.log(
             'end test %s.%s %s (%.3fs)' %
             (self.__class__.__name__, self._testMethodName, status, time_taken))
-        if status != 'OK':
+        if status == 'FAILED':
             TestHelper.log(err_info)
 
         # Remove test data for passed tests to save space.
@@ -162,7 +164,7 @@ class TestBase(unittest.TestCase):
             args += TestHelper.browser_option
         if TestHelper.ndk_path:
             if args[0] in ['app_profiler.py', 'binary_cache_builder.py', 'pprof_proto_generator.py',
-                           'report_html.py']:
+                           'report_html.py', 'annotate.py']:
                 args += ['--ndk_path', TestHelper.ndk_path]
         if args[0].endswith('.py'):
             args = [sys.executable, TestHelper.script_path(args[0])] + args[1:]

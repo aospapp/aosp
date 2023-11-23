@@ -35,6 +35,8 @@ import java.nio.charset.StandardCharsets;
 import static java.util.zip.ZipConstants64.*;
 import static java.util.zip.ZipUtils.*;
 
+import dalvik.system.ZipPathValidator;
+
 /**
  * This class implements an input stream filter for reading files in the
  * ZIP file format. Includes support for both compressed and uncompressed
@@ -108,11 +110,19 @@ class ZipInputStream extends InflaterInputStream implements ZipConstants {
         this.zc = ZipCoder.get(charset);
     }
 
+    // Android-changed: Additional ZipException throw scenario with ZipPathValidator.
     /**
      * Reads the next ZIP file entry and positions the stream at the
      * beginning of the entry data.
+     *
+     * <p>If the app targets Android U or above, zip file entry names containing
+     * ".." or starting with "/" passed here will throw a {@link ZipException}.
+     * For more details, see {@link dalvik.system.ZipPathValidator}.
+     *
      * @return the next ZIP file entry, or null if there are no more entries
-     * @exception ZipException if a ZIP file error has occurred
+     * @exception ZipException if (1) a ZIP file error has occurred or
+     *            (2) <code>targetSdkVersion >= BUILD.VERSION_CODES.UPSIDE_DOWN_CAKE</code>
+     *            and (the <code>name</code> argument contains ".." or starts with "/").
      * @exception IOException if an I/O error has occurred
      */
     public ZipEntry getNextEntry() throws IOException {
@@ -321,6 +331,9 @@ class ZipInputStream extends InflaterInputStream implements ZipConstants {
         if ((flag & 1) == 1) {
             throw new ZipException("encrypted ZIP entry not supported");
         }
+        // BEGIN Android-added: Use ZipPathValidator to validate zip entry name.
+        ZipPathValidator.getInstance().onZipEntryAccess(e.name);
+        // END Android-added: Use ZipPathValidator to validate zip entry name.
         e.method = get16(tmpbuf, LOCHOW);
         e.xdostime = get32(tmpbuf, LOCTIM);
         if ((flag & 8) == 8) {

@@ -26,9 +26,9 @@ process_strace()
 prep_fstrace()
 {
     # Remove leading junk
-    fgrep android_fs_data $1 | sed 's/^.* \[.*\] //' | sed s/://g | sed s/,//g > foo
+    fgrep f2fs_data $1 | sed 's/^.* \[.*\] //' | sed s/://g | sed s/,//g > foo
     # Sanitize the filenames, removing spaces within the filename etc
-    sed 's/android_fs_dataread_start/read/' foo > bar1
+    sed 's/f2fs_dataread_start/read/' foo > bar1
     mv bar1 bar
     # First column is timestamp SECONDS SINCE BOOT
     awk '{ print $2, "ftrace", $3, $5, $7, $9, $13 }' bar > foo
@@ -125,13 +125,13 @@ catch_sigint()
 
 enable_tracepoints()
 {
-    adb shell "echo 1 > /sys/kernel/debug/tracing/events/android_fs/android_fs_dataread_start/enable"
+    adb shell "echo 1 > /sys/kernel/debug/tracing/events/f2fs/f2fs_dataread_start/enable"
     adb shell "echo 1 > /sys/kernel/debug/tracing/tracing_on"
 }
 
 disable_tracepoints()
 {
-    adb shell "echo 0 > /sys/kernel/debug/tracing/events/android_fs/android_fs_dataread_start/enable"
+    adb shell "echo 0 > /sys/kernel/debug/tracing/events/f2fs/f2fs_dataread_start/enable"
     adb shell "echo 0 > /sys/kernel/debug/tracing/tracing_on"
 }
 

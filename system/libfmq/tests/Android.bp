@@ -37,7 +37,8 @@ cc_test {
     name: "fmq_test_client",
     tidy_timeout_srcs: ["msgq_test_client.cpp"],
     srcs: ["msgq_test_client.cpp"],
-
+    // This cc_test is used through the python test and won't support isolated
+    isolated: false,
     cflags: [
         "-Wall",
         "-Werror",

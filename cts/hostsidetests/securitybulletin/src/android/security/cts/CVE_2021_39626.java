@@ -18,7 +18,7 @@ package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -26,7 +26,7 @@ import org.junit.runner.RunWith;
 import org.junit.Test;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_39626 extends StsExtraBusinessLogicHostTestBase {
+public class CVE_2021_39626 extends NonRootSecurityTestCase {
     static final String TEST_APP = "CVE-2021-39626.apk";
     static final String TEST_PKG = "android.security.cts.CVE_2021_39626";
     static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";

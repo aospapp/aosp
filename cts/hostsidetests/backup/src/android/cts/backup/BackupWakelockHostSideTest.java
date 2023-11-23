@@ -47,7 +47,7 @@ public class BackupWakelockHostSideTest extends BaseBackupHostSideTest {
             "BackupManagerService:* PerformBackupTask:* KeyValueBackupTask:* PFTBT:* "
                     + TAG + ":* *:S";
     private static final String WAKELOCK_ACQUIRED_LOG = "Acquired wakelock:*backup*-0";
-    private static final String WAKELOCK_RELEASED_LOG = "Acquired wakelock:*backup*-0";
+    private static final String WAKELOCK_RELEASED_LOG = "Released wakelock:*backup*-0";
     private static final String KEY_VALUE_START = "Beginning backup of ";
     private static final String KEY_VALUE_SUCCESS_LOG = "K/V backup pass finished";
     private static final String RESTOREATINSTALL_LOG =

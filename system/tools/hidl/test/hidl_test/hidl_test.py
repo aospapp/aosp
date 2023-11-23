@@ -49,12 +49,12 @@ if __name__ == '__main__':
     servers = []
 
     if has_bitness(32):
-        clients += ["/data/nativetest/hidl_test_client/hidl_test_client"]
-        servers += ["/data/nativetest/hidl_test_servers/hidl_test_servers"]
+        clients += ["/data/nativetest/hidl_test_client/hidl_test_client32"]
+        servers += ["/data/nativetest/hidl_test_servers/hidl_test_servers32"]
 
     if has_bitness(64):
-        clients += ["/data/nativetest64/hidl_test_client/hidl_test_client"]
-        servers += ["/data/nativetest64/hidl_test_servers/hidl_test_servers"]
+        clients += ["/data/nativetest64/hidl_test_client/hidl_test_client64"]
+        servers += ["/data/nativetest64/hidl_test_servers/hidl_test_servers64"]
 
     assert len(clients) > 0
     assert len(servers) > 0

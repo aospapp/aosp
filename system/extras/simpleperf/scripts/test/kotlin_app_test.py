@@ -15,17 +15,18 @@
 # limitations under the License.
 
 import os
+import unittest
 
 from simpleperf_utils import remove
 from . app_test import TestExampleBase
-from . test_utils import INFERNO_SCRIPT
+from . test_utils import INFERNO_SCRIPT, TestHelper
 
 
-class TestExampleOfKotlin(TestExampleBase):
+class TestExampleKotlin(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleOfKotlin",
-                    "com.example.simpleperf.simpleperfexampleofkotlin",
+        cls.prepare("SimpleperfExampleKotlin",
+                    "simpleperf.example.kotlin",
                     ".MainActivity")
 
     def test_app_profiler(self):
@@ -35,14 +36,14 @@ class TestExampleOfKotlin(TestExampleBase):
         self.run_app_profiler(start_activity=True, build_binary_cache=False)
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexampleofkotlin.MainActivity$createBusyThread$1." +
+            "simpleperf.example.kotlin.MainActivity$createBusyThread$1." +
             "run", "__start_thread"])
 
     def test_report(self):
         self.common_test_report()
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexampleofkotlin.MainActivity$createBusyThread$1." +
+            "simpleperf.example.kotlin.MainActivity$createBusyThread$1." +
             "run", "__start_thread"])
 
     def test_annotate(self):
@@ -60,36 +61,51 @@ class TestExampleOfKotlin(TestExampleBase):
 
     def test_report_sample(self):
         self.common_test_report_sample([
-            "com.example.simpleperf.simpleperfexampleofkotlin.MainActivity$createBusyThread$1." +
+            "simpleperf.example.kotlin.MainActivity$createBusyThread$1." +
             "run", "__start_thread"])
 
     def test_pprof_proto_generator(self):
         check_strings_with_lines = []
         if self.use_compiled_java_code:
             check_strings_with_lines = [
-                "com/example/simpleperf/simpleperfexampleofkotlin/MainActivity.kt",
+                "simpleperf/example/kotlin/MainActivity.kt",
                 "run"]
         self.common_test_pprof_proto_generator(
             check_strings_with_lines=check_strings_with_lines,
-            check_strings_without_lines=["com.example.simpleperf.simpleperfexampleofkotlin." +
-                                         "MainActivity$createBusyThread$1.run"])
+            check_strings_without_lines=[
+                'simpleperf.example.kotlin.MainActivity$createBusyThread$1.run'])
 
     def test_inferno(self):
         self.common_test_inferno()
         self.run_app_profiler()
         self.run_cmd([INFERNO_SCRIPT, "-sc"])
-        self.check_inferno_report_html([('com.example.simpleperf.simpleperfexampleofkotlin.' +
-                                         'MainActivity$createBusyThread$1.run', 80)])
+        self.check_inferno_report_html([
+            ('simpleperf.example.kotlin.MainActivity$createBusyThread$1.run', 80)])
 
     def test_report_html(self):
         self.common_test_report_html()
 
 
-class TestExampleOfKotlinRoot(TestExampleBase):
+class TestExampleKotlinProfileableApk(TestExampleKotlin):
+    """ Test profiling a profileable released apk."""
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleOfKotlin",
-                    "com.example.simpleperf.simpleperfexampleofkotlin",
+        if TestHelper.android_version >= 10:
+            cls.prepare("SimpleperfExampleKotlin",
+                        "simpleperf.example.kotlin",
+                        ".MainActivity", apk_name='app-release.apk')
+
+    def setUp(self):
+        if TestHelper().android_version < 10:
+            raise unittest.SkipTest("Profileable apk isn't supported on Android < Q.")
+        super().setUp()
+
+
+class TestExampleKotlinRoot(TestExampleBase):
+    @classmethod
+    def setUpClass(cls):
+        cls.prepare("SimpleperfExampleKotlin",
+                    "simpleperf.example.kotlin",
                     ".MainActivity",
                     adb_root=True)
 
@@ -97,18 +113,17 @@ class TestExampleOfKotlinRoot(TestExampleBase):
         self.common_test_app_profiler()
 
 
-class TestExampleOfKotlinTraceOffCpu(TestExampleBase):
+class TestExampleKotlinTraceOffCpu(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExampleOfKotlin",
-                    "com.example.simpleperf.simpleperfexampleofkotlin",
+        cls.prepare("SimpleperfExampleKotlin",
+                    "simpleperf.example.kotlin",
                     ".SleepActivity")
 
     def test_smoke(self):
         self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-clock:u --trace-offcpu")
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
-        function_prefix = "com.example.simpleperf.simpleperfexampleofkotlin." + \
-                          "SleepActivity$createRunSleepThread$1."
+        function_prefix = 'simpleperf.example.kotlin.SleepActivity$createRunSleepThread$1.'
         self.check_strings_in_file("report.txt", [
             function_prefix + "run",
             function_prefix + "RunFunction",
@@ -125,8 +140,8 @@ class TestExampleOfKotlinTraceOffCpu(TestExampleBase):
                 ("run", 80, 0),
                 ("RunFunction", 20, 20),
                 ("SleepFunction", 20, 0),
-                ("line 24", 20, 0),
-                ("line 32", 20, 0)])
+                ("line 23", 20, 0),
+                ("line 31", 20, 0)])
 
         self.run_cmd([INFERNO_SCRIPT, "-sc"])
         self.check_inferno_report_html([

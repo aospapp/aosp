@@ -21,7 +21,7 @@
 #include "art_method.h"
 #include "base/bit_utils.h"
 #include "base/malloc_arena_pool.h"
-#include "compiled_method-inl.h"
+#include "driver/compiled_method-inl.h"
 #include "driver/compiler_driver.h"
 #include "entrypoints/quick/quick_entrypoints_enum.h"
 #include "heap_poisoning.h"
@@ -251,7 +251,7 @@ void Arm64RelativePatcher::PatchPcRelativeReference(std::vector<uint8_t>* code,
   } else {
     if ((insn & 0xfffffc00) == 0x91000000) {
       // ADD immediate, 64-bit with imm12 == 0 (unset).
-      if (!kEmitCompilerReadBarrier) {
+      if (!gUseReadBarrier) {
         DCHECK(patch.GetType() == LinkerPatch::Type::kIntrinsicReference ||
                patch.GetType() == LinkerPatch::Type::kMethodRelative ||
                patch.GetType() == LinkerPatch::Type::kTypeRelative ||

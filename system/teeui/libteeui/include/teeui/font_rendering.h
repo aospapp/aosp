@@ -77,6 +77,7 @@ MAP_HANDLE_DELETER(FT_Library, FT_Done_FreeType);
 
 
 bool isBreakable(unsigned long codePoint);
+bool isNewline(unsigned long codePoint);
 
 template <typename CharIterator> class UTF8WordRange {
     UTF8Range<CharIterator> range_;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,24 @@
 
 package com.android.bedstead.harrier.policies;
 
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_AFFILIATED_PROFILE_OWNER_USER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_DEVICE_OWNER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_FINANCED_DEVICE_OWNER;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIED_BY_PROFILE_OWNER_USER_WITH_NO_DO;
 import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.APPLIES_GLOBALLY;
+import static com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy.CANNOT_BE_APPLIED_BY_ROLE_HOLDER;
 
 import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
 
 /**
- * Policy for Auto Time Required.
+ * Policy for auto-time related tests.
  *
- * <p>This is used by the method
- * {@code DevicePolicyManager#setAutoTimeRequired(ComponentName, boolean)}
+ * <p>This is used by {@code DevicePolicyManager#setAutoTimeRequired}
  */
-@EnterprisePolicy(dpc = {APPLIED_BY_DEVICE_OWNER | APPLIES_GLOBALLY})
+// TODO: Should this be applicable by financed DO?
+@EnterprisePolicy(dpc = APPLIED_BY_DEVICE_OWNER
+        | APPLIED_BY_PROFILE_OWNER_USER_WITH_NO_DO | APPLIED_BY_FINANCED_DEVICE_OWNER
+        | APPLIED_BY_AFFILIATED_PROFILE_OWNER_USER | APPLIES_GLOBALLY
+        | CANNOT_BE_APPLIED_BY_ROLE_HOLDER)
 public final class AutoTimeRequired {
 }

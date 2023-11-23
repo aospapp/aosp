@@ -20,8 +20,11 @@ import static org.junit.Assert.*;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildProvider;
 import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.config.OptionSetter;
 import com.android.tradefed.util.FileUtil;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -37,6 +40,22 @@ public class MtsTradefedTest {
     private static final String PROPERTY_NAME = "MTS_ROOT";
     private static final String SUITE_FULL_NAME = "Mainline Test Suite";
     private static final String SUITE_NAME = "MTS";
+    private static final String SUITE_PLAN = "mts";
+    private static final String DYNAMIC_CONFIG_URL = "";
+
+    private String mOriginalProperty = null;
+
+    @Before
+    public void setUp() throws Exception {
+        mOriginalProperty = System.getProperty(PROPERTY_NAME);
+    }
+
+    @After
+    public void tearDown() throws Exception {
+        if (mOriginalProperty != null) {
+            System.setProperty(PROPERTY_NAME, mOriginalProperty);
+        }
+    }
 
     @Test
     public void testSuiteInfoLoad() throws Exception {
@@ -47,22 +66,15 @@ public class MtsTradefedTest {
         base.mkdirs();
         File tests = new File(base, "testcases");
         tests.mkdirs();
-        CompatibilityBuildProvider provider = new CompatibilityBuildProvider() {
-            @Override
-            protected String getSuiteInfoName() {
-                return SUITE_NAME;
-            }
-            @Override
-            protected String getSuiteInfoFullname() {
-                return SUITE_FULL_NAME;
-            }
-        };
+        CompatibilityBuildProvider provider = new CompatibilityBuildProvider();
+        OptionSetter setter = new OptionSetter(provider);
+        setter.setOptionValue("plan", SUITE_PLAN);
+        setter.setOptionValue("dynamic-config-url", DYNAMIC_CONFIG_URL);
         IBuildInfo info = provider.getBuild();
         CompatibilityBuildHelper helper = new CompatibilityBuildHelper(info);
         assertEquals("Incorrect suite full name", SUITE_FULL_NAME, helper.getSuiteFullName());
         assertEquals("Incorrect suite name", SUITE_NAME, helper.getSuiteName());
         FileUtil.recursiveDelete(root);
-        System.clearProperty(PROPERTY_NAME);
     }
 }
 

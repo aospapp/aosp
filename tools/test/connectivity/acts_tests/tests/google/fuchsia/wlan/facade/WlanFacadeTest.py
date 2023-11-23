@@ -20,11 +20,12 @@ Script for verifying that we can invoke methods of the WlanFacade.
 import array
 
 from acts import asserts, signals
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 
 
-class WlanFacadeTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanFacadeTest(WifiBaseTest):
+
     def setup_class(self):
         super().setup_class()
         if len(self.fuchsia_devices) < 1:
@@ -34,7 +35,7 @@ class WlanFacadeTest(AbstractDeviceWlanDeviceBaseTest):
         self.dut = create_wlan_device(self.fuchsia_devices[0])
 
     def test_get_phy_id_list(self):
-        result = self.dut.device.wlan_lib.wlanPhyIdList()
+        result = self.dut.device.sl4f.wlan_lib.wlanPhyIdList()
         error = result['error']
         asserts.assert_true(error is None, error)
 
@@ -42,7 +43,7 @@ class WlanFacadeTest(AbstractDeviceWlanDeviceBaseTest):
         return True
 
     def test_get_country(self):
-        wlan_lib = self.dut.device.wlan_lib
+        wlan_lib = self.dut.device.sl4f.wlan_lib
 
         result = wlan_lib.wlanPhyIdList()
         error = result['error']
@@ -60,7 +61,7 @@ class WlanFacadeTest(AbstractDeviceWlanDeviceBaseTest):
         return True
 
     def test_get_dev_path(self):
-        wlan_lib = self.dut.device.wlan_lib
+        wlan_lib = self.dut.device.sl4f.wlan_lib
 
         result = wlan_lib.wlanPhyIdList()
         error = result['error']

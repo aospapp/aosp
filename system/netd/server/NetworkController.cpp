@@ -30,6 +30,7 @@
 #include <android-base/strings.h>
 #include <cutils/misc.h>  // FIRST_APPLICATION_UID
 #include <netd_resolv/resolv.h>
+#include <net/if.h>
 #include "log/log.h"
 
 #include "Controllers.h"
@@ -382,7 +383,8 @@ bool NetworkController::isVirtualNetworkLocked(unsigned netId) const {
     return network && network->isVirtual();
 }
 
-int NetworkController::createPhysicalNetworkLocked(unsigned netId, Permission permission) {
+int NetworkController::createPhysicalNetworkLocked(unsigned netId, Permission permission,
+                                                   bool local) {
     if (!((MIN_NET_ID <= netId && netId <= MAX_NET_ID) ||
           (MIN_OEM_ID <= netId && netId <= MAX_OEM_ID))) {
         ALOGE("invalid netId %u", netId);
@@ -394,7 +396,7 @@ int NetworkController::createPhysicalNetworkLocked(unsigned netId, Permission pe
         return -EEXIST;
     }
 
-    PhysicalNetwork* physicalNetwork = new PhysicalNetwork(netId, mDelegateImpl);
+    PhysicalNetwork* physicalNetwork = new PhysicalNetwork(netId, mDelegateImpl, local);
     if (int ret = physicalNetwork->setPermission(permission)) {
         ALOGE("inconceivable! setPermission cannot fail on an empty network");
         delete physicalNetwork;
@@ -408,9 +410,9 @@ int NetworkController::createPhysicalNetworkLocked(unsigned netId, Permission pe
     return 0;
 }
 
-int NetworkController::createPhysicalNetwork(unsigned netId, Permission permission) {
+int NetworkController::createPhysicalNetwork(unsigned netId, Permission permission, bool local) {
     ScopedWLock lock(mRWLock);
-    return createPhysicalNetworkLocked(netId, permission);
+    return createPhysicalNetworkLocked(netId, permission, local);
 }
 
 int NetworkController::createPhysicalOemNetwork(Permission permission, unsigned *pNetId) {
@@ -431,7 +433,7 @@ int NetworkController::createPhysicalOemNetwork(Permission permission, unsigned 
         return -ENONET;
     }
 
-    int ret = createPhysicalNetworkLocked(*pNetId, permission);
+    int ret = createPhysicalNetworkLocked(*pNetId, permission, false /* local */);
     if (ret) {
         *pNetId = 0;
     }
@@ -747,7 +749,12 @@ void NetworkController::dump(DumpWriter& dw) {
         }
         if (const auto& str = network->uidRangesToString(); !str.empty()) {
             dw.incIndent();
-            dw.println(str);
+            dw.println("Per-app UID ranges: %s", str.c_str());
+            dw.decIndent();
+        }
+        if (const auto& str = network->allowedUidsToString(); !str.empty()) {
+            dw.incIndent();
+            dw.println("Allowed UID ranges: %s", str.c_str());
             dw.decIndent();
         }
         dw.blankline();
@@ -790,6 +797,40 @@ void NetworkController::dump(DumpWriter& dw) {
     dw.decIndent();
 
     dw.decIndent();
+}
+
+void NetworkController::clearAllowedUidsForAllNetworksLocked() {
+    for (const auto& [_, network] : mNetworks) {
+        network->clearAllowedUids();
+    }
+}
+
+int NetworkController::setNetworkAllowlist(
+        const std::vector<netd::aidl::NativeUidRangeConfig>& rangeConfigs) {
+    const ScopedWLock lock(mRWLock);
+
+    for (const auto& config : rangeConfigs) {
+        Network* network = getNetworkLocked(config.netId);
+        if (!network) return -ENONET;
+    }
+
+    clearAllowedUidsForAllNetworksLocked();
+    for (const auto& config : rangeConfigs) {
+        Network* network = getNetworkLocked(config.netId);
+        network->setAllowedUids(UidRanges(config.uidRanges));
+    }
+    return 0;
+}
+
+bool NetworkController::isUidAllowed(unsigned netId, uid_t uid) const {
+    const ScopedRLock lock(mRWLock);
+    Network* network = getNetworkLocked(netId);
+    // Exempt when no netId is specified and there is no default network, so that apps or tests can
+    // do DNS lookups for hostnames in etc/hosts.
+    if (netId == NETID_UNSET && mDefaultNetId == NETID_UNSET) {
+        return true;
+    }
+    return network && network->isUidAllowed(uid);
 }
 
 bool NetworkController::isValidNetworkLocked(unsigned netId) const {
@@ -884,10 +925,14 @@ int NetworkController::checkUserNetworkAccessLocked(uid_t uid, unsigned netId) c
     if (network->isUnreachable()) {
         return network->appliesToUser(uid, &subPriority) ? 0 : -EPERM;
     }
+
+    if (!network->isUidAllowed(uid)) {
+        return -EACCES;
+    }
     // Check whether the UID's permission bits are sufficient to use the network.
     // Because the permission of the system default network is PERMISSION_NONE(0x0), apps can always
     // pass the check here when using the system default network.
-    Permission networkPermission = static_cast<PhysicalNetwork*>(network)->getPermission();
+    const Permission networkPermission = network->getPermission();
     return ((userPermission & networkPermission) == networkPermission) ? 0 : -EACCES;
 }
 

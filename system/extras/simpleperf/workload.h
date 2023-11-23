@@ -43,6 +43,7 @@ class Workload {
 
   ~Workload();
 
+  bool SetCpuAffinity(int cpu);
   bool Start();
   bool IsStarted() { return work_state_ == Started; }
   pid_t GetPid() { return work_pid_; }

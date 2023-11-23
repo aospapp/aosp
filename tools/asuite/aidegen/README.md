@@ -68,19 +68,19 @@ Change project root to the source directory: the relative path which is the dire
 
 Developers can also use the following optional arguments with AIDEGen commands.
 
-| Option | Long option       | Description                                     |
-| :----: | :---------------- | ----------------------------------------------- |
-| `-d`   | `--depth`         | The depth of module referenced by source.       |
-| `-i`   | `--ide`           | Launch IDE type, j=IntelliJ s=Android Studio e=Eclipse c=CLion v=VS Code|
-| `-p`   | `--ide-path`      | Specify user's IDE installed path.              |
-| `-n`   | `--no_launch`     | Do not launch IDE.                              |
-| `-r`   | `--config-reset`  | Reset all AIDEGen's saved configurations.       |
-| `-s`   | `--skip-build`    | Skip building jars or modules.                  |
-| `-v`   | `--verbose`       | Displays DEBUG level logging.                   |
-| `-a`   | `--android-tree`  | Generate whole Android source tree project file for IDE.|
-| `-e`   | `--exclude-paths` | Exclude the directories in IDE.                 |
-| `-l`   | `--language`      | Launch IDE with a specific language,j=java c=C/C++ r=Rust|
-| `-h`   | `--help`          | Shows help message and exits.                   |
+| Option | Long option       | Description                                                              |
+|:------:|:------------------|--------------------------------------------------------------------------|
+|  `-d`  | `--depth`         | The depth of module referenced by source.                                |
+|  `-i`  | `--ide`           | Launch IDE type, j=IntelliJ s=Android Studio e=Eclipse c=CLion v=VS Code |
+|  `-p`  | `--ide-path`      | Specify user's IDE installed path.                                       |
+|  `-n`  | `--no_launch`     | Do not launch IDE.                                                       |
+|  `-r`  | `--config-reset`  | Reset all AIDEGen's saved configurations.                                |
+|  `-s`  | `--skip-build`    | Skip building jars or modules.                                           |
+|  `-v`  | `--verbose`       | Displays DEBUG level logging.                                            |
+|  `-a`  | `--android-tree`  | Generate whole Android source tree project file for IDE.                 |
+|  `-e`  | `--exclude-paths` | Exclude the directories in IDE.                                          |
+|  `-l`  | `--language`      | Launch IDE with a specific language,j=java c=C/C++ r=Rust                |
+|  `-h`  | `--help`          | Shows help message and exits.                                            |
 
 ## 4. Troubleshooting tips:
 
@@ -90,7 +90,7 @@ clean.
 ## 5. FAQ:
 
 Q1. If I already have an IDE project file, and I run command AIDEGen to generate
-the same project file again, what'll happen?
+the same project file again, what will happen?
 
 A1: The former IDEA project file will be overwritten by the newly generated one
 from the aidegen command.

@@ -35,7 +35,6 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.os.Process;
 import android.os.UserHandle;
-
 import android.provider.CallLog;
 import android.telecom.Call;
 import android.telecom.CallScreeningService;
@@ -90,21 +89,20 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
 
     @Override
     protected void tearDown() throws Exception {
+        if (mShouldTestTelecom) {
+            if (mCallScreeningControl != null) {
+                mCallScreeningControl.reset();
+            }
+
+            // Remove the test app from the screening role.
+            removeRoleHolder(ROLE_CALL_SCREENING,
+                    CtsCallScreeningService.class.getPackage().getName());
+
+            if (!TextUtils.isEmpty(mPreviousCallScreeningPackage)) {
+                addRoleHolder(ROLE_CALL_SCREENING, mPreviousCallScreeningPackage);
+            }
+        }
         super.tearDown();
-        if (!mShouldTestTelecom) {
-            return;
-        }
-
-        if (mCallScreeningControl != null) {
-            mCallScreeningControl.reset();
-        }
-
-        // Remove the test app from the screening role.
-        removeRoleHolder(ROLE_CALL_SCREENING, CtsCallScreeningService.class.getPackage().getName());
-
-        if (!TextUtils.isEmpty(mPreviousCallScreeningPackage)) {
-            addRoleHolder(ROLE_CALL_SCREENING, mPreviousCallScreeningPackage);
-        }
     }
 
     /**
@@ -221,7 +219,7 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
     }
 
     public void testNoPermissionAndHasContactIncoming() throws Exception {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -265,7 +263,7 @@ public class ThirdPartyCallScreeningServiceTest extends BaseTelecomTestWithMockS
     }
 
     public void testNoPermissionAndHasContactOutgoing() throws Exception {
-        if (!shouldTestTelecom(mContext)) {
+        if (!shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 

@@ -31,6 +31,7 @@ import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.Function;
 
+// Android-changed: Use the shared SystemCleaner instance on Android.
 /**
  * {@code Cleaner} manages a set of object references and corresponding cleaning actions.
  * <p>
@@ -86,8 +87,8 @@ import java.util.function.Function;
  * by the Cleaner when the CleaningExample instance has become phantom reachable.
  * <pre>{@code
  * public class CleaningExample implements AutoCloseable {
- *        // A cleaner, preferably one shared within a library
- *        private static final Cleaner cleaner = <cleaner>;
+ *        // Use the shared android.system.SystemCleaner instance on Android.
+ *        private static final Cleaner cleaner = SystemCleaner.cleaner();
  *
  *        static class State implements Runnable {
  *
@@ -151,6 +152,10 @@ public final class Cleaner {
         impl = new CleanerImpl();
     }
 
+    private Cleaner(ReferenceQueue queue) {
+        impl = new CleanerImpl(queue);
+    }
+
     /**
      * Returns a new {@code Cleaner}.
      * <p>
@@ -201,6 +206,18 @@ public final class Cleaner {
         Objects.requireNonNull(threadFactory, "threadFactory");
         Cleaner cleaner = new Cleaner();
         cleaner.impl.start(cleaner, threadFactory);
+        return cleaner;
+    }
+
+    // Android-added: objects registered in the system cleaner are cleaned
+    // by the finalizer daemon thread, not in a InnocuousThread.
+    /**
+     * Returns a new {@code Cleaner} associated with the finalizer thread.
+     * @hide
+     */
+    public static Cleaner createSystemCleaner() {
+        Cleaner cleaner = new Cleaner(FinalizerReference.queue);
+        cleaner.impl.start(cleaner);
         return cleaner;
     }
 

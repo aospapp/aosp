@@ -22,7 +22,6 @@
 #include <memory>
 #include <thread>
 
-#include "adaptivecpu/AdaptiveCpu.h"
 #include "disp-power/DisplayLowPower.h"
 #include "disp-power/InteractionHandler.h"
 
@@ -39,7 +38,7 @@ using ::aidl::android::hardware::power::Mode;
 
 class Power : public ::aidl::android::hardware::power::BnPower {
   public:
-    Power(std::shared_ptr<DisplayLowPower> dlpw, std::shared_ptr<AdaptiveCpu> adaptiveCpu);
+    Power(std::shared_ptr<DisplayLowPower> dlpw);
     ndk::ScopedAStatus setMode(Mode type, bool enabled) override;
     ndk::ScopedAStatus isModeSupported(Mode type, bool *_aidl_return) override;
     ndk::ScopedAStatus setBoost(Boost type, int32_t durationMs) override;
@@ -53,7 +52,6 @@ class Power : public ::aidl::android::hardware::power::BnPower {
 
   private:
     std::shared_ptr<DisplayLowPower> mDisplayLowPower;
-    std::shared_ptr<AdaptiveCpu> mAdaptiveCpu;
     std::unique_ptr<InteractionHandler> mInteractionHandler;
     std::atomic<bool> mVRModeOn;
     std::atomic<bool> mSustainedPerfModeOn;

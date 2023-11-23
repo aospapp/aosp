@@ -35,6 +35,7 @@ import android.provider.DocumentsContract.Document;
 import android.provider.DocumentsContract.Path;
 import android.provider.DocumentsProvider;
 import android.provider.Settings;
+import android.support.test.uiautomator.Configurator;
 import android.support.test.uiautomator.UiObject;
 import android.support.test.uiautomator.UiObjectNotFoundException;
 import android.support.test.uiautomator.UiScrollable;
@@ -50,6 +51,7 @@ import androidx.core.os.BuildCompat;
 import com.android.cts.documentclient.MyActivity.Result;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -72,6 +74,9 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
             TEST_SOURCE_DIRECTORY_PATH + File.separatorChar + TEST_TARGET_DIRECTORY_NAME;
     private static final String STORAGE_AUTHORITY = "com.android.externalstorage.documents";
     private static final String DEFAULT_DEVICE_NAME = "Internal storage";
+
+    private static final Duration SCROLL_ACKNOWLEDGEMENT_TIMEOUT = Duration.ofMillis(500);
+    private long mOriginalScrollAcknowledgementTimeout;
 
     private UiSelector findRootListSelector() throws UiObjectNotFoundException {
         return new UiSelector().resourceId(
@@ -193,12 +198,24 @@ public class DocumentsClientTest extends DocumentsClientTestCase {
     public void setUp() throws Exception {
         super.setUp();
         deleteTestDirectory();
+
+        // Extending ScrollAcknowledgmentTimeout so that we can avoid a bug in ui automator
+        // (b/266374704) and stabilize scrolling with UiScrollable.
+        mOriginalScrollAcknowledgementTimeout =
+                Configurator.getInstance().getScrollAcknowledgmentTimeout();
+        if (SCROLL_ACKNOWLEDGEMENT_TIMEOUT.toMillis() > mOriginalScrollAcknowledgementTimeout) {
+            Configurator.getInstance()
+                    .setScrollAcknowledgmentTimeout(SCROLL_ACKNOWLEDGEMENT_TIMEOUT.toMillis());
+        }
     }
 
     @Override
     public void tearDown() throws Exception {
         super.tearDown();
         deleteTestDirectory();
+
+        Configurator.getInstance()
+                .setScrollAcknowledgmentTimeout(mOriginalScrollAcknowledgementTimeout);
     }
 
     public void testOpenSimple() throws Exception {

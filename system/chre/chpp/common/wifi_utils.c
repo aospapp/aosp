@@ -24,7 +24,7 @@ static uint8_t gResultTotal = 0;
 static uint8_t gResultAcc = 0;
 static uint8_t gExpectedIndex = 0;
 
-void chppCheckWifiScanEventNotificationReset() {
+void chppCheckWifiScanEventNotificationReset(void) {
   gResultTotal = 0;
   gResultAcc = 0;
   gExpectedIndex = 0;

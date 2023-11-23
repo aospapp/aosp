@@ -31,28 +31,28 @@ public class SettingOverrideRule extends TestWatcher {
             .getContext().getContentResolver();
 
     private final String mSettingName;
-    private final int mOverrideValue;
+    private final String mOverrideValue;
 
-    private int mOriginalValue;
+    // Use strings to store values as all settings stored as strings internally
+    private String mOriginalValue;
 
-    public SettingOverrideRule(String name, int value) {
+    public SettingOverrideRule(String name, String value) {
         mSettingName = name;
         mOverrideValue = value;
     }
 
     @Override
     protected void starting(Description description) {
-        try {
-            mOriginalValue = Settings.Secure.getInt(contentResolver, mSettingName);
-        } catch (Settings.SettingNotFoundException e) {
-            throw new RuntimeException(e);
-        }
+        // This will return null if the setting hasn't been ever set
+        mOriginalValue = Settings.Secure.getString(contentResolver, mSettingName);
 
-        Settings.Secure.putInt(contentResolver, mSettingName, mOverrideValue);
+        if (!Settings.Secure.putString(contentResolver, mSettingName, mOverrideValue)) {
+            throw new RuntimeException("Could not update setting " + mSettingName);
+        }
     }
 
     @Override
     protected void finished(Description description) {
-        Settings.Secure.putInt(contentResolver, mSettingName, mOriginalValue);
+        Settings.Secure.putString(contentResolver, mSettingName, mOriginalValue);
     }
 }

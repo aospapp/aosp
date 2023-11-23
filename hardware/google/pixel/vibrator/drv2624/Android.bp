@@ -21,7 +21,7 @@ cc_defaults {
     name: "android.hardware.vibrator-defaults.drv2624",
     cflags: [
         "-DATRACE_TAG=(ATRACE_TAG_VIBRATOR | ATRACE_TAG_HAL)",
-        "-DLOG_TAG=\"android.hardware.vibrator-drv2624\"",
+        "-DLOG_TAG=\"Vibrator\"",
     ],
 }
 

@@ -18,6 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.externalservice.cts">
 
+    <queries>
+        <package android:name="android.externalservice.service" />
+    </queries>
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

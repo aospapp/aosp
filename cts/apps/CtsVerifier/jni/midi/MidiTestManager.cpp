@@ -28,8 +28,10 @@
 
 static pthread_t readThread;
 
-static const bool DEBUG = false;
-static const bool DEBUG_MIDIDATA = false;
+static const bool DEBUG = true;
+static const bool DEBUG_MIDIDATA = true;
+
+static const int MAX_PACKET_SIZE = 1024;
 
 //
 // MIDI Messages
@@ -82,6 +84,41 @@ public:
         mNumMsgBytes = numMsgBytes;
         mMsgBytes = new uint8_t[numMsgBytes];
         memcpy(mMsgBytes, msgBytes, mNumMsgBytes * sizeof(uint8_t));
+        return true;
+    }
+
+    bool setSysExMessage(int numMsgBytes) {
+        if (numMsgBytes <= 0) {
+            return false;
+        }
+        mNumMsgBytes = numMsgBytes;
+        mMsgBytes = new uint8_t[mNumMsgBytes];
+        memset(mMsgBytes, 0, mNumMsgBytes * sizeof(uint8_t));
+        mMsgBytes[0] = kMIDISysCmd_SysEx;
+        for(int index = 1; index < numMsgBytes - 1; index++) {
+            mMsgBytes[index] = (uint8_t) (index % 100);
+        }
+        mMsgBytes[numMsgBytes - 1] = kMIDISysCmd_EndOfSysEx;
+        return true;
+    }
+
+    bool setTwoSysExMessage(int firstMsgBytes, int secondMsgBytes) {
+        if (firstMsgBytes <= 0 || secondMsgBytes <= 0) {
+            return false;
+        }
+        mNumMsgBytes = firstMsgBytes + secondMsgBytes;
+        mMsgBytes = new uint8_t[mNumMsgBytes];
+        memset(mMsgBytes, 0, mNumMsgBytes * sizeof(uint8_t));
+        mMsgBytes[0] = kMIDISysCmd_SysEx;
+        for(int index = 1; index < firstMsgBytes - 1; index++) {
+            mMsgBytes[index] = (uint8_t) (index % 100);
+        }
+        mMsgBytes[firstMsgBytes - 1] = kMIDISysCmd_EndOfSysEx;
+        mMsgBytes[firstMsgBytes] = kMIDISysCmd_SysEx;
+        for(int index = firstMsgBytes + 1; index < firstMsgBytes + secondMsgBytes - 1; index++) {
+            mMsgBytes[index] = (uint8_t) (index % 100);
+        }
+        mMsgBytes[firstMsgBytes + secondMsgBytes - 1] = kMIDISysCmd_EndOfSysEx;
         return true;
     }
 }; /* class TestMessage */
@@ -149,21 +186,26 @@ static void logBytes(uint8_t* bytes, int count) {
 /**
  * Compares the supplied bytes against the sent message stream at the current position
  * and advances the stream position.
+ *
+ * Returns the number of matched bytes on success and -1 on failure.
+ *
  */
-bool MidiTestManager::matchStream(uint8_t* bytes, int count) {
+int MidiTestManager::matchStream(uint8_t* bytes, int count) {
     if (DEBUG) {
         ALOGI("---- matchStream() count:%d", count);
     }
 
+    int matchedByteCount = 0;
+
     // a little bit of checking here...
     if (count < 0) {
         ALOGE("Negative Byte Count in MidiTestManager::matchStream()");
-        return false;
+        return -1;
     }
 
     if (count > MESSAGE_MAX_BYTES) {
         ALOGE("Too Large Byte Count (%d) in MidiTestManager::matchStream()", count);
-        return false;
+        return -1;
     }
 
     bool matches = true;
@@ -175,34 +217,56 @@ bool MidiTestManager::matchStream(uint8_t* bytes, int count) {
             break;
         }
 
-        if (bytes[index] != mMatchStream[mReceiveStreamPos]) {
-            matches = false;
-            ALOGD("---- mismatch @%d [rec:0x%X : exp:0x%X]",
-                    index, bytes[index], mMatchStream[mReceiveStreamPos]);
+        if (bytes[index] == kMIDISysCmd_ActiveSensing) {
+            if (bytes[index] == mMatchStream[mReceiveStreamPos]) {
+                ALOGD("matched active sensing message");
+                matchedByteCount++;
+                mReceiveStreamPos++;
+            } else {
+                ALOGD("skipping active sensing message");
+            }
+        } else {
+            // Check first byte for warm-up message
+            if ((mReceiveStreamPos == 0) && bytes[index] != makeMIDICmd(kMIDIChanCmd_Control, 0)) {
+                ALOGD("skipping warm-up message");
+                matchedByteCount += sizeof(warmupMsg);
+                mReceiveStreamPos += sizeof(warmupMsg);
+            }
+
+            if (bytes[index] != mMatchStream[mReceiveStreamPos]) {
+                matches = false;
+                ALOGD("---- mismatch @%d [rec:0x%X : exp:0x%X]",
+                        index, bytes[index], mMatchStream[mReceiveStreamPos]);
+            } else {
+                matchedByteCount++;
+                mReceiveStreamPos++;
+            }
         }
-        mReceiveStreamPos++;
     }
 
     if (DEBUG) {
-        ALOGI("  returns:%d", matches);
+        ALOGI("  success:%d", matches);
     }
 
     if (!matches) {
         ALOGD("Mismatched Received Data:");
         logBytes(bytes, count);
+        return -1;
     }
 
-    return matches;
+    return matchedByteCount;
 }
 
 #define THROTTLE_PERIOD_MS 10
+#define THROTTLE_MAX_PACKET_SIZE 15
 
 int portSend(AMidiInputPort* sendPort, uint8_t* msg, int length, bool throttle) {
 
     int numSent = 0;
     if (throttle) {
-        for(int index = 0; index < length; index++) {
-            AMidiInputPort_send(sendPort, msg + index, 1);
+        for(int index = 0; index < length; index += THROTTLE_MAX_PACKET_SIZE) {
+            int packetSize = std::min(length - index, THROTTLE_MAX_PACKET_SIZE);
+            AMidiInputPort_send(sendPort, msg + index, packetSize);
             usleep(THROTTLE_PERIOD_MS * 1000);
         }
         numSent = length;
@@ -248,68 +312,57 @@ int MidiTestManager::sendMessages() {
 }
 
 int MidiTestManager::ProcessInput() {
-    uint8_t readBuffer[128];
+    uint8_t readBuffer[MAX_PACKET_SIZE];
     size_t totalNumReceived = 0;
 
-    bool testRunning = true;
     int testResult = TESTSTATUS_NOTRUN;
 
     int32_t opCode;
     size_t numBytesReceived;
     int64_t timeStamp;
-    while (testRunning) {
+    while (true) {
         // AMidiOutputPort_receive is non-blocking, so let's not burn up the CPU unnecessarily
         usleep(2000);
 
         numBytesReceived = 0;
         ssize_t numMessagesReceived =
-            AMidiOutputPort_receive(mMidiReceivePort, &opCode, readBuffer, 128,
+            AMidiOutputPort_receive(mMidiReceivePort, &opCode, readBuffer, MAX_PACKET_SIZE,
                         &numBytesReceived, &timeStamp);
 
         if (DEBUG && numBytesReceived > 0) {
             logBytes(readBuffer, numBytesReceived);
         }
 
-        if (testRunning &&
-            numBytesReceived > 0 &&
+        if (numBytesReceived > 0 &&
             opCode == AMIDI_OPCODE_DATA &&
-            readBuffer[0] != kMIDISysCmd_ActiveSensing &&
             readBuffer[0] != kMIDISysCmd_Reset) {
             if (DEBUG) {
                 ALOGI("---- msgs:%zd, bytes:%zu", numMessagesReceived, numBytesReceived);
             }
 
-            // Check first byte for warm-up message
-            if (totalNumReceived == 0 && readBuffer[0] != makeMIDICmd(kMIDIChanCmd_Control, 0)) {
-                // advance stream past the "warm up" message
-                mReceiveStreamPos += sizeof(warmupMsg);
-                if (DEBUG) {
-                    ALOGD("---- No Warm Up Message Detected.");
-                }
-            }
-
-            if (!matchStream(readBuffer, numBytesReceived)) {
+            int matchResult = matchStream(readBuffer, numBytesReceived);
+            if (matchResult < 0) {
                 testResult = TESTSTATUS_FAILED_MISMATCH;
                 if (DEBUG) {
                     ALOGE("---- TESTSTATUS_FAILED_MISMATCH");
                 }
-                testRunning = false;   // bail
+                return testResult;
             }
-            totalNumReceived += numBytesReceived;
+            totalNumReceived += matchResult;
 
             if (totalNumReceived > mMatchStream.size()) {
                 testResult = TESTSTATUS_FAILED_OVERRUN;
                 if (DEBUG) {
                     ALOGE("---- TESTSTATUS_FAILED_OVERRUN");
                 }
-                testRunning = false;   // bail
+                return testResult;
             }
             if (totalNumReceived == mMatchStream.size()) {
                 testResult = TESTSTATUS_PASSED;
                 if (DEBUG) {
                     ALOGE("---- TESTSTATUS_PASSED");
                 }
-                testRunning = false;   // done
+                return testResult;
             }
         }
     }
@@ -374,23 +427,18 @@ bool MidiTestManager::RunTest(jobject testModuleObj, AMidiDevice* sendDevice,
 
     // setup messages
     delete[] mTestMsgs;
-    mNumTestMsgs = 3;
+    mNumTestMsgs = 7;
     mTestMsgs = new TestMessage[mNumTestMsgs];
-
-    int sysExSize = 32;
-    uint8_t* sysExMsg = new uint8_t[sysExSize];
-    sysExMsg[0] = kMIDISysCmd_SysEx;
-    for(int index = 1; index < sysExSize-1; index++) {
-        sysExMsg[index] = (uint8_t)index;
-    }
-    sysExMsg[sysExSize-1] = kMIDISysCmd_EndOfSysEx;
 
     if (!mTestMsgs[0].set(msg0, sizeof(msg0)) ||
         !mTestMsgs[1].set(msg1, sizeof(msg1)) ||
-        !mTestMsgs[2].set(sysExMsg, sysExSize)) {
+        !mTestMsgs[2].setSysExMessage(30) ||
+        !mTestMsgs[3].setSysExMessage(6) ||
+        !mTestMsgs[4].setSysExMessage(120) ||
+        !mTestMsgs[5].setTwoSysExMessage(5, 13) ||
+        !mTestMsgs[6].setSysExMessage(340)) {
         return false;
     }
-    delete[] sysExMsg;
 
     buildMatchStream();
 

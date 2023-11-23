@@ -32,7 +32,7 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  *
- *  Copyright 2013-2021 NXP
+ *  Copyright 2013-2021, 2023 NXP
  *
  ******************************************************************************/
 
@@ -512,10 +512,8 @@ CNfcConfig& CNfcConfig::GetInstance() {
     }
 
     theInstance.readConfig(strPath.c_str(), true);
-#if (NXP_EXTNS == TRUE)
     theInstance.readNxpRFConfig(nxp_rf_config_path);
     theInstance.readNxpTransitConfig(transit_config_path);
-#endif
   }
   return theInstance;
 }

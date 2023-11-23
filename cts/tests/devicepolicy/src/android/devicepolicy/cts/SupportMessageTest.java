@@ -36,6 +36,7 @@ import com.android.bedstead.remotedpc.RemotePolicyManager;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.runner.RunWith;
 
@@ -46,20 +47,17 @@ public final class SupportMessageTest {
     @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
-    private static final int SHORT_SUPPORT_MESSAGE_MAX_LENGTH = 200;
-    private static final int LONG_SUPPORT_MESSAGE_REASONABLE_LENGTH = 4000;
-    private static final String VALID_SUPPORT_MESSAGE = "My valid support message.";
-    private static final String SHORT_SUPPORT_MESSAGE_TOO_LONG =
-            new String(new char[SHORT_SUPPORT_MESSAGE_MAX_LENGTH + 1])
-                    .replace('\0', 'A');
-    private static final String SHORT_SUPPORT_MESSAGE_TOO_LONG_TRUNCATED =
-            SHORT_SUPPORT_MESSAGE_TOO_LONG
-                    .subSequence(0, SHORT_SUPPORT_MESSAGE_MAX_LENGTH + 1)
-                    .toString();
-    private static final String LONG_SUPPORT_MESSAGE_REASONABLY_LONG =
-            new String(new char[LONG_SUPPORT_MESSAGE_REASONABLE_LENGTH])
-                    .replace('\0', 'A');
-    private static final String EMPTY_SUPPORT_MESSAGE = "";
+    private static final int MAX_MSG_LEN = 65535;
+
+    private static final int REASONABLE_SHORT_MSG_LEN = 150;
+    private static final int REASONABLE_LONG_MSG_LEN = 4000;
+    private static final int UNREASONABLE_MSG_LEN = 100000;
+
+    private static final String VALID_SHORT_MSG = stringOfLength(REASONABLE_SHORT_MSG_LEN);
+    private static final String VALID_LONG_MSG = stringOfLength(REASONABLE_LONG_MSG_LEN);
+    private static final String TOO_LONG_MSG = stringOfLength(UNREASONABLE_MSG_LEN);
+
+    private static final String EMPTY_MSG = "";
 
     private RemoteDevicePolicyManager mDevicePolicyManager;
     private ComponentName mAdmin;
@@ -73,81 +71,67 @@ public final class SupportMessageTest {
 
     @After
     public void tearDown() {
-        mDevicePolicyManager.setShortSupportMessage(mAdmin, /* charSequence= */ null);
-        mDevicePolicyManager.setLongSupportMessage(mAdmin, /* charSequence= */ null);
+        try {
+            mDevicePolicyManager.setShortSupportMessage(mAdmin, /* charSequence= */ null);
+            mDevicePolicyManager.setLongSupportMessage(mAdmin, /* charSequence= */ null);
+        } catch (SecurityException e) {
+            // Expected when testing lack-of-permission
+        }
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
     public void setShortSupportMessage_validText_works() {
-        mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE);
+        mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SHORT_MSG);
 
         assertThat(mDevicePolicyManager.getShortSupportMessage(mAdmin).toString())
-                .isEqualTo(VALID_SUPPORT_MESSAGE);
+                .isEqualTo(VALID_SHORT_MSG);
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
     public void setLongSupportMessage_validText_works() {
-        mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE);
+        mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_LONG_MSG);
 
         assertThat(mDevicePolicyManager.getLongSupportMessage(mAdmin).toString())
-                .isEqualTo(VALID_SUPPORT_MESSAGE);
+                .isEqualTo(VALID_LONG_MSG);
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
     public void setShortSupportMessage_emptyText_works() {
-        mDevicePolicyManager.setShortSupportMessage(mAdmin, EMPTY_SUPPORT_MESSAGE);
+        mDevicePolicyManager.setShortSupportMessage(mAdmin, EMPTY_MSG);
 
         assertThat(mDevicePolicyManager.getShortSupportMessage(mAdmin).toString())
-                .isEqualTo(EMPTY_SUPPORT_MESSAGE);
+                .isEqualTo(EMPTY_MSG);
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
+    @Ignore("b/278717644")
     public void setLongSupportMessage_nullText_clearsOldText() {
-        mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE);
+        mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_LONG_MSG);
         mDevicePolicyManager.setLongSupportMessage(mAdmin, /* charSequence= */ null);
 
-        assertThat(mDevicePolicyManager.getLongSupportMessage(mAdmin).toString()).isEqualTo("null");
+        assertThat(mDevicePolicyManager.getLongSupportMessage(mAdmin)).isNull();
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
+    @Ignore("b/278717644")
     public void setShortSupportMessage_nullText_clearsOldText() {
-        mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE);
+        mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SHORT_MSG);
         mDevicePolicyManager.setShortSupportMessage(mAdmin, /* charSequence= */ null);
 
-        assertThat(mDevicePolicyManager.getShortSupportMessage(mAdmin).toString())
-                .isEqualTo("null");
+        assertThat(mDevicePolicyManager.getShortSupportMessage(mAdmin)).isNull();
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
     public void setLongSupportMessage_emptyText_works() {
-        mDevicePolicyManager.setLongSupportMessage(mAdmin, EMPTY_SUPPORT_MESSAGE);
+        mDevicePolicyManager.setLongSupportMessage(mAdmin, EMPTY_MSG);
 
-        assertThat(mDevicePolicyManager.getLongSupportMessage(mAdmin).toString())
-                .isEqualTo(EMPTY_SUPPORT_MESSAGE);
-    }
-
-    @PolicyAppliesTest(policy = SupportMessage.class)
-    @Postsubmit(reason = "new test")
-    public void setShortSupportMessage_tooLongText_isTruncated() {
-        mDevicePolicyManager.setShortSupportMessage(mAdmin, SHORT_SUPPORT_MESSAGE_TOO_LONG);
-
-        assertThat(mDevicePolicyManager.getShortSupportMessage(mAdmin).toString())
-                .isEqualTo(SHORT_SUPPORT_MESSAGE_TOO_LONG_TRUNCATED);
-    }
-
-    @PolicyAppliesTest(policy = SupportMessage.class)
-    @Postsubmit(reason = "new test")
-    public void setLongSupportMessage_longText_notTruncated() {
-        mDevicePolicyManager.setShortSupportMessage(mAdmin, LONG_SUPPORT_MESSAGE_REASONABLY_LONG);
-
-        assertThat(mDevicePolicyManager.getShortSupportMessage(mAdmin).toString())
-                .isEqualTo(LONG_SUPPORT_MESSAGE_REASONABLY_LONG);
+        assertThat(mDevicePolicyManager.getLongSupportMessage(mAdmin).toString()).isEmpty();
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
@@ -155,7 +139,7 @@ public final class SupportMessageTest {
     public void setShortSupportMessage_nullAdmin_throwsNullPointerException() {
         assertThrows(NullPointerException.class, () ->
                 mDevicePolicyManager.setShortSupportMessage(
-                        /* componentName= */ null, VALID_SUPPORT_MESSAGE));
+                        /* componentName= */ null, VALID_SHORT_MSG));
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
@@ -163,7 +147,7 @@ public final class SupportMessageTest {
     public void setLongSupportMessage_nullAdmin_throwsNullPointerException() {
         assertThrows(NullPointerException.class, () ->
                 mDevicePolicyManager.setLongSupportMessage(
-                        /* componentName= */ null, VALID_SUPPORT_MESSAGE));
+                        /* componentName= */ null, VALID_LONG_MSG));
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
@@ -178,8 +162,7 @@ public final class SupportMessageTest {
     @Postsubmit(reason = "new test")
     public void getLongSupportMessage_nullAdmin_throwsNullPointerException() {
         assertThrows(NullPointerException.class, () ->
-                mDevicePolicyManager.getLongSupportMessage(
-                        /* componentName= */ null));
+                mDevicePolicyManager.getLongSupportMessage(/* componentName= */ null));
     }
 
     // We don't include non device admin states as passing a null admin is a NullPointerException
@@ -195,7 +178,7 @@ public final class SupportMessageTest {
     @Postsubmit(reason = "new test")
     public void setLongSupportMessage_invalidAdmin_fails() {
         assertThrows(SecurityException.class, () ->
-                mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE));
+                mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_LONG_MSG));
     }
 
     // We don't include non device admin states as passing a null admin is a NullPointerException
@@ -211,14 +194,14 @@ public final class SupportMessageTest {
     @Postsubmit(reason = "new test")
     public void setShortSupportMessage_invalidAdmin_fails() {
         assertThrows(SecurityException.class, () ->
-                mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE));
+                mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SHORT_MSG));
     }
 
     @PolicyAppliesTest(policy = SupportMessage.class)
     @Postsubmit(reason = "new test")
     public void setShortSupportMessage_validText_logged() {
         try (EnterpriseMetricsRecorder metrics = EnterpriseMetricsRecorder.create()) {
-            mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE);
+            mDevicePolicyManager.setShortSupportMessage(mAdmin, VALID_SHORT_MSG);
 
             assertThat(metrics.query()
                     .whereType().isEqualTo(EventId.SET_SHORT_SUPPORT_MESSAGE_VALUE)
@@ -232,7 +215,7 @@ public final class SupportMessageTest {
     @Postsubmit(reason = "new test")
     public void setLongSupportMessage_validText_logged() {
         try (EnterpriseMetricsRecorder metrics = EnterpriseMetricsRecorder.create()) {
-            mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_SUPPORT_MESSAGE);
+            mDevicePolicyManager.setLongSupportMessage(mAdmin, VALID_LONG_MSG);
 
             assertThat(metrics.query()
                     .whereType().isEqualTo(EventId.SET_LONG_SUPPORT_MESSAGE_VALUE)
@@ -240,5 +223,31 @@ public final class SupportMessageTest {
                     .poll())
                     .isNotNull();
         }
+    }
+
+    @PolicyAppliesTest(policy = SupportMessage.class)
+    @Postsubmit(reason = "new test")
+    public void setShortSupportMessage_tooLongText_isTruncated() {
+        mDevicePolicyManager.setShortSupportMessage(mAdmin, TOO_LONG_MSG);
+
+        String effectiveMessage = mDevicePolicyManager.getShortSupportMessage(mAdmin).toString();
+
+        assertThat(effectiveMessage.length()).isAtMost(MAX_MSG_LEN);
+        assertThat(TOO_LONG_MSG).startsWith(effectiveMessage);
+    }
+
+    @PolicyAppliesTest(policy = SupportMessage.class)
+    @Postsubmit(reason = "new test")
+    public void setLongSupportMessage_tooLongText_isTruncated() {
+        mDevicePolicyManager.setLongSupportMessage(mAdmin, TOO_LONG_MSG);
+
+        String effectiveMessage = mDevicePolicyManager.getLongSupportMessage(mAdmin).toString();
+
+        assertThat(effectiveMessage.length()).isAtMost(MAX_MSG_LEN);
+        assertThat(TOO_LONG_MSG).startsWith(effectiveMessage);
+    }
+
+    private static String stringOfLength(int length) {
+        return new String(new char[length]).replace('\0', 'A');
     }
 }

@@ -19,6 +19,7 @@ package {
 android_test_helper_app {
     name: "CtsExternalStorageApp",
     defaults: ["cts_support_defaults"],
+    min_sdk_version: "29",
     target_sdk_version: "29",
     sdk_version: "30",
     static_libs: [

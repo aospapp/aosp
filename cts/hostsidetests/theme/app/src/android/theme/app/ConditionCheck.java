@@ -29,7 +29,7 @@ import java.util.function.Supplier;
  * or a retry threshold is exceeded.
  */
 class ConditionCheck implements Runnable {
-    private static final int MAX_RETRIES = 3;
+    private static final int MAX_RETRIES = 10;
     private static final int RETRY_DELAY = 500;
 
     private final Handler mHandler;

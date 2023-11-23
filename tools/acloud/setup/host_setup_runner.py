@@ -39,13 +39,33 @@ logger = logging.getLogger(__name__)
 
 _CF_COMMOM_FOLDER = "cf-common"
 
-_LIST_OF_MODULES = ["kvm_intel", "kvm"]
+_INTEL = "intel"
+_AMD = "amd"
+_KVM_INTEL = "kvm_intel"
+_KVM_AMD = "kvm_amd"
+_LIST_OF_INTEL_MODULES = [_KVM_INTEL, "kvm"]
+_LIST_OF_AMD_MODULES = [_KVM_AMD, "kvm"]
+_DICT_MODULES = {_INTEL: _LIST_OF_INTEL_MODULES, _AMD: _LIST_OF_AMD_MODULES}
+_INTEL_COMMANDS = [
+    "sudo rmmod kvm_intel || true", "sudo rmmod kvm || true",
+    "sudo modprobe kvm", "sudo modprobe kvm_intel"]
+_AMD_COMMANDS = [
+    "sudo rmmod kvm_amd || true", "sudo rmmod kvm|| true", "sudo modprobe kvm",
+    "sudo modprobe kvm_amd"]
+_DICT_SETUP_CMDS = {_INTEL: _INTEL_COMMANDS, _AMD: _AMD_COMMANDS}
 _UPDATE_APT_GET_CMD = "sudo apt-get update"
 _INSTALL_CUTTLEFISH_COMMOM_CMD = [
     "git clone https://github.com/google/android-cuttlefish.git {git_folder}",
-    "cd {git_folder}",
+    "cd {git_folder}/base",
     "debuild -i -us -uc -b",
+    "cd ../frontend",
+    "debuild -i -us -uc -b",
+    "sudo dpkg -i ../cuttlefish-base_*_*64.deb || sudo apt-get install -f",
+    "sudo dpkg -i ../cuttlefish-user_*_*64.deb || sudo apt-get install -f",
     "sudo dpkg -i ../cuttlefish-common_*_*64.deb || sudo apt-get install -f"]
+_INSTALL_CUTTLEFISH_COMMOM_MSG = ("\nStart to install cuttlefish-common :\n%s"
+                                  "\nEnter 'y' to continue, otherwise N or "
+                                  "enter to exit: ")
 
 
 class BasePkgInstaller(base_task_runner.BaseTaskRunner):
@@ -134,20 +154,24 @@ class CuttlefishCommonPkgInstaller(base_task_runner.BaseTaskRunner):
 
     def _Run(self):
         """Install cuttlefilsh-common packages."""
+        if setup_common.IsPackageInAptList(constants.CUTTLEFISH_COMMOM_PKG):
+            cmd = setup_common.PKG_INSTALL_CMD % constants.CUTTLEFISH_COMMOM_PKG
+            if not utils.GetUserAnswerYes(_INSTALL_CUTTLEFISH_COMMOM_MSG % cmd):
+                sys.exit(constants.EXIT_BY_USER)
+            setup_common.InstallPackage(constants.CUTTLEFISH_COMMOM_PKG)
+            return
+
+        # Install cuttlefish-common from github.
         cf_common_path = os.path.join(tempfile.mkdtemp(), _CF_COMMOM_FOLDER)
         logger.debug("cuttlefish-common path: %s", cf_common_path)
         cmd = "\n".join(sub_cmd.format(git_folder=cf_common_path)
                         for sub_cmd in _INSTALL_CUTTLEFISH_COMMOM_CMD)
-
-        if not utils.GetUserAnswerYes("\nStart to install cuttlefish-common :\n%s"
-                                      "\nEnter 'y' to continue, otherwise N or "
-                                      "enter to exit: " % cmd):
-            sys.exit(constants.EXIT_BY_USER)
         try:
+            if not utils.GetUserAnswerYes(_INSTALL_CUTTLEFISH_COMMOM_MSG % cmd):
+                sys.exit(constants.EXIT_BY_USER)
             setup_common.CheckCmdOutput(cmd, shell=True)
         finally:
             shutil.rmtree(os.path.dirname(cf_common_path))
-        logger.info("Cuttlefish-common package installed now.")
 
 
 class LocalCAHostSetup(base_task_runner.BaseTaskRunner):
@@ -202,7 +226,21 @@ class CuttlefishHostSetup(base_task_runner.BaseTaskRunner):
             return False
 
         return not (utils.CheckUserInGroups(constants.LIST_CF_USER_GROUPS)
-                    and self._CheckLoadedModules(_LIST_OF_MODULES))
+                    and self._CheckLoadedModules(
+                        _DICT_MODULES.get(self._GetProcessorType())))
+
+    @staticmethod
+    def _GetProcessorType():
+        """Get the processor type.
+
+        Returns:
+            The processor type of the host. e.g. amd, intel.
+        """
+        lsmod_output = setup_common.CheckCmdOutput("lsmod", print_cmd=False)
+        current_modules = [r.split()[0] for r in lsmod_output.splitlines()]
+        if _KVM_AMD in current_modules:
+            return _AMD
+        return _INTEL
 
     @staticmethod
     def _CheckLoadedModules(module_list):
@@ -210,6 +248,7 @@ class CuttlefishHostSetup(base_task_runner.BaseTaskRunner):
 
         Args:
             module_list: The list of module name.
+
         Returns:
             True if all modules are in use.
         """
@@ -227,11 +266,7 @@ class CuttlefishHostSetup(base_task_runner.BaseTaskRunner):
         """Setup host environment for local cuttlefish instance support."""
         # TODO: provide --uid args to let user use prefered username
         username = getpass.getuser()
-        setup_cmds = [
-            "sudo rmmod kvm_intel",
-            "sudo rmmod kvm",
-            "sudo modprobe kvm",
-            "sudo modprobe kvm_intel"]
+        setup_cmds = _DICT_SETUP_CMDS.get(self._GetProcessorType())
         for group in constants.LIST_CF_USER_GROUPS:
             setup_cmds.append("sudo usermod -aG %s % s" % (group, username))
 

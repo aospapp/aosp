@@ -151,6 +151,8 @@ public class NearbyDevicesRenouncePermissionTest {
     @AppModeFull
     @Test
     public void scanWithoutRenouncingNotesBluetoothAndLocation() throws Exception {
+        assumeTrue(supportsBluetoothLe());
+
         clearNoteCounts();
         assertThat(performScan(Scenario.DEFAULT)).isEqualTo(Result.FULL);
         SystemUtil.eventually(() -> {
@@ -162,6 +164,8 @@ public class NearbyDevicesRenouncePermissionTest {
     @AppModeFull
     @Test
     public void scanRenouncingLocationNotesBluetoothButNotLocation() throws Exception {
+        assumeTrue(supportsBluetoothLe());
+
         clearNoteCounts();
         assertThat(performScan(Scenario.RENOUNCE)).isEqualTo(Result.FILTERED);
         SystemUtil.eventually(() -> {
@@ -173,6 +177,8 @@ public class NearbyDevicesRenouncePermissionTest {
     @AppModeFull
     @Test
     public void scanRenouncingInMiddleOfChainNotesBluetoothButNotLocation() throws Exception {
+        assumeTrue(supportsBluetoothLe());
+
         clearNoteCounts();
         assertThat(performScan(Scenario.RENOUNCE_MIDDLE)).isEqualTo(Result.FILTERED);
         SystemUtil.eventually(() -> {
@@ -276,6 +282,10 @@ public class NearbyDevicesRenouncePermissionTest {
 
     private boolean supportsBluetooth() {
         return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+    }
+
+    private boolean supportsBluetoothLe() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
     }
 
     private void enableTestMode() {

@@ -16,17 +16,21 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import android.graphics.Bitmap;
 import android.os.Message;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.webkit.ConsoleMessage;
-import android.view.ViewParent;
 import android.webkit.JsPromptResult;
 import android.webkit.JsResult;
 import android.webkit.WebIconDatabase;
@@ -34,44 +38,54 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.cts.WebViewSyncLoader.WaitForProgressClient;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
 import com.android.compatibility.common.util.PollingCheck;
+
 import com.google.common.util.concurrent.SettableFuture;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 @AppModeFull
-public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class WebChromeClientTest extends SharedWebViewTest{
     private static final String JAVASCRIPT_UNLOAD = "javascript unload";
     private static final String LISTENER_ADDED = "listener added";
     private static final String TOUCH_RECEIVED = "touch received";
 
-    private CtsTestServer mWebServer;
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
+
+    private SharedSdkWebServer mWebServer;
     private WebIconDatabase mIconDb;
     private WebViewOnUiThread mOnUiThread;
     private boolean mBlockWindowCreationSync;
     private boolean mBlockWindowCreationAsync;
 
-    public WebChromeClientTest() {
-        super(WebViewCtsActivity.class);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        WebView webview = getActivity().getWebView();
+    @Before
+    public void setUp() throws Exception {
+        WebView webview = getTestEnvironment().getWebView();
         if (webview != null) {
             mOnUiThread = new WebViewOnUiThread(webview);
         }
-        mWebServer = new CtsTestServer(getActivity());
+        mWebServer = getTestEnvironment().getSetupWebServer(SslMode.INSECURE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
@@ -82,13 +96,34 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
             mIconDb.removeAllIcons();
             mIconDb.close();
         }
-        super.tearDown();
     }
 
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((WebViewCtsActivity) activity).getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                    activity))
+                                    .setContext(activity)
+                                    .setWebView(webView)
+                                    .setRootLayout(((WebViewCtsActivity) activity).getRootLayout());
+                        });
+
+        SharedWebViewTestEnvironment environment = builder.build();
+        return environment;
+    }
+
+
+    @Test
     public void testOnProgressChanged() {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
@@ -104,10 +139,8 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         }.run();
     }
 
+    @Test
     public void testOnReceivedTitle() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
@@ -125,20 +158,18 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         assertEquals(TestHtmlConstants.HELLO_WORLD_TITLE, webChromeClient.getPageTitle());
     }
 
+    @Test
     public void testOnReceivedIcon() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
         WebkitUtils.onMainThreadSync(() -> {
             // getInstance must run on the UI thread
             mIconDb = WebIconDatabase.getInstance();
-            String dbPath = getActivity().getFilesDir().toString() + "/icons";
+            String dbPath = getTestEnvironment().getContext().getFilesDir().toString() + "/icons";
             mIconDb.open(dbPath);
         });
-        getInstrumentation().waitForIdleSync();
+        getTestEnvironment().waitForIdleSync();
         Thread.sleep(100); // Wait for open to be received on the icon db thread.
 
         assertFalse(webChromeClient.hadOnReceivedIcon());
@@ -190,35 +221,26 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
             assertFalse(webChromeClient.hadOnCloseWindow());
         }
     }
+    @Test
     public void testWindows() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         runWindowTest(true);
     }
 
+    @Test
     public void testBlockWindowsSync() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         mBlockWindowCreationSync = true;
         runWindowTest(false);
     }
 
+    @Test
     public void testBlockWindowsAsync() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         mBlockWindowCreationAsync = true;
         runWindowTest(false);
     }
 
     // Note that test is still a little flaky. See b/119468441.
+    @Test
     public void testOnJsBeforeUnloadIsCalled() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-
         final WebSettings settings = mOnUiThread.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
@@ -258,10 +280,8 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         WebkitUtils.waitForFuture(onJsBeforeUnloadFuture);
     }
 
+    @Test
     public void testOnJsAlert() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
@@ -283,10 +303,8 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         assertEquals(webChromeClient.getMessage(), "testOnJsAlert");
     }
 
+    @Test
     public void testOnJsConfirm() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
@@ -308,10 +326,8 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         assertEquals(webChromeClient.getMessage(), "testOnJsConfirm");
     }
 
+    @Test
     public void testOnJsPrompt() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         final MockWebChromeClient webChromeClient = new MockWebChromeClient();
         mOnUiThread.setWebChromeClient(webChromeClient);
 
@@ -342,10 +358,8 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         assertEquals(webChromeClient.getMessage(), "testOnJsPrompt");
     }
 
+    @Test
     public void testOnConsoleMessage() throws Exception {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
         int numConsoleMessages = 4;
         final BlockingQueue<ConsoleMessage> consoleMessageQueue =
                 new ArrayBlockingQueue<>(numConsoleMessages);
@@ -411,17 +425,17 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
         int middleY = location[1] + mOnUiThread.getWebView().getHeight() / 2;
 
         long timeDown = SystemClock.uptimeMillis();
-        getInstrumentation().sendPointerSync(
+        getTestEnvironment().sendPointerSync(
                 MotionEvent.obtain(timeDown, timeDown, MotionEvent.ACTION_DOWN,
                         middleX, middleY, 0));
 
         long timeUp = SystemClock.uptimeMillis();
-        getInstrumentation().sendPointerSync(
+        getTestEnvironment().sendPointerSync(
                 MotionEvent.obtain(timeUp, timeUp, MotionEvent.ACTION_UP,
                         middleX, middleY, 0));
 
         // Wait for the system to process all events in the queue
-        getInstrumentation().waitForIdleSync();
+        getTestEnvironment().waitForIdleSync();
     }
 
     private class MockWebChromeClient extends WaitForProgressClient {
@@ -572,12 +586,12 @@ public class WebChromeClientTest extends ActivityInstrumentationTestCase2<WebVie
             if (mBlockWindowCreationAsync) {
                 transport.setWebView(null);
             } else {
-                mChildWebView = new WebView(getActivity());
+                mChildWebView = new WebView(getTestEnvironment().getContext());
                 final WebSettings settings = mChildWebView.getSettings();
                 settings.setJavaScriptEnabled(true);
                 mChildWebView.setWebChromeClient(this);
                 transport.setWebView(mChildWebView);
-                getActivity().addContentView(mChildWebView, new ViewGroup.LayoutParams(
+                getTestEnvironment().addContentView(mChildWebView, new ViewGroup.LayoutParams(
                         ViewGroup.LayoutParams.FILL_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             }
             resultMsg.sendToTarget();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,8 +23,10 @@
  * questions.
  */
 
+#include <errno.h>
 #include <string.h>
 
+#include "jvm.h"
 #include "jni.h"
 #include "jni_util.h"
 
@@ -47,8 +49,15 @@ extern int __xpg_strerror_r(int, char *, size_t);
 #define strerror_r(a, b, c) __xpg_strerror_r((a), (b), (c))
 #endif
 
+JNIEXPORT size_t JNICALL
+getLastErrorString(char *buf, size_t len)
+{
+    if (errno == 0 || len < 1) return 0;
+    getErrorString(errno, buf, len);
+    return strlen(buf);
+}
 
-int
+JNIEXPORT int JNICALL
 getErrorString(int err, char *buf, size_t len)
 {
     if (err == 0 || len < 1) return 0;

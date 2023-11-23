@@ -18,13 +18,32 @@
 Atest Argument Parser class for atest.
 """
 
-# pylint: disable=line-too-long
+# TODO: (@jimtang) Unsuppress too-many-lines Pylint warning.
+# pylint: disable=line-too-long, too-many-lines
 
 import argparse
 import pydoc
 
-import bazel_mode
-import constants
+from atest import bazel_mode
+from atest import constants
+
+from atest.atest_utils import BuildOutputMode
+from atest.test_runners.roboleaf_test_runner import BazelBuildMode
+
+def output_mode_msg() -> str:
+    """Generate helper strings for BuildOutputMode."""
+    msg = []
+    for _, value in BuildOutputMode.__members__.items():
+        if value == BuildOutputMode.STREAMED:
+            msg.append(f'\t\t{BuildOutputMode.STREAMED.value}: '
+                       'full output like what "m" does. (default)')
+        elif value == BuildOutputMode.LOGGED:
+            msg.append(f'\t\t{BuildOutputMode.LOGGED.value}: '
+                       'print build output to a log file.')
+        else:
+            raise RuntimeError('Found unknown attribute!')
+    return '\n'.join(msg)
+
 
 # Constants used for AtestArgParser and EPILOG_TEMPLATE
 HELP_DESC = ('A command line tool that allows users to build, install, and run '
@@ -39,19 +58,29 @@ AGGREGATE_METRIC_FILTER = ('Regular expression that will be used for filtering '
 ALL_ABI = 'Set to run tests for all abis.'
 ANNOTATION_FILTER = ('Accept keyword that will be translated to fully qualified'
                      'annotation class name.')
+AUTO_SHARDING = ('Trigger N AVDs/shards for long duration tests. (N is 2 by '
+                 'default).')
 BUILD = 'Run a build.'
 BAZEL_MODE = 'Run tests using Bazel.'
 BAZEL_ARG = ('Forward a flag to Bazel for tests executed with Bazel; '
              'see --bazel-mode.')
+BUILD_OUTPUT = (r'Specifies the desired build output mode. '
+                f'Valid values are:\n{output_mode_msg()}')
 CLEAR_CACHE = 'Wipe out the test_infos cache of the test and start a new search.'
 COLLECT_TESTS_ONLY = ('Collect a list test cases of the instrumentation tests '
                       'without testing them in real.')
+COVERAGE = ('Instrument tests with code coverage and generate a code coverage '
+            'report.')
+DEVICE_ONLY = ('Only run tests that require a device. (Note: only workable with'
+               ' --test-mapping.)')
 DISABLE_TEARDOWN = 'Disable test teardown and cleanup.'
 DRY_RUN = 'Dry run atest without building, installing and running tests in real.'
 ENABLE_DEVICE_PREPARER = ('Enable template/preparers/device-preparer as the '
                           'default preparer.')
 ENABLE_FILE_PATTERNS = 'Enable FILE_PATTERNS in TEST_MAPPING.'
 FLAKES_INFO = 'Test result with flakes info.'
+FUZZY_SEARCH = 'Running fuzzy search when test not found. (implicit True)'
+GENERATE_RUNNER_CMD = 'Generate the runner command(s) of given tests.'
 HISTORY = ('Show test results in chronological order(with specified number or '
            'all by default).')
 HOST = ('Run the test completely on the host without a device. '
@@ -66,14 +95,24 @@ INSTANT = ('Run the instant_app version of the module if the module supports it.
            '"--instant" is passed.')
 ITERATION = 'Loop-run tests until the max iteration is reached. (default: 10)'
 LATEST_RESULT = 'Print latest test result.'
+LD_LIB_PATH = ('Insert $ANDROID_HOST_OUT/{lib,lib64} to LD_LIBRARY_PATH when '
+               'running tests with Tradefed.')
 LIST_MODULES = 'List testable modules of the given suite.'
+NO_CHECKING_DEVICE = 'Do NOT check device availability. (even it is a device test)'
 NO_ENABLE_ROOT = ('Do NOT restart adbd with root permission even the test config '
                   'has RootTargetPreparer.')
 NO_METRICS = 'Do not send metrics.'
+ROBOLEAF_MODE = ('Check if module has been listed in the ["prod", "staging", or'
+                 ' "dev"] roboleaf allowlists and invoke with b test.')
 REBUILD_MODULE_INFO = ('Forces a rebuild of the module-info.json file. '
                        'This may be necessary following a repo sync or '
                        'when writing a new test.')
-REQUEST_UPLOAD_RESULT = 'Request permission to upload test result.'
+REQUEST_UPLOAD_RESULT = ('Request permission to upload test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--disable-upload-result is set.')
+DISABLE_UPLOAD_RESULT = ('Turn off the upload of test result. This option '
+                         'only needs to set once and takes effect until '
+                         '--request-upload-result is set')
 RERUN_UNTIL_FAILURE = ('Rerun all tests until a failure occurs or the max '
                        'iteration is reached. (default: forever!)')
 # For Integer.MAX_VALUE == (2**31 - 1) and not possible to give a larger integer
@@ -83,6 +122,8 @@ RETRY_ANY_FAILURE = ('Rerun failed tests until passed or the max iteration '
                      'is reached. (default: 10)')
 SERIAL = 'The device to run the test on.'
 SHARDING = 'Option to specify sharding count. (default: 2)'
+SMART_TESTING_LOCAL = ('Automatically detect untracked/unstaged files in current'
+                       ' git run associated tests.')
 START_AVD = 'Automatically create an AVD and run tests on the virtual device.'
 TEST = ('Run the tests. WARNING: Many test configs force cleanup of device '
         'after test run. In this case, "-d" must be used in previous test run '
@@ -144,8 +185,12 @@ class AtestArgParser(argparse.ArgumentParser):
     def add_atest_args(self):
         """A function that does ArgumentParser.add_argument()"""
         self.add_argument('tests', nargs='*', help='Tests to build and/or run.')
+
         # Options that to do with testing.
         self.add_argument('-a', '--all-abi', action='store_true', help=ALL_ABI)
+
+        self.add_argument('--auto-sharding', action='store_true', help=AUTO_SHARDING)
+
         self.add_argument('-b', '--build', action='append_const', dest='steps',
                           const=constants.BUILD_STEP, help=BUILD)
         self.add_argument('--bazel-mode', default=True, action='store_true',
@@ -157,8 +202,16 @@ class AtestArgParser(argparse.ArgumentParser):
 
         self.add_argument('-d', '--disable-teardown', action='store_true',
                           help=DISABLE_TEARDOWN)
-        self.add_argument('--enable-device-preparer', action='store_true', help=HOST)
-        self.add_argument('--host', action='store_true', help=HOST)
+        self.add_argument('--enable-device-preparer', action='store_true',
+                          help=ENABLE_DEVICE_PREPARER)
+        self.add_argument('--experimental-coverage', action='store_true', help=COVERAGE)
+        # Options for host and device-only:
+        # A group of options for testing mapping tests. They are mutually
+        # exclusive in a command line.
+        hgroup = self.add_mutually_exclusive_group()
+        hgroup.add_argument('--host', action='store_true', help=HOST)
+        hgroup.add_argument('--device-only', action='store_true',
+                            help=DEVICE_ONLY)
         self.add_argument('-i', '--install', action='append_const',
                           dest='steps', const=constants.INSTALL_STEP,
                           help=INSTALL)
@@ -166,6 +219,13 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true', help=REBUILD_MODULE_INFO)
         self.add_argument('--no-enable-root', help=NO_ENABLE_ROOT,
                           action='store_true')
+        self.add_argument('--roboleaf-mode',
+                          nargs='?',
+                          default=BazelBuildMode.OFF,
+                          const=BazelBuildMode.PROD,
+                          choices=BazelBuildMode,
+                          type=BazelBuildMode,
+                          help=ROBOLEAF_MODE)
         self.add_argument('--sharding', nargs='?', const=2,
                           type=_positive_int, default=0,
                           help=SHARDING)
@@ -175,11 +235,22 @@ class AtestArgParser(argparse.ArgumentParser):
                           action='store_true')
         self.add_argument('-w', '--wait-for-debugger', action='store_true',
                           help=WAIT_FOR_DEBUGGER)
-        self.add_argument('--request-upload-result', action='store_true',
-                          help=REQUEST_UPLOAD_RESULT)
+        self.add_argument('--auto-ld-library-path', action='store_true',
+                          help=LD_LIB_PATH)
 
+        # Options for request/disable upload results. They are mutually
+        # exclusive in a command line.
+        ugroup = self.add_mutually_exclusive_group()
+        ugroup.add_argument('--request-upload-result', action='store_true',
+                          help=REQUEST_UPLOAD_RESULT)
+        ugroup.add_argument('--disable-upload-result', action='store_true',
+                          help=DISABLE_UPLOAD_RESULT)
+
+        mgroup = self.add_mutually_exclusive_group()
+        mgroup.add_argument('--smart-testing-local', action='store_true',
+                                help=SMART_TESTING_LOCAL)
         # Options related to Test Mapping
-        self.add_argument('-p', '--test-mapping', action='store_true',
+        mgroup.add_argument('-p', '--test-mapping', action='store_true',
                           help=TEST_MAPPING)
         self.add_argument('--include-subdirs', action='store_true',
                           help=INCLUDE_SUBDIRS)
@@ -189,7 +260,7 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=ENABLE_FILE_PATTERNS)
 
         # Options related to Host Unit Test.
-        self.add_argument('--host-unit-test-only', action='store_true',
+        mgroup.add_argument('--host-unit-test-only', action='store_true',
                           help=HOST_UNIT_TEST_ONLY)
 
         # Options for information queries and dry-runs:
@@ -205,6 +276,18 @@ class AtestArgParser(argparse.ArgumentParser):
         self.add_argument('-L', '--list-modules', help=LIST_MODULES)
         self.add_argument('-v', '--verbose', action='store_true', help=VERBOSE)
         self.add_argument('-V', '--version', action='store_true', help=VERSION)
+        self.add_argument('--build-output',
+                          default=BuildOutputMode.STREAMED,
+                          choices=BuildOutputMode,
+                          type=BuildOutputMode,
+                          help=BUILD_OUTPUT)
+
+        # Options that switch on/off fuzzy searching.
+        fgroup = self.add_mutually_exclusive_group()
+        fgroup.add_argument('--no-fuzzy-search', action='store_false',
+                            default=True, dest='fuzzy_search', help=FUZZY_SEARCH)
+        fgroup.add_argument('--fuzzy-search', action='store_true',
+                            help=FUZZY_SEARCH)
 
         # Options that to do with acloud/AVDs.
         agroup = self.add_mutually_exclusive_group()
@@ -256,6 +339,8 @@ class AtestArgParser(argparse.ArgumentParser):
                           help=VERIFY_CMD_MAPPING)
         self.add_argument('-e', '--verify-env-variable', action='store_true',
                           help=VERIFY_ENV_VARIABLE)
+        self.add_argument('-g', '--generate-runner-cmd', action='store_true',
+                          help=GENERATE_RUNNER_CMD)
         # Options for Tradefed debug mode.
         self.add_argument('-D', '--tf-debug', nargs='?', const=10888,
                           type=_positive_int, default=0,
@@ -299,7 +384,10 @@ class AtestArgParser(argparse.ArgumentParser):
         # Option to filter the output of aggregate metrics content.
         self.add_argument('--aggregate-metric-filter', action='append',
                           help=AGGREGATE_METRIC_FILTER)
-
+        # Option that allows building and running without regarding device
+        # availability even the given test is a device/host-driven test.
+        self.add_argument('--no-checking-device', action='store_true',
+                          help=NO_CHECKING_DEVICE)
         # This arg actually doesn't consume anything, it's primarily used for
         # the help description and creating custom_args in the NameSpace object.
         self.add_argument('--', dest='custom_args', nargs='*',
@@ -332,16 +420,21 @@ def print_epilog_text():
         AGGREGATE_METRIC_FILTER=AGGREGATE_METRIC_FILTER,
         ALL_ABI=ALL_ABI,
         ANNOTATION_FILTER=ANNOTATION_FILTER,
+        AUTO_SHARDING=AUTO_SHARDING,
         BUILD=BUILD,
         BAZEL_MODE=BAZEL_MODE,
         BAZEL_ARG=BAZEL_ARG,
         CLEAR_CACHE=CLEAR_CACHE,
         COLLECT_TESTS_ONLY=COLLECT_TESTS_ONLY,
+        COVERAGE=COVERAGE,
+        DEVICE_ONLY=DEVICE_ONLY,
         DISABLE_TEARDOWN=DISABLE_TEARDOWN,
+        DISABLE_UPLOAD_RESULT=DISABLE_UPLOAD_RESULT,
         DRY_RUN=DRY_RUN,
         ENABLE_DEVICE_PREPARER=ENABLE_DEVICE_PREPARER,
         ENABLE_FILE_PATTERNS=ENABLE_FILE_PATTERNS,
         FLAKES_INFO=FLAKES_INFO,
+        GENERATE_RUNNER_CMD=GENERATE_RUNNER_CMD,
         HELP_DESC=HELP_DESC,
         HISTORY=HISTORY,
         HOST=HOST,
@@ -352,15 +445,21 @@ def print_epilog_text():
         INSTANT=INSTANT,
         ITERATION=ITERATION,
         LATEST_RESULT=LATEST_RESULT,
+        LD_LIB_PATH=LD_LIB_PATH,
         LIST_MODULES=LIST_MODULES,
         NO_ENABLE_ROOT=NO_ENABLE_ROOT,
         NO_METRICS=NO_METRICS,
+        NO_CHECKING_DEVICE=NO_CHECKING_DEVICE,
+        FUZZY_SEARCH=FUZZY_SEARCH,
         REBUILD_MODULE_INFO=REBUILD_MODULE_INFO,
+        ROBOLEAF_MODE=ROBOLEAF_MODE,
         REQUEST_UPLOAD_RESULT=REQUEST_UPLOAD_RESULT,
         RERUN_UNTIL_FAILURE=RERUN_UNTIL_FAILURE,
         RETRY_ANY_FAILURE=RETRY_ANY_FAILURE,
         SERIAL=SERIAL,
         SHARDING=SHARDING,
+        BUILD_OUTPUT=BUILD_OUTPUT,
+        SMART_TESTING_LOCAL=SMART_TESTING_LOCAL,
         START_AVD=START_AVD,
         TEST=TEST,
         TEST_CONFIG_SELECTION=TEST_CONFIG_SELECTION,
@@ -414,6 +513,12 @@ OPTIONS
                 atest <test> -- --abi arm64-v8a   # ARM 64-bit
                 atest <test> -- --abi armeabi-v7a # ARM 32-bit
 
+        --auto-ld-library-path
+            {LD_LIB_PATH}
+
+        --auto-sharding
+            {AUTO_SHARDING}
+
         -b, --build
             {BUILD} (implicit default)
 
@@ -423,6 +528,9 @@ OPTIONS
         --bazel-arg
             {BAZEL_ARG}
 
+        --device-only
+            {DEVICE_ONLY}
+
         -d, --disable-teardown
             {DISABLE_TEARDOWN}
 
@@ -431,6 +539,9 @@ OPTIONS
 
         --enable-device-preparer
             {ENABLE_DEVICE_PREPARER}
+
+        --experimental-coverage
+            {COVERAGE}
 
         --host
             {HOST}
@@ -444,14 +555,28 @@ OPTIONS
         -m, --rebuild-module-info
             {REBUILD_MODULE_INFO}
 
+        --roboleaf-mode
+            {ROBOLEAF_MODE}
+
         --no-enable-root
             {NO_ENABLE_ROOT}
+
+        --no-checking-device
+            {NO_CHECKING_DEVICE}
 
         -s, --serial [SERIAL]
             {SERIAL}
 
         --sharding [SHARD_NUMBER]
           {SHARDING}
+
+        --smart-testing-local
+          {SMART_TESTING_LOCAL} e.g. Have modified code in packages/apps/Settings/tests/unit/src.
+            croot packages/apps/Settings/tests/unit/src
+            atest --smart-testing-local
+
+            will be equivalent to (from <android root>):
+            atest --smart-testing-local packages/apps/Settings/tests/unit/src
 
         -t, --test [TEST1, TEST2, ...]
             {TEST} (implicit default)
@@ -476,11 +601,15 @@ OPTIONS
         -w, --wait-for-debugger
             {WAIT_FOR_DEBUGGER}
 
+        --use-modules-in
+            {USE_MODULES_IN}
+
+        [ Upload Test Result ]
         --request-upload-result
             {REQUEST_UPLOAD_RESULT}
 
-        --use-modules-in
-            {USE_MODULES_IN}
+        --disable-upload-result
+            {DISABLE_UPLOAD_RESULT}
 
         [ Test Mapping ]
         -p, --test-mapping
@@ -506,6 +635,9 @@ OPTIONS
         -L, --list-modules
             {LIST_MODULES}
 
+        --[no-]fuzzy-search
+            {FUZZY_SEARCH}
+
         --latest-result
             {LATEST_RESULT}
 
@@ -515,6 +647,8 @@ OPTIONS
         -V, --version
             {VERSION}
 
+        --build-output
+            {BUILD_OUTPUT}
 
         [ Dry-Run and Caching ]
         --dry-run
@@ -846,7 +980,7 @@ EXAMPLES
        directories. You can also specify a target directory.
 
     Example:
-        atest  (run presubmit tests in TEST_MAPPING files in current and parent directories)
+        atest  (run presubmit tests in TEST_MAPPING files and host unit tests in current and parent directories)
         atest --test-mapping </path/to/project>
                (run presubmit tests in TEST_MAPPING files in </path/to/project> and its parent directories)
 

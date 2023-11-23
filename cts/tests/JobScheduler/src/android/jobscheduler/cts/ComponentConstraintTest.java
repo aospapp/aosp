@@ -35,6 +35,12 @@ public class ComponentConstraintTest extends BaseJobSchedulerTest {
         mBuilder = new JobInfo.Builder(COMPONENT_JOB_ID, kJobServiceComponent);
     }
 
+    @Override
+    public void tearDown() throws Exception {
+        setJobServiceEnabled(true);
+        super.tearDown();
+    }
+
     public void testScheduleAfterComponentEnabled() throws Exception {
         setJobServiceEnabled(true);
         kTestEnvironment.setExpectedExecutions(1);

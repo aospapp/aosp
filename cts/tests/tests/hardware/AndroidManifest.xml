@@ -31,6 +31,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <application>
         <uses-library android:name="android.test.runner" />
@@ -80,7 +81,7 @@
             android:label="InputCtsActivity"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation
                     |screenLayout|fontScale|uiMode|orientation|density|screenSize
-                    |smallestScreenSize">
+                    |smallestScreenSize|layoutDirection">
         </activity>
 
         <activity android:name="android.hardware.input.cts.InputAssistantActivity"
@@ -88,7 +89,7 @@
             android:exported="true"
             android:configChanges="mcc|mnc|locale|touchscreen|keyboard|keyboardHidden|navigation
                     |screenLayout|fontScale|uiMode|orientation|density|screenSize
-                    |smallestScreenSize">
+                    |smallestScreenSize|layoutDirection">
             <intent-filter >
                 <action android:name="android.speech.action.VOICE_SEARCH_HANDS_FREE" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -102,6 +103,26 @@
         <activity android:name="android.hardware.cts.FingerprintTestActivity"
             android:label="FingerprintTestActivity">
         </activity>
+
+        <receiver android:name="android.hardware.input.cts.tests.KeyboardLayoutChangeTest.CtsKeyboardLayoutProvider"
+                  android:label="CTS keyboard layout provider"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.hardware.input.action.QUERY_KEYBOARD_LAYOUTS" />
+            </intent-filter>
+            <meta-data android:name="android.hardware.input.metadata.KEYBOARD_LAYOUTS"
+                       android:resource="@xml/keyboard_layouts" />
+        </receiver>
+
+        <service android:name="android.hardware.cts.HardwareBufferTestService$JavaLocal" />
+
+        <service android:name="android.hardware.cts.HardwareBufferTestService$JavaRemote"
+            android:process=":java" />
+
+        <service android:name="android.hardware.cts.HardwareBufferTestService$NativeLocal" />
+
+        <service android:name="android.hardware.cts.HardwareBufferTestService$NativeRemote"
+            android:process=":native" />
 
     </application>
 

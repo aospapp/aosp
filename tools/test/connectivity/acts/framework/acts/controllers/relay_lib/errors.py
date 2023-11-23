@@ -18,9 +18,7 @@ from acts import signals
 
 class RelayConfigError(signals.ControllerError):
     """An error found within the RelayRig config file."""
-    pass
 
 
 class RelayDeviceConnectionError(signals.ControllerError):
     """An error for being unable to connect to the device."""
-    pass

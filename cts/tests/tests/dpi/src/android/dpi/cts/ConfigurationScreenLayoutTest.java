@@ -28,6 +28,8 @@ import static android.view.WindowInsets.Type.displayCutout;
 import static android.view.WindowInsets.Type.navigationBars;
 import static android.view.WindowInsets.Type.systemBars;
 
+import static android.server.wm.ActivityManagerTestBase.isTablet;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
@@ -36,6 +38,7 @@ import android.content.res.Configuration;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.server.wm.IgnoreOrientationRequestSession;
+import android.server.wm.WindowManagerStateHelper;
 import android.test.ActivityInstrumentationTestCase2;
 import android.view.WindowInsets;
 import android.view.WindowMetrics;
@@ -85,8 +88,15 @@ public class ConfigurationScreenLayoutTest
             // Check that all four orientations report the same configuration value.
             for (int orientation : ORIENTATIONS) {
                 Activity activity = startOrientationActivity(orientation);
-                if (activity.isInMultiWindowMode()) {
+                WindowManagerStateHelper wmState = new WindowManagerStateHelper();
+                wmState.computeState();
+                if (activity.isInMultiWindowMode()
+                        || wmState.isTaskDisplayAreaIgnoringOrientationRequest(
+                                activity.getComponentName())) {
                     // activity.setRequestedOrientation has no effect in multi-window mode.
+                    // Besides, the test is not feasible when current display area is ignoring
+                    // orientation since configuration will be updated, so it goes to quit this
+                    // test as well.
                     tearDown();
                     return;
                 }

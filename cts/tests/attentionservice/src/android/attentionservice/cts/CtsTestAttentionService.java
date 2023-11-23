@@ -37,7 +37,7 @@ public class CtsTestAttentionService extends AttentionService {
     @Override
     public void onCancelAttentionCheck(AttentionCallback callback) {
         callback.onFailure(ATTENTION_FAILURE_CANCELLED);
-        reset();
+        resetAttentionCheck();
         sRespondLatch.countDown();
     }
 
@@ -49,12 +49,20 @@ public class CtsTestAttentionService extends AttentionService {
 
     @Override
     public void onStopProximityUpdates() {
-        reset();
+        resetProximity();
         sRespondLatch.countDown();
     }
 
     public static void reset() {
+        resetAttentionCheck();
+        resetProximity();
+    }
+
+    public static void resetAttentionCheck() {
         sCurrentAttentionCallback = null;
+    }
+
+    public static void resetProximity() {
         sCurrentProximityUpdateCallback = null;
     }
 
@@ -62,14 +70,14 @@ public class CtsTestAttentionService extends AttentionService {
         if (sCurrentAttentionCallback != null) {
             sCurrentAttentionCallback.onSuccess(code, 0);
         }
-        reset();
+        resetAttentionCheck();
     }
 
     public static void respondFailure(int code) {
         if (sCurrentAttentionCallback != null) {
             sCurrentAttentionCallback.onFailure(code);
         }
-        reset();
+        resetAttentionCheck();
     }
 
     public static void respondProximity(double distance) {

@@ -1,35 +1,91 @@
+/*
+ * Copyright (C) 2022 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package android.platform.helpers;
 
 import android.app.Instrumentation;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
+import android.platform.helpers.exceptions.UnknownUiException;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
 
 import java.util.List;
 
-public class SettingsSecurityHelperImpl extends AbstractAutoStandardAppHelper
+/** Helper class for functional tests of Security settings */
+public class SettingsSecurityHelperImpl extends AbstractStandardAppHelper
         implements IAutoSecuritySettingsHelper {
+
+    private static final String CHOOSE_LOCK_TYPE = "Choose a lock type";
+    private static final int KEY_ENTER = 66;
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private ScrollDirection mScrollDirection;
+
     public SettingsSecurityHelperImpl(Instrumentation instr) {
         super(instr);
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.SECURITY_SETTINGS_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_SCROLL_BACKWARD);
+        mForwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_SCROLL_FORWARD);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_SCROLL_ELEMENT);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.SECURITY_SETTINGS_SCROLL_DIRECTION));
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_PACKAGE);
+    }
+
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getLauncherName() {
+        throw new UnsupportedOperationException("Operation not supported.");
     }
 
     /** {@inheritDoc} */
     @Override
     public void setLockByPassword(String password) {
         openChooseLockTypeMenu();
-        UiObject2 password_menu =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.LOCK_TYPE_PASSWORD));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), password_menu);
+        BySelector password_menuSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.SECURITY_SETTINGS_LOCK_TYPE_PASSWORD);
+        UiObject2 password_menu = getSpectatioUiUtil().findUiObject(password_menuSelector);
+        getSpectatioUiUtil().clickAndWait(password_menu);
+        getSpectatioUiUtil().wait5Seconds();
         typePasswordOnTextEditor(password);
         pressEnter();
         typePasswordOnTextEditor(password);
@@ -37,46 +93,38 @@ public class SettingsSecurityHelperImpl extends AbstractAutoStandardAppHelper
     }
 
     private void openChooseLockTypeMenu() {
-        List<UiObject2> titles =
-                findUiObjects(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.TITLE));
-        if (titles == null || titles.isEmpty()) {
-            throw new RuntimeException("Unable to find Setting title");
-        }
+        getSpectatioUiUtil().wait5Seconds();
+        BySelector titlesSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_TITLE);
+        List<UiObject2> titles = getSpectatioUiUtil().findUiObjects(titlesSelector);
+        validateUiObject(titles, AutomotiveConfigConstants.SECURITY_SETTINGS_TITLE);
         UiObject2 title = titles.get(titles.size() - 1);
-        if (title != null
-                && title.getText()
-                        .equalsIgnoreCase(
-                                getResourceValue(
-                                        AutoConfigConstants.SETTINGS,
-                                        AutoConfigConstants.SECURITY_SETTINGS,
-                                        AutoConfigConstants.CHOOSE_LOCK_TYPE))) {
+        if (title != null && title.getText().equalsIgnoreCase(CHOOSE_LOCK_TYPE)) {
             // CHOOSE_LOCK_TYPE is already open
             return;
         }
+        BySelector profileLockMenuSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_PROFILE_LOCK);
         UiObject2 profileLockMenu =
-                scrollAndFindUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.PROFILE_LOCK));
-        if (profileLockMenu == null) {
-            throw new RuntimeException("Unable to find Choose a lock type menu.");
-        }
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), profileLockMenu);
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        profileLockMenuSelector,
+                        "Scroll to find Profile lock");
+        validateUiObject(
+                profileLockMenu, String.format("Profile Lock %s", profileLockMenuSelector));
+        getSpectatioUiUtil().clickAndWait(profileLockMenu);
+            getSpectatioUiUtil().wait5Seconds();
     }
 
     private void typePasswordOnTextEditor(String password) {
-        UiObject2 textEditor =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.ENTER_PASSWORD));
+        BySelector textEditorSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PASSWORD);
+        UiObject2 textEditor = getSpectatioUiUtil().findUiObject(textEditorSelector);
+        validateUiObject(textEditor, AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PASSWORD);
         textEditor.setText(password);
     }
 
@@ -84,32 +132,28 @@ public class SettingsSecurityHelperImpl extends AbstractAutoStandardAppHelper
     @Override
     public void setLockByPin(String pin) {
         openChooseLockTypeMenu();
-        UiObject2 pin_menu =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.LOCK_TYPE_PIN));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), pin_menu);
+        BySelector pin_menuSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_LOCK_TYPE_PIN);
+        UiObject2 pin_menu = getSpectatioUiUtil().findUiObject(pin_menuSelector);
+        validateUiObject(pin_menu, AutomotiveConfigConstants.SECURITY_SETTINGS_LOCK_TYPE_PIN);
+        getSpectatioUiUtil().clickAndWait(pin_menu);
+        getSpectatioUiUtil().wait5Seconds();
         selectPinOnPinPad(pin);
-        UiObject2 continue_button =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.CONTINUE_BUTTON));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), continue_button);
+        BySelector continue_buttonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_CONTINUE_BUTTON);
+        UiObject2 continue_button = getSpectatioUiUtil().findUiObject(continue_buttonSelector);
+        validateUiObject(
+                continue_button, AutomotiveConfigConstants.SECURITY_SETTINGS_CONTINUE_BUTTON);
+        getSpectatioUiUtil().clickAndWait(continue_button);
+        getSpectatioUiUtil().wait5Seconds();
         selectPinOnPinPad(pin);
-        UiObject2 confirm_button =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.CONFIRM_BUTTON));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), confirm_button);
+        BySelector confirm_buttonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_CONFIRM_BUTTON);
+        UiObject2 confirm_button = getSpectatioUiUtil().findUiObject(confirm_buttonSelector);
+        validateUiObject(
+                confirm_button, AutomotiveConfigConstants.SECURITY_SETTINGS_CONFIRM_BUTTON);
+        getSpectatioUiUtil().clickAndWait(confirm_button);
+        getSpectatioUiUtil().wait5Seconds();
     }
 
     private void selectPinOnPinPad(String pin) {
@@ -117,32 +161,25 @@ public class SettingsSecurityHelperImpl extends AbstractAutoStandardAppHelper
         for (int i = 0; i < length; i++) {
             char c = pin.charAt(i);
             UiObject2 number =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.SECURITY_SETTINGS,
-                                    Character.toString(c)));
+                    getSpectatioUiUtil()
+                            .findUiObject(getUiElementFromConfig(Character.toString(c)));
             if (number == null) {
-                number = findUiObject(By.text(Character.toString(c)));
+                number = getSpectatioUiUtil().findUiObject(By.text(Character.toString(c)));
             }
-            if (number == null) {
-                throw new RuntimeException(
-                        "Unable to find number on pin pad: " + Character.toString(c));
-            }
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), number);
+            validateUiObject(
+                    number,
+                    String.format("Unable to find number on pin pad: " + Character.toString(c)));
+            getSpectatioUiUtil().clickAndWait(number);
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public void unlockByPassword(String password) {
-        UiObject2 textEditor =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.ENTER_PASSWORD));
+        BySelector textEditorSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PASSWORD);
+        UiObject2 textEditor = getSpectatioUiUtil().findUiObject(textEditorSelector);
+        validateUiObject(textEditor, AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PASSWORD);
         textEditor.setText(password);
         pressEnter();
     }
@@ -150,21 +187,18 @@ public class SettingsSecurityHelperImpl extends AbstractAutoStandardAppHelper
     /** {@inheritDoc} */
     @Override
     public void unlockByPin(String pin) {
+
         selectPinOnPinPad(pin);
-        UiObject2 enter_button =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.ENTER_PIN_BUTTON));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), enter_button);
-        UiObject2 pinPad =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.PIN_PAD));
+        BySelector enter_buttonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PIN_BUTTON);
+        UiObject2 enter_button = getSpectatioUiUtil().findUiObject(enter_buttonSelector);
+        validateUiObject(
+                enter_button, AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PIN_BUTTON);
+        getSpectatioUiUtil().clickAndWait(enter_button);
+        BySelector pinPadSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_PIN_PAD);
+        UiObject2 pinPad = getSpectatioUiUtil().findUiObject(pinPadSelector);
         if (pinPad != null) {
             throw new RuntimeException("PIN input is not corrected");
         }
@@ -174,40 +208,49 @@ public class SettingsSecurityHelperImpl extends AbstractAutoStandardAppHelper
     @Override
     public void removeLock() {
         openChooseLockTypeMenu();
-        UiObject2 none_menu =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.LOCK_TYPE_NONE));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), none_menu);
-        UiObject2 remove_button =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.REMOVE_BUTTON));
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), remove_button);
+        BySelector none_menuSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_LOCK_TYPE_NONE);
+        UiObject2 none_menu = getSpectatioUiUtil().findUiObject(none_menuSelector);
+        validateUiObject(none_menu, AutomotiveConfigConstants.SECURITY_SETTINGS_LOCK_TYPE_NONE);
+        getSpectatioUiUtil().clickAndWait(none_menu);
+        getSpectatioUiUtil().wait5Seconds();
+        BySelector remove_buttonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_REMOVE_BUTTON);
+        UiObject2 remove_button = getSpectatioUiUtil().findUiObject(remove_buttonSelector);
+        validateUiObject(remove_button, AutomotiveConfigConstants.SECURITY_SETTINGS_REMOVE_BUTTON);
+        getSpectatioUiUtil().clickAndWait(remove_button);
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean isDeviceLocked() {
         openChooseLockTypeMenu();
-        UiObject2 textEditor =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.ENTER_PASSWORD));
-        UiObject2 pinPad =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.SECURITY_SETTINGS,
-                                AutoConfigConstants.PIN_PAD));
+        BySelector textEditorSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_ENTER_PASSWORD);
+        UiObject2 textEditor = getSpectatioUiUtil().findUiObject(textEditorSelector);
+
+        BySelector pinPadSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SECURITY_SETTINGS_PIN_PAD);
+        UiObject2 pinPad = getSpectatioUiUtil().findUiObject(pinPadSelector);
+
         return textEditor != null || pinPad != null;
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
+    }
+
+    private void validateUiObject(List<UiObject2> uiObjects, String action) {
+        if (uiObjects == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
+    }
+
+    protected void pressEnter() {
+        getSpectatioUiUtil().pressKeyCode(KEY_ENTER);
     }
 }

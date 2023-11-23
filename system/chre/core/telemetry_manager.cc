@@ -24,7 +24,7 @@
 #include "chre/util/macros.h"
 #include "chre/util/nested_data_ptr.h"
 #include "chre/util/time.h"
-#include "pixelatoms.nanopb.h"
+#include "chre_metrics.nanopb.h"
 
 namespace chre {
 
@@ -37,15 +37,15 @@ namespace {
 // details.
 
 //! Helper define macros for nanopb types.
-#define PIXELATOMS_GET(x) android_hardware_google_pixel_PixelAtoms_##x
-#define PIXELATOMS_GET_PAL_TYPE(x)                        \
-  _android_hardware_google_pixel_PixelAtoms_ChrePalType:: \
-      android_hardware_google_pixel_PixelAtoms_ChrePalType_CHRE_PAL_TYPE_##x
+#define CHREATOMS_GET(x) android_chre_metrics_##x
+#define CHREATOMS_GET_PAL_TYPE(x)     \
+  _android_chre_metrics_ChrePalType:: \
+      android_chre_metrics_ChrePalType_CHRE_PAL_TYPE_##x
 
 void sendMetricToHost(uint32_t atomId, const pb_field_t fields[],
                       const void *data) {
   size_t size;
-  if (!pb_get_encoded_size(&size, PIXELATOMS_GET(ChrePalOpenFailed_fields),
+  if (!pb_get_encoded_size(&size, CHREATOMS_GET(ChrePalOpenFailed_fields),
                            data)) {
     LOGE("Failed to get message size");
   } else {
@@ -54,13 +54,13 @@ void sendMetricToHost(uint32_t atomId, const pb_field_t fields[],
       LOG_OOM();
     } else {
       pb_ostream_t stream = pb_ostream_from_buffer(bytes, size);
-      if (!pb_encode(&stream, PIXELATOMS_GET(ChrePalOpenFailed_fields), data)) {
+      if (!pb_encode(&stream, CHREATOMS_GET(ChrePalOpenFailed_fields), data)) {
         LOGE("Failed to metric error %s", PB_GET_ERROR(&stream));
       } else {
         HostCommsManager &manager =
             EventLoopManagerSingleton::get()->getHostCommsManager();
-        if (!manager.sendMetricLog(
-                PIXELATOMS_GET(Atom_chre_pal_open_failed_tag), bytes, size)) {
+        if (!manager.sendMetricLog(CHREATOMS_GET(Atom_chre_pal_open_failed_tag),
+                                   bytes, size)) {
           LOGE("Failed to send metric message");
         }
       }
@@ -69,25 +69,23 @@ void sendMetricToHost(uint32_t atomId, const pb_field_t fields[],
   }
 }
 
-void sendPalOpenFailedMetric(
-    _android_hardware_google_pixel_PixelAtoms_ChrePalType pal) {
-  _android_hardware_google_pixel_PixelAtoms_ChrePalOpenFailed result =
-      PIXELATOMS_GET(ChrePalOpenFailed_init_default);
+void sendPalOpenFailedMetric(_android_chre_metrics_ChrePalType pal) {
+  _android_chre_metrics_ChrePalOpenFailed result =
+      CHREATOMS_GET(ChrePalOpenFailed_init_default);
   result.has_pal = true;
   result.pal = pal;
   result.has_type = true;
-  result
-      .type = _android_hardware_google_pixel_PixelAtoms_ChrePalOpenFailed_Type::
-      android_hardware_google_pixel_PixelAtoms_ChrePalOpenFailed_Type_INITIAL_OPEN;
+  result.type = _android_chre_metrics_ChrePalOpenFailed_Type::
+      android_chre_metrics_ChrePalOpenFailed_Type_INITIAL_OPEN;
 
-  sendMetricToHost(PIXELATOMS_GET(Atom_chre_pal_open_failed_tag),
-                   PIXELATOMS_GET(ChrePalOpenFailed_fields), &result);
+  sendMetricToHost(CHREATOMS_GET(Atom_chre_pal_open_failed_tag),
+                   CHREATOMS_GET(ChrePalOpenFailed_fields), &result);
 }
 
 void sendEventLoopStats(uint32_t maxQueueSize, uint32_t meanQueueSize,
                         uint32_t numDroppedEvents) {
-  _android_hardware_google_pixel_PixelAtoms_ChreEventQueueSnapshotReported
-      result = PIXELATOMS_GET(ChreEventQueueSnapshotReported_init_default);
+  _android_chre_metrics_ChreEventQueueSnapshotReported result =
+      CHREATOMS_GET(ChreEventQueueSnapshotReported_init_default);
   result.has_snapshot_chre_get_time_ms = true;
   result.snapshot_chre_get_time_ms =
       SystemTime::getMonotonicTime().toRawNanoseconds() /
@@ -99,30 +97,30 @@ void sendEventLoopStats(uint32_t maxQueueSize, uint32_t meanQueueSize,
   result.has_num_dropped_events = true;
   result.num_dropped_events = numDroppedEvents;
 
-  sendMetricToHost(PIXELATOMS_GET(Atom_chre_event_queue_snapshot_reported_tag),
-                   PIXELATOMS_GET(ChreEventQueueSnapshotReported_fields),
+  sendMetricToHost(CHREATOMS_GET(Atom_chre_event_queue_snapshot_reported_tag),
+                   CHREATOMS_GET(ChreEventQueueSnapshotReported_fields),
                    &result);
 }
 
-_android_hardware_google_pixel_PixelAtoms_ChrePalType toAtomPalType(
+_android_chre_metrics_ChrePalType toAtomPalType(
     TelemetryManager::PalType type) {
   switch (type) {
     case TelemetryManager::PalType::SENSOR:
-      return PIXELATOMS_GET_PAL_TYPE(SENSOR);
+      return CHREATOMS_GET_PAL_TYPE(SENSOR);
     case TelemetryManager::PalType::WIFI:
-      return PIXELATOMS_GET_PAL_TYPE(WIFI);
+      return CHREATOMS_GET_PAL_TYPE(WIFI);
     case TelemetryManager::PalType::GNSS:
-      return PIXELATOMS_GET_PAL_TYPE(GNSS);
+      return CHREATOMS_GET_PAL_TYPE(GNSS);
     case TelemetryManager::PalType::WWAN:
-      return PIXELATOMS_GET_PAL_TYPE(WWAN);
+      return CHREATOMS_GET_PAL_TYPE(WWAN);
     case TelemetryManager::PalType::AUDIO:
-      return PIXELATOMS_GET_PAL_TYPE(AUDIO);
+      return CHREATOMS_GET_PAL_TYPE(AUDIO);
     case TelemetryManager::PalType::BLE:
-      return PIXELATOMS_GET_PAL_TYPE(BLE);
+      return CHREATOMS_GET_PAL_TYPE(BLE);
     case TelemetryManager::PalType::UNKNOWN:
     default:
       LOGW("Unknown PAL type %" PRIu8, type);
-      return PIXELATOMS_GET_PAL_TYPE(UNKNOWN);
+      return CHREATOMS_GET_PAL_TYPE(UNKNOWN);
   }
 }
 
@@ -134,10 +132,10 @@ TelemetryManager::TelemetryManager() {
 
 void TelemetryManager::onPalOpenFailure(PalType type) {
   auto callback = [](uint16_t /*type*/, void *data, void * /*extraData*/) {
-    _android_hardware_google_pixel_PixelAtoms_ChrePalType palType =
+    _android_chre_metrics_ChrePalType palType =
         toAtomPalType(NestedDataPtr<PalType>(data));
 
-    if (palType != PIXELATOMS_GET_PAL_TYPE(UNKNOWN)) {
+    if (palType != CHREATOMS_GET_PAL_TYPE(UNKNOWN)) {
       sendPalOpenFailedMetric(palType);
     }
   };

@@ -24,6 +24,7 @@ from importlib import import_module
 # Setup logging to be silent so unittests can pass through TF.
 logging.disable(logging.ERROR)
 
+
 def get_test_modules():
     """Returns a list of testable modules.
 
@@ -35,9 +36,10 @@ def get_test_modules():
         List of strings (the testable module import path).
     """
     testable_modules = []
-    base_path = os.path.dirname(os.path.realpath(__file__))
+    package = os.path.dirname(os.path.realpath(__file__))
+    base_path = os.path.dirname(package)
 
-    for dirpath, _, files in os.walk(base_path):
+    for dirpath, _, files in os.walk(package):
         for _file in files:
             if _file.endswith("_unittest.py"):
                 # Now transform it into a relative import path.

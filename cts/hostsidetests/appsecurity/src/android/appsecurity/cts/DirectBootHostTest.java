@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static android.appsecurity.cts.Utils.waitForBootCompleted;
 
 import static com.android.compatibility.common.util.PropertyUtil.getFirstApiLevel;
@@ -25,8 +26,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
-
-import android.platform.test.annotations.RequiresDevice;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
@@ -54,18 +53,12 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     private static final String OTHER_APK = "CtsSplitApp.apk";
     private static final String OTHER_PKG = "com.android.cts.splitapp";
 
-    private static final String MODE_NATIVE = "native";
-    private static final String MODE_EMULATED = "emulated";
-    private static final String MODE_NONE = "none";
-
     private static final String FEATURE_DEVICE_ADMIN = "feature:android.software.device_admin";
     private static final String FEATURE_SECURE_LOCK_SCREEN =
             "feature:android.software.secure_lock_screen";
     private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive";
     private static final String FEATURE_SECURITY_MODEL_COMPATIBLE =
             "feature:android.hardware.security.model.compatible";
-
-    private static final long SHUTDOWN_TIME_MS = 30 * 1000;
 
     @Before
     public void setUp() throws Exception {
@@ -84,53 +77,36 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
     }
 
     /**
-     * Automotive devices MUST support native FBE.
+     * Automotive devices MUST use FBE.
      */
     @Test
-    public void testAutomotiveNativeFbe() throws Exception {
+    public void testAutomotiveFbe() throws Exception {
         assumeSupportedDevice();
         assumeTrue("Device not automotive; skipping test", isAutomotiveDevice());
-
-        assertTrue("Automotive devices must support native FBE",
-            MODE_NATIVE.equals(getFbeMode()));
+        assertTrue("Automotive devices must use FBE", fbeEnabled());
     }
 
     /**
-     * If device has native FBE, verify lifecycle.
+     * If device uses FBE, verify the direct boot lifecycle.
      */
     @Test
-    public void testDirectBootNative() throws Exception {
+    public void testDirectBoot() throws Exception {
         assumeSupportedDevice();
-        assumeTrue("Device doesn't have native FBE; skipping test",
-                MODE_NATIVE.equals(getFbeMode()));
-        doDirectBootTest(MODE_NATIVE);
+        assumeTrue("Device doesn't use FBE; skipping test", fbeEnabled());
+        doDirectBootTest(true);
     }
 
     /**
-     * If device doesn't have native FBE, enable emulation and verify lifecycle.
+     * If device doesn't use FBE, verify the legacy lifecycle.
      */
     @Test
-    @RequiresDevice
-    public void testDirectBootEmulated() throws Exception {
+    public void testNoDirectBoot() throws Exception {
         assumeSupportedDevice();
-        assumeFalse("Device has native FBE; skipping test",
-                MODE_NATIVE.equals(getFbeMode()));
-        doDirectBootTest(MODE_EMULATED);
+        assumeFalse("Device uses FBE; skipping test", fbeEnabled());
+        doDirectBootTest(false);
     }
 
-    /**
-     * If device doesn't have native FBE, verify normal lifecycle.
-     */
-    @Test
-    public void testDirectBootNone() throws Exception {
-        assumeSupportedDevice();
-        assumeFalse("Device has native FBE; skipping test",
-                MODE_NATIVE.equals(getFbeMode()));
-        doDirectBootTest(MODE_NONE);
-    }
-
-    public void doDirectBootTest(String mode) throws Exception {
-        boolean doTest = true;
+    public void doDirectBootTest(boolean fbeEnabled) throws Exception {
         try {
             // Set up test app and secure lock screens
             new InstallMultiple().addFile(APK).run();
@@ -142,32 +118,21 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
                     + " -c android.intent.category.LAUNCHER com.android.cts.splitapp/.MyActivity");
 
             // Give enough time for PackageManager to persist stopped state
-            Thread.sleep(15000);
+            RunUtil.getDefault().sleep(15000);
 
             runDeviceTestsAsCurrentUser(PKG, CLASS, "testSetUp");
 
             // Give enough time for vold to update keys
-            Thread.sleep(15000);
+            RunUtil.getDefault().sleep(15000);
 
             // Reboot system into known state with keys ejected
-            if (MODE_EMULATED.equals(mode)) {
-                final String res = getDevice().executeShellCommand("sm set-emulate-fbe true");
-                if (res != null && res.contains("Emulation not supported")) {
-                    doTest = false;
-                }
-                getDevice().waitForDeviceNotAvailable(SHUTDOWN_TIME_MS);
-                getDevice().waitForDeviceOnline(120000);
-            } else {
-                getDevice().rebootUntilOnline();
-            }
+            getDevice().rebootUntilOnline();
             waitForBootCompleted(getDevice());
 
-            if (doTest) {
-                if (MODE_NONE.equals(mode)) {
-                    runDeviceTestsAsCurrentUser(PKG, CLASS, "testVerifyUnlockedAndDismiss");
-                } else {
-                    runDeviceTestsAsCurrentUser(PKG, CLASS, "testVerifyLockedAndDismiss");
-                }
+            if (fbeEnabled) {
+                runDeviceTestsAsCurrentUser(PKG, CLASS, "testVerifyLockedAndDismiss");
+            } else {
+                runDeviceTestsAsCurrentUser(PKG, CLASS, "testVerifyUnlockedAndDismiss");
             }
 
         } finally {
@@ -178,13 +143,7 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
                 getDevice().uninstallPackage(PKG);
 
                 // Get ourselves back into a known-good state
-                if (MODE_EMULATED.equals(mode)) {
-                    getDevice().executeShellCommand("sm set-emulate-fbe false");
-                    getDevice().waitForDeviceNotAvailable(SHUTDOWN_TIME_MS);
-                    getDevice().waitForDeviceOnline();
-                } else {
-                    getDevice().rebootUntilOnline();
-                }
+                getDevice().rebootUntilOnline();
                 getDevice().waitForDeviceAvailable();
             }
         }
@@ -196,8 +155,8 @@ public class DirectBootHostTest extends BaseHostJUnit4Test {
         Utils.runDeviceTestsAsCurrentUser(getDevice(), packageName, testClassName, testMethodName);
     }
 
-    private String getFbeMode() throws Exception {
-        return getDevice().executeShellCommand("sm get-fbe-mode").trim();
+    private boolean fbeEnabled() throws Exception {
+        return "file".equals(getDevice().getProperty("ro.crypto.type"));
     }
 
     private void assumeSupportedDevice() throws Exception {

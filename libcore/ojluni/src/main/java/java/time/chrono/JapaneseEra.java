@@ -96,12 +96,12 @@ import sun.util.calendar.CalendarDate;
  * The Java SE Platform supports all eras defined by the Japanese government,
  * beginning with the Meiji era. Each era is identified in the Platform by an
  * integer value and a name. The {@link #of(int)} and {@link #valueOf(String)}
- * methods may be used to obtain a singleton instance of JapaneseEra for each
- * era. The {@link #values()} method returns the singleton instances of all
- * supported eras.
+ * methods may be used to obtain a singleton instance of {@code JapaneseEra}
+ * for each era. The {@link #values()} method returns the singleton instances
+ * of all supported eras.
  * <p>
  * For convenience, this class declares a number of public static final fields
- * that refer to singleton instances returned by the values() method.
+ * that refer to singleton instances returned by the {@link #values()} method.
  *
  * @apiNote
  * The fields declared in this class may evolve over time, in line with the
@@ -150,11 +150,12 @@ public final class JapaneseEra
      * which has the value 2.
      */
     public static final JapaneseEra HEISEI = new JapaneseEra(2, LocalDate.of(1989, 1, 8));
-    // Android-changed: Integrate OpenJDK support for Japanese Era Reiwa.
     /**
-     * The singleton instance for the 'Reiwa' era (2019-05-01 - current)
+     * The singleton instance for the 'Reiwa' era (2019-05-01 - )
      * which has the value 3. The end date of this era is not specified, unless
      * the Japanese Government defines it.
+     *
+     * @since 13
      */
     public static final JapaneseEra REIWA = new JapaneseEra(3, LocalDate.of(2019, 5, 1));
 
@@ -165,6 +166,7 @@ public final class JapaneseEra
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = 1466499369062886794L;
 
     // array for the singleton JapaneseEra instances
@@ -219,18 +221,18 @@ public final class JapaneseEra
     //-----------------------------------------------------------------------
     /**
      * Obtains an instance of {@code JapaneseEra} from an {@code int} value.
-      * <ul>
-      * <li>The value {@code 1} is associated with the 'Showa' era, because
-      * it contains 1970-01-01 (ISO calendar system).</li>
-      * <li>The values {@code -1} and {@code 0} are associated with two earlier
-      * eras, Meiji and Taisho, respectively.</li>
-      * <li>A value greater than {@code 1} is associated with a later era,
-      * beginning with Heisei ({@code 2}).</li>
-      * </ul>
+     * <ul>
+     * <li>The value {@code 1} is associated with the 'Showa' era, because
+     * it contains 1970-01-01 (ISO calendar system).</li>
+     * <li>The values {@code -1} and {@code 0} are associated with two earlier
+     * eras, Meiji and Taisho, respectively.</li>
+     * <li>A value greater than {@code 1} is associated with a later era,
+     * beginning with Heisei ({@code 2}).</li>
+     * </ul>
      * <p>
-      * Every instance of {@code JapaneseEra} that is returned from the {@link #values()}
-      * method has an int value (available via {@link Era#getValue()} which is
-      * accepted by this method.
+     * Every instance of {@code JapaneseEra} that is returned from the {@link #values()}
+     * method has an int value (available via {@link Era#getValue()} which is
+     * accepted by this method.
      *
      * @param japaneseEra  the era to represent
      * @return the {@code JapaneseEra} singleton, not null
@@ -249,6 +251,8 @@ public final class JapaneseEra
      * <p>
      * The string must match exactly the name of the era.
      * (Extraneous whitespace characters are not permitted.)
+     * <p>
+     * Valid era names are the names of eras returned from {@link #values()}.
      *
      * @param japaneseEra  the japaneseEra name; non-null
      * @return the {@code JapaneseEra} singleton, never null
@@ -265,7 +269,9 @@ public final class JapaneseEra
     }
 
     /**
-     * Returns an array of JapaneseEras.
+     * Returns an array of JapaneseEras. The array may contain eras defined
+     * by the Japanese government beyond the known era singletons.
+     *
      * <p>
      * This method may be used to iterate over the JapaneseEras as follows:
      * <pre>
@@ -421,6 +427,7 @@ public final class JapaneseEra
      * @param s the stream to read
      * @throws InvalidObjectException always
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s) throws InvalidObjectException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }
@@ -428,7 +435,7 @@ public final class JapaneseEra
     //-----------------------------------------------------------------------
     /**
      * Writes the object using a
-     * <a href="../../../serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
      * @serialData
      * <pre>
      *  out.writeByte(5);        // identifies a JapaneseEra
@@ -437,6 +444,7 @@ public final class JapaneseEra
      *
      * @return the instance of {@code Ser}, not null
      */
+    @java.io.Serial
     private Object writeReplace() {
         return new Ser(Ser.JAPANESE_ERA_TYPE, this);
     }

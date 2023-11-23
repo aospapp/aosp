@@ -16,18 +16,16 @@
 
 package android.platform.tests;
 
-import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertTrue;
 
 import android.platform.helpers.AutoUtility;
+import android.platform.helpers.IAutoAppGridHelper;
 import android.platform.helpers.IAutoHomeHelper;
 import android.platform.helpers.IAutoMediaHelper;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.HomeHelperImpl;
 import android.platform.test.option.StringOption;
 import androidx.test.runner.AndroidJUnit4;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -52,10 +50,12 @@ public class OpenAppFromMediaCenterTest {
 
     private HelperAccessor<IAutoMediaHelper> mMediaCenterHelper;
     private HelperAccessor<IAutoHomeHelper> mAutoHomeHelper;
+    private HelperAccessor<IAutoAppGridHelper> mAutoAppGridHelper;
 
     public OpenAppFromMediaCenterTest() {
         mMediaCenterHelper = new HelperAccessor<>(IAutoMediaHelper.class);
         mAutoHomeHelper = new HelperAccessor<>(IAutoHomeHelper.class);
+        mAutoAppGridHelper = new HelperAccessor<>(IAutoAppGridHelper.class);
     }
 
     @BeforeClass
@@ -66,14 +66,18 @@ public class OpenAppFromMediaCenterTest {
     @Test
     public void testOpenMediaAppFromMediaWidget() {
         // Use preinstalled "Bluetooth Audio" app
-        mAutoHomeHelper.get().openMediaWidget();
+        mAutoAppGridHelper.get().open();
+        assertTrue("AppGrid is not open", mAutoAppGridHelper.get().isAppInForeground());
+        mMediaCenterHelper.get().openApp(DEFAULT_MEDIA_APP);
         assertTrue("Not a media app",
                 mMediaCenterHelper.get().getMediaAppTitle().equals(getDefaultMediaAppName()));
     }
 
     @Test
     public void testMediaAppPresentInMediaGrid() {
-        mAutoHomeHelper.get().openMediaWidget();
+        mAutoAppGridHelper.get().open();
+        assertTrue("AppGrid is not open", mAutoAppGridHelper.get().isAppInForeground());
+        mMediaCenterHelper.get().openApp(DEFAULT_MEDIA_APP);
         mMediaCenterHelper.get().openMediaAppMenuItems();
         assertTrue("Incorrect Media apps in Grid",
                 mMediaCenterHelper.get().areMediaAppsPresent(getExpectedMediaAppNames()));

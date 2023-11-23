@@ -22,7 +22,7 @@
 #include "arch/x86/jni_frame_x86.h"
 #include "utils/x86/managed_register_x86.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace x86 {
 
 static constexpr ManagedRegister kManagedCoreArgumentRegisters[] = {
@@ -141,6 +141,10 @@ ManagedRegister X86JniCallingConvention::IntReturnRegister() const {
 
 ManagedRegister X86ManagedRuntimeCallingConvention::MethodRegister() {
   return X86ManagedRegister::FromCpuRegister(EAX);
+}
+
+ManagedRegister X86ManagedRuntimeCallingConvention::ArgumentRegisterForMethodExitHook() {
+  return X86ManagedRegister::FromCpuRegister(EBX);
 }
 
 void X86ManagedRuntimeCallingConvention::ResetIterator(FrameOffset displacement) {

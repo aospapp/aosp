@@ -1,16 +1,16 @@
 #![forbid(unsafe_code)]
 #![rustfmt::skip]
 #[derive(Debug)]
-pub enum UnionWithFd {
+pub enum r#UnionWithFd {
   Num(i32),
   Pfd(Option<binder::ParcelFileDescriptor>),
 }
-impl Default for UnionWithFd {
+impl Default for r#UnionWithFd {
   fn default() -> Self {
     Self::Num(0)
   }
 }
-impl binder::Parcelable for UnionWithFd {
+impl binder::Parcelable for r#UnionWithFd {
   fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     match self {
       Self::Num(v) => {
@@ -43,22 +43,22 @@ impl binder::Parcelable for UnionWithFd {
     }
   }
 }
-binder::impl_serialize_for_parcelable!(UnionWithFd);
-binder::impl_deserialize_for_parcelable!(UnionWithFd);
-impl binder::binder_impl::ParcelableMetadata for UnionWithFd {
+binder::impl_serialize_for_parcelable!(r#UnionWithFd);
+binder::impl_deserialize_for_parcelable!(r#UnionWithFd);
+impl binder::binder_impl::ParcelableMetadata for r#UnionWithFd {
   fn get_descriptor() -> &'static str { "android.aidl.tests.UnionWithFd" }
 }
-pub mod Tag {
+pub mod r#Tag {
   #![allow(non_upper_case_globals)]
   use binder::declare_binder_enum;
   declare_binder_enum! {
-    Tag : [i32; 2] {
-      num = 0,
-      pfd = 1,
+    r#Tag : [i32; 2] {
+      r#num = 0,
+      r#pfd = 1,
     }
   }
 }
 pub(crate) mod mangled {
- pub use super::UnionWithFd as _7_android_4_aidl_5_tests_11_UnionWithFd;
- pub use super::Tag::Tag as _7_android_4_aidl_5_tests_11_UnionWithFd_3_Tag;
+ pub use super::r#UnionWithFd as _7_android_4_aidl_5_tests_11_UnionWithFd;
+ pub use super::r#Tag::r#Tag as _7_android_4_aidl_5_tests_11_UnionWithFd_3_Tag;
 }

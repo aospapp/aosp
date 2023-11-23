@@ -18,7 +18,7 @@ import datetime
 import os
 import re
 
-import M2Crypto  # sudo apt-get install python-m2crypto
+import M2Crypto  # sudo apt-get install python3-m2crypto
 
 
 def WriteCertificateFile(content, base_name, output_dir):

@@ -22,12 +22,14 @@ import android.Manifest.permission.READ_MEDIA_IMAGES
 import android.Manifest.permission.READ_MEDIA_VIDEO
 import android.os.Build
 import androidx.test.filters.SdkSuppress
+import com.android.compatibility.common.util.CddTest
 import org.junit.Test
 
 /**
  * Tests media storage permission behavior upon app upgrade.
  */
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.TIRAMISU, codeName = "Tiramisu")
+@CddTest(requirement = "9.1/C-0-1")
 class MediaPermissionUpgradeTest : BaseUsePermissionTest() {
     @Test
     fun testAfterUpgradeToTiramisuThenNoGrantDialogShownForMediaPerms() {

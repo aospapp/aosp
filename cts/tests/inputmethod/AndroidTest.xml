@@ -22,6 +22,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <!--
         TODO(yukawa): come up with a proper way to take care of devices that do not support
         installable IMEs.  Ideally target_preparer should have an option to annotate required
@@ -73,6 +74,24 @@
         <option name="force-install-mode" value="FULL"/>
         <option name="test-file-name" value="CtsMockA11yInputMethod.apk" />
     </target_preparer>
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
+        <option name="cleanup" value="true" />
+        <!--
+            CtsMockLargeResourceInputMethod should not always be installed, but the apk must be
+            available.
+        -->
+        <option name="push" value="CtsMockLargeResourceInputMethod.apk->/data/local/tmp/cts/inputmethod/CtsMockLargeResourceInputMethod.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <!--
+            CtsMockInputMethodWithSubtypes always needs to be installed as a full package, even when
+            CTS is running for instant apps.
+        -->
+        <option name="force-install-mode" value="FULL"/>
+        <option name="test-file-name" value="CtsMockInputMethodWithSubtypes.apk" />
+    </target_preparer>
+
     <!--
         TODO(yukawa): come up with a proper way to take care of devices that do not support
         installable IMEs.  Ideally target_preparer should have an option to annotate required
@@ -116,6 +135,14 @@
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.mocka11yime" />
         <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.view.inputmethod.ctstestapp"  />
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.view.inputmethod.ctstestapp" />
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.view.inputmethod.mocklargeresourceime"  />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.view.inputmethod.mocklargeresourceime" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.view.inputmethod.mockimewithsubtypes" />
+
+        <!-- Wait for PACKAGE_ADDED broadcasts to be delivered to InputMethodManagerService. -->
+        <option name="run-command" value="am wait-for-broadcast-barrier"  />
+        <!-- Dismiss any system dialogs (e.g. crashes, ANR). -->
+        <option name="run-command" value="am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS --receiver-foreground"  />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.view.inputmethod.cts" />

@@ -71,7 +71,7 @@ class ModuleData:
         referenced_by_jar: A boolean to check if the module is referenced by a
                            jar file.
         build_targets: A set to keep the unique build target jar or srcjar file
-                       relative paths which are ready to be rebuld.
+                       relative paths which are ready to be rebuilt.
         missing_jars: A set to keep the jar file relative paths if it doesn't
                       exist.
         specific_soong_path: A string of the relative path to the module's
@@ -225,7 +225,7 @@ class ModuleData:
         return None
 
     def _init_module_path(self):
-        """Inintialize self.module_path."""
+        """Initialize self.module_path."""
         self.module_path = (self.module_data[constant.KEY_PATH][0]
                             if self._check_key(constant.KEY_PATH) else '')
 
@@ -407,7 +407,7 @@ class ModuleData:
             package_name: A string of package name.
         """
         package_name = None
-        with open(abs_java_path, encoding='utf8') as data:
+        with open(abs_java_path, 'r', encoding='utf8') as data:
             for line in data.read().splitlines():
                 match = _PACKAGE_RE.match(line)
                 if match:

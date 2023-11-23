@@ -8,5 +8,10 @@
     {
       "name": "CtsJniTestCases"
     }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "CtsJniTestCases"
+    }
   ]
 }

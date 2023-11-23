@@ -40,7 +40,7 @@ public class WebLinkActivity extends Activity {
         new AlertDialog.Builder(this)
             .setTitle("Grant permissions to this file to " + email + "?")
             .setMessage(documentId)
-            .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+            .setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {
                     final Intent intent = new Intent();
                     intent.setData(FAKE_WEB_LINK);
@@ -48,7 +48,7 @@ public class WebLinkActivity extends Activity {
                     finish();
                 }
              })
-            .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+            .setNegativeButton(android.R.string.cancel, new DialogInterface.OnClickListener() {
                 public void onClick(DialogInterface dialog, int which) {
                     setResult(RESULT_CANCELED, null);
                     finish();

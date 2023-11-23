@@ -52,6 +52,14 @@
 #include <windows.h>
 #endif
 
+// The preferred way to access system properties is using android::base::GetProperty in libbase.
+// However, adding dependency to libbase requires that if liblog was statically linked to a client,
+// that client now has additional dependency to libbase as well because static dependencies of
+// static library is not exported. (users of liblog.so however is fine).
+#ifdef __ANDROID__
+#include <sys/system_properties.h>
+#endif
+
 using android::base::ErrnoRestorer;
 
 #define LOG_BUF_SIZE 1024
@@ -157,13 +165,42 @@ int32_t __android_log_get_minimum_priority() {
 }
 
 #ifdef __ANDROID__
-static __android_logger_function logger_function = __android_log_logd_logger;
-#else
-static __android_logger_function logger_function = __android_log_stderr_logger;
+static const char* get_file_logger_path() {
+  static const char* file_logger_path = []() {
+    static char path[PROP_VALUE_MAX] = {};
+    if (__system_property_get("ro.log.file_logger.path", path) > 0) {
+      return path;
+    }
+    return (char*)nullptr;  // means file_logger should not be used
+  }();
+  return file_logger_path;
+}
 #endif
 
+static void file_logger(const struct __android_log_message* log_message);
+
+static __android_logger_function user_set_logger_function = nullptr;
+
+static __android_logger_function get_logger_function() {
+  if (user_set_logger_function != nullptr) {
+    return user_set_logger_function;
+  }
+  static __android_logger_function default_logger_function = []() {
+#if __ANDROID__
+    if (get_file_logger_path() != nullptr) {
+      return file_logger;
+    } else {
+      return __android_log_logd_logger;
+    }
+#else
+    return file_logger;
+#endif
+  }();
+  return default_logger_function;
+}
+
 void __android_log_set_logger(__android_logger_function logger) {
-  logger_function = logger;
+  user_set_logger_function = logger;
 }
 
 void __android_log_default_aborter(const char* abort_message) {
@@ -243,7 +280,7 @@ static uint64_t GetThreadId() {
 #endif
 }
 
-void __android_log_stderr_logger(const struct __android_log_message* log_message) {
+static void filestream_logger(const struct __android_log_message* log_message, FILE* stream) {
   struct tm now;
   time_t t = time(nullptr);
 
@@ -265,14 +302,44 @@ void __android_log_stderr_logger(const struct __android_log_message* log_message
   uint64_t tid = GetThreadId();
 
   if (log_message->file != nullptr) {
-    fprintf(stderr, "%s %c %s %5d %5" PRIu64 " %s:%u] %s\n",
+    fprintf(stream, "%s %c %s %5d %5" PRIu64 " %s:%u] %s\n",
             log_message->tag ? log_message->tag : "nullptr", priority_char, timestamp, getpid(),
             tid, log_message->file, log_message->line, log_message->message);
   } else {
-    fprintf(stderr, "%s %c %s %5d %5" PRIu64 "] %s\n",
+    fprintf(stream, "%s %c %s %5d %5" PRIu64 "] %s\n",
             log_message->tag ? log_message->tag : "nullptr", priority_char, timestamp, getpid(),
             tid, log_message->message);
   }
+}
+
+static void file_logger(const struct __android_log_message* log_message) {
+  static FILE* stream = []() {
+#ifdef __ANDROID__
+    const char* file_logger_path = get_file_logger_path();
+    if (file_logger_path != nullptr) {
+      FILE* f = fopen(file_logger_path, "ae");
+      if (f != nullptr) return f;
+      using namespace std::string_literals;
+      std::string err_msg = "Cannot open "s + file_logger_path + " for logging: (" + strerror(errno) +
+                            "). Falling back to stderr";
+      __android_log_message m = {sizeof(__android_log_message),
+                                 LOG_ID_DEFAULT,
+                                 ANDROID_LOG_WARN,
+                                 "liblog",
+                                 __FILE__,
+                                 __LINE__,
+                                 err_msg.c_str()};
+      filestream_logger(&m, stderr);
+    }
+#endif
+    // defaults to stderr if the sysprop is not set or the file is not available
+    return stderr;
+  }();
+  filestream_logger(log_message, stream);
+}
+
+void __android_log_stderr_logger(const struct __android_log_message* log_message) {
+  filestream_logger(log_message, stderr);
 }
 
 void __android_log_logd_logger(const struct __android_log_message* log_message) {
@@ -313,7 +380,7 @@ void __android_log_write_log_message(__android_log_message* log_message) {
   }
 #endif
 
-  logger_function(log_message);
+  get_logger_function()(log_message);
 }
 
 int __android_log_buf_write(int bufID, int prio, const char* tag, const char* msg) {

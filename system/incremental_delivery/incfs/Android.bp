@@ -84,7 +84,7 @@ cc_defaults {
     target: {
         android: {
             static_libs: [
-                "com.android.sysprop.incremental",
+                "libcom.android.sysprop.incremental",
             ],
         },
     },

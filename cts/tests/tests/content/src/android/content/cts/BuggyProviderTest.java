@@ -18,6 +18,7 @@ package android.content.cts;
 
 import android.app.ActivityManager;
 import android.content.ContentResolver;
+import android.os.RemoteCallback;
 import android.os.UserHandle;
 import android.test.AndroidTestCase;
 
@@ -31,8 +32,9 @@ public class BuggyProviderTest extends AndroidTestCase {
     public void testGetTypeDoesntCrashSystem() {
         // ensure the system doesn't crash when a provider takes too long to respond
         try {
-            ActivityManager.getService().getProviderMimeType(
-                    MockBuggyProvider.CONTENT_URI, UserHandle.USER_CURRENT);
+            ActivityManager.getService().getMimeTypeFilterAsync(
+                    MockBuggyProvider.CONTENT_URI, UserHandle.USER_CURRENT,
+                    new RemoteCallback(result -> {}));
         } catch (Exception e) {
             fail("Unexpected exception while fetching type: " + e.getMessage());
         }

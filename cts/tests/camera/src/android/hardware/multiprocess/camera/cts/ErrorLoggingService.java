@@ -23,7 +23,6 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -33,13 +32,14 @@ import android.os.Messenger;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.RemoteException;
+import android.util.ArraySet;
 import android.util.Log;
-import android.util.Pair;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
@@ -79,11 +79,13 @@ public class ErrorLoggingService extends Service {
     /**
      * A list of Messengers waiting for logs for any event.
      */
-    private final ArrayList<Pair<Integer, Messenger>> mEventWaiters = new ArrayList<>();
+    private final ArrayList<EventWaiter> mEventWaiters = new ArrayList<>();
 
-    private static final int DO_EVENT_FILTER = 1;
     private static final String LOG_EVENT = "log_event";
     private static final String LOG_EVENT_ARRAY = "log_event_array";
+    private static final long CONNECT_WAIT_MS = 5000;
+
+    private static final String BUNDLE_KEY_EVENT_LIST = "eventList";
 
 
     /**
@@ -102,34 +104,60 @@ public class ErrorLoggingService extends Service {
         return mMessenger.getBinder();
     }
 
+    private static class EventWaiter {
+        private Set<Integer> mEvents;
+        private Messenger mMessenger;
+
+        EventWaiter(Set<Integer> events, Messenger messenger) {
+            mEvents = events;
+            mMessenger = messenger;
+        }
+
+        Set<Integer> getEvents() {
+            return mEvents;
+        }
+
+        Messenger getMessenger() {
+            return mMessenger;
+        }
+    }
+
     /**
      * Handler implementing the message interface for this service.
      */
     private static class MainHandler extends Handler {
 
         ArrayList<LogEvent> mErrorLog;
-        ArrayList<Pair<Integer, Messenger>> mEventWaiters;
+        ArrayList<EventWaiter> mEventWaiters;
 
-        MainHandler(ArrayList<LogEvent> log, ArrayList<Pair<Integer, Messenger>> waiters) {
+        MainHandler(ArrayList<LogEvent> log, ArrayList<EventWaiter> waiters) {
             mErrorLog = log;
             mEventWaiters = waiters;
         }
 
         private void sendMessages() {
             if (mErrorLog.size() > 0) {
-                ListIterator<Pair<Integer, Messenger>> iter = mEventWaiters.listIterator();
+                ListIterator<EventWaiter> iter = mEventWaiters.listIterator();
                 boolean messagesHandled = false;
                 while (iter.hasNext()) {
-                    Pair<Integer, Messenger> elem = iter.next();
+                    EventWaiter elem = iter.next();
+                    Set<Integer> eventSet = elem.getEvents();
+                    Messenger replyMessenger = elem.getMessenger();
+
                     for (LogEvent i : mErrorLog) {
-                        if (elem.first == null || elem.first == i.getEvent()) {
+                        if (eventSet != null && eventSet.contains(i.getEvent())) {
+                            eventSet.remove(i.getEvent());
+                        }
+
+                        if (eventSet == null || eventSet.isEmpty()) {
                             Message m = Message.obtain(null, MSG_LOG_REPORT);
                             Bundle b = m.getData();
                             b.putParcelableArray(LOG_EVENT_ARRAY,
                                     mErrorLog.toArray(new LogEvent[mErrorLog.size()]));
                             m.setData(b);
+
                             try {
-                                elem.second.send(m);
+                                replyMessenger.send(m);
                                 messagesHandled = true;
                             } catch (RemoteException e) {
                                 Log.e(TAG, "Could not report log message to remote, " +
@@ -137,10 +165,13 @@ public class ErrorLoggingService extends Service {
                                         "\n  Original errors: " +
                                         Arrays.toString(mErrorLog.toArray()));
                             }
+
                             iter.remove();
+                            break;
                         }
                     }
                 }
+
                 if (messagesHandled) {
                     mErrorLog.clear();
                 }
@@ -149,18 +180,23 @@ public class ErrorLoggingService extends Service {
 
         @Override
         public void handleMessage(Message msg) {
-            switch(msg.what) {
+            switch (msg.what) {
                 case MSG_GET_LOG:
                     if (msg.replyTo == null) {
                         break;
                     }
 
-                    if (msg.arg1 == DO_EVENT_FILTER) {
-                        mEventWaiters.add(new Pair<Integer, Messenger>(msg.arg2, msg.replyTo));
-                    } else {
-                        mEventWaiters.add(new Pair<Integer, Messenger>(null, msg.replyTo));
+                    Bundle eventBundle = (Bundle) msg.obj;
+                    ArrayList<Integer> eventList = null;
+                    Set<Integer> eventSet = null;
+
+                    if (eventBundle != null) {
+                        eventList = eventBundle.getIntegerArrayList(BUNDLE_KEY_EVENT_LIST);
+                        eventSet = new ArraySet<>();
+                        eventSet.addAll(eventList);
                     }
 
+                    mEventWaiters.add(new EventWaiter(eventSet, msg.replyTo));
                     sendMessages();
 
                     break;
@@ -418,7 +454,7 @@ public class ErrorLoggingService extends Service {
             }
         };
 
-        private Messenger blockingGetBoundService() {
+        private Messenger blockingGetBoundService() throws TimeoutException {
             synchronized (mLock) {
                 if (!mBind) {
                     mContext.bindService(new Intent(mContext, ErrorLoggingService.class), mConnection,
@@ -426,8 +462,16 @@ public class ErrorLoggingService extends Service {
                     mBind = true;
                 }
                 try {
+                    long start = System.currentTimeMillis();
                     while (mService == null && mBind) {
-                        mLock.wait();
+                        long now = System.currentTimeMillis();
+                        long elapsed = now - start;
+                        if (elapsed < CONNECT_WAIT_MS) {
+                            mLock.wait(CONNECT_WAIT_MS - elapsed);
+                        } else {
+                            throw new TimeoutException(
+                                    "Timed out connecting to ErrorLoggingService.");
+                        }
                     }
                 } catch (InterruptedException e) {
                     Log.e(TAG, "Waiting for error service interrupted: " + e);
@@ -494,8 +538,10 @@ public class ErrorLoggingService extends Service {
          *
          * @param id an int indicating the ID of this event.
          * @param msg a {@link String} message to send.
+         *
+         * @throws TimeoutException if the ErrorLoggingService didn't connect.
          */
-        public void log(final int id, final String msg) {
+        public void log(final int id, final String msg) throws TimeoutException {
             Messenger service = blockingGetBoundService();
             Message m = Message.obtain(null, MSG_LOG_EVENT);
             m.getData().putParcelable(LOG_EVENT, new LogEvent(id, msg));
@@ -519,7 +565,11 @@ public class ErrorLoggingService extends Service {
             AsyncTask.SERIAL_EXECUTOR.execute(new Runnable() {
                 @Override
                 public void run() {
-                    log(id, msg);
+                    try {
+                        log(id, msg);
+                    } catch (TimeoutException e) {
+                        Log.e(TAG, "Received TimeoutException while logging error: " + e);
+                    }
                 }
             });
         }
@@ -547,7 +597,7 @@ public class ErrorLoggingService extends Service {
          * @throws TimeoutException if the given timeout elapsed with no events logged.
          */
         public List<LogEvent> getLog(long timeoutMs) throws TimeoutException {
-            return retrieveLog(false, 0, timeoutMs);
+            return retrieveLog(null, timeoutMs);
         }
 
         /**
@@ -575,18 +625,30 @@ public class ErrorLoggingService extends Service {
          *          logged.
          */
         public List<LogEvent> getLog(long timeoutMs, int event) throws TimeoutException {
-            return retrieveLog(true, event, timeoutMs);
+            ArraySet<Integer> events = new ArraySet<>();
+            events.add(event);
+            return retrieveLog(events, timeoutMs);
         }
 
-        private List<LogEvent> retrieveLog(boolean hasEvent, int event, long timeout)
+        public List<LogEvent> getLog(long timeoutMs, Set<Integer> events) throws TimeoutException {
+            return retrieveLog(events, timeoutMs);
+        }
+
+        private List<LogEvent> retrieveLog(Set<Integer> events, long timeout)
                 throws TimeoutException {
             Messenger service = blockingGetBoundService();
 
             SettableFuture<List<LogEvent>> task = new SettableFuture<>();
 
-            Message m = (hasEvent) ?
-                    Message.obtain(null, MSG_GET_LOG, DO_EVENT_FILTER, event, null) :
-                    Message.obtain(null, MSG_GET_LOG);
+            Bundle eventBundle = null;
+            if (events != null) {
+                ArrayList<Integer> eventList = new ArrayList<>();
+                eventList.addAll(events);
+                eventBundle = new Bundle();
+                eventBundle.putIntegerArrayList(BUNDLE_KEY_EVENT_LIST, eventList);
+            }
+
+            Message m = Message.obtain(null, MSG_GET_LOG, eventBundle);
             m.replyTo = mReplyMessenger;
 
             synchronized(this) {

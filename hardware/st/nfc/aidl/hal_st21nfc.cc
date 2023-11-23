@@ -345,6 +345,7 @@ int StNfc_hal_pre_discover() {
 }
 
 int StNfc_hal_close(int nfc_mode_value) {
+  void* stdll = nullptr;
   STLOG_HAL_D("HAL st21nfc: %s nfc_mode = %d", __func__, nfc_mode_value);
 
   /* check if HAL is closed */
@@ -371,8 +372,11 @@ int StNfc_hal_close(int nfc_mode_value) {
   std::string valueStr =
       android::base::GetProperty("persist.vendor.nfc.streset", "");
   if (valueStr.length() > 0) {
-    valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
-    void* stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    if (!stdll) {
+      valueStr = VENDOR_LIB_PATH + valueStr + VENDOR_LIB_EXT;
+      stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+    }
     if (stdll) {
       STLOG_HAL_D("STReset Cold reset");
       STEseReset fn = (STEseReset)dlsym(stdll, "cold_reset");
@@ -524,10 +528,10 @@ void StNfc_hal_getConfig(NfcConfig& config) {
 
 void StNfc_hal_setLogging(bool enable) {
   dbg_logging = enable;
-  if (dbg_logging) {
+  if (dbg_logging && hal_conf_trace_level < STNFC_TRACE_LEVEL_VERBOSE) {
     hal_trace_level = STNFC_TRACE_LEVEL_VERBOSE;
   } else {
-    hal_trace_level = STNFC_TRACE_LEVEL_ERROR;
+    hal_trace_level = hal_conf_trace_level;
   }
 }
 

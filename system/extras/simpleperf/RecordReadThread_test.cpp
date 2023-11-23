@@ -77,7 +77,7 @@ TEST(RecordParser, smoke) {
   std::unique_ptr<RecordFileReader> reader =
       RecordFileReader::CreateInstance(GetTestData(PERF_DATA_NO_UNWIND));
   ASSERT_TRUE(reader);
-  RecordParser parser(*reader->AttrSection()[0].attr);
+  RecordParser parser(reader->AttrSection()[0].attr);
   auto process_record = [&](std::unique_ptr<Record> record) {
     if (record->type() == PERF_RECORD_MMAP || record->type() == PERF_RECORD_COMM ||
         record->type() == PERF_RECORD_FORK || record->type() == PERF_RECORD_SAMPLE) {
@@ -370,9 +370,9 @@ TEST_F(RecordReadThreadTest, process_sample_record) {
   thread.SetBufferLevels(record_buffer_size, record_buffer_size);
   read_record(r);
   ASSERT_FALSE(r);
-  ASSERT_EQ(thread.GetStat().lost_samples, 1u);
-  ASSERT_EQ(thread.GetStat().lost_non_samples, 0u);
-  ASSERT_EQ(thread.GetStat().cut_stack_samples, 1u);
+  ASSERT_EQ(thread.GetStat().userspace_lost_samples, 1u);
+  ASSERT_EQ(thread.GetStat().userspace_lost_non_samples, 0u);
+  ASSERT_EQ(thread.GetStat().userspace_cut_stack_samples, 1u);
 }
 
 // Test that the data notification exists until the RecordBuffer is empty. So we can read all
@@ -421,9 +421,9 @@ TEST_F(RecordReadThreadTest, no_cut_samples) {
     received_samples++;
   }
   ASSERT_GT(received_samples, 0u);
-  ASSERT_GT(thread.GetStat().lost_samples, 0u);
-  ASSERT_EQ(thread.GetStat().lost_samples, total_samples - received_samples);
-  ASSERT_EQ(thread.GetStat().cut_stack_samples, 0u);
+  ASSERT_GT(thread.GetStat().userspace_lost_samples, 0u);
+  ASSERT_EQ(thread.GetStat().userspace_lost_samples, total_samples - received_samples);
+  ASSERT_EQ(thread.GetStat().userspace_cut_stack_samples, 0u);
 }
 
 TEST_F(RecordReadThreadTest, exclude_perf) {
@@ -476,16 +476,17 @@ struct FakeAuxData {
 };
 
 TEST_F(RecordReadThreadTest, read_aux_data) {
+  ScopedEventTypes scoped_types("cs-etm,0,0");
   const EventType* type = FindEventTypeByName("cs-etm");
-  if (type == nullptr) {
-    GTEST_LOG_(INFO) << "Omit this test as cs-etm event type isn't available";
-    return;
-  }
+  ASSERT_TRUE(type != nullptr);
   std::vector<FakeAuxData> aux_data;
   aux_data.emplace_back(40, 0, '0', 0, false);   // one buffer
   aux_data.emplace_back(40, 40, '1', 0, false);  // two buffers
   aux_data.emplace_back(36, 0, '2', 4, false);   // one buffer needs padding to 8 bytes alignment
-  aux_data.emplace_back(1024, 0, '3', 0, true);  // one buffer too big to fit into RecordReadThread
+  // one buffer too big to fit in record buffer, failing at checking free size
+  aux_data.emplace_back(1024, 0, '3', 0, true);
+  // one buffer too big to fit in record buffer, failing at AllocWriteSpace()
+  aux_data.emplace_back(800, 0, '4', 0, true);
   size_t test_index = 0;
 
   auto SetBuf1 = [&](char** buf1) {

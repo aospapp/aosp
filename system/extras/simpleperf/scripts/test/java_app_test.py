@@ -19,17 +19,18 @@ import signal
 import subprocess
 import sys
 import time
+import unittest
 
 from simpleperf_utils import is_windows, remove
 from . app_test import TestExampleBase
 from . test_utils import TestHelper, INFERNO_SCRIPT
 
 
-class TestExamplePureJava(TestExampleBase):
+class TestExampleJava(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExamplePureJava",
-                    "com.example.simpleperf.simpleperfexamplepurejava",
+        cls.prepare("SimpleperfExampleJava",
+                    "simpleperf.example.java",
                     ".MainActivity")
 
     def test_app_profiler(self):
@@ -39,7 +40,7 @@ class TestExamplePureJava(TestExampleBase):
         self.run_app_profiler(start_activity=True, build_binary_cache=False)
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run",
+            "simpleperf.example.java.MainActivity$1.run",
             "__start_thread"])
 
     def test_app_profiler_multiprocesses(self):
@@ -59,6 +60,8 @@ class TestExamplePureJava(TestExampleBase):
         time.sleep(1)
         args = [sys.executable, TestHelper.script_path("app_profiler.py"),
                 "--app", self.package_name, "-r", "--duration 10000", "--disable_adb_root"]
+        if TestHelper.ndk_path:
+            args += ['--ndk_path', TestHelper.ndk_path]
         subproc = subprocess.Popen(args)
         time.sleep(3)
 
@@ -70,9 +73,11 @@ class TestExamplePureJava(TestExampleBase):
     def test_app_profiler_stop_after_app_exit(self):
         self.adb.check_run(['shell', 'am', 'start', '-n', self.package_name + '/.MainActivity'])
         time.sleep(1)
-        subproc = subprocess.Popen(
-            [sys.executable, TestHelper.script_path('app_profiler.py'),
-             '--app', self.package_name, '-r', '--duration 10000', '--disable_adb_root'])
+        args = [sys.executable, TestHelper.script_path('app_profiler.py'),
+                '--app', self.package_name, '-r', '--duration 10000', '--disable_adb_root']
+        if TestHelper.ndk_path:
+            args += ['--ndk_path', TestHelper.ndk_path]
+        subproc = subprocess.Popen(args)
         time.sleep(3)
         self.adb.check_run(['shell', 'am', 'force-stop', self.package_name])
         subproc.wait()
@@ -88,18 +93,18 @@ class TestExamplePureJava(TestExampleBase):
         self.common_test_report()
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run",
+            "simpleperf.example.java.MainActivity$1.run",
             "__start_thread"])
 
     def test_profile_with_process_id(self):
         self.adb.check_run(['shell', 'am', 'start', '-n', self.package_name + '/.MainActivity'])
         time.sleep(1)
-        pid = self.adb.check_run_and_return_output([
-            'shell', 'pidof', 'com.example.simpleperf.simpleperfexamplepurejava']).strip()
+        pid = self.adb.check_run_and_return_output(
+            ['shell', 'pidof', 'simpleperf.example.java']).strip()
         self.run_app_profiler(start_activity=False, record_arg='-g --duration 10 -p ' + pid)
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run",
+            "simpleperf.example.java.MainActivity$1.run",
             "__start_thread"])
 
     def test_annotate(self):
@@ -117,29 +122,28 @@ class TestExamplePureJava(TestExampleBase):
 
     def test_report_sample(self):
         self.common_test_report_sample(
-            ["com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run",
+            ["simpleperf.example.java.MainActivity$1.run",
              "__start_thread"])
 
     def test_pprof_proto_generator(self):
         check_strings_with_lines = []
         if self.use_compiled_java_code:
             check_strings_with_lines = [
-                "com/example/simpleperf/simpleperfexamplepurejava/MainActivity.java",
+                "simpleperf/example/java/MainActivity.java",
                 "run"]
         self.common_test_pprof_proto_generator(
             check_strings_with_lines=check_strings_with_lines,
-            check_strings_without_lines=[
-                "com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run"])
+            check_strings_without_lines=["simpleperf.example.java.MainActivity$1.run"])
 
     def test_inferno(self):
         self.common_test_inferno()
         self.run_app_profiler()
         self.run_cmd([INFERNO_SCRIPT, "-sc"])
         self.check_inferno_report_html(
-            [('com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run', 80)])
+            [('simpleperf.example.java.MainActivity$1.run', 80)])
         self.run_cmd([INFERNO_SCRIPT, "-sc", "-o", "report2.html"])
         self.check_inferno_report_html(
-            [('com.example.simpleperf.simpleperfexamplepurejava.MainActivity$1.run', 80)],
+            [('simpleperf.example.java.MainActivity$1.run', 80)],
             "report2.html")
 
     def test_inferno_in_another_dir(self):
@@ -169,11 +173,26 @@ class TestExamplePureJava(TestExampleBase):
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
 
 
-class TestExamplePureJavaRoot(TestExampleBase):
+class TestExampleJavaProfileableApk(TestExampleJava):
+    """ Test profiling a profileable released apk."""
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExamplePureJava",
-                    "com.example.simpleperf.simpleperfexamplepurejava",
+        if TestHelper.android_version >= 10:
+            cls.prepare("SimpleperfExampleJava",
+                        "simpleperf.example.java",
+                        ".MainActivity", apk_name='app-release.apk')
+
+    def setUp(self):
+        if TestHelper().android_version < 10:
+            raise unittest.SkipTest("Profileable apk isn't supported on Android < Q.")
+        super().setUp()
+
+
+class TestExampleJavaRoot(TestExampleBase):
+    @classmethod
+    def setUpClass(cls):
+        cls.prepare("SimpleperfExampleJava",
+                    "simpleperf.example.java",
                     ".MainActivity",
                     adb_root=True)
 
@@ -181,20 +200,20 @@ class TestExamplePureJavaRoot(TestExampleBase):
         self.common_test_app_profiler()
 
 
-class TestExamplePureJavaTraceOffCpu(TestExampleBase):
+class TestExampleJavaTraceOffCpu(TestExampleBase):
     @classmethod
     def setUpClass(cls):
-        cls.prepare("SimpleperfExamplePureJava",
-                    "com.example.simpleperf.simpleperfexamplepurejava",
+        cls.prepare("SimpleperfExampleJava",
+                    "simpleperf.example.java",
                     ".SleepActivity")
 
     def test_smoke(self):
         self.run_app_profiler(record_arg="-g -f 1000 --duration 10 -e cpu-clock:u --trace-offcpu")
         self.run_cmd(["report.py", "-g", "-o", "report.txt"])
         self.check_strings_in_file("report.txt", [
-            "com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.run",
-            "com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.RunFunction",
-            "com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.SleepFunction"
+            "simpleperf.example.java.SleepActivity$1.run",
+            "simpleperf.example.java.SleepActivity$1.RunFunction",
+            "simpleperf.example.java.SleepActivity$1.SleepFunction"
         ])
         remove("annotated_files")
         self.run_cmd(["annotate.py", "-s", self.example_path, '--summary-width', '1000'])
@@ -208,11 +227,9 @@ class TestExamplePureJavaTraceOffCpu(TestExampleBase):
                 ("RunFunction", 20, 20),
                 ("SleepFunction", 20, 0),
                 ("line 24", 1, 0),
-                ("line 32", 20, 0)])
+                ("line 31", 20, 0)])
         self.run_cmd([INFERNO_SCRIPT, "-sc"])
         self.check_inferno_report_html(
-            [('com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.run', 80),
-             ('com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.RunFunction',
-              20),
-             ('com.example.simpleperf.simpleperfexamplepurejava.SleepActivity$1.SleepFunction',
-              20)])
+            [('simpleperf.example.java.SleepActivity$1.run', 80),
+             ('simpleperf.example.java.SleepActivity$1.RunFunction', 20),
+             ('simpleperf.example.java.SleepActivity$1.SleepFunction', 20)])

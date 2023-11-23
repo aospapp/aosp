@@ -15,6 +15,7 @@
 -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+     xmlns:tools="http://schemas.android.com/tools"
      package="android.media.audio.cts"
      android:targetSandboxVersion="2">
 
@@ -33,7 +34,8 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application android:requestLegacyExternalStorage="true"
-         android:largeHeap="true">
+         android:largeHeap="true"
+        android:debuggable="true">
         <uses-library android:name="android.test.runner"/>
 
         <activity android:name="android.media.audio.cts.RingtonePickerActivity"
@@ -46,7 +48,8 @@
         </activity>
     </application>
 
-    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="31"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="31"
+        tools:overrideLibrary="android.virtualdevice.cts.common"/>
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
          android:targetPackage="android.media.audio.cts"
          android:label="CTS tests of android.media.audio">

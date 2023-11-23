@@ -16,9 +16,13 @@
 
 package android.accessibility.cts.common;
 
+import android.app.Instrumentation;
+import android.provider.Settings;
+import android.util.Log;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import android.util.Log;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -111,6 +115,60 @@ public class InstrumentedAccessibilityServiceTestRule<T extends InstrumentedAcce
     @NonNull
     public T enableService() {
         return InstrumentedAccessibilityService.enableService(mAccessibilityServiceClass);
+    }
+
+    /**
+     * Enable the instrumented accessibility service under test.
+     *
+     * <p>Don't call this method directly, unless you explicitly requested not to lazily enable the
+     * service manually using the enableService flag in {@link
+     * #InstrumentedAccessibilityServiceTestRule(Class, boolean)}.
+     *
+     * <p> <strong>Note:</strong> Unlike {@link #enableService()}, this does not wait for the
+     * service to be connected and does not return the AccessibilityService. It's strongly
+     * recommended to use {@link #enableService()} unless the test should not wait for connection.
+     *
+     * <p> As a precaution, in the event that the Setting is updated but the service is not created,
+     * make sure to update the setting with the previously enabled services at the end of the test.
+     *
+     * <p>Usage:
+     *
+     * <pre>
+     *    &#064;Test
+     *    public void enableAccessibilityService() {
+     *         enabledServices =
+     *              Settings.Secure.getString(
+     *                  sInstrumentation.getContext().getContentResolver(),
+     *                  Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+     *         mServiceRule.enableServiceWithoutWait();
+     *         // Wait for connection
+     *         service = rule.getService();
+     *        try {
+     *            ...
+     *        } finally {
+     *             if (service != null) {
+     *                 mNonProxyServiceRule.getService().disableSelfAndRemove();
+     *             } else if (enabledServices != null) {
+     *                 ShellCommandBuilder.create(sInstrumentation)
+     *                         .putSecureSetting(
+     *                                 Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+     *                                 enabledServices)
+     *                         .run();
+     *             }
+     *        }
+     *    }
+     * </pre>
+     *
+     */
+    public void enableServiceWithoutWait() {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final String enabledServices =
+                Settings.Secure.getString(
+                        instrumentation.getContext().getContentResolver(),
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+
+        InstrumentedAccessibilityService.enableServiceWithoutWait(mAccessibilityServiceClass,
+                instrumentation, enabledServices);
     }
 
     /**

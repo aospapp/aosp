@@ -63,7 +63,8 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 	// Set up configuration parameters for the Finder cache.
 	cacheParams := finder.CacheParams{
 		WorkingDirectory: dir,
-		RootDirs:         []string{"."},
+		RootDirs:         androidBpSearchDirs(config),
+		FollowSymlinks:   config.environ.IsEnvTrue("ALLOW_BP_UNDER_SYMLINKS"),
 		ExcludeDirs:      []string{".git", ".repo"},
 		PruneFiles:       pruneFiles,
 		IncludeFiles: []string{
@@ -86,6 +87,8 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 			"TEST_MAPPING",
 			// Bazel top-level file to mark a directory as a Bazel workspace.
 			"WORKSPACE",
+			// METADATA file of packages
+			"METADATA",
 		},
 		// Bazel Starlark configuration files and all .mk files for product/board configuration.
 		IncludeSuffixes: []string{".bzl", ".mk"},
@@ -97,6 +100,15 @@ func NewSourceFinder(ctx Context, config Config) (f *finder.Finder) {
 		ctx.Fatalf("Could not create module-finder: %v", err)
 	}
 	return f
+}
+
+func androidBpSearchDirs(config Config) []string {
+	dirs := []string{"."} // always search from root of source tree.
+	if config.searchApiDir {
+		// Search in out/api_surfaces
+		dirs = append(dirs, config.ApiSurfacesOutDir())
+	}
+	return dirs
 }
 
 // Finds the list of Bazel-related files (BUILD, WORKSPACE and Starlark) in the tree.
@@ -177,6 +189,13 @@ func FindSources(ctx Context, config Config, f *finder.Finder) {
 	err = dumpListToFile(ctx, config, owners, filepath.Join(dumpDir, "OWNERS.list"))
 	if err != nil {
 		ctx.Fatalf("Could not find OWNERS: %v", err)
+	}
+
+	// Recursively look for all METADATA files.
+	metadataFiles := f.FindNamedAt(".", "METADATA")
+	err = dumpListToFile(ctx, config, metadataFiles, filepath.Join(dumpDir, "METADATA.list"))
+	if err != nil {
+		ctx.Fatalf("Could not find METADATA: %v", err)
 	}
 
 	// Recursively look for all TEST_MAPPING files.

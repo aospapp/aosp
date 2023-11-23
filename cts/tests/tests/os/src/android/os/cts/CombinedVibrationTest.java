@@ -219,6 +219,7 @@ public class CombinedVibrationTest {
         TEST_SEQUENTIAL.describeContents();
     }
 
+    @SuppressWarnings("ReturnValueIgnored")
     @Test
     public void testToString() {
         TEST_MONO.toString();

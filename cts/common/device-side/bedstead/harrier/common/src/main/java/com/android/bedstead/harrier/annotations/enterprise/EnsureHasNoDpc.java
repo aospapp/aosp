@@ -16,8 +16,10 @@
 
 package com.android.bedstead.harrier.annotations.enterprise;
 
+import static com.android.bedstead.harrier.UserType.INSTRUMENTED_USER;
 import static com.android.bedstead.harrier.annotations.enterprise.EnsureHasDeviceOwner.DO_PO_WEIGHT;
 
+import com.android.bedstead.harrier.UserType;
 import com.android.bedstead.harrier.annotations.AnnotationRunPrecedence;
 import com.android.bedstead.harrier.annotations.EnsureHasNoWorkProfile;
 
@@ -42,6 +44,11 @@ import java.lang.annotation.Target;
 @EnsureHasNoWorkProfile
 @EnsureHasNoProfileOwner
 public @interface EnsureHasNoDpc {
+
+    /** This is currently non-functional. */
+    // TODO(264845059): Add support for EnsureHasNoDpc across users
+    UserType onUser() default INSTRUMENTED_USER;
+
     /**
      * Weight sets the order that annotations will be resolved.
      *

@@ -118,7 +118,7 @@ public abstract class OpenListResourceBundle extends ResourceBundle {
     /**
      * See ListResourceBundle class description.
      */
-    abstract protected Object[][] getContents();
+    protected abstract Object[][] getContents();
 
     /**
      * Load lookup tables if they haven't been loaded already.
@@ -164,6 +164,6 @@ public abstract class OpenListResourceBundle extends ResourceBundle {
         return new HashSet<>();
     }
 
-    private volatile Map<String, Object> lookup = null;
+    private volatile Map<String, Object> lookup;
     private volatile Set<String> keyset;
 }

@@ -24,6 +24,7 @@ import android.util.Log;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public class DropBoxReceiver {
     private static final String TAG = "DropBoxReceiver";
@@ -32,7 +33,7 @@ public class DropBoxReceiver {
     private CountDownLatch mResultsReceivedSignal;
     private long mStartMs;
 
-    public DropBoxReceiver(Context ctx, String wantTag, String... wantInStackTrace) {
+    public DropBoxReceiver(Context ctx, String wantTag, Object... wantInStackTrace) {
         mResultsReceivedSignal = new CountDownLatch(1);
         mStartMs = System.currentTimeMillis();
 
@@ -54,9 +55,23 @@ public class DropBoxReceiver {
                             mStartMs = entry.getTimeMillis();
                             String stackTrace = entry.getText(64 * 1024);
                             boolean allMatches = true;
-                            for (String line : wantInStackTrace) {
-                                boolean matched = stackTrace.contains(line);
-                                Log.d(TAG, "   matched=" + matched + " line: " + line);
+                            for (Object line : wantInStackTrace) {
+                                boolean matched = false;
+                                if (line instanceof String) {
+                                    matched = stackTrace.contains((String) line);
+                                    Log.d(TAG, "   matched=" + matched + " line: " + line);
+                                } else if (line instanceof Pattern) {
+                                    Pattern pattern = (Pattern) line;
+                                    matched = pattern.matcher(stackTrace).find();
+                                    Log.d(
+                                            TAG,
+                                            "   matched="
+                                                    + matched
+                                                    + " pattern: "
+                                                    + pattern.toString());
+                                } else {
+                                    throw new RuntimeException("Invalid type for line");
+                                }
                                 allMatches &= matched;
                             }
                             if (allMatches) {

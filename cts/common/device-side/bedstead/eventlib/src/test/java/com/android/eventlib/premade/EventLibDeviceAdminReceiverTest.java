@@ -26,6 +26,7 @@ import android.os.PersistableBundle;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.RequireRunOnSystemUser;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoProfileOwner;
 import com.android.bedstead.nene.TestApis;
@@ -96,6 +97,7 @@ public class EventLibDeviceAdminReceiverTest {
     }
 
     @Test
+    @RequireRunOnSystemUser // Device owner can only be set on system user
     @EnsureHasNoDeviceOwner
     public void enableDeviceOwner_logsEnabledEvent() {
         DeviceOwner deviceOwner =

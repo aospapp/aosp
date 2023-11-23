@@ -167,7 +167,11 @@ public class TestGnssMeasurementListener extends GnssMeasurementsEvent.Callback 
     }
 
     public boolean await() throws InterruptedException {
-        return TestUtils.waitFor(mCountDownLatch, MEAS_TIMEOUT_IN_SEC);
+        return await(MEAS_TIMEOUT_IN_SEC);
+    }
+
+    public boolean await(int seconds) throws InterruptedException {
+        return TestUtils.waitFor(mCountDownLatch, seconds);
     }
 
     /**

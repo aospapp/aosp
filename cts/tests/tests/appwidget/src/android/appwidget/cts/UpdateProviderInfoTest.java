@@ -33,6 +33,7 @@ import android.platform.test.annotations.AppModeFull;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.time.Instant;
@@ -95,6 +96,7 @@ public class UpdateProviderInfoTest extends AppWidgetTestCase {
         waitAndConfirmComponentName(NULL_CN_PREDICATE);
     }
 
+    @Ignore("b/283547860")
     @Test
     public void testOverridesPersistedOnUpdate() throws Exception {
         installApk(APK_V1);

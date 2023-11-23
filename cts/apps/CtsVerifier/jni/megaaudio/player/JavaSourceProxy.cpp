@@ -128,6 +128,7 @@ Java_org_hyphonate_megaaudio_player_JavaSourceProxy_initN(JNIEnv *env, jclass cl
 
 JNIEXPORT jlong JNICALL
 Java_org_hyphonate_megaaudio_player_JavaSourceProxy_allocNativeSource(JNIEnv *env, jclass clazz, jobject javaSource) {
+    ALOGI("allocNativeSource(%p)", javaSource);
     return (jlong)(new JavaSourceProxy(javaSource));
 }
 

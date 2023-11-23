@@ -99,8 +99,8 @@ byte for the minor version, and two bytes for the patch version.
 The CHRE API is the key interface between each nanoapp and the underlying
 system. Refer to the extensive API documentation in the header files at
 `chre_api/include`, as well as usage of the APIs by sample nanoapps. The CHRE
-API is normally included via `#include <chre.h>`.
-
+API is normally included via `
+#include "chre_api/chre.h"`.
 ## Utility Libraries
 
 Some source and header files under `util` are specifically designed to aid in

@@ -38,7 +38,7 @@ public class BlipAudioSource extends WaveTableSource {
     public BlipAudioSource() {
         super();
         float[] waveTbl = new float[WAVETABLE_LENGTH];
-        WaveTableSource.genTriangleWave(waveTbl, 1.0f, -1.0f, 0.0f);
+        WaveTableSource.genSinWave(waveTbl);
         super.setWaveTable(waveTbl);
     }
 

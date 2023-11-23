@@ -17,13 +17,14 @@
 package android.media.misc.cts;
 
 import android.media.MediaTimestamp;
-import android.media.cts.NonMediaMainlineTest;
 import android.test.AndroidTestCase;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 /**
  * Tests for MediaTimestamp.
  */
-@NonMediaMainlineTest
+@NonMainlineTest
 public class MediaTimestampTest extends AndroidTestCase {
     public void testMediaTimestamp() {
         MediaTimestamp timestamp = new MediaTimestamp(1000, 2000, 2.0f);

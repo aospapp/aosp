@@ -20,11 +20,12 @@
 #include "base/arena_object.h"
 #include "base/array_ref.h"
 #include "base/enums.h"
+#include "base/macros.h"
 #include "dex/primitive.h"
 #include "thread.h"
 #include "utils/managed_register.h"
 
-namespace art {
+namespace art HIDDEN {
 
 enum class InstructionSet;
 
@@ -243,6 +244,11 @@ class ManagedRuntimeCallingConvention : public CallingConvention {
 
   // Register that holds the incoming method argument
   virtual ManagedRegister MethodRegister() = 0;
+
+  // Register that is used to pass frame size for method exit hook call. This
+  // shouldn't be the same as the return register since method exit hook also expects
+  // return values in the return register.
+  virtual ManagedRegister ArgumentRegisterForMethodExitHook() = 0;
 
   // Iterator interface
   bool HasNext();

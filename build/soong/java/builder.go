@@ -83,9 +83,9 @@ var (
 	_ = pctx.VariableFunc("kytheCuJavaSourceMax",
 		func(ctx android.PackageVarContext) string { return ctx.Config().XrefCuJavaSourceMax() })
 	_ = pctx.SourcePathVariable("kytheVnames", "build/soong/vnames.json")
-	// Run it with -add-opens=java.base/java.nio=ALL-UNNAMED to avoid JDK9's warning about
-	// "Illegal reflective access by com.google.protobuf.Utf8$UnsafeProcessor ...
-	// to field java.nio.Buffer.address"
+	// Run it with several --add-exports to allow the classes in the
+	// com.google.devtools.kythe.extractors.java.standalone package access the packages in the
+	// jdk.compiler compiler module. Long live Java modules.
 	kytheExtract = pctx.AndroidStaticRule("kythe",
 		blueprint.RuleParams{
 			Command: `${config.ZipSyncCmd} -d $srcJarDir ` +
@@ -97,7 +97,17 @@ var (
 				`KYTHE_KZIP_ENCODING=${kytheCuEncoding} ` +
 				`KYTHE_JAVA_SOURCE_BATCH_SIZE=${kytheCuJavaSourceMax} ` +
 				`${config.SoongJavacWrapper} ${config.JavaCmd} ` +
+				// Avoid JDK9's warning about "Illegal reflective access by com.google.protobuf.Utf8$UnsafeProcessor ...
+				// to field java.nio.Buffer.address"
 				`--add-opens=java.base/java.nio=ALL-UNNAMED ` +
+				// Allow the classes in the com.google.devtools.kythe.extractors.java.standalone package
+				// access the packages in the jdk.compiler compiler module
+				`--add-opens=java.base/java.nio=ALL-UNNAMED ` +
+				`--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED ` +
+				`--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED ` +
+				`--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED ` +
+				`--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED ` +
+				`--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED ` +
 				`-jar ${config.JavaKytheExtractorJar} ` +
 				`${config.JavacHeapFlags} ${config.CommonJdkFlags} ` +
 				`$processorpath $processor $javacFlags $bootClasspath $classpath ` +
@@ -121,13 +131,13 @@ var (
 		blueprint.RuleParams{
 			Command: `rm -rf "$out" && ` +
 				`${config.ExtractApksCmd} -o "${out}" -zip "${zip}" -allow-prereleased=${allow-prereleased} ` +
-				`-sdk-version=${sdk-version} -abis=${abis} ` +
+				`-sdk-version=${sdk-version} -skip-sdk-check=${skip-sdk-check} -abis=${abis} ` +
 				`--screen-densities=${screen-densities} --stem=${stem} ` +
 				`-apkcerts=${apkcerts} -partition=${partition} ` +
 				`${in}`,
 			CommandDeps: []string{"${config.ExtractApksCmd}"},
 		},
-		"abis", "allow-prereleased", "screen-densities", "sdk-version", "stem", "apkcerts", "partition", "zip")
+		"abis", "allow-prereleased", "screen-densities", "sdk-version", "skip-sdk-check", "stem", "apkcerts", "partition", "zip")
 
 	turbine, turbineRE = pctx.RemoteStaticRules("turbine",
 		blueprint.RuleParams{
@@ -221,7 +231,7 @@ var (
 
 	jetifier = pctx.AndroidStaticRule("jetifier",
 		blueprint.RuleParams{
-			Command:     "${config.JavaCmd}  ${config.JavaVmFlags} -jar ${config.JetifierJar} -l error -o $out -i $in",
+			Command:     "${config.JavaCmd}  ${config.JavaVmFlags} -jar ${config.JetifierJar} -l error -o $out -i $in -t epoch",
 			CommandDeps: []string{"${config.JavaCmd}", "${config.JetifierJar}"},
 		},
 	)

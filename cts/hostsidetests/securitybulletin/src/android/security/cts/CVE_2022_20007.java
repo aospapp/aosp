@@ -20,7 +20,7 @@ import static org.junit.Assume.assumeNoException;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -28,7 +28,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2022_20007 extends StsExtraBusinessLogicHostTestBase {
+public class CVE_2022_20007 extends NonRootSecurityTestCase {
 
     @AsbSecurityTest(cveBugId = 211481342)
     @Test
@@ -37,10 +37,12 @@ public class CVE_2022_20007 extends StsExtraBusinessLogicHostTestBase {
         final String testClass = testPkg + "." + "DeviceTest";
         final String testApp = "CVE-2022-20007.apk";
         final String testAttackerApp = "CVE-2022-20007-Attacker.apk";
+        final String testSecondApp = "CVE-2022-20007-Second.apk";
         ITestDevice device = getDevice();
         try {
             installPackage(testApp);
             installPackage(testAttackerApp);
+            installPackage(testSecondApp);
             AdbUtils.runCommandLine("input keyevent KEYCODE_WAKEUP", device);
             AdbUtils.runCommandLine("input keyevent KEYCODE_MENU", device);
             AdbUtils.runCommandLine("input keyevent KEYCODE_HOME", device);

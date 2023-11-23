@@ -44,8 +44,8 @@ public final class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
                 "TestUser_" + System.currentTimeMillis() /* name */,
                 true /* guest */,
                 false /* ephemeral */);
-        assertSwitchToNewUser(userId);
-        assertSwitchToUser(userId, mInitialUserId);
+        assertSwitchToUser(userId);
+        assertSwitchToUser(mInitialUserId);
     }
 
     @Presubmit
@@ -55,7 +55,7 @@ public final class CreateUsersNoAppCrashesTest extends BaseMultiUserTest {
                 "TestUser_" + System.currentTimeMillis() /* name */,
                 false /* guest */,
                 false /* ephemeral */);
-        assertSwitchToNewUser(userId);
-        assertSwitchToUser(userId, mInitialUserId);
+        assertSwitchToUser(userId);
+        assertSwitchToUser(mInitialUserId);
     }
 }

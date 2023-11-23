@@ -54,7 +54,7 @@ class ShadowFrame {
     // We have been requested to notify when this frame gets popped.
     kNotifyFramePop = 1 << 0,
     // We have been asked to pop this frame off the stack as soon as possible.
-    kForcePopFrame  = 1 << 1,
+    kForcePopFrame = 1 << 1,
     // We have been asked to re-execute the last instruction.
     kForceRetryInst = 1 << 2,
     // Mark that we expect the next frame to retry the last instruction (used by instrumentation and
@@ -62,6 +62,9 @@ class ShadowFrame {
     kSkipMethodExitEvents = 1 << 3,
     // Used to suppress exception events caused by other instrumentation events.
     kSkipNextExceptionEvent = 1 << 4,
+    // Used to specify if DexPCMoveEvents have to be reported. These events will
+    // only be reported if the method has a breakpoint set.
+    kNotifyDexPcMoveEvents = 1 << 5,
   };
 
  public:
@@ -72,10 +75,11 @@ class ShadowFrame {
   }
 
   // Create ShadowFrame in heap for deoptimization.
-  static ShadowFrame* CreateDeoptimizedFrame(uint32_t num_vregs, ShadowFrame* link,
-                                             ArtMethod* method, uint32_t dex_pc) {
+  static ShadowFrame* CreateDeoptimizedFrame(uint32_t num_vregs,
+                                             ArtMethod* method,
+                                             uint32_t dex_pc) {
     uint8_t* memory = new uint8_t[ComputeSize(num_vregs)];
-    return CreateShadowFrameImpl(num_vregs, link, method, dex_pc, memory);
+    return CreateShadowFrameImpl(num_vregs, method, dex_pc, memory);
   }
 
   // Delete a ShadowFrame allocated on the heap for deoptimization.
@@ -87,12 +91,11 @@ class ShadowFrame {
 
   // Create a shadow frame in a fresh alloca. This needs to be in the context of the caller.
   // Inlining doesn't work, the compiler will still undo the alloca. So this needs to be a macro.
-#define CREATE_SHADOW_FRAME(num_vregs, link, method, dex_pc) ({                              \
+#define CREATE_SHADOW_FRAME(num_vregs, method, dex_pc) ({                                    \
     size_t frame_size = ShadowFrame::ComputeSize(num_vregs);                                 \
     void* alloca_mem = alloca(frame_size);                                                   \
     ShadowFrameAllocaUniquePtr(                                                              \
-        ShadowFrame::CreateShadowFrameImpl((num_vregs), (link), (method), (dex_pc),          \
-                                           (alloca_mem)));                                   \
+        ShadowFrame::CreateShadowFrameImpl((num_vregs), (method), (dex_pc), (alloca_mem)));  \
     })
 
   ~ShadowFrame() {}
@@ -132,7 +135,12 @@ class ShadowFrame {
 
   void SetLink(ShadowFrame* frame) {
     DCHECK_NE(this, frame);
+    DCHECK_EQ(link_, nullptr);
     link_ = frame;
+  }
+
+  void ClearLink() {
+    link_ = nullptr;
   }
 
   int32_t GetVReg(size_t i) const {
@@ -169,14 +177,14 @@ class ShadowFrame {
   int64_t GetVRegLong(size_t i) const {
     DCHECK_LT(i + 1, NumberOfVRegs());
     const uint32_t* vreg = &vregs_[i];
-    typedef const int64_t unaligned_int64 __attribute__ ((aligned (4)));
+    using unaligned_int64 __attribute__((aligned(4))) = const int64_t;
     return *reinterpret_cast<unaligned_int64*>(vreg);
   }
 
   double GetVRegDouble(size_t i) const {
     DCHECK_LT(i + 1, NumberOfVRegs());
     const uint32_t* vreg = &vregs_[i];
-    typedef const double unaligned_double __attribute__ ((aligned (4)));
+    using unaligned_double __attribute__((aligned(4))) = const double;
     return *reinterpret_cast<unaligned_double*>(vreg);
   }
 
@@ -221,7 +229,7 @@ class ShadowFrame {
   void SetVRegLong(size_t i, int64_t val) {
     DCHECK_LT(i + 1, NumberOfVRegs());
     uint32_t* vreg = &vregs_[i];
-    typedef int64_t unaligned_int64 __attribute__ ((aligned (4)));
+    using unaligned_int64 __attribute__((aligned(4))) = int64_t;
     *reinterpret_cast<unaligned_int64*>(vreg) = val;
     // This is needed for moving collectors since these can update the vreg references if they
     // happen to agree with references in the reference array.
@@ -232,7 +240,7 @@ class ShadowFrame {
   void SetVRegDouble(size_t i, double val) {
     DCHECK_LT(i + 1, NumberOfVRegs());
     uint32_t* vreg = &vregs_[i];
-    typedef double unaligned_double __attribute__ ((aligned (4)));
+    using unaligned_double __attribute__((aligned(4))) = double;
     *reinterpret_cast<unaligned_double*>(vreg) = val;
     // This is needed for moving collectors since these can update the vreg references if they
     // happen to agree with references in the reference array.
@@ -314,11 +322,10 @@ class ShadowFrame {
 
   // Create ShadowFrame for interpreter using provided memory.
   static ShadowFrame* CreateShadowFrameImpl(uint32_t num_vregs,
-                                            ShadowFrame* link,
                                             ArtMethod* method,
                                             uint32_t dex_pc,
                                             void* memory) {
-    return new (memory) ShadowFrame(num_vregs, link, method, dex_pc);
+    return new (memory) ShadowFrame(num_vregs, method, dex_pc);
   }
 
   const uint16_t* GetDexPCPtr() {
@@ -373,6 +380,14 @@ class ShadowFrame {
     UpdateFrameFlag(enable, FrameFlags::kSkipNextExceptionEvent);
   }
 
+  bool GetNotifyDexPcMoveEvents() const {
+    return GetFrameFlag(FrameFlags::kNotifyDexPcMoveEvents);
+  }
+
+  void SetNotifyDexPcMoveEvents(bool enable) {
+    UpdateFrameFlag(enable, FrameFlags::kNotifyDexPcMoveEvents);
+  }
+
   void CheckConsistentVRegs() const {
     if (kIsDebugBuild) {
       // A shadow frame visible to GC requires the following rule: for a given vreg,
@@ -385,8 +400,8 @@ class ShadowFrame {
   }
 
  private:
-  ShadowFrame(uint32_t num_vregs, ShadowFrame* link, ArtMethod* method, uint32_t dex_pc)
-      : link_(link),
+  ShadowFrame(uint32_t num_vregs, ArtMethod* method, uint32_t dex_pc)
+      : link_(nullptr),
         method_(method),
         result_register_(nullptr),
         dex_pc_ptr_(nullptr),

@@ -154,7 +154,7 @@ public final class Os {
     public static String[] environ() { return Libcore.os.environ(); }
 
     /**
-     * See <a href="http://man7.org/linux/man-pages/man2/execv.2.html">execv(2)</a>.
+     * See <a href="https://man7.org/linux/man-pages/man3/execv.3.html">exec(3)</a>.
      */
     public static void execv(String filename, String[] argv) throws ErrnoException { Libcore.os.execv(filename, argv); }
 

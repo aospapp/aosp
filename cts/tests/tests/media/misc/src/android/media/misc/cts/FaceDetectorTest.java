@@ -17,13 +17,11 @@
 package android.media.misc.cts;
 
 import android.content.Intent;
-import android.graphics.Bitmap;
-import android.media.FaceDetector;
-import android.media.FaceDetector.Face;
-import android.media.cts.NonMediaMainlineTest;
 import android.test.InstrumentationTestCase;
 
-@NonMediaMainlineTest
+import com.android.compatibility.common.util.NonMainlineTest;
+
+@NonMainlineTest
 public class FaceDetectorTest extends InstrumentationTestCase {
 
     private FaceDetectorStub mActivity;

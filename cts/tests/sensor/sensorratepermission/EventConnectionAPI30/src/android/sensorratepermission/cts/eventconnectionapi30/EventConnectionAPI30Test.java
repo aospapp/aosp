@@ -93,6 +93,8 @@ public class EventConnectionAPI30Test {
                 mEventConnectionTestHelper != null);
 
         mSensorPrivacyManager = context.getSystemService(SensorPrivacyManager.class);
+        Assume.assumeTrue(mSensorPrivacyManager
+                .supportsSensorToggle(SensorPrivacyManager.Sensors.MICROPHONE));
         // In context of this app (targetSDK = 30), this returns the original supported min delay
         // of the sensor
         mUncappedMinDelayMicros = mTestEnvironment.getSensor().getMinDelay();

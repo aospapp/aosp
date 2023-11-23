@@ -53,12 +53,14 @@ android_test_helper_app {
         ":statslog-statsdatom-cts-java-gen",
     ],
     libs: [
+        "androidx.annotation_annotation",
         "android.test.runner",
         "junit",
         "org.apache.http.legacy",
     ],
     privileged: true,
     static_libs: [
+        "core-tests-support",
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
         "androidx.legacy_legacy-support-v4",
@@ -71,6 +73,20 @@ android_test_helper_app {
     ],
     compile_multilib: "both",
     v4_signature: true,
+}
+
+java_library_static {
+    name: "statslog-cts",
+    srcs: [
+        ":statslog-statsdatom-cts-java-gen",
+    ],
+    libs: [
+        "androidx.annotation_annotation",
+    ],
+    visibility: [
+        "//cts/hostsidetests/statsdapp/apps:__subpackages__",
+        "//vendor:__subpackages__",
+    ],
 }
 
 genrule {

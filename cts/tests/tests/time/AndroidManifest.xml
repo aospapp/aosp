@@ -25,6 +25,12 @@
     <!-- uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/-->
     <eat-comment />
 
+    <!-- The permissions below appear to be needed even though the tests use
+         "adopt shell permissions" to obtain the necessary privileged permissions. -->
+    <!-- Required to run a fake SNTP server on the test device for NetworkTimeUpdateService
+         tests. -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application android:debuggable="true" />
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

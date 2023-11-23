@@ -79,6 +79,7 @@ android_test {
         "ctstestrunner-axt",
         "hamcrest-library",
         "cts-media-common",
+        "CtsVirtualDeviceCommonLib",
         "junit-params",
         "testng",
     ],
@@ -102,6 +103,5 @@ android_test {
         "general-tests",
         "mts-media",
     ],
-    min_sdk_version: "29",
     target_sdk_version: "31",
 }

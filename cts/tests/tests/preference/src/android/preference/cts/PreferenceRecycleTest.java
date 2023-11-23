@@ -16,7 +16,6 @@
 
 package android.preference.cts;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -86,25 +85,7 @@ public class PreferenceRecycleTest {
         RecycleCheckPreference noRecyclePref =
                 (RecycleCheckPreference) screen.findPreference("pref_checkbox_no_recycle");
 
-        // At the beginning the views must be always created (no recycling involved).
-        assertEquals(1, recyclePref.getViewCalledCnt);
-        assertTrue(recyclePref.wasConvertViewNullInLastCall);
-
-        assertEquals(1, noRecyclePref.getViewCalledCnt);
-        assertTrue(noRecyclePref.wasConvertViewNullInLastCall);
-
-        // Change a value of some pref to force the list to refresh
-        mActivityRule.runOnUiThread(() -> recyclePref.setChecked(!recyclePref.isChecked()));
-
-        // Wait for the list to refresh
-        PollingCheck.waitFor(TIMEOUT_MS,
-                () -> recyclePref.getViewCalledCnt == 2 && noRecyclePref.getViewCalledCnt == 2);
-
-        assertEquals(2, recyclePref.getViewCalledCnt);
-        assertFalse(recyclePref.wasConvertViewNullInLastCall); // Recycling
-
-        assertEquals(2, noRecyclePref.getViewCalledCnt);
-        assertTrue(noRecyclePref.wasConvertViewNullInLastCall); // Not recycling
+        assertRecycle(recyclePref, noRecyclePref);
     }
 
     /**
@@ -140,8 +121,12 @@ public class PreferenceRecycleTest {
         RecycleCheckPreference noRecyclePref =
                 (RecycleCheckPreference) screen.findPreference("noRecyclePref");
 
-        // Wait for the views to be created (because we may scroll the screen to display the
-        // latest views, these views may get refreshed more than once).
+        assertRecycle(recyclePref, noRecyclePref);
+    }
+
+    private void assertRecycle(RecycleCheckPreference recyclePref,
+            RecycleCheckPreference noRecyclePref) throws Throwable {
+        // Wait for the views to be created.
         PollingCheck.waitFor(TIMEOUT_MS,
                 () -> recyclePref.getViewCalledCnt > 0 && noRecyclePref.getViewCalledCnt > 0);
 

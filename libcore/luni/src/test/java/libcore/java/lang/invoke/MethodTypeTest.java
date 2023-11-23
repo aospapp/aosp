@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package libcore.java.lang.invoke;
@@ -674,6 +674,17 @@ public class MethodTypeTest extends TestCase {
 
         assertEquals("([I)V", MethodType.methodType(void.class, int[].class)
                 .toMethodDescriptorString());
+    }
+
+    public void testDescriptorString() {
+        assertEquals("(Ljava/lang/String;Ljava/lang/Object;)I", MethodType.methodType(
+                int.class, String.class, Object.class).descriptorString());
+
+        assertEquals("()I", MethodType.methodType(int.class).descriptorString());
+        assertEquals("()[I", MethodType.methodType(int[].class).descriptorString());
+
+        assertEquals("([I)V", MethodType.methodType(void.class, int[].class)
+                .descriptorString());
     }
 
     private static void assertParameterTypes(MethodType type, Class<?>... params) {

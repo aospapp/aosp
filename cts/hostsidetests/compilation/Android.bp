@@ -16,19 +16,21 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-java_test_host {
-    name: "CtsCompilationTestCases",
+java_defaults {
+    name: "CompilationTestCases_defaults",
     srcs: ["src/**/*.java"],
+    data: [
+        ":StatusCheckerApp",
+    ],
     java_resource_dirs: ["assets/"],
     java_resources: [
         ":AppUsedByOtherApp",
+        ":AppUsedByOtherApp_1_dm",
+        ":AppUsedByOtherApp_2_prof",
         ":AppUsingOtherApp",
         ":CtsCompilationApp",
-    ],
-    // tag this module as a cts test artifact
-    test_suites: [
-        "cts",
-        "general-tests",
+        ":CtsCompilationApp_profile",
+        ":CtsCompilationApp_dm",
     ],
     libs: [
         "cts-tradefed",
@@ -37,4 +39,97 @@ java_test_host {
         "guava",
         "truth-prebuilt",
     ],
+}
+
+java_test_host {
+    name: "CtsCompilationTestCases",
+    defaults: ["CompilationTestCases_defaults"],
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    test_config: "CtsCompilationTestCases.xml",
+}
+
+java_test_host {
+    name: "CompilationTestCases",
+    defaults: ["CompilationTestCases_defaults"],
+    test_suites: [
+        "general-tests",
+    ],
+    test_config: "CompilationTestCases.xml",
+}
+
+// Generates a binary profile from a text profile for an APK.
+// The first input must be the text profile.
+// The second input must be the APK.
+genrule_defaults {
+    name: "profile_defaults",
+    tools: ["profman"],
+    cmd: "inputs=($(in)) && " +
+        "$(location profman) " +
+        "--create-profile-from=$${inputs[0]} " +
+        "--apk=$${inputs[1]} " +
+        "--dex-location=base.apk " +
+        "--reference-profile-file=$(out)",
+}
+
+// Generates a DM file from a binary profile.
+// The input must be the binary profile.
+genrule_defaults {
+    name: "dm_defaults",
+    tools: ["soong_zip"],
+    cmd: "cp $(in) $(genDir)/primary.prof && " +
+        "$(location soong_zip) " +
+        "-j -f $(genDir)/primary.prof " +
+        "-o $(out)",
+}
+
+genrule {
+    name: "CtsCompilationApp_profile",
+    defaults: ["profile_defaults"],
+    srcs: [
+        "assets/primary.prof.txt",
+        ":CtsCompilationApp",
+    ],
+    out: ["CtsCompilationApp.prof"],
+}
+
+genrule {
+    name: "CtsCompilationApp_dm",
+    defaults: ["dm_defaults"],
+    srcs: [
+        ":CtsCompilationApp_profile",
+    ],
+    out: ["CtsCompilationApp.dm"],
+}
+
+genrule {
+    name: "AppUsedByOtherApp_1_prof",
+    defaults: ["profile_defaults"],
+    srcs: [
+        "assets/app_used_by_other_app_1.prof.txt",
+        ":AppUsedByOtherApp",
+    ],
+    out: ["AppUsedByOtherApp_1.prof"],
+}
+
+genrule {
+    name: "AppUsedByOtherApp_1_dm",
+    defaults: ["dm_defaults"],
+    srcs: [
+        ":AppUsedByOtherApp_1_prof",
+    ],
+    out: ["AppUsedByOtherApp_1.dm"],
+}
+
+genrule {
+    name: "AppUsedByOtherApp_2_prof",
+    defaults: ["profile_defaults"],
+    srcs: [
+        "assets/app_used_by_other_app_2.prof.txt",
+        ":AppUsedByOtherApp",
+    ],
+    out: ["AppUsedByOtherApp_2.prof"],
 }

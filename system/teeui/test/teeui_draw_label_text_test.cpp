@@ -39,69 +39,87 @@ static constexpr const char kText100Character1Group[] =
     "WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW"
     "WWWWWWWW";
 
+static constexpr const char kTextMultiLine[] =
+    "Line1\n"
+    "Line2. The next line is blank\n"
+    "\n"
+    "Line4.  This line will wrap onto other lines as it is quite long.\n"
+    "LineN\n"
+    "\n";
+
 class TeeuiDrawLabelTextTest : public ::testing::Test {};
 
 TEST_F(TeeuiDrawLabelTextTest, Test_12_char_8_group_phys_button_layout) {
-    int error = runRenderTest("en", false /* magnified */, &kText12Character8Group[0]);
+    int error = runRenderTest("en", false /* magnified */, false, &kText12Character8Group[0]);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_12_char_8_group_phys_button_layout_magnified) {
-    int error = runRenderTest("en", true /* magnified */, &kText12Character8Group[0]);
+    int error = runRenderTest("en", true /* magnified */, false, &kText12Character8Group[0]);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_100_char_1_group_phys_button_layout) {
-    int error = runRenderTest("en", false /* magnified */, &kText100Character1Group[0]);
+    int error = runRenderTest("en", false /* magnified */, false, &kText100Character1Group[0]);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_100_char_1_group_phys_button_layout_magnified) {
-    int error = runRenderTest("en", true /* magnified */, &kText100Character1Group[0]);
+    int error = runRenderTest("en", true /* magnified */, false, &kText100Character1Group[0]);
+    ASSERT_EQ(error, 0);
+}
+
+TEST_F(TeeuiDrawLabelTextTest, Test_multi_line_phys_button_layout) {
+    int error = runRenderTest("en", false /* magnified */, false, &kTextMultiLine[0]);
+    ASSERT_EQ(error, 0);
+}
+
+TEST_F(TeeuiDrawLabelTextTest, Test_multi_line_phys_button_layout_magnified) {
+    int error = runRenderTest("en", true /* magnified */, false, &kTextMultiLine[0]);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_empty_text_phys_button_layout) {
-    int error = runRenderTest("en", false /* magnified */, "");
+    int error = runRenderTest("en", false /* magnified */, false, "");
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_empty_text_phys_button_layout_magnified) {
-    int error = runRenderTest("en", true /* magnified */, "");
+    int error = runRenderTest("en", true /* magnified */, false, "");
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_12_char_8_group_touch_button_layout) {
-    int error = runRenderTest("en", false /* magnified */, &kText12Character8Group[0],
+    int error = runRenderTest("en", false /* magnified */, false, &kText12Character8Group[0],
                               example::kTouchButtonLayout);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_12_char_8_group_touch_button_layout_magnified) {
-    int error = runRenderTest("en", true /* magnified */, &kText12Character8Group[0],
+    int error = runRenderTest("en", true /* magnified */, false, &kText12Character8Group[0],
                               example::kTouchButtonLayout);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_100_char_1_group_touch_button_layout) {
-    int error = runRenderTest("en", false /* magnified */, &kText100Character1Group[0],
+    int error = runRenderTest("en", false /* magnified */, false, &kText100Character1Group[0],
                               example::kTouchButtonLayout);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_100_char_1_group_touch_button_layout_magnified) {
-    int error = runRenderTest("en", true /* magnified */, &kText100Character1Group[0],
+    int error = runRenderTest("en", true /* magnified */, false, &kText100Character1Group[0],
                               example::kTouchButtonLayout);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_empty_text_touch_button_layout) {
-    int error = runRenderTest("en", false /* magnified */, "", example::kTouchButtonLayout);
+    int error = runRenderTest("en", false /* magnified */, false, "", example::kTouchButtonLayout);
     ASSERT_EQ(error, 0);
 }
 
 TEST_F(TeeuiDrawLabelTextTest, Test_empty_text_touch_button_layout_magnified) {
-    int error = runRenderTest("en", true /* magnified */, "", example::kTouchButtonLayout);
+    int error = runRenderTest("en", true /* magnified */, false, "", example::kTouchButtonLayout);
     ASSERT_EQ(error, 0);
 }
 

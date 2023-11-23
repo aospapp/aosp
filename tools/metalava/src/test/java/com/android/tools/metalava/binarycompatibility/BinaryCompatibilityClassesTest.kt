@@ -470,8 +470,11 @@ class BinaryCompatibilityClassesTest : DriverTest() {
     }
 
     @Test
-    fun `Change final to non-final (Compatible)`() {
+    fun `Change final to non-final (Compatible but Disallowed)`() {
         check(
+            expectedIssues = """
+                TESTROOT/load-api.txt:3: error: Constructor test.pkg.Foo has removed 'final' qualifier [RemovedFinal]
+            """,
             signatureSource = """
                 package test.pkg {
                     public class Foo {

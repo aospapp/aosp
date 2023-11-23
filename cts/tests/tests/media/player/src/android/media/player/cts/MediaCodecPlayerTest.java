@@ -19,18 +19,20 @@ package android.media.player.cts;
 import android.media.MediaFormat;
 import android.media.cts.MediaCodecPlayerTestBase;
 import android.media.cts.MediaStubActivity2;
-import android.media.cts.Utils;
 import android.net.Uri;
+import android.platform.test.annotations.AppModeFull;
 import android.view.Surface;
-import java.util.Arrays;
+
+import java.io.File;
 import java.util.List;
 
+@AppModeFull(reason = "Instant apps cannot access the SD card")
 public class MediaCodecPlayerTest extends MediaCodecPlayerTestBase<MediaStubActivity2> {
 
     private static final String MIME_VIDEO_AVC = MediaFormat.MIMETYPE_VIDEO_AVC;
-
-    private static final String CLEAR_AUDIO_PATH = "/clear/h264/llama/llama_aac_audio.mp4";
-    private static final String CLEAR_VIDEO_PATH = "/clear/h264/llama/llama_h264_main_720p_8000.mp4";
+    private static final String MEDIA_DIR = WorkDir.getMediaDirString();
+    private static final String CLEAR_AUDIO_PATH = "llama_aac_audio.mp4";
+    private static final String CLEAR_VIDEO_PATH = "llama_h264_main_720p_8000.mp4";
 
     private static final int VIDEO_WIDTH_CLEAR = 1280;
     private static final int VIDEO_HEIGHT_CLEAR = 674;
@@ -40,11 +42,13 @@ public class MediaCodecPlayerTest extends MediaCodecPlayerTestBase<MediaStubActi
     }
 
     private void playOnSurfaces(List<Surface> surfaces) throws Exception {
-        testPlayback(
-            MIME_VIDEO_AVC, new String[0],
-            Uri.parse(Utils.getMediaPath() + CLEAR_AUDIO_PATH),
-            Uri.parse(Utils.getMediaPath() + CLEAR_VIDEO_PATH),
-            VIDEO_WIDTH_CLEAR, VIDEO_HEIGHT_CLEAR, surfaces);
+        testPlayback(MIME_VIDEO_AVC,
+                new String[0],
+                Uri.fromFile(new File(MEDIA_DIR, CLEAR_AUDIO_PATH)),
+                Uri.fromFile(new File(MEDIA_DIR, CLEAR_VIDEO_PATH)),
+                VIDEO_WIDTH_CLEAR,
+                VIDEO_HEIGHT_CLEAR,
+                surfaces);
     }
 
     public void testPlaybackSwitchViews() throws Exception {

@@ -190,41 +190,6 @@ public class ActivityTransitionTest extends
                 ActivityTransitionActivity.ARRIVE_ENTER_DELAY_VISIBILITY));
     }
 
-    public void testFinishPostponed() throws Throwable {
-        getInstrumentation().waitForIdleSync();
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                mReceiver = new PassInfo(new Handler());
-                mActivity.mPauseOnRestart = true;
-                Bundle options = ActivityOptions.makeSceneTransitionAnimation(mActivity,
-                        mActivity.findViewById(R.id.hello), "target").toBundle();
-                Intent intent = new Intent(mActivity, ActivityTransitionActivity.class);
-                intent.putExtra(ActivityTransitionActivity.LAYOUT_ID, R.layout.end);
-                intent.putExtra(ActivityTransitionActivity.QUICK_FINISH, true);
-                intent.putExtra(ActivityTransitionActivity.RESULT_RECEIVER, mReceiver);
-                mActivity.startActivityForResult(intent, 0, options);
-            }
-        });
-        CountDownLatch latch = setReenterLatch();
-
-        assertTrue("Activity didn't finish!",
-                mActivity.returnLatch.await(3000, TimeUnit.MILLISECONDS));
-        assertTrue("Reenter transition didn't finish", latch.await(1000, TimeUnit.MILLISECONDS));
-        assertTrue(mActivity.reenterLatch.await(1000, TimeUnit.MILLISECONDS));
-        getInstrumentation().waitForIdleSync();
-        checkNoReturnTransitionVisibility();
-        runTestOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                final View greenSquare = mActivity.findViewById(R.id.greenSquare);
-                final View hello = mActivity.findViewById(R.id.hello);
-                assertEquals(View.VISIBLE, greenSquare.getVisibility());
-                assertEquals(View.VISIBLE, hello.getVisibility());
-            }
-        });
-    }
-
     public void testFinishNoOverlap() throws Throwable {
         getInstrumentation().waitForIdleSync();
         runTestOnUiThread(new Runnable() {

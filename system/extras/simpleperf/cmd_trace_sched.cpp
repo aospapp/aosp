@@ -100,7 +100,7 @@ class TraceSchedCommand : public Command {
   bool ParseOptions(const std::vector<std::string>& args);
   bool RecordSchedEvents(const std::string& record_file_path);
   bool ParseSchedEvents(const std::string& record_file_path);
-  void ProcessRecord(Record& record);
+  bool ProcessRecord(Record& record);
   void ProcessSampleRecord(const SampleRecord& record);
   std::vector<ProcessInfo> BuildProcessInfo();
   void ReportProcessInfo(const std::vector<ProcessInfo>& processes);
@@ -192,21 +192,18 @@ bool TraceSchedCommand::ParseSchedEvents(const std::string& record_file_path) {
     return false;
   }
   const EventType* event = FindEventTypeByName("sched:sched_stat_runtime");
-  std::vector<EventAttrWithId> attrs = reader->AttrSection();
-  if (attrs.size() != 1u || attrs[0].attr->type != event->type ||
-      attrs[0].attr->config != event->config) {
+  const EventAttrIds& attrs = reader->AttrSection();
+  if (attrs.size() != 1u || attrs[0].attr.type != event->type ||
+      attrs[0].attr.config != event->config) {
     LOG(ERROR) << "sched:sched_stat_runtime isn't recorded in " << record_file_path;
     return false;
   }
 
-  auto callback = [this](std::unique_ptr<Record> record) {
-    ProcessRecord(*record);
-    return true;
-  };
+  auto callback = [this](std::unique_ptr<Record> record) { return ProcessRecord(*record); };
   return reader->ReadDataSection(callback);
 }
 
-void TraceSchedCommand::ProcessRecord(Record& record) {
+bool TraceSchedCommand::ProcessRecord(Record& record) {
   switch (record.type()) {
     case PERF_RECORD_SAMPLE: {
       ProcessSampleRecord(*static_cast<SampleRecord*>(&record));
@@ -234,15 +231,19 @@ void TraceSchedCommand::ProcessRecord(Record& record) {
     case PERF_RECORD_TRACING_DATA:
     case SIMPLE_PERF_RECORD_TRACING_DATA: {
       const TracingDataRecord& r = *static_cast<const TracingDataRecord*>(&record);
-      Tracing tracing(std::vector<char>(r.data, r.data + r.data_size));
+      auto tracing = Tracing::Create(std::vector<char>(r.data, r.data + r.data_size));
+      if (!tracing) {
+        return false;
+      }
       const EventType* event = FindEventTypeByName("sched:sched_stat_runtime");
       CHECK(event != nullptr);
-      TracingFormat format = tracing.GetTracingFormatHavingId(event->config);
+      TracingFormat format = tracing->GetTracingFormatHavingId(event->config);
       format.GetField("comm", tracing_field_comm_);
       format.GetField("runtime", tracing_field_runtime_);
       break;
     }
   }
+  return true;
 }
 
 void TraceSchedCommand::ProcessSampleRecord(const SampleRecord& record) {

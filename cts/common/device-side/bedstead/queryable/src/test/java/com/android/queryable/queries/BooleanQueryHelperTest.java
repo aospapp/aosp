@@ -17,17 +17,25 @@
 package com.android.queryable.queries;
 
 import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+import static com.android.queryable.queries.BooleanQuery.Boolean;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class BooleanQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class BooleanQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private final Queryable mQuery = null;
 
@@ -111,4 +119,24 @@ public class BooleanQueryHelperTest {
         assertParcelsCorrectly(BooleanQueryHelper.class, booleanQueryHelper);
     }
 
+    @Test
+    public void booleanQueryBase_queries() {
+        assertThat(Boolean().where().isEqualTo(true).matches(true)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
+
+        assertThat(booleanQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasTarget_returnsFalse() {
+        BooleanQueryHelper<Queryable> booleanQueryHelper = new BooleanQueryHelper<>(mQuery);
+
+        booleanQueryHelper.isFalse();
+
+        assertThat(booleanQueryHelper.isEmptyQuery()).isFalse();
+    }
 }

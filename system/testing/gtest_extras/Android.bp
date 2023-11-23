@@ -16,8 +16,16 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+cc_defaults {
+    name: "libgtest_isolated_defaults",
+    vendor_available: true,
+    product_available: true,
+    native_bridge_supported: true
+}
+
 cc_library_static {
     name: "libgtest_isolated",
+    defaults: ["libgtest_isolated_defaults"],
     host_supported: true,
     cflags: ["-Wall", "-Werror", "-Wextra", "-Wconversion"],
     export_include_dirs: ["include"],
@@ -44,6 +52,7 @@ cc_library_static {
 
 cc_library_static {
     name: "libgtest_isolated_main",
+    defaults: ["libgtest_isolated_defaults"],
     host_supported: true,
     cflags: ["-Wall", "-Werror", "-Wextra"],
     srcs: [
@@ -63,7 +72,12 @@ cc_library_static {
 
 cc_test {
     name: "gtest_isolated_tests",
+    defaults: ["libgtest_isolated_defaults"],
     host_supported: true,
+    tidy_timeout_srcs: [
+        "tests/OptionsTest.cpp",
+        "tests/SystemTests.cpp",
+    ],
     srcs: [
         "tests/OptionsTest.cpp",
         "tests/SystemTests.cpp",

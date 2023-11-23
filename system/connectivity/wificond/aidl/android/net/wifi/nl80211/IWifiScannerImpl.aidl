@@ -30,6 +30,20 @@ interface IWifiScannerImpl {
   const int SCAN_TYPE_LOW_SPAN = 0;
   const int SCAN_TYPE_LOW_POWER = 1;
   const int SCAN_TYPE_HIGH_ACCURACY = 2;
+
+  // Scan request status
+  // Request succeeded
+  const int SCAN_STATUS_SUCCESS = 0;
+  // All other standard error codes are mapped to this
+  const int SCAN_STATUS_FAILED_GENERIC = 1;
+  //Device or resource busy - Due to connection in progress, processing another scan request etc.
+  const int SCAN_STATUS_FAILED_BUSY = 2;
+  // Aborted - Due to another high priority operation like roaming, offload scan etc
+  const int SCAN_STATUS_FAILED_ABORT = 3;
+  // No such device - Due to wrong interface or interface doesn't exist
+  const int SCAN_STATUS_FAILED_NODEV = 4;
+  // Invalid argument - Due to wrong/unsupported argument passed in scan params
+  const int SCAN_STATUS_FAILED_INVALID_ARGS = 5;
   // Scan type used internally if the device does not support
   // the type specified in |SingleScanSettings.scan_type|.
   // Scan requests from framework with this type will be rejected.
@@ -46,7 +60,12 @@ interface IWifiScannerImpl {
   int getMaxSsidsPerScan();
 
   // Request a single scan using a SingleScanSettings parcelable object.
+  // This interface is deprecated from Android 14, newer wificond implementation should call
+  // scanRequest() which can return the scan request status.
   boolean scan(in SingleScanSettings scanSettings);
+
+  // Request a single scan using a SingleScanSettings parcelable object.
+  int scanRequest(in SingleScanSettings scanSettings);
 
   // Subscribe single scanning events.
   // Scanner assumes there is only one subscriber.
@@ -75,5 +94,5 @@ interface IWifiScannerImpl {
   // Abort ongoing scan.
   void abortScan();
 
-  // TODO(nywang) add more interfaces.
+  // add more interfaces.
 }

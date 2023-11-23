@@ -85,8 +85,7 @@ public class PKCS9Attributes {
                            DerInputStream in) throws IOException {
         if (permittedAttributes != null) {
             this.permittedAttributes =
-                new Hashtable<ObjectIdentifier, ObjectIdentifier>(
-                                                permittedAttributes.length);
+                new Hashtable<>(permittedAttributes.length);
 
             for (int i = 0; i < permittedAttributes.length; i++)
                 this.permittedAttributes.put(permittedAttributes[i],
@@ -278,11 +277,13 @@ public class PKCS9Attributes {
      */
     public PKCS9Attribute[] getAttributes() {
         PKCS9Attribute[] attribs = new PKCS9Attribute[attributes.size()];
-        ObjectIdentifier oid;
 
         int j = 0;
         for (int i=1; i < PKCS9Attribute.PKCS9_OIDS.length &&
                       j < attribs.length; i++) {
+            if (PKCS9Attribute.PKCS9_OIDS[i] == null) {
+                continue;
+            }
             attribs[j] = getAttribute(PKCS9Attribute.PKCS9_OIDS[i]);
 
             if (attribs[j] != null)
@@ -323,14 +324,16 @@ public class PKCS9Attributes {
      * Returns the PKCS9 block in a printable string form.
      */
     public String toString() {
-        StringBuffer buf = new StringBuffer(200);
-        buf.append("PKCS9 Attributes: [\n\t");
+        StringBuilder sb = new StringBuilder(200);
+        sb.append("PKCS9 Attributes: [\n\t");
 
-        ObjectIdentifier oid;
         PKCS9Attribute value;
 
         boolean first = true;
         for (int i = 1; i < PKCS9Attribute.PKCS9_OIDS.length; i++) {
+            if (PKCS9Attribute.PKCS9_OIDS[i] == null) {
+                continue;
+            }
             value = getAttribute(PKCS9Attribute.PKCS9_OIDS[i]);
 
             if (value == null) continue;
@@ -339,14 +342,14 @@ public class PKCS9Attributes {
             if (first)
                 first = false;
             else
-                buf.append(";\n\t");
+                sb.append(";\n\t");
 
-            buf.append(value.toString());
+            sb.append(value);
         }
 
-        buf.append("\n\t] (end PKCS9 Attributes)");
+        sb.append("\n\t] (end PKCS9 Attributes)");
 
-        return buf.toString();
+        return sb.toString();
     }
 
     /**

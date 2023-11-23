@@ -23,35 +23,33 @@ from setuptools.command import test
 import sys
 
 install_requires = [
-    'backoff',
-    'dlipower',
+    # Require an older version of setuptools that does not enforce PEP 440.
+    # This must be added first.
+    'setuptools<66.0.0',
     # Future needs to have a newer version that contains urllib.
     'future>=0.16.0',
-    'grpcio',
-    'mobly>=1.10.0',
+    'mobly==1.12.0',
     # Latest version of mock (4.0.0b) causes a number of compatibility issues with ACTS unit tests
     # b/148695846, b/148814743
     'mock==3.0.5',
     'Monsoon',
-    # paramiko-ng is needed vs paramiko as currently paramiko does not support
-    # ed25519 ssh keys, which is what Fuchsia uses.
-    'paramiko-ng',
-    'protobuf>=3.14.0',
+    'paramiko[ed25519]',
     'pylibftdi',
-    'pynacl==1.4.0',
     'pyserial',
     'pyyaml>=5.1',
     'requests',
     'retry',
     'scapy',
     'usbinfo',
-    'xlsxwriter',
     'zeroconf'
 ]
 
 versioned_deps = {
+    'backoff': 'backoff',
     'numpy': 'numpy',
-    'scipy': 'scipy'
+    'scipy': 'scipy',
+    'protobuf': 'protobuf==4.21.5',
+    'grpcio': 'grpcio',
 }
 
 # numpy and scipy version matrix per:
@@ -60,12 +58,18 @@ if sys.version_info < (3, 8):
     versioned_deps['numpy'] = 'numpy<1.22'
     versioned_deps['scipy'] = 'scipy<1.8'
 if sys.version_info < (3, 7):
+    versioned_deps['backoff'] = 'backoff<2.0'
     versioned_deps['numpy'] = 'numpy<1.20'
     versioned_deps['scipy'] = 'scipy<1.6'
+    versioned_deps['protobuf'] = 'protobuf==3.20.1'
+    versioned_deps['grpcio'] = 'grpcio==1.48.2'
     versioned_deps['typing_extensions'] = 'typing_extensions==4.1.1'
+if (sys.version_info.major, sys.version_info.minor) == (3, 6):
+    versioned_deps['dataclasses'] = 'dataclasses==0.8'
 if sys.version_info < (3, 6):
     versioned_deps['numpy'] = 'numpy<1.19'
     versioned_deps['scipy'] = 'scipy<1.5'
+    versioned_deps['typing_extensions'] = 'typing_extensions<4.0.0'
 
 install_requires += list(versioned_deps.values())
 
@@ -101,36 +105,6 @@ class PyTest(test.test):
                                   shell=True)
         result.communicate()
         sys.exit(result.returncode)
-
-
-class ActsInstallDependencies(cmd.Command):
-    """Installs only required packages
-
-    Installs all required packages for acts to work. Rather than using the
-    normal install system which creates links with the python egg, pip is
-    used to install the packages.
-    """
-
-    description = 'Install dependencies needed for acts to run on this machine.'
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        install_args = [sys.executable, '-m', 'pip', 'install']
-        subprocess.check_call(install_args + ['--upgrade', 'pip'])
-        required_packages = self.distribution.install_requires
-
-        for package in required_packages:
-            self.announce('Installing %s...' % package, log.INFO)
-            subprocess.check_call(install_args +
-                                  ['-v', '--no-cache-dir', package])
-
-        self.announce('Dependencies installed.')
 
 
 class ActsUninstall(cmd.Command):
@@ -205,11 +179,13 @@ def main():
                      include_package_data=True,
                      tests_require=['pytest'],
                      install_requires=install_requires,
-                     extras_require={'dev': DEV_PACKAGES},
+                     extras_require={
+                         'dev': DEV_PACKAGES,
+                         'digital_loggers_pdu': ['dlipower'],
+                     },
                      scripts=scripts,
                      cmdclass={
                          'test': PyTest,
-                         'install_deps': ActsInstallDependencies,
                          'uninstall': ActsUninstall
                      },
                      url="http://www.android.com/")

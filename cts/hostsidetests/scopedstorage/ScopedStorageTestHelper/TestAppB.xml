@@ -19,7 +19,7 @@
     android:versionCode="1"
     android:versionName="1.0" >
 
-    <uses-sdk android:minSdkVersion="30" />
+    <uses-sdk android:minSdkVersion="29" />
 
     <application android:label="TestAppB">
         <activity android:name="android.scopedstorage.cts.ScopedStorageTestHelper" android:exported="true" >

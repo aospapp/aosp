@@ -503,19 +503,48 @@ class MethodHandleNatives {
             throw initCauseFrom(err, ex);
         }
     }
+    */
+    // END Android-removed: Unused implementation code.
+
+    // BEGIN Android-added: Add mapLookupExceptionToError(ex) from OpenJDK 17. http://b/270028670
+    /**
+     * Map a reflective exception to a linkage error.
+     */
+    static LinkageError mapLookupExceptionToError(ReflectiveOperationException ex) {
+        LinkageError err;
+        if (ex instanceof IllegalAccessException) {
+            Throwable cause = ex.getCause();
+            if (cause instanceof AbstractMethodError) {
+                return (AbstractMethodError) cause;
+            } else {
+                err = new IllegalAccessError(ex.getMessage());
+            }
+        } else if (ex instanceof NoSuchMethodException) {
+            err = new NoSuchMethodError(ex.getMessage());
+        } else if (ex instanceof NoSuchFieldException) {
+            err = new NoSuchFieldError(ex.getMessage());
+        } else {
+            err = new IncompatibleClassChangeError();
+        }
+        return initCauseFrom(err, ex);
+    }
 
     /**
      * Use best possible cause for err.initCause(), substituting the
      * cause for err itself if the cause has the same (or better) type.
-     *
-    static private Error initCauseFrom(Error err, Exception ex) {
+     */
+    static <E extends Error> E initCauseFrom(E err, Exception ex) {
         Throwable th = ex.getCause();
-        if (err.getClass().isInstance(th))
-           return (Error) th;
+        @SuppressWarnings("unchecked")
+        final Class<E> Eclass = (Class<E>) err.getClass();
+        if (Eclass.isInstance(th))
+            return Eclass.cast(th);
         err.initCause(th == null ? ex : th);
         return err;
     }
+    // END Android-added: Add mapLookupExceptionToError(ex) from OpenJDK 17. http://b/270028670
 
+    // BEGIN Android-removed: Unused implementation code.
     /**
      * Is this method a caller-sensitive method?
      * I.e., does it call Reflection.getCallerClass or a similer method

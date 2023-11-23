@@ -16,7 +16,6 @@ package apex
 
 import (
 	"fmt"
-	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -26,6 +25,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
@@ -146,7 +146,7 @@ var prepareForApexTest = android.GroupFixturePreparers(
 	android.PrepareForTestWithAndroidBuildComponents,
 	bpf.PrepareForTestWithBpf,
 	cc.PrepareForTestWithCcBuildComponents,
-	java.PrepareForTestWithJavaDefaultModules,
+	java.PrepareForTestWithDexpreopt,
 	prebuilt_etc.PrepareForTestWithPrebuiltEtc,
 	rust.PrepareForTestWithRustDefaultModules,
 	sh.PrepareForTestWithShBuildComponents,
@@ -443,7 +443,6 @@ func TestBasicApex(t *testing.T) {
 			srcs: ["mylib.cpp"],
 			system_shared_libs: [],
 			stl: "none",
-			notice: "custom_notice",
 			static_libs: ["libstatic"],
 			// TODO: remove //apex_available:platform
 			apex_available: [
@@ -467,7 +466,6 @@ func TestBasicApex(t *testing.T) {
 			srcs: ["mylib.cpp"],
 			system_shared_libs: [],
 			stl: "none",
-			notice: "custom_notice_for_static_lib",
 			// TODO: remove //apex_available:platform
 			apex_available: [
 				"//apex_available:platform",
@@ -619,7 +617,7 @@ func TestDefaults(t *testing.T) {
 			java_libs: ["myjar"],
 			apps: ["AppFoo"],
 			rros: ["rro"],
-			bpfs: ["bpf", "netd_test"],
+			bpfs: ["bpf", "netdTest"],
 			updatable: false,
 		}
 
@@ -673,8 +671,8 @@ func TestDefaults(t *testing.T) {
 		}
 
 		bpf {
-			name: "netd_test",
-			srcs: ["netd_test.c"],
+			name: "netdTest",
+			srcs: ["netdTest.c"],
 			sub_dir: "netd",
 		}
 
@@ -687,7 +685,7 @@ func TestDefaults(t *testing.T) {
 		"overlay/blue/rro.apk",
 		"etc/bpf/bpf.o",
 		"etc/bpf/bpf2.o",
-		"etc/bpf/netd/netd_test.o",
+		"etc/bpf/netd/netdTest.o",
 	})
 }
 
@@ -782,6 +780,43 @@ func TestApexManifestMinSdkVersion(t *testing.T) {
 		optFlags := args["opt_flags"]
 		if !strings.Contains(optFlags, "--min_sdk_version "+tc.minSdkVersion) {
 			t.Errorf("%s: Expected min_sdk_version=%s, got: %s", tc.module, tc.minSdkVersion, optFlags)
+		}
+	}
+}
+
+func TestFileContexts(t *testing.T) {
+	for _, useFileContextsAsIs := range []bool{true, false} {
+		prop := ""
+		if useFileContextsAsIs {
+			prop = "use_file_contexts_as_is: true,\n"
+		}
+		ctx := testApex(t, `
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				file_contexts: "file_contexts",
+				updatable: false,
+				vendor: true,
+				`+prop+`
+			}
+
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+		`, withFiles(map[string][]byte{
+			"file_contexts": nil,
+		}))
+
+		rule := ctx.ModuleForTests("myapex", "android_common_myapex_image").Output("file_contexts")
+		forceLabellingCommand := "apex_manifest\\\\.pb u:object_r:system_file:s0"
+		if useFileContextsAsIs {
+			android.AssertStringDoesNotContain(t, "should force-label",
+				rule.RuleParams.Command, forceLabellingCommand)
+		} else {
+			android.AssertStringDoesContain(t, "shouldn't force-label",
+				rule.RuleParams.Command, forceLabellingCommand)
 		}
 	}
 }
@@ -949,8 +984,10 @@ func TestApexWithStubs(t *testing.T) {
 	// mylib2Cflags := ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_static").Rule("cc").Args["cFlags"]
 	// ensureNotContains(t, mylib2Cflags, "-include ")
 
-	// Ensure that genstub is invoked with --apex
-	ensureContains(t, "--apex", ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_shared_3").Rule("genStubSrc").Args["flags"])
+	// Ensure that genstub for platform-provided lib is invoked with --systemapi
+	ensureContains(t, ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_shared_3").Rule("genStubSrc").Args["flags"], "--systemapi")
+	// Ensure that genstub for apex-provided lib is invoked with --apex
+	ensureContains(t, ctx.ModuleForTests("mylib3", "android_arm64_armv8-a_shared_12").Rule("genStubSrc").Args["flags"], "--apex")
 
 	ensureExactContents(t, ctx, "myapex", "android_common_myapex_image", []string{
 		"lib64/mylib.so",
@@ -964,7 +1001,7 @@ func TestApexWithStubs(t *testing.T) {
 	// Ensure that stub dependency from a rust module is not included
 	ensureNotContains(t, copyCmds, "image.apex/lib64/libfoo.shared_from_rust.so")
 	// The rust module is linked to the stub cc library
-	rustDeps := ctx.ModuleForTests("foo.rust", "android_arm64_armv8-a_apex10000").Rule("rustc").Args["linkFlags"]
+	rustDeps := ctx.ModuleForTests("foo.rust", "android_arm64_armv8-a_apex10000").Rule("rustLink").Args["linkFlags"]
 	ensureContains(t, rustDeps, "libfoo.shared_from_rust/android_arm64_armv8-a_shared_current/libfoo.shared_from_rust.so")
 	ensureNotContains(t, rustDeps, "libfoo.shared_from_rust/android_arm64_armv8-a_shared/libfoo.shared_from_rust.so")
 
@@ -1040,7 +1077,7 @@ func TestApexCanUsePrivateApis(t *testing.T) {
 	mylibLdFlags := ctx.ModuleForTests("mylib", "android_arm64_armv8-a_shared_apex10000").Rule("ld").Args["libFlags"]
 	ensureNotContains(t, mylibLdFlags, "mylib2/android_arm64_armv8-a_shared_current/mylib2.so")
 	ensureContains(t, mylibLdFlags, "mylib2/android_arm64_armv8-a_shared/mylib2.so")
-	rustDeps := ctx.ModuleForTests("foo.rust", "android_arm64_armv8-a_apex10000").Rule("rustc").Args["linkFlags"]
+	rustDeps := ctx.ModuleForTests("foo.rust", "android_arm64_armv8-a_apex10000").Rule("rustLink").Args["linkFlags"]
 	ensureNotContains(t, rustDeps, "libfoo.shared_from_rust/android_arm64_armv8-a_shared_current/libfoo.shared_from_rust.so")
 	ensureContains(t, rustDeps, "libfoo.shared_from_rust/android_arm64_armv8-a_shared/libfoo.shared_from_rust.so")
 }
@@ -1134,8 +1171,8 @@ func TestApexWithStubsWithMinSdkVersion(t *testing.T) {
 	mylib2Cflags := ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_shared_29").Rule("cc").Args["cFlags"]
 	ensureNotContains(t, mylib2Cflags, "-include ")
 
-	// Ensure that genstub is invoked with --apex
-	ensureContains(t, "--apex", ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_shared_29").Rule("genStubSrc").Args["flags"])
+	// Ensure that genstub is invoked with --systemapi
+	ensureContains(t, ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_shared_29").Rule("genStubSrc").Args["flags"], "--systemapi")
 
 	ensureExactContents(t, ctx, "myapex", "android_common_myapex_image", []string{
 		"lib64/mylib.so",
@@ -1890,13 +1927,13 @@ func TestApexMinSdkVersion_DefaultsToLatest(t *testing.T) {
 	expectNoLink("libx", "shared_apex10000", "libz", "shared")
 }
 
-func TestApexMinSdkVersion_crtobjectInVendorApex(t *testing.T) {
+func TestApexMinSdkVersion_InVendorApex(t *testing.T) {
 	ctx := testApex(t, `
 		apex {
 			name: "myapex",
 			key: "myapex.key",
 			native_shared_libs: ["mylib"],
-			updatable: false,
+			updatable: true,
 			vendor: true,
 			min_sdk_version: "29",
 		}
@@ -1909,20 +1946,34 @@ func TestApexMinSdkVersion_crtobjectInVendorApex(t *testing.T) {
 
 		cc_library {
 			name: "mylib",
+			srcs: ["mylib.cpp"],
 			vendor_available: true,
-			system_shared_libs: [],
-			stl: "none",
-			apex_available: [ "myapex" ],
 			min_sdk_version: "29",
+			shared_libs: ["libbar"],
+		}
+
+		cc_library {
+			name: "libbar",
+			stubs: { versions: ["29", "30"] },
+			llndk: { symbol_file: "libbar.map.txt" },
 		}
 	`)
 
 	vendorVariant := "android_vendor.29_arm64_armv8-a"
 
-	// First check that the correct variant of crtbegin_so is used.
-	ldRule := ctx.ModuleForTests("mylib", vendorVariant+"_shared_apex29").Rule("ld")
-	crtBegin := names(ldRule.Args["crtBegin"])
-	ensureListContains(t, crtBegin, "out/soong/.intermediates/"+cc.DefaultCcCommonTestModulesDir+"crtbegin_so/"+vendorVariant+"_apex29/crtbegin_so.o")
+	mylib := ctx.ModuleForTests("mylib", vendorVariant+"_shared_myapex")
+
+	// Ensure that mylib links with "current" LLNDK
+	libFlags := names(mylib.Rule("ld").Args["libFlags"])
+	ensureListContains(t, libFlags, "out/soong/.intermediates/libbar/"+vendorVariant+"_shared_current/libbar.so")
+
+	// Ensure that mylib is targeting 29
+	ccRule := ctx.ModuleForTests("mylib", vendorVariant+"_static_apex29").Output("obj/mylib.o")
+	ensureContains(t, ccRule.Args["cFlags"], "-target aarch64-linux-android29")
+
+	// Ensure that the correct variant of crtbegin_so is used.
+	crtBegin := mylib.Rule("ld").Args["crtBegin"]
+	ensureContains(t, crtBegin, "out/soong/.intermediates/"+cc.DefaultCcCommonTestModulesDir+"crtbegin_so/"+vendorVariant+"_apex29/crtbegin_so.o")
 
 	// Ensure that the crtbegin_so used by the APEX is targeting 29
 	cflags := ctx.ModuleForTests("crtbegin_so", vendorVariant+"_apex29").Rule("cc").Args["cFlags"]
@@ -2128,6 +2179,34 @@ func TestApexMinSdkVersion_ErrorIfIncompatibleVersion(t *testing.T) {
 			min_sdk_version: "30",
 		}
 	`)
+
+	// Skip check for modules compiling against core API surface
+	testApex(t, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			java_libs: ["libfoo"],
+			min_sdk_version: "29",
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}
+
+		java_library {
+			name: "libfoo",
+			srcs: ["Foo.java"],
+			apex_available: [
+				"myapex",
+			],
+			// Compile against core API surface
+			sdk_version: "core_current",
+			min_sdk_version: "30",
+		}
+	`)
+
 }
 
 func TestApexMinSdkVersion_Okay(t *testing.T) {
@@ -2186,6 +2265,38 @@ func TestApexMinSdkVersion_Okay(t *testing.T) {
 			jars: ["libbar.jar"],
 			apex_available: ["myapex"],
 			min_sdk_version: "29",
+		}
+	`)
+}
+
+func TestApexMinSdkVersion_MinApiForArch(t *testing.T) {
+	// Tests that an apex dependency with min_sdk_version higher than the
+	// min_sdk_version of the apex is allowed as long as the dependency's
+	// min_sdk_version is less than or equal to the api level that the
+	// architecture was introduced in.  In this case, arm64 didn't exist
+	// until api level 21, so the arm64 code will never need to run on
+	// an api level 20 device, even if other architectures of the apex
+	// will.
+	testApex(t, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			native_shared_libs: ["libfoo"],
+			min_sdk_version: "20",
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}
+
+		cc_library {
+			name: "libfoo",
+			srcs: ["mylib.cpp"],
+			apex_available: ["myapex"],
+			min_sdk_version: "21",
+			stl: "none",
 		}
 	`)
 }
@@ -2964,7 +3075,7 @@ func TestAndroidMk_VendorApexRequired(t *testing.T) {
 	var builder strings.Builder
 	data.Custom(&builder, name, prefix, "", data)
 	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += libc.vendor libm.vendor libdl.vendor\n")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := libc++.vendor.myapex:64 mylib.vendor.myapex:64 apex_manifest.pb.myapex apex_pubkey.myapex libc.vendor libm.vendor libdl.vendor\n")
 }
 
 func TestAndroidMkWritesCommonProperties(t *testing.T) {
@@ -3297,17 +3408,14 @@ func TestMacro(t *testing.T) {
 	// non-APEX variant does not have __ANDROID_APEX__ defined
 	mylibCFlags := ctx.ModuleForTests("mylib", "android_arm64_armv8-a_static").Rule("cc").Args["cFlags"]
 	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX__")
-	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX_MIN_SDK_VERSION__")
 
-	// APEX variant has __ANDROID_APEX__ and __ANDROID_APEX_SDK__ defined
+	// APEX variant has __ANDROID_APEX__ and __ANDROID_APEX__ defined
 	mylibCFlags = ctx.ModuleForTests("mylib", "android_arm64_armv8-a_static_apex10000").Rule("cc").Args["cFlags"]
 	ensureContains(t, mylibCFlags, "-D__ANDROID_APEX__")
-	ensureContains(t, mylibCFlags, "-D__ANDROID_APEX_MIN_SDK_VERSION__=10000")
 
-	// APEX variant has __ANDROID_APEX__ and __ANDROID_APEX_SDK__ defined
+	// APEX variant has __ANDROID_APEX__ and __ANDROID_APEX__ defined
 	mylibCFlags = ctx.ModuleForTests("mylib", "android_arm64_armv8-a_static_apex29").Rule("cc").Args["cFlags"]
 	ensureContains(t, mylibCFlags, "-D__ANDROID_APEX__")
-	ensureContains(t, mylibCFlags, "-D__ANDROID_APEX_MIN_SDK_VERSION__=29")
 
 	// When a cc_library sets use_apex_name_macro: true each apex gets a unique variant and
 	// each variant defines additional macros to distinguish which apex variant it is built for
@@ -3316,19 +3424,17 @@ func TestMacro(t *testing.T) {
 	mylibCFlags = ctx.ModuleForTests("mylib3", "android_arm64_armv8-a_static").Rule("cc").Args["cFlags"]
 	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX__")
 
-	// recovery variant does not set __ANDROID_APEX_MIN_SDK_VERSION__
+	// recovery variant does not set __ANDROID_APEX__
 	mylibCFlags = ctx.ModuleForTests("mylib3", "android_recovery_arm64_armv8-a_static").Rule("cc").Args["cFlags"]
 	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX__")
-	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX_MIN_SDK_VERSION__")
 
 	// non-APEX variant does not have __ANDROID_APEX__ defined
 	mylibCFlags = ctx.ModuleForTests("mylib2", "android_arm64_armv8-a_static").Rule("cc").Args["cFlags"]
 	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX__")
 
-	// recovery variant does not set __ANDROID_APEX_MIN_SDK_VERSION__
+	// recovery variant does not set __ANDROID_APEX__
 	mylibCFlags = ctx.ModuleForTests("mylib2", "android_recovery_arm64_armv8-a_static").Rule("cc").Args["cFlags"]
 	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX__")
-	ensureNotContains(t, mylibCFlags, "-D__ANDROID_APEX_MIN_SDK_VERSION__")
 }
 
 func TestHeaderLibsDependency(t *testing.T) {
@@ -3388,11 +3494,34 @@ type fileInApex struct {
 	isLink bool
 }
 
+func (f fileInApex) String() string {
+	return f.src + ":" + f.path
+}
+
+func (f fileInApex) match(expectation string) bool {
+	parts := strings.Split(expectation, ":")
+	if len(parts) == 1 {
+		match, _ := path.Match(parts[0], f.path)
+		return match
+	}
+	if len(parts) == 2 {
+		matchSrc, _ := path.Match(parts[0], f.src)
+		matchDst, _ := path.Match(parts[1], f.path)
+		return matchSrc && matchDst
+	}
+	panic("invalid expected file specification: " + expectation)
+}
+
 func getFiles(t *testing.T, ctx *android.TestContext, moduleName, variant string) []fileInApex {
 	t.Helper()
-	apexRule := ctx.ModuleForTests(moduleName, variant).Rule("apexRule")
+	module := ctx.ModuleForTests(moduleName, variant)
+	apexRule := module.MaybeRule("apexRule")
+	apexDir := "/image.apex/"
+	if apexRule.Rule == nil {
+		apexRule = module.Rule("zipApexRule")
+		apexDir = "/image.zipapex/"
+	}
 	copyCmds := apexRule.Args["copy_commands"]
-	imageApexDir := "/image.apex/"
 	var ret []fileInApex
 	for _, cmd := range strings.Split(copyCmds, "&&") {
 		cmd = strings.TrimSpace(cmd)
@@ -3423,33 +3552,33 @@ func getFiles(t *testing.T, ctx *android.TestContext, moduleName, variant string
 			t.Fatalf("copyCmds should contain mkdir/cp commands only: %q", cmd)
 		}
 		if dst != "" {
-			index := strings.Index(dst, imageApexDir)
+			index := strings.Index(dst, apexDir)
 			if index == -1 {
-				t.Fatal("copyCmds should copy a file to image.apex/", cmd)
+				t.Fatal("copyCmds should copy a file to "+apexDir, cmd)
 			}
-			dstFile := dst[index+len(imageApexDir):]
+			dstFile := dst[index+len(apexDir):]
 			ret = append(ret, fileInApex{path: dstFile, src: src, isLink: isLink})
 		}
 	}
 	return ret
 }
 
-func ensureExactContents(t *testing.T, ctx *android.TestContext, moduleName, variant string, files []string) {
+func assertFileListEquals(t *testing.T, expectedFiles []string, actualFiles []fileInApex) {
 	t.Helper()
 	var failed bool
 	var surplus []string
 	filesMatched := make(map[string]bool)
-	for _, file := range getFiles(t, ctx, moduleName, variant) {
-		mactchFound := false
-		for _, expected := range files {
-			if matched, _ := path.Match(expected, file.path); matched {
+	for _, file := range actualFiles {
+		matchFound := false
+		for _, expected := range expectedFiles {
+			if file.match(expected) {
+				matchFound = true
 				filesMatched[expected] = true
-				mactchFound = true
 				break
 			}
 		}
-		if !mactchFound {
-			surplus = append(surplus, file.path)
+		if !matchFound {
+			surplus = append(surplus, file.String())
 		}
 	}
 
@@ -3459,9 +3588,9 @@ func ensureExactContents(t *testing.T, ctx *android.TestContext, moduleName, var
 		failed = true
 	}
 
-	if len(files) > len(filesMatched) {
+	if len(expectedFiles) > len(filesMatched) {
 		var missing []string
-		for _, expected := range files {
+		for _, expected := range expectedFiles {
 			if !filesMatched[expected] {
 				missing = append(missing, expected)
 			}
@@ -3473,6 +3602,32 @@ func ensureExactContents(t *testing.T, ctx *android.TestContext, moduleName, var
 	if failed {
 		t.Fail()
 	}
+}
+
+func ensureExactContents(t *testing.T, ctx *android.TestContext, moduleName, variant string, files []string) {
+	assertFileListEquals(t, files, getFiles(t, ctx, moduleName, variant))
+}
+
+func ensureExactDeapexedContents(t *testing.T, ctx *android.TestContext, moduleName string, variant string, files []string) {
+	deapexer := ctx.ModuleForTests(moduleName+".deapexer", variant).Rule("deapexer")
+	outputs := make([]string, 0, len(deapexer.ImplicitOutputs)+1)
+	if deapexer.Output != nil {
+		outputs = append(outputs, deapexer.Output.String())
+	}
+	for _, output := range deapexer.ImplicitOutputs {
+		outputs = append(outputs, output.String())
+	}
+	actualFiles := make([]fileInApex, 0, len(outputs))
+	for _, output := range outputs {
+		dir := "/deapexer/"
+		pos := strings.LastIndex(output, dir)
+		if pos == -1 {
+			t.Fatal("Unknown deapexer output ", output)
+		}
+		path := output[pos+len(dir):]
+		actualFiles = append(actualFiles, fileInApex{path: path, src: "", isLink: false})
+	}
+	assertFileListEquals(t, files, actualFiles)
 }
 
 func TestVndkApexCurrent(t *testing.T) {
@@ -3756,11 +3911,9 @@ func TestVndkApexNameRule(t *testing.T) {
 		}`+vndkLibrariesTxtFiles("28", "current"))
 
 	assertApexName := func(expected, moduleName string) {
-		bundle := ctx.ModuleForTests(moduleName, "android_common_image").Module().(*apexBundle)
-		actual := proptools.String(bundle.properties.Apex_name)
-		if !reflect.DeepEqual(actual, expected) {
-			t.Errorf("Got '%v', expected '%v'", actual, expected)
-		}
+		module := ctx.ModuleForTests(moduleName, "android_common_image")
+		apexManifestRule := module.Rule("apexManifestRule")
+		ensureContains(t, apexManifestRule.Args["opt"], "-v name "+expected)
 	}
 
 	assertApexName("com.android.vndk.v29", "com.android.vndk.current")
@@ -3942,6 +4095,179 @@ func TestVndkApexShouldNotProvideNativeLibs(t *testing.T) {
 	apexManifestRule := ctx.ModuleForTests("com.android.vndk.current", "android_common_image").Rule("apexManifestRule")
 	provideNativeLibs := names(apexManifestRule.Args["provideNativeLibs"])
 	ensureListEmpty(t, provideNativeLibs)
+	ensureExactContents(t, ctx, "com.android.vndk.current", "android_common_image", []string{
+		"out/soong/.intermediates/libz/android_vendor.29_arm64_armv8-a_shared/libz.so:lib64/libz.so",
+		"out/soong/.intermediates/libz/android_vendor.29_arm_armv7-a-neon_shared/libz.so:lib/libz.so",
+		"*/*",
+	})
+}
+
+func TestVendorApexWithVndkPrebuilts(t *testing.T) {
+	ctx := testApex(t, "",
+		android.FixtureModifyProductVariables(func(variables android.FixtureProductVariables) {
+			variables.DeviceVndkVersion = proptools.StringPtr("27")
+		}),
+		android.FixtureRegisterWithContext(func(ctx android.RegistrationContext) {
+			cc.RegisterVendorSnapshotModules(ctx)
+		}),
+		withFiles(map[string][]byte{
+			"vendor/foo/Android.bp": []byte(`
+				apex {
+					name: "myapex",
+					binaries: ["foo"],
+					key: "myapex.key",
+					min_sdk_version: "27",
+					vendor: true,
+				}
+
+				cc_binary {
+					name: "foo",
+					vendor: true,
+					srcs: ["abc.cpp"],
+					shared_libs: [
+						"libllndk",
+						"libvndk",
+					],
+					nocrt: true,
+					system_shared_libs: [],
+					min_sdk_version: "27",
+				}
+
+				apex_key {
+					name: "myapex.key",
+					public_key: "testkey.avbpubkey",
+					private_key: "testkey.pem",
+				}
+			`),
+			// Simulate VNDK prebuilts with vendor_snapshot
+			"prebuilts/vndk/Android.bp": []byte(`
+				vndk_prebuilt_shared {
+					name: "libllndk",
+					version: "27",
+					vendor_available: true,
+					product_available: true,
+					target_arch: "arm64",
+					arch: {
+						arm64: {
+							srcs: ["libllndk.so"],
+						},
+					},
+				}
+
+				vndk_prebuilt_shared {
+					name: "libvndk",
+					version: "27",
+					vendor_available: true,
+					product_available: true,
+					target_arch: "arm64",
+					arch: {
+						arm64: {
+							srcs: ["libvndk.so"],
+						},
+					},
+					vndk: {
+						enabled: true,
+					},
+					min_sdk_version: "27",
+				}
+
+				vndk_prebuilt_shared {
+					name: "libc++",
+					version: "27",
+					target_arch: "arm64",
+					vendor_available: true,
+					product_available: true,
+					vndk: {
+						enabled: true,
+						support_system_process: true,
+					},
+					arch: {
+						arm64: {
+							srcs: ["libc++.so"],
+						},
+					},
+					min_sdk_version: "apex_inherit",
+				}
+
+				vendor_snapshot {
+					name: "vendor_snapshot",
+					version: "27",
+					arch: {
+						arm64: {
+							vndk_libs: [
+								"libc++",
+								"libllndk",
+								"libvndk",
+							],
+							static_libs: [
+								"libc++demangle",
+								"libclang_rt.builtins",
+								"libunwind",
+							],
+						},
+					}
+				}
+
+				vendor_snapshot_static {
+					name: "libclang_rt.builtins",
+					version: "27",
+					target_arch: "arm64",
+					vendor: true,
+					arch: {
+						arm64: {
+							src: "libclang_rt.builtins-aarch64-android.a",
+						},
+					},
+				}
+
+				vendor_snapshot_static {
+					name: "libc++demangle",
+					version: "27",
+					target_arch: "arm64",
+					compile_multilib: "64",
+					vendor: true,
+					arch: {
+						arm64: {
+							src: "libc++demangle.a",
+						},
+					},
+					min_sdk_version: "apex_inherit",
+				}
+
+				vendor_snapshot_static {
+					name: "libunwind",
+					version: "27",
+					target_arch: "arm64",
+					compile_multilib: "64",
+					vendor: true,
+					arch: {
+						arm64: {
+							src: "libunwind.a",
+						},
+					},
+					min_sdk_version: "apex_inherit",
+				}
+			`),
+		}))
+
+	// Should embed the prebuilt VNDK libraries in the apex
+	ensureExactContents(t, ctx, "myapex", "android_common_myapex_image", []string{
+		"bin/foo",
+		"prebuilts/vndk/libc++.so:lib64/libc++.so",
+		"prebuilts/vndk/libvndk.so:lib64/libvndk.so",
+	})
+
+	// Should link foo with prebuilt libraries (shared/static)
+	ldRule := ctx.ModuleForTests("foo", "android_vendor.27_arm64_armv8-a_myapex").Rule("ld")
+	android.AssertStringDoesContain(t, "should link to prebuilt llndk", ldRule.Args["libFlags"], "prebuilts/vndk/libllndk.so")
+	android.AssertStringDoesContain(t, "should link to prebuilt vndk", ldRule.Args["libFlags"], "prebuilts/vndk/libvndk.so")
+	android.AssertStringDoesContain(t, "should link to prebuilt libc++demangle", ldRule.Args["libFlags"], "prebuilts/vndk/libc++demangle.a")
+	android.AssertStringDoesContain(t, "should link to prebuilt libunwind", ldRule.Args["libFlags"], "prebuilts/vndk/libunwind.a")
+
+	// Should declare the LLNDK library as a "required" external dependency
+	manifestRule := ctx.ModuleForTests("myapex", "android_common_myapex_image").Rule("apexManifestRule")
+	requireNativeLibs := names(manifestRule.Args["requireNativeLibs"])
+	ensureListContains(t, requireNativeLibs, "libllndk.so")
 }
 
 func TestDependenciesInApexManifest(t *testing.T) {
@@ -4052,12 +4378,11 @@ func TestDependenciesInApexManifest(t *testing.T) {
 	ensureListEmpty(t, requireNativeLibs)
 }
 
-func TestApexName(t *testing.T) {
+func TestOverrideApexManifestDefaultVersion(t *testing.T) {
 	ctx := testApex(t, `
 		apex {
 			name: "myapex",
 			key: "myapex.key",
-			apex_name: "com.android.myapex",
 			native_shared_libs: ["mylib"],
 			updatable: false,
 		}
@@ -4078,23 +4403,83 @@ func TestApexName(t *testing.T) {
 				"myapex",
 			],
 		}
-	`)
+	`, android.FixtureMergeEnv(map[string]string{
+		"OVERRIDE_APEX_MANIFEST_DEFAULT_VERSION": "1234",
+	}))
 
-	module := ctx.ModuleForTests("myapex", "android_common_com.android.myapex_image")
+	module := ctx.ModuleForTests("myapex", "android_common_myapex_image")
 	apexManifestRule := module.Rule("apexManifestRule")
-	ensureContains(t, apexManifestRule.Args["opt"], "-v name com.android.myapex")
-	apexRule := module.Rule("apexRule")
-	ensureContains(t, apexRule.Args["opt_flags"], "--do_not_check_keyname")
+	ensureContains(t, apexManifestRule.Args["default_version"], "1234")
+}
 
-	apexBundle := module.Module().(*apexBundle)
-	data := android.AndroidMkDataForTest(t, ctx, apexBundle)
-	name := apexBundle.BaseModuleName()
-	prefix := "TARGET_"
-	var builder strings.Builder
-	data.Custom(&builder, name, prefix, "", data)
-	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_MODULE := mylib.myapex\n")
-	ensureNotContains(t, androidMk, "LOCAL_MODULE := mylib.com.android.myapex\n")
+func TestCompileMultilibProp(t *testing.T) {
+	testCases := []struct {
+		compileMultiLibProp string
+		containedLibs       []string
+		notContainedLibs    []string
+	}{
+		{
+			containedLibs: []string{
+				"image.apex/lib64/mylib.so",
+				"image.apex/lib/mylib.so",
+			},
+			compileMultiLibProp: `compile_multilib: "both",`,
+		},
+		{
+			containedLibs:       []string{"image.apex/lib64/mylib.so"},
+			notContainedLibs:    []string{"image.apex/lib/mylib.so"},
+			compileMultiLibProp: `compile_multilib: "first",`,
+		},
+		{
+			containedLibs:    []string{"image.apex/lib64/mylib.so"},
+			notContainedLibs: []string{"image.apex/lib/mylib.so"},
+			// compile_multilib, when unset, should result to the same output as when compile_multilib is "first"
+		},
+		{
+			containedLibs:       []string{"image.apex/lib64/mylib.so"},
+			notContainedLibs:    []string{"image.apex/lib/mylib.so"},
+			compileMultiLibProp: `compile_multilib: "64",`,
+		},
+		{
+			containedLibs:       []string{"image.apex/lib/mylib.so"},
+			notContainedLibs:    []string{"image.apex/lib64/mylib.so"},
+			compileMultiLibProp: `compile_multilib: "32",`,
+		},
+	}
+	for _, testCase := range testCases {
+		ctx := testApex(t, fmt.Sprintf(`
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				%s
+				native_shared_libs: ["mylib"],
+				updatable: false,
+			}
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+			cc_library {
+				name: "mylib",
+				srcs: ["mylib.cpp"],
+				apex_available: [
+					"//apex_available:platform",
+					"myapex",
+			],
+			}
+		`, testCase.compileMultiLibProp),
+		)
+		module := ctx.ModuleForTests("myapex", "android_common_myapex_image")
+		apexRule := module.Rule("apexRule")
+		copyCmds := apexRule.Args["copy_commands"]
+		for _, containedLib := range testCase.containedLibs {
+			ensureContains(t, copyCmds, containedLib)
+		}
+		for _, notContainedLib := range testCase.notContainedLibs {
+			ensureNotContains(t, copyCmds, notContainedLib)
+		}
+	}
 }
 
 func TestNonTestApex(t *testing.T) {
@@ -4296,12 +4681,15 @@ func TestApexWithArch(t *testing.T) {
 			name: "myapex",
 			key: "myapex.key",
 			updatable: false,
+			native_shared_libs: ["mylib.generic"],
 			arch: {
 				arm64: {
 					native_shared_libs: ["mylib.arm64"],
+					exclude_native_shared_libs: ["mylib.generic"],
 				},
 				x86_64: {
 					native_shared_libs: ["mylib.x64"],
+					exclude_native_shared_libs: ["mylib.generic"],
 				},
 			}
 		}
@@ -4310,6 +4698,18 @@ func TestApexWithArch(t *testing.T) {
 			name: "myapex.key",
 			public_key: "testkey.avbpubkey",
 			private_key: "testkey.pem",
+		}
+
+		cc_library {
+			name: "mylib.generic",
+			srcs: ["mylib.cpp"],
+			system_shared_libs: [],
+			stl: "none",
+			// TODO: remove //apex_available:platform
+			apex_available: [
+				"//apex_available:platform",
+				"myapex",
+			],
 		}
 
 		cc_library {
@@ -4342,6 +4742,7 @@ func TestApexWithArch(t *testing.T) {
 
 	// Ensure that apex variant is created for the direct dep
 	ensureListContains(t, ctx.ModuleVariantsForTests("mylib.arm64"), "android_arm64_armv8-a_shared_apex10000")
+	ensureListNotContains(t, ctx.ModuleVariantsForTests("mylib.generic"), "android_arm64_armv8-a_shared_apex10000")
 	ensureListNotContains(t, ctx.ModuleVariantsForTests("mylib.x64"), "android_arm64_armv8-a_shared_apex10000")
 
 	// Ensure that both direct and indirect deps are copied into apex
@@ -4590,6 +4991,9 @@ func TestPrebuilt(t *testing.T) {
 	android.AssertStringEquals(t, "Invalid output", "out/soong/.intermediates/provenance_metadata/myapex/provenance_metadata.textproto", rule.Output.String())
 	android.AssertStringEquals(t, "Invalid args", "myapex", rule.Args["module_name"])
 	android.AssertStringEquals(t, "Invalid args", "/system/apex/myapex.apex", rule.Args["install_path"])
+
+	entries := android.AndroidMkEntriesForTest(t, ctx, testingModule.Module())[0]
+	android.AssertStringEquals(t, "unexpected LOCAL_SOONG_MODULE_TYPE", "prebuilt_apex", entries.EntryMap["LOCAL_SOONG_MODULE_TYPE"][0])
 }
 
 func TestPrebuiltMissingSrc(t *testing.T) {
@@ -5045,7 +5449,16 @@ func TestBootDexJarsFromSourcesAndPrebuilts(t *testing.T) {
 		apex_set {
 			name: "myapex",
 			set: "myapex.apks",
+			exported_java_libs: ["myjavalib"],
 			exported_bootclasspath_fragments: ["my-bootclasspath-fragment"],
+			exported_systemserverclasspath_fragments: ["my-systemserverclasspath-fragment"],
+		}
+
+		java_import {
+			name: "myjavalib",
+			jars: ["myjavalib.jar"],
+			apex_available: ["myapex"],
+			permitted_packages: ["javalib"],
 		}
 
 		prebuilt_bootclasspath_fragment {
@@ -5060,6 +5473,12 @@ func TestBootDexJarsFromSourcesAndPrebuilts(t *testing.T) {
 				filtered_stub_flags: "my-bootclasspath-fragment/filtered-stub-flags.csv",
 				filtered_flags: "my-bootclasspath-fragment/filtered-flags.csv",
 			},
+		}
+
+		prebuilt_systemserverclasspath_fragment {
+			name: "my-systemserverclasspath-fragment",
+			contents: ["libbaz"],
+			apex_available: ["myapex"],
 		}
 
 		java_import {
@@ -5078,6 +5497,16 @@ func TestBootDexJarsFromSourcesAndPrebuilts(t *testing.T) {
 			shared_library: false,
 			permitted_packages: ["bar"],
 		}
+
+		java_sdk_library_import {
+			name: "libbaz",
+			public: {
+				jars: ["libbaz.jar"],
+			},
+			apex_available: ["myapex"],
+			shared_library: false,
+			permitted_packages: ["baz"],
+		}
 	`
 
 		ctx := testDexpreoptWithApexes(t, bp, "", preparer, fragment)
@@ -5090,6 +5519,24 @@ func TestBootDexJarsFromSourcesAndPrebuilts(t *testing.T) {
 			my-bootclasspath-fragment/index.csv
 			out/soong/.intermediates/frameworks/base/boot/platform-bootclasspath/android_common/hiddenapi-monolithic/index-from-classes.csv
 		`)
+
+		myApex := ctx.ModuleForTests("myapex", "android_common_myapex").Module()
+
+		overrideNames := []string{
+			"",
+			"myjavalib.myapex",
+			"libfoo.myapex",
+			"libbar.myapex",
+			"libbaz.myapex",
+		}
+		mkEntries := android.AndroidMkEntriesForTest(t, ctx, myApex)
+		for i, e := range mkEntries {
+			g := e.OverrideName
+			if w := overrideNames[i]; w != g {
+				t.Errorf("Expected override name %q, got %q", w, g)
+			}
+		}
+
 	})
 
 	t.Run("prebuilt with source library preferred", func(t *testing.T) {
@@ -5410,6 +5857,67 @@ func TestBootDexJarsFromSourcesAndPrebuilts(t *testing.T) {
 	})
 }
 
+func TestPrebuiltSkipsSymbols(t *testing.T) {
+	testCases := []struct {
+		name               string
+		usePrebuilt        bool
+		installSymbolFiles bool
+	}{
+		{
+			name:               "Source module build rule doesn't install symbol files",
+			usePrebuilt:        true,
+			installSymbolFiles: false,
+		},
+		{
+			name:               "Source module is installed with symbols",
+			usePrebuilt:        false,
+			installSymbolFiles: true,
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			preferProperty := "prefer: false"
+			if tc.usePrebuilt {
+				preferProperty = "prefer: true"
+			}
+			ctx := testApex(t, `
+				// Source module
+				apex {
+					name: "myapex",
+					binaries: ["foo"],
+					key: "myapex.key",
+					updatable: false,
+				}
+
+				apex_key {
+					name: "myapex.key",
+					public_key: "testkey.avbpubkey",
+					private_key: "testkey.pem",
+				}
+
+				apex_set {
+					name: "myapex",
+					set: "myapex.apks",
+					`+preferProperty+`
+				}
+
+				cc_binary {
+					name: "foo",
+					srcs: ["mylib.cpp"],
+					system_shared_libs: [],
+					stl: "none",
+					apex_available: [ "myapex" ],
+				}
+			`)
+			// Symbol files are installed by installing entries under ${OUT}/apex/{apex name}
+			android.AssertStringListContainsEquals(t, "Installs",
+				ctx.ModuleForTests("myapex", "android_common_myapex_image").Module().FilesToInstall().Strings(),
+				filepath.Join(ctx.Config().SoongOutDir(), "target/product/test_device/apex/myapex/bin/foo"),
+				tc.installSymbolFiles)
+		})
+	}
+}
+
 func TestApexWithTests(t *testing.T) {
 	ctx := testApex(t, `
 		apex_test {
@@ -5540,12 +6048,12 @@ func TestInstallExtraFlattenedApexes(t *testing.T) {
 		}),
 	)
 	ab := ctx.ModuleForTests("myapex", "android_common_myapex_image").Module().(*apexBundle)
-	ensureListContains(t, ab.requiredDeps, "myapex.flattened")
+	ensureListContains(t, ab.makeModulesToInstall, "myapex.flattened")
 	mk := android.AndroidMkDataForTest(t, ctx, ab)
 	var builder strings.Builder
 	mk.Custom(&builder, ab.Name(), "TARGET_", "", mk)
 	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += myapex.flattened")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := apex_manifest.pb.myapex apex_pubkey.myapex myapex.flattened\n")
 }
 
 func TestErrorsIfDepsAreNotEnabled(t *testing.T) {
@@ -5931,7 +6439,7 @@ func TestApexAvailable_DirectDep(t *testing.T) {
 func TestApexAvailable_IndirectDep(t *testing.T) {
 	// libbbaz is an indirect dep
 	testApexError(t, `requires "libbaz" that doesn't list the APEX under 'apex_available'.\n\nDependency path:
-.*via tag apex\.dependencyTag.*name:sharedLib.*
+.*via tag apex\.dependencyTag\{"sharedLib"\}
 .*-> libfoo.*link:shared.*
 .*via tag cc\.libraryDependencyTag.*Kind:sharedLibraryDependency.*
 .*-> libbar.*link:shared.*
@@ -6140,9 +6648,6 @@ func TestOverrideApex(t *testing.T) {
 			apps: ["app"],
 			bpfs: ["bpf"],
 			prebuilts: ["myetc"],
-			bootclasspath_fragments: ["mybootclasspath_fragment"],
-			systemserverclasspath_fragments: ["mysystemserverclasspath_fragment"],
-			java_libs: ["myjava_library"],
 			overrides: ["oldapex"],
 			updatable: false,
 		}
@@ -6151,11 +6656,8 @@ func TestOverrideApex(t *testing.T) {
 			name: "override_myapex",
 			base: "myapex",
 			apps: ["override_app"],
-			bpfs: ["override_bpf"],
+			bpfs: ["overrideBpf"],
 			prebuilts: ["override_myetc"],
-			bootclasspath_fragments: ["override_bootclasspath_fragment"],
-			systemserverclasspath_fragments: ["override_systemserverclasspath_fragment"],
-			java_libs: ["override_java_library"],
 			overrides: ["unknownapex"],
 			logging_parent: "com.foo.bar",
 			package_name: "test.overridden.package",
@@ -6201,8 +6703,8 @@ func TestOverrideApex(t *testing.T) {
 		}
 
 		bpf {
-			name: "override_bpf",
-			srcs: ["override_bpf.c"],
+			name: "overrideBpf",
+			srcs: ["overrideBpf.c"],
 		}
 
 		prebuilt_etc {
@@ -6213,72 +6715,6 @@ func TestOverrideApex(t *testing.T) {
 		prebuilt_etc {
 			name: "override_myetc",
 			src: "override_myprebuilt",
-		}
-
-		java_library {
-			name: "bcplib",
-			srcs: ["a.java"],
-			compile_dex: true,
-			apex_available: ["myapex"],
-			permitted_packages: ["bcp.lib"],
-		}
-
-		bootclasspath_fragment {
-			name: "mybootclasspath_fragment",
-			contents: ["bcplib"],
-			apex_available: ["myapex"],
-		}
-
-		java_library {
-			name: "override_bcplib",
-			srcs: ["a.java"],
-			compile_dex: true,
-			apex_available: ["myapex"],
-			permitted_packages: ["override.bcp.lib"],
-		}
-
-		bootclasspath_fragment {
-			name: "override_bootclasspath_fragment",
-			contents: ["override_bcplib"],
-			apex_available: ["myapex"],
-		}
-
-		java_library {
-			name: "systemserverlib",
-			srcs: ["a.java"],
-			apex_available: ["myapex"],
-		}
-
-		systemserverclasspath_fragment {
-			name: "mysystemserverclasspath_fragment",
-			standalone_contents: ["systemserverlib"],
-			apex_available: ["myapex"],
-		}
-
-		java_library {
-			name: "override_systemserverlib",
-			srcs: ["a.java"],
-			apex_available: ["myapex"],
-		}
-
-		systemserverclasspath_fragment {
-			name: "override_systemserverclasspath_fragment",
-			standalone_contents: ["override_systemserverlib"],
-			apex_available: ["myapex"],
-		}
-
-		java_library {
-			name: "myjava_library",
-			srcs: ["a.java"],
-			compile_dex: true,
-			apex_available: ["myapex"],
-		}
-
-		java_library {
-			name: "override_java_library",
-			srcs: ["a.java"],
-			compile_dex: true,
-			apex_available: ["myapex"],
 		}
 	`, withManifestPackageNameOverrides([]string{"myapex:com.android.myapex"}))
 
@@ -6299,7 +6735,7 @@ func TestOverrideApex(t *testing.T) {
 	ensureContains(t, copyCmds, "image.apex/app/override_app@TEST.BUILD_ID/override_app.apk")
 
 	ensureNotContains(t, copyCmds, "image.apex/etc/bpf/bpf.o")
-	ensureContains(t, copyCmds, "image.apex/etc/bpf/override_bpf.o")
+	ensureContains(t, copyCmds, "image.apex/etc/bpf/overrideBpf.o")
 
 	ensureNotContains(t, copyCmds, "image.apex/etc/myetc")
 	ensureContains(t, copyCmds, "image.apex/etc/override_myetc")
@@ -6314,13 +6750,6 @@ func TestOverrideApex(t *testing.T) {
 		t.Errorf("override_myapex should have logging parent (com.foo.bar), but was %q.", apexBundle.overridableProperties.Logging_parent)
 	}
 
-	android.AssertArrayString(t, "Bootclasspath_fragments does not match",
-		[]string{"override_bootclasspath_fragment"}, apexBundle.overridableProperties.Bootclasspath_fragments)
-	android.AssertArrayString(t, "Systemserverclasspath_fragments does not match",
-		[]string{"override_systemserverclasspath_fragment"}, apexBundle.overridableProperties.Systemserverclasspath_fragments)
-	android.AssertArrayString(t, "Java_libs does not match",
-		[]string{"override_java_library"}, apexBundle.overridableProperties.Java_libs)
-
 	optFlags := apexRule.Args["opt_flags"]
 	ensureContains(t, optFlags, "--override_apk_package_name test.overridden.package")
 	ensureContains(t, optFlags, "--pubkey testkey2.avbpubkey")
@@ -6333,20 +6762,14 @@ func TestOverrideApex(t *testing.T) {
 	data.Custom(&builder, name, "TARGET_", "", data)
 	androidMk := builder.String()
 	ensureContains(t, androidMk, "LOCAL_MODULE := override_app.override_myapex")
-	ensureContains(t, androidMk, "LOCAL_MODULE := override_bpf.o.override_myapex")
+	ensureContains(t, androidMk, "LOCAL_MODULE := overrideBpf.o.override_myapex")
 	ensureContains(t, androidMk, "LOCAL_MODULE := apex_manifest.pb.override_myapex")
-	ensureContains(t, androidMk, "LOCAL_MODULE := override_bcplib.override_myapex")
-	ensureContains(t, androidMk, "LOCAL_MODULE := override_systemserverlib.override_myapex")
-	ensureContains(t, androidMk, "LOCAL_MODULE := override_java_library.override_myapex")
 	ensureContains(t, androidMk, "LOCAL_MODULE_STEM := override_myapex.apex")
 	ensureContains(t, androidMk, "LOCAL_OVERRIDES_MODULES := unknownapex myapex")
 	ensureNotContains(t, androidMk, "LOCAL_MODULE := app.myapex")
 	ensureNotContains(t, androidMk, "LOCAL_MODULE := bpf.myapex")
 	ensureNotContains(t, androidMk, "LOCAL_MODULE := override_app.myapex")
 	ensureNotContains(t, androidMk, "LOCAL_MODULE := apex_manifest.pb.myapex")
-	ensureNotContains(t, androidMk, "LOCAL_MODULE := override_bcplib.myapex")
-	ensureNotContains(t, androidMk, "LOCAL_MODULE := override_systemserverlib.myapex")
-	ensureNotContains(t, androidMk, "LOCAL_MODULE := override_java_library.pb.myapex")
 	ensureNotContains(t, androidMk, "LOCAL_MODULE_STEM := myapex.apex")
 }
 
@@ -6833,6 +7256,42 @@ func TestCompatConfig(t *testing.T) {
 	})
 }
 
+func TestNoDupeApexFiles(t *testing.T) {
+	android.GroupFixturePreparers(
+		android.PrepareForTestWithAndroidBuildComponents,
+		PrepareForTestWithApexBuildComponents,
+		prepareForTestWithMyapex,
+		prebuilt_etc.PrepareForTestWithPrebuiltEtc,
+	).
+		ExtendWithErrorHandler(android.FixtureExpectsAtLeastOneErrorMatchingPattern("is provided by two different files")).
+		RunTestWithBp(t, `
+			apex {
+				name: "myapex",
+				key: "myapex.key",
+				prebuilts: ["foo", "bar"],
+				updatable: false,
+			}
+
+			apex_key {
+				name: "myapex.key",
+				public_key: "testkey.avbpubkey",
+				private_key: "testkey.pem",
+			}
+
+			prebuilt_etc {
+				name: "foo",
+				src: "myprebuilt",
+				filename_from_src: true,
+			}
+
+			prebuilt_etc {
+				name: "bar",
+				src: "myprebuilt",
+				filename_from_src: true,
+			}
+		`)
+}
+
 func TestRejectNonInstallableJavaLibrary(t *testing.T) {
 	testApexError(t, `"myjar" is not configured to be compiled into dex`, `
 		apex {
@@ -6893,9 +7352,9 @@ func TestCarryRequiredModuleNames(t *testing.T) {
 	var builder strings.Builder
 	data.Custom(&builder, name, prefix, "", data)
 	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += a b\n")
-	ensureContains(t, androidMk, "LOCAL_HOST_REQUIRED_MODULES += c d\n")
-	ensureContains(t, androidMk, "LOCAL_TARGET_REQUIRED_MODULES += e f\n")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := mylib.myapex:64 apex_manifest.pb.myapex apex_pubkey.myapex a b\n")
+	ensureContains(t, androidMk, "LOCAL_HOST_REQUIRED_MODULES := c d\n")
+	ensureContains(t, androidMk, "LOCAL_TARGET_REQUIRED_MODULES := e f\n")
 }
 
 func TestSymlinksFromApexToSystem(t *testing.T) {
@@ -6914,7 +7373,7 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 			native_shared_libs: ["mylib"],
 			java_libs: ["myjar"],
 			updatable: true,
-			min_sdk_version: "current",
+			min_sdk_version: "33",
 		}
 
 		apex_key {
@@ -6926,7 +7385,10 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 		cc_library {
 			name: "mylib",
 			srcs: ["mylib.cpp"],
-			shared_libs: ["myotherlib"],
+			shared_libs: [
+				"myotherlib",
+				"myotherlib_ext",
+			],
 			system_shared_libs: [],
 			stl: "none",
 			apex_available: [
@@ -6934,7 +7396,7 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 				"myapex.updatable",
 				"//apex_available:platform",
 			],
-			min_sdk_version: "current",
+			min_sdk_version: "33",
 		}
 
 		cc_library {
@@ -6947,7 +7409,21 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 				"myapex.updatable",
 				"//apex_available:platform",
 			],
-			min_sdk_version: "current",
+			min_sdk_version: "33",
+		}
+
+		cc_library {
+			name: "myotherlib_ext",
+			srcs: ["mylib.cpp"],
+			system_shared_libs: [],
+			system_ext_specific: true,
+			stl: "none",
+			apex_available: [
+				"myapex",
+				"myapex.updatable",
+				"//apex_available:platform",
+			],
+			min_sdk_version: "33",
 		}
 
 		java_library {
@@ -6961,7 +7437,7 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 				"myapex.updatable",
 				"//apex_available:platform",
 			],
-			min_sdk_version: "current",
+			min_sdk_version: "33",
 		}
 
 		java_library {
@@ -6974,7 +7450,7 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 				"myapex.updatable",
 				"//apex_available:platform",
 			],
-			min_sdk_version: "current",
+			min_sdk_version: "33",
 		}
 	`
 
@@ -6990,11 +7466,14 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 		t.Errorf("%q is not found", file)
 	}
 
-	ensureSymlinkExists := func(t *testing.T, files []fileInApex, file string) {
+	ensureSymlinkExists := func(t *testing.T, files []fileInApex, file string, target string) {
 		for _, f := range files {
 			if f.path == file {
 				if !f.isLink {
 					t.Errorf("%q is not a symlink", file)
+				}
+				if f.src != target {
+					t.Errorf("expected symlink target to be %q, got %q", target, f.src)
 				}
 				return
 			}
@@ -7009,23 +7488,27 @@ func TestSymlinksFromApexToSystem(t *testing.T) {
 	ensureRealfileExists(t, files, "javalib/myjar.jar")
 	ensureRealfileExists(t, files, "lib64/mylib.so")
 	ensureRealfileExists(t, files, "lib64/myotherlib.so")
+	ensureRealfileExists(t, files, "lib64/myotherlib_ext.so")
 
 	files = getFiles(t, ctx, "myapex.updatable", "android_common_myapex.updatable_image")
 	ensureRealfileExists(t, files, "javalib/myjar.jar")
 	ensureRealfileExists(t, files, "lib64/mylib.so")
 	ensureRealfileExists(t, files, "lib64/myotherlib.so")
+	ensureRealfileExists(t, files, "lib64/myotherlib_ext.so")
 
 	// For bundled build, symlink to the system for the non-updatable APEXes only
 	ctx = testApex(t, bp)
 	files = getFiles(t, ctx, "myapex", "android_common_myapex_image")
 	ensureRealfileExists(t, files, "javalib/myjar.jar")
 	ensureRealfileExists(t, files, "lib64/mylib.so")
-	ensureSymlinkExists(t, files, "lib64/myotherlib.so") // this is symlink
+	ensureSymlinkExists(t, files, "lib64/myotherlib.so", "/system/lib64/myotherlib.so")             // this is symlink
+	ensureSymlinkExists(t, files, "lib64/myotherlib_ext.so", "/system_ext/lib64/myotherlib_ext.so") // this is symlink
 
 	files = getFiles(t, ctx, "myapex.updatable", "android_common_myapex.updatable_image")
 	ensureRealfileExists(t, files, "javalib/myjar.jar")
 	ensureRealfileExists(t, files, "lib64/mylib.so")
-	ensureRealfileExists(t, files, "lib64/myotherlib.so") // this is a real file
+	ensureRealfileExists(t, files, "lib64/myotherlib.so")     // this is a real file
+	ensureRealfileExists(t, files, "lib64/myotherlib_ext.so") // this is a real file
 }
 
 func TestSymlinksFromApexToSystemRequiredModuleNames(t *testing.T) {
@@ -7077,7 +7560,7 @@ func TestSymlinksFromApexToSystemRequiredModuleNames(t *testing.T) {
 	ensureNotContains(t, androidMk, "LOCAL_MODULE := prebuilt_myotherlib.myapex\n")
 	ensureNotContains(t, androidMk, "LOCAL_MODULE := myotherlib.myapex\n")
 	// `myapex` should have `myotherlib` in its required line, not `prebuilt_myotherlib`
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += mylib.myapex:64 myotherlib:64 apex_manifest.pb.myapex apex_pubkey.myapex\n")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := mylib.myapex:64 myotherlib:64 apex_manifest.pb.myapex apex_pubkey.myapex\n")
 }
 
 func TestApexWithJniLibs(t *testing.T) {
@@ -7228,12 +7711,18 @@ func TestAppSetBundle(t *testing.T) {
 	ensureContains(t, content, `"compression":{"uncompressed_glob":["apex_payload.img","apex_manifest.*"]}`)
 	s := mod.Rule("apexRule").Args["copy_commands"]
 	copyCmds := regexp.MustCompile(" *&& *").Split(s, -1)
-	if len(copyCmds) != 3 {
-		t.Fatalf("Expected 3 commands, got %d in:\n%s", len(copyCmds), s)
+	if len(copyCmds) != 4 {
+		t.Fatalf("Expected 4 commands, got %d in:\n%s", len(copyCmds), s)
 	}
 	ensureMatches(t, copyCmds[0], "^rm -rf .*/app/AppSet@TEST.BUILD_ID$")
 	ensureMatches(t, copyCmds[1], "^mkdir -p .*/app/AppSet@TEST.BUILD_ID$")
-	ensureMatches(t, copyCmds[2], "^unzip .*-d .*/app/AppSet@TEST.BUILD_ID .*/AppSet.zip$")
+	ensureMatches(t, copyCmds[2], "^cp -f .*/app/AppSet@TEST.BUILD_ID/AppSet.apk$")
+	ensureMatches(t, copyCmds[3], "^unzip .*-d .*/app/AppSet@TEST.BUILD_ID .*/AppSet.zip$")
+
+	// Ensure that canned_fs_config has an entry for the app set zip file
+	generateFsRule := mod.Rule("generateFsConfig")
+	cmd := generateFsRule.RuleParams.Command
+	ensureContains(t, cmd, "AppSet.zip")
 }
 
 func TestAppSetBundlePrebuilt(t *testing.T) {
@@ -7264,6 +7753,28 @@ func TestAppSetBundlePrebuilt(t *testing.T) {
 	android.AssertStringEquals(t, "myapex input", extractorOutput, copiedApex.Input.String())
 }
 
+func TestApexSetApksModuleAssignment(t *testing.T) {
+	ctx := testApex(t, `
+		apex_set {
+			name: "myapex",
+			set: ":myapex_apks_file",
+		}
+
+		filegroup {
+			name: "myapex_apks_file",
+			srcs: ["myapex.apks"],
+		}
+	`)
+
+	m := ctx.ModuleForTests("myapex.apex.extractor", "android_common")
+
+	// Check that the extractor produces the correct apks file from the input module
+	extractorOutput := "out/soong/.intermediates/myapex.apex.extractor/android_common/extracted/myapex.apks"
+	extractedApex := m.Output(extractorOutput)
+
+	android.AssertArrayString(t, "extractor input", []string{"myapex.apks"}, extractedApex.Inputs.Strings())
+}
+
 func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer android.FixturePreparer, fragments ...java.ApexVariantReference) {
 	t.Helper()
 
@@ -7276,6 +7787,7 @@ func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer androi
 				"some-updatable-apex",
 			],
 			permitted_packages: ["some.updatable.apex.lib"],
+			min_sdk_version: "33",
 		}
 
 		java_library {
@@ -7294,6 +7806,9 @@ func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer androi
 			apex_available: [
 				"some-non-updatable-apex",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		java_library {
@@ -7312,6 +7827,7 @@ func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer androi
 			],
 			hostdex: true,
 			compile_dex: true,
+			min_sdk_version: "33",
 		}
 
 		apex {
@@ -7319,7 +7835,7 @@ func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer androi
 			key: "some-updatable-apex.key",
 			java_libs: ["some-updatable-apex-lib"],
 			updatable: true,
-			min_sdk_version: "current",
+			min_sdk_version: "33",
 		}
 
 		apex {
@@ -7342,7 +7858,7 @@ func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer androi
 			key: "com.android.art.debug.key",
 			bootclasspath_fragments: ["art-bootclasspath-fragment"],
 			updatable: true,
-			min_sdk_version: "current",
+			min_sdk_version: "33",
 		}
 
 		bootclasspath_fragment {
@@ -7352,6 +7868,9 @@ func testNoUpdatableJarsInBootImage(t *testing.T, errmsg string, preparer androi
 			apex_available: [
 				"com.android.art.debug",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		apex_key {
@@ -7629,13 +8148,50 @@ func TestUpdatableDefault_should_set_min_sdk_version(t *testing.T) {
 	`)
 }
 
-func TestUpdatable_cannot_be_vendor_apex(t *testing.T) {
-	testApexError(t, `"myapex" .*: updatable: vendor APEXes are not updatable`, `
+func Test_use_vndk_as_stable_shouldnt_be_used_for_updatable_vendor_apexes(t *testing.T) {
+	testApexError(t, `"myapex" .*: use_vndk_as_stable: updatable APEXes can't use external VNDK libs`, `
 		apex {
 			name: "myapex",
 			key: "myapex.key",
 			updatable: true,
+			use_vndk_as_stable: true,
 			soc_specific: true,
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}
+	`)
+}
+
+func Test_use_vndk_as_stable_shouldnt_be_used_with_min_sdk_version(t *testing.T) {
+	testApexError(t, `"myapex" .*: use_vndk_as_stable: not supported when min_sdk_version is set`, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			updatable: false,
+			min_sdk_version: "29",
+			use_vndk_as_stable: true,
+			vendor: true,
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}
+	`)
+}
+
+func Test_use_vndk_as_stable_shouldnt_be_used_for_non_vendor_apexes(t *testing.T) {
+	testApexError(t, `"myapex" .*: use_vndk_as_stable: not supported for system/system_ext APEXes`, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			updatable: false,
+			use_vndk_as_stable: true,
 		}
 
 		apex_key {
@@ -7733,8 +8289,8 @@ func TestNoUpdatableJarsInBootImage(t *testing.T) {
 		testNoUpdatableJarsInBootImage(t, "", preparer, fragments...)
 	})
 
-	t.Run("updatable jar from ART apex in the framework boot image => error", func(t *testing.T) {
-		err := `module "some-art-lib" from updatable apexes \["com.android.art.debug"\] is not allowed in the framework boot image`
+	t.Run("updatable jar from ART apex in the platform bootclasspath => error", func(t *testing.T) {
+		err := `module "some-art-lib" from updatable apexes \["com.android.art.debug"\] is not allowed in the platform bootclasspath`
 		// Update the dexpreopt BootJars directly.
 		preparer := android.GroupFixturePreparers(
 			prepareSetBootJars("com.android.art.debug:some-art-lib"),
@@ -7757,8 +8313,8 @@ func TestNoUpdatableJarsInBootImage(t *testing.T) {
 		testNoUpdatableJarsInBootImage(t, err, preparer)
 	})
 
-	t.Run("updatable jar from some other apex in the framework boot image => error", func(t *testing.T) {
-		err := `module "some-updatable-apex-lib" from updatable apexes \["some-updatable-apex"\] is not allowed in the framework boot image`
+	t.Run("updatable jar from some other apex in the platform bootclasspath => error", func(t *testing.T) {
+		err := `module "some-updatable-apex-lib" from updatable apexes \["some-updatable-apex"\] is not allowed in the platform bootclasspath`
 		preparer := android.GroupFixturePreparers(
 			java.FixtureConfigureBootJars("some-updatable-apex:some-updatable-apex-lib"),
 			java.FixtureConfigureApexBootJars("some-non-updatable-apex:some-non-updatable-apex-lib"),
@@ -7766,7 +8322,7 @@ func TestNoUpdatableJarsInBootImage(t *testing.T) {
 		testNoUpdatableJarsInBootImage(t, err, preparer)
 	})
 
-	t.Run("non-updatable jar from some other apex in the framework boot image => ok", func(t *testing.T) {
+	t.Run("non-updatable jar from some other apex in the platform bootclasspath => ok", func(t *testing.T) {
 		preparer := java.FixtureConfigureApexBootJars("some-non-updatable-apex:some-non-updatable-apex-lib")
 		fragment := java.ApexVariantReference{
 			Apex:   proptools.StringPtr("some-non-updatable-apex"),
@@ -7781,7 +8337,7 @@ func TestNoUpdatableJarsInBootImage(t *testing.T) {
 		testNoUpdatableJarsInBootImage(t, err, preparer)
 	})
 
-	t.Run("nonexistent jar in the framework boot image => error", func(t *testing.T) {
+	t.Run("nonexistent jar in the platform bootclasspath => error", func(t *testing.T) {
 		err := `"platform-bootclasspath" depends on undefined module "nonexistent"`
 		preparer := java.FixtureConfigureBootJars("platform:nonexistent")
 		testNoUpdatableJarsInBootImage(t, err, preparer)
@@ -7794,7 +8350,7 @@ func TestNoUpdatableJarsInBootImage(t *testing.T) {
 		testNoUpdatableJarsInBootImage(t, err, preparer)
 	})
 
-	t.Run("platform jar in the framework boot image => ok", func(t *testing.T) {
+	t.Run("platform jar in the platform bootclasspath => ok", func(t *testing.T) {
 		preparer := android.GroupFixturePreparers(
 			java.FixtureConfigureBootJars("platform:some-platform-lib"),
 			java.FixtureConfigureApexBootJars("some-non-updatable-apex:some-non-updatable-apex-lib"),
@@ -8254,6 +8810,30 @@ func TestApexSet(t *testing.T) {
 	}
 }
 
+func TestApexSet_NativeBridge(t *testing.T) {
+	ctx := testApex(t, `
+		apex_set {
+			name: "myapex",
+			set: "myapex.apks",
+			filename: "foo_v2.apex",
+			overrides: ["foo"],
+		}
+	`,
+		android.FixtureModifyConfig(func(config android.Config) {
+			config.Targets[android.Android] = []android.Target{
+				{Os: android.Android, Arch: android.Arch{ArchType: android.X86_64, ArchVariant: "", Abi: []string{"x86_64"}}},
+				{Os: android.Android, Arch: android.Arch{ArchType: android.Arm64, ArchVariant: "armv8-a", Abi: []string{"arm64-v8a"}}, NativeBridge: android.NativeBridgeEnabled},
+			}
+		}),
+	)
+
+	m := ctx.ModuleForTests("myapex.apex.extractor", "android_common")
+
+	// Check extract_apks tool parameters. No native bridge arch expected
+	extractedApex := m.Output("extracted/myapex.apks")
+	android.AssertStringEquals(t, "abis", "X86_64", extractedApex.Args["abis"])
+}
+
 func TestNoStaticLinkingToStubsLib(t *testing.T) {
 	testApexError(t, `.*required by "mylib" is a native library providing stub.*`, `
 		apex {
@@ -8532,7 +9112,7 @@ func TestPreferredPrebuiltSharedLibDep(t *testing.T) {
 
 	// The make level dependency needs to be on otherlib - prebuilt_otherlib isn't
 	// a thing there.
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += otherlib\n")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := libc++:64 mylib.myapex:64 apex_manifest.pb.myapex apex_pubkey.myapex otherlib\n")
 }
 
 func TestExcludeDependency(t *testing.T) {
@@ -8796,6 +9376,9 @@ func TestApexJavaCoverage(t *testing.T) {
 			name: "mybootclasspathfragment",
 			contents: ["mybootclasspathlib"],
 			apex_available: ["myapex"],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		java_library {
@@ -8827,9 +9410,7 @@ func TestApexJavaCoverage(t *testing.T) {
 		android.FixtureWithRootAndroidBp(bp),
 		dexpreopt.FixtureSetApexBootJars("myapex:mybootclasspathlib"),
 		dexpreopt.FixtureSetApexSystemServerJars("myapex:mysystemserverclasspathlib"),
-		android.FixtureMergeEnv(map[string]string{
-			"EMMA_INSTRUMENT": "true",
-		}),
+		java.PrepareForTestWithJacocoInstrumentation,
 	).RunTest(t)
 
 	// Make sure jacoco ran on both mylib and mybootclasspathlib
@@ -8925,7 +9506,7 @@ func TestAndroidMk_DexpreoptBuiltInstalledForApex(t *testing.T) {
 	var builder strings.Builder
 	data.Custom(&builder, apexBundle.BaseModuleName(), "TARGET_", "", data)
 	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += foo-dexpreopt-arm64-apex@myapex@javalib@foo.jar@classes.odex foo-dexpreopt-arm64-apex@myapex@javalib@foo.jar@classes.vdex")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := foo.myapex apex_manifest.pb.myapex apex_pubkey.myapex foo-dexpreopt-arm64-apex@myapex@javalib@foo.jar@classes.odex foo-dexpreopt-arm64-apex@myapex@javalib@foo.jar@classes.vdex\n")
 }
 
 func TestAndroidMk_DexpreoptBuiltInstalledForApex_Prebuilt(t *testing.T) {
@@ -9001,7 +9582,7 @@ func TestAndroidMk_RequiredModules(t *testing.T) {
 	var builder strings.Builder
 	data.Custom(&builder, apexBundle.BaseModuleName(), "TARGET_", "", data)
 	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += otherapex")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := foo.myapex apex_manifest.pb.myapex apex_pubkey.myapex otherapex")
 }
 
 func TestAndroidMk_RequiredDeps(t *testing.T) {
@@ -9020,20 +9601,20 @@ func TestAndroidMk_RequiredDeps(t *testing.T) {
 	`)
 
 	bundle := ctx.ModuleForTests("myapex", "android_common_myapex_image").Module().(*apexBundle)
-	bundle.requiredDeps = append(bundle.requiredDeps, "foo")
+	bundle.makeModulesToInstall = append(bundle.makeModulesToInstall, "foo")
 	data := android.AndroidMkDataForTest(t, ctx, bundle)
 	var builder strings.Builder
 	data.Custom(&builder, bundle.BaseModuleName(), "TARGET_", "", data)
 	androidMk := builder.String()
-	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES += foo")
+	ensureContains(t, androidMk, "LOCAL_REQUIRED_MODULES := apex_manifest.pb.myapex apex_pubkey.myapex foo\n")
 
 	flattenedBundle := ctx.ModuleForTests("myapex", "android_common_myapex_flattened").Module().(*apexBundle)
-	flattenedBundle.requiredDeps = append(flattenedBundle.requiredDeps, "foo")
+	flattenedBundle.makeModulesToInstall = append(flattenedBundle.makeModulesToInstall, "foo")
 	flattenedData := android.AndroidMkDataForTest(t, ctx, flattenedBundle)
 	var flattenedBuilder strings.Builder
 	flattenedData.Custom(&flattenedBuilder, flattenedBundle.BaseModuleName(), "TARGET_", "", flattenedData)
 	flattenedAndroidMk := flattenedBuilder.String()
-	ensureContains(t, flattenedAndroidMk, "LOCAL_REQUIRED_MODULES += foo")
+	ensureContains(t, flattenedAndroidMk, "LOCAL_REQUIRED_MODULES := apex_manifest.pb.myapex.flattened apex_pubkey.myapex.flattened foo\n")
 }
 
 func TestApexOutputFileProducer(t *testing.T) {
@@ -9116,6 +9697,9 @@ func TestSdkLibraryCanHaveHigherMinSdkVersion(t *testing.T) {
 				name: "mybootclasspathfragment",
 				contents: ["mybootclasspathlib"],
 				apex_available: ["myapex"],
+				hidden_api: {
+					split_packages: ["*"],
+				},
 			}
 
 			java_sdk_library {
@@ -9216,6 +9800,9 @@ func TestSdkLibraryCanHaveHigherMinSdkVersion(t *testing.T) {
 					name: "mybootclasspathfragment",
 					contents: ["mybootclasspathlib"],
 					apex_available: ["myapex"],
+					hidden_api: {
+						split_packages: ["*"],
+					},
 				}
 
 				java_sdk_library {
@@ -9266,7 +9853,7 @@ func TestSdkLibraryCanHaveHigherMinSdkVersion(t *testing.T) {
 func ensureContainsRequiredDeps(t *testing.T, ctx *android.TestContext, moduleName, variant string, deps []string) {
 	a := ctx.ModuleForTests(moduleName, variant).Module().(*apexBundle)
 	for _, dep := range deps {
-		android.AssertStringListContains(t, "", a.requiredDeps, dep)
+		android.AssertStringListContains(t, "", a.makeModulesToInstall, dep)
 	}
 }
 
@@ -9274,188 +9861,192 @@ func ensureContainsRequiredDeps(t *testing.T, ctx *android.TestContext, moduleNa
 func ensureDoesNotContainRequiredDeps(t *testing.T, ctx *android.TestContext, moduleName, variant string, deps []string) {
 	a := ctx.ModuleForTests(moduleName, variant).Module().(*apexBundle)
 	for _, dep := range deps {
-		android.AssertStringListDoesNotContain(t, "", a.requiredDeps, dep)
+		android.AssertStringListDoesNotContain(t, "", a.makeModulesToInstall, dep)
 	}
 }
 
-func TestApexStrictUpdtabilityLint(t *testing.T) {
-	bpTemplate := `
-		apex {
-			name: "myapex",
-			key: "myapex.key",
-			java_libs: ["myjavalib"],
-			updatable: %v,
-			min_sdk_version: "29",
-		}
-		apex_key {
-			name: "myapex.key",
-		}
-		java_library {
-			name: "myjavalib",
-			srcs: ["MyClass.java"],
-			apex_available: [ "myapex" ],
-			lint: {
-				strict_updatability_linting: %v,
-			},
-			sdk_version: "current",
-			min_sdk_version: "29",
-		}
-		`
-	fs := android.MockFS{
-		"lint-baseline.xml": nil,
-	}
-
-	testCases := []struct {
-		testCaseName              string
-		apexUpdatable             bool
-		javaStrictUpdtabilityLint bool
-		lintFileExists            bool
-		disallowedFlagExpected    bool
-	}{
-		{
-			testCaseName:              "lint-baseline.xml does not exist, no disallowed flag necessary in lint cmd",
-			apexUpdatable:             true,
-			javaStrictUpdtabilityLint: true,
-			lintFileExists:            false,
-			disallowedFlagExpected:    false,
-		},
-		{
-			testCaseName:              "non-updatable apex respects strict_updatability of javalib",
-			apexUpdatable:             false,
-			javaStrictUpdtabilityLint: false,
-			lintFileExists:            true,
-			disallowedFlagExpected:    false,
-		},
-		{
-			testCaseName:              "non-updatable apex respects strict updatability of javalib",
-			apexUpdatable:             false,
-			javaStrictUpdtabilityLint: true,
-			lintFileExists:            true,
-			disallowedFlagExpected:    true,
-		},
-		{
-			testCaseName:              "updatable apex sets strict updatability of javalib to true",
-			apexUpdatable:             true,
-			javaStrictUpdtabilityLint: false, // will be set to true by mutator
-			lintFileExists:            true,
-			disallowedFlagExpected:    true,
-		},
-	}
-
-	for _, testCase := range testCases {
-		bp := fmt.Sprintf(bpTemplate, testCase.apexUpdatable, testCase.javaStrictUpdtabilityLint)
-		fixtures := []android.FixturePreparer{}
-		if testCase.lintFileExists {
-			fixtures = append(fixtures, fs.AddToFixture())
-		}
-
-		result := testApex(t, bp, fixtures...)
-		myjavalib := result.ModuleForTests("myjavalib", "android_common_apex29")
-		sboxProto := android.RuleBuilderSboxProtoForTests(t, myjavalib.Output("lint.sbox.textproto"))
-		disallowedFlagActual := strings.Contains(*sboxProto.Commands[0].Command, "--baseline lint-baseline.xml --disallowed_issues NewApi")
-
-		if disallowedFlagActual != testCase.disallowedFlagExpected {
-			t.Errorf("Failed testcase: %v \nActual lint cmd: %v", testCase.testCaseName, *sboxProto.Commands[0].Command)
-		}
-	}
-}
-
-func TestUpdatabilityLintSkipLibcore(t *testing.T) {
-	bp := `
-		apex {
-			name: "myapex",
-			key: "myapex.key",
-			java_libs: ["myjavalib"],
-			updatable: true,
-			min_sdk_version: "29",
-		}
-		apex_key {
-			name: "myapex.key",
-		}
-		java_library {
-			name: "myjavalib",
-			srcs: ["MyClass.java"],
-			apex_available: [ "myapex" ],
-			sdk_version: "current",
-			min_sdk_version: "29",
-		}
-		`
-
-	testCases := []struct {
-		testCaseName           string
-		moduleDirectory        string
-		disallowedFlagExpected bool
-	}{
-		{
-			testCaseName:           "lintable module defined outside libcore",
-			moduleDirectory:        "",
-			disallowedFlagExpected: true,
-		},
-		{
-			testCaseName:           "lintable module defined in libcore root directory",
-			moduleDirectory:        "libcore/",
-			disallowedFlagExpected: false,
-		},
-		{
-			testCaseName:           "lintable module defined in libcore child directory",
-			moduleDirectory:        "libcore/childdir/",
-			disallowedFlagExpected: true,
-		},
-	}
-
-	for _, testCase := range testCases {
-		lintFileCreator := android.FixtureAddTextFile(testCase.moduleDirectory+"lint-baseline.xml", "")
-		bpFileCreator := android.FixtureAddTextFile(testCase.moduleDirectory+"Android.bp", bp)
-		result := testApex(t, "", lintFileCreator, bpFileCreator)
-		myjavalib := result.ModuleForTests("myjavalib", "android_common_apex29")
-		sboxProto := android.RuleBuilderSboxProtoForTests(t, myjavalib.Output("lint.sbox.textproto"))
-		cmdFlags := fmt.Sprintf("--baseline %vlint-baseline.xml --disallowed_issues NewApi", testCase.moduleDirectory)
-		disallowedFlagActual := strings.Contains(*sboxProto.Commands[0].Command, cmdFlags)
-
-		if disallowedFlagActual != testCase.disallowedFlagExpected {
-			t.Errorf("Failed testcase: %v \nActual lint cmd: %v", testCase.testCaseName, *sboxProto.Commands[0].Command)
-		}
-	}
-}
-
-// checks transtive deps of an apex coming from bootclasspath_fragment
-func TestApexStrictUpdtabilityLintBcpFragmentDeps(t *testing.T) {
-	bp := `
-		apex {
-			name: "myapex",
-			key: "myapex.key",
-			bootclasspath_fragments: ["mybootclasspathfragment"],
-			updatable: true,
-			min_sdk_version: "29",
-		}
-		apex_key {
-			name: "myapex.key",
-		}
-		bootclasspath_fragment {
-			name: "mybootclasspathfragment",
-			contents: ["myjavalib"],
-			apex_available: ["myapex"],
-		}
-		java_library {
-			name: "myjavalib",
-			srcs: ["MyClass.java"],
-			apex_available: [ "myapex" ],
-			sdk_version: "current",
-			min_sdk_version: "29",
-			compile_dex: true,
-		}
-		`
-	fs := android.MockFS{
-		"lint-baseline.xml": nil,
-	}
-
-	result := testApex(t, bp, dexpreopt.FixtureSetApexBootJars("myapex:myjavalib"), fs.AddToFixture())
-	myjavalib := result.ModuleForTests("myjavalib", "android_common_apex29")
-	sboxProto := android.RuleBuilderSboxProtoForTests(t, myjavalib.Output("lint.sbox.textproto"))
-	if !strings.Contains(*sboxProto.Commands[0].Command, "--baseline lint-baseline.xml --disallowed_issues NewApi") {
-		t.Errorf("Strict updabality lint missing in myjavalib coming from bootclasspath_fragment mybootclasspath-fragment\nActual lint cmd: %v", *sboxProto.Commands[0].Command)
-	}
-}
+// TODO(b/193460475): Re-enable this test
+//func TestApexStrictUpdtabilityLint(t *testing.T) {
+//	bpTemplate := `
+//		apex {
+//			name: "myapex",
+//			key: "myapex.key",
+//			java_libs: ["myjavalib"],
+//			updatable: %v,
+//			min_sdk_version: "29",
+//		}
+//		apex_key {
+//			name: "myapex.key",
+//		}
+//		java_library {
+//			name: "myjavalib",
+//			srcs: ["MyClass.java"],
+//			apex_available: [ "myapex" ],
+//			lint: {
+//				strict_updatability_linting: %v,
+//			},
+//			sdk_version: "current",
+//			min_sdk_version: "29",
+//		}
+//		`
+//	fs := android.MockFS{
+//		"lint-baseline.xml": nil,
+//	}
+//
+//	testCases := []struct {
+//		testCaseName              string
+//		apexUpdatable             bool
+//		javaStrictUpdtabilityLint bool
+//		lintFileExists            bool
+//		disallowedFlagExpected    bool
+//	}{
+//		{
+//			testCaseName:              "lint-baseline.xml does not exist, no disallowed flag necessary in lint cmd",
+//			apexUpdatable:             true,
+//			javaStrictUpdtabilityLint: true,
+//			lintFileExists:            false,
+//			disallowedFlagExpected:    false,
+//		},
+//		{
+//			testCaseName:              "non-updatable apex respects strict_updatability of javalib",
+//			apexUpdatable:             false,
+//			javaStrictUpdtabilityLint: false,
+//			lintFileExists:            true,
+//			disallowedFlagExpected:    false,
+//		},
+//		{
+//			testCaseName:              "non-updatable apex respects strict updatability of javalib",
+//			apexUpdatable:             false,
+//			javaStrictUpdtabilityLint: true,
+//			lintFileExists:            true,
+//			disallowedFlagExpected:    true,
+//		},
+//		{
+//			testCaseName:              "updatable apex sets strict updatability of javalib to true",
+//			apexUpdatable:             true,
+//			javaStrictUpdtabilityLint: false, // will be set to true by mutator
+//			lintFileExists:            true,
+//			disallowedFlagExpected:    true,
+//		},
+//	}
+//
+//	for _, testCase := range testCases {
+//		bp := fmt.Sprintf(bpTemplate, testCase.apexUpdatable, testCase.javaStrictUpdtabilityLint)
+//		fixtures := []android.FixturePreparer{}
+//		if testCase.lintFileExists {
+//			fixtures = append(fixtures, fs.AddToFixture())
+//		}
+//
+//		result := testApex(t, bp, fixtures...)
+//		myjavalib := result.ModuleForTests("myjavalib", "android_common_apex29")
+//		sboxProto := android.RuleBuilderSboxProtoForTests(t, myjavalib.Output("lint.sbox.textproto"))
+//		disallowedFlagActual := strings.Contains(*sboxProto.Commands[0].Command, "--baseline lint-baseline.xml --disallowed_issues NewApi")
+//
+//		if disallowedFlagActual != testCase.disallowedFlagExpected {
+//			t.Errorf("Failed testcase: %v \nActual lint cmd: %v", testCase.testCaseName, *sboxProto.Commands[0].Command)
+//		}
+//	}
+//}
+//
+//func TestUpdatabilityLintSkipLibcore(t *testing.T) {
+//	bp := `
+//		apex {
+//			name: "myapex",
+//			key: "myapex.key",
+//			java_libs: ["myjavalib"],
+//			updatable: true,
+//			min_sdk_version: "29",
+//		}
+//		apex_key {
+//			name: "myapex.key",
+//		}
+//		java_library {
+//			name: "myjavalib",
+//			srcs: ["MyClass.java"],
+//			apex_available: [ "myapex" ],
+//			sdk_version: "current",
+//			min_sdk_version: "29",
+//		}
+//		`
+//
+//	testCases := []struct {
+//		testCaseName           string
+//		moduleDirectory        string
+//		disallowedFlagExpected bool
+//	}{
+//		{
+//			testCaseName:           "lintable module defined outside libcore",
+//			moduleDirectory:        "",
+//			disallowedFlagExpected: true,
+//		},
+//		{
+//			testCaseName:           "lintable module defined in libcore root directory",
+//			moduleDirectory:        "libcore/",
+//			disallowedFlagExpected: false,
+//		},
+//		{
+//			testCaseName:           "lintable module defined in libcore child directory",
+//			moduleDirectory:        "libcore/childdir/",
+//			disallowedFlagExpected: true,
+//		},
+//	}
+//
+//	for _, testCase := range testCases {
+//		lintFileCreator := android.FixtureAddTextFile(testCase.moduleDirectory+"lint-baseline.xml", "")
+//		bpFileCreator := android.FixtureAddTextFile(testCase.moduleDirectory+"Android.bp", bp)
+//		result := testApex(t, "", lintFileCreator, bpFileCreator)
+//		myjavalib := result.ModuleForTests("myjavalib", "android_common_apex29")
+//		sboxProto := android.RuleBuilderSboxProtoForTests(t, myjavalib.Output("lint.sbox.textproto"))
+//		cmdFlags := fmt.Sprintf("--baseline %vlint-baseline.xml --disallowed_issues NewApi", testCase.moduleDirectory)
+//		disallowedFlagActual := strings.Contains(*sboxProto.Commands[0].Command, cmdFlags)
+//
+//		if disallowedFlagActual != testCase.disallowedFlagExpected {
+//			t.Errorf("Failed testcase: %v \nActual lint cmd: %v", testCase.testCaseName, *sboxProto.Commands[0].Command)
+//		}
+//	}
+//}
+//
+//// checks transtive deps of an apex coming from bootclasspath_fragment
+//func TestApexStrictUpdtabilityLintBcpFragmentDeps(t *testing.T) {
+//	bp := `
+//		apex {
+//			name: "myapex",
+//			key: "myapex.key",
+//			bootclasspath_fragments: ["mybootclasspathfragment"],
+//			updatable: true,
+//			min_sdk_version: "29",
+//		}
+//		apex_key {
+//			name: "myapex.key",
+//		}
+//		bootclasspath_fragment {
+//			name: "mybootclasspathfragment",
+//			contents: ["myjavalib"],
+//			apex_available: ["myapex"],
+//			hidden_api: {
+//				split_packages: ["*"],
+//			},
+//		}
+//		java_library {
+//			name: "myjavalib",
+//			srcs: ["MyClass.java"],
+//			apex_available: [ "myapex" ],
+//			sdk_version: "current",
+//			min_sdk_version: "29",
+//			compile_dex: true,
+//		}
+//		`
+//	fs := android.MockFS{
+//		"lint-baseline.xml": nil,
+//	}
+//
+//	result := testApex(t, bp, dexpreopt.FixtureSetApexBootJars("myapex:myjavalib"), fs.AddToFixture())
+//	myjavalib := result.ModuleForTests("myjavalib", "android_common_apex29")
+//	sboxProto := android.RuleBuilderSboxProtoForTests(t, myjavalib.Output("lint.sbox.textproto"))
+//	if !strings.Contains(*sboxProto.Commands[0].Command, "--baseline lint-baseline.xml --disallowed_issues NewApi") {
+//		t.Errorf("Strict updabality lint missing in myjavalib coming from bootclasspath_fragment mybootclasspath-fragment\nActual lint cmd: %v", *sboxProto.Commands[0].Command)
+//	}
+//}
 
 // updatable apexes should propagate updatable=true to its apps
 func TestUpdatableApexEnforcesAppUpdatability(t *testing.T) {
@@ -9520,6 +10111,313 @@ func TestUpdatableApexEnforcesAppUpdatability(t *testing.T) {
 	}
 }
 
-func TestMain(m *testing.M) {
-	os.Exit(m.Run())
+func TestApexBuildsAgainstApiSurfaceStubLibraries(t *testing.T) {
+	bp := `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			native_shared_libs: ["libbaz"],
+			binaries: ["binfoo"],
+			min_sdk_version: "29",
+		}
+		apex_key {
+			name: "myapex.key",
+		}
+		cc_binary {
+			name: "binfoo",
+			shared_libs: ["libbar", "libbaz", "libqux",],
+			apex_available: ["myapex"],
+			min_sdk_version: "29",
+			recovery_available: false,
+		}
+		cc_library {
+			name: "libbar",
+			srcs: ["libbar.cc"],
+			stubs: {
+				symbol_file: "libbar.map.txt",
+				versions: [
+					"29",
+				],
+			},
+		}
+		cc_library {
+			name: "libbaz",
+			srcs: ["libbaz.cc"],
+			apex_available: ["myapex"],
+			min_sdk_version: "29",
+			stubs: {
+				symbol_file: "libbaz.map.txt",
+				versions: [
+					"29",
+				],
+			},
+		}
+		cc_api_library {
+			name: "libbar",
+			src: "libbar_stub.so",
+			min_sdk_version: "29",
+			variants: ["apex.29"],
+		}
+		cc_api_variant {
+			name: "libbar",
+			variant: "apex",
+			version: "29",
+			src: "libbar_apex_29.so",
+		}
+		cc_api_library {
+			name: "libbaz",
+			src: "libbaz_stub.so",
+			min_sdk_version: "29",
+			variants: ["apex.29"],
+		}
+		cc_api_variant {
+			name: "libbaz",
+			variant: "apex",
+			version: "29",
+			src: "libbaz_apex_29.so",
+		}
+		cc_api_library {
+			name: "libqux",
+			src: "libqux_stub.so",
+			min_sdk_version: "29",
+			variants: ["apex.29"],
+		}
+		cc_api_variant {
+			name: "libqux",
+			variant: "apex",
+			version: "29",
+			src: "libqux_apex_29.so",
+		}
+		api_imports {
+			name: "api_imports",
+			apex_shared_libs: [
+				"libbar",
+				"libbaz",
+				"libqux",
+			],
+		}
+		`
+	result := testApex(t, bp)
+
+	hasDep := func(m android.Module, wantDep android.Module) bool {
+		t.Helper()
+		var found bool
+		result.VisitDirectDeps(m, func(dep blueprint.Module) {
+			if dep == wantDep {
+				found = true
+			}
+		})
+		return found
+	}
+
+	// Library defines stubs and cc_api_library should be used with cc_api_library
+	binfooApexVariant := result.ModuleForTests("binfoo", "android_arm64_armv8-a_apex29").Module()
+	libbarCoreVariant := result.ModuleForTests("libbar", "android_arm64_armv8-a_shared").Module()
+	libbarApiImportCoreVariant := result.ModuleForTests("libbar.apiimport", "android_arm64_armv8-a_shared").Module()
+
+	android.AssertBoolEquals(t, "apex variant should link against API surface stub libraries", true, hasDep(binfooApexVariant, libbarApiImportCoreVariant))
+	android.AssertBoolEquals(t, "apex variant should link against original library if exists", true, hasDep(binfooApexVariant, libbarCoreVariant))
+
+	binFooCFlags := result.ModuleForTests("binfoo", "android_arm64_armv8-a_apex29").Rule("ld").Args["libFlags"]
+	android.AssertStringDoesContain(t, "binfoo should link against APEX variant", binFooCFlags, "libbar.apex.29.apiimport.so")
+	android.AssertStringDoesNotContain(t, "binfoo should not link against cc_api_library itself", binFooCFlags, "libbar.apiimport.so")
+	android.AssertStringDoesNotContain(t, "binfoo should not link against original definition", binFooCFlags, "libbar.so")
+
+	// Library defined in the same APEX should be linked with original definition instead of cc_api_library
+	libbazApexVariant := result.ModuleForTests("libbaz", "android_arm64_armv8-a_shared_apex29").Module()
+	libbazApiImportCoreVariant := result.ModuleForTests("libbaz.apiimport", "android_arm64_armv8-a_shared").Module()
+	android.AssertBoolEquals(t, "apex variant should link against API surface stub libraries even from same APEX", true, hasDep(binfooApexVariant, libbazApiImportCoreVariant))
+	android.AssertBoolEquals(t, "apex variant should link against original library if exists", true, hasDep(binfooApexVariant, libbazApexVariant))
+
+	android.AssertStringDoesContain(t, "binfoo should link against APEX variant", binFooCFlags, "libbaz.so")
+	android.AssertStringDoesNotContain(t, "binfoo should not link against cc_api_library itself", binFooCFlags, "libbaz.apiimport.so")
+	android.AssertStringDoesNotContain(t, "binfoo should not link against original definition", binFooCFlags, "libbaz.apex.29.apiimport.so")
+
+	// cc_api_library defined without original library should be linked with cc_api_library
+	libquxApiImportApexVariant := result.ModuleForTests("libqux.apiimport", "android_arm64_armv8-a_shared").Module()
+	android.AssertBoolEquals(t, "apex variant should link against API surface stub libraries even original library definition does not exist", true, hasDep(binfooApexVariant, libquxApiImportApexVariant))
+	android.AssertStringDoesContain(t, "binfoo should link against APEX variant", binFooCFlags, "libqux.apex.29.apiimport.so")
+}
+
+func TestPlatformBinaryBuildsAgainstApiSurfaceStubLibraries(t *testing.T) {
+	bp := `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			native_shared_libs: ["libbar"],
+			min_sdk_version: "29",
+		}
+		apex_key {
+			name: "myapex.key",
+		}
+		cc_binary {
+			name: "binfoo",
+			shared_libs: ["libbar"],
+			recovery_available: false,
+		}
+		cc_library {
+			name: "libbar",
+			srcs: ["libbar.cc"],
+			apex_available: ["myapex"],
+			min_sdk_version: "29",
+			stubs: {
+				symbol_file: "libbar.map.txt",
+				versions: [
+					"29",
+				],
+			},
+		}
+		cc_api_library {
+			name: "libbar",
+			src: "libbar_stub.so",
+			variants: ["apex.29"],
+		}
+		cc_api_variant {
+			name: "libbar",
+			variant: "apex",
+			version: "29",
+			src: "libbar_apex_29.so",
+		}
+		api_imports {
+			name: "api_imports",
+			apex_shared_libs: [
+				"libbar",
+			],
+		}
+		`
+
+	result := testApex(t, bp)
+
+	hasDep := func(m android.Module, wantDep android.Module) bool {
+		t.Helper()
+		var found bool
+		result.VisitDirectDeps(m, func(dep blueprint.Module) {
+			if dep == wantDep {
+				found = true
+			}
+		})
+		return found
+	}
+
+	// Library defines stubs and cc_api_library should be used with cc_api_library
+	binfooApexVariant := result.ModuleForTests("binfoo", "android_arm64_armv8-a").Module()
+	libbarCoreVariant := result.ModuleForTests("libbar", "android_arm64_armv8-a_shared").Module()
+	libbarApiImportCoreVariant := result.ModuleForTests("libbar.apiimport", "android_arm64_armv8-a_shared").Module()
+
+	android.AssertBoolEquals(t, "apex variant should link against API surface stub libraries", true, hasDep(binfooApexVariant, libbarApiImportCoreVariant))
+	android.AssertBoolEquals(t, "apex variant should link against original library if exists", true, hasDep(binfooApexVariant, libbarCoreVariant))
+
+	binFooCFlags := result.ModuleForTests("binfoo", "android_arm64_armv8-a").Rule("ld").Args["libFlags"]
+	android.AssertStringDoesContain(t, "binfoo should link against APEX variant", binFooCFlags, "libbar.apex.29.apiimport.so")
+	android.AssertStringDoesNotContain(t, "binfoo should not link against cc_api_library itself", binFooCFlags, "libbar.apiimport.so")
+	android.AssertStringDoesNotContain(t, "binfoo should not link against original definition", binFooCFlags, "libbar.so")
+}
+
+func TestTrimmedApex(t *testing.T) {
+	bp := `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			native_shared_libs: ["libfoo","libbaz"],
+			min_sdk_version: "29",
+			trim_against: "mydcla",
+    }
+		apex {
+			name: "mydcla",
+			key: "myapex.key",
+			native_shared_libs: ["libfoo","libbar"],
+			min_sdk_version: "29",
+			file_contexts: ":myapex-file_contexts",
+			dynamic_common_lib_apex: true,
+		}
+		apex_key {
+			name: "myapex.key",
+		}
+		cc_library {
+			name: "libfoo",
+			shared_libs: ["libc"],
+			apex_available: ["myapex","mydcla"],
+			min_sdk_version: "29",
+		}
+		cc_library {
+			name: "libbar",
+			shared_libs: ["libc"],
+			apex_available: ["myapex","mydcla"],
+			min_sdk_version: "29",
+		}
+		cc_library {
+			name: "libbaz",
+			shared_libs: ["libc"],
+			apex_available: ["myapex","mydcla"],
+			min_sdk_version: "29",
+		}
+		cc_api_library {
+			name: "libc",
+			src: "libc.so",
+			min_sdk_version: "29",
+			recovery_available: true,
+		}
+		api_imports {
+			name: "api_imports",
+			shared_libs: [
+				"libc",
+			],
+			header_libs: [],
+		}
+		`
+	ctx := testApex(t, bp)
+	module := ctx.ModuleForTests("myapex", "android_common_myapex_image")
+	apexRule := module.MaybeRule("apexRule")
+	if apexRule.Rule == nil {
+		t.Errorf("Expecting regular apex rule but a non regular apex rule found")
+	}
+
+	ctx = testApex(t, bp, android.FixtureModifyConfig(android.SetTrimmedApexEnabledForTests))
+	trimmedApexRule := ctx.ModuleForTests("myapex", "android_common_myapex_image").Rule("TrimmedApexRule")
+	libs_to_trim := trimmedApexRule.Args["libs_to_trim"]
+	android.AssertStringDoesContain(t, "missing lib to trim", libs_to_trim, "libfoo")
+	android.AssertStringDoesContain(t, "missing lib to trim", libs_to_trim, "libbar")
+	android.AssertStringDoesNotContain(t, "unexpected libs in the libs to trim", libs_to_trim, "libbaz")
+}
+
+func TestCannedFsConfig(t *testing.T) {
+	ctx := testApex(t, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			updatable: false,
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}`)
+	mod := ctx.ModuleForTests("myapex", "android_common_myapex_image")
+	generateFsRule := mod.Rule("generateFsConfig")
+	cmd := generateFsRule.RuleParams.Command
+
+	ensureContains(t, cmd, `( echo '/ 1000 1000 0755'; echo '/apex_manifest.json 1000 1000 0644'; echo '/apex_manifest.pb 1000 1000 0644'; ) >`)
+}
+
+func TestCannedFsConfig_HasCustomConfig(t *testing.T) {
+	ctx := testApex(t, `
+		apex {
+			name: "myapex",
+			key: "myapex.key",
+			canned_fs_config: "my_config",
+			updatable: false,
+		}
+
+		apex_key {
+			name: "myapex.key",
+			public_key: "testkey.avbpubkey",
+			private_key: "testkey.pem",
+		}`)
+	mod := ctx.ModuleForTests("myapex", "android_common_myapex_image")
+	generateFsRule := mod.Rule("generateFsConfig")
+	cmd := generateFsRule.RuleParams.Command
+
+	// Ensure that canned_fs_config has "cat my_config" at the end
+	ensureContains(t, cmd, `( echo '/ 1000 1000 0755'; echo '/apex_manifest.json 1000 1000 0644'; echo '/apex_manifest.pb 1000 1000 0644'; cat my_config ) >`)
 }

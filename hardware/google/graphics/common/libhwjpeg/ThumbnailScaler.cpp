@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
+#include "ThumbnailScaler.h"
+
 #include <log/log.h>
 
-#include "ThumbnailScaler.h"
 #include "LibScalerForJpeg.h"
 
-ThumbnailScaler *ThumbnailScaler::createInstance()
-{
+ThumbnailScaler *ThumbnailScaler::createInstance() {
     ALOGD("Created thumbnail scaler: legacy V4L2 Scaler");
     return new LibScalerForJpeg();
 }

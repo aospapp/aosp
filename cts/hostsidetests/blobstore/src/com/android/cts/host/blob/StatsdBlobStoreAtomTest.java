@@ -25,6 +25,7 @@ import com.android.internal.os.StatsdConfigProto;
 import com.android.os.AtomsProto;
 import com.android.os.StatsLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -50,7 +51,7 @@ public class StatsdBlobStoreAtomTest extends BaseBlobStoreHostTest {
         installPackage(TARGET_APK);
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         mTestAppUid = getAppUid(TARGET_PKG);
     }
 
@@ -105,11 +106,11 @@ public class StatsdBlobStoreAtomTest extends BaseBlobStoreHostTest {
                 AtomsProto.Atom.BLOB_INFO_FIELD_NUMBER);
 
         final long testStartTimeMs = getDeviceTimeMs();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         runDeviceTest(TARGET_PKG, TEST_CLASS, "testBlobStoreOps");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Add commit callback time to test end time to account for async execution
         final long testEndTimeMs =

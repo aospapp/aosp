@@ -16,7 +16,10 @@
 package android.platform.test.rule;
 
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.fail;
+
+import android.os.Bundle;
 
 import org.junit.Test;
 import org.junit.runner.Description;
@@ -32,9 +35,11 @@ import java.util.List;
 public class QuickstepPressureRuleTest {
     /** Tests that this rule will fail to register if no apps are supplied. */
     @Test
-    public void testNoAppToOpenFails() {
+    public void testNoAppToOpenFails() throws Throwable {
         try {
-            QuickstepPressureRule rule = new QuickstepPressureRule();
+            TestableQuickstepPressureRule rule = new TestableQuickstepPressureRule();
+            rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd"))
+                    .evaluate();
             fail("An illegal argument error should have been thrown, but wasn't.");
         } catch (IllegalArgumentException e) {
             return;
@@ -67,8 +72,22 @@ public class QuickstepPressureRuleTest {
                 .inOrder();
     }
 
+    /** Tests that this rule will open one app from option before the test, if supplied. */
+    @Test
+    public void testOneAppToOpenFromOption() throws Throwable {
+        Bundle PackageOption = new Bundle();
+        PackageOption.putString(QuickstepPressureRule.PACKAGES_OPTION, "option.package.name");
+        TestableQuickstepPressureRule rule = new TestableQuickstepPressureRule(PackageOption);
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd"))
+                .evaluate();
+        assertThat(rule.getOperations())
+                .containsExactly("start option.package.name", "test")
+                .inOrder();
+    }
+
     private static class TestableQuickstepPressureRule extends QuickstepPressureRule {
         private List<String> mOperations = new ArrayList<>();
+        private Bundle mBundle = new Bundle();
 
         public TestableQuickstepPressureRule(String app) {
             super(app);
@@ -78,9 +97,18 @@ public class QuickstepPressureRuleTest {
             super(apps);
         }
 
+        public TestableQuickstepPressureRule(Bundle bundle) {
+            mBundle = bundle;
+        }
+
         @Override
         void startActivity(String pkg) {
             mOperations.add(String.format("start %s", pkg));
+        }
+
+        @Override
+        protected Bundle getArguments() {
+            return mBundle;
         }
 
         public List<String> getOperations() {

@@ -17,6 +17,7 @@
 #ifndef CHRE_PLATFORM_FREERTOS_MUTEX_BASE_IMPL_H_
 #define CHRE_PLATFORM_FREERTOS_MUTEX_BASE_IMPL_H_
 
+#include "chre/platform/assert.h"
 #include "chre/platform/mutex.h"
 
 namespace chre {
@@ -33,6 +34,7 @@ inline Mutex::~Mutex() {
 
 inline void Mutex::lock() {
   TickType_t blockForever = portMAX_DELAY;
+  CHRE_ASSERT(mSemaphoreHandle != NULL);
   if (pdTRUE != xSemaphoreTake(mSemaphoreHandle, blockForever)) {
     LOGE("Failed to lock mutex");
   }

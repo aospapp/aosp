@@ -23,11 +23,11 @@
       <!-- We would like to abort, but currently there is not a simple way to specify installation of both bitnesses of targets. -->
       <option name="abort-on-push-failure" value="false"/>
 
-      <option name="push" value="hidl_test_client32->/data/nativetest/hidl_test_client/hidl_test_client" />
-      <option name="push" value="hidl_test_client64->/data/nativetest64/hidl_test_client/hidl_test_client" />
+      <option name="push" value="hidl_test_client32->/data/nativetest/hidl_test_client/hidl_test_client32" />
+      <option name="push" value="hidl_test_client64->/data/nativetest64/hidl_test_client/hidl_test_client64" />
 
-      <option name="push" value="hidl_test_servers32->/data/nativetest/hidl_test_servers/hidl_test_servers" />
-      <option name="push" value="hidl_test_servers64->/data/nativetest64/hidl_test_servers/hidl_test_servers" />
+      <option name="push" value="hidl_test_servers32->/data/nativetest/hidl_test_servers/hidl_test_servers32" />
+      <option name="push" value="hidl_test_servers64->/data/nativetest64/hidl_test_servers/hidl_test_servers64" />
 
       <option name="cleanup" value="true" />
     </target_preparer>

@@ -43,6 +43,14 @@ enum ExifOrientation : uint16_t {
   ORIENTATION_270_DEGREES = 0x8,
 };
 
+enum ExifColorSpace : uint16_t {
+  COLOR_SPACE_SRGB = 0x1,
+  COLOR_SPACE_ADOBE_RGB = 0x2,
+  COLOR_SPACE_WIDE_GAMUT_RGB = 0xFFFD,
+  COLOR_SPACE_ICC_PROFILE = 0xFFFE,
+  COLOR_SPACE_UNCALIBRATED = 0xFFFF
+};
+
 // This is based on the camera HIDL shim implementation, which was in turned
 // based on original ChromeOS ARC implementation of a V4L2 HAL
 class ExifUtils {

@@ -1,5 +1,7 @@
 package com.android.cts.verifier.nfc.hce;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -59,7 +61,7 @@ public abstract class BaseEmulatorActivity extends PassFailButtons.Activity {
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         mCardEmulation = CardEmulation.getInstance(mAdapter);
         IntentFilter filter = new IntentFilter(HceUtils.ACTION_APDU_SEQUENCE_COMPLETE);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, RECEIVER_EXPORTED);
     }
 
     abstract void onServicesSetup(boolean result);

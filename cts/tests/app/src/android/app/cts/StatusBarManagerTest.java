@@ -21,13 +21,11 @@ import static androidx.test.InstrumentationRegistry.getInstrumentation;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeFalse;
 
 import android.app.StatusBarManager;
 import android.app.StatusBarManager.DisableInfo;
 import android.app.UiAutomation;
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.view.KeyEvent;
 
 import androidx.test.InstrumentationRegistry;
@@ -50,10 +48,6 @@ public class StatusBarManagerTest {
     private Context mContext;
     private UiAutomation mUiAutomation;
 
-    private boolean isWatch() {
-        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
-    }
-
     /**
      * Setup
      * @throws Exception
@@ -61,7 +55,6 @@ public class StatusBarManagerTest {
     @Before
     public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getContext();
-        assumeFalse("Status bar service not supported", isWatch());
         mStatusBarManager = (StatusBarManager) mContext.getSystemService(
                 Context.STATUS_BAR_SERVICE);
         mUiAutomation = getInstrumentation().getUiAutomation();
@@ -83,6 +76,7 @@ public class StatusBarManagerTest {
             mStatusBarManager.collapsePanels();
             mStatusBarManager.setDisabledForSetup(false);
             mStatusBarManager.setExpansionDisabledForSimNetworkLock(false);
+            mStatusBarManager.setNavBarMode(StatusBarManager.NAV_BAR_MODE_DEFAULT);
         }
 
         mUiAutomation.dropShellPermissionIdentity();
@@ -182,14 +176,16 @@ public class StatusBarManagerTest {
         // We've adopted shell identity for STATUS_BAR in setUp(), so drop it now
         mUiAutomation.dropShellPermissionIdentity();
 
-        mStatusBarManager.handleSystemKey(KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP);
+        mStatusBarManager.handleSystemKey(
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP));
     }
 
     @Test
     public void testHandleSystemKey_withStatusBarPermission_doesNotThrow() throws Exception {
         // We've adopted shell identity for STATUS_BAR in setUp()
 
-        mStatusBarManager.handleSystemKey(KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP);
+        mStatusBarManager.handleSystemKey(
+                new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_SYSTEM_NAVIGATION_UP));
 
         // Nothing thrown, passed
     }

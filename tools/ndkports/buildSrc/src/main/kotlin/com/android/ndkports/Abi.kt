@@ -24,9 +24,9 @@ enum class Abi(
     val triple: String,
     val minSupportedVersion: Int
 ) {
-    Arm("arm", "armeabi-v7a", "arm-linux-androideabi", 16),
+    Arm("arm", "armeabi-v7a", "arm-linux-androideabi", 19),
     Arm64("arm64", "arm64-v8a", "aarch64-linux-android", 21),
-    X86("x86", "x86", "i686-linux-android", 16),
+    X86("x86", "x86", "i686-linux-android", 19),
     X86_64("x86_64", "x86_64", "x86_64-linux-android", 21);
 
     fun adjustMinSdkVersion(minSdkVersion: Int) =

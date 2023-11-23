@@ -46,7 +46,6 @@ public class NonBlockingAudioTrack {
     private AtomicInteger mTotalBytesWritten = new AtomicInteger(0);
     private LinkedList<QueueElement> mQueue = new LinkedList<QueueElement>();
     private boolean mStopped;
-    private boolean mShouldStopWriting = false;
     private int mBufferSizeInBytes;
 
     public NonBlockingAudioTrack(int sampleRate, int channelCount, boolean hwAvSync,
@@ -154,7 +153,7 @@ public class NonBlockingAudioTrack {
     }
 
     public void process() {
-        while (!mQueue.isEmpty() && !mShouldStopWriting) {
+        while (!mQueue.isEmpty()) {
             QueueElement element = mQueue.peekFirst();
             int written = mAudioTrack.write(element.data, element.size,
                                             AudioTrack.WRITE_NON_BLOCKING, element.pts);
@@ -182,10 +181,6 @@ public class NonBlockingAudioTrack {
             return -1;
         }
         return mTotalBytesWritten.get() / mAudioTrack.getFormat().getFrameSizeInBytes();
-    }
-
-    public void stopWriting(boolean shouldStopWriting) {
-        mShouldStopWriting = shouldStopWriting;
     }
 
     public int getPlayState() {

@@ -113,6 +113,9 @@ class AidlCameraDeviceSession : public BnCameraDeviceSession {
 
   AidlCameraDeviceSession() = default;
 
+ protected:
+  ::ndk::SpAIBinder createBinder() override;
+
  private:
   static constexpr uint32_t kRequestMetadataQueueSizeBytes = 1 << 20;  // 1MB
   static constexpr uint32_t kResultMetadataQueueSizeBytes = 1 << 20;   // 1MB

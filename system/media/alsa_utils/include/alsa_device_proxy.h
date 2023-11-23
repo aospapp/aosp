@@ -35,7 +35,7 @@ typedef struct {
 
 /* State */
 int proxy_prepare(alsa_device_proxy * proxy, const alsa_device_profile * profile,
-                   struct pcm_config * config);
+                  struct pcm_config * config, bool require_exact_match);
 int proxy_open(alsa_device_proxy * proxy);
 void proxy_close(alsa_device_proxy * proxy);
 int proxy_get_presentation_position(const alsa_device_proxy * proxy,
@@ -56,7 +56,8 @@ unsigned proxy_get_latency(const alsa_device_proxy * proxy);
  * returns the index of the first rate for which the ALSA device can be opened.
  * return negative value if none work or an error occurs.
  */
-int proxy_scan_rates(alsa_device_proxy * proxy, const unsigned sample_rates[]);
+int proxy_scan_rates(alsa_device_proxy * proxy, const unsigned sample_rates[],
+                     bool require_exact_match);
 
 /* I/O */
 int proxy_write(alsa_device_proxy * proxy, const void *data, unsigned int count);

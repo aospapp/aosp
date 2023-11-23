@@ -25,6 +25,8 @@ import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.compatibility.common.util.TestUtils.RunnableWithThrow;
+
 import java.util.Objects;
 
 /**
@@ -61,13 +63,32 @@ public class DeviceConfigStateHelper implements AutoCloseable {
                         DeviceConfig.setProperty(mNamespace, key, value, /* makeDefault */false)));
     }
 
+    /**
+     * Run a Runnable, with DeviceConfig.setSyncDisabledMode(SYNC_DISABLED_MODE_NONE),
+     * with all the shell permissions.
+     */
+    private void callWithSyncEnabledWithShellPermissions(RunnableWithThrow r) {
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            final int originalSyncMode = DeviceConfig.getSyncDisabledMode();
+            try {
+                // TODO: Use DeviceConfig.setSyncDisabledMode, once the SYNC_* constants
+                // are exposed.
+                ShellUtils.runShellCommand("cmd device_config set_sync_disabled_for_tests none");
+
+                r.run();
+            } finally {
+                DeviceConfig.setSyncDisabledMode(originalSyncMode);
+            }
+        });
+    }
+
     public void set(@NonNull DeviceConfig.Properties properties) {
         synchronized (mOriginalValues) {
             for (String key : properties.getKeyset()) {
                 maybeCacheOriginalValueLocked(key);
             }
         }
-        SystemUtil.runWithShellPermissionIdentity(
+        callWithSyncEnabledWithShellPermissions(
                 () -> assertTrue(DeviceConfig.setProperties(properties)));
     }
 
@@ -80,8 +101,8 @@ public class DeviceConfigStateHelper implements AutoCloseable {
             }
             mOriginalValues.clear();
         }
-        SystemUtil.runWithShellPermissionIdentity(
-                () -> DeviceConfig.setProperties(builder.build()));
+        callWithSyncEnabledWithShellPermissions(
+                () -> assertTrue(DeviceConfig.setProperties(builder.build())));
     }
 
     @Override

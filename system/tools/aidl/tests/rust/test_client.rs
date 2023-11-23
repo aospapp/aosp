@@ -121,6 +121,10 @@ fn test_constants() {
     assert_eq!(ITestService::A55, 1);
     assert_eq!(ITestService::A56, 1);
     assert_eq!(ITestService::A57, 1);
+    assert_eq!(ITestService::FLOAT_TEST_CONSTANT4, 2.2_f32);
+    assert_eq!(ITestService::FLOAT_TEST_CONSTANT5, -2.2_f32);
+    assert_eq!(ITestService::DOUBLE_TEST_CONSTANT4, 2.2_f64);
+    assert_eq!(ITestService::DOUBLE_TEST_CONSTANT5, -2.2_f64);
 }
 
 #[test]
@@ -165,6 +169,20 @@ test_primitive! {test_primitive_long_constant, RepeatLong, ITestService::LONG_TE
 test_primitive! {test_primitive_byte_enum, RepeatByteEnum, ByteEnum::FOO}
 test_primitive! {test_primitive_int_enum, RepeatIntEnum, IntEnum::BAR}
 test_primitive! {test_primitive_long_enum, RepeatLongEnum, LongEnum::FOO}
+test_primitive! {test_primitive_float_constant, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT}
+test_primitive! {test_primitive_float_constant2, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT2}
+test_primitive! {test_primitive_float_constant3, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT3}
+test_primitive! {test_primitive_float_constant4, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT4}
+test_primitive! {test_primitive_float_constant5, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT5}
+test_primitive! {test_primitive_float_constant6, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT6}
+test_primitive! {test_primitive_float_constant7, RepeatFloat, ITestService::FLOAT_TEST_CONSTANT7}
+test_primitive! {test_primitive_double_constant, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT}
+test_primitive! {test_primitive_double_constant2, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT2}
+test_primitive! {test_primitive_double_constant3, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT3}
+test_primitive! {test_primitive_double_constant4, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT4}
+test_primitive! {test_primitive_double_constant5, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT5}
+test_primitive! {test_primitive_double_constant6, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT6}
+test_primitive! {test_primitive_double_constant7, RepeatDouble, ITestService::DOUBLE_TEST_CONSTANT7}
 
 #[test]
 fn test_repeat_string() {
@@ -933,6 +951,17 @@ fn test_read_data_correctly_after_parcelable_with_new_field() {
     assert_eq!(ret, Ok(43));
     assert_eq!(inout_foo.intDefault42, 0);
     assert_eq!(out_foo.intDefault42, 0);
+}
+
+#[test]
+fn test_calling_v2_api_triggers_error() {
+    let service: binder::Strong<dyn IFooInterface::IFooInterface> =
+        binder::get_interface(<BpFooInterface as IFooInterface::IFooInterface>::get_descriptor())
+            .expect("did not get binder service");
+
+    let ret = service.newApi();
+
+    assert_eq!(ret.unwrap_err().transaction_error(), binder::StatusCode::UNKNOWN_TRANSACTION);
 }
 
 fn test_renamed_interface<F>(f: F)

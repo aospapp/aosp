@@ -15,6 +15,7 @@
 # limitations under the License.
 
 import os
+import unittest
 
 from simpleperf_utils import remove
 from . app_test import TestExampleBase
@@ -73,6 +74,21 @@ class TestExampleCpp(TestExampleBase):
         self.common_test_report_html()
         self.run_cmd(['report_html.py', '--add_source_code', '--source_dirs', 'testdata',
                       '--add_disassembly', '--binary_filter', "libnative-lib.so"])
+
+
+class TestExampleCppProfileableApk(TestExampleCpp):
+    """ Test profiling a profileable released apk."""
+    @classmethod
+    def setUpClass(cls):
+        if TestHelper.android_version >= 10:
+            cls.prepare("SimpleperfExampleCpp",
+                        "simpleperf.example.cpp",
+                        ".MainActivity", apk_name='app-release.apk')
+
+    def setUp(self):
+        if TestHelper().android_version < 10:
+            raise unittest.SkipTest("Profileable apk isn't supported on Android < Q.")
+        super().setUp()
 
 
 class TestExampleCppRoot(TestExampleBase):

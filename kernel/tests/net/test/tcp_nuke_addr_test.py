@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2017 The Android Open Source Project
 #
@@ -25,7 +25,7 @@ import net_test
 
 IPV4_LOOPBACK_ADDR = "127.0.0.1"
 IPV6_LOOPBACK_ADDR = "::1"
-LOOPBACK_DEV = "lo"
+LOOPBACK_DEV = b"lo"
 LOOPBACK_IFINDEX = 1
 
 SIOCKILLADDR = 0x8939
@@ -68,7 +68,6 @@ def CreateIPv6SocketPair():
   return net_test.CreateSocketPair(AF_INET6, SOCK_STREAM, IPV6_LOOPBACK_ADDR)
 
 
-@unittest.skipUnless(net_test.LINUX_VERSION >= (4, 4, 0), "grace period")
 class TcpNukeAddrTest(net_test.NetworkTest):
 
   """Tests that SIOCKILLADDR no longer exists.
@@ -86,7 +85,7 @@ class TcpNukeAddrTest(net_test.NetworkTest):
   def CheckNukeAddrUnsupported(self, socketpair, addr):
     s1, s2 = socketpair
     self.assertRaisesErrno(errno.ENOTTY, KillAddrIoctl, addr)
-    data = "foo"
+    data = b"foo"
     try:
       self.assertEqual(len(data), s1.send(data))
       self.assertEqual(data, s2.recv(4096))

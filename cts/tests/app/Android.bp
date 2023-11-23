@@ -28,7 +28,6 @@ android_test {
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "ctstestserver",
-        "cts-opengl-util",
         "cts-wm-util",
         "mockito-target-minus-junit4",
         "androidx.test.ext.junit",
@@ -41,7 +40,6 @@ android_test {
     srcs: [
         "src/**/*.java",
         "src/**/*.kt",
-        "NotificationListener/src/com/android/test/notificationlistener/INotificationUriAccessService.aidl",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
@@ -51,12 +49,15 @@ android_test {
     ],
     instrumentation_for: "CtsAppTestStubs",
     sdk_version: "test_current",
-    min_sdk_version: "14",
+    // 21 required for multi-dex.
+    min_sdk_version: "21",
     // Disable coverage since it pushes us over the dex limit and we don't
     // actually need to measure the tests themselves.
     jacoco: {
         exclude_filter: ["**"],
     },
+    // Even with coverage disabled, we're close to the single dex limit, so allow use of multi-dex.
+    dxflags: ["--multi-dex"],
     data: [
         ":CtsSimpleApp",
         ":CtsAppTestStubs",
@@ -67,14 +68,9 @@ android_test {
         ":CtsBadProviderStubs",
         ":CtsCantSaveState1",
         ":CtsCantSaveState2",
-        ":NotificationApp",
-        ":NotificationProvider",
-        ":NotificationListener",
         ":StorageDelegator",
         ":CtsActivityManagerApi29",
-        ":NotificationTrampoline",
-        ":NotificationTrampolineApi30",
-        ":NotificationTrampolineApi32",
+        ":WallpaperTest",
     ],
     per_testcase_directory: true,
 }
@@ -94,7 +90,6 @@ android_test {
         "mockito-target-minus-junit4",
         "androidx.test.rules",
         "platform-test-annotations",
-        "androidx.test.rules",
     ],
     srcs: [
         "DownloadManagerApi28Test/src/**/*.java",
@@ -131,7 +126,6 @@ android_test {
         "mockito-target-minus-junit4",
         "androidx.test.rules",
         "platform-test-annotations",
-        "androidx.test.rules",
     ],
     srcs: [
         "DownloadManagerInstallerTest/src/**/*.java",
@@ -162,7 +156,7 @@ android_test {
         "android.test.base",
     ],
     static_libs: [
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "CtsExternalServiceCommon",
@@ -190,6 +184,48 @@ android_test {
         ":CtsSimpleApp",
         ":CtsExternalServiceService",
         ":CtsAppTestStubs",
+    ],
+    per_testcase_directory: true,
+}
+
+android_test {
+    name: "CtsAppFgsTestCases",
+    defaults: ["cts_defaults"],
+    libs: [
+        "android.test.runner",
+        "org.apache.http.legacy",
+        "android.test.base",
+    ],
+    static_libs: [
+        "androidx.test.uiautomator_uiautomator",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "CtsExternalServiceCommon",
+        "cts-wm-util",
+        "libprotobuf-java-lite",
+    ],
+    aidl: {
+        local_include_dirs: ["app/src"],
+    },
+    srcs: [
+        "FgsTest/src/**/*.java",
+        "app/src/**/*.aidl",
+        "app/src/android/app/stubs/ScreenOnActivity.java",
+        "src/android/app/cts/android/app/cts/tools/WatchUidRunner.java",
+        "FgsTestHelper/src/android/app/fgstesthelper/LocalForegroundServiceBase.java",
+    ],
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+    instrumentation_for: "CtsAppTestFgsTestHelper",
+    manifest: "FgsTest/AndroidManifest.xml",
+    test_config: "FgsTest/AndroidTest.xml",
+    platform_apis: true,
+    data: [
+        ":CtsAppTestFgsTestHelper",
+        ":CtsAppTestFgsTestHelperCurrent",
+        ":CtsAppTestFgsTestHelperApi33",
     ],
     per_testcase_directory: true,
 }

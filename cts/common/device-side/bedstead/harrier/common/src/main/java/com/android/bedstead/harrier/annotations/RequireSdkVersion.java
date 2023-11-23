@@ -16,7 +16,7 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.FIRST;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -48,5 +48,5 @@ public @interface RequireSdkVersion {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default EARLY;
+    int weight() default FIRST;
 }

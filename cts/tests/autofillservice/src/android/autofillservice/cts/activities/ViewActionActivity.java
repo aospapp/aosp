@@ -22,9 +22,10 @@ import android.autofillservice.cts.testcore.UiBot;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.widget.TextView;
+
+import androidx.test.uiautomator.UiObject2;
 
 /**
  * Activity that handles VIEW action.

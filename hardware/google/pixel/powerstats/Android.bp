@@ -57,7 +57,7 @@ cc_defaults {
         "liblog",
         "libutils",
         "pixel_stateresidency_provider_aidl_interface-ndk",
-        "android.hardware.power.stats-V1-ndk",
+        "android.hardware.power.stats-V2-ndk",
     ],
 }
 

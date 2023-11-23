@@ -212,6 +212,10 @@ func createSystemModules(mctx android.LoadHookContext, version, scope string) {
 	mctx.CreateModule(systemModulesImportFactory, &props)
 }
 
+func PrebuiltApiModuleName(module, scope, version string) string {
+	return module + ".api." + scope + "." + version
+}
+
 func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 	// <apiver>/<scope>/api/<module>.txt
 	apiLevelFiles := globApiDirs(mctx, p, "api/*.txt")
@@ -220,12 +224,9 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 	}
 
 	// Create modules for all (<module>, <scope, <version>) triplets,
-	apiModuleName := func(module, scope, version string) string {
-		return module + ".api." + scope + "." + version
-	}
 	for _, f := range apiLevelFiles {
 		module, version, scope := parseFinalizedPrebuiltPath(mctx, f)
-		createApiModule(mctx, apiModuleName(module, scope, strconv.Itoa(version)), f)
+		createApiModule(mctx, PrebuiltApiModuleName(module, scope, strconv.Itoa(version)), f)
 	}
 
 	// Figure out the latest version of each module/scope
@@ -254,19 +255,18 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 	if p.properties.Extensions_dir != nil {
 		extensionApiFiles := globExtensionDirs(mctx, p, "api/*.txt")
 		for k, v := range getLatest(extensionApiFiles) {
-			if v.version > mctx.Config().PlatformBaseSdkExtensionVersion() {
-				if _, exists := latest[k]; !exists {
-					mctx.ModuleErrorf("Module %v finalized for extension %d but never during an API level; likely error", v.module, v.version)
-				}
-				latest[k] = v
+			if _, exists := latest[k]; !exists {
+				mctx.ModuleErrorf("Module %v finalized for extension %d but never during an API level; likely error", v.module, v.version)
 			}
+			// The extension version is always at least as new as the last sdk int version (potentially identical)
+			latest[k] = v
 		}
 	}
 
 	// Sort the keys in order to make build.ninja stable
-	for _, k := range android.SortedStringKeys(latest) {
+	for _, k := range android.SortedKeys(latest) {
 		info := latest[k]
-		name := apiModuleName(info.module, info.scope, "latest")
+		name := PrebuiltApiModuleName(info.module, info.scope, "latest")
 		createApiModule(mctx, name, info.path)
 	}
 
@@ -278,15 +278,15 @@ func prebuiltApiFiles(mctx android.LoadHookContext, p *prebuiltApis) {
 			filename, _, scope := parsePrebuiltPath(mctx, f)
 			referencedModule := strings.TrimSuffix(filename, "-incompatibilities")
 
-			createApiModule(mctx, apiModuleName(referencedModule+"-incompatibilities", scope, "latest"), f)
+			createApiModule(mctx, PrebuiltApiModuleName(referencedModule+"-incompatibilities", scope, "latest"), f)
 
 			incompatibilities[referencedModule+"."+scope] = true
 		}
 	}
 	// Create empty incompatibilities files for remaining modules
-	for _, k := range android.SortedStringKeys(latest) {
+	for _, k := range android.SortedKeys(latest) {
 		if _, ok := incompatibilities[k]; !ok {
-			createEmptyFile(mctx, apiModuleName(latest[k].module+"-incompatibilities", latest[k].scope, "latest"))
+			createEmptyFile(mctx, PrebuiltApiModuleName(latest[k].module+"-incompatibilities", latest[k].scope, "latest"))
 		}
 	}
 }

@@ -16,17 +16,20 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_library_import {
-    name: "cts_window-extensions_nodeps",
-    aars: ["window-extensions-release.aar"],
-    sdk_version: "current",
+java_library {
+    name: "cts_window-extensions",
+    sdk_version: "test_current",
+    static_libs: [
+        "androidx.window.extensions_extensions-nodeps",
+    ],
+    installable: false,
 }
 
 java_library {
-    name: "cts_window-extensions",
-    sdk_version: "current",
+    name: "cts_window-extensions-core",
+    sdk_version: "test_current",
     static_libs: [
-        "cts_window-extensions_nodeps",
+        "androidx.window.extensions.core_core-nodeps",
     ],
     installable: false,
 }
@@ -39,7 +42,7 @@ android_library_import {
 
 java_library {
     name: "cts_window-sidecar",
-    sdk_version: "current",
+    sdk_version: "test_current",
     static_libs: [
         "cts_window-sidecar_nodeps",
     ],
@@ -49,11 +52,13 @@ java_library {
 java_library {
     name: "cts_window_jetpack_utils",
     srcs: [
-        "src/android/server/wm/jetpack/utils/**/*.java"
+        "src/android/server/wm/jetpack/utils/**/*.java",
+        ":cts-wm-nested-shell-permission",
     ],
     static_libs: [
         "compatibility-device-util-axt",
         "cts_window-extensions",
+        "cts_window-extensions-core",
         "cts_window-sidecar",
     ],
     sdk_version: "test_current",
@@ -67,17 +72,17 @@ android_test {
         "androidx.test.ext.junit",
         "androidx.test.rules",
         "compatibility-device-util-axt",
-        "cts-wm-util",
         "platform-test-annotations",
+        "cts-wm-util",
         "cts_window-sidecar",
         "cts_window-extensions",
+        "cts_window-extensions-core",
     ],
     libs: [
         "android.test.base",
     ],
     test_suites: [
         "cts",
-        "vts",
         "general-tests",
     ],
     sdk_version: "test_current",

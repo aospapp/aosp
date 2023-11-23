@@ -58,16 +58,29 @@ class ClassTable {
     explicit TableSlot(ObjPtr<mirror::Class> klass);
 
     TableSlot(ObjPtr<mirror::Class> klass, uint32_t descriptor_hash);
+    TableSlot(uint32_t ptr, uint32_t descriptor_hash);
 
     TableSlot& operator=(const TableSlot& copy) {
       data_.store(copy.data_.load(std::memory_order_relaxed), std::memory_order_relaxed);
       return *this;
     }
 
+    uint32_t Data() const {
+      return data_.load(std::memory_order_relaxed);
+    }
+
     bool IsNull() const REQUIRES_SHARED(Locks::mutator_lock_);
 
     uint32_t Hash() const {
       return MaskHash(data_.load(std::memory_order_relaxed));
+    }
+
+    uint32_t NonHashData() const {
+      return RemoveHash(Data());
+    }
+
+    static uint32_t RemoveHash(uint32_t hash) {
+      return hash & ~kHashMask;
     }
 
     static uint32_t MaskHash(uint32_t hash) {
@@ -84,6 +97,9 @@ class ClassTable {
     // NO_THREAD_SAFETY_ANALYSIS since the visitor may require heap bitmap lock.
     template<typename Visitor>
     void VisitRoot(const Visitor& visitor) const NO_THREAD_SAFETY_ANALYSIS;
+
+    template<typename Visitor>
+    class ClassAndRootVisitor;
 
    private:
     // Extract a raw pointer from an address.
@@ -165,6 +181,11 @@ class ClassTable {
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);
 
+  // Returns the number of classes in the class table.
+  size_t Size() const
+      REQUIRES(!lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // Update a class in the table with the new class. Returns the existing class which was replaced.
   ObjPtr<mirror::Class> UpdateClass(const char* descriptor,
                                     ObjPtr<mirror::Class> new_klass,
@@ -181,6 +202,12 @@ class ClassTable {
 
   template<class Visitor>
   void VisitRoots(const Visitor& visitor)
+      NO_THREAD_SAFETY_ANALYSIS
+      REQUIRES(!lock_)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
+  template<class Visitor>
+  void VisitClassesAndRoots(Visitor& visitor)
       NO_THREAD_SAFETY_ANALYSIS
       REQUIRES(!lock_)
       REQUIRES_SHARED(Locks::mutator_lock_);

@@ -19,8 +19,7 @@ package android.cts.install;
 import static android.cts.install.InstallRule.VERSION_CODE_INVALID;
 
 import static com.android.cts.install.lib.InstallUtils.getPackageInstaller;
-
-import static com.google.common.truth.Truth.assertThat;
+import static com.android.cts.install.lib.PackageInstallerSessionInfoSubject.assertThat;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -122,13 +121,13 @@ public final class InstallTest {
     @Test
     public void assert_preReboot_phase() throws Exception {
         assertNoSessionCommitBroadcastSent();
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionReady()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionReady();
         mInstallRule.assertPackageVersion(mInstallType, VERSION_CODE_INVALID);
     }
 
     @Test
     public void assert_postReboot_phase() throws Exception {
-        assertThat(mSessionRule.retrieveSessionInfo().isStagedSessionApplied()).isTrue();
+        assertThat(mSessionRule.retrieveSessionInfo()).isStagedSessionApplied();
         mInstallRule.assertPackageVersion(mInstallType, VERSION_CODE_TARGET);
         assertNoSessionCommitBroadcastSent();
     }

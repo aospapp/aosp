@@ -27,6 +27,8 @@ import android.os.Looper;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 
+import com.android.systemui.qs.nano.QsTileState;
+
 import org.junit.Test;
 
 public class TileServiceTest extends BaseTileServiceTest {
@@ -115,15 +117,32 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     @Test
-    public void testTileInDumpAndHasState() throws Exception {
+    public void testTileInDumpAndHasNonBooleanState() throws Exception {
         initializeAndListen();
+        final QsTileState tileState = findTileState();
+        assertNotNull(tileState);
+        assertFalse(tileState.hasBooleanState());
+    }
 
-        final CharSequence tileLabel = mTileService.getQsTile().getLabel();
+    @Test
+    public void testTileInDumpAndHasCorrectState() throws Exception {
+        initializeAndListen();
+        CharSequence label = "test_label";
+        CharSequence subtitle = "test_subtitle";
 
-        final String[] dumpLines = executeShellCommand(DUMP_COMMAND).split("\n");
-        final String line = findLine(dumpLines, tileLabel);
-        assertNotNull(line);
-        assertTrue(line.trim().startsWith("State")); // Not BooleanState
+        Tile tile = mTileService.getQsTile();
+        tile.setState(Tile.STATE_ACTIVE);
+        tile.setLabel(label);
+        tile.setSubtitle(subtitle);
+        tile.updateTile();
+
+        Thread.sleep(200);
+
+        final QsTileState tileState = findTileState();
+        assertNotNull(tileState);
+        assertEquals(Tile.STATE_ACTIVE,  tileState.state);
+        assertEquals(label,  tileState.getLabel());
+        assertEquals(subtitle,  tileState.getSecondaryLabel());
     }
 
     private void clickTile(String componentName) throws Exception {
@@ -136,10 +155,10 @@ public class TileServiceTest extends BaseTileServiceTest {
      */
     private void waitForClick() throws InterruptedException {
         int ct = 0;
-        while (!TestTileService.hasBeenClicked() && (ct++ < CHECK_RETRIES)) {
+        while (!CurrentTestState.hasTileBeenClicked() && (ct++ < CHECK_RETRIES)) {
             Thread.sleep(CHECK_DELAY);
         }
-        assertTrue(TestTileService.hasBeenClicked());
+        assertTrue(CurrentTestState.hasTileBeenClicked());
     }
 
     /**
@@ -155,30 +174,6 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     @Override
-    protected void waitForListening(boolean state) throws InterruptedException {
-        int ct = 0;
-        while (TestTileService.isListening() != state && (ct++ < CHECK_RETRIES)) {
-            Thread.sleep(CHECK_DELAY);
-        }
-        assertEquals(state, TestTileService.isListening());
-    }
-
-    /**
-     * Waits for the TileService to be in the expected connected state. If it times out, it fails
-     * the test
-     * @param state desired connected state
-     * @throws InterruptedException
-     */
-    @Override
-    protected void waitForConnected(boolean state) throws InterruptedException {
-        int ct = 0;
-        while (TestTileService.isConnected() != state && (ct++ < CHECK_RETRIES)) {
-            Thread.sleep(CHECK_DELAY);
-        }
-        assertEquals(state, TestTileService.isConnected());
-    }
-
-    @Override
     protected String getTag() {
         return TAG;
     }
@@ -189,8 +184,8 @@ public class TileServiceTest extends BaseTileServiceTest {
     }
 
     @Override
-    protected TileService getTileServiceInstance() {
-        return TestTileService.getInstance();
+    protected String getTileServiceClassName() {
+        return TestTileService.class.getName();
     }
 
     class TestRunnable implements Runnable {

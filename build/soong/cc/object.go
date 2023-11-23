@@ -16,9 +16,11 @@ package cc
 
 import (
 	"fmt"
+	"strings"
 
 	"android/soong/android"
 	"android/soong/bazel"
+	"android/soong/bazel/cquery"
 )
 
 //
@@ -37,32 +39,42 @@ var ccObjectSdkMemberType = &librarySdkMemberType{
 		SupportsSdk:  true,
 	},
 	prebuiltModuleType: "cc_prebuilt_object",
-	linkTypes:          nil,
 }
 
 type objectLinker struct {
 	*baseLinker
 	Properties ObjectLinkerProperties
+
+	// Location of the object in the sysroot. Empty if the object is not
+	// included in the NDK.
+	ndkSysrootPath android.Path
 }
 
 type objectBazelHandler struct {
-	android.BazelHandler
-
 	module *Module
 }
 
-func (handler *objectBazelHandler) GenerateBazelBuildActions(ctx android.ModuleContext, label string) bool {
-	bazelCtx := ctx.Config().BazelContext
-	objPaths, ok := bazelCtx.GetOutputFiles(label, android.GetConfigKey(ctx))
-	if ok {
-		if len(objPaths) != 1 {
-			ctx.ModuleErrorf("expected exactly one object file for '%s', but got %s", label, objPaths)
-			return false
-		}
+var _ BazelHandler = (*objectBazelHandler)(nil)
 
-		handler.module.outputFile = android.OptionalPathForPath(android.PathForBazelOut(ctx, objPaths[0]))
+func (handler *objectBazelHandler) QueueBazelCall(ctx android.BaseModuleContext, label string) {
+	bazelCtx := ctx.Config().BazelContext
+	bazelCtx.QueueBazelRequest(label, cquery.GetOutputFiles, android.GetConfigKeyApexVariant(ctx, GetApexConfigKey(ctx)))
+}
+
+func (handler *objectBazelHandler) ProcessBazelQueryResponse(ctx android.ModuleContext, label string) {
+	bazelCtx := ctx.Config().BazelContext
+	objPaths, err := bazelCtx.GetOutputFiles(label, android.GetConfigKeyApexVariant(ctx, GetApexConfigKey(ctx)))
+	if err != nil {
+		ctx.ModuleErrorf(err.Error())
+		return
 	}
-	return ok
+
+	if len(objPaths) != 1 {
+		ctx.ModuleErrorf("expected exactly one object file for '%s', but got %s", label, objPaths)
+		return
+	}
+
+	handler.module.outputFile = android.OptionalPathForPath(android.PathForBazelOut(ctx, objPaths[0]))
 }
 
 type ObjectLinkerProperties struct {
@@ -70,7 +82,7 @@ type ObjectLinkerProperties struct {
 	Static_libs []string `android:"arch_variant,variant_prepend"`
 
 	// list of shared library modules should only provide headers for this module.
-	Shared_libs []string `android:"arch_variant"`
+	Shared_libs []string `android:"arch_variant,variant_prepend"`
 
 	// list of modules that should only provide headers for this module.
 	Header_libs []string `android:"arch_variant,variant_prepend"`
@@ -91,6 +103,10 @@ type ObjectLinkerProperties struct {
 	// Indicates that this module is a CRT object. CRT objects will be split
 	// into a variant per-API level between min_sdk_version and current.
 	Crt *bool
+
+	// Indicates that this module should not be included in the NDK sysroot.
+	// Only applies to CRT objects. Defaults to false.
+	Exclude_from_ndk_sysroot *bool
 }
 
 func newObject(hod android.HostOrDeviceSupported) *Module {
@@ -125,6 +141,7 @@ type bazelObjectAttributes struct {
 	Srcs                bazel.LabelListAttribute
 	Srcs_as             bazel.LabelListAttribute
 	Hdrs                bazel.LabelListAttribute
+	Objs                bazel.LabelListAttribute
 	Deps                bazel.LabelListAttribute
 	System_dynamic_deps bazel.LabelListAttribute
 	Copts               bazel.StringListAttribute
@@ -133,6 +150,7 @@ type bazelObjectAttributes struct {
 	Absolute_includes   bazel.StringListAttribute
 	Stl                 *string
 	Linker_script       bazel.LabelAttribute
+	Crt                 *bool
 	sdkAttributes
 }
 
@@ -147,6 +165,7 @@ func objectBp2Build(ctx android.TopDownMutatorContext, m *Module) {
 	// Set arch-specific configurable attributes
 	baseAttributes := bp2BuildParseBaseProps(ctx, m)
 	compilerAttrs := baseAttributes.compilerAttributes
+	var objs bazel.LabelListAttribute
 	var deps bazel.LabelListAttribute
 	systemDynamicDeps := bazel.LabelListAttribute{ForceSpecifyEmptyList: true}
 
@@ -159,16 +178,21 @@ func objectBp2Build(ctx android.TopDownMutatorContext, m *Module) {
 					label := android.BazelLabelForModuleSrcSingle(ctx, *objectLinkerProps.Linker_script)
 					linkerScript.SetSelectValue(axis, config, label)
 				}
-				deps.SetSelectValue(axis, config, android.BazelLabelForModuleDeps(ctx, objectLinkerProps.Objs))
+				objs.SetSelectValue(axis, config, android.BazelLabelForModuleDeps(ctx, objectLinkerProps.Objs))
 				systemSharedLibs := objectLinkerProps.System_shared_libs
 				if len(systemSharedLibs) > 0 {
 					systemSharedLibs = android.FirstUniqueStrings(systemSharedLibs)
 				}
 				systemDynamicDeps.SetSelectValue(axis, config, bazelLabelForSharedDeps(ctx, systemSharedLibs))
+				deps.SetSelectValue(axis, config, android.BazelLabelForModuleDeps(ctx, objectLinkerProps.Static_libs))
+				deps.SetSelectValue(axis, config, android.BazelLabelForModuleDeps(ctx, objectLinkerProps.Shared_libs))
+				deps.SetSelectValue(axis, config, android.BazelLabelForModuleDeps(ctx, objectLinkerProps.Header_libs))
+				// static_libs, shared_libs, and header_libs have variant_prepend tag
+				deps.Prepend = true
 			}
 		}
 	}
-	deps.ResolveExcludes()
+	objs.ResolveExcludes()
 
 	// Don't split cc_object srcs across languages. Doing so would add complexity,
 	// and this isn't typically done for cc_object.
@@ -184,6 +208,7 @@ func objectBp2Build(ctx android.TopDownMutatorContext, m *Module) {
 	attrs := &bazelObjectAttributes{
 		Srcs:                srcs,
 		Srcs_as:             compilerAttrs.asSrcs,
+		Objs:                objs,
 		Deps:                deps,
 		System_dynamic_deps: systemDynamicDeps,
 		Copts:               compilerAttrs.copts,
@@ -192,6 +217,7 @@ func objectBp2Build(ctx android.TopDownMutatorContext, m *Module) {
 		Absolute_includes:   compilerAttrs.absoluteIncludes,
 		Stl:                 compilerAttrs.stl,
 		Linker_script:       linkerScript,
+		Crt:                 m.linker.(*objectLinker).Properties.Crt,
 		sdkAttributes:       bp2BuildParseSdkAttributes(m),
 	}
 
@@ -200,7 +226,12 @@ func objectBp2Build(ctx android.TopDownMutatorContext, m *Module) {
 		Bzl_load_location: "//build/bazel/rules/cc:cc_object.bzl",
 	}
 
-	ctx.CreateBazelTargetModule(props, android.CommonAttributes{Name: m.Name()}, attrs)
+	tags := android.ApexAvailableTags(m)
+
+	ctx.CreateBazelTargetModule(props, android.CommonAttributes{
+		Name: m.Name(),
+		Tags: tags,
+	}, attrs)
 }
 
 func (object *objectLinker) appendLdflags(flags []string) {
@@ -245,24 +276,41 @@ func (object *objectLinker) link(ctx ModuleContext,
 
 	objs = objs.Append(deps.Objs)
 
-	var outputFile android.Path
+	var output android.WritablePath
 	builderFlags := flagsToBuilderFlags(flags)
+	outputName := ctx.ModuleName()
+	if !strings.HasSuffix(outputName, objectExtension) {
+		outputName += objectExtension
+	}
+
+	// isForPlatform is terribly named and actually means isNotApex.
+	if Bool(object.Properties.Crt) &&
+		!Bool(object.Properties.Exclude_from_ndk_sysroot) && ctx.useSdk() &&
+		ctx.isSdkVariant() && ctx.isForPlatform() {
+
+		output = getVersionedLibraryInstallPath(ctx,
+			nativeApiLevelOrPanic(ctx, ctx.sdkVersion())).Join(ctx, outputName)
+		object.ndkSysrootPath = output
+	} else {
+		output = android.PathForModuleOut(ctx, outputName)
+	}
+
+	outputFile := output
 
 	if len(objs.objFiles) == 1 && String(object.Properties.Linker_script) == "" {
-		outputFile = objs.objFiles[0]
-
 		if String(object.Properties.Prefix_symbols) != "" {
-			output := android.PathForModuleOut(ctx, ctx.ModuleName()+objectExtension)
-			transformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), outputFile,
+			transformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), objs.objFiles[0],
 				builderFlags, output)
-			outputFile = output
+		} else {
+			ctx.Build(pctx, android.BuildParams{
+				Rule:   android.Cp,
+				Input:  objs.objFiles[0],
+				Output: output,
+			})
 		}
 	} else {
-		output := android.PathForModuleOut(ctx, ctx.ModuleName()+objectExtension)
-		outputFile = output
-
 		if String(object.Properties.Prefix_symbols) != "" {
-			input := android.PathForModuleOut(ctx, "unprefixed", ctx.ModuleName()+objectExtension)
+			input := android.PathForModuleOut(ctx, "unprefixed", outputName)
 			transformBinaryPrefixSymbols(ctx, String(object.Properties.Prefix_symbols), input,
 				builderFlags, output)
 			output = input

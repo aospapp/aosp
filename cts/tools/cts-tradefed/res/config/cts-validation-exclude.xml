@@ -46,7 +46,7 @@
     <option name="compatibility:exclude-filter" value="CtsPermission3TestCases" />
     <option name="compatibility:exclude-filter" value="CtsTransitionTestCases" />
     <option name="compatibility:exclude-filter" value="CtsRoleTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsPermission2TestCases" />
+    <option name="compatibility:exclude-filter" value="CtsPermissionPolicyTestCases" />
     <option name="compatibility:exclude-filter" value="CtsAnimationTestCases" />
     <option name="compatibility:exclude-filter" value="CtsBackupTestCases" />
     <option name="compatibility:exclude-filter" value="CtsInputMethodServiceHostTestCases" />
@@ -67,7 +67,7 @@
     <option name="compatibility:exclude-filter" value="CtsBlobStoreTestHelperDiffSig2" />
     <option name="compatibility:exclude-filter" value="CtsPackageManagerPreferredActivityHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsShortcutManagerPackage2" />
-    <option name="compatibility:exclude-filter" value="CtsPermission5TestCases" />
+    <option name="compatibility:exclude-filter" value="CtsAttributionSourceTestCases" />
     <option name="compatibility:exclude-filter" value="CtsHiddenApiBlocklistApi27TestCases" />
     <option name="compatibility:exclude-filter" value="CtsActivityManagerBackgroundActivityTestCases" />
     <option name="compatibility:exclude-filter" value="CtsToastLegacyTestCases" />
@@ -134,7 +134,6 @@
     <option name="compatibility:exclude-filter" value="CtsDownloadManagerApi28" />
     <option name="compatibility:exclude-filter" value="CtsAppSearchTestCases" />
     <option name="compatibility:exclude-filter" value="CtsContentCaptureServiceTestCases" />
-    <option name="compatibility:exclude-filter" value="CtsPermission4TestCases" />
     <option name="compatibility:exclude-filter" value="CtsDomainVerificationHostTestCases" />
     <option name="compatibility:exclude-filter" value="CtsSliceTestCases" />
     <option name="compatibility:exclude-filter" value="CtsTranslationTestCases" />
@@ -493,4 +492,7 @@
     <option name="compatibility:exclude-filter" value="android.hardware.camera2.cts.StillCaptureTest.testFocalLengths[1]" />
     <option name="compatibility:exclude-filter" value="android.hardware.camera2.cts.ImageReaderTest.testRepeatingRaw[1]" />
 
+    <!-- b/204720226 -->
+    <option name="compatibility:exclude-filter" value="CtsPhotoPickerTest android.photopicker.cts.PhotoPickerCrossProfileTest#testPersonalApp_cannotAccessWorkProfile_default" />
+    <option name="compatibility:exclude-filter" value="CtsMediaHostTestCases android.media.session.cts.MediaSessionManagerHostTest#testGetActiveSessionsFull_managedProfiles" />
 </configuration>

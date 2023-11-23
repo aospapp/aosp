@@ -60,6 +60,7 @@ class CheepsRemoteImageRemoteInstance(base_avd_create.BaseAVDCreate):
             autoconnect=avd_spec.autoconnect,
             avd_type=constants.TYPE_CHEEPS,
             client_adb_port=avd_spec.client_adb_port,
+            client_fastboot_port=avd_spec.client_fastboot_port,
             boot_timeout_secs=avd_spec.boot_timeout_secs)
 
         # Launch vnc client if we're auto-connecting.

@@ -20,12 +20,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.host.test.longevity.listener.RunTerminator;
 import android.util.Log;
-import androidx.annotation.VisibleForTesting;
 
-import java.util.Map;
+import androidx.annotation.VisibleForTesting;
 
 import org.junit.runner.Description;
 import org.junit.runner.notification.RunNotifier;
+
+import java.util.Map;
 
 /**
  * A {@link RunTerminator} for terminating early on test end due to low battery.

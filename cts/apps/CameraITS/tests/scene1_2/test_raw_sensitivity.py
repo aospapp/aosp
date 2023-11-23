@@ -26,11 +26,11 @@ import capture_request_utils
 import image_processing_utils
 import its_session_utils
 
-GR_PLANE_IDX = 1  # GR plane index in RGGB data
-IMG_STATS_GRID = 9  # Center 11.11%
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-NUM_SENS_STEPS = 5
-VAR_THRESH = 1.01  # Each shot must be 1% noisier than previous
+_GR_PLANE_IDX = 1  # GR plane index in RGGB data
+_IMG_STATS_GRID = 9  # Center 11.11%
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_NUM_SENS_STEPS = 5
+_VAR_THRESH = 1.01  # Each shot must be 1% noisier than previous
 
 
 def define_raw_stats_fmt(props):
@@ -41,15 +41,15 @@ def define_raw_stats_fmt(props):
          props['android.sensor.info.preCorrectionActiveArraySize']['top'])
   logging.debug('Active array W,H: %d,%d', aaw, aah)
   return {'format': 'rawStats',
-          'gridWidth': aaw // IMG_STATS_GRID,
-          'gridHeight': aah // IMG_STATS_GRID}
+          'gridWidth': aaw // _IMG_STATS_GRID,
+          'gridHeight': aah // _IMG_STATS_GRID}
 
 
 class RawSensitivityTest(its_base_test.ItsBaseTest):
   """Capture a set of raw images with increasing gains and measure the noise."""
 
   def test_raw_sensitivity(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -62,17 +62,18 @@ class RawSensitivityTest(its_base_test.ItsBaseTest):
           camera_properties_utils.read_3a(props) and
           camera_properties_utils.per_frame_control(props) and
           not camera_properties_utils.mono_camera(props))
-      name_with_log_path = os.path.join(self.log_path, NAME)
+      name_with_log_path = os.path.join(self.log_path, _NAME)
 
-      # Load chart for scene (chart_distance=0 for no chart scaling)
+      # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, chart_distance=0)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Expose for the scene with min sensitivity
       sens_min, _ = props['android.sensor.info.sensitivityRange']
       # Digital gains might not be visible on RAW data
       sens_max = props['android.sensor.maxAnalogSensitivity']
-      sens_step = (sens_max - sens_min) // NUM_SENS_STEPS
+      sens_step = (sens_max - sens_min) // _NUM_SENS_STEPS
 
       # Intentionally blur images for noise measurements
       s_ae, e_ae, _, _, _ = cam.do_3a(do_af=False, get_results=True)
@@ -98,26 +99,26 @@ class RawSensitivityTest(its_base_test.ItsBaseTest):
         _, var_image = image_processing_utils.unpack_rawstats_capture(cap)
         cfa_idxs = image_processing_utils.get_canonical_cfa_order(props)
         white_level = float(props['android.sensor.info.whiteLevel'])
-        var = var_image[IMG_STATS_GRID//2, IMG_STATS_GRID//2,
-                        cfa_idxs[GR_PLANE_IDX]]/white_level**2
+        var = var_image[_IMG_STATS_GRID//2, _IMG_STATS_GRID//2,
+                        cfa_idxs[_GR_PLANE_IDX]]/white_level**2
         logging.debug('s=%d, e=%d, var=%e', s, e, var)
         variances.append(var)
 
       # Create plot
-      pylab.figure(NAME)
+      pylab.figure(_NAME)
       pylab.plot(sensitivities, variances, '-ro')
       pylab.xticks(sensitivities)
       pylab.xlabel('Sensitivities')
       pylab.ylabel('Image Center Patch Variance')
       pylab.ticklabel_format(axis='y', style='sci', scilimits=(-6, -6))
-      pylab.title(NAME)
+      pylab.title(_NAME)
       matplotlib.pyplot.savefig(f'{name_with_log_path}_variances.png')
 
       # Test that each shot is noisier than previous
       for i in range(len(variances) - 1):
-        if variances[i] >= variances[i+1]/VAR_THRESH:
+        if variances[i] >= variances[i+1]/_VAR_THRESH:
           raise AssertionError(f'variances [i]: {variances[i]:5f}, [i+1]: '
-                               f'{variances[i+1]:.5f}, THRESH: {VAR_THRESH}')
+                               f'{variances[i+1]:.5f}, THRESH: {_VAR_THRESH}')
 
 if __name__ == '__main__':
   test_runner.main()

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <getopt.h>
+#include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
 

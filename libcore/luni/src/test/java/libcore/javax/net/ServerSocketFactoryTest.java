@@ -122,7 +122,10 @@ public class ServerSocketFactoryTest extends TestCase {
          * We've observed that Linux always adds 3 to the user-specified
          * backlog.
          */
-        assertTrue(peak >= specifiedBacklog && peak <= (specifiedBacklog + 3) * 1.5);
+        int maxBacklog = (int) ((specifiedBacklog + 3) * 1.5);
+        assertTrue(String.format("Backlog = %d, but expected between %d and %d.",
+                peak, specifiedBacklog, maxBacklog),
+            peak >= specifiedBacklog && peak <= maxBacklog);
     }
 
     private void transfer(InputStream in, ByteArrayOutputStream out) throws IOException {

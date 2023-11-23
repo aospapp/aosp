@@ -960,41 +960,45 @@ TEST_F(HidlTest, BatchSharedMemory) {
     const uint64_t kBatchSize = 2;
     hidl_vec<hidl_memory> batchCopy;
 
-    EXPECT_OK(ashmemAllocator->batchAllocate(1024, kBatchSize,
-        [&](bool success, const hidl_vec<hidl_memory>& batch) {
-            ASSERT_TRUE(success);
-            EXPECT_EQ(kBatchSize, batch.size());
+    ASSERT_TRUE(ashmemAllocator
+                        ->batchAllocate(1024, kBatchSize,
+                                        [&](bool success, const hidl_vec<hidl_memory>& batch) {
+                                            ASSERT_TRUE(success);
+                                            EXPECT_EQ(kBatchSize, batch.size());
 
-            for (uint64_t i = 0; i < batch.size(); i++) {
-                sp<IMemory> memory = mapMemory(batch[i]);
+                                            for (uint64_t i = 0; i < batch.size(); i++) {
+                                                sp<IMemory> memory = mapMemory(batch[i]);
 
-                EXPECT_NE(nullptr, memory.get());
+                                                EXPECT_NE(nullptr, memory.get());
 
-                uint8_t* data = static_cast<uint8_t*>(static_cast<void*>(memory->getPointer()));
-                EXPECT_NE(nullptr, data);
+                                                uint8_t* data = static_cast<uint8_t*>(
+                                                        static_cast<void*>(memory->getPointer()));
+                                                EXPECT_NE(nullptr, data);
 
-                EXPECT_EQ(memory->getSize(), batch[i].size());
+                                                EXPECT_EQ(memory->getSize(), batch[i].size());
 
-                memory->update();
-                memset(data, kValue, memory->getSize());
-                memory->commit();
-            }
+                                                memory->update();
+                                                memset(data, kValue, memory->getSize());
+                                                memory->commit();
+                                            }
 
-            batchCopy = batch;
-        }));
+                                            batchCopy = batch;
+                                        })
+                        .isOk());
 
     for (uint64_t i = 0; i < batchCopy.size(); i++) {
         // Test the memory persists after the call
         sp<IMemory> memory = mapMemory(batchCopy[i]);
 
-        EXPECT_NE(memory, nullptr);
+        ASSERT_NE(memory, nullptr);
 
         uint8_t* data = static_cast<uint8_t*>(static_cast<void*>(memory->getPointer()));
-        EXPECT_NE(data, nullptr);
+        ASSERT_NE(data, nullptr);
 
         memory->read();
-        for (size_t i = 0; i < batchCopy[i].size(); i++) {
-            EXPECT_EQ(kValue, data[i]);
+
+        for (size_t k = 0; k < batchCopy[i].size(); k++) {
+            EXPECT_EQ(kValue, data[k]);
         }
         memory->commit();
     }

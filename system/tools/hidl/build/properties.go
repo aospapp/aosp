@@ -66,3 +66,10 @@ type fuzzProperties struct {
 	Data        []string
 	Fuzz_config *fuzzConfig
 }
+
+type Bazel_module struct {
+	Bp2build_available *bool
+}
+type bazelProperties struct {
+	*Bazel_module
+}

@@ -64,12 +64,21 @@
             </intent-filter>
         </activity>
 
-        <service android:name=".NotificationListener"
+        <service android:name="android.permission.cts.CtsNotificationListenerService"
              android:exported="true"
              android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
+        </service>
+        <service android:name=".AccessibilityTestService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService"/>
+            </intent-filter>
+            <meta-data android:name="android.accessibilityservice"
+                android:resource="@xml/test_accessibilityservice"/>
         </service>
     </application>
 

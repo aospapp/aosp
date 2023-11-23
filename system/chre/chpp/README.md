@@ -114,15 +114,14 @@ To allow for a clean C implementation with clear separation of layers while supp
 To tie corresponding transport and application layers together, each layer’s context struct includes a pointer to the context struct of the other corresponding layer (i.e. the transport layer’s context has a pointer to the corresponding app layer’s context struct and vice versa).
 Initializing CHPP involves:
 
-1. Allocating the structs for the application and transport layers (in any order).
+1. Allocating the structs for the application, transport, and link layers (in any order).
 2. Calling the application and transport layers’ initialization functions (in any order)
-3. Initializing the platform-specific link layer parameters within the transport struct.
 
-## void chppTransportInit(\*transportContext, \*appContext)
+## void chppTransportInit(\*transportContext, \*appContext, \*linkContext, \*linkApi)
 
 The CHPP Transport Layer state is stored in the ChppTransportState struct transportContext, and passed around between various functions. It is necessary to initialize the transport layer state for each transport layer instance on every platform.
 Each transport layer instance is associated with a single application layer instance. appContext points to the application layer status struct associated with this transport layer instance.
-After calling chppTransportInit, it is also necessary to separately initialize the platform-specific values of transportContext.linkParams.
+After calling chppTransportInit, it is also necessary to separately initialize the linkContext - note that this can be done in the link layer init function.
 
 ## void chppAppInit(\*transportContext, \*appContext)
 
@@ -143,16 +142,16 @@ The return value from chppRxData(*buf, len) can optionally be used at the commun
 This is an optional function that enables the link layer to indicate the end of a packet. For packets with a corrupt length field, this function can enable the link layer to explicitly NACK the bad packet earlier.
 This function is designed exclusively for link layers that can identify the end of individual packets. The availability of this information depends on the link layer implementation.
 
-## enum ChppLinkErrorCode chppPlatformLinkSend(\*params, \*buf, len)
+## [Link API] enum ChppLinkErrorCode send(\*linkContext, \*buf, len)
 
-This function is the interface between the CHPP Transport layer and the communications link’s Tx path (e.g. to the UART driver). This function is called when any data should be sent to the serial interface. The data is provided through a pointer to \*buf, with its length specified as len. The struct params is platform-specific and should include link details and parameters as initialized by the implementation.
-Both synchronous and asynchronous implementations of this function are supported. A synchronous implementation refers to one where chppPlatformLinkSend() is done with buf and len when it returns (i.e. the caller can free or reuse buf and len). An asynchronous implementation refers to one where chppPlatformLinkSend() returns before completely consuming buf and len (e.g. the send is completed at a later time). In this case, it is up to the platform implementation to call chppLinkSendDoneCb() after processing the contents of buf and len.
+This function is the interface between the CHPP Transport layer and the communications link’s Tx path (e.g. to the UART driver). This function is called when any data should be sent to the serial interface. The data is stored in the link TxBuffer (see getTxBuffer), with its length specified as len. The linkContext should include link details and parameters as initialized by the implementation.
+Both synchronous and asynchronous implementations of this function are supported. A synchronous implementation refers to one where send() is done with buf and len when it returns (i.e. the caller can free or reuse buf and len). An asynchronous implementation refers to one where send() returns before completely consuming buf and len (e.g. the send is completed at a later time). In this case, it is up to the platform implementation to call chppLinkSendDoneCb() after processing the contents of buf and len.
 This function returns CHPP_LINK_ERROR_NONE_SENT if the platform implementation for this function is synchronous and CHPP_LINK_ERROR_NONE_QUEUED if it is implemented asynchronously. It can also return an error code from enum ChppLinkErrorCode.
 
-## void chppLinkSendDoneCb(\*params)
+## void chppLinkSendDoneCb(\*transportContext)
 
-Notifies the transport layer that the link layer is done sending the previous payload (as provided to platformLinkSend() through buf and len) and can accept more data.
-On systems that implement the link layer Tx asynchronously, where platformLinkSend() returns False before consuming the payload provided to it, the platform implementation must call this function after platformLinkSend() is done with the payload (i.e. buf and len).
+Notifies the transport layer that the link layer is done sending the previous payload (as provided to send()) and can accept more data.
+On systems that implement the link layer Tx asynchronously, where send() returns False before consuming the payload provided to it, the platform implementation must call this function after send() is done with the payload (i.e. buf and len).
 
 ## void chppWorkThreadStart(\*transportContext)
 

@@ -53,6 +53,7 @@ using android::linkerconfig::modules::Configuration;
 
 namespace {
 const static struct option program_options[] = {
+    {"apex", required_argument, 0, 'a'},
     {"target", required_argument, 0, 't'},
     {"strict", no_argument, 0, 's'},
 #ifndef __ANDROID__
@@ -65,6 +66,7 @@ const static struct option program_options[] = {
     {0, 0, 0, 0}};
 
 struct ProgramArgs {
+  std::string target_apex;
   std::string target_directory;
   bool strict;
   std::string root;
@@ -76,6 +78,7 @@ struct ProgramArgs {
 [[noreturn]] void PrintUsage(int status = EXIT_SUCCESS) {
   std::cerr << "Usage : linkerconfig [--target <target_directory>]"
                " [--strict]"
+               " --apex <name>"
 #ifndef __ANDROID__
                " --root <root dir>"
                " --vndk <vndk version>"
@@ -98,8 +101,11 @@ std::string RealPath(std::string_view path) {
 bool ParseArgs(int argc, char* argv[], ProgramArgs* args) {
   int parse_result;
   while ((parse_result = getopt_long(
-              argc, argv, "t:sr:v:ep:hyl", program_options, NULL)) != -1) {
+              argc, argv, "a:t:sr:v:ep:hyl", program_options, NULL)) != -1) {
     switch (parse_result) {
+      case 'a':
+        args->target_apex = optarg;
+        break;
       case 't':
         args->target_directory = optarg;
         break;
@@ -132,7 +138,7 @@ bool ParseArgs(int argc, char* argv[], ProgramArgs* args) {
   return true;
 }
 
-void LoadVariables(ProgramArgs args) {
+void LoadVariables(const ProgramArgs& args) {
 #ifndef __ANDROID__
   if (!args.is_recovery && args.root == "") {
     PrintUsage();
@@ -184,20 +190,25 @@ Result<void> UpdatePermission([[maybe_unused]] const std::string& file_path) {
   return {};
 }
 
-Context GetContext(ProgramArgs args) {
+Context GetContext(const ProgramArgs& args) {
   Context ctx;
   if (args.strict) {
     ctx.SetStrictMode(true);
   }
+  if (!args.target_apex.empty()) {
+    ctx.SetTargetApex(args.target_apex);
+  }
   if (!args.is_recovery) {
     auto apex_list = android::linkerconfig::modules::ScanActiveApexes(args.root);
     if (apex_list.ok()) {
+      std::vector<ApexInfo> apex_modules;
       for (auto const& apex_item : *apex_list) {
         auto apex_info = apex_item.second;
         if (apex_info.has_bin || apex_info.has_lib) {
-          ctx.AddApexModule(std::move(apex_info));
+          apex_modules.push_back(std::move(apex_info));
         }
       }
+      ctx.SetApexModules(std::move(apex_modules));
     } else {
       LOG(ERROR) << "Failed to scan APEX modules : " << apex_list.error();
     }
@@ -283,8 +294,13 @@ Result<void> GenerateRecoveryLinkerConfiguration(Context& ctx,
 }
 
 Result<void> GenerateApexConfiguration(
-    const std::string& base_dir, android::linkerconfig::contents::Context& ctx,
-    const android::linkerconfig::modules::ApexInfo& target_apex) {
+    android::linkerconfig::contents::Context& ctx,
+    const android::linkerconfig::modules::ApexInfo& target_apex,
+    const std::string& base_dir) {
+  if (!target_apex.has_bin) {
+    return {};
+  }
+
   std::string dir_path = base_dir + "/" + target_apex.name;
   if (auto ret = mkdir(dir_path.c_str(), 0755); ret != 0 && errno != EEXIST) {
     return ErrnoError() << "Failed to create directory " << dir_path;
@@ -296,13 +312,26 @@ Result<void> GenerateApexConfiguration(
       true);
 }
 
+Result<void> GenerateApexConfiguration(
+    android::linkerconfig::contents::Context& ctx, const std::string& apex_name,
+    const std::string& base_dir) {
+  auto end = std::end(ctx.GetApexModules());
+  auto it = std::find_if(std::begin(ctx.GetApexModules()),
+                         end,
+                         [&apex_name](const auto& apex_info) {
+                           return apex_info.name == apex_name;
+                         });
+  if (it == end) {
+    return Error() << apex_name << " not found.";
+  }
+  return GenerateApexConfiguration(ctx, *it, base_dir);
+}
+
 void GenerateApexConfigurations(Context& ctx, const std::string& dir_path) {
   for (auto const& apex_item : ctx.GetApexModules()) {
-    if (apex_item.has_bin) {
-      auto result = GenerateApexConfiguration(dir_path, ctx, apex_item);
-      if (!result.ok()) {
-        LOG(WARNING) << result.error();
-      }
+    auto result = GenerateApexConfiguration(ctx, apex_item, dir_path);
+    if (!result.ok()) {
+      LOG(WARNING) << result.error();
     }
   }
 }
@@ -379,6 +408,9 @@ int main(int argc, char* argv[]) {
   if (args.is_recovery) {
     ExitOnFailure(
         GenerateRecoveryLinkerConfiguration(ctx, args.target_directory));
+  } else if (args.target_apex != "") {
+    ExitOnFailure(GenerateApexConfiguration(
+        ctx, args.target_apex, args.target_directory));
   } else {
     ExitOnFailure(GenerateBaseLinkerConfiguration(ctx, args.target_directory));
     GenerateApexConfigurations(ctx, args.target_directory);

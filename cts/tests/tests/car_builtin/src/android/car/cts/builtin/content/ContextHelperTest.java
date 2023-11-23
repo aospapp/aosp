@@ -24,17 +24,22 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assume.assumeTrue;
 
+import android.app.Instrumentation;
 import android.car.builtin.content.ContextHelper;
+import android.car.cts.builtin.activity.SingleUseActivity;
 import android.car.cts.builtin.activity.VirtualDisplayIdTestActivity;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.UserHandle;
 import android.server.wm.ActivityManagerTestBase;
 import android.view.Display;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,7 +47,8 @@ import org.junit.runner.RunWith;
 public final class ContextHelperTest extends ActivityManagerTestBase {
     private static final int ACTIVITY_FOCUS_TIMEOUT_MS = 10_000;
 
-    private final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
+    private final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
+    private final Context mContext = mInstrumentation.getContext();
 
     @Test
     public void testDefaultDisplayId() throws Exception {
@@ -70,6 +76,32 @@ public final class ContextHelperTest extends ActivityManagerTestBase {
 
             // assertion
             assertEquals(createdVirtualDisplayId, VirtualDisplayIdTestActivity.getDisplayId());
+        }
+    }
+
+    @Test
+    @Ignore("b/248609709")
+    public void testStartActivityAsUser() throws Exception {
+        // setup
+        Intent startIntent = new Intent(mContext, SingleUseActivity.class);
+        ComponentName testActivityName = startIntent.getComponent();
+        SingleUseActivity theInstance = null;
+
+        try {
+            // execute
+            ContextHelper.startActivityAsUser(mContext, startIntent,
+                    /* options= */ null, UserHandle.CURRENT);
+            waitAndAssertTopResumedActivity(testActivityName, Display.DEFAULT_DISPLAY,
+                    "Activity must be resumed");
+
+            // assert
+            theInstance = SingleUseActivity.getInstance();
+            assertThat(theInstance).isNotNull();
+        } finally {
+            // teardown
+            if (theInstance != null) {
+                theInstance.finish();
+            }
         }
     }
 

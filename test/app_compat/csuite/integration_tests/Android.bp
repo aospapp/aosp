@@ -61,9 +61,6 @@ python_library_host {
     srcs: [
         "csuite_test_utils.py",
     ],
-    defaults: [
-        "csuite_python_defaults",
-    ],
     java_data: [
         "csuite_standalone_zip",
     ],
@@ -84,9 +81,6 @@ python_test_host {
     libs: [
         "csuite_test_utils",
     ],
-    defaults: [
-        "csuite_python_defaults",
-    ],
 }
 
 python_test_host {
@@ -104,9 +98,6 @@ python_test_host {
     data: [
         ":csuite_crash_on_launch_test_app",
         ":csuite_no_crash_test_app",
-    ],
-    defaults: [
-        "csuite_python_defaults",
     ],
     test_options: {
         unit_test: false,

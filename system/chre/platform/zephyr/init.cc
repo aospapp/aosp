@@ -16,8 +16,8 @@
 #include "chre/core/init.h"
 
 #include <errno.h>
-#include <sys/printk.h>
-#include <zephyr.h>
+#include <zephyr/sys/printk.h>
+#include <zephyr/kernel.h>
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/static_nanoapps.h"

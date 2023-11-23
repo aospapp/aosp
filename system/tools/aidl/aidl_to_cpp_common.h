@@ -56,6 +56,9 @@ size_t AlignmentOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames
 std::string HeaderFile(const AidlDefinedType& defined_type, ClassNames class_type,
                        bool use_os_sep = true);
 
+bool ValidateOutputFilePath(const string& output_file, const Options& options,
+                            const AidlDefinedType& defined_type);
+
 void EnterNamespace(CodeWriter& out, const AidlDefinedType& defined_type);
 void LeaveNamespace(CodeWriter& out, const AidlDefinedType& defined_type);
 
@@ -132,6 +135,29 @@ struct UnionWriter {
 std::string CppConstantValueDecorator(
     const AidlTypeSpecifier& type,
     const std::variant<std::string, std::vector<std::string>>& raw_value, bool is_ndk);
+
+void GenerateForwardDecls(CodeWriter& out, const AidlDefinedType& root_type, bool is_ndk);
+
+struct ClangDiagnosticIgnoreDeprecated {
+  CodeWriter& out;
+  bool deprecated;
+  ClangDiagnosticIgnoreDeprecated(CodeWriter& out, bool deprecated)
+      : out(out), deprecated(deprecated) {
+    // enter
+    if (deprecated) {
+      out << "#pragma clang diagnostic push\n";
+      out << "#pragma clang diagnostic ignored \"-Wdeprecated-declarations\"\n";
+    }
+  }
+  ~ClangDiagnosticIgnoreDeprecated() {
+    // exit
+    if (deprecated) {
+      out << "#pragma clang diagnostic pop\n";
+    }
+  }
+};
+
+bool HasDeprecatedField(const AidlParcelable& parcelable);
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android

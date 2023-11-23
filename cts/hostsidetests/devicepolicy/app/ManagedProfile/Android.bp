@@ -36,6 +36,7 @@ android_test_helper_app {
         "androidx.legacy_legacy-support-v4",
         "devicepolicy-deviceside-common",
         "permission-test-util-lib",
+        "NeneInternal",
     ],
     min_sdk_version: "27",
     // tag this module as a cts test artifact

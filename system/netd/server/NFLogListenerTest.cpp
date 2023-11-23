@@ -25,6 +25,7 @@
 #include <linux/netfilter/nfnetlink_log.h>
 
 #include <netdutils/MockSyscalls.h>
+#include <netdutils/NetNativeTestBase.h>
 #include "NFLogListener.h"
 
 using ::testing::_;
@@ -58,7 +59,7 @@ class MockNetlinkListener : public NetlinkListenerInterface {
     MOCK_METHOD1(registerSkErrorHandler, void(const SkErrorHandler& handler));
 };
 
-class NFLogListenerTest : public testing::Test {
+class NFLogListenerTest : public NetNativeTestBase {
   protected:
     NFLogListenerTest() {
         EXPECT_CALL(*mNLListener, subscribe(kNFLogPacketMsgType, _))

@@ -43,7 +43,9 @@ import static org.testng.Assert.*;
 
 abstract class VarHandleBaseTest {
     static final int ITERS = Integer.getInteger("iters", 1);
-    static final int WEAK_ATTEMPTS = Integer.getInteger("weakAttempts", 10);
+    // Android-changed: increased weak operation attempts for b/231439685.
+    // static final int WEAK_ATTEMPTS = Integer.getInteger("weakAttempts", 10);
+    static final int WEAK_ATTEMPTS = Integer.getInteger("weakAttempts", 50);
 
     interface ThrowingRunnable {
         void run() throws Throwable;

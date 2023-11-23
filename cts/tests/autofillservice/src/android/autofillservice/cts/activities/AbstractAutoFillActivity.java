@@ -28,6 +28,7 @@ import android.graphics.Rect;
 import android.os.Bundle;
 import android.view.PixelCopy;
 import android.view.View;
+import android.view.WindowInsets;
 import android.view.autofill.AutofillManager;
 
 import androidx.annotation.NonNull;
@@ -182,5 +183,12 @@ public abstract class AbstractAutoFillActivity extends Activity {
      */
     public void clearFocus() {
         throw new UnsupportedOperationException("Not implemented by " + getClass());
+    }
+
+    /**
+     * Get insets of the root window
+     */
+    public WindowInsets getRootWindowInsets() {
+        return getWindow().getDecorView().getRootWindowInsets();
     }
 }

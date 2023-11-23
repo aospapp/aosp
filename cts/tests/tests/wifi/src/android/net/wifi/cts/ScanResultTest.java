@@ -16,6 +16,8 @@
 
 package android.net.wifi.cts;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -31,15 +33,16 @@ import android.net.wifi.WifiManager;
 import android.net.wifi.WifiManager.WifiLock;
 import android.net.wifi.WifiScanner;
 import android.net.wifi.WifiSsid;
+import android.os.Build;
 import android.os.Parcel;
 import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
-import com.android.compatibility.common.util.SystemUtil;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -126,7 +129,11 @@ public class ScanResultTest extends WifiJUnit3TestBase {
         mIntentFilter.addAction(WifiManager.NETWORK_IDS_CHANGED_ACTION);
         mIntentFilter.addAction(WifiManager.ACTION_PICK_WIFI_NETWORK);
 
-        mContext.registerReceiver(mReceiver, mIntentFilter);
+        if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)) {
+            mContext.registerReceiver(mReceiver, mIntentFilter, RECEIVER_EXPORTED);
+        } else {
+            mContext.registerReceiver(mReceiver, mIntentFilter);
+        }
         mWifiManager = (WifiManager) getContext().getSystemService(Context.WIFI_SERVICE);
         assertThat(mWifiManager).isNotNull();
 
@@ -177,11 +184,8 @@ public class ScanResultTest extends WifiJUnit3TestBase {
     private void setWifiEnabled(boolean enable) throws Exception {
         synchronized (mMySync) {
             mMySync.expectedState = STATE_WIFI_CHANGING;
-            if (enable) {
-                SystemUtil.runShellCommand("svc wifi enable");
-            } else {
-                SystemUtil.runShellCommand("svc wifi disable");
-            }
+            ShellIdentityUtils.invokeWithShellPermissions(
+                    () -> mWifiManager.setWifiEnabled(enable));
             waitForBroadcast(TIMEOUT_MSEC, STATE_WIFI_CHANGED);
        }
     }
@@ -213,7 +217,9 @@ public class ScanResultTest extends WifiJUnit3TestBase {
                     ScanResult.WIFI_STANDARD_LEGACY,
                     ScanResult.WIFI_STANDARD_11N,
                     ScanResult.WIFI_STANDARD_11AC,
-                    ScanResult.WIFI_STANDARD_11AX
+                    ScanResult.WIFI_STANDARD_11AX,
+                    ScanResult.WIFI_STANDARD_11AD,
+                    ScanResult.WIFI_STANDARD_11BE
             );
 
             scanResult.isPasspointNetwork();
@@ -416,6 +422,9 @@ public class ScanResultTest extends WifiJUnit3TestBase {
         assertNull(mloLink.getStaMacAddress());
         assertNull(mloLink.getApMacAddress());
         assertEquals(MloLink.MLO_LINK_STATE_UNASSOCIATED, mloLink.getState());
+        assertEquals(WifiInfo.INVALID_RSSI, mloLink.getRssi());
+        assertEquals(WifiInfo.LINK_SPEED_UNKNOWN, mloLink.getRxLinkSpeedMbps());
+        assertEquals(WifiInfo.LINK_SPEED_UNKNOWN, mloLink.getTxLinkSpeedMbps());
     }
 
     /**

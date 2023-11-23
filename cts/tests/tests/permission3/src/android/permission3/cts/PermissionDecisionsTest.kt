@@ -20,8 +20,8 @@ import android.Manifest
 import android.content.Intent
 import android.os.Build
 import android.permission.PermissionManager
-import android.support.test.uiautomator.By
 import androidx.test.filters.SdkSuppress
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil
 import org.junit.Assert.assertNull
 import org.junit.Assume.assumeTrue

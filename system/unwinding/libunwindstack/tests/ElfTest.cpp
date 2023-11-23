@@ -235,6 +235,18 @@ TEST_F(ElfTest, elf_arm64) {
   ASSERT_TRUE(elf.interface() != nullptr);
 }
 
+TEST_F(ElfTest, elf_riscv64) {
+  Elf elf(memory_);
+
+  InitElf64(EM_RISCV);
+
+  ASSERT_TRUE(elf.Init());
+  ASSERT_TRUE(elf.valid());
+  ASSERT_EQ(static_cast<uint32_t>(EM_RISCV), elf.machine_type());
+  ASSERT_EQ(ELFCLASS64, elf.class_type());
+  ASSERT_TRUE(elf.interface() != nullptr);
+}
+
 TEST_F(ElfTest, elf_x86_64) {
   Elf elf(memory_);
 

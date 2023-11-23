@@ -25,7 +25,8 @@ java_library {
         "compatibility-device-util-axt",
         "android.test.base",
         "auto_value_annotations",
-        "guava"
+        "guava",
+        "cts-verifier-framework",
     ],
     plugins: ["auto_value_plugin"],
 }
@@ -35,7 +36,7 @@ android_test {
     compile_multilib: "both",
     static_libs: [
         "compatibility-device-util-axt",
-        "MediaPerformanceClassCommon"
+        "MediaPerformanceClassCommon",
     ],
     platform_apis: true,
     srcs: ["tests/src/**/*.java"],

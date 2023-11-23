@@ -175,3 +175,92 @@ This release adds request timeout support at the client and addresses several bu
   - Client registration cleanup
   - Reset handling fixes
   - Testing improvements
+
+### 2023-01
+
+Update CHPP to make it possible to use different link layers on the same platform.
+
+**Before:**
+
+The link layer API is defined by:
+
+- A few global functions:
+  - `chppPlatformLinkInit`
+  - `chppPlatformLinkDeinit`
+  - `chppPlatformLinkSend`
+  - `chppPlatformLinkDoWork`
+  - `chppPlatformLinkReset`
+
+- A few defines:
+  - `CHPP_PLATFORM_LINK_TX_MTU_BYTES`
+  - `CHPP_PLATFORM_LINK_RX_MTU_BYTES`
+  - `CHPP_PLATFORM_TRANSPORT_TIMEOUT_MS`
+
+**After:**
+
+In order to be able to use different link layers, the link layer API is now defined by
+
+- A `ChppLinkApi` API struct composed of pointers to the entry points:
+  - `init`
+  - `deinit`
+  - `send`
+  - `doWork`
+  - `reset`
+  - `getConfig` [added]
+  - `getTxBuffer` [added]
+- A free form state,
+- A `ChppLinkConfiguration` struct replacing the former defines.
+
+#### Migration
+
+You first need to create a `struct` holding the state of the link layer.
+This state `struct` is free form but would usually contain:
+- The TX buffer - it was owned by the transport layer in the previous version.
+  The TX buffer size must be added to the configuration `ChppLinkConfiguration` struct.
+  You can compute the size from your former `CHPP_PLATFORM_LINK_TX_MTU_BYTES`.
+  The formula to use is `min(CHPP_PLATFORM_LINK_TX_MTU_BYTES, 1024) + CHPP_TRANSPORT_ENCODING_OVERHEAD_BYTES`.
+  For example if your `CHPP_PLATFORM_LINK_TX_MTU_BYTES` was 2048, the TX buffer size should be `1024 + CHPP_TRANSPORT_ENCODING_OVERHEAD_BYTES`.
+  Note that 1024 (or whatever the value of the min is) is the effective payload.
+  The TX buffer will be slightly larger to accommodate the transport layer encoding overhead.
+- A pointer to the transport layer state which is required for the transport layer callbacks
+
+You need to create an instance of `ChppLinkApi` with pointers to the link functions.
+The API of the existing function have changed. They now take a `void *` pointer to the free form link state where they used to take a `struct ChppPlatformLinkParameters *`. You should cast that `void* linkContext` pointer to the type of your free form state.
+
+The `init` function now takes a second `struct ChppTransportState *transportContext` parameter. That function should store it in the state as it will be needed later to callback into the transport layer. The `init` function might store the `ChppLinkConfiguration` configuration in the state (if the configuration varies across link layer instances).
+
+The `send` function does not take a pointer to the TX buffer (`uint8_t *buf`) any more. That's because this buffer is now owned by the link layer and part of the link state.
+
+The added `getConfig` function returns the configuration `ChppLinkConfiguration` struct. The configuration might be shared across link instances or specific to a given instance.
+
+The added `getTxBuffer` function returns a pointer to the TX buffer that is part in the state.
+
+Then you need to create the `ChppLinkConfiguration` struct. It contains the size of TX buffer, the size of the RX buffer. Those are equivalent to the former defines. Note that `CHPP_PLATFORM_TRANSPORT_TIMEOUT_MS` was not used and has been deleted.
+
+Other changes:
+
+- You need to pass the link state and the link `ChppLinkApi` struct when initializing the transport layer with `chppTransportInit`.
+- When calling the `chppLinkSendDoneCb` and `chppWorkThreadSignalFromLink` from the link layer the first parameter should now be a pointer to the transport layer. You would typically retrieve that pointer from the link state where you should have stored it in the `init` function.
+
+### 2023-03
+
+The `chppRegisterService` signature changes from
+
+```
+uint8_t chppRegisterService(struct ChppAppState *appContext,
+                            void *serviceContext,
+                            const struct ChppService *newService);
+```
+
+to
+
+```
+void chppRegisterService(struct ChppAppState *appContext, void *serviceContext,
+                         struct ChppServiceState *serviceState,
+                         const struct ChppService *newService);
+```
+
+The handle which used to be returned is now populated in `serviceState`.
+`service->appContext` is also initialized to the passed `appContext`.
+
+This change makes the signature and behavior consistent with `chreRegisterClient`.

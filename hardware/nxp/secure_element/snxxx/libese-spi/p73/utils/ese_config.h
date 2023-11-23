@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2020 NXP
+ *  Copyright 2018-2020,2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -26,7 +26,8 @@
 #ifndef __CONFIG_H
 #define __CONFIG_H
 
-#define NAME_SE_DEBUG_ENABLED "SE_DEBUG_ENABLED"
+#define NAME_SE_LOG_LEVEL "SE_LOG_LEVEL"
+#define NAME_SE_KPI_MEASUREMENT_ENABLED "SE_KPI_MEASUREMENT_ENABLED"
 #define NAME_NXP_JCOPDL_AT_BOOT_ENABLE "NXP_JCOPDL_AT_BOOT_ENABLE"
 #define NAME_NXP_WTX_COUNT_VALUE "NXP_WTX_COUNT_VALUE"
 #define NAME_NXP_MAX_RSP_TIMEOUT "NXP_MAX_RSP_TIMEOUT"
@@ -48,6 +49,7 @@
 #define NAME_NXP_WTX_NTF_COUNT "NXP_WTX_NTF_COUNT"
 #define NAME_NXP_OSU_MAX_WTX_COUNT "NXP_OSU_MAX_WTX_COUNT"
 #define NAME_NXP_TRANSPORT "NXP_TRANSPORT"
+#define NAME_NXP_SE_PRIORITY_ACCESS "NXP_SE_PRIORITY_ACCESS"
 #endif
 
 class EseConfig {

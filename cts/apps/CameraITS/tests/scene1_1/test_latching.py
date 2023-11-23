@@ -27,15 +27,15 @@ import image_processing_utils
 import its_session_utils
 import target_exposure_utils
 
-EXP_GAIN_FACTOR = 2
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-PATCH_H = 0.1  # center 10%
-PATCH_W = 0.1
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
-REQ_PATTERN = ['base', 'base', 'iso', 'iso', 'base', 'base', 'exp',
-               'base', 'iso', 'base', 'exp', 'base', 'exp', 'exp']
-PATTERN_CHECK = [False if r == 'base' else True for r in REQ_PATTERN]
+_EXP_GAIN_FACTOR = 2
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_REQ_PATTERN = ['base', 'base', 'iso', 'iso', 'base', 'base', 'exp',
+                'base', 'iso', 'base', 'exp', 'base', 'exp', 'exp']
+_PATTERN_CHECK = [r != 'base' for r in _REQ_PATTERN]
 
 
 class LatchingTest(its_base_test.ItsBaseTest):
@@ -49,7 +49,7 @@ class LatchingTest(its_base_test.ItsBaseTest):
   """
 
   def test_latching(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -57,6 +57,7 @@ class LatchingTest(its_base_test.ItsBaseTest):
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -64,14 +65,15 @@ class LatchingTest(its_base_test.ItsBaseTest):
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Create requests, do captures and extract means for each image
       _, fmt = capture_request_utils.get_fastest_manual_capture_settings(props)
       e, s = target_exposure_utils.get_target_exposure_combos(
           log_path, cam)['midExposureTime']
 
-      e /= EXP_GAIN_FACTOR
+      e /= _EXP_GAIN_FACTOR
       r_means = []
       g_means = []
       b_means = []
@@ -79,10 +81,10 @@ class LatchingTest(its_base_test.ItsBaseTest):
       base_req = capture_request_utils.manual_capture_request(
           s, e, 0.0, True, props)
       iso_mult_req = capture_request_utils.manual_capture_request(
-          s * EXP_GAIN_FACTOR, e, 0.0, True, props)
+          s * _EXP_GAIN_FACTOR, e, 0.0, True, props)
       exp_mult_req = capture_request_utils.manual_capture_request(
-          s, e * EXP_GAIN_FACTOR, 0.0, True, props)
-      for req_type in REQ_PATTERN:
+          s, e * _EXP_GAIN_FACTOR, 0.0, True, props)
+      for req_type in _REQ_PATTERN:
         if req_type == 'base':
           reqs.append(base_req)
         elif req_type == 'exp':
@@ -95,10 +97,10 @@ class LatchingTest(its_base_test.ItsBaseTest):
       caps = cam.do_capture(reqs, fmt)
       for i, cap in enumerate(caps):
         img = image_processing_utils.convert_capture_to_rgb_image(cap)
-        image_processing_utils.write_image(img, '%s_i=%02d.jpg' % (
-            os.path.join(log_path, NAME), i))
+        image_processing_utils.write_image(
+            img, f'{name_with_log_path}_i={i:02d}.jpg')
         patch = image_processing_utils.get_image_patch(
-            img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+            img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
         rgb_means = image_processing_utils.compute_image_means(patch)
         r_means.append(rgb_means[0])
         g_means.append(rgb_means[1])
@@ -107,22 +109,21 @@ class LatchingTest(its_base_test.ItsBaseTest):
 
       # Plot results
       idxs = range(len(r_means))
-      pylab.figure(NAME)
+      pylab.figure(_NAME)
       pylab.plot(idxs, r_means, '-ro')
       pylab.plot(idxs, g_means, '-go')
       pylab.plot(idxs, b_means, '-bo')
       pylab.ylim([0, 1])
-      pylab.title(NAME)
+      pylab.title(_NAME)
       pylab.xlabel('capture')
       pylab.ylabel('RGB means')
-      matplotlib.pyplot.savefig('%s_plot_means.png' % os.path.join(
-          log_path, NAME))
+      matplotlib.pyplot.savefig(f'{name_with_log_path}_plot_means.png')
 
       # check G mean pattern for correctness
       g_avg_for_caps = sum(g_means) / len(g_means)
       g_high = [g / g_avg_for_caps > 1 for g in g_means]
-      if g_high != PATTERN_CHECK:
-        raise AssertionError(f'G means: {g_means}, TEMPLATE: {REQ_PATTERN}')
+      if g_high != _PATTERN_CHECK:
+        raise AssertionError(f'G means: {g_means}, TEMPLATE: {_REQ_PATTERN}')
 
 if __name__ == '__main__':
   test_runner.main()

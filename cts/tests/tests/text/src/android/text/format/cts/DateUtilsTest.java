@@ -161,8 +161,8 @@ public class DateUtilsTest {
             assertEquals("at 10:00", withPrep);
             assertEquals("10:00", noPrep);
         } else {
-            assertEquals("at 10:00 AM", withPrep);
-            assertEquals("10:00 AM", noPrep);
+            assertEquals("at 10:00\u202fAM", withPrep);
+            assertEquals("10:00\u202fAM", noPrep);
         }
     }
 

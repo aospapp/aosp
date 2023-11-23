@@ -31,12 +31,13 @@ import android.os.ParcelFileDescriptor;
 import android.provider.Settings;
 import android.text.format.DateFormat;
 
-import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.UserSettings;
+import com.android.compatibility.common.util.UserSettings.Namespace;
 
 import org.junit.After;
 import org.junit.Before;
@@ -70,6 +71,8 @@ public class DateFormatTest {
     private static final int HOUR = 5;
     private static final int MINUTE = 30;
 
+    private final UserSettings mSystemSettings = new UserSettings(Namespace.SYSTEM);
+
     private Context mContext;
 
     private String mDefaultTimeFormat;
@@ -86,9 +89,7 @@ public class DateFormatTest {
 
     @After
     public void teardown() throws Exception {
-        if (!getTimeFormat().equals(mDefaultTimeFormat)) {
-            setTimeFormat(mDefaultTimeFormat);
-        }
+        setTimeFormat(mDefaultTimeFormat);
         if ((mDefaultLocale != null) && !Locale.getDefault().equals(mDefaultLocale)) {
             Locale.setDefault(mDefaultLocale);
         }
@@ -337,20 +338,13 @@ public class DateFormatTest {
         }
     }
 
-    @NonNull
+    @Nullable
     private String getTimeFormat() throws IOException {
-        return SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                "settings get system " + Settings.System.TIME_12_24).trim();
+        return mSystemSettings.get(Settings.System.TIME_12_24);
     }
 
-    private void setTimeFormat(@NonNull String timeFormat) throws IOException {
-        if ("null".equals(timeFormat)) {
-            SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                    "settings delete system " + Settings.System.TIME_12_24);
-        } else {
-            SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                    "settings put system " + Settings.System.TIME_12_24 + " " + timeFormat);
-        }
+    private void setTimeFormat(@Nullable String timeFormat) throws IOException {
+        mSystemSettings.syncSet(Settings.System.TIME_12_24, timeFormat);
     }
 
     @Test

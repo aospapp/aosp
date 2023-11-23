@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -33,10 +33,10 @@ public class ConcurrentModTest extends TestCase {
      */
     public void testGet() {
         AbstractList al = new ArrayList();
-        Double one = new Double(1.0);
-        Double two = new Double(2.0);
-        Double three = new Double(3.0);
-        Double four = new Double(4.0);
+        Double one = Double.valueOf(1.0);
+        Double two = Double.valueOf(2.0);
+        Double three = Double.valueOf(3.0);
+        Double four = Double.valueOf(4.0);
         al.add(one);
         al.add(two);
         al.add(three);
@@ -77,10 +77,10 @@ public class ConcurrentModTest extends TestCase {
      */
     public void testSet() {
         AbstractList al = new ArrayList();
-        Double one = new Double(1.0);
-        Double two = new Double(2.0);
-        Double three = new Double(3.0);
-        Double four = new Double(4.0);
+        Double one = Double.valueOf(1.0);
+        Double two = Double.valueOf(2.0);
+        Double three = Double.valueOf(3.0);
+        Double four = Double.valueOf(4.0);
         al.add(one);
         al.add(two);
         al.add(three);
@@ -107,10 +107,10 @@ public class ConcurrentModTest extends TestCase {
      */
     public void testAdd() {
         AbstractList al = new ArrayList();
-        Double one = new Double(1.0);
-        Double two = new Double(2.0);
-        Double three = new Double(3.0);
-        Double four = new Double(4.0);
+        Double one = Double.valueOf(1.0);
+        Double two = Double.valueOf(2.0);
+        Double three = Double.valueOf(3.0);
+        Double four = Double.valueOf(4.0);
         al.add(one);
         al.add(two);
         al.add(three);
@@ -137,10 +137,10 @@ public class ConcurrentModTest extends TestCase {
      */
     public void testRemove() {
         AbstractList al = new ArrayList();
-        Double one = new Double(1.0);
-        Double two = new Double(2.0);
-        Double three = new Double(3.0);
-        Double four = new Double(4.0);
+        Double one = Double.valueOf(1.0);
+        Double two = Double.valueOf(2.0);
+        Double three = Double.valueOf(3.0);
+        Double four = Double.valueOf(4.0);
         al.add(one);
         al.add(two);
         al.add(three);
@@ -203,10 +203,10 @@ public class ConcurrentModTest extends TestCase {
      */
     public void testAddAll() {
         AbstractList al = new ArrayList();
-        Double one = new Double(1.0);
-        Double two = new Double(2.0);
-        Double three = new Double(3.0);
-        Double four = new Double(4.0);
+        Double one = Double.valueOf(1.0);
+        Double two = Double.valueOf(2.0);
+        Double three = Double.valueOf(3.0);
+        Double four = Double.valueOf(4.0);
         al.add(one);
         al.add(two);
         al.add(three);
@@ -222,7 +222,7 @@ public class ConcurrentModTest extends TestCase {
         try {
             // illegal call the subList's method addAll(int,Collection).
             Collection c = new Vector();
-            Double five = new Double(5.0);
+            Double five = Double.valueOf(5.0);
             c.add(five);
             sub.addAll(1, c);
             fail("It should throws ConcurrentModificationException.");
@@ -383,17 +383,17 @@ public class ConcurrentModTest extends TestCase {
         abstr.add(0, "element");
         abstr.add(1, null);
         abstr.add(2, 1);
-        abstr.add(3, new Double(33));
+        abstr.add(3, Double.valueOf(33));
 
         try {
-            abstr.add(-3, new Double(33));
+            abstr.add(-3, Double.valueOf(33));
             fail("IndexOutOfBoundsException expected");
         } catch (IndexOutOfBoundsException ee) {
             //expected
         }
 
         try {
-            abstr.add(abstr.size() + 1, new Double(33));
+            abstr.add(abstr.size() + 1, Double.valueOf(33));
             fail("IndexOutOfBoundsException expected");
         } catch (IndexOutOfBoundsException ee) {
             //expected
@@ -402,7 +402,7 @@ public class ConcurrentModTest extends TestCase {
 
     public void test_addAllILjava_util_Collection() {
         Collection c = new Vector();
-        c.add(new Double(33));
+        c.add(Double.valueOf(33));
         c.add(10);
         c.add("String");
 
@@ -475,15 +475,15 @@ public class ConcurrentModTest extends TestCase {
             }
         };
         c.clear();
-        c.add(new Integer(1));
-        c.add(new Integer(2));
-        c.add(new Integer(3));
-        c.add(new Integer(4));
-        c.add(new Integer(5));
+        c.add(Integer.valueOf(1));
+        c.add(Integer.valueOf(2));
+        c.add(Integer.valueOf(3));
+        c.add(Integer.valueOf(4));
+        c.add(Integer.valueOf(5));
 
         abstr.addAll(0, c);
 
-        c.add(new Integer(33));
+        c.add(Integer.valueOf(33));
 
         try {
             abstr.addAll(0, c);
@@ -516,7 +516,7 @@ public class ConcurrentModTest extends TestCase {
         abstr.add("String");
         abstr.add("1");
         abstr.add(2);
-        abstr.add(new Double(3));
+        abstr.add(Double.valueOf(3));
         assertEquals(4, abstr.size());
         abstr.clear();
         assertEquals(0, abstr.size());
@@ -524,7 +524,7 @@ public class ConcurrentModTest extends TestCase {
 
     public void test_equalsLjava_lang_Object() {
         Collection c = new Vector();
-        c.add(new Double(33));
+        c.add(Double.valueOf(33));
         c.add(10);
         c.add("String");
 
@@ -532,7 +532,7 @@ public class ConcurrentModTest extends TestCase {
         AbstractList abstr1 = new ArrayList();
 
         assertFalse(abstr.equals(this));
-        abstr.add(new Double(33));
+        abstr.add(Double.valueOf(33));
         abstr.add(10);
         abstr.add("String");
         assertTrue(abstr.equals(c));
@@ -542,7 +542,7 @@ public class ConcurrentModTest extends TestCase {
 
     public void test_setILjava_lang_Object() {
         Collection c = new Vector();
-        c.add(new Double(33));
+        c.add(Double.valueOf(33));
         c.add(10);
         c.add("String");
 

@@ -176,6 +176,14 @@ TEST(fscrypt, ParseOptions) {
     EXPECT_FALSE(ParseOptionsForApiLevel(30, "aes-256-xts:aes-256-cts:v2:foo", &dummy_options));
     EXPECT_FALSE(ParseOptionsForApiLevel(30, "aes-256-xts:aes-256-cts:blah", &dummy_options));
     EXPECT_FALSE(ParseOptionsForApiLevel(30, "aes-256-xts:aes-256-cts:vblah", &dummy_options));
+
+    {
+        TEST_STRING(34, ":aes-256-hctr2", "aes-256-xts:aes-256-hctr2:v2");
+        EXPECT_EQ(2, options.version);
+        EXPECT_EQ(FSCRYPT_MODE_AES_256_XTS, options.contents_mode);
+        EXPECT_EQ(FSCRYPT_MODE_AES_256_HCTR2, options.filenames_mode);
+        EXPECT_EQ(FSCRYPT_POLICY_FLAGS_PAD_16, options.flags);
+    }
 }
 
 TEST(fscrypt, ComparePolicies) {

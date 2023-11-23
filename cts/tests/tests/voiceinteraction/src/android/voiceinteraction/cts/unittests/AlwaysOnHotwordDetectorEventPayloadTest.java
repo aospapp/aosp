@@ -109,6 +109,7 @@ public class AlwaysOnHotwordDetectorEventPayloadTest {
                 .setHotwordPhraseId(5)
                 .setPersonalizedScore(10)
                 .setScore(15)
+                .setBackgroundAudioPower(50)
                 .build();
         final AlwaysOnHotwordDetector.EventPayload eventPayload =
                 new AlwaysOnHotwordDetector.EventPayload.Builder()

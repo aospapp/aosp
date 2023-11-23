@@ -25,9 +25,7 @@ using std::string;
 
 namespace chromeos_update_engine {
 
-HttpFetcher::~HttpFetcher() {
-  CancelProxyResolution();
-}
+HttpFetcher::~HttpFetcher() {}
 
 void HttpFetcher::SetPostData(const void* data,
                               size_t size,
@@ -41,53 +39,6 @@ void HttpFetcher::SetPostData(const void* data,
 
 void HttpFetcher::SetPostData(const void* data, size_t size) {
   SetPostData(data, size, kHttpContentTypeUnspecified);
-}
-
-// Proxy methods to set the proxies, then to pop them off.
-void HttpFetcher::ResolveProxiesForUrl(const string& url,
-                                       const Closure& callback) {
-  CHECK_EQ(static_cast<Closure*>(nullptr), callback_.get());
-  callback_.reset(new Closure(callback));
-
-  if (!proxy_resolver_) {
-    LOG(INFO) << "Not resolving proxies (no proxy resolver).";
-    no_resolver_idle_id_ = MessageLoop::current()->PostTask(
-        FROM_HERE,
-        base::Bind(&HttpFetcher::NoProxyResolverCallback,
-                   base::Unretained(this)));
-    return;
-  }
-  proxy_request_ = proxy_resolver_->GetProxiesForUrl(
-      url, base::Bind(&HttpFetcher::ProxiesResolved, base::Unretained(this)));
-}
-
-void HttpFetcher::NoProxyResolverCallback() {
-  no_resolver_idle_id_ = MessageLoop::kTaskIdNull;
-  ProxiesResolved(deque<string>());
-}
-
-void HttpFetcher::ProxiesResolved(const deque<string>& proxies) {
-  proxy_request_ = kProxyRequestIdNull;
-  if (!proxies.empty())
-    SetProxies(proxies);
-  CHECK(callback_.get()) << "ProxiesResolved but none pending.";
-  Closure* callback = callback_.release();
-  // This may indirectly call back into ResolveProxiesForUrl():
-  callback->Run();
-  delete callback;
-}
-
-bool HttpFetcher::CancelProxyResolution() {
-  bool ret = false;
-  if (no_resolver_idle_id_ != MessageLoop::kTaskIdNull) {
-    ret = MessageLoop::current()->CancelTask(no_resolver_idle_id_);
-    no_resolver_idle_id_ = MessageLoop::kTaskIdNull;
-  }
-  if (proxy_request_ && proxy_resolver_) {
-    ret = proxy_resolver_->CancelProxyRequest(proxy_request_) || ret;
-    proxy_request_ = kProxyRequestIdNull;
-  }
-  return ret;
 }
 
 }  // namespace chromeos_update_engine

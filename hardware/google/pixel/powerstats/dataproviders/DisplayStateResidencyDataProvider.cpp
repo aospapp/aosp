@@ -30,6 +30,8 @@ namespace hardware {
 namespace power {
 namespace stats {
 
+static const int32_t POLL_TIMEOUT_MILLIS = 300;
+
 DisplayStateResidencyDataProvider::DisplayStateResidencyDataProvider(
         std::string name, std::string path, std::vector<std::string> states)
     : mPath(std::move(path)),
@@ -100,6 +102,7 @@ std::unordered_map<std::string, std::vector<State>> DisplayStateResidencyDataPro
 // display state file descriptor indicating a state change
 void DisplayStateResidencyDataProvider::updateStats() {
     char data[32];
+    char *trim;
 
     // Get current time since boot in milliseconds
     uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -111,15 +114,23 @@ void DisplayStateResidencyDataProvider::updateStats() {
         PLOG(ERROR) << "Failed to read display state";
         return;
     }
-    data[ret] = '\0';
 
-    LOG(VERBOSE) << "display state: " << data;
+    trim = strchr(data, '\n');
+    if (trim) {
+        data[trim - data] = '\0';
+    }
 
     // Update residency stats based on state read
     {  // acquire lock
         std::scoped_lock lk(mLock);
         for (uint32_t i = 0; i < mStates.size(); ++i) {
-            if (strstr(data, mStates[i].c_str())) {
+            if (strcmp(data, mStates[i].c_str()) == 0) {
+                if (i == mCurState) {
+                    break;
+                }
+
+                LOG(VERBOSE) << "display state: " << data;
+
                 // Update total time of the previous state
                 if (mCurState > -1) {
                     mResidencies[mCurState].totalTimeInStateMs +=
@@ -137,10 +148,12 @@ void DisplayStateResidencyDataProvider::updateStats() {
 }
 
 void DisplayStateResidencyDataProvider::pollLoop() {
+    int32_t res;
     LOG(VERBOSE) << "DisplayStateResidencyDataProvider polling...";
     while (true) {
-        // Poll for display state changes. Timeout set to poll indefinitely
-        if (mLooper->pollOnce(-1) >= 0) {
+        // Poll for display state changes.
+        res = mLooper->pollOnce(POLL_TIMEOUT_MILLIS);
+        if (res >= 0 || res == ::android::Looper::POLL_TIMEOUT) {
             updateStats();
         }
     }

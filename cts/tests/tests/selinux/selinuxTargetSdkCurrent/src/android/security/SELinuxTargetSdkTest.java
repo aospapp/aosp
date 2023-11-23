@@ -16,16 +16,17 @@
 
 package android.security;
 
-import android.test.AndroidTestCase;
-import com.android.compatibility.common.util.PropertyUtil;
-import java.io.IOException;
+import android.os.Build;
 
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.PropertyUtil;
+
+import java.io.IOException;
 
 /**
  * Verify the selinux domain for apps running with current targetSdkVersion
  */
-public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
-{
+public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase {
     /**
      * Verify that net.dns properties may not be read
      */
@@ -92,6 +93,16 @@ public class SELinuxTargetSdkTest extends SELinuxTargetSdkTestBase
          */
         if (PropertyUtil.isVendorApiLevelNewerThan(28)) {
             checkDex2oatAccess(false);
+        }
+    }
+
+    /**
+     * Verify that hidden ro props are not accessible.
+     */
+    @CddTest(requirements = { "9.7/C-1-4" })
+    public void testNoHiddenSystemProperties() throws Exception {
+        if (PropertyUtil.isVendorApiLevelAtLeast(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)) {
+            noHiddenSystemProperties();
         }
     }
 }

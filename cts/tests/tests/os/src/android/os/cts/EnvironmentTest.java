@@ -15,19 +15,34 @@
  */
 package android.os.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.os.Environment;
-import android.os.Process;
+import android.os.UserHandle;
 import android.platform.test.annotations.AppModeFull;
 import android.system.Os;
 import android.system.StructStatVfs;
+
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import junit.framework.TestCase;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.UUID;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
 public class EnvironmentTest extends TestCase {
+
+    private static final Context sContext =
+            InstrumentationRegistry.getInstrumentation().getContext();
+
     public void testEnvironment() {
         new Environment();
         assertNotNull(Environment.getExternalStorageState());
@@ -125,5 +140,32 @@ public class EnvironmentTest extends TestCase {
               + " not within sane range for partition of " + maxsize + " bytes; expected ["
               + minInodes + "," + maxInodes + "]");
         }
+    }
+
+    @ApiTest(apis = "android.os.Environment#getDataCePackageDirectoryForUser")
+    public void testDataCePackageDirectoryForUser() {
+        testDataPackageDirectoryForUser(
+                (uuid, userHandle) -> Environment.getDataCePackageDirectoryForUser(
+                        uuid, userHandle, sContext.getPackageName()),
+                (appInfo) -> appInfo.credentialProtectedDataDir
+        );
+    }
+
+    @ApiTest(apis = "android.os.Environment#getDataDePackageDirectoryForUser")
+    public void testDataDePackageDirectoryForUser() {
+        testDataPackageDirectoryForUser(
+                (uuid, userHandle) -> Environment.getDataDePackageDirectoryForUser(
+                        uuid, userHandle, sContext.getPackageName()),
+                (appInfo) -> appInfo.deviceProtectedDataDir
+        );
+    }
+
+    private void testDataPackageDirectoryForUser(
+            BiFunction<UUID, UserHandle, File> publicApi,
+            Function<ApplicationInfo, String> publicProperty) {
+        var appInfo = sContext.getApplicationInfo();
+        // Check that public API is consistent with the public property
+        assertThat(publicApi.apply(appInfo.storageUuid, sContext.getUser()).getAbsolutePath())
+                .isEqualTo(publicProperty.apply(appInfo));
     }
 }

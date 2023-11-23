@@ -21,7 +21,6 @@ import sys
 # A temporary hack to prevent tests/libs/logging from being selected as the
 # python default logging module.
 sys.path[0] = os.path.join(sys.path[0], '../')
-import logging
 import mock
 import shutil
 import tempfile
@@ -32,6 +31,7 @@ from acts.libs import version_selector
 from acts.test_decorators import test_tracker_info
 
 from mobly.config_parser import TestRunConfig
+
 
 def versioning_decorator(min_sdk, max_sdk):
     return version_selector.set_version(lambda ret, *_, **__: ret, min_sdk,
@@ -106,6 +106,7 @@ class VersionedTestClass(base_test.BaseTestClass):
 
 class VersionSelectorIntegrationTest(unittest.TestCase):
     """Tests the acts.libs.version_selector module."""
+
     @classmethod
     def setUpClass(cls):
         cls.tmp_dir = tempfile.mkdtemp()

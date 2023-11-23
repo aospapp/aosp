@@ -134,6 +134,28 @@ public class TestServiceClient {
     }
 
     @Test
+    public void testConstFloatRepeat() throws RemoteException {
+        float query[] = {ITestService.FLOAT_TEST_CONSTANT, ITestService.FLOAT_TEST_CONSTANT2,
+            ITestService.FLOAT_TEST_CONSTANT3, ITestService.FLOAT_TEST_CONSTANT4,
+            ITestService.FLOAT_TEST_CONSTANT5, ITestService.FLOAT_TEST_CONSTANT6,
+            ITestService.FLOAT_TEST_CONSTANT7};
+        for (int i = 0; i < query.length; i++) {
+            assertThat(service.RepeatFloat(query[i]), is(query[i]));
+        }
+    }
+
+    @Test
+    public void testConstDoubleRepeat() throws RemoteException {
+        double query[] = {ITestService.DOUBLE_TEST_CONSTANT, ITestService.DOUBLE_TEST_CONSTANT2,
+            ITestService.DOUBLE_TEST_CONSTANT3, ITestService.DOUBLE_TEST_CONSTANT4,
+            ITestService.DOUBLE_TEST_CONSTANT5, ITestService.DOUBLE_TEST_CONSTANT6,
+            ITestService.DOUBLE_TEST_CONSTANT7};
+        for (int i = 0; i < query.length; i++) {
+            assertThat(service.RepeatDouble(query[i]), is(query[i]));
+        }
+    }
+
+    @Test
     public void testLongRepeat() throws RemoteException {
         long query = 1L << 60;
         assertThat(service.RepeatLong(query), is(query));
@@ -644,6 +666,14 @@ public class TestServiceClient {
             }
             assertThat(reversed[j], is(input[i]));
         }
+    }
+
+    @Test
+    public void testOutArrayWithNull() throws RemoteException {
+        // In Java out-array parameter can't be null. The proxy code always throws NPE.
+        assertThrows(NullPointerException.class, () -> service.ReverseUtf8CppString(null, null));
+        assertThrows(NullPointerException.class,
+            () -> service.ReverseNullableUtf8CppString(null, null));
     }
 
     private void shouldBeTheSame(StructuredParcelable a, StructuredParcelable b) {

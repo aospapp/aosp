@@ -34,8 +34,10 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,25 +49,15 @@ public class BluetoothHapPresetInfoTest {
     private static final String TEST_PRESET_NAME = "Test";
 
     private Context mContext;
-    private boolean mHasBluetooth;
     private BluetoothAdapter mAdapter;
-    private boolean mIsHapSupported;
 
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU)) {
-            return;
-        }
-        mHasBluetooth = TestUtils.hasBluetooth();
-        if (!mHasBluetooth) {
-            return;
-        }
 
-        mIsHapSupported = TestUtils.isProfileEnabled(BluetoothProfile.HAP_CLIENT);
-        if (!mIsHapSupported) {
-            return;
-        }
+        Assume.assumeTrue(ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU));
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+        Assume.assumeTrue(TestUtils.isProfileEnabled(BluetoothProfile.HAP_CLIENT));
 
         TestUtils.adoptPermissionAsShellUid(BLUETOOTH_CONNECT);
         mAdapter = TestUtils.getBluetoothAdapterOrDie();
@@ -74,21 +66,13 @@ public class BluetoothHapPresetInfoTest {
 
     @After
     public void tearDown() {
-        if (!(mHasBluetooth && mIsHapSupported)) {
-            return;
-        }
-        if (mAdapter != null) {
-            assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-        }
         mAdapter = null;
         TestUtils.dropPermissionAsShellUid();
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1", "7.4.3/C-3-2"})
     @Test
     public void testCreateHapPresetInfo() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothHapPresetInfo presetInfo = createBluetoothHapPresetInfoForTest(TEST_PRESET_INDEX,
                 TEST_PRESET_NAME, true /* isAvailable */, false /* isWritable */);
         assertEquals(TEST_PRESET_INDEX, presetInfo.getIndex());
@@ -106,9 +90,5 @@ public class BluetoothHapPresetInfoTest {
         out.writeBoolean(isAvailable);
         out.setDataPosition(0); // reset position of parcel before passing to constructor
         return BluetoothHapPresetInfo.CREATOR.createFromParcel(out);
-    }
-
-    private boolean shouldSkipTest() {
-        return !mHasBluetooth || !mIsHapSupported;
     }
 }

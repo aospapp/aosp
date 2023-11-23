@@ -72,6 +72,10 @@ class WritableFileSystemImpl : public WritableFileSystem {
                        std::string* error) const override {
         return mRoFileSystem.listFiles(path, out, error);
     }
+    status_t modifiedTime(const std::string& path, int64_t* out,
+                          std::string* error) const override {
+        return mRoFileSystem.modifiedTime(path, out, error);
+    }
     status_t write(const std::string& path, const std::string& content,
                    std::string* error) const override {
         if (!android::base::WriteStringToFile(content, path)) {

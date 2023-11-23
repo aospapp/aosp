@@ -22,6 +22,8 @@ import android.app.Service;
 import android.app.appsearch.AppSearchBatchResult;
 import android.app.appsearch.AppSearchManager;
 import android.app.appsearch.AppSearchSchema;
+import android.app.appsearch.AppSearchSchema.PropertyConfig;
+import android.app.appsearch.AppSearchSchema.StringPropertyConfig;
 import android.app.appsearch.AppSearchSessionShim;
 import android.app.appsearch.GenericDocument;
 import android.app.appsearch.GetByDocumentIdRequest;
@@ -124,7 +126,7 @@ public class AppSearchTestService extends Service {
         public List<String> globalGetSchema(String packageName, String databaseName) {
             try {
                 GetSchemaResponse response =
-                        mGlobalSearchSessionShim.getSchema(packageName, databaseName).get();
+                        mGlobalSearchSessionShim.getSchemaAsync(packageName, databaseName).get();
                 if (response == null || response.getSchemas().isEmpty()) {
                     return null;
                 }
@@ -162,7 +164,7 @@ public class AppSearchTestService extends Service {
                             new ArraySet<>(permissionBundles.get(i)
                                     .getIntegerArrayList("permission")));
                 }
-                db.setSchema(setSchemaRequestBuilder.build()).get();
+                db.setSchemaAsync(setSchemaRequestBuilder.build()).get();
 
                 AppSearchEmail emailDocument =
                         new AppSearchEmail.Builder(namespace, id)
@@ -172,7 +174,7 @@ public class AppSearchTestService extends Service {
                                 .setBody("this is the body of the email")
                                 .build();
                 checkIsBatchResultSuccess(
-                        db.put(
+                        db.putAsync(
                                 new PutDocumentsRequest.Builder()
                                         .addGenericDocuments(emailDocument)
                                         .build()));
@@ -194,7 +196,7 @@ public class AppSearchTestService extends Service {
                                 Executors.newCachedThreadPool())
                                 .get();
 
-                db.setSchema(
+                db.setSchemaAsync(
                         new SetSchemaRequest.Builder()
                                 .addSchemas(AppSearchEmail.SCHEMA)
                                 .setForceOverride(true)
@@ -211,13 +213,71 @@ public class AppSearchTestService extends Service {
                                 .setBody("this is the body of the email")
                                 .build();
                 checkIsBatchResultSuccess(
-                        db.put(
+                        db.putAsync(
                                 new PutDocumentsRequest.Builder()
                                         .addGenericDocuments(emailDocument)
                                         .build()));
                 return true;
             } catch (Exception e) {
                 Log.e(TAG, "Failed to index not-globally searchable document.", e);
+            }
+            return false;
+        }
+
+        @Override
+        public boolean indexAction(
+                String databaseName, String namespace, String id, String entityId,
+                boolean globallySearchable) {
+            try {
+                AppSearchSessionShim db =
+                        AppSearchSessionShimImpl.createSearchSessionAsync(
+                                        AppSearchTestService.this,
+                                        new AppSearchManager.SearchContext.Builder(databaseName)
+                                                .build(),
+                                        Executors.newCachedThreadPool())
+                                .get();
+
+                AppSearchSchema actionSchema =
+                        new AppSearchSchema.Builder("PlayAction")
+                                .addProperty(
+                                        new StringPropertyConfig.Builder("songId")
+                                                .setCardinality(PropertyConfig.CARDINALITY_OPTIONAL)
+                                                .setJoinableValueType(StringPropertyConfig
+                                                        .JOINABLE_VALUE_TYPE_QUALIFIED_ID)
+                                                .build())
+                                .build();
+
+                // By default, schemas/documents are globally searchable. We purposely don't set
+                // setSchemaTypeDisplayedBySystem(false) for this schema
+                SetSchemaRequest.Builder setSchemaRequest =
+                        new SetSchemaRequest.Builder()
+                                .setForceOverride(true)
+                                .addSchemas(AppSearchEmail.SCHEMA, actionSchema);
+
+                if (!globallySearchable) {
+                    setSchemaRequest.setSchemaTypeDisplayedBySystem(
+                                    AppSearchEmail.SCHEMA_TYPE, false)
+                            .setSchemaTypeDisplayedBySystem(
+                                    actionSchema.getSchemaType(), false);
+                }
+
+                db.setSchemaAsync(setSchemaRequest.build()).get();
+
+                GenericDocument join =
+                        new GenericDocument.Builder<>(namespace, id, "PlayAction")
+                                .setPropertyString("songId", entityId)
+                                .build();
+
+                checkIsBatchResultSuccess(
+                        db.putAsync(
+                                new PutDocumentsRequest.Builder()
+                                        .addGenericDocuments(join)
+                                        .build()));
+
+                return true;
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to index " + (globallySearchable ? "" : "non-")
+                        + "globally searchable action document.", e);
             }
             return false;
         }
@@ -233,7 +293,8 @@ public class AppSearchTestService extends Service {
                                 Executors.newCachedThreadPool())
                                 .get();
 
-                db.setSchema(new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
+                db.setSchemaAsync(
+                        new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
 
                 return true;
             } catch (Exception e) {

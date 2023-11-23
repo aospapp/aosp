@@ -30,6 +30,8 @@ import i18nutil
 import icuutil
 import tzdatautil
 
+# Unix epoch timestamp in seconds up to which transitions in tzdata will be pregenerated.
+pregeneration_upper_bound = 4102444800 # 1 Jan 2100
 
 # Calculate the paths that are referred to by multiple functions.
 android_build_top = i18nutil.GetAndroidRootOrDie()
@@ -173,7 +175,8 @@ def BuildTzdata(zic_binary_file, extracted_iana_data_dir, iana_data_version):
   print('Calling zic...')
   zic_output_dir = '%s/data' % tmp_dir
   os.mkdir(zic_output_dir)
-  zic_cmd = [zic_binary_file, '-b', 'fat', '-d', zic_output_dir, zic_input_file]
+  # -R specifies upper bound for generated transitions.
+  zic_cmd = [zic_binary_file, '-b', 'slim', '-R', f'@{pregeneration_upper_bound}', '-d', zic_output_dir, zic_input_file]
   subprocess.check_call(zic_cmd)
 
   # ZoneCompactor
@@ -218,30 +221,12 @@ def BuildTelephonylookup():
   subprocess.check_call([command, telephonylookup_source_file, telephonylookup_dest_file])
 
 
-def CreateDistroFiles(iana_data_version, android_revision,
-                      output_distro_dir, output_version_file):
-  create_distro_script = '%s/distro/tools/create-distro.py' % timezone_dir
+def CreateTzVersion(iana_data_version, android_revision, output_version_file):
+  create_tz_version_script = '%s/input_tools/version/create-tz_version.py' % timezone_dir
 
-  tzdata_file = '%s/iana/tzdata' % timezone_output_data_dir
-  icu_dir = '%s/icu_overlay' % timezone_output_data_dir
-  tzlookup_file = '%s/android/tzlookup.xml' % timezone_output_data_dir
-  telephonylookup_file = '%s/android/telephonylookup.xml' % timezone_output_data_dir
-
-  distro_file_pattern = '%s/*.zip' % output_distro_dir
-  existing_files = glob.glob(distro_file_pattern)
-
-  print('Removing %s' % existing_files)
-  for existing_file in existing_files:
-    os.remove(existing_file)
-
-  subprocess.check_call([create_distro_script,
+  subprocess.check_call([create_tz_version_script,
       '-iana_version', iana_data_version,
       '-revision', str(android_revision),
-      '-tzdata', tzdata_file,
-      '-icu_dir', icu_dir,
-      '-tzlookup', tzlookup_file,
-      '-telephonylookup', telephonylookup_file,
-      '-output_distro_dir', output_distro_dir,
       '-output_version_file', output_version_file])
 
 def UpdateTestFiles():
@@ -257,7 +242,7 @@ def UpdateTestFiles():
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('-revision', type=int, default=1,
-      help='The distro revision for the IANA version, default = 1')
+      help='Revision of current the IANA version, default = 1')
 
   args = parser.parse_args()
   android_revision = args.revision
@@ -288,13 +273,11 @@ def main():
 
   BuildTelephonylookup()
 
-  # Create a distro file and version file from the output from prior stages.
-  output_distro_dir = '%s/distro' % timezone_output_data_dir
+  # Create a version file from the output from prior stages.
   output_version_file = '%s/version/tz_version' % timezone_output_data_dir
-  CreateDistroFiles(iana_data_version, android_revision,
-                    output_distro_dir, output_version_file)
+  CreateTzVersion(iana_data_version, android_revision, output_version_file)
 
-  # Update test versions of distro files too.
+  # Update test versions of data files too.
   UpdateTestFiles()
 
   print('Look in %s and %s for new files' % (timezone_output_data_dir, icu_dir))

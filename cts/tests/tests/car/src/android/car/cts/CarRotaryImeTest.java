@@ -16,19 +16,18 @@
 
 package android.car.cts;
 
-import static android.provider.Settings.Secure.ENABLED_INPUT_METHODS;
-
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assume.assumeTrue;
 
 import android.app.UiAutomation;
+import android.car.test.ApiCheckerRule.Builder;
 import android.content.ComponentName;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.os.ParcelFileDescriptor;
-import android.provider.Settings;
+import android.util.Log;
 import android.view.accessibility.AccessibilityManager;
+import android.view.inputmethod.InputMethodManager;
 
 import androidx.annotation.NonNull;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -40,19 +39,26 @@ import org.junit.Test;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
-public final class CarRotaryImeTest {
+public final class CarRotaryImeTest extends AbstractCarTestCase {
+
+    private static final String TAG = CarRotaryImeTest.class.getSimpleName();
+
     private static final ComponentName ROTARY_SERVICE_COMPONENT_NAME =
             ComponentName.unflattenFromString("com.android.car.rotary/.RotaryService");
 
-    /** Hidden secure setting for disabled system IMEs. */
-    private static final String DISABLED_SYSTEM_INPUT_METHODS = "disabled_system_input_methods";
-
     private final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
-    private final ContentResolver mContentResolver = mContext.getContentResolver();
     private final AccessibilityManager mAccessibilityManager =
             mContext.getSystemService(AccessibilityManager.class);
+    private final InputMethodManager mInputMethodManager =
+            mContext.getSystemService(InputMethodManager.class);
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     /**
      * Tests that, if a rotary input method is specified via the {@code rotary_input_method} string
@@ -65,7 +71,7 @@ public final class CarRotaryImeTest {
         String rotaryInputMethod = dumpsysRotaryServiceProto().getRotaryInputMethod();
 
         assumeTrue("Rotary input method not specified, skipping test",
-                rotaryInputMethod != null && !rotaryInputMethod.isEmpty());
+                !rotaryInputMethod.isEmpty());
         assertWithMessage("isValidIme(" + rotaryInputMethod + ")")
                 .that(isValidIme(rotaryInputMethod)).isTrue();
     }
@@ -122,25 +128,8 @@ public final class CarRotaryImeTest {
     /** Returns whether {@code flattenedComponentName} is an installed input method. */
     private boolean isValidIme(@NonNull String flattenedComponentName) {
         ComponentName componentName = ComponentName.unflattenFromString(flattenedComponentName);
-        return imeSettingContains(ENABLED_INPUT_METHODS, componentName)
-                || imeSettingContains(DISABLED_SYSTEM_INPUT_METHODS, componentName);
-    }
-
-    /**
-     * Fetches the secure setting {@code settingName} containing a colon-separated list of IMEs with
-     * their subtypes and returns whether {@code componentName} is one of the IMEs.
-     */
-    private boolean imeSettingContains(@NonNull String settingName,
-            @NonNull ComponentName componentName) {
-        String colonSeparatedComponentNamesWithSubtypes =
-                Settings.Secure.getString(mContentResolver, settingName);
-        if (colonSeparatedComponentNamesWithSubtypes == null) {
-            return false;
-        }
-        return Arrays.stream(colonSeparatedComponentNamesWithSubtypes.split(":"))
-                .map(componentNameWithSubtypes -> componentNameWithSubtypes.split(";"))
-                .anyMatch(componentNameAndSubtypes -> componentNameAndSubtypes.length >= 1
-                        && componentName.equals(
-                                ComponentName.unflattenFromString(componentNameAndSubtypes[0])));
+        return mInputMethodManager.getInputMethodList().stream()
+                .map(inputMethodInfo -> inputMethodInfo.getComponent())
+                .anyMatch(inputMethodComponent -> inputMethodComponent.equals(componentName));
     }
 }

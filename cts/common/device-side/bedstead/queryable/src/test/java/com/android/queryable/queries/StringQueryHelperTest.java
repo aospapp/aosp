@@ -17,17 +17,25 @@
 package com.android.queryable.queries;
 
 import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+import static com.android.queryable.queries.StringQuery.string;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class StringQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class StringQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private final Queryable mQuery = null;
     private static final String STRING_VALUE = "String";
@@ -113,6 +121,26 @@ public class StringQueryHelperTest {
     }
 
     @Test
+    public void matches_startsWith_meetsRestriction_returnsTrue() {
+        StringQueryHelper<Queryable> stringQueryHelper =
+                new StringQueryHelper<>(mQuery);
+
+        stringQueryHelper.startsWith("prefix");
+
+        assertThat(stringQueryHelper.matches("prefixstring")).isTrue();
+    }
+
+    @Test
+    public void matches_startsWith_doesNotMeetRestriction_returnsFalse() {
+        StringQueryHelper<Queryable> stringQueryHelper =
+                new StringQueryHelper<>(mQuery);
+
+        stringQueryHelper.startsWith("prefix");
+
+        assertThat(stringQueryHelper.matches("not")).isFalse();
+    }
+
+    @Test
     public void parcel_parcelsCorrectly() {
         StringQueryHelper<Queryable> stringQueryHelper = new StringQueryHelper<>(mQuery);
 
@@ -120,5 +148,51 @@ public class StringQueryHelperTest {
         stringQueryHelper.isNotEqualTo("");
 
         assertParcelsCorrectly(StringQueryHelper.class, stringQueryHelper);
+    }
+
+    @Test
+    public void stringQueryHelper_queries() {
+        assertThat(
+                string()
+                        .where().isEqualTo(STRING_VALUE)
+                        .matches(STRING_VALUE)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        StringQueryHelper<Queryable> stringQueryHelper =
+                new StringQueryHelper<>(mQuery);
+
+        assertThat(stringQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasEqualToQuery_returnsFalse() {
+        StringQueryHelper<Queryable> stringQueryHelper =
+                new StringQueryHelper<>(mQuery);
+
+        stringQueryHelper.isEqualTo(null);
+
+        assertThat(stringQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasNotEqualToQuery_returnsFalse() {
+        StringQueryHelper<Queryable> stringQueryHelper =
+                new StringQueryHelper<>(mQuery);
+
+        stringQueryHelper.isNotEqualTo(null);
+
+        assertThat(stringQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasStartsWithQuery_returnsFalse() {
+        StringQueryHelper<Queryable> stringQueryHelper =
+                new StringQueryHelper<>(mQuery);
+
+        stringQueryHelper.startsWith("Abc");
+
+        assertThat(stringQueryHelper.isEmptyQuery()).isFalse();
     }
 }

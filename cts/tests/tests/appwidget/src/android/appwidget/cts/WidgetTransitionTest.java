@@ -143,7 +143,8 @@ public class WidgetTransitionTest extends AppWidgetTestCase {
         // Push update
         RemoteViews views = getViewsForResponse(RemoteViews.RemoteResponse.fromPendingIntent(
                 PendingIntent.getBroadcast(mActivity, 0,
-                        new Intent(CLICK_ACTION), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED)));
+                        new Intent(CLICK_ACTION).setPackage(mActivity.getPackageName()),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)));
         getAppWidgetManager().updateAppWidget(new int[] {mAppWidgetId}, views);
 
         // Await until update
@@ -165,7 +166,7 @@ public class WidgetTransitionTest extends AppWidgetTestCase {
         RemoteViews views = getViewsForResponse(RemoteViews.RemoteResponse.fromPendingIntent(
                 PendingIntent.getActivity(mActivity, 0,
                         new Intent(mActivity, TransitionActivity.class),
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED)));
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE)));
         getAppWidgetManager().updateAppWidget(new int[] {mAppWidgetId}, views);
 
         // Await until update
@@ -229,7 +230,8 @@ public class WidgetTransitionTest extends AppWidgetTestCase {
         views.setViewVisibility(R.id.remoteViews_stack, View.GONE);
         views.setViewVisibility(R.id.remoteViews_list, View.VISIBLE);
         PendingIntent pendingIntent = PendingIntent.getBroadcast(mActivity, 0,
-                new Intent(CLICK_ACTION), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                new Intent(CLICK_ACTION).setPackage(mActivity.getPackageName()),
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
         views.setPendingIntentTemplate(R.id.remoteViews_list, pendingIntent);
 
         // Await until update

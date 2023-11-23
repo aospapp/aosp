@@ -32,14 +32,14 @@ int apply_overlay_files(const char *out_filename, const char *base_filename,
 
   size_t blob_len;
   base_buf = load_file(base_filename, &blob_len);
-  if (!base_buf) {
+  if (!base_buf || fdt_check_full(base_buf, blob_len)) {
     fprintf(stderr, "Can not load base file: %s\n", base_filename);
     goto end;
   }
 
   size_t overlay_len;
   overlay_buf = load_file(overlay_filename, &overlay_len);
-  if (!overlay_buf) {
+  if (!overlay_buf || fdt_check_full(overlay_buf, overlay_len)) {
     fprintf(stderr, "Can not load overlay file: %s\n", overlay_filename);
     goto end;
   }
@@ -53,6 +53,11 @@ int apply_overlay_files(const char *out_filename, const char *base_filename,
   clock_t start = clock();
   new_blob = ufdt_apply_overlay(blob, blob_len, overlay_buf, overlay_len);
   clock_t end = clock();
+
+  if (!new_blob) {
+    fprintf(stderr, "ufdt_apply_overlay() returned null: bad input?\n");
+    goto end;
+  }
 
   if (write_fdt_to_file(out_filename, new_blob) != 0) {
     fprintf(stderr, "Write file error: %s\n", out_filename);

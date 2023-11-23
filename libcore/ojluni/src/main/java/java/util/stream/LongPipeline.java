@@ -161,10 +161,12 @@ public abstract class LongPipeline<E_IN>
 
     @Override
     // Android-changed: Make public, to match the method it's overriding.
-    public final void forEachWithCancel(Spliterator<Long> spliterator, Sink<Long> sink) {
+    public final boolean forEachWithCancel(Spliterator<Long> spliterator, Sink<Long> sink) {
         Spliterator.OfLong spl = adapt(spliterator);
         LongConsumer adaptedSink =  adapt(sink);
-        do { } while (!sink.cancellationRequested() && spl.tryAdvance(adaptedSink));
+        boolean cancelled;
+        do { } while (!(cancelled = sink.cancellationRequested()) && spl.tryAdvance(adaptedSink));
+        return cancelled;
     }
 
     @Override

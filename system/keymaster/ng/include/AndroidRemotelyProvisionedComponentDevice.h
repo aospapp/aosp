@@ -46,6 +46,10 @@ class AndroidRemotelyProvisionedComponentDevice : public BnRemotelyProvisionedCo
                                              DeviceInfo* deviceInfo, ProtectedData* protectedData,
                                              std::vector<uint8_t>* keysToSignMac) override;
 
+    ScopedAStatus generateCertificateRequestV2(const std::vector<MacedPublicKey>& keysToSign,
+                                               const std::vector<uint8_t>& challenge,
+                                               std::vector<uint8_t>* csr) override;
+
   private:
     std::shared_ptr<::keymaster::AndroidKeymaster> impl_;
 };

@@ -32,17 +32,17 @@ namespace nfc {
 namespace V1_0 {
 struct INfc;
 struct INfcClientCallback;
-}
+}  // namespace V1_0
 namespace V1_1 {
 struct INfc;
 struct INfcClientCallback;
-}
+}  // namespace V1_1
 namespace V1_2 {
 struct INfc;
 }
-}
-}
-}
+}  // namespace nfc
+}  // namespace hardware
+}  // namespace android
 
 class ThreadMutex {
  public:

@@ -155,8 +155,7 @@ void blockSigpipe() {
 
     sigemptyset(&mask);
     sigaddset(&mask, SIGPIPE);
-    if (sigprocmask(SIG_BLOCK, &mask, nullptr) != 0)
-        ALOGW("WARNING: SIGPIPE not blocked\n");
+    if (sigprocmask(SIG_BLOCK, &mask, nullptr) != 0) ALOGW("WARNING: SIGPIPE not blocked");
 }
 
 void setCloseOnExec(const char *sock) {

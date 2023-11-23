@@ -34,6 +34,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -251,7 +252,8 @@ public class ByodHelperActivity extends Activity
             setResult(RESULT_OK, response);
             // Request to delete work profile.
         } else if (action.equals(ACTION_REMOVE_MANAGED_PROFILE)) {
-            if (isProfileOwner()) {
+            if (isProfileOwner()
+                    && mDevicePolicyManager.isManagedProfile(mAdminReceiverComponent)) {
                 Log.d(TAG, "Clearing cross profile intents");
                 mDevicePolicyManager.clearCrossProfileIntentFilters(mAdminReceiverComponent);
                 mDevicePolicyManager.wipeData(0);

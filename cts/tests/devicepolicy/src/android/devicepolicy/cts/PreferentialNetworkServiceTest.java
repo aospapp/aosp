@@ -37,6 +37,7 @@ import android.net.NetworkScore;
 import android.os.HandlerExecutor;
 import android.os.HandlerThread;
 import android.os.Process;
+import android.os.SystemClock;
 import android.os.UserHandle;
 import android.util.Range;
 
@@ -55,11 +56,18 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
+import java.net.Socket;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 // TODO(b/190797743): Move this test to to net test folder.
 @RunWith(BedsteadJUnit4.class)
@@ -99,6 +107,33 @@ public final class PreferentialNetworkServiceTest {
     @After
     public void tearDown() throws Exception {
         mHandlerThread.quitSafely();
+    }
+
+    /**
+     * Make sure both including and excluding UIDs from a policy is disallowed.
+     */
+    @Test
+    public void buildPreferentialNetworkServiceConfig_includedAndExcluded() {
+        // May not set both included and excluded UIDs
+        assertThrows(IllegalStateException.class, () ->
+                new PreferentialNetworkServiceConfig.Builder()
+                        .setIncludedUids(new int[] { 1001, 1002 })
+                        .setExcludedUids(new int[] { 1003, 1004 })
+                        .build());
+    }
+
+    /**
+     * Make sure setting fallback allowed and blocking together is disallowed.
+     */
+    @Test
+    public void buildPreferentialNetworkServiceConfig_fallbackAndBlock() {
+        // May not set block non-matching networks and fallback to default connection at the same
+        // time, because this makes no sense when there is no preferential network service available
+        assertThrows(IllegalStateException.class, () ->
+                new PreferentialNetworkServiceConfig.Builder()
+                        .setFallbackToDefaultConnectionAllowed(true)
+                        .setShouldBlockNonMatchingNetworks(true)
+                        .build());
     }
 
     /**
@@ -174,6 +209,99 @@ public final class PreferentialNetworkServiceTest {
         }
     }
 
+    /**
+     * Enable PreferentialNetworkService with blocking non-enterprise network feature enabled,
+     * verify the application cannot access non-enterprise network.
+     */
+    @EnsureHasPermission({ACCESS_NETWORK_STATE, NETWORK_SETTINGS})
+    @PolicyAppliesTest(policy = PreferentialNetworkService.class)
+    public void setPreferentialNetworkServiceEnabled_blockingNonEnterprise_noAccess()
+            throws Exception {
+        // Expect a regular default network.
+        final Network defaultNetwork = Objects.requireNonNull(sCm.getActiveNetwork(),
+                "Default network is required to perform the test.");
+        final TestableNetworkCallback defaultCallback = new TestableNetworkCallback();
+        sCm.registerDefaultNetworkCallback(defaultCallback);
+        defaultCallback.expectAvailableCallbacks(defaultNetwork, /* suspended= */ false,
+                /* validated= */ true, /* blocked= */ false, DEFAULT_TIMEOUT_MS);
+
+        // Verify the default network could be accessed.
+        assertBindSocketToNetwork(true /* expectSuccess */, defaultNetwork);
+
+        PreferentialNetworkServiceConfig blockConfig =
+                (new PreferentialNetworkServiceConfig.Builder())
+                        .setEnabled(true)
+                        .setNetworkId(PreferentialNetworkServiceConfig.PREFERENTIAL_NETWORK_ID_1)
+                        .setFallbackToDefaultConnectionAllowed(false)
+                        .setShouldBlockNonMatchingNetworks(true)
+                        .build();
+        try {
+            // Enable PreferentialNetworkService, with blocking non-enterprise network feature
+            // enabled. The default network should be lost since the preference does not allow
+            // fallback.
+            sDeviceState.dpc().devicePolicyManager().setPreferentialNetworkServiceConfigs(
+                    List.of(blockConfig));
+            defaultCallback.expect(TestableNetworkCallback.CallbackEntry.LOST, DEFAULT_TIMEOUT_MS);
+
+            // Verify the application cannot access default network  since it is
+            // a non-enterprise network.
+            assertBindSocketToNetwork(false /* expectSuccess */, defaultNetwork);
+        } finally {
+            sCm.unregisterNetworkCallback(defaultCallback);
+            sDeviceState.dpc().devicePolicyManager().setPreferentialNetworkServiceConfigs(
+                    List.of(PreferentialNetworkServiceConfig.DEFAULT));
+        }
+    }
+
+    // TODO: Copied and modified from android.net.cts.ConnectivityManager. Need to refactor them
+    //  to a common place.
+    private void assertBindSocketToNetwork(boolean expectSuccess, final Network network)
+            throws Exception {
+        final CompletableFuture<Boolean> future = new CompletableFuture<>();
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            executor.execute(() -> {
+                for (int i = 0; i < 300; i++) {
+                    SystemClock.sleep(10);
+
+                    try (Socket socket = new Socket()) {
+                        network.bindSocket(socket);
+                        if (expectSuccess) {
+                            future.complete(true);
+                            return;
+                        }
+                    } catch (IOException e) {
+                        if (!expectSuccess) {
+                            future.complete(false);
+                            return;
+                        }
+                    }
+                }
+            });
+            if (expectSuccess) {
+                assertThat(future.get(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
+            } else {
+                assertThat(future.get(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)).isFalse();
+            }
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    @CannotSetPolicyTest(policy = PreferentialNetworkService.class)
+    public void setPreferentialNetworkServiceEnabled_enableService_throwsSecurityException() {
+        assertThrows(SecurityException.class,
+                () -> sDeviceState.dpc().devicePolicyManager()
+                        .setPreferentialNetworkServiceEnabled(true));
+    }
+
+    @CannotSetPolicyTest(policy = PreferentialNetworkService.class)
+    public void isPreferentialNetworkServiceEnabled_default_throwsSecurityException() {
+        assertThrows(SecurityException.class,
+                () -> sDeviceState.dpc().devicePolicyManager()
+                        .isPreferentialNetworkServiceEnabled());
+    }
+
     @CanSetPolicyTest(policy = PreferentialNetworkService.class)
     public void isPreferentialNetworkServiceEnabled_default_isTrue() {
         assertThat(sDeviceState.dpc().devicePolicyManager().isPreferentialNetworkServiceEnabled())
@@ -211,6 +339,33 @@ public final class PreferentialNetworkServiceTest {
             assertThat(sDeviceState.dpc().devicePolicyManager()
                     .getPreferentialNetworkServiceConfigs().get(0)
                     .isFallbackToDefaultConnectionAllowed()).isTrue();
+        } finally {
+            sDeviceState.dpc().devicePolicyManager().setPreferentialNetworkServiceConfigs(
+                    List.of(PreferentialNetworkServiceConfig.DEFAULT));
+        }
+    }
+
+    @CanSetPolicyTest(policy = PreferentialNetworkService.class)
+    public void setPreferentialNetworkServiceConfigs_block_isSet() {
+        PreferentialNetworkServiceConfig blockConfig =
+                (new PreferentialNetworkServiceConfig.Builder())
+                        .setEnabled(true)
+                        .setNetworkId(PreferentialNetworkServiceConfig.PREFERENTIAL_NETWORK_ID_1)
+                        .setFallbackToDefaultConnectionAllowed(false)
+                        .setShouldBlockNonMatchingNetworks(true)
+                        .build();
+        try {
+            sDeviceState.dpc().devicePolicyManager().setPreferentialNetworkServiceConfigs(
+                    List.of(blockConfig));
+
+            assertThat(sDeviceState.dpc().devicePolicyManager()
+                    .getPreferentialNetworkServiceConfigs().get(0).isEnabled()).isTrue();
+            assertThat(sDeviceState.dpc().devicePolicyManager()
+                    .getPreferentialNetworkServiceConfigs().get(0)
+                    .shouldBlockNonMatchingNetworks()).isTrue();
+            assertThat(sDeviceState.dpc().devicePolicyManager()
+                    .getPreferentialNetworkServiceConfigs().get(0)
+                    .isFallbackToDefaultConnectionAllowed()).isFalse();
         } finally {
             sDeviceState.dpc().devicePolicyManager().setPreferentialNetworkServiceConfigs(
                     List.of(PreferentialNetworkServiceConfig.DEFAULT));

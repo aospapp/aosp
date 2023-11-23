@@ -65,6 +65,12 @@ android_test {
         "truth-prebuilt",
         "androidx.heifwriter_heifwriter",
         "androidx.test.rules",
+        "MediaPerformanceClassCommon",
+        "cts-wm-util",
+        "cts-install-lib",
+        "androidx.camera_camera-core",
+        "androidx.camera_camera-extensions",
+        "androidx.camera_camera-lifecycle",
     ],
     jni_libs: [
         "libctscamera2_jni",
@@ -74,6 +80,10 @@ android_test {
     srcs: [
         "src/**/*.java",
         ":CtsCameraTestCases-rscript{CtsCameraTestCases.srcjar}",
+    ],
+    java_resources: [
+        ":CameraCtsPropertyTestApp1",
+        ":CameraCtsPropertyTestApp2",
     ],
     resource_zips: [
         ":CtsCameraTestCases-rscript{CtsCameraTestCases.res.zip}",

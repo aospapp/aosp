@@ -17,6 +17,8 @@
 #ifndef CHRE_PLATFORM_SHARED_AUTHENTICATION_H_
 #define CHRE_PLATFORM_SHARED_AUTHENTICATION_H_
 
+#include <cstddef>
+
 namespace chre {
 
 /**
@@ -27,13 +29,15 @@ namespace chre {
  * execution privileges as the core framework itself.
  *
  * @param binary Pointer to the binary that should be authenticated.
+ * @param appBinaryLen The length of the binary.
  * @param realBinaryStart A non-null pointer that, if this method succeeds, must
  *     be filled with the starting address of the raw binary after any headers
  *     used by the authentication code. This will be passed to the dynamic
  *     loader which will assume the starting address is a valid ELF binary.
  * @return True if the binary passed authentication.
  */
-bool authenticateBinary(void *binary, void **realBinaryStart);
+bool authenticateBinary(const void *binary, size_t appBinaryLen,
+                        void **realBinaryStart);
 
 }  // namespace chre
 

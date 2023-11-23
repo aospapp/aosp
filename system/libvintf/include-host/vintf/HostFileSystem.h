@@ -37,9 +37,10 @@ class HostFileSystem : public FileSystemImpl {
 
     status_t fetch(const std::string& path, std::string* fetched,
                    std::string* error) const override;
-
     status_t listFiles(const std::string& path, std::vector<std::string>* out,
                        std::string* error) const override;
+    status_t modifiedTime(const std::string& path, int64_t* mtime,
+                          std::string* error) const override;
 
    private:
     std::string resolve(const std::string& path, std::string* error) const;

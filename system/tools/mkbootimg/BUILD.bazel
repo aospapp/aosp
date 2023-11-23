@@ -14,4 +14,5 @@
 
 exports_files([
     "mkbootimg.py",
+    "gki/testdata/testkey_rsa4096.pem",
 ])

@@ -16,8 +16,10 @@
 
 package com.android.tools.metalava.model.psi
 
+import com.android.tools.metalava.java
 import com.android.tools.metalava.kotlin
 import org.junit.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
@@ -46,6 +48,31 @@ class PsiMethodItemTest {
             val component1 = classItem.methods().single { it.name() == "component1" }
 
             assertNull(component1.property)
+        }
+    }
+
+    @Test
+    fun `method return type is non-null`() {
+        val codebase = java(
+            """
+            public class Foo {
+                public Foo() {}
+                public void bar() {}
+            }
+            """
+        )
+        testCodebase(codebase) { c ->
+            val ctorItem = c.assertClass("Foo").findMethod("Foo", "")
+            val ctorReturnType = ctorItem!!.returnType()
+
+            val methodItem = c.assertClass("Foo").findMethod("bar", "")
+            val methodReturnType = methodItem!!.returnType()
+
+            assertNotNull(ctorReturnType)
+            assertEquals("Foo", ctorReturnType.toString(), "Return type of the constructor item must be the containing class.")
+
+            assertNotNull(methodReturnType)
+            assertEquals("void", methodReturnType.toString(), "Return type of an method item should match the expected value.")
         }
     }
 }

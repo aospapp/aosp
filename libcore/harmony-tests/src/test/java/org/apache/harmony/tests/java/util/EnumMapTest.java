@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -154,7 +154,7 @@ public class EnumMapTest extends TestCase {
         }
 
         enumColorMap = new EnumMap<Color, Double>(Color.class);
-        Double double1 = new Double(1);
+        Double double1 = Double.valueOf(1);
         enumColorMap.put(Color.Green, 2);
         enumColorMap.put(Color.Blue, double1);
 
@@ -222,7 +222,7 @@ public class EnumMapTest extends TestCase {
         }
 
         hashColorMap = new HashMap();
-        hashColorMap.put(new Integer(1), 1);
+        hashColorMap.put(Integer.valueOf(1), 1);
         try {
             enumMap = new EnumMap(hashColorMap);
             fail("Expected ClassCastException");
@@ -305,8 +305,8 @@ public class EnumMapTest extends TestCase {
     @SuppressWarnings( { "unchecked", "boxing" })
     public void test_containsValueLjava_lang_Object() {
         EnumMap enumSizeMap = new EnumMap(Size.class);
-        Double double1 = new Double(3);
-        Double double2 = new Double(3);
+        Double double1 = Double.valueOf(3);
+        Double double2 = Double.valueOf(3);
 
         assertFalse("Returned true for uncontained value", enumSizeMap
                 .containsValue(double1));
@@ -356,11 +356,11 @@ public class EnumMapTest extends TestCase {
                 .contains(mockEntry));
         assertFalse("Returned true for uncontained object", set
                 .contains(Size.Small));
-        mockEntry = new MockEntry(new Integer(1), 1);
+        mockEntry = new MockEntry(Integer.valueOf(1), 1);
         assertFalse("Returned true for uncontained object", set
                 .contains(mockEntry));
         assertFalse("Returned true for uncontained object", set
-                .contains(new Integer(1)));
+                .contains(Integer.valueOf(1)));
 
         mockEntry = new MockEntry(Size.Big, null);
         assertTrue("Returned false for contained object", set
@@ -371,11 +371,11 @@ public class EnumMapTest extends TestCase {
                 .contains(mockEntry));
         assertFalse("Returned true when the object can not be removed", set
                 .remove(mockEntry));
-        mockEntry = new MockEntry(new Integer(1), 1);
+        mockEntry = new MockEntry(Integer.valueOf(1), 1);
         assertFalse("Returned true when the object can not be removed", set
                 .remove(mockEntry));
         assertFalse("Returned true when the object can not be removed", set
-                .remove(new Integer(1)));
+                .remove(Integer.valueOf(1)));
 
         // The set is backed by the map so changes to one are reflected by the
         // other.
@@ -460,7 +460,7 @@ public class EnumMapTest extends TestCase {
         mockEntry = new MockEntry(Size.Middle, 2);
         assertFalse("Returned true for uncontained object", set
                 .contains(mockEntry));
-        mockEntry = new MockEntry(new Integer(2), 2);
+        mockEntry = new MockEntry(Integer.valueOf(2), 2);
         assertFalse("Returned true for uncontained object", set
                 .contains(mockEntry));
         entry = (Map.Entry) iter.next();
@@ -510,7 +510,7 @@ public class EnumMapTest extends TestCase {
         entry.setValue(2);
         assertTrue("Returned false for contained object", set.contains(entry));
         assertFalse("Returned true for uncontained object", set
-                .remove(new Integer(1)));
+                .remove(Integer.valueOf(1)));
 
         iter.next();
         assertEquals("Wrong key", Size.Middle, entry.getKey());
@@ -595,7 +595,7 @@ public class EnumMapTest extends TestCase {
         assertTrue("Returned false for equal EnumMap", enumMap.equals(hashMap));
 
         assertFalse("Should return false", enumSizeMap
-                .equals(new Integer(1)));
+                .equals(Integer.valueOf(1)));
     }
 
     /**
@@ -624,7 +624,7 @@ public class EnumMapTest extends TestCase {
         assertFalse("Returned true for uncontained object", set
                 .contains(Size.Small));
         assertFalse("Returned true for uncontained object", set
-                .contains(new Integer(1)));
+                .contains(Integer.valueOf(1)));
         assertTrue("Returned false when the object can be removed", set
                 .remove(Size.Big));
         assertFalse("Returned true for uncontained object", set
@@ -632,7 +632,7 @@ public class EnumMapTest extends TestCase {
         assertFalse("Returned true when the object can not be removed", set
                 .remove(Size.Big));
         assertFalse("Returned true when the object can not be removed", set
-                .remove(new Integer(1)));
+                .remove(Integer.valueOf(1)));
 
         // The set is backed by the map so changes to one are reflected by the
         // other.
@@ -772,7 +772,7 @@ public class EnumMapTest extends TestCase {
         assertNull("Get returned non-null for non existent key", enumSizeMap
                 .get(Color.Red));
         assertNull("Get returned non-null for non existent key", enumSizeMap
-                .get(new Integer(1)));
+                .get(Integer.valueOf(1)));
         assertNull("Get returned non-null for non existent key", enumSizeMap
                 .get(null));
 
@@ -785,9 +785,9 @@ public class EnumMapTest extends TestCase {
         assertNull("Get returned non-null for non mapped key", enumColorMap
                 .get(Color.Blue));
 
-        enumColorMap.put(Color.Green, new Double(4));
+        enumColorMap.put(Color.Green, Double.valueOf(4));
         assertEquals("Get returned incorrect value for given key",
-                new Double(4), enumColorMap.get(Color.Green));
+                Double.valueOf(4), enumColorMap.get(Color.Green));
         enumColorMap.put(Color.Green, new Integer("3"));
         assertEquals("Get returned incorrect value for given key", new Integer(
                 "3"), enumColorMap.get(Color.Green));
@@ -829,8 +829,8 @@ public class EnumMapTest extends TestCase {
         assertNull("Return non-null for non mapped key", enumColorMap.put(
                 Color.Green, 2));
         assertEquals("Return wrong value", 2, enumColorMap.put(Color.Green,
-                new Double(4)));
-        assertEquals("Return wrong value", new Double(4), enumColorMap.put(
+                Double.valueOf(4)));
+        assertEquals("Return wrong value", Double.valueOf(4), enumColorMap.put(
                 Color.Green, new Integer("3")));
         assertEquals("Return wrong value", new Integer("3"), enumColorMap.put(
                 Color.Green, null));
@@ -840,7 +840,7 @@ public class EnumMapTest extends TestCase {
         assertNull("Return non-null for non mapped key", enumColorMap.put(
                 Color.Blue, 2));
         assertEquals("Return wrong value", 2, enumColorMap.put(Color.Blue,
-                new Double(4)));
+                Double.valueOf(4)));
     }
 
     /**
@@ -888,7 +888,7 @@ public class EnumMapTest extends TestCase {
                 enumColorMap.get(Color.Green));
         assertNull("Get returned non-null for non mapped key", enumColorMap
                 .get(Color.Red));
-        hashColorMap.put(Color.Red, new Integer(1));
+        hashColorMap.put(Color.Red, Integer.valueOf(1));
         enumColorMap.putAll(hashColorMap);
         assertEquals("Get returned incorrect value for given key", new Integer(
                 2), enumColorMap.get(Color.Green));
@@ -901,7 +901,7 @@ public class EnumMapTest extends TestCase {
         }
 
         hashColorMap = new HashMap();
-        hashColorMap.put(new Integer(1), 1);
+        hashColorMap.put(Integer.valueOf(1), 1);
         try {
             enumColorMap.putAll(hashColorMap);
             fail("Expected ClassCastException");
@@ -932,15 +932,15 @@ public class EnumMapTest extends TestCase {
         assertNull("Remove of non-existent key returned non-null", enumSizeMap
                 .remove(Color.Red));
         assertNull("Remove of non-existent key returned non-null", enumSizeMap
-                .remove(new Double(4)));
+                .remove(Double.valueOf(4)));
         assertNull("Remove of non-existent key returned non-null", enumSizeMap
                 .remove(null));
 
         EnumMap enumColorMap = new EnumMap<Color, Double>(Color.class);
         assertNull("Get returned non-null for non mapped key", enumColorMap
                 .get(Color.Green));
-        enumColorMap.put(Color.Green, new Double(4));
-        assertEquals("Remove returned incorrect value", new Double(4),
+        enumColorMap.put(Color.Green, Double.valueOf(4));
+        assertEquals("Remove returned incorrect value", Double.valueOf(4),
                 enumColorMap.remove(Color.Green));
         assertNull("Get returned non-null for non mapped key", enumColorMap
                 .get(Color.Green));
@@ -1002,7 +1002,7 @@ public class EnumMapTest extends TestCase {
         Collection collection1 = enumColorMap.values();
         assertSame("Should be same", collection1, collection);
         try {
-            collection.add(new Integer(1));
+            collection.add(Integer.valueOf(1));
             fail("Should throw UnsupportedOperationException");
         } catch (UnsupportedOperationException e) {
             // Expected
@@ -1040,9 +1040,9 @@ public class EnumMapTest extends TestCase {
         enumColorMap.put(Color.Blue, null);
         collection = enumColorMap.values();
         Collection c = new ArrayList();
-        c.add(new Integer(1));
+        c.add(Integer.valueOf(1));
         assertTrue("Should return true", collection.containsAll(c));
-        c.add(new Double(3.4));
+        c.add(Double.valueOf(3.4));
         assertFalse("Should return false", collection.containsAll(c));
         assertTrue("Should return true", collection.removeAll(c));
         assertEquals("Wrong size", 1, collection.size());
@@ -1110,7 +1110,7 @@ public class EnumMapTest extends TestCase {
         assertEquals("Wrong size", 0, collection.size());
 
         enumColorMap = new EnumMap<Color, Double>(Color.class);
-        Integer integer1 = new Integer(1);
+        Integer integer1 = Integer.valueOf(1);
         enumColorMap.put(Color.Green, integer1);
         enumColorMap.put(Color.Blue, null);
         collection = enumColorMap.values();

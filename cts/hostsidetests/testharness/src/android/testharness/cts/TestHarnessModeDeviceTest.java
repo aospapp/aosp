@@ -16,6 +16,7 @@
 
 package android.testharness.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
@@ -55,7 +56,7 @@ public class TestHarnessModeDeviceTest extends BaseHostJUnit4Test {
                     && getDevice().doesFileExist("/data/local/tmp/test.txt")) {
                 break;
             }
-            Thread.sleep(3_000);
+            RunUtil.getDefault().sleep(3_000);
         }
 
         // Ensure the files are there, otherwise they may have been "erased" simply by never showing
@@ -125,12 +126,12 @@ public class TestHarnessModeDeviceTest extends BaseHostJUnit4Test {
         if (getDevice().executeShellV2Command("cmd testharness enable").getExitCode() != 0) {
             throw new RuntimeException("Failed to enable test harness mode");
         }
-        Thread.sleep(20 * 1000); // Wait for the device to start resetting.
+        RunUtil.getDefault().sleep(20 * 1000); // Wait for the device to start resetting.
         try {
             getDevice().waitForDeviceOnline(5 * ONE_MINUTE);
             getDevice().waitForBootComplete(ONE_MINUTE);
 
-            Thread.sleep(20 * 1000); // Wait 20 more seconds to ensure that the device has booted
+            RunUtil.getDefault().sleep(20 * 1000); // Wait 20 more seconds to ensure that the device has booted
         } catch (DeviceNotAvailableException e) {
             Assert.fail("Device did not come back online after 5 minutes. "
                     + "Did the ADB keys not get stored?");

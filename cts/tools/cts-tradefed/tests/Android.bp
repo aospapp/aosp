@@ -28,3 +28,15 @@ java_library_host {
     // We ship the Deqp Runner tests with the CTS one to validate them.
     static_libs: ["CtsDeqpRunnerTests"],
 }
+
+// Provide a common loading test that can be reused in other suites
+java_library_host {
+    name: "suite-loading-tests",
+
+    srcs: ["src/com/android/compatibility/common/tradefed/loading/*.java"],
+
+    libs: [
+        "tradefed",
+        "cts-tradefed",
+    ],
+}

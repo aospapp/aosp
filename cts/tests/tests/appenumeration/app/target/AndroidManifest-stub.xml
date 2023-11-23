@@ -19,7 +19,42 @@
           package="android.appenumeration.stub">
     <application>
         <uses-library android:name="android.test.runner" />
+        <property android:name="android.cts.PROPERTY_BOOLEAN" android:value="true" />
         <activity android:name="android.appenumeration.cts.TestActivity"
-                  android:exported="true" />
+                  android:exported="true">
+            <property android:name="android.cts.PROPERTY_BOOLEAN" android:value="true" />
+            <intent-filter>
+                <action android:name="android.appenumeration.action.CrossUserTest"/>
+            </intent-filter>
+        </activity>
+        <activity android:name="android.appenumeration.testapp.ActivityPermissionProtected"
+                  android:permission="android.appenumeration.cts.permission.TEST_PERMISSION"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.appenumeration.action.ACTIVITY"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+        </activity>
+        <service android:name="android.appenumeration.testapp.DummyServiceNotExported"
+                 android:exported="false">
+            <property android:name="android.cts.PROPERTY_BOOLEAN" android:value="true" />
+        </service>
+        <provider android:name="android.appenumeration.testapp.DummyProviderNotExported"
+                  android:authorities="android.appenumeration.stub.provider.unexported"
+                  android:exported="false">
+            <property android:name="android.cts.PROPERTY_BOOLEAN" android:value="true" />
+        </provider>
+        <provider android:name="android.appenumeration.testapp.DummyProvider"
+                  android:authorities="android.appenumeration.stub.provider.authority"
+                  android:exported="true">
+        </provider>
+        <receiver android:name="android.appenumeration.testapp.DummyReceiverNotExported"
+                  android:exported="false">
+            <property android:name="android.cts.PROPERTY_BOOLEAN" android:value="true" />
+        </receiver>
     </application>
+
+    <instrumentation android:name="android.appenumeration.testapp.DummyInstrumentation"
+                     android:targetPackage="android.appenumeration.stub">
+    </instrumentation>
 </manifest>

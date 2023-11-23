@@ -53,7 +53,7 @@ class TextModifiers(
         annotationSources.forEach { source ->
             val index = source.indexOf('(')
             val originalName = if (index == -1) source.substring(1) else source.substring(1, index)
-            val qualifiedName = AnnotationItem.mapName(codebase, originalName)
+            val qualifiedName = AnnotationItem.mapName(originalName)
 
             // @Deprecated is also treated as a "modifier"
             if (qualifiedName == JAVA_LANG_DEPRECATED) {

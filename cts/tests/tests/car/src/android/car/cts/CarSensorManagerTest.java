@@ -16,14 +16,19 @@
 
 package android.car.cts;
 
+import static android.car.cts.utils.ShellPermissionUtils.runWithShellPermissionIdentity;
+
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import android.car.Car;
+import android.car.annotation.ApiRequirements;
 import android.car.hardware.CarSensorManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -39,20 +44,33 @@ import java.util.stream.IntStream;
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Instant apps cannot get car related permissions.")
-public class CarSensorManagerTest extends CarApiTestBase {
+public final class CarSensorManagerTest extends AbstractCarTestCase {
+
+    private static final String TAG = CarSensorManagerTest.class.getSimpleName();
 
     private int[] mSupportedSensors;
 
-    @Before
-    public void setUp() throws Exception {
-        super.setUp();
-        CarSensorManager carSensorManager =
-                (CarSensorManager) getCar().getCarManager(Car.SENSOR_SERVICE);
-        mSupportedSensors = carSensorManager.getSupportedSensors();
-        assertNotNull(mSupportedSensors);
+    // TODO(b/242350638): add missing annotations, make sure @ApiRequirements have the right
+    // supported versions, then remove this method (using a child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
     }
 
-    @CddTest(requirement="2.5.1")
+    @Before
+    public void setUp() throws Exception {
+        runWithShellPermissionIdentity(() -> {
+            CarSensorManager carSensorManager = (CarSensorManager) getCar().getCarManager(
+                    Car.SENSOR_SERVICE);
+            mSupportedSensors = carSensorManager.getSupportedSensors();
+            assertNotNull(mSupportedSensors);
+        });
+    }
+
+    @CddTest(requirements = {"2.5.1"})
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.TIRAMISU_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
     @Test
     public void testRequiredSensorsForDrivingState() throws Exception {
         boolean foundSpeed =
@@ -62,7 +80,9 @@ public class CarSensorManagerTest extends CarApiTestBase {
         assertTrue("Must support SENSOR_TYPE_GEAR", foundGear);
     }
 
-    @CddTest(requirement="2.5.1")
+    @CddTest(requirements = {"2.5.1"})
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.TIRAMISU_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
     @Test
     public void testMustSupportNightSensor() {
         boolean foundNightSensor =
@@ -70,8 +90,10 @@ public class CarSensorManagerTest extends CarApiTestBase {
         assertTrue("Must support SENSOR_TYPE_NIGHT", foundNightSensor);
     }
 
-    @CddTest(requirement = "2.5.1")
+    @CddTest(requirements = {"2.5.1"})
     @Test
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.TIRAMISU_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
     public void testMustSupportParkingBrake() throws Exception {
         boolean foundParkingBrake =
             isSupportSensor(CarSensorManager.SENSOR_TYPE_PARKING_BRAKE);

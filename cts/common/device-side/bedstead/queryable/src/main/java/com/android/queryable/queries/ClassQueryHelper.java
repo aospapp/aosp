@@ -20,6 +20,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.info.ClassInfo;
 
 import java.io.Serializable;
@@ -35,10 +36,27 @@ public final class ClassQueryHelper<E extends Queryable>
     private final StringQueryHelper<E> mClassName;
     private final StringQueryHelper<E> mSimpleName;
 
-    ClassQueryHelper() {
-        mQuery = (E) this;
-        mClassName = new StringQueryHelper<>(mQuery);
-        mSimpleName = new StringQueryHelper<>(mQuery);
+    public static final class ClassQueryBase extends
+            QueryableBaseWithMatch<ClassInfo, ClassQueryHelper<ClassQueryBase>> {
+        ClassQueryBase() {
+            super();
+            setQuery(new ClassQueryHelper<>(this));
+        }
+
+        ClassQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<ClassQueryHelper.ClassQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public ClassQueryHelper.ClassQueryBase createFromParcel(Parcel in) {
+                        return new ClassQueryHelper.ClassQueryBase(in);
+                    }
+
+                    public ClassQueryHelper.ClassQueryBase[] newArray(int size) {
+                        return new ClassQueryHelper.ClassQueryBase[size];
+                    }
+                };
     }
 
     public ClassQueryHelper(E query) {
@@ -66,6 +84,12 @@ public final class ClassQueryHelper<E extends Queryable>
     @Override
     public StringQuery<E> simpleName() {
         return mSimpleName;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mClassName)
+                && Queryable.isEmptyQuery(mSimpleName);
     }
 
     @Override

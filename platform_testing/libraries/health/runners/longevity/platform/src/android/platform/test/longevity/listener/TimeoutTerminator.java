@@ -18,9 +18,9 @@ package android.platform.test.longevity.listener;
 import android.os.SystemClock;
 import android.util.Log;
 
-import java.util.Map;
-
 import org.junit.runner.notification.RunNotifier;
+
+import java.util.Map;
 
 /**
  * A {@link RunTerminator} for terminating early on test end due to long duration for platform

@@ -44,9 +44,9 @@ public final class Tzdb {
             "GMT-0", "GMT0", "HST", "IET", "IST", "JST", "MET", "MIT", "MST", "NET", "NST", "PLT",
             "PNT", "PRT", "PST", "SST", "UCT", "UTC", "VST", "WET");
 
-    // TODO(b/208768262) These should be added to countryzones.txt.
-    private static final Set<String> MISSING_TZ_IDS = Set.of("US/Pacific-New", "Asia/Istanbul",
-            "Europe/Nicosia", "Greenwich");
+    // US/Pacific-New was deleted from IANA TZDB, but exists in ICU, so it can't be removed yet.
+    // Greenwich is just an alias to Etc/GMT, and none of them should appear in the tzlookup file.
+    private static final Set<String> MISSING_TZ_IDS = Set.of("US/Pacific-New", "Greenwich");
 
     // According to backward file comment this name exceeds 14 chars limit and is unused misnomer.
     // Supported by ICU only, not valid TZDB time zone IDs. Not added to tzlookup.xml.

@@ -53,6 +53,7 @@ if(CONFIG_CHRE)
       "${CHRE_DIR}/core/timer_pool.cc"
       "${CHRE_DIR}/platform/shared/version.cc"
       "${CHRE_DIR}/platform/shared/system_time.cc"
+      "${CHRE_DIR}/util/buffer_base.cc"
       "${CHRE_DIR}/util/dynamic_vector_base.cc"
   )
   zephyr_linker_sources(SECTIONS linker_chre.ld)

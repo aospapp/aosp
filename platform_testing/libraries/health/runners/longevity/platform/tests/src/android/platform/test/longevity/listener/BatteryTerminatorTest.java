@@ -22,10 +22,8 @@ import static org.mockito.Mockito.verify;
 
 import android.content.Context;
 import android.content.Intent;
-import androidx.test.filters.SmallTest;
 
-import java.util.HashMap;
-import java.util.Map;
+import androidx.test.filters.SmallTest;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -36,6 +34,9 @@ import org.junit.runners.JUnit4;
 
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Unit test the logic for {@link BatteryTerminator}

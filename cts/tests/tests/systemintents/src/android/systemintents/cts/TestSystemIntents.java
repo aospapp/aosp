@@ -124,4 +124,15 @@ public class TestSystemIntents {
             }
         }
     }
+
+    @Test
+    public void testActionInputMethodSettings_resolvedBy_highPriorityComponent() {
+        final ResolveInfo resolveInfo = mPackageManager.resolveActivity(
+                new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS), 0);
+        final int actualPriority = resolveInfo.priority;
+        assertTrue(
+                "ACTION_INPUT_METHOD_SETTINGS must be resolved by a component with priority > 0! "
+                        + "(Got priority " + actualPriority + " from " + resolveInfo + ")",
+                actualPriority > 0);
+    }
 }

@@ -18,13 +18,14 @@ package android.platform.tests;
 
 import static junit.framework.Assert.assertTrue;
 
-import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
 import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoSettingHelper;
 import android.platform.helpers.IAutoSoundsSettingHelper;
 import android.platform.helpers.IAutoSoundsSettingHelper.SoundType;
 import android.platform.helpers.IAutoSoundsSettingHelper.VolumeType;
+import android.platform.helpers.SettingsConstants;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -55,7 +56,10 @@ public class SoundSettingTest {
 
     @Before
     public void openSoundsSettingFacet() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.SOUND_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.SOUND_SETTINGS);
+        assertTrue(
+                "Sound setting did not open",
+                mSettingHelper.get().checkMenuExists("In-call volume"));
     }
 
     @After

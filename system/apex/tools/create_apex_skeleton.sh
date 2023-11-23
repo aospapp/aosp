@@ -100,6 +100,9 @@ EOF
 cat > manifest.json << EOF
 {
   "name": "${APEX_NAME}",
-  "version": 1
+
+  // Placeholder module version to be replaced during build.
+  // Do not change!
+  "version": 0
 }
 EOF

@@ -406,6 +406,7 @@ def CreateGCETypeAVD(cfg,
                     target_adb_port=constants.GCE_ADB_PORT,
                     ssh_user=_SSH_USER,
                     client_adb_port=avd_spec.client_adb_port,
+                    client_fastboot_port=avd_spec.client_fastboot_port,
                     extra_args_ssh_tunnel=cfg.extra_args_ssh_tunnel)
                 device_dict[constants.VNC_PORT] = forwarded_ports.vnc_port
                 device_dict[constants.ADB_PORT] = forwarded_ports.adb_port
@@ -421,16 +422,22 @@ def CreateGCETypeAVD(cfg,
         else:
             r.SetStatus(report.Status.SUCCESS)
 
-        # Dump serial logs.
-        if serial_log_file:
-            _FetchSerialLogsFromDevices(
-                compute_client,
-                instance_names=[d.instance_name for d in device_pool.devices],
-                port=constants.DEFAULT_SERIAL_PORT,
-                output_file=serial_log_file)
     except errors.DriverError as e:
         r.AddError(str(e))
         r.SetStatus(report.Status.FAIL)
+    finally:
+         # Let's do our best to obtain the serial log, even though this
+         # could fail in case of failed boots.
+        if serial_log_file:
+            instance_names=[d.instance_name for d in device_pool.devices]
+            try:
+                _FetchSerialLogsFromDevices(
+                    compute_client,
+                    instance_names=instance_names,
+                    port=constants.DEFAULT_SERIAL_PORT,
+                    output_file=serial_log_file)
+            except Exception as log_err:
+                logging.warning("Failed to obtain serial logs from %s", ", ".join(instance_names))
     return r
 
 

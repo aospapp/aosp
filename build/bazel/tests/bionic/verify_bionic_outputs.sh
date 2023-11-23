@@ -18,8 +18,8 @@ set -euo pipefail
 
 source "${RUNFILES_DIR}/bazel_tools/tools/bash/runfiles/runfiles.bash"
 
-READELF="$(rlocation __main__/prebuilts/clang/host/linux-x86/${CLANG_DEFAULT_VERSION}/bin/llvm-readelf)"
-NM="$(rlocation __main__/prebuilts/clang/host/linux-x86/${CLANG_DEFAULT_VERSION}/bin/llvm-nm)"
+READELF="$(rlocation __main__/prebuilts/clang/host/linux-x86/${ClangVersion}/bin/llvm-readelf)"
+NM="$(rlocation __main__/prebuilts/clang/host/linux-x86/${ClangVersion}/bin/llvm-nm)"
 
 # This should be abstracted to a unit-test library when it has more uses.
 function assert_contains_regex() {

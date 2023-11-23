@@ -20,10 +20,7 @@ This test script was designed with this setup in mind:
 Shield box one: Android Device and 3 headset.
 """
 
-import json
-import os
 import time
-import sys
 
 from acts import logger
 from acts.asserts import assert_false
@@ -39,12 +36,10 @@ from acts_contrib.test_utils.bt.bt_test_utils import reset_bluetooth
 from acts.controllers.relay_lib.sony_xb2_speaker import SonyXB2Speaker
 
 
-
 class HeadphoneTest(BluetoothBaseTest):
 
     WAIT_TIME = 10
     iterations = 10
-
 
     def _discover_and_pair(self, headphone):
         self.ad.droid.bluetoothStartDiscovery()
@@ -52,8 +47,7 @@ class HeadphoneTest(BluetoothBaseTest):
         self.ad.droid.bluetoothCancelDiscovery()
         for device in self.ad.droid.bluetoothGetDiscoveredDevices():
             if device['address'] == headphone.mac_address:
-                self.ad.droid.bluetoothDiscoverAndBond(
-                    headphone.mac_address)
+                self.ad.droid.bluetoothDiscoverAndBond(headphone.mac_address)
                 end_time = time.time() + 20
                 self.log.info("Found the mac address")
                 self.log.info("Verifying devices are bonded")
@@ -62,8 +56,8 @@ class HeadphoneTest(BluetoothBaseTest):
                     for d in bonded_devices:
                         if d['address'] == headphone.mac_address:
                             self.log.info("Successfully bonded to device.")
-                            self.log.info(
-                                'Bonded devices:\n%s', bonded_devices)
+                            self.log.info('Bonded devices:\n%s',
+                                          bonded_devices)
                             return True
         return False
 
@@ -84,8 +78,6 @@ class HeadphoneTest(BluetoothBaseTest):
         if hasattr(self, 'relay_devices'):
             for headphone in self.relay_devices:
                 headphone.setup()
-
-
         '''
         # Turn of the Power Supply for the headphones.
         if hasattr(self, 'relay_devices'):
@@ -134,7 +126,7 @@ class HeadphoneTest(BluetoothBaseTest):
               Priority: 0
         """
         for headphone in self.headphone_list:
-            self.log.info("Start testing on  " + headphone.name )
+            self.log.info("Start testing on  " + headphone.name)
 
             if self._discover_and_pair(headphone) is False:
                 # The device is probably not in pairing mode, put in pairing mode.
@@ -153,8 +145,6 @@ class HeadphoneTest(BluetoothBaseTest):
                 self.log.error("Not connected to relay based device.")
                 return False
             clear_bonded_devices(self.ad)
-
-
 
     @BluetoothBaseTest.bt_test_wrap
     @test_tracker_info(uuid='7ba73c39-2a69-4a72-b708-d603ce658740')
@@ -228,6 +218,6 @@ class HeadphoneTest(BluetoothBaseTest):
                     msg = "Unable to pair to %s", headphone.name
                     assert_true(self._discover_and_pair(headphone), msg)
 
-            if len(self.ad.droid.bluetoothGetConnectedDevices()) != n+1:
+            if len(self.ad.droid.bluetoothGetConnectedDevices()) != n + 1:
                 self.log.error("Not connected to  %s", headphone.name)
                 return False

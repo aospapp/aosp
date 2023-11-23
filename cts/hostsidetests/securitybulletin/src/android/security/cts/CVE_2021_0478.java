@@ -16,15 +16,19 @@
 
 package android.security.cts;
 
+import com.android.tradefed.util.RunUtil;
 import android.platform.test.annotations.AsbSecurityTest;
 import android.platform.test.annotations.SecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0478 extends SecurityTestCase {
+public class CVE_2021_0478 extends NonRootSecurityTestCase {
 
     /**
      * b/169255797
@@ -55,7 +59,7 @@ public class CVE_2021_0478 extends SecurityTestCase {
 
             /* Start the application */
             AdbUtils.runCommandLine("am start -n " + packageName + "/.PocActivity", getDevice());
-            Thread.sleep(SLEEP_INTERVAL_MILLISEC);
+            RunUtil.getDefault().sleep(SLEEP_INTERVAL_MILLISEC);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {

@@ -33,7 +33,8 @@ import android.net.Uri;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.provider.Settings;
-import android.support.test.uiautomator.UiObject2;
+
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.compatibility.common.util.FeatureUtil;
 

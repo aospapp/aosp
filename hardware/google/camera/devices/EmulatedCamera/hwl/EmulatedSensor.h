@@ -75,6 +75,7 @@
 #ifndef HW_EMULATOR_CAMERA2_SENSOR_H
 #define HW_EMULATOR_CAMERA2_SENSOR_H
 
+#include <android/hardware/graphics/common/1.2/types.h>
 #include <hwl_types.h>
 
 #include <algorithm>
@@ -90,9 +91,13 @@
 
 namespace android {
 
+using google_camera_hal::ColorSpaceProfile;
+using google_camera_hal::DynamicRangeProfile;
 using google_camera_hal::HwlPipelineCallback;
 using google_camera_hal::HwlPipelineResult;
 using google_camera_hal::StreamConfiguration;
+
+using hardware::graphics::common::V1_2::Dataspace;
 
 /*
  * Default to sRGB with D65 white point
@@ -112,11 +117,38 @@ struct ColorFilterXYZ {
   float bZ = 1.0570f;
 };
 
+struct ForwardMatrix {
+  float rX = 0.4355f;
+  float gX = 0.3848f;
+  float bX = 0.1425f;
+  float rY = 0.2216f;
+  float gY = 0.7168f;
+  float bY = 0.0605f;
+  float rZ = 0.0137f;
+  float gZ = 0.0967f;
+  float bZ = 0.7139f;
+};
+
+struct RgbRgbMatrix {
+  float rR;
+  float gR;
+  float bR;
+  float rG;
+  float gG;
+  float bG;
+  float rB;
+  float gB;
+  float bB;
+};
+
+typedef std::unordered_map<DynamicRangeProfile,
+                           std::unordered_set<DynamicRangeProfile>>
+    DynamicRangeProfileMap;
+
 typedef std::unordered_map<
-    camera_metadata_enum_android_request_available_dynamic_range_profiles_map,
-    std::unordered_set<
-        camera_metadata_enum_android_request_available_dynamic_range_profiles_map>>
-    ProfileMap;
+    ColorSpaceProfile,
+    std::unordered_map<int, std::unordered_set<DynamicRangeProfile>>>
+    ColorSpaceProfileMap;
 
 struct SensorCharacteristics {
   size_t width = 0;
@@ -129,6 +161,7 @@ struct SensorCharacteristics {
   camera_metadata_enum_android_sensor_info_color_filter_arrangement
       color_arangement = ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT_RGGB;
   ColorFilterXYZ color_filter;
+  ForwardMatrix forward_matrix;
   uint32_t max_raw_value = 0;
   uint32_t black_level_pattern[4] = {0};
   uint32_t max_raw_streams = 0;
@@ -143,8 +176,14 @@ struct SensorCharacteristics {
   bool is_front_facing = false;
   bool quad_bayer_sensor = false;
   bool is_10bit_dynamic_range_capable = false;
-  ProfileMap dynamic_range_profiles;
+  DynamicRangeProfileMap dynamic_range_profiles;
   bool support_stream_use_case = false;
+  int64_t end_valid_stream_use_case =
+      ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL;
+  bool support_color_space_profiles = false;
+  ColorSpaceProfileMap color_space_profiles;
+  int32_t raw_crop_region_zoomed[4] = {0};
+  int32_t raw_crop_region_unzoomed[4] = {0};
 };
 
 // Maps logical/physical camera ids to sensor characteristics
@@ -156,10 +195,8 @@ class EmulatedSensor : private Thread, public virtual RefBase {
   ~EmulatedSensor();
 
   static android_pixel_format_t OverrideFormat(
-      android_pixel_format_t format,
-      camera_metadata_enum_android_request_available_dynamic_range_profiles_map
-          profile) {
-    switch (profile) {
+      android_pixel_format_t format, DynamicRangeProfile dynamic_range_profile) {
+    switch (dynamic_range_profile) {
       case ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_STANDARD:
         if (format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED) {
           return HAL_PIXEL_FORMAT_YCBCR_420_888;
@@ -173,7 +210,7 @@ class EmulatedSensor : private Thread, public virtual RefBase {
         break;
       default:
         ALOGE("%s: Unsupported dynamic range profile 0x%x", __FUNCTION__,
-              profile);
+              dynamic_range_profile);
     }
 
     return format;
@@ -315,7 +352,9 @@ class EmulatedSensor : private Thread, public virtual RefBase {
   static const int32_t kFixedBitPrecision;
   static const int32_t kSaturationPoint;
 
-  std::vector<int32_t> gamma_table_;
+  std::vector<int32_t> gamma_table_sRGB_;
+  std::vector<int32_t> gamma_table_smpte170m_;
+  std::vector<int32_t> gamma_table_hlg_;
 
   Mutex control_mutex_;  // Lock before accessing control parameters
   // Start of control parameters
@@ -345,11 +384,15 @@ class EmulatedSensor : private Thread, public virtual RefBase {
     bool has_non_raw_stream = false;
     bool quad_bayer_sensor = false;
     bool max_res_request = false;
+    bool has_cropped_raw_stream = false;
+    bool raw_in_sensor_zoom_applied = false;
   };
 
   std::map<uint32_t, SensorBinningFactorInfo> sensor_binning_factor_info_;
 
   std::unique_ptr<EmulatedScene> scene_;
+
+  RgbRgbMatrix rgb_rgb_matrix_;
 
   static EmulatedScene::ColorChannels GetQuadBayerColor(uint32_t x, uint32_t y);
 
@@ -366,16 +409,24 @@ class EmulatedSensor : private Thread, public virtual RefBase {
 
   void CaptureRawFullRes(uint8_t* img, size_t row_stride_in_bytes,
                          uint32_t gain, const SensorCharacteristics& chars);
+  void CaptureRawInSensorZoom(uint8_t* img, size_t row_stride_in_bytes,
+                              uint32_t gain, const SensorCharacteristics& chars);
+  void CaptureRaw(uint8_t* img, size_t row_stride_in_bytes, uint32_t gain,
+                  const SensorCharacteristics& chars, bool in_sensor_zoom,
+                  bool binned);
 
   enum RGBLayout { RGB, RGBA, ARGB };
   void CaptureRGB(uint8_t* img, uint32_t width, uint32_t height,
                   uint32_t stride, RGBLayout layout, uint32_t gain,
-                  const SensorCharacteristics& chars);
+                  int32_t color_space, const SensorCharacteristics& chars);
   void CaptureYUV420(YCbCrPlanes yuv_layout, uint32_t width, uint32_t height,
                      uint32_t gain, float zoom_ratio, bool rotate,
-                     const SensorCharacteristics& chars);
+                     int32_t color_space, const SensorCharacteristics& chars);
   void CaptureDepth(uint8_t* img, uint32_t gain, uint32_t width, uint32_t height,
                     uint32_t stride, const SensorCharacteristics& chars);
+  void RgbToRgb(uint32_t* r_count, uint32_t* g_count, uint32_t* b_count);
+  void CalculateRgbRgbMatrix(int32_t color_space,
+                             const SensorCharacteristics& chars);
 
   struct YUV420Frame {
     uint32_t width = 0;
@@ -387,9 +438,14 @@ class EmulatedSensor : private Thread, public virtual RefBase {
   status_t ProcessYUV420(const YUV420Frame& input, const YUV420Frame& output,
                          uint32_t gain, ProcessType process_type,
                          float zoom_ratio, bool rotate_and_crop,
+                         int32_t color_space,
                          const SensorCharacteristics& chars);
 
   inline int32_t ApplysRGBGamma(int32_t value, int32_t saturation);
+  inline int32_t ApplySMPTE170MGamma(int32_t value, int32_t saturation);
+  inline int32_t ApplyST2084Gamma(int32_t value, int32_t saturation);
+  inline int32_t ApplyHLGGamma(int32_t value, int32_t saturation);
+  inline int32_t GammaTable(int32_t value, int32_t color_space);
 
   bool WaitForVSyncLocked(nsecs_t reltime);
   void CalculateAndAppendNoiseProfile(float gain /*in ISO*/,

@@ -35,6 +35,9 @@ class PowerTelIdleTest(PWCEL.PowerCellularLabBaseTest):
             filter_results: when True the reported result is filtered to only
                 samples where average power was below a certain threshold.
         """
+        # disable data for idle test
+        self.dut.adb.shell('service call phone 39')
+        self.dut.adb.shell('svc data disable')
 
         idle_wait_time = self.simulation.rrc_sc_timer + 30
 

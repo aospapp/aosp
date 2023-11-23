@@ -49,6 +49,15 @@ python_library_host {
     ],
 }
 
+// This is a hack to move mke2fs_conf into the current folder for bazel builds.
+// Normally bazel would keep it under a system/extras/ext4_utils/ folder.
+genrule {
+    name: "mke2fs_conf_for_apexer",
+    srcs: [":mke2fs_conf"],
+    out: ["mke2fs.conf"],
+    cmd: "cp $(in) $(out)"
+}
+
 python_binary_host {
     name: "apexer",
     srcs: [
@@ -56,7 +65,7 @@ python_binary_host {
     ],
     // TODO(b/157625953) mke2fs.conf can't embedded directly.
     data: [
-        ":mke2fs_conf",
+        ":mke2fs_conf_for_apexer",
     ],
     version: {
         py3: {
@@ -133,6 +142,8 @@ python_test_host {
 apexer_deps_minus_go_tools = apexer_tools + [
     "deapexer",
     "debugfs_static",
+    "blkid",
+    "fsck.erofs",
 ]
 
 apexer_deps_tools = apexer_deps_minus_go_tools + apexer_go_tools
@@ -153,10 +164,12 @@ genrule {
     tools: apexer_deps_tools + [
         // To force signapk.jar generated in out/host
         "signapk",
+        "bundletool",
     ],
     cmd: "HOST_OUT_BIN=$$(dirname $(location apexer)) && " +
         "HOST_SOONG_OUT=$$(dirname $$HOST_OUT_BIN) && " +
         "SIGNAPK_JAR=$$(find $${HOST_SOONG_OUT}/framework -name \"signapk*\") && " +
+        "BUNDLETOOL_JAR=$$(find $${HOST_SOONG_OUT}/framework -name \"bundletool*.jar\") && " +
         "LIBCPLUSPLUS=$$(find $${HOST_SOONG_OUT}/lib64 -name \"libc++.*\") && " +
         "LIBCONSCRYPT_OPENJDK_JNI=$$(find $${HOST_SOONG_OUT}/lib64 -name \"libconscrypt_openjdk_jni.*\") && " +
         "BASE=$(genDir)/binary_files && " +
@@ -170,6 +183,7 @@ genrule {
         "cp $(location avbtool) $$BIN && " +
         "cp $(location aapt2) $$BIN && " +
         "cp $(location e2fsdroid) $$BIN && " +
+        "cp $(location make_erofs) $$BIN && " +
         "cp $(location merge_zips) $$BIN && " +
         "cp $(location mke2fs) $$BIN && " +
         "cp $(location resize2fs) $$BIN && " +
@@ -178,7 +192,10 @@ genrule {
         "cp $(location fec) $$BIN && " +
         "cp $(location zipalign) $$BIN && " +
         "cp $(location debugfs_static) $$BIN && " +
+        "cp $(location blkid) $$BIN && " +
+        "cp $(location fsck.erofs) $$BIN && " +
         "cp $$SIGNAPK_JAR $$BIN && " +
+        "cp $$BUNDLETOOL_JAR $$BIN && " +
         "cp $$LIBCPLUSPLUS $$LIB && " +
         "cp $$LIBCONSCRYPT_OPENJDK_JNI $$LIB && " +
         "$(location soong_zip) -C $$BASE -D $$BASE -o $(out) && " +

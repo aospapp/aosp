@@ -50,6 +50,13 @@ public interface IAutoMapsHelper extends IAppHelper {
     void stopNavigation();
 
     /**
+     * Setup expectations: To get maps app address
+     *
+     * <p>This method is used to get searched address
+     */
+    String getAddress();
+
+    /**
      * Setup expectations: Maps app is open
      *
      * <p>Swipe upwards by <code>percent</code> percent of maps region in <code>durationMs</code>

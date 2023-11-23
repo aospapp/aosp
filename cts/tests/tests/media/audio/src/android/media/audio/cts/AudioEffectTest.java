@@ -16,30 +16,27 @@
 
 package android.media.audio.cts;
 
-import android.media.audio.cts.R;
-
 import android.content.res.AssetFileDescriptor;
-import android.media.audiofx.AudioEffect;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.AudioTrack;
-import android.media.audiofx.PresetReverb;
-import android.media.audiofx.EnvironmentalReverb;
-import android.media.audiofx.Equalizer;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
-import android.media.cts.NonMediaMainlineTest;
+import android.media.audiofx.AudioEffect;
+import android.media.audiofx.EnvironmentalReverb;
+import android.media.audiofx.PresetReverb;
 import android.media.cts.PostProcTestBase;
-
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
 import android.util.Log;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+
 import java.util.UUID;
 
 @AppModeFull(reason = "Dynamic congic not supported")
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioEffectTest extends PostProcTestBase {
 
     private String TAG = "AudioEffectTest";

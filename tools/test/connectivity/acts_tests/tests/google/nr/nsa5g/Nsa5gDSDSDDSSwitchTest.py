@@ -14,8 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import time
+
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.loggers.telephony_metric_logger import TelephonyMetricLogger
+from acts_contrib.test_utils.tel.tel_defines import SimSlotInfo
 from acts_contrib.test_utils.tel.tel_dsds_utils import dds_switch_during_data_transfer_test
 from acts_contrib.test_utils.tel.tel_dsds_utils import dsds_dds_swap_call_streaming_test
 from acts_contrib.test_utils.tel.tel_dsds_utils import dsds_dds_swap_message_streaming_test
@@ -23,11 +26,28 @@ from acts_contrib.test_utils.tel.tel_defines import YOUTUBE_PACKAGE_NAME
 from acts_contrib.test_utils.tel.tel_phone_setup_utils import ensure_phones_idle
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
 
+_WAIT_TIME_FOR_MEP_ENABLE_INTERVAL = 60
+_WAIT_TIME_FOR_MEP_ENABLE = 180
+
+
 class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
     def setup_class(self):
         TelephonyBaseTest.setup_class(self)
         self.message_lengths = (50, 160, 180)
         self.tel_logger = TelephonyMetricLogger.for_test_case()
+        if getattr(self.android_devices[0], 'mep', False):
+            start_time = time.monotonic()
+            timeout = start_time + _WAIT_TIME_FOR_MEP_ENABLE
+            while time.monotonic() < timeout:
+                mep_logs = self.android_devices[0].search_logcat(
+                    "UNSOL_SIM_SLOT_STATUS_CHANGED")
+                if mep_logs:
+                    for mep_log in mep_logs:
+                        if "num_ports=2" in mep_log["log_message"]:
+                            break
+                time.sleep(_WAIT_TIME_FOR_MEP_ENABLE_INTERVAL)
+            else:
+                self.log.warning("Couldn't found MEP enabled logs.")
 
     def teardown_test(self):
         self.android_devices[0].force_stop_apk(YOUTUBE_PACKAGE_NAME)
@@ -49,8 +69,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[0, 1],
+            test_slot=[
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0],
             init_dds=0,
             msg_type="SMS",
             direction="mt",
@@ -72,8 +96,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[1, 0],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1],
             init_dds=0,
             msg_type="SMS",
             direction="mt",
@@ -99,8 +127,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[0, 1],
+            test_slot=[
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0],
             init_dds=0,
             msg_type="SMS",
             direction="mt",
@@ -126,8 +158,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[1, 0],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1],
             init_dds=0,
             msg_type="SMS",
             direction="mt",
@@ -149,8 +185,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[0, 1],
+            test_slot=[
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0],
             init_dds=0,
             msg_type="MMS",
             direction="mt",
@@ -172,8 +212,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[1, 0],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1],
             init_dds=0,
             msg_type="MMS",
             direction="mt",
@@ -199,8 +243,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[0, 1],
+            test_slot=[
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0],
             init_dds=0,
             msg_type="MMS",
             direction="mt",
@@ -226,8 +274,12 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
         return dsds_dds_swap_message_streaming_test(
             self.log,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[1, 0],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_1],
             init_dds=0,
             msg_type="MMS",
             direction="mt",
@@ -250,9 +302,13 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[0, 0],
             init_dds=0,
+            test_slot=[
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_0],
             direction="mo",
             duration=30,
             streaming=False)
@@ -274,9 +330,13 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[0, 0],
             init_dds=0,
+            test_slot=[
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_0,
+                SimSlotInfo.SLOT_0],
             direction="mt",
             duration=30,
             streaming=False)
@@ -298,9 +358,13 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[1, 1],
             init_dds=0,
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
             direction="mo",
             duration=30,
             streaming=False)
@@ -322,9 +386,13 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
             self.log,
             self.tel_logger,
             self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
             test_rat=["5g_volte", "5g_volte"],
-            test_slot=[1, 1],
             init_dds=0,
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
             direction="mt",
             duration=30,
             streaming=False)
@@ -332,11 +400,14 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
     @test_tracker_info(uuid="727a75ef-7277-42fe-8a4b-7b2debe666d9")
     @TelephonyBaseTest.tel_test_wrap
     def test_dds_switch_youtube_psim_5g_nsa_volte_esim_5g_nsa_volte(self):
-        return dds_switch_during_data_transfer_test(
+        return dsds_dds_swap_call_streaming_test(
             self.log,
             self.tel_logger,
             self.android_devices,
-            nw_rat=["5g_volte", "5g_volte"])
+            sim_slot=[SimSlotInfo.SLOT_0, SimSlotInfo.SLOT_1],
+            test_rat=["5g_volte", "5g_volte"],
+            init_dds=0,
+            test_slot=[None, None, None])
 
     @test_tracker_info(uuid="4ef4626a-11b3-4a09-ac98-2e3d94e54bf7")
     @TelephonyBaseTest.tel_test_wrap
@@ -425,3 +496,352 @@ class Nsa5gDSDSDDSSwitchTest(TelephonyBaseTest):
             nw_rat=["5g_csfb", "5g_csfb"],
             call_slot=1,
             call_direction="mt")
+
+    # e+e call
+    @test_tracker_info(uuid="82170198-a3c8-46b5-9fee-d4284d69a4c1")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_youtube_esim_port_0_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap call test(Initial DDS is on esim port 0).
+
+        1. Check HTTP connection when DDS is on esim port 0 and idle.
+        2. Switch DDS to esim port 1.
+        3. Check HTTP connection when DDS is on esim port 1 and idle.
+        4. Switch DDS to esim port 0, make sure data works fine.
+        """
+        return dsds_dds_swap_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            init_dds=1,
+            test_slot=[None, None, None])
+
+    @test_tracker_info(uuid="873dd4cc-0439-483c-94c0-0756d8b7a777")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_voice_esim_port_0_mo_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap call test(Initial DDS is on esim port 0).
+
+        1. Make MO call via esim port 0 when DDS is on esim port 0 and idle.
+        2. Switch DDS to esim port 1.
+        3. Make MO call via esim port 0 when DDS is on esim port 1 and idle.
+        4. Switch DDS to esim port 0, make sure data works fine.
+
+        After call end will check the dds slot if is attach to the network
+        with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            init_dds=1,
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
+            direction="mo",
+            duration=30,
+            streaming=False)
+
+    @test_tracker_info(uuid="56b080cf-729b-469c-8738-b69a67eabf6e")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_voice_esim_port_0_mt_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap call test(Initial DDS is on esim port 0).
+
+        1. Receive MT call via esim port 0 when DDS is on esim port 0 and idle.
+        2. Switch DDS to esim port 1.
+        3. Receive MT call via esim port 0 when DDS is on esim port 1 and idle.
+        4. Switch DDS to esim port 0, make sure data works fine.
+
+        After call end will check the dds slot if is attach to the network
+        with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            init_dds=1,
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
+            direction="mt",
+            duration=30,
+            streaming=False)
+
+    @test_tracker_info(uuid="bbccecf6-f691-4bde-9c20-56bdd5aeb033")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_voice_esim_port_1_mo_5g_nsa_volte_esim_port_0_5g_nsa_volte(self):
+        """ 5G NSA DDS swap call test(Initial DDS is on esim port 0).
+
+        1. Make MO call via esim port 1 when DDS is on esim port 0 and idle.
+        2. Switch DDS to esim port 1.
+        3. Make MO call via esim port 1 when DDS is on esim port 1 and idle.
+        4. Switch DDS to esim port 0, make sure data works fine.
+
+        After call end will check the dds slot if is attach to the network
+        with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            init_dds=1,
+            test_slot=[
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2],
+            direction="mo",
+            duration=30,
+            streaming=False)
+
+    @test_tracker_info(uuid="ce848306-38b7-4479-bf97-8413ec18dee8")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_voice_esim_port_1_mt_5g_nsa_volte_esim_port_0_5g_nsa_volte(self):
+        """ 5G NSA DDS swap call test(Initial DDS is on esim port 0).
+
+        1. Receive MT call via esim port 1 when DDS is on esim port 0 and idle.
+        2. Switch DDS to esim port 1.
+        3. Receive MT call via esim port 1 when DDS is on esim port 1 and idle.
+        4. Switch DDS to esim port 0, make sure data works fine.
+
+        After call end will check the dds slot if is attach to the network
+        with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_call_streaming_test(
+            self.log,
+            self.tel_logger,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            init_dds=1,
+            test_slot=[
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2],
+            direction="mt",
+            duration=30,
+            streaming=False)
+
+    # e+e message
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_sms_esim_port_0_mo_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap SMS test(Initial DDS is on esim_port_0).
+
+        1. Make MO SMS via esim_port_0 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MO SMS via esim_port_0 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Make SMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
+            init_dds=1,
+            msg_type="SMS",
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_sms_esim_port_0_mt_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap SMS test(Initial DDS is on esim_port_0).
+
+        1. Make MT SMS via esim_port_0 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MT SMS via esim_port_0 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Receive SMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
+            init_dds=1,
+            msg_type="SMS",
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_sms_esim_port_1_mo_5g_nsa_volte_esim_port_0_5g_nsa_volte(self):
+        """ 5G NSA DDS swap SMS test(Initial DDS is on esim_port_0).
+
+        1. Make MO SMS via esim_port_1 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MO SMS via esim_port_1 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Make SMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2],
+            init_dds=1,
+            msg_type="SMS",
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_sms_esim_port_1_mt_5g_nsa_volte_esim_port_0_5g_nsa_volte(self):
+        """ 5G NSA DDS swap SMS test(Initial DDS is on esim_port_0).
+
+        1. Make MT SMS via esim_port_1 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MT SMS via esim_port_1 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Make SMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2],
+            init_dds=1,
+            msg_type="SMS",
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_mms_esim_port_0_mo_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap MMS test(Initial DDS is on esim_port_0).
+
+        1. Make MO MMS via esim_port_0 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MO MMS via esim_port_0 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Make MMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
+            init_dds=1,
+            msg_type="MMS",
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_mms_esim_port_0_mt_5g_nsa_volte_esim_port_1_5g_nsa_volte(self):
+        """ 5G NSA DDS swap MMS test(Initial DDS is on esim_port_0).
+
+        1. Make MT MMS via esim_port_0 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MT MMS via esim_port_0 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Receive MMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1,
+                SimSlotInfo.SLOT_1],
+            init_dds=1,
+            msg_type="MMS",
+            direction="mt",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_mms_esim_port_1_mo_5g_nsa_volte_esim_port_0_5g_nsa_volte(self):
+        """ 5G NSA DDS swap MMS test(Initial DDS is on esim_port_0).
+
+        1. Make MO MMS via esim_port_1 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MO MMS via esim_port_1 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Make MMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2],
+            init_dds=1,
+            msg_type="MMS",
+            direction="mo",
+            streaming=False)
+
+    @test_tracker_info(uuid="")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_dds_switch_mms_esim_port_1_mt_5g_nsa_volte_esim_port_0_5g_nsa_volte(self):
+        """ 5G NSA DDS swap MMS test(Initial DDS is on esim_port_0).
+
+        1. Make MT MMS via esim_port_1 when DDS is on esim_port_0 and idle.
+        2. Switch DDS to esim_port_1.
+        3. Make MT MMS via esim_port_1 when DDS is on esim_port_1 and idle.
+        4. Switch DDS to esim_port_0, make sure data works fine.
+
+        After Make MMS will check the dds slot if is attach to the
+        network with assigned RAT successfully and data works fine.
+        """
+        return dsds_dds_swap_message_streaming_test(
+            self.log,
+            self.android_devices,
+            sim_slot=[SimSlotInfo.SLOT_1, SimSlotInfo.SLOT_2],
+            test_rat=["5g_volte", "5g_volte"],
+            test_slot=[
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2,
+                SimSlotInfo.SLOT_2],
+            init_dds=1,
+            msg_type="MMS",
+            direction="mt",
+            streaming=False)

@@ -554,9 +554,18 @@ Status Credential::getEntries(const vector<uint8_t>& requestMessage,
         ret.resultNamespaces.push_back(resultNamespaceParcel);
     }
 
-    status = halBinder->finishRetrieval(&ret.mac, &ret.deviceNameSpaces);
-    if (!status.isOk()) {
-        return halStatusToGenericError(status);
+    // API version 5 (feature version 202301) supports both MAC and ECDSA signature.
+    if (halApiVersion_ >= 5) {
+        status = halBinder->finishRetrievalWithSignature(&ret.mac, &ret.deviceNameSpaces,
+                                                         &ret.signature);
+        if (!status.isOk()) {
+            return halStatusToGenericError(status);
+        }
+    } else {
+        status = halBinder->finishRetrieval(&ret.mac, &ret.deviceNameSpaces);
+        if (!status.isOk()) {
+            return halStatusToGenericError(status);
+        }
     }
     ret.staticAuthenticationData = selectedAuthKeyStaticAuthData_;
 
@@ -694,7 +703,8 @@ Status Credential::setReaderEphemeralPublicKey(const vector<uint8_t>& publicKey)
     return Status::ok();
 }
 
-Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey) {
+Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxUsesPerKey,
+                                                  int64_t minValidTimeMillis) {
     if (halSessionBinder_) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Cannot be used with session");
@@ -706,7 +716,7 @@ Status Credential::setAvailableAuthenticationKeys(int32_t keyCount, int32_t maxU
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error loading data for credential");
     }
-    data->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey);
+    data->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey, minValidTimeMillis);
     if (!data->saveToDisk()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Error saving data");
@@ -777,11 +787,6 @@ Status
 Credential::storeStaticAuthenticationDataWithExpiration(const AuthKeyParcel& authenticationKey,
                                                         int64_t expirationDateMillisSinceEpoch,
                                                         const vector<uint8_t>& staticAuthData) {
-    if (halApiVersion_ < 3) {
-        return Status::fromServiceSpecificError(ICredentialStore::ERROR_NOT_SUPPORTED,
-                                                "Not implemented by HAL");
-    }
-
     if (halSessionBinder_) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
                                                 "Cannot be used with session");
@@ -823,6 +828,29 @@ Status Credential::getAuthenticationDataUsageCount(vector<int32_t>* _aidl_return
     vector<int32_t> ret;
     for (const AuthKeyData& authKeyData : authKeyDatas) {
         ret.push_back(authKeyData.useCount);
+    }
+    *_aidl_return = ret;
+    return Status::ok();
+}
+
+Status Credential::getAuthenticationDataExpirations(vector<int64_t>* _aidl_return) {
+    if (halSessionBinder_) {
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Cannot be used with session");
+    }
+
+    sp<CredentialData> data = new CredentialData(dataPath_, callingUid_, credentialName_);
+    if (!data->loadFromDisk()) {
+        LOG(ERROR) << "Error loading data for credential";
+        return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,
+                                                "Error loading data for credential");
+    }
+    const vector<AuthKeyData>& authKeyDatas = data->getAuthKeyDatas();
+    vector<int64_t> ret;
+    ret.reserve(authKeyDatas.size());
+    for (const AuthKeyData& authKeyData : authKeyDatas) {
+        // Note: value is INT64_MAX if expiration date is not set.
+        ret.push_back(authKeyData.expirationDateMillisSinceEpoch);
     }
     *_aidl_return = ret;
     return Status::ok();
@@ -887,8 +915,8 @@ Status Credential::update(sp<IWritableCredential>* _aidl_return) {
         dataPath_, credentialName_, docType.value(), true, hwInfo_, halWritableCredential);
 
     writableCredential->setAttestationCertificate(data->getAttestationCertificate());
-    auto [keyCount, maxUsesPerKey] = data->getAvailableAuthenticationKeys();
-    writableCredential->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey);
+    auto [keyCount, maxUsesPerKey, minValidTimeMillis] = data->getAvailableAuthenticationKeys();
+    writableCredential->setAvailableAuthenticationKeys(keyCount, maxUsesPerKey, minValidTimeMillis);
 
     // Because its data has changed, we need to replace the binder for the
     // IIdentityCredential when the credential has been updated... otherwise the

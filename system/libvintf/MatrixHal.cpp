@@ -25,7 +25,7 @@
 namespace android {
 namespace vintf {
 
-using details::canConvertToFqInstance;
+using details::convertLegacyInstanceIntoFqInstance;
 
 bool MatrixHal::isValid(std::string* error) const {
     bool success = true;
@@ -36,13 +36,15 @@ bool MatrixHal::isValid(std::string* error) const {
     for (const auto& vr : versionRanges) {
         for (const auto& v : {vr.minVer(), vr.maxVer()}) {
             for (const auto& intf : iterateValues(interfaces)) {
-                intf.forEachInstance([&](const auto& interface, const auto& instance,
-                                         bool /*isRegex*/) {
-                    if (!canConvertToFqInstance(getName(), v, interface, instance, format, error)) {
-                        success = false;
-                    }
-                    return true;  // continue
-                });
+                intf.forEachInstance(
+                    [&](const auto& interface, const auto& instance, bool /*isRegex*/) {
+                        if (!convertLegacyInstanceIntoFqInstance(getName(), v, interface, instance,
+                                                                 format, error)
+                                 .has_value()) {
+                            success = false;
+                        }
+                        return true;  // continue
+                    });
             }
         }
     }

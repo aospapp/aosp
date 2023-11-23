@@ -48,7 +48,12 @@ extern "C" {
  */
 // Android-changed: Bionic (and AsynchronousCloseMonitor) expects libcore to use
 // __SIGRTMIN + 2, not __SIGRTMAX - 2
+// Also use SIGRTMAX instead of __SIGRTMAX, which is not defined by musl.
+#if !defined (__BIONIC__)
+static int sigWakeup = (SIGRTMAX - 2);
+#else
 static int sigWakeup = (__SIGRTMIN + 2);
+#endif
 
 /*
  * Close or dup2 a file descriptor ensuring that all threads blocked on

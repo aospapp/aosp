@@ -22,12 +22,12 @@
 namespace general_test {
 
 /**
- * Invokes chreLog() in a variety of ways.
+ * Invokes LOGI() in a variety of ways.
  *
  * Unfortunately, we're unable to automatically check that this works
  * correctly.  At the very least, we can confirm in an automated manner
  * that this doesn't crash.  A diligent tester will check where the
- * chreLog() messages go for this platform to confirm the contents look
+ * LOGI() messages go for this platform to confirm the contents look
  * correct.
  *
  * Simple protocol.

@@ -115,6 +115,7 @@ abstract class CrashCheckBase {
                                 if (matcher.find()) {
                                     errorDetails.append(line);
                                     if (scanner.hasNextLine()) {
+                                        errorDetails.append("\n");
                                         errorDetails.append(scanner.nextLine());
                                     }
                                     break;

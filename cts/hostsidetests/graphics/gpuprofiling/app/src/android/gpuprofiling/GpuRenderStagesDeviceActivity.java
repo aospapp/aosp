@@ -19,8 +19,12 @@ package android.graphics.gpuprofiling.app;
 import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
-
-import java.lang.Override;
+import android.view.ViewGroup;
+import android.view.animation.AccelerateDecelerateInterpolator;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 public class GpuRenderStagesDeviceActivity extends Activity {
 
@@ -29,13 +33,28 @@ public class GpuRenderStagesDeviceActivity extends Activity {
     }
 
     private static final String TAG = GpuRenderStagesDeviceActivity.class.getSimpleName();
+    private static final int ANIM_LOOP_DURATION = 1000;
 
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         int result = nativeInitVulkan();
         Log.i(TAG, "nativeInitVulkan returned: " + result);
-        Log.i(TAG, "GpuProfilingData activity complete");
+
+        TextView textView = new TextView(this);
+        textView.setLayoutParams(
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        textView.setText("Initiating GPU work");
+
+        Animation fade = new AlphaAnimation(0, 1);
+        fade.setDuration(ANIM_LOOP_DURATION);
+        fade.setRepeatCount(Animation.INFINITE);
+        fade.setRepeatMode(Animation.REVERSE);
+        fade.setInterpolator(new AccelerateDecelerateInterpolator());
+
+        setContentView(textView);
+        textView.startAnimation(fade);
     }
 
     private static native int nativeInitVulkan();

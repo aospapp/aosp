@@ -41,6 +41,22 @@ public interface IDeprecated extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -75,6 +91,11 @@ public interface IDeprecated extends android.os.IInterface
       {
         return DESCRIPTOR;
       }
+    }
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 0;
     }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$IDeprecated".replace('$', '.');

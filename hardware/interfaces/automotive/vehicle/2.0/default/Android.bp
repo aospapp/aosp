@@ -84,7 +84,10 @@ cc_library_static {
     name: "android.hardware.automotive.vehicle@2.0-default-impl-lib",
     vendor: true,
     defaults: ["vhal_v2_0_target_defaults"],
-    cflags: ["-DENABLE_VENDOR_CLUSTER_PROPERTY_FOR_TESTING"],
+    cflags: [
+        "-DENABLE_VENDOR_CLUSTER_PROPERTY_FOR_TESTING",
+        "-DENABLE_GET_PROP_CONFIGS_BY_MULTIPLE_REQUESTS",
+    ],
     srcs: [
         "impl/vhal_v2_0/DefaultVehicleHal.cpp",
         "impl/vhal_v2_0/VehicleHalClient.cpp",
@@ -225,6 +228,25 @@ cc_test {
     test_suites: ["general-tests"],
 }
 
+cc_test {
+    name: "android.hardware.automotive.vehicle@2.0-default-config-test",
+    vendor: true,
+    defaults: ["vhal_v2_0_target_defaults"],
+    srcs: [
+        "impl/vhal_v2_0/tests/DefaultConfigSupportedPropertyIds_test.cpp",
+    ],
+    cflags: [
+        "-DENABLE_VENDOR_CLUSTER_PROPERTY_FOR_TESTING",
+        "-DENABLE_GET_PROP_CONFIGS_BY_MULTIPLE_REQUESTS",
+    ],
+    static_libs: [
+        "android.hardware.automotive.vehicle@2.0-default-impl-lib",
+        "libgtest",
+        "libgmock",
+    ],
+    test_suites: ["general-tests"],
+}
+
 cc_binary {
     name: "android.hardware.automotive.vehicle@2.0-default-service",
     defaults: ["vhal_v2_0_target_defaults"],
@@ -270,5 +292,13 @@ cc_fuzz {
             "android-media-fuzzing-reports@google.com",
         ],
         componentid: 533764,
+        hotlists: [
+            "4593311",
+        ],
+        description: "The fuzzer targets the APIs of android.hardware.automotive.vehicle@2.0-manager-lib",
+        vector: "local_no_privileges_required",
+        service_privilege: "privileged",
+        users: "multi_user",
+        fuzzed_code_usage: "shipped",
     },
 }

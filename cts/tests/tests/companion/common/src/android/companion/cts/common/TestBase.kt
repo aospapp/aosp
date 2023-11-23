@@ -25,16 +25,15 @@ import android.companion.AssociationRequest
 import android.companion.CompanionDeviceManager
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.LocationManager
 import android.net.MacAddress
+import android.os.Process
 import android.os.SystemClock.sleep
 import android.os.SystemClock.uptimeMillis
+import android.os.UserHandle
 import android.util.Log
 import androidx.test.platform.app.InstrumentationRegistry
 import com.android.compatibility.common.util.SystemUtil
-import org.junit.After
-import org.junit.Assume.assumeTrue
-import org.junit.AssumptionViolatedException
-import org.junit.Before
 import java.io.IOException
 import kotlin.test.assertContains
 import kotlin.test.assertContentEquals
@@ -45,6 +44,10 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import org.junit.After
+import org.junit.Assume.assumeTrue
+import org.junit.AssumptionViolatedException
+import org.junit.Before
 
 /**
  * A base class for CompanionDeviceManager [Tests][org.junit.Test] to extend.
@@ -56,6 +59,7 @@ abstract class TestBase {
     protected val context: Context = instrumentation.context
     protected val userId = context.userId
     protected val targetPackageName = instrumentation.targetContext.packageName
+    protected val targetUserId = instrumentation.targetContext.userId
 
     protected val targetApp = AppHelper(instrumentation, userId, targetPackageName)
 
@@ -67,6 +71,12 @@ abstract class TestBase {
     protected val cdm: CompanionDeviceManager by lazy {
         context.getSystemService(CompanionDeviceManager::class.java)!!
     }
+
+    private val locationManager = context.getSystemService(LocationManager::class.java)!!
+
+    // CDM discovery requires location is enabled, enable the location if it was disabled.
+    private var locationWasEnabled: Boolean = false
+    private var userHandle: UserHandle = Process.myUserHandle()
 
     @Before
     fun base_setUp() {
@@ -80,7 +90,8 @@ abstract class TestBase {
 
         // Make sure CompanionDeviceServices are not bound.
         assertValidCompanionDeviceServicesUnbind()
-
+        // Enable location if it was disabled.
+        enableLocation()
         setUp()
     }
 
@@ -92,6 +103,8 @@ abstract class TestBase {
 
         // Remove all existing associations (for the user).
         withShellPermissionIdentity { cdm.disassociateAll() }
+        // Disable the location if it was disabled.
+        disableLocation()
     }
 
     @CallSuper
@@ -141,12 +154,62 @@ abstract class TestBase {
 
     private fun CompanionDeviceManager.disassociateAll() =
             allAssociations.forEach { disassociate(it.id) }
+
+    protected fun setSystemPropertyDuration(duration: Duration, systemPropertyTag: String) =
+        instrumentation.setSystemProp(
+            systemPropertyTag,
+            duration.inWholeMilliseconds.toString()
+        )
+
+    private fun enableLocation() {
+        locationWasEnabled = locationManager.isLocationEnabledForUser(userHandle)
+        if (!locationWasEnabled) {
+            withShellPermissionIdentity {
+                locationManager.setLocationEnabledForUser(true, userHandle)
+            }
+        }
+    }
+
+    private fun disableLocation() {
+        if (!locationWasEnabled) {
+            withShellPermissionIdentity {
+                locationManager.setLocationEnabledForUser(false, userHandle)
+            }
+        }
+    }
 }
 
 const val TAG = "CtsCompanionDeviceManagerTestCases"
 
+/** See [com.android.server.companion.CompanionDeviceServiceConnector.UNBIND_POST_DELAY_MS]. */
+private val UNBIND_DELAY_DURATION = 5.seconds
+
 fun <T> assumeThat(message: String, obj: T, assumption: (T) -> Boolean) {
     if (!assumption(obj)) throw AssumptionViolatedException(message)
+}
+
+fun assertApplicationBinds(cdm: CompanionDeviceManager) {
+    assertTrue {
+        waitFor(timeout = 1.seconds, interval = 100.milliseconds) {
+            cdm.isCompanionApplicationBound
+        }
+    }
+}
+
+fun assertApplicationUnbinds(cdm: CompanionDeviceManager) {
+    assertTrue {
+        waitFor(timeout = 1.seconds.plus(UNBIND_DELAY_DURATION), interval = 100.milliseconds) {
+            !cdm.isCompanionApplicationBound
+        }
+    }
+}
+
+fun assertApplicationRemainsBound(cdm: CompanionDeviceManager) {
+    assertFalse {
+        waitFor(timeout = 3.seconds.plus(UNBIND_DELAY_DURATION), interval = 100.milliseconds) {
+            !cdm.isCompanionApplicationBound
+        }
+    }
 }
 
 fun <T> assertEmpty(list: Collection<T>) = assertTrue("Collection is not empty") { list.isEmpty() }
@@ -155,6 +218,12 @@ fun assertAssociations(
     actual: List<AssociationInfo>,
     expected: Set<Pair<String, MacAddress?>>
 ) = assertEquals(actual = actual.map { it.packageName to it.deviceMacAddress }.toSet(),
+        expected = expected)
+
+fun assertSelfManagedAssociations(
+    actual: List<AssociationInfo>,
+    expected: Set<Pair<String, Int>>
+) = assertEquals(actual = actual.map { it.packageName to it.id }.toSet(),
         expected = expected)
 
 /**
@@ -174,7 +243,7 @@ fun assertValidCompanionDeviceServicesBind() =
  */
 fun assertValidCompanionDeviceServicesRemainBound() =
         assertFalse("Both valid CompanionDeviceServices should stay bound") {
-            waitFor(timeout = 3.seconds, interval = 100.milliseconds) {
+            waitFor(timeout = 3.seconds.plus(UNBIND_DELAY_DURATION), interval = 100.milliseconds) {
                 !PrimaryCompanionService.isBound || !SecondaryCompanionService.isBound
             }
         }
@@ -185,7 +254,7 @@ fun assertValidCompanionDeviceServicesRemainBound() =
  */
 fun assertValidCompanionDeviceServicesUnbind() =
         assertTrue("CompanionDeviceServices should not bind") {
-            waitFor(timeout = 1.seconds, interval = 100.milliseconds) {
+            waitFor(timeout = 1.seconds.plus(UNBIND_DELAY_DURATION), interval = 100.milliseconds) {
                 !PrimaryCompanionService.isBound && !SecondaryCompanionService.isBound
             }
         }
@@ -288,3 +357,8 @@ fun Instrumentation.setSystemProp(name: String, value: String) =
 fun MacAddress.toUpperCaseString() = toString().toUpperCase()
 
 fun sleepFor(duration: Duration) = sleep(duration.inWholeMilliseconds)
+
+fun killProcess(name: String) {
+    val pid = SystemUtil.runShellCommand("pgrep -A $name").trim()
+    Process.killProcess(Integer.valueOf(pid))
+}

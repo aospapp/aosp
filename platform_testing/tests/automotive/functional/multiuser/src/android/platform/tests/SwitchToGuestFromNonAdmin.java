@@ -18,19 +18,17 @@ package android.platform.tests;
 
 import static junit.framework.Assert.assertTrue;
 
-import android.os.SystemClock;
 import android.content.pm.UserInfo;
-import android.platform.helpers.AutoConfigConstants;
-import android.platform.helpers.AutoUtility;
+import android.os.SystemClock;
 import android.platform.helpers.HelperAccessor;
-import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.IAutoSettingHelper;
+import android.platform.helpers.IAutoUserHelper;
 import android.platform.helpers.MultiUserHelper;
 import android.platform.scenario.multiuser.MultiUserConstants;
+
 import androidx.test.runner.AndroidJUnit4;
+
 import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -52,11 +50,6 @@ public class SwitchToGuestFromNonAdmin {
     public SwitchToGuestFromNonAdmin() {
         mUsersHelper = new HelperAccessor<>(IAutoUserHelper.class);
         mSettingHelper = new HelperAccessor<>(IAutoSettingHelper.class);
-    }
-
-    @BeforeClass
-    public static void exitSuw() {
-        AutoUtility.exitSuw();
     }
 
     @After

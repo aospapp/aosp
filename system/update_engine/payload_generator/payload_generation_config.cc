@@ -29,7 +29,6 @@
 #include "bsdiff/constants.h"
 #include "payload_consumer/payload_constants.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_generator/boot_img_filesystem.h"
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/delta_diff_utils.h"
@@ -52,6 +51,16 @@ bool VerityConfig::IsEmpty() const {
          hash_tree_extent.num_blocks() == 0 && hash_tree_algorithm.empty() &&
          hash_tree_salt.empty() && fec_data_extent.num_blocks() == 0 &&
          fec_extent.num_blocks() == 0 && fec_roots == 0;
+}
+
+void VerityConfig::Clear() {
+  hash_tree_data_extent.Clear();
+  hash_tree_extent.Clear();
+  hash_tree_algorithm.clear();
+  hash_tree_salt.clear();
+  fec_data_extent.Clear();
+  fec_extent.Clear();
+  fec_roots = 0;
 }
 
 bool PartitionConfig::ValidateExists() const {

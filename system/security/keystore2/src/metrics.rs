@@ -15,6 +15,7 @@
 //! This module implements the IKeystoreMetrics AIDL interface, which exposes the API method for the
 //! proxy in the system server to pull the aggregated metrics in keystore.
 use crate::error::map_or_log_err;
+use crate::ks_err;
 use crate::metrics_store::METRICS_STORE;
 use crate::permission::KeystorePerm;
 use crate::utils::{check_keystore_permission, watchdog as wd};
@@ -41,7 +42,7 @@ impl Metrics {
     fn pull_metrics(&self, atom_id: AtomID) -> Result<Vec<KeystoreAtom>> {
         // Check permission. Function should return if this failed. Therefore having '?' at the end
         // is very important.
-        check_keystore_permission(KeystorePerm::PullMetrics).context("In pull_metrics.")?;
+        check_keystore_permission(KeystorePerm::PullMetrics).context(ks_err!())?;
         METRICS_STORE.get_atoms(atom_id)
     }
 }

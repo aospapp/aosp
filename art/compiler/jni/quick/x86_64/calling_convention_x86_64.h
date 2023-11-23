@@ -18,9 +18,10 @@
 #define ART_COMPILER_JNI_QUICK_X86_64_CALLING_CONVENTION_X86_64_H_
 
 #include "base/enums.h"
+#include "base/macros.h"
 #include "jni/quick/calling_convention.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace x86_64 {
 
 class X86_64ManagedRuntimeCallingConvention final : public ManagedRuntimeCallingConvention {
@@ -35,6 +36,7 @@ class X86_64ManagedRuntimeCallingConvention final : public ManagedRuntimeCalling
   ManagedRegister ReturnRegister() const override;
   // Managed runtime calling convention
   ManagedRegister MethodRegister() override;
+  ManagedRegister ArgumentRegisterForMethodExitHook() override;
   bool IsCurrentParamInRegister() override;
   bool IsCurrentParamOnStack() override;
   ManagedRegister CurrentParamRegister() override;

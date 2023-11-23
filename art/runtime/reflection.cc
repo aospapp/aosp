@@ -17,7 +17,7 @@
 #include "reflection-inl.h"
 
 #include "art_field-inl.h"
-#include "art_method-inl.h"
+#include "art_method-alloc-inl.h"
 #include "base/enums.h"
 #include "class_linker.h"
 #include "common_throws.h"
@@ -502,17 +502,17 @@ bool InvokeMethodImpl(const ScopedObjectAccessAlreadyRunnable& soa,
           << soa.Self()->GetException()->GetClass()->PrettyDescriptor();
     } else {
       // If we get another exception when we are trying to wrap, then just use that instead.
-      ScopedLocalRef<jthrowable> th(soa.Env(), soa.Env()->ExceptionOccurred());
+      StackHandleScope<2u> hs(soa.Self());
+      Handle<mirror::Throwable> cause = hs.NewHandle(soa.Self()->GetException());
       soa.Self()->ClearException();
-      jobject exception_instance =
-          soa.Env()->NewObject(WellKnownClasses::java_lang_reflect_InvocationTargetException,
-                               WellKnownClasses::java_lang_reflect_InvocationTargetException_init,
-                               th.get());
+      Handle<mirror::Object> exception_instance =
+          WellKnownClasses::java_lang_reflect_InvocationTargetException_init->NewObject<'L'>(
+              hs, soa.Self(), cause);
       if (exception_instance == nullptr) {
         soa.Self()->AssertPendingException();
         return false;
       }
-      soa.Env()->Throw(reinterpret_cast<jthrowable>(exception_instance));
+      soa.Self()->SetException(exception_instance->AsThrowable());
     }
     return false;
   }
@@ -523,6 +523,7 @@ bool InvokeMethodImpl(const ScopedObjectAccessAlreadyRunnable& soa,
 }  // anonymous namespace
 
 template <>
+NO_STACK_PROTECTOR
 JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
                          jobject obj,
                          ArtMethod* method,
@@ -534,7 +535,7 @@ JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
     ThrowStackOverflowError(soa.Self());
     return JValue();
   }
-  bool is_string_init = method->GetDeclaringClass()->IsStringClass() && method->IsConstructor();
+  bool is_string_init = method->IsStringConstructor();
   if (is_string_init) {
     // Replace calls to String.<init> with equivalent StringFactory call.
     method = WellKnownClasses::StringInitToStringFactory(method);
@@ -555,6 +556,7 @@ JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
 }
 
 template <>
+NO_STACK_PROTECTOR
 JValue InvokeWithVarArgs(const ScopedObjectAccessAlreadyRunnable& soa,
                          jobject obj,
                          jmethodID mid,
@@ -575,7 +577,7 @@ JValue InvokeWithJValues(const ScopedObjectAccessAlreadyRunnable& soa,
     ThrowStackOverflowError(soa.Self());
     return JValue();
   }
-  bool is_string_init = method->GetDeclaringClass()->IsStringClass() && method->IsConstructor();
+  bool is_string_init = method->IsStringConstructor();
   if (is_string_init) {
     // Replace calls to String.<init> with equivalent StringFactory call.
     method = WellKnownClasses::StringInitToStringFactory(method);
@@ -618,7 +620,7 @@ JValue InvokeVirtualOrInterfaceWithJValues(const ScopedObjectAccessAlreadyRunnab
   }
   ObjPtr<mirror::Object> receiver = soa.Decode<mirror::Object>(obj);
   ArtMethod* method = FindVirtualMethod(receiver, interface_method);
-  bool is_string_init = method->GetDeclaringClass()->IsStringClass() && method->IsConstructor();
+  bool is_string_init = method->IsStringConstructor();
   if (is_string_init) {
     // Replace calls to String.<init> with equivalent StringFactory call.
     method = WellKnownClasses::StringInitToStringFactory(method);
@@ -662,7 +664,7 @@ JValue InvokeVirtualOrInterfaceWithVarArgs(const ScopedObjectAccessAlreadyRunnab
 
   ObjPtr<mirror::Object> receiver = soa.Decode<mirror::Object>(obj);
   ArtMethod* method = FindVirtualMethod(receiver, interface_method);
-  bool is_string_init = method->GetDeclaringClass()->IsStringClass() && method->IsConstructor();
+  bool is_string_init = method->IsStringConstructor();
   if (is_string_init) {
     // Replace calls to String.<init> with equivalent StringFactory call.
     method = WellKnownClasses::StringInitToStringFactory(method);
@@ -838,7 +840,7 @@ ObjPtr<mirror::Object> BoxPrimitive(Primitive::Type src_class, const JValue& val
     return nullptr;
   }
 
-  jmethodID m = nullptr;
+  ArtMethod* m = nullptr;
   const char* shorty;
   switch (src_class) {
   case Primitive::kPrimBoolean:
@@ -889,11 +891,8 @@ ObjPtr<mirror::Object> BoxPrimitive(Primitive::Type src_class, const JValue& val
     arg_array.Append(value.GetI());
   }
 
-  jni::DecodeArtMethod(m)->Invoke(soa.Self(),
-                                  arg_array.GetArray(),
-                                  arg_array.GetNumBytes(),
-                                  &result,
-                                  shorty);
+  DCHECK(m->GetDeclaringClass()->IsInitialized());  // By `ClassLinker::RunRootClinits()`.
+  m->Invoke(soa.Self(), arg_array.GetArray(), arg_array.GetNumBytes(), &result, shorty);
   return result.GetL();
 }
 
@@ -1067,8 +1066,8 @@ void UpdateReference(Thread* self, jobject obj, ObjPtr<mirror::Object> result) {
   IndirectRefKind kind = IndirectReferenceTable::GetIndirectRefKind(ref);
   if (kind == kLocal) {
     self->GetJniEnv()->UpdateLocal(obj, result);
-  } else if (kind == kJniTransitionOrInvalid) {
-    LOG(FATAL) << "Unsupported UpdateReference for kind kJniTransitionOrInvalid";
+  } else if (kind == kJniTransition) {
+    LOG(FATAL) << "Unsupported UpdateReference for kind kJniTransition";
   } else if (kind == kGlobal) {
     self->GetJniEnv()->GetVm()->UpdateGlobal(self, ref, result);
   } else {

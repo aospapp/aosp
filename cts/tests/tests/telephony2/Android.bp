@@ -22,10 +22,10 @@ android_test {
     static_libs: [
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
+        "telephony-cts-utils",
     ],
     srcs: [
-      "src/**/*.java",
-      ":cts-telephony-utils"
+        "src/**/*.java",
     ],
     sdk_version: "test_current",
     // Tag this module as a cts test artifact

@@ -16,7 +16,7 @@
 
 #include "chre/platform/system_time.h"
 
-#include <kernel.h>
+#include <zephyr/kernel.h>
 
 namespace chre {
 

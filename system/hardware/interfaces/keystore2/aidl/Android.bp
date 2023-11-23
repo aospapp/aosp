@@ -20,16 +20,13 @@ aidl_interface {
     name: "android.system.keystore2",
     vendor_available: true,
     srcs: ["android/system/keystore2/*.aidl"],
-    imports: ["android.hardware.security.keymint"],
+    imports: ["android.hardware.security.keymint-V3"],
     stability: "vintf",
     backend: {
         java: {
             platform_apis: true,
         },
         ndk: {
-            vndk: {
-                enabled: true,
-            },
             apps_enabled: false,
         },
         rust: {
@@ -47,9 +44,14 @@ aidl_interface {
         },
         {
             version: "2",
-            imports: ["android.hardware.security.keymint-V2"],
+            imports: ["android.hardware.security.keymint-V3"],
+        },
+        {
+            version: "3",
+            imports: ["android.hardware.security.keymint-V3"],
         },
 
     ],
+    frozen: true,
 
 }

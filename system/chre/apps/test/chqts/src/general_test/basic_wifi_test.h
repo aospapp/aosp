@@ -76,6 +76,13 @@ class BasicWifiTest : public Test {
   void handleChreWifiAsyncEvent(const chreAsyncResult *result);
 
   /**
+   * Processes the result and move to the next action accordingly.
+   *
+   * @param result chreAsyncResult of an async request.
+   */
+  void processChreWifiAsyncResult(const chreAsyncResult *result);
+
+  /**
    * @param eventData received WiFi scan event data.
    * @return true if scanType is CHRE_WIFI_SCAN_TYPE_ACTIVE, false otherwise.
    */
@@ -168,6 +175,12 @@ class BasicWifiTest : public Test {
   //! The remaining results of WiFi scan.
   //! Used to identify when all events have been received.
   uint32_t mWiFiScanResultRemaining = 0;
+
+  // Number of retries remained when an on demand wifi scan fails.
+  uint8_t mNumScanRetriesRemaining = 1;
+
+  // The handle to identify the timer event for restarting a wifi scan.
+  uint32_t mScanTimeoutTimerHandle = CHRE_TIMER_INVALID;
 };
 
 }  // namespace general_test

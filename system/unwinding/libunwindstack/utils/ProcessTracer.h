@@ -20,7 +20,6 @@
 
 #include <set>
 #include <string>
-#include <unordered_set>
 
 namespace unwindstack {
 
@@ -36,7 +35,7 @@ class ProcessTracer final {
   ProcessTracer(const ProcessTracer&) = delete;
   ProcessTracer& operator=(const ProcessTracer&) = delete;
   ProcessTracer(ProcessTracer&&) = default;
-  ProcessTracer& operator=(ProcessTracer&&) = default;
+  ProcessTracer& operator=(ProcessTracer&&) = delete;
 
   pid_t pid() const { return pid_; }
 
@@ -79,6 +78,7 @@ class ProcessTracer final {
   static constexpr pid_t kPtraceFailed = -1;
   static constexpr pid_t kWaitpidFailed = -1;
   static inline std::atomic_bool keepWaitingForPcInElf = true;
+
   const pid_t pid_;
   bool is_tracing_threads_ = false;
   std::set<pid_t> tids_;

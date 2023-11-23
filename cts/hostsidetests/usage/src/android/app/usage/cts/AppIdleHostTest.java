@@ -25,6 +25,8 @@ import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunInterruptedException;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -158,9 +160,9 @@ public class AppIdleHostTest extends BaseHostJUnit4Test {
         boolean interrupted;
         do {
             try {
-                Thread.sleep(timeMillis);
+                RunUtil.getDefault().sleep(timeMillis);
                 interrupted = false;
-            } catch (InterruptedException e) {
+            } catch (RunInterruptedException e) {
                 interrupted = true;
             }
         } while (interrupted);

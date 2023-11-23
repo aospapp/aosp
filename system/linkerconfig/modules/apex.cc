@@ -57,7 +57,7 @@ Result<std::set<std::string>> ReadPublicLibraries(const std::string& filepath) {
   std::set<std::string> sonames;
   for (auto& line : lines) {
     auto trimmed_line = android::base::Trim(line);
-    if (trimmed_line[0] == '#' || trimmed_line.empty()) {
+    if (trimmed_line.empty() || trimmed_line[0] == '#') {
       continue;
     }
     std::vector<std::string> tokens = android::base::Split(trimmed_line, " ");
@@ -192,12 +192,25 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
     apexes.emplace(manifest.name(), std::move(info));
   }
 
+  // After scanning apexes, we still need to augment ApexInfo based on other
+  // input files
+  // - original_path: based on /apex/apex-info-list.xml
+  // - public_libs: based on /system/etc/public.libraries.txt
+
   if (!apexes.empty()) {
     const std::string info_list_file = apex_root + "/apex-info-list.xml";
     auto info_list =
         com::android::apex::readApexInfoList(info_list_file.c_str());
     if (info_list.has_value()) {
       for (const auto& info : info_list->getApexInfo()) {
+        // skip inactive apexes
+        if (!info.getIsActive()) {
+          continue;
+        }
+        // skip "sharedlibs" apexes
+        if (info.getProvideSharedApexLibs()) {
+          continue;
+        }
         // Get the pre-installed path of the apex. Normally (i.e. in Android),
         // failing to find the pre-installed path is an assertion failure
         // because apexd demands that every apex to have a pre-installed one.
@@ -217,7 +230,7 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
           return Error() << "Failed to determine original path for apex "
                          << info.getModuleName() << " at " << info_list_file;
         }
-        apexes[info.getModuleName()].original_path = path;
+        apexes[info.getModuleName()].original_path = std::move(path);
       }
     } else {
       return ErrnoError() << "Can't read " << info_list_file;
@@ -225,8 +238,14 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
 
     const std::string public_libraries_file =
         root + "/system/etc/public.libraries.txt";
-    auto public_libraries = ReadPublicLibraries(public_libraries_file);
-    if (public_libraries.ok()) {
+    // Do not fail when public.libraries.txt is missing for minimal Android
+    // environment with no ART.
+    if (PathExists(public_libraries_file)) {
+      auto public_libraries = ReadPublicLibraries(public_libraries_file);
+      if (!public_libraries.ok()) {
+        return Error() << "Can't read " << public_libraries_file << ": "
+                       << public_libraries.error();
+      }
       for (auto& [name, apex] : apexes) {
         // Only system apexes can provide public libraries.
         if (!apex.InSystem()) {
@@ -234,11 +253,6 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
         }
         apex.public_libs = Intersect(apex.provide_libs, *public_libraries);
       }
-    } else {
-      // Do not fail when public.libraries.txt is missing for minimal Android
-      // environment with no ART.
-      LOG(WARNING) << "Can't read " << public_libraries_file << ": "
-                   << public_libraries.error();
     }
   }
 
@@ -246,22 +260,48 @@ Result<std::map<std::string, ApexInfo>> ScanActiveApexes(const std::string& root
 }
 
 bool ApexInfo::InSystem() const {
-  return StartsWith(original_path, "/system/apex/") ||
-         StartsWith(original_path, "/system_ext/apex/") ||
-         (!IsProductVndkVersionDefined() &&
-          StartsWith(original_path, "/product/apex/")) ||
-         // Guest mode Android may have system APEXes from host via block APEXes
-         StartsWith(original_path, "/dev/block/vd");
+  // /system partition
+  if (StartsWith(original_path, "/system/apex/")) {
+    return true;
+  }
+  // /system_ext partition
+  if (StartsWith(original_path, "/system_ext/apex/") ||
+      StartsWith(original_path, "/system/system_ext/apex/")) {
+    return true;
+  }
+  // /product partition if it's not separated from "system"
+  if (!IsProductVndkVersionDefined()) {
+    if (StartsWith(original_path, "/product/apex/") ||
+        StartsWith(original_path, "/system/product/apex/")) {
+      return true;
+    }
+  }
+  // Guest mode Android may have system APEXes from host via block APEXes
+  if (StartsWith(original_path, "/dev/block/vd")) {
+    return true;
+  }
+  return false;
 }
 
 bool ApexInfo::InProduct() const {
-  return IsProductVndkVersionDefined() &&
-         StartsWith(original_path, "/product/apex/");
+  // /product partition if it's separated from "system"
+  if (IsProductVndkVersionDefined()) {
+    if (StartsWith(original_path, "/product/apex/") ||
+        StartsWith(original_path, "/system/product/apex/")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool ApexInfo::InVendor() const {
-  return StartsWith(original_path, "/vendor/apex/") ||
-         StartsWith(original_path, "/odm/apex/");
+  // /vendor partition
+  if (StartsWith(original_path, "/vendor/apex/") ||
+      StartsWith(original_path, "/system/vendor/apex/")) {
+    return true;
+  }
+  // /odm/apex is not supported yet.
+  return false;
 }
 
 }  // namespace modules

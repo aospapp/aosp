@@ -19,7 +19,8 @@ int main() {
     AIBinder_setMinSchedulerPolicy(binder.get(), SCHED_NORMAL, -20);
 
     const auto instance = std::string() + GrallocAllocator::descriptor + "/default";
-    auto status = AServiceManager_addService(binder.get(), instance.c_str());
+    auto status = AServiceManager_addServiceWithFlags(binder.get(), instance.c_str(),
+                                        AServiceManager_AddServiceFlag::ADD_SERVICE_ALLOW_ISOLATED);
     if (status != STATUS_OK) {
         ALOGE("Failed to start AIDL gralloc allocator service");
         return -EINVAL;

@@ -32,6 +32,12 @@ void ConfigWriter::WriteVars(const std::string& var,
   }
 }
 
+void ConfigWriter::WriteVar(const std::string& var, const std::string& value) {
+  if (!value.empty()) {
+    WriteLine(var + " = " + value);
+  }
+}
+
 void ConfigWriter::WriteLine(const std::string& line) {
   content_ << line << '\n';
 }

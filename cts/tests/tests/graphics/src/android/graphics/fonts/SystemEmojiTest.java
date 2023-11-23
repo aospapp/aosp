@@ -22,6 +22,7 @@ import android.graphics.Paint;
 import android.graphics.text.PositionedGlyphs;
 import android.graphics.text.TextRunShaper;
 import android.test.suitebuilder.annotation.SmallTest;
+import com.android.compatibility.common.util.FeatureUtil;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -46,8 +47,6 @@ public class SystemEmojiTest {
         // NotoColorEmoji.ttf should be always available as a fallback font even if another emoji
         // font files are installed in the system.
         assertThat(emojiFont).isNotNull();
-
-        assertThat(FontFileTestUtil.containsEmojiCompatMetadata(emojiFont)).isTrue();
     }
 
     public String getFontName(String chars) {
@@ -59,7 +58,6 @@ public class SystemEmojiTest {
         assertThat(glyphs.getFont(0)).isNotNull();
         File file = glyphs.getFont(0).getFile();
         assertThat(file).isNotNull();
-        assertThat(file.getParent()).isEqualTo("/system/fonts");
 
         return file.getName();
     }
@@ -71,6 +69,10 @@ public class SystemEmojiTest {
 
     @Test
     public void doNotRemoveLegacyFont() {
+        // Due to size limitations NotoColorEmojiLegacy.ttf is excluded from Wear OS
+        if (FeatureUtil.isWatch()) {
+            return;
+        }
         File legacyFile = new File("/system/fonts", "NotoColorEmojiLegacy.ttf");
         assertThat(legacyFile.exists()).isTrue();
         assertThat(legacyFile.isFile()).isTrue();

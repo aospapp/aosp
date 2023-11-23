@@ -118,7 +118,7 @@ public class CompanionDeviceServiceTestActivity extends PassFailButtons.Activity
 
     /** Stop observing to associated device and then disassociate. */
     private void disassociate(AssociationInfo association) {
-        String deviceAddress = association.getDeviceMacAddressAsString();
+        String deviceAddress = association.getDeviceMacAddress().toString();
         mCompanionDeviceManager.stopObservingDevicePresence(deviceAddress);
         mCompanionDeviceManager.disassociate(association.getId());
         Log.d(LOG_TAG, "Disassociated with device: " + deviceAddress);
@@ -142,11 +142,14 @@ public class CompanionDeviceServiceTestActivity extends PassFailButtons.Activity
             AssociationInfo association =
                     data.getParcelableExtra(CompanionDeviceManager.EXTRA_ASSOCIATION,
                     AssociationInfo.class);
-            String deviceAddress = association.getDeviceMacAddressAsString();
 
             // This test is for bluetooth devices, which should all have a MAC address.
-            if (deviceAddress == null) fail("The device was present but its address was null.");
+            if (association == null || association.getDeviceMacAddress() == null) {
+                fail("The device was present but its address was null.");
+                return;
+            }
 
+            String deviceAddress = association.getDeviceMacAddress().toString();
             mCompanionDeviceManager.startObservingDevicePresence(deviceAddress);
             mCurrentAssociation = getAssociation(association.getId());
             Log.d(LOG_TAG, "Associated with device: " + deviceAddress);
@@ -285,7 +288,9 @@ public class CompanionDeviceServiceTestActivity extends PassFailButtons.Activity
         @Override
         boolean verify() {
             // Check that it is associated and being observed.
-            return mCurrentAssociation != null && mCurrentAssociation.isNotifyOnDeviceNearby();
+            // Bypass inaccessible AssociationInfo#isNotifyOnDeviceNearby() with toString()
+            return mCurrentAssociation != null
+                    && mCurrentAssociation.toString().contains("mNotifyOnDeviceNearby=true");
         }
     }
 

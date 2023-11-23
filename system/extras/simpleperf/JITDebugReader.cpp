@@ -47,7 +47,7 @@ using android::base::StringPrintf;
 
 // If the size of a symfile is larger than EXPECTED_MAX_SYMFILE_SIZE, we don't want to read it
 // remotely.
-static constexpr size_t MAX_JIT_SYMFILE_SIZE = 1024 * 1024u;
+static constexpr size_t MAX_JIT_SYMFILE_SIZE = 1 * kMegabyte;
 
 // It takes about 30us-130us on Pixel (depending on the cpu frequency) to check if the descriptors
 // have been updated (most time spent in process_vm_preadv). We want to know if the JIT debug info

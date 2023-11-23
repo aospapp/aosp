@@ -24,6 +24,7 @@
 #include <vector>
 
 #include <unwindstack/Arch.h>
+#include <unwindstack/Error.h>
 
 namespace unwindstack {
 
@@ -81,8 +82,8 @@ class Regs {
   virtual Regs* Clone() = 0;
 
   static ArchEnum CurrentArch();
-  static ArchEnum RemoteGetArch(pid_t pid);
-  static Regs* RemoteGet(pid_t pid);
+  static ArchEnum RemoteGetArch(pid_t pid, ErrorCode* error_code = nullptr);
+  static Regs* RemoteGet(pid_t pid, ErrorCode* error_code = nullptr);
   static Regs* CreateFromUcontext(ArchEnum arch, void* ucontext);
   static Regs* CreateFromLocal();
 

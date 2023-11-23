@@ -17,7 +17,11 @@
 #ifndef UPDATE_ENGINE_METRICS_UTILS_H_
 #define UPDATE_ENGINE_METRICS_UTILS_H_
 
+#include <chrono>
 #include <string>
+#include <string_view>
+#include <type_traits>
+#include <utility>
 
 #include <base/time/time.h>
 
@@ -80,6 +84,69 @@ void SetUpdateBootTimestampStart(const base::Time& update_start_boot_time,
 bool LoadAndReportTimeToReboot(MetricsReporterInterface* metrics_reporter,
                                PrefsInterface* prefs,
                                ClockInterface* clock);
+
+template <typename T>
+class PersistedValue {
+ public:
+  PersistedValue(std::string_view key, PrefsInterface* prefs)
+      : key_(key), prefs_(prefs) {
+    val_ = metrics_utils::GetPersistedValue(key, prefs);
+  }
+  ~PersistedValue() { Flush(true); }
+  void Delete() {
+    val_ = {};
+    prefs_->Delete(key_);
+  }
+  T get() const { return val_; }
+  using clock = std::chrono::system_clock;
+  using time_point = clock::time_point;
+  // prefix increment
+  PersistedValue<T>& operator++() {
+    ++val_;
+    Flush();
+    return *this;
+  }
+  PersistedValue<T>& operator--() {
+    --val_;
+    Flush();
+    return *this;
+  }
+  PersistedValue<T>& operator+=(T&& t) {
+    val_ += std::forward<T>(t);
+    Flush();
+    return *this;
+  }
+  PersistedValue<T>& operator-=(T&& t) {
+    val_ -= std::forward<T>(t);
+    Flush();
+    return *this;
+  }
+  PersistedValue<T>& operator=(T&& t) {
+    val_ = std::forward<T>(t);
+    Flush();
+    return *this;
+  }
+  void Flush(bool force = false) {
+    auto now = clock::now();
+    if (now - last_save_ > metrics::kMetricFlushInterval || force) {
+      last_save_ = now;
+      if (std::is_integral_v<T>) {
+        prefs_->SetInt64(key_, val_);
+      } else if (std::is_same_v<T, bool>) {
+        prefs_->SetBoolean(key_, val_);
+      } else {
+        auto value = std::to_string(val_);
+        prefs_->SetString(key_, value);
+      }
+    }
+  }
+
+ private:
+  const std::string_view key_;
+  PrefsInterface* prefs_;
+  T val_;
+  time_point last_save_{};
+};
 
 }  // namespace metrics_utils
 }  // namespace chromeos_update_engine

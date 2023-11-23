@@ -16,16 +16,11 @@
 
 package android.telecom.cts;
 
-import static android.telecom.cts.TestUtils.TEST_PHONE_ACCOUNT_HANDLE;
 import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
-import static com.android.compatibility.common.util.ShellIdentityUtils
-        .invokeMethodWithShellPermissionsNoReturn;
-import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+import static com.android.compatibility.common.util.ShellIdentityUtils.invokeMethodWithShellPermissionsNoReturn;
 
 import android.app.AppOpsManager;
-import android.app.UiModeManager;
-import android.app.role.RoleManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -35,14 +30,15 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
+import android.telecom.Call;
 import android.telecom.TelecomManager;
 import android.telecom.cts.thirdptyincallservice.CtsThirdPartyInCallService;
 import android.telecom.cts.thirdptyincallservice.CtsThirdPartyInCallServiceControl;
 import android.telecom.cts.thirdptyincallservice.ICtsThirdPartyInCallServiceControl;
-import android.text.TextUtils;
 import android.util.Log;
 
-import java.util.List;
+import com.android.compatibility.common.util.ApiTest;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -53,6 +49,8 @@ public class ThirdPartyInCallServiceAppOpsPermissionTest extends BaseTelecomTest
     private static final String THIRD_PARITY_PACKAGE_NAME = CtsThirdPartyInCallService
             .class.getPackage().getName();
     private static final Uri TEST_URI = Uri.parse("tel:555-TEST");
+    private static final String TEST_KEY = "woowoo";
+    private static final String TEST_VALUE = "yay";
     private Context mContext;
     private AppOpsManager mAppOpsManager;
     private PackageManager mPackageManager;
@@ -78,12 +76,12 @@ public class ThirdPartyInCallServiceAppOpsPermissionTest extends BaseTelecomTest
 
     @Override
     public void tearDown() throws Exception {
-        if (!mShouldTestTelecom) {
-            return;
-        }
-        mICtsThirdPartyInCallServiceControl.resetCalls();
+        resetRemoteCalls();
         super.tearDown();
-        if (mExpectedTearDownBindingStatus) {
+        if (mShouldTestTelecom && mExpectedTearDownBindingStatus) {
+            // A bind status of false (unbound) requires tearDown() to run to tear down the
+            // ConnectionService. If tearDown generates an exception, this assert will also fail,
+            // so it is safe after tearDown.
             assertBindStatus(/* true: bind, false: unbind */false, /* expected result */true);
         }
     }
@@ -119,6 +117,50 @@ public class ThirdPartyInCallServiceAppOpsPermissionTest extends BaseTelecomTest
     }
 
     /**
+     * Verifies that {@link android.telecom.Call#putExtras(Bundle)} changes made in one
+     * {@link android.telecom.InCallService} instance will be seen in other running
+     * {@link android.telecom.InCallService} instances.
+     * @throws Exception
+     */
+    @ApiTest(apis = {"android.telecom.Call#putExtras",
+            "android.telecom.Call.Callback#onDetailsChanged"})
+    public void testExtrasPropagation() throws Exception {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        // Grant App Ops Permission
+        setInCallServiceAppOpsPermission(true);
+        try {
+            // Make a new call.
+            int previousCallCount = mICtsThirdPartyInCallServiceControl.getLocalCallCount();
+            addAndVerifyNewIncomingCall(TEST_URI, null);
+            assertBindStatus(/* true: bind, false: unbind */true, /* expected result */true);
+            assertCallCount(previousCallCount + 1);
+            android.telecom.Call call = mInCallCallbacks.getService().getLastCall();
+
+            // Make it active
+            final MockConnection connection = verifyConnectionForIncomingCall();
+            connection.setActive();
+            assertCallState(call, Call.STATE_ACTIVE);
+
+            // Prime the controlled other ICS to expect some known extras.
+            mICtsThirdPartyInCallServiceControl.setExpectedExtra(TEST_KEY, TEST_VALUE);
+
+            // From the main ICS in the CTS test runner, we'll add an extra.
+            Bundle newExtras = new Bundle();
+            newExtras.putString(TEST_KEY, TEST_VALUE);
+            call.putExtras(newExtras);
+
+            // Now wait for the other ICS to have received that extra.
+            assertTrue(mICtsThirdPartyInCallServiceControl.waitUntilExpectedExtrasReceived());
+        } finally {
+            mICtsThirdPartyInCallServiceControl.resetLatchForServiceBound(true);
+            // Revoke App Ops Permission
+            setInCallServiceAppOpsPermission(false);
+        }
+    }
+
+    /**
      *
      * @param bind: check the status of InCallService bind latches.
      *             Values: true (bound latch), false (unbound latch).
@@ -142,6 +184,16 @@ public class ThirdPartyInCallServiceAppOpsPermissionTest extends BaseTelecomTest
             }
         }, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS, "Unable to " + (bind ? "Bind" : "Unbind")
                 + " third party in call service");
+    }
+
+    private void resetRemoteCalls() {
+        if (mICtsThirdPartyInCallServiceControl != null) {
+            try {
+                mICtsThirdPartyInCallServiceControl.resetCalls();
+            } catch (Exception e) {
+                Log.w(TAG, "resetRemoteCalls ran into an exception: " + e);
+            }
+        }
     }
 
     private void assertCallCount(int expected) {

@@ -16,26 +16,12 @@ package android.app.appops.cts
  * limitations under the License.
  */
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertSame
-import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
-import org.junit.Assume.assumeTrue
-
-import org.mockito.Mockito.mock
-import org.mockito.Mockito.timeout
-import org.mockito.Mockito.verify
-import org.mockito.Mockito.verifyZeroInteractions
-
 import android.Manifest.permission
 import android.app.AppOpsManager
 import android.app.AppOpsManager.MODE_ALLOWED
 import android.app.AppOpsManager.MODE_DEFAULT
 import android.app.AppOpsManager.MODE_ERRORED
 import android.app.AppOpsManager.MODE_IGNORED
-import android.app.AppOpsManager.OnOpChangedListener
 import android.app.AppOpsManager.OPSTR_ACCESS_RESTRICTED_SETTINGS
 import android.app.AppOpsManager.OPSTR_FINE_LOCATION
 import android.app.AppOpsManager.OPSTR_PHONE_CALL_CAMERA
@@ -45,31 +31,43 @@ import android.app.AppOpsManager.OPSTR_READ_CALENDAR
 import android.app.AppOpsManager.OPSTR_RECORD_AUDIO
 import android.app.AppOpsManager.OPSTR_WIFI_SCAN
 import android.app.AppOpsManager.OPSTR_WRITE_CALENDAR
+import android.app.AppOpsManager.OnOpChangedListener
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Process
 import android.os.UserHandle
 import android.platform.test.annotations.AppModeFull
-import androidx.test.runner.AndroidJUnit4
 import androidx.test.InstrumentationRegistry
-import org.junit.Assert
-
-import org.junit.Before
-import org.junit.Test
-import org.junit.runner.RunWith
-import org.mockito.Mockito
-
+import androidx.test.runner.AndroidJUnit4
+import com.android.compatibility.common.util.PollingCheck
+import com.google.common.truth.Truth.assertThat
 import java.util.HashMap
 import java.util.HashSet
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executor
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.TimeUnit
+import org.junit.Assert
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Assume.assumeTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.mockito.Mockito
+import org.mockito.Mockito.mock
+import org.mockito.Mockito.timeout
+import org.mockito.Mockito.verify
+import org.mockito.Mockito.verifyZeroInteractions
 
 @RunWith(AndroidJUnit4::class)
 class AppOpsTest {
     // Notifying OnOpChangedListener callbacks is an async operation, so we define a timeout.
-    private val TIMEOUT_MS = 5000L
+    private val TIMEOUT_MS = 10000L
 
     private lateinit var mAppOps: AppOpsManager
     private lateinit var mContext: Context
@@ -144,6 +142,17 @@ class AppOpsTest {
 
         val USER_SHELL_UID = UserHandle.getUid(Process.myUserHandle().identifier,
                 UserHandle.getAppId(Process.SHELL_UID))
+    }
+
+    internal class FakeOnOppChangeListener : OnOpChangedListener {
+        var onOpChangeCallbackCount: Int = 0
+        var onOpChangeCallbackOp: String = ""
+        var onOpChangeCallbackPackageName: String = ""
+        override fun onOpChanged(op: String, packageName: String) {
+            onOpChangeCallbackCount += 1
+            onOpChangeCallbackOp = op
+            onOpChangeCallbackPackageName = packageName
+        }
     }
 
     @Before
@@ -311,16 +320,28 @@ class AppOpsTest {
                     activeWatcher)
             try {
                 mAppOps.startOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null, null)
-                assertTrue(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+                var activeState = receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                assertNotNull("Did not receive active state callback within $TIMEOUT_MS ms",
+                    activeState)
+                assertTrue(activeState!!)
 
                 mAppOps.finishOp(OPSTR_WIFI_SCAN, USER_SHELL_UID, SHELL_PACKAGE_NAME, null)
-                assertFalse(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+                activeState = receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                assertNotNull("Did not receive active state callback within $TIMEOUT_MS ms",
+                    activeState)
+                assertFalse(activeState!!)
 
                 mAppOps.startOp(OPSTR_WIFI_SCAN, mMyUid, mOpPackageName, null, null)
-                assertTrue(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+                activeState = receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                assertNotNull("Did not receive active state callback within $TIMEOUT_MS ms",
+                    activeState)
+                assertTrue(activeState!!)
 
                 mAppOps.finishOp(OPSTR_WIFI_SCAN, USER_SHELL_UID, SHELL_PACKAGE_NAME, null)
-                assertFalse(receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)!!)
+                activeState = receivedActiveState.poll(TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                assertNotNull("Did not receive active state callback within $TIMEOUT_MS ms",
+                    activeState)
+                assertFalse(activeState!!)
             } finally {
                 mAppOps.stopWatchingActive(activeWatcher)
             }
@@ -409,39 +430,157 @@ class AppOpsTest {
 
     @Test
     fun testWatchingMode() {
-        val watcher = mock(OnOpChangedListener::class.java)
+        val onOpChangeWatcher = FakeOnOppChangeListener()
         try {
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ALLOWED)
 
-            mAppOps.startWatchingMode(OPSTR_WRITE_CALENDAR, mOpPackageName, watcher)
+            mAppOps.startWatchingMode(OPSTR_WRITE_CALENDAR, mOpPackageName, onOpChangeWatcher)
 
             // Make a change to the app op's mode.
-            Mockito.reset(watcher)
+            var beforeChange = onOpChangeWatcher.onOpChangeCallbackCount
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ERRORED)
-            verify(watcher, timeout(TIMEOUT_MS))
-                    .onOpChanged(OPSTR_WRITE_CALENDAR, mOpPackageName)
+            PollingCheck.check("OpChange callback not received", TIMEOUT_MS) {
+                beforeChange != onOpChangeWatcher.onOpChangeCallbackCount
+            }
+            assertThat(onOpChangeWatcher.onOpChangeCallbackCount).isEqualTo(beforeChange + 1)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackOp).isEqualTo(OPSTR_WRITE_CALENDAR)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackPackageName).isEqualTo(mOpPackageName)
 
             // Make another change to the app op's mode.
-            Mockito.reset(watcher)
+            beforeChange = onOpChangeWatcher.onOpChangeCallbackCount
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ALLOWED)
-            verify(watcher, timeout(TIMEOUT_MS))
-                    .onOpChanged(OPSTR_WRITE_CALENDAR, mOpPackageName)
+            PollingCheck.check("OpChange callback not received", TIMEOUT_MS) {
+                beforeChange != onOpChangeWatcher.onOpChangeCallbackCount
+            }
+            assertThat(onOpChangeWatcher.onOpChangeCallbackCount).isEqualTo(beforeChange + 1)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackOp).isEqualTo(OPSTR_WRITE_CALENDAR)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackPackageName).isEqualTo(mOpPackageName)
 
             // Set mode to the same value as before - expect no call to the listener.
-            Mockito.reset(watcher)
+            beforeChange = onOpChangeWatcher.onOpChangeCallbackCount
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ALLOWED)
-            verifyZeroInteractions(watcher)
+            // Adding a short sleep to ensure we do not miss the callback, if it does come.
+            Thread.sleep(2000)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackCount).isEqualTo(beforeChange)
 
-            mAppOps.stopWatchingMode(watcher)
+            mAppOps.stopWatchingMode(onOpChangeWatcher)
 
             // Make a change to the app op's mode. Since we already stopped watching the mode, the
             // listener shouldn't be called.
-            Mockito.reset(watcher)
+            beforeChange = onOpChangeWatcher.onOpChangeCallbackCount
             setOpMode(mOpPackageName, OPSTR_WRITE_CALENDAR, MODE_ERRORED)
-            verifyZeroInteractions(watcher)
+            // Adding a short sleep to ensure we do not miss the callback, if it does come.
+            Thread.sleep(2000)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackCount).isEqualTo(beforeChange)
         } finally {
             // Clean up registered watcher.
-            mAppOps.stopWatchingMode(watcher)
+            mAppOps.stopWatchingMode(onOpChangeWatcher)
+        }
+    }
+
+    @Test
+    fun startWatchingNoted_withoutExecutor_whenOpNoted_receivesCallback() {
+        val watcher = mock(AppOpsManager.OnOpNotedListener::class.java)
+        try {
+            mAppOps.startWatchingNoted(arrayOf(OPSTR_WRITE_CALENDAR), watcher)
+
+            mAppOps.noteOp(OPSTR_WRITE_CALENDAR,
+                    mMyUid, mOpPackageName,
+                    "testAttribution",
+                    /* message = */ null)
+
+            verify(watcher, timeout(TIMEOUT_MS))
+                    .onOpNoted(
+                            OPSTR_WRITE_CALENDAR,
+                            mMyUid,
+                            mOpPackageName,
+                            "testAttribution",
+                            AppOpsManager.OP_FLAG_SELF,
+                            MODE_ALLOWED)
+
+            Mockito.reset(watcher)
+
+            mAppOps.noteOp(OPSTR_WRITE_CALENDAR,
+                    mMyUid,
+                    mOpPackageName,
+                    /* attributionTag = */ null,
+                    /* message = */ null)
+
+            verify(watcher, timeout(TIMEOUT_MS))
+                    .onOpNoted(
+                            OPSTR_WRITE_CALENDAR,
+                            mMyUid,
+                            mOpPackageName,
+                            /* attributionTag = */ null,
+                            AppOpsManager.OP_FLAG_SELF,
+                            MODE_ALLOWED)
+
+            mAppOps.stopWatchingNoted(watcher)
+            Mockito.reset(watcher)
+
+            mAppOps.noteOp(OPSTR_WRITE_CALENDAR,
+                    mMyUid,
+                    mOpPackageName,
+                    "testAttribution",
+                    /* message = */ null)
+
+            verifyZeroInteractions(watcher)
+        } finally {
+            mAppOps.stopWatchingNoted(watcher)
+        }
+    }
+
+    @Test
+    fun startWatchingNoted_withExecutor_whenOpNoted_receivesCallback() {
+        val watcher = mock(AppOpsManager.OnOpNotedListener::class.java)
+        try {
+            mAppOps.startWatchingNoted(arrayOf(OPSTR_WRITE_CALENDAR), { it.run() }, watcher)
+
+            mAppOps.noteOp(
+                    OPSTR_WRITE_CALENDAR,
+                    mMyUid,
+                    mOpPackageName,
+                    "testAttribution",
+                    /* message = */ null)
+
+            verify(watcher, timeout(TIMEOUT_MS))
+                    .onOpNoted(
+                            OPSTR_WRITE_CALENDAR,
+                            mMyUid,
+                            mOpPackageName,
+                            "testAttribution",
+                            AppOpsManager.OP_FLAG_SELF,
+                            MODE_ALLOWED)
+
+            Mockito.reset(watcher)
+
+            mAppOps.noteOp(OPSTR_WRITE_CALENDAR,
+                    mMyUid,
+                    mOpPackageName,
+                    /* attributionTag = */ null,
+                    /* message = */ null)
+
+            verify(watcher, timeout(TIMEOUT_MS))
+                    .onOpNoted(
+                            OPSTR_WRITE_CALENDAR,
+                            mMyUid,
+                            mOpPackageName,
+                            /* attributionTag = */ null,
+                            AppOpsManager.OP_FLAG_SELF,
+                            MODE_ALLOWED)
+
+            mAppOps.stopWatchingNoted(watcher)
+            Mockito.reset(watcher)
+
+            mAppOps.noteOp(OPSTR_WRITE_CALENDAR,
+                    mMyUid,
+                    mOpPackageName,
+                    "testAttribution",
+                    /* message = */ null)
+
+            verifyZeroInteractions(watcher)
+        } finally {
+            mAppOps.stopWatchingNoted(watcher)
         }
     }
 
@@ -473,16 +612,18 @@ class AppOpsTest {
     }
 
     private fun testPermissionMapping(permission: String, opStr: String) {
-        // Do the public value => internal op code lookups.
-        val mappedOpStr = AppOpsManager.permissionToOp(permission)
-        assertEquals(mappedOpStr, opStr)
+        // Do the permission => op lookups.
+        val mappedOpStr = AppOpsManager.permissionToOp(permission)!!
+        assertEquals(opStr, mappedOpStr)
+        val opCode = AppOpsManager.strOpToOp(opStr)
         val mappedOpCode = AppOpsManager.permissionToOpCode(permission)
-        val mappedOpCode2 = AppOpsManager.strOpToOp(opStr)
-        assertEquals(mappedOpCode, mappedOpCode2)
+        assertEquals(opCode, mappedOpCode)
 
-        // Do the internal op code => public value lookup (reverse lookup).
-        val permissionMappedBack = AppOpsManager.opToPermission(mappedOpCode)
-        assertEquals(permission, permissionMappedBack)
+        // Do the op => permission lookups.
+        val strMappedPermission = AppOpsManager.opToPermission(opStr)
+        assertEquals(permission, strMappedPermission)
+        val codeMappedPermission = AppOpsManager.opToPermission(opCode)
+        assertEquals(permission, codeMappedPermission)
     }
 
     /**
@@ -599,9 +740,9 @@ class AppOpsTest {
     @Test
     fun ensurePhoneCallOpsRestricted() {
         val pm = mContext.packageManager
-        assumeTrue(pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) ||
-                pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE) ||
-                pm.hasSystemFeature(PackageManager.FEATURE_TELECOM))
+        assumeTrue((pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) ||
+                pm.hasSystemFeature(PackageManager.FEATURE_TELECOM)) &&
+                pm.hasSystemFeature(PackageManager.FEATURE_MICROPHONE))
         val micReturn = mAppOps.noteOp(OPSTR_PHONE_CALL_MICROPHONE, Process.myUid(), mOpPackageName,
                 null, null)
         assertEquals(MODE_IGNORED, micReturn)
@@ -612,6 +753,7 @@ class AppOpsTest {
 
     @Test
     fun testRestrictedSettingsOpsRead() {
+        val onOpChangeWatcher = FakeOnOppChangeListener()
         // Apps without manage appops permission will get security exception if it tries to access
         // restricted settings ops.
         Assert.assertThrows(SecurityException::class.java) {
@@ -626,19 +768,21 @@ class AppOpsTest {
         }
 
         // Normal apps should not receive op change callback when op is changed.
-        val watcher = mock(OnOpChangedListener::class.java)
         try {
             setOpMode(mOpPackageName, OPSTR_ACCESS_RESTRICTED_SETTINGS, MODE_ERRORED)
 
-            mAppOps.startWatchingMode(OPSTR_ACCESS_RESTRICTED_SETTINGS, mOpPackageName, watcher)
+            mAppOps.startWatchingMode(OPSTR_ACCESS_RESTRICTED_SETTINGS, mOpPackageName,
+                    onOpChangeWatcher)
 
             // Make a change to the app op's mode.
-            Mockito.reset(watcher)
+            var beforeChange = onOpChangeWatcher.onOpChangeCallbackCount
             setOpMode(mOpPackageName, OPSTR_ACCESS_RESTRICTED_SETTINGS, MODE_ALLOWED)
-            verifyZeroInteractions(watcher)
+            // Adding a short sleep to ensure we do not miss the callback, if it does come.
+            Thread.sleep(2000)
+            assertThat(onOpChangeWatcher.onOpChangeCallbackCount).isEqualTo(beforeChange)
         } finally {
             // Clean up registered watcher.
-            mAppOps.stopWatchingMode(watcher)
+            mAppOps.stopWatchingMode(onOpChangeWatcher)
         }
 
         // Apps with manage ops permission (shell) should be able to receive op change callback.
@@ -647,16 +791,22 @@ class AppOpsTest {
                 setOpMode(mOpPackageName, OPSTR_ACCESS_RESTRICTED_SETTINGS, MODE_ERRORED)
 
                 mAppOps.startWatchingMode(OPSTR_ACCESS_RESTRICTED_SETTINGS, mOpPackageName,
-                        watcher)
+                        onOpChangeWatcher)
 
                 // Make a change to the app op's mode.
-                Mockito.reset(watcher)
+                var beforeChange = onOpChangeWatcher.onOpChangeCallbackCount
                 setOpMode(mOpPackageName, OPSTR_ACCESS_RESTRICTED_SETTINGS, MODE_ALLOWED)
-                verify(watcher, timeout(TIMEOUT_MS))
-                        .onOpChanged(OPSTR_ACCESS_RESTRICTED_SETTINGS, mOpPackageName)
+                PollingCheck.check("OpChange callback not received", TIMEOUT_MS) {
+                    beforeChange != onOpChangeWatcher.onOpChangeCallbackCount
+                }
+                assertThat(onOpChangeWatcher.onOpChangeCallbackCount).isEqualTo(beforeChange + 1)
+                assertThat(onOpChangeWatcher.onOpChangeCallbackOp)
+                        .isEqualTo(OPSTR_ACCESS_RESTRICTED_SETTINGS)
+                assertThat(onOpChangeWatcher.onOpChangeCallbackPackageName)
+                        .isEqualTo(mOpPackageName)
             } finally {
                 // Clean up registered watcher.
-                mAppOps.stopWatchingMode(watcher)
+                mAppOps.stopWatchingMode(onOpChangeWatcher)
             }
         }
     }

@@ -21,7 +21,9 @@ android_test_helper_app {
     defaults: ["cts_defaults"],
     srcs: [
         "src/**/*.java",
-        ":CtsMediaSessionTestCommon",
+    ],
+    libs: [
+        "CtsMediaHostTestCommon",
     ],
     // tag this module as a cts test artifact
     test_suites: [

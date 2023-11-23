@@ -16,8 +16,8 @@
 
 package android.permission3.cts
 
-import android.support.test.uiautomator.By
 import androidx.test.filters.FlakyTest
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil.eventually
 import org.junit.Assume.assumeFalse
 import org.junit.Before

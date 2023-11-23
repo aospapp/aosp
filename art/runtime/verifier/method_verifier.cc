@@ -1054,6 +1054,10 @@ bool MethodVerifier<kVerifierDebug>::ComputeWidthsAndCountOps() {
   // We can't assume the instruction is well formed, handle the case where calculating the size
   // goes past the end of the code item.
   SafeDexInstructionIterator it(code_item_accessor_.begin(), code_item_accessor_.end());
+  if (it == code_item_accessor_.end()) {
+    Fail(VERIFY_ERROR_BAD_CLASS_HARD) << "code item has no opcode";
+    return false;
+  }
   for ( ; !it.IsErrorState() && it < code_item_accessor_.end(); ++it) {
     // In case the instruction goes past the end of the code item, make sure to not process it.
     SafeDexInstructionIterator next = it;
@@ -4314,10 +4318,7 @@ void MethodVerifier<kVerifierDebug>::VerifyNewArray(const Instruction* inst,
       }
       for (size_t ui = 0; ui < arg_count; ui++) {
         uint32_t get_reg = is_range ? inst->VRegC_3rc() + ui : arg[ui];
-        if (!work_line_->VerifyRegisterType(this, get_reg, expected_type)) {
-          work_line_->SetResultRegisterType(this, reg_types_.Conflict());
-          return;
-        }
+        work_line_->VerifyRegisterType(this, get_reg, expected_type);
       }
       // filled-array result goes into "result" register
       const RegType& precise_type = reg_types_.FromUninitialized(res_type);
@@ -4899,7 +4900,7 @@ const RegType& MethodVerifier<kVerifierDebug>::DetermineCat1Constant(int32_t val
 
 template <bool kVerifierDebug>
 bool MethodVerifier<kVerifierDebug>::PotentiallyMarkRuntimeThrow() {
-  if (IsAotMode() || IsSdkVersionSetAndAtLeast(api_level_, SdkVersion::kT)) {
+  if (IsAotMode() || IsSdkVersionSetAndAtLeast(api_level_, SdkVersion::kS_V2)) {
     return false;
   }
   // Compatibility mode: we treat the following code unreachable and the verifier

@@ -197,9 +197,9 @@ TEST_F(DeltaDiffUtilsTest, ReplaceSmallTest) {
   // Make a blob with random data that won't compress well.
   brillo::Blob random_data;
   std::mt19937 gen(12345);
-  std::uniform_int_distribution<uint8_t> dis(0, 255);
+  std::uniform_int_distribution<uint16_t> dis(0, 255);
   for (uint32_t i = 0; i < kBlockSize; i++) {
-    random_data.push_back(dis(gen));
+    random_data.push_back(static_cast<uint8_t>(dis(gen)));
   }
 
   for (int i = 0; i < 2; i++) {

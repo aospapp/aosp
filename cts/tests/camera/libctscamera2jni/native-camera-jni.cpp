@@ -30,6 +30,7 @@
 #include <jni.h>
 #include <stdio.h>
 #include <string.h>
+#include <unordered_map>
 #include <set>
 
 #include <android/native_window_jni.h>
@@ -240,7 +241,30 @@ class CaptureSessionListener {
         thiz->mOnReady++;
     }
 
-    static void onActive(void* obj, ACameraCaptureSession *session) {
+    static void onWindowPrepared(
+            void* obj, ACameraWindowType* anw, ACameraCaptureSession* session) {
+        ALOGV("%s", __FUNCTION__);
+        if (obj == nullptr) {
+            ALOGE("%s ctx ptr is null ?", __FUNCTION__);
+            return;
+        }
+        CaptureSessionListener* thiz = reinterpret_cast<CaptureSessionListener*>(obj);
+        std::lock_guard<std::mutex> lock(thiz->mMutex);
+        // Reduce the pending prepared count of anw by 1. If count is  0, remove the key.
+        if(thiz->mPendingPreparedCbs.find(anw) == thiz->mPendingPreparedCbs.end()) {
+            ALOGE("%s: ANW %p was not being prepared at all ?", __FUNCTION__, anw);
+            return;
+        }
+        if (thiz->mPendingPreparedCbs[anw] == 0) {
+            ALOGE("%s: ANW %p pending prepared cbs is already 0", __FUNCTION__, anw);
+            return;
+        }
+        thiz->mPendingPreparedCbs[anw]--;
+        if (thiz->mPendingPreparedCbs[anw] == 0) {
+            thiz->mPendingPreparedCbs.erase(anw);
+        }
+    }
+    static void onActive(void* obj, ACameraCaptureSession* session) {
         ALOGV("%s", __FUNCTION__);
         if (obj == nullptr) {
             return;
@@ -258,7 +282,26 @@ class CaptureSessionListener {
         thiz->mIsIdle = false;
         thiz->mOnActive;
     }
+    bool gotAllPreparedCallbacksWithErrorLog() {
+        std::lock_guard<std::mutex> lock(mMutex);
+        bool ret = (mPendingPreparedCbs.size() == 0);
+        if (!ret) {
+            ALOGE("%s: mPendingPreparedCbs has the following expected callbacks", __FUNCTION__);
+            for (auto pair : mPendingPreparedCbs) {
+                ALOGE("%s: ANW: %p : pending callbacks %d", __FUNCTION__, pair.first, pair.second);
+            }
+        }
+        return ret;
+    }
 
+    void incPendingPrepared(ANativeWindow *anw) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if ((mPendingPreparedCbs.find(anw) == mPendingPreparedCbs.end())) {
+            mPendingPreparedCbs[anw] = 1;
+            return;
+        }
+        mPendingPreparedCbs[anw]++;
+    }
     bool isClosed() {
         std::lock_guard<std::mutex> lock(mMutex);
         return mIsClosed;
@@ -307,6 +350,8 @@ class CaptureSessionListener {
     int mOnClosed = 0;
     int mOnReady = 0;
     int mOnActive = 0;
+    // ANativeWindow -> # expected callbacks
+    std::unordered_map<ANativeWindow *, int> mPendingPreparedCbs;
 };
 
 class CaptureResultListener {
@@ -1370,6 +1415,27 @@ class PreviewTestCase {
         return ACAMERA_OK;
     }
 
+    camera_status_t prepareWindow(ANativeWindow *window) {
+        if (mSession == nullptr) {
+            ALOGE("%s: Called when session hasn't been configured", __FUNCTION__);
+            return ACAMERA_ERROR_INVALID_OPERATION;
+        }
+        mSessionListener.incPendingPrepared(window);
+        return ACameraCaptureSession_prepareWindow(mSession, window);
+    }
+
+    camera_status_t setWindowPreparedCallback() {
+        if (mSession == nullptr) {
+            ALOGE("%s: Called when session hasn't been configured", __FUNCTION__);
+            return ACAMERA_ERROR_INVALID_OPERATION;
+        }
+        return ACameraCaptureSession_setWindowPreparedCallback(mSession, &mSessionListener,
+                                                               mPreparedCb);
+    }
+
+    bool gotAllPreparedCallbacksWithErrorLog() {
+        return mSessionListener.gotAllPreparedCallbacksWithErrorLog();
+    }
     void closeSession() {
         if (mSession != nullptr) {
             ACameraCaptureSession_close(mSession);
@@ -1737,6 +1803,8 @@ class PreviewTestCase {
         CaptureSessionListener::onReady,
         CaptureSessionListener::onActive
     };
+
+    ACameraCaptureSession_prepareCallback mPreparedCb  = &CaptureSessionListener::onWindowPrepared;
 
     CaptureResultListener mResultListener;
     ACameraCaptureSession_captureCallbacks mResultCb {
@@ -3202,6 +3270,222 @@ cleanup:
     return pass;
 }
 
+bool nativeCameraDeviceTestPrepareSurface(
+        JNIEnv* env, jobject jPreviewSurface,
+        jstring jOverrideCameraId) {
+    const int NUM_TEST_IMAGES = 10;
+    const int TEST_WIDTH  = 640;
+    const int TEST_HEIGHT = 480;
+    ALOGV("%s", __FUNCTION__);
+    int numCameras = 0;
+    bool pass = false;
+    ACameraManager* mgr = ACameraManager_create();
+    ACameraMetadata* chars = nullptr;
+    media_status_t mediaRet = AMEDIA_ERROR_UNKNOWN;
+    PreviewTestCase testCase;
+    int64_t lastFrameNumber = 0;
+    bool frameStarted = false;
+    bool frameArrived = false;
+    uint32_t timeoutSec = 1;
+    uint32_t runPreviewSec = 2;
+
+    camera_status_t ret = testCase.initWithErrorLog(env, jOverrideCameraId);
+    if (ret != ACAMERA_OK) {
+        // Don't log error here. testcase did it
+        goto cleanup;
+    }
+
+    numCameras = testCase.getNumCameras();
+    if (numCameras < 0) {
+        LOG_ERROR(errorString, "Testcase returned negative number of cameras: %d", numCameras);
+        goto cleanup;
+    }
+
+    for (int i = 0; i < numCameras; i++) {
+        const char* cameraId = testCase.getCameraId(i);
+        if (cameraId == nullptr) {
+            LOG_ERROR(errorString, "Testcase returned null camera id for camera %d", i);
+            goto cleanup;
+        }
+
+        chars = testCase.getCameraChars(cameraId);
+        if (chars == nullptr) {
+            LOG_ERROR(errorString, "Get camera %s characteristics failure", cameraId);
+            goto cleanup;
+        }
+        StaticInfo staticInfo(chars);
+        if (!staticInfo.isColorOutputSupported()) {
+            ALOGI("%s: camera %s does not support color output. skipping",
+                    __FUNCTION__, cameraId);
+            ACameraMetadata_free(chars);
+            chars = nullptr;
+            continue;
+        }
+        ACameraMetadata_free(chars);
+        chars = nullptr;
+
+        ret = testCase.openCamera(cameraId);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Open camera device %s failure. ret %d", cameraId, ret);
+            goto cleanup;
+        }
+
+        usleep(1000000); // sleep to give some time for callbacks to happen
+
+        if (testCase.isCameraAvailable(cameraId)) {
+            LOG_ERROR(errorString, "Camera %s should be unavailable now", cameraId);
+            goto cleanup;
+        }
+        ImageReaderListener readerListener;
+        AImageReader* reader = nullptr;
+        ANativeWindow* readerAnw = nullptr;
+        ACaptureSessionOutput* readerSessionOutput = nullptr;
+        ACameraOutputTarget* readerOutput = nullptr;
+        AImageReader_ImageListener readerCb {
+            &readerListener,
+            ImageReaderListener::validateImageCb
+        };
+
+        mediaRet = testCase.initImageReaderWithErrorLog(
+                TEST_WIDTH, TEST_HEIGHT, AIMAGE_FORMAT_YUV_420_888, NUM_TEST_IMAGES,
+                &readerCb, &reader, &readerAnw);
+        if (mediaRet != AMEDIA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        ret = ACaptureSessionOutput_create(readerAnw,
+                &readerSessionOutput);
+        if (ret != ACAMERA_OK || readerSessionOutput == nullptr) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        ret = ACameraOutputTarget_create(readerAnw, &readerOutput);
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        ANativeWindow* previewAnw = testCase.initPreviewAnw(env, jPreviewSurface);
+        if (previewAnw == nullptr) {
+            LOG_ERROR(errorString, "Null ANW from preview surface!");
+            goto cleanup;
+        }
+        std::vector<ACaptureSessionOutput *> readerSessionOutputs = {readerSessionOutput};
+        ret = testCase.createCaptureSessionWithLog(readerSessionOutputs, false /*isPreviewShared*/,
+                nullptr /*sessionParameters*/, false /*sessionConfigurationDefault*/);
+        if (ret == ACAMERA_ERROR_UNSUPPORTED_OPERATION ||
+                ret == ACAMERA_ERROR_STREAM_CONFIGURE_FAIL) {
+            // Camera device doesn't support the stream combination, skip the
+            // current camera.
+            testCase.closeCamera();
+            testCase.resetCamera();
+            continue;
+        } else if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+        // Set the callback on the created capture session and prepare all the surfaces
+        if (testCase.setWindowPreparedCallback() != ACAMERA_OK ||
+                testCase.prepareWindow(previewAnw) != ACAMERA_OK) {
+            goto cleanup;
+        }
+        if (testCase.prepareWindow(readerAnw) != ACAMERA_OK) {
+            goto cleanup;
+        }
+        // Wait for some time - we should've gotten onWindowPrepared callbacks for all the
+        // ANativeWindows.
+        usleep(200000);
+        if (!testCase.gotAllPreparedCallbacksWithErrorLog()) {
+            goto cleanup;
+        }
+        std::vector<ACameraOutputTarget* > readerOutputs = {readerOutput};
+        ret = testCase.createRequestsWithErrorLog(readerOutputs);
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        ACaptureRequest *previewRequest = nullptr;
+        ret = testCase.getPreviewRequest(&previewRequest);
+        if ((ret != ACAMERA_OK) || (previewRequest == nullptr)) {
+            LOG_ERROR(errorString, "Preview request query failed!");
+            goto cleanup;
+        }
+
+        int sequenceId = 0;
+        ret = testCase.startPreview(&sequenceId);
+        if (ret != ACAMERA_OK) {
+            LOG_ERROR(errorString, "Start preview failed!");
+            goto cleanup;
+        }
+
+        sleep(runPreviewSec);
+
+        ret = testCase.stopPreview();
+        if (ret != ACAMERA_OK) {
+            ALOGE("%s: stopPreview failed", __FUNCTION__);
+            LOG_ERROR(errorString, "stopPreview failed!");
+            goto cleanup;
+        }
+
+        //Then wait for all old requests to flush
+        lastFrameNumber = testCase.getCaptureSequenceLastFrameNumber(sequenceId, timeoutSec);
+        if (lastFrameNumber < 0) {
+            LOG_ERROR(errorString, "Camera %s failed to acquire last frame number!",
+                    cameraId);
+            goto cleanup;
+        }
+        frameArrived = testCase.waitForFrameNumber(lastFrameNumber, timeoutSec);
+        if (!frameArrived) {
+            LOG_ERROR(errorString, "Camera %s timed out waiting on last frame number!",
+                    cameraId);
+            goto cleanup;
+        }
+
+        ret = testCase.resetWithErrorLog();
+        if (ret != ACAMERA_OK) {
+            // Don't log error here. testcase did it
+            goto cleanup;
+        }
+
+        usleep(100000); // sleep to give some time for callbacks to happen
+
+        if (!testCase.isCameraAvailable(cameraId)) {
+            LOG_ERROR(errorString, "Camera %s should be available now", cameraId);
+            goto cleanup;
+        }
+    }
+
+    ret = testCase.deInit();
+    if (ret != ACAMERA_OK) {
+        LOG_ERROR(errorString, "Testcase deInit failed: ret %d", ret);
+        goto cleanup;
+    }
+
+    pass = true;
+cleanup:
+    if (chars) {
+        ACameraMetadata_free(chars);
+    }
+    ACameraManager_delete(mgr);
+    ALOGI("%s %s", __FUNCTION__, pass ? "pass" : "failed");
+    if (!pass) {
+        throwAssertionError(env, errorString);
+    }
+    return pass;
+}
+
+extern "C" jboolean
+Java_android_hardware_camera2_cts_NativeCameraDeviceTest_\
+testCameraDevicePrepareSurface(
+        JNIEnv* env, jclass /*clazz*/, jobject jPreviewSurface,
+        jstring jOverrideCameraId) {
+    return nativeCameraDeviceTestPrepareSurface(env,
+            jPreviewSurface, jOverrideCameraId);
+}
+
 bool nativeCameraDeviceLogicalPhysicalStreaming(
         JNIEnv* env, jobject jPreviewSurface, bool usePhysicalSettings,
         jstring jOverrideCameraId, bool v2Callbacks) {
@@ -4097,6 +4381,7 @@ initializeAvailabilityCallbacksNative(
 
     auto rc = ctx->initialize();
     if (rc != ACAMERA_OK) {
+        delete ctx;
         LOG_ERROR(errorString, "Availability context initialization failed: %d", rc);
         return 0;
     }
@@ -4291,6 +4576,7 @@ testStillCaptureNative(
         if (readerListener.onImageAvailableCount() != NUM_TEST_IMAGES) {
             LOG_ERROR(errorString, "Camera %s timeout capturing %d images. Got %d",
                     cameraId, NUM_TEST_IMAGES, readerListener.onImageAvailableCount());
+            testCase.resetWithErrorLog();
             goto cleanup;
         }
 

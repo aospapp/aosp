@@ -17,11 +17,11 @@
 package com.android.wearable.sysapp.janktests;
 
 import android.os.Bundle;
-import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.jank.GfxMonitor;
 import androidx.test.jank.JankTest;
 import androidx.test.jank.JankTestBase;
+import androidx.test.uiautomator.UiDevice;
 
 /**
  * Jank tests for scrolling & swiping off notification cards on wear

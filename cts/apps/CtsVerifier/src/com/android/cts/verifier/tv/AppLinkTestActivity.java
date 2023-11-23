@@ -116,7 +116,7 @@ public class AppLinkTestActivity extends TvAppVerifierActivity implements View.O
                 R.string.tv_app_link_test_verify_link_clicked);
         mVerifyAppLinkCardItem = createAndAttachUserItem(
                 R.string.tv_input_link_test_verify_link_interface,
-                android.R.string.yes, this);
+                android.R.string.ok, this);
         TextView instructions = (TextView) mVerifyAppLinkCardItem.findViewById(R.id.instructions);
         Drawable image = getDrawable(R.drawable.app_link_img);
         image.setBounds(0, 0, 317, 241);

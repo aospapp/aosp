@@ -27,17 +27,26 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.verifyZeroInteractions;
 
+import android.app.Instrumentation;
+import android.content.Context;
+import android.content.res.Configuration;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.RatingBar;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Locale;
 
 /**
  * Test {@link RatingBar}.
@@ -47,6 +56,7 @@ import org.junit.runner.RunWith;
 public class RatingBarTest {
     private RatingBarCtsActivity mActivity;
     private RatingBar mRatingBar;
+    private Instrumentation mInstrumentation;
 
     @Rule
     public ActivityTestRule<RatingBarCtsActivity> mActivityRule =
@@ -55,6 +65,7 @@ public class RatingBarTest {
     @Before
     public void setup() {
         mActivity = mActivityRule.getActivity();
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mRatingBar = (RatingBar) mActivity.findViewById(R.id.ratingbar_constructor);
     }
 
@@ -195,5 +206,32 @@ public class RatingBarTest {
         assertEquals(currentMax, mRatingBar.getMax());
         assertEquals(currentProgress, mRatingBar.getProgress());
         assertEquals(currentStepSize, mRatingBar.getStepSize(), 0.0f);
+    }
+
+    @Test
+    @ApiTest(apis = {"android.widget.RatingBar#onInitializeAccessibilityNodeInfo"})
+    public void testOnInitializeAccessibilityNodeInfo() throws Throwable {
+        final Configuration configuration = new Configuration();
+        configuration.setToDefaults();
+        configuration.setLocale(Locale.ENGLISH);
+        Context context = mActivity.createConfigurationContext(configuration);
+        RatingBar ratingBar = new RatingBar(context);
+        mInstrumentation.waitForIdleSync();
+        ratingBar.setRating(1f);
+
+        String expectedStateDescription = "One star out of 5";
+        AccessibilityNodeInfo info = new AccessibilityNodeInfo();
+        ratingBar.onInitializeAccessibilityNodeInfo(info);
+        assertEquals(expectedStateDescription, info.getStateDescription());
+
+        ratingBar.setNumStars(20);
+        mInstrumentation.waitForIdleSync();
+        ratingBar.setStepSize(0.5f);
+        ratingBar.setRating(5.5f);
+
+        expectedStateDescription = "5.5 stars out of 20";
+        info = new AccessibilityNodeInfo();
+        ratingBar.onInitializeAccessibilityNodeInfo(info);
+        assertEquals(expectedStateDescription, info.getStateDescription());
     }
 }

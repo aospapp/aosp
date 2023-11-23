@@ -26,11 +26,11 @@ import capture_request_utils
 import image_processing_utils
 import its_session_utils
 
-AWB_AUTO_ATOL = 0.10
-AWB_AUTO_RTOL = 0.25
-AWB_MANUAL_ATOL = 0.05
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-TONEMAP_GAMMA = sum([[t/63.0, math.pow(t/63.0, 1/2.2)] for t in range(64)], [])
+_AWB_AUTO_ATOL = 0.10
+_AWB_AUTO_RTOL = 0.25
+_AWB_MANUAL_ATOL = 0.05
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_TONEMAP_GAMMA = sum([[t/63.0, math.pow(t/63.0, 1/2.2)] for t in range(64)], [])
 
 
 def extract_awb_gains_and_xform(cap, cap_name, log_path):
@@ -45,8 +45,9 @@ def extract_awb_gains_and_xform(cap, cap_name, log_path):
     awb_gains, awb_xform
   """
   img = image_processing_utils.convert_capture_to_rgb_image(cap)
-  image_processing_utils.write_image(img, '%s_%s.jpg' % (
-      os.path.join(log_path, NAME), cap_name))
+  name_with_log_path = os.path.join(log_path, _NAME)
+  image_processing_utils.write_image(
+      img, f'{name_with_log_path}_{cap_name}.jpg')
   awb_gains = cap['metadata']['android.colorCorrection.gains']
   awb_xform = capture_request_utils.rational_to_float(
       cap['metadata']['android.colorCorrection.transform'])
@@ -66,7 +67,7 @@ class AutoVsManualTest(its_base_test.ItsBaseTest):
   """
 
   def test_auto_vs_manual(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -88,7 +89,7 @@ class AutoVsManualTest(its_base_test.ItsBaseTest):
       # Converge 3A and get the estimates
       largest_yuv = capture_request_utils.get_largest_yuv_format(props)
       match_ar = (largest_yuv['width'], largest_yuv['height'])
-      fmt = capture_request_utils.get_smallest_yuv_format(
+      fmt = capture_request_utils.get_near_vga_yuv_format(
           props, match_ar=match_ar)
       s, e, awb_gains, awb_xform, fd = cam.do_3a(get_results=True,
                                                  mono_camera=mono_camera)
@@ -114,31 +115,33 @@ class AutoVsManualTest(its_base_test.ItsBaseTest):
 
       # Manual capture 2: WB + tonemap
       req['android.tonemap.mode'] = 0
-      req['android.tonemap.curve'] = {'red': TONEMAP_GAMMA,
-                                      'green': TONEMAP_GAMMA,
-                                      'blue': TONEMAP_GAMMA}
+      req['android.tonemap.curve'] = {'red': _TONEMAP_GAMMA,
+                                      'green': _TONEMAP_GAMMA,
+                                      'blue': _TONEMAP_GAMMA}
       cap_man2 = cam.do_capture(req, fmt)
       awb_gains_m2, awb_xform_m2 = extract_awb_gains_and_xform(
           cap_man2, 'manual_wb_tm', log_path)
 
       # Check AWB gains & transform in manual results match values from do_3a
       for g, x in [(awb_gains_m1, awb_xform_m1), (awb_gains_m2, awb_xform_m2)]:
-        if not np.allclose(awb_xform, x, atol=AWB_MANUAL_ATOL, rtol=0):
+        if not np.allclose(awb_xform, x, atol=_AWB_MANUAL_ATOL, rtol=0):
           raise AssertionError(
-              f'awb_xform 3A: {awb_xform}, manual: {x}, ATOL={AWB_MANUAL_ATOL}')
-        if not np.allclose(awb_gains, g, atol=AWB_MANUAL_ATOL, rtol=0):
+              f'awb_xform 3A: {awb_xform}, '
+              f'manual: {x}, ATOL={_AWB_MANUAL_ATOL}')
+        if not np.allclose(awb_gains, g, atol=_AWB_MANUAL_ATOL, rtol=0):
           raise AssertionError(
-              f'awb_gains 3A: {awb_gains}, manual: {g}, ATOL={AWB_MANUAL_ATOL}')
+              f'awb_gains 3A: {awb_gains}, '
+              f'manual: {g}, ATOL={_AWB_MANUAL_ATOL}')
 
       # Check AWB gains & transform in auto results match values from do_3a
-      if not np.allclose(awb_xform_a, awb_xform, atol=AWB_AUTO_ATOL,
-                         rtol=AWB_AUTO_RTOL):
+      if not np.allclose(awb_xform_a, awb_xform, atol=_AWB_AUTO_ATOL,
+                         rtol=_AWB_AUTO_RTOL):
         raise AssertionError(f'awb_xform 3A: {awb_xform}, auto: {awb_xform_a},'
-                             f'RTOL={AWB_AUTO_RTOL}, ATOL={AWB_AUTO_ATOL}')
-      if not np.allclose(awb_gains_a, awb_gains, atol=AWB_AUTO_ATOL,
-                         rtol=AWB_AUTO_RTOL):
+                             f'RTOL={_AWB_AUTO_RTOL}, ATOL={_AWB_AUTO_ATOL}')
+      if not np.allclose(awb_gains_a, awb_gains, atol=_AWB_AUTO_ATOL,
+                         rtol=_AWB_AUTO_RTOL):
         raise AssertionError(f'awb_gains 3A: {awb_gains}, auto: {awb_gains_a},'
-                             f'RTOL={AWB_AUTO_RTOL}, ATOL={AWB_AUTO_ATOL}')
+                             f'RTOL={_AWB_AUTO_RTOL}, ATOL={_AWB_AUTO_ATOL}')
 
 if __name__ == '__main__':
   test_runner.main()

@@ -25,6 +25,21 @@ props {
     prop_name: "bluetooth.device.default_name"
   }
   prop {
+    api_name: "getDefaultDuplexAudioProfile"
+    type: Integer
+    prop_name: "bluetooth.device.default_duplex_audio_profile"
+  }
+  prop {
+    api_name: "getDefaultOutputOnlyAudioProfile"
+    type: Integer
+    prop_name: "bluetooth.device.default_output_only_audio_profile"
+  }
+  prop {
+    api_name: "getGapLeConnMinLimit"
+    type: Integer
+    prop_name: "bluetooth.core.gap.le.conn.min.limit"
+  }
+  prop {
     api_name: "getHardwareIdleCurrentMa"
     type: Integer
     prop_name: "bluetooth.hardware.power.idle_cur_ma"
@@ -51,6 +66,10 @@ props {
   prop {
     api_name: "isGapLePrivacyEnabled"
     prop_name: "bluetooth.core.gap.le.privacy.enabled"
+  }
+  prop {
+    api_name: "isLeAudioInbandRingtoneSupported"
+    prop_name: "bluetooth.core.le_audio.inband_ringtone.supported"
   }
   prop {
     api_name: "isProfileA2dpSinkEnabled"
@@ -169,11 +188,46 @@ props {
     prop_name: "bluetooth.framework.support_persisted_state"
   }
   prop {
+    api_name: "le_audio_allow_list"
+    type: StringList
+    access: ReadWrite
+    prop_name: "persist.bluetooth.leaudio.allow_list"
+  }
+  prop {
     api_name: "snoop_default_mode"
     type: Enum
     access: ReadWrite
     prop_name: "persist.bluetooth.btsnoopdefaultmode"
     enum_values: "empty|disabled|filtered|full"
+  }
+  prop {
+    api_name: "snoop_log_filter_profile_a2dp_enabled"
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.a2dp.enabled"
+  }
+  prop {
+    api_name: "snoop_log_filter_profile_map"
+    type: Enum
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.map"
+    enum_values: "empty|disabled|fullfilter|header|magic"
+  }
+  prop {
+    api_name: "snoop_log_filter_profile_pbap"
+    type: Enum
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.pbap"
+    enum_values: "empty|disabled|fullfilter|header|magic"
+  }
+  prop {
+    api_name: "snoop_log_filter_profile_rfcomm_enabled"
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.profiles.rfcomm.enabled"
+  }
+  prop {
+    api_name: "snoop_log_filter_snoop_headers_enabled"
+    access: ReadWrite
+    prop_name: "persist.bluetooth.snooplogfilter.headers.enabled"
   }
   prop {
     api_name: "snoop_log_mode"
@@ -237,6 +291,14 @@ props {
   }
 }
 props {
+  module: "android.sysprop.MemoryProperties"
+  prop {
+    api_name: "memory_ddr_size"
+    type: String
+    prop_name: "ro.boot.ddr_size"
+  }
+}
+props {
   module: "android.sysprop.NetworkProperties"
   prop {
     api_name: "isCellular464XlatEnabled"
@@ -247,6 +309,31 @@ props {
     type: Integer
     access: ReadWrite
     prop_name: "net.tcp_def_init_rwnd"
+  }
+}
+props {
+  module: "android.sysprop.NfcProperties"
+  prop {
+    api_name: "debug_enabled"
+    access: ReadWrite
+    prop_name: "persist.nfc.debug_enabled"
+  }
+  prop {
+    api_name: "skipNdefRead"
+    prop_name: "nfc.dta.skip_ndef_read"
+    legacy_prop_name: "nfc.dta.skipNdefRead"
+  }
+  prop {
+    api_name: "snoop_log_mode"
+    type: Enum
+    access: ReadWrite
+    prop_name: "persist.nfc.snoop_log_mode"
+    enum_values: "full|filtered"
+  }
+  prop {
+    api_name: "vendor_debug_enabled"
+    access: ReadWrite
+    prop_name: "persist.nfc.vendor_debug_enabled"
   }
 }
 props {

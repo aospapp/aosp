@@ -19,8 +19,8 @@ package {
 }
 
 bpf {
-    name: "bpf_load_tp_prog.o",
-    srcs: ["bpf_load_tp_prog.c"],
+    name: "bpfLoadTpProg.o",
+    srcs: ["bpfLoadTpProg.c"],
     cflags: [
         "-Wall",
         "-Werror",
@@ -28,8 +28,8 @@ bpf {
 }
 
 bpf {
-    name: "bpf_load_tp_prog_btf.o",
-    srcs: ["bpf_load_tp_prog_btf.c"],
+    name: "bpfLoadTpProgBtf.o",
+    srcs: ["bpfLoadTpProgBtf.c"],
     btf: true,
     cflags: [
         "-Wall",

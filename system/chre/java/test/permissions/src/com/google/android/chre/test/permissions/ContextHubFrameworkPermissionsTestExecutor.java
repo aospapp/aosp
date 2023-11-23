@@ -15,6 +15,9 @@
  */
 package com.google.android.chre.test.permissions;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.app.Instrumentation;
 import android.content.Context;
 import android.hardware.location.ContextHubClient;
@@ -30,8 +33,6 @@ import androidx.test.InstrumentationRegistry;
 
 import com.google.android.chre.nanoapp.proto.PingTest;
 import com.google.android.utils.chre.ChreTestUtil;
-
-import org.junit.Assert;
 
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -75,7 +76,7 @@ public class ContextHubFrameworkPermissionsTestExecutor extends ContextHubClient
         mPackageName = mContext.getPackageName();
 
         mContextHubClient = mContextHubManager.createClient(mContextHubInfo, this);
-        Assert.assertTrue(mContextHubClient != null);
+        assertThat(mContextHubClient).isNotNull();
     }
 
     @Override
@@ -118,17 +119,13 @@ public class ContextHubFrameworkPermissionsTestExecutor extends ContextHubClient
                 mNanoAppId, PingTest.MessageType.PING_COMMAND_VALUE,
                 command.toByteArray());
         int result = mContextHubClient.sendMessageToNanoApp(message);
-        if (result != ContextHubTransaction.RESULT_SUCCESS) {
-            Assert.fail("Failed to send message: result = " + result);
-        }
+        assertWithMessage("Failed to send message: result = %s ", result)
+                .that(result)
+                .isEqualTo(ContextHubTransaction.RESULT_SUCCESS);
 
-        try {
-            NanoAppMessage msg = mMessageQueue.poll(2, TimeUnit.SECONDS);
-            Assert.assertNotNull("Timed out waiting for a message", msg);
-            Log.d(TAG, "Got message from nanoapp: " + msg);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
+        NanoAppMessage msg = mMessageQueue.poll(2, TimeUnit.SECONDS);
+        assertWithMessage("Timed out waiting for a message").that(msg).isNotNull();
+        Log.d(TAG, "Got message from nanoapp: " + msg);
 
         // No need to grant our package again since the denial will be tied to
         // the current contexthubclient which is only used by this test.
@@ -136,17 +133,21 @@ public class ContextHubFrameworkPermissionsTestExecutor extends ContextHubClient
                 "cmd contexthub deny " + mContextHubInfo.getId()
                 + " " + mContext.getPackageName() + " " + mNanoAppId);
 
-        int authorization = mAuthorizationUpdateQueue.poll(2, TimeUnit.SECONDS);
-        Assert.assertEquals(authorization, ContextHubManager.AUTHORIZATION_DENIED);
+        Integer authorization = mAuthorizationUpdateQueue.poll(2, TimeUnit.SECONDS);
+        assertWithMessage("Timed out waiting on denied authorization update")
+                .that(authorization)
+                .isNotNull();
+        assertThat(authorization).isEqualTo(ContextHubManager.AUTHORIZATION_DENIED);
 
         try {
             mContextHubClient.sendMessageToNanoApp(message);
-            Assert.fail("Sent message to nanoapp even though permissions were denied");
+            assertWithMessage("Sent message to nanoapp even though permissions were denied").fail();
         } catch (SecurityException e) {
             // Expected
         }
-        Assert.assertTrue(mAuthorizationUpdateQueue.isEmpty());
-        Assert.assertFalse(mHubResetDuringTest.get());
+
+        assertThat(mAuthorizationUpdateQueue).isEmpty();
+        assertThat(mHubResetDuringTest.get()).isFalse();
     }
 
     /**
@@ -162,17 +163,13 @@ public class ContextHubFrameworkPermissionsTestExecutor extends ContextHubClient
                 mNanoAppId, PingTest.MessageType.PING_COMMAND_VALUE,
                 command.toByteArray());
         int result = mContextHubClient.sendMessageToNanoApp(message);
-        if (result != ContextHubTransaction.RESULT_SUCCESS) {
-            Assert.fail("Failed to send message: result = " + result);
-        }
+        assertWithMessage("Failed to send message: result = %s ", result)
+                .that(result)
+                .isEqualTo(ContextHubTransaction.RESULT_SUCCESS);
 
-        try {
-            NanoAppMessage msg = mMessageQueue.poll(2, TimeUnit.SECONDS);
-            Assert.assertNotNull("Timed out waiting for a message", msg);
-            Log.d(TAG, "Got message from nanoapp: " + msg);
-        } catch (InterruptedException e) {
-            Assert.fail(e.getMessage());
-        }
+        NanoAppMessage msg = mMessageQueue.poll(2, TimeUnit.SECONDS);
+        assertWithMessage("Timed out waiting for a message").that(msg).isNotNull();
+        Log.d(TAG, "Got message from nanoapp: " + msg);
     }
 
     /**

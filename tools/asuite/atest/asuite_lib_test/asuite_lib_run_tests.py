@@ -32,9 +32,10 @@ def get_test_modules():
         List of strings (the testable module import path).
     """
     testable_modules = []
-    base_path = os.path.dirname(os.path.realpath(__file__))
+    package = os.path.dirname(os.path.realpath(__file__))
+    base_path = os.path.dirname(package)
 
-    for dirpath, _, files in os.walk(base_path):
+    for dirpath, _, files in os.walk(package):
         for f in files:
             if f.endswith("_test.py"):
                 # Now transform it into a relative import path.
@@ -56,12 +57,6 @@ def main(_):
     Returns:
         0 if success. None-zero if fails.
     """
-    # Force remove syspath related to atest to make sure the env is clean.
-    # These tests need to run in isolation (to find bugs like b/132086641)
-    # so we scrub out all atest modules.
-    for path in sys.path:
-        if path.endswith('/atest'):
-            sys.path.remove(path)
     test_modules = get_test_modules()
     for mod in test_modules:
         import_module(mod)

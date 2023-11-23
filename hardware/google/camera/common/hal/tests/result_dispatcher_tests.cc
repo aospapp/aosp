@@ -59,12 +59,14 @@ class ResultDispatcherTests : public ::testing::Test {
       GTEST_SKIP();
     }
 
+    StreamConfiguration stream_config;
     result_dispatcher_ = ResultDispatcher::Create(
         kPartialResult,
         [this](std::unique_ptr<CaptureResult> result) {
           ProcessCaptureResult(std::move(result));
         },
-        [this](const NotifyMessage& message) { Notify(message); });
+        [this](const NotifyMessage& message) { Notify(message); },
+        stream_config, "TestResultDispatcher");
 
     ASSERT_NE(result_dispatcher_, nullptr)
         << "Creating ResultDispatcher failed";

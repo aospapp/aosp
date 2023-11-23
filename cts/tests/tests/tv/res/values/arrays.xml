@@ -3,5 +3,7 @@
     <string-array name="sub_iapp_service_types">
         <item>ginga</item>
         <item>hbbtv</item>
+        <item>custom_type</item>
+        <item>another</item>
     </string-array>
 </resources>

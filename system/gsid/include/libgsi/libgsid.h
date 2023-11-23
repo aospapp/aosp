@@ -21,6 +21,10 @@
 namespace android {
 namespace gsi {
 
+static constexpr char kGsiServiceName[] = "gsiservice";
+
+// Caller should start a threadpool before calling this method, otherwise waitForService() could
+// block for at least 1 second.
 android::sp<IGsiService> GetGsiService();
 
 }  // namespace gsi

@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2020-2021 NXP
+ *  Copyright 2020-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -62,69 +62,69 @@
 /*!
  * \brief IOCTL number to set ESE PWR
  */
-#define P61_SET_PWR _IOW(P61_MAGIC, 0x01, long)
+#define P61_SET_PWR _IOW(P61_MAGIC, 0x01, uint64_t)
 /*!
  * \brief IOCTL number to set debug state
  */
-#define P61_SET_DBG _IOW(P61_MAGIC, 0x02, long)
+#define P61_SET_DBG _IOW(P61_MAGIC, 0x02, uint64_t)
 /*!
  * \brief IOCTL number to enable poll mode
  */
-#define P61_SET_POLL _IOW(P61_MAGIC, 0x03, long)
+#define P61_SET_POLL _IOW(P61_MAGIC, 0x03, uint64_t)
 /*!
  * \brief SPI Request NFCC to enable p61 power, only in param
  *         Only for SPI
  *         level 1 = Enable power
  *         level 0 = Disable power
  */
-#define P61_SET_SPM_PWR _IOW(P61_MAGIC, 0x04, long)
+#define P61_SET_SPM_PWR _IOW(P61_MAGIC, 0x04, uint64_t)
 
 /*!
  * \brief SPI or DWP can call this ioctl to get the current
  *         power state of P61
  *
  */
-#define P61_GET_SPM_STATUS _IOR(P61_MAGIC, 0x05, long)
+#define P61_GET_SPM_STATUS _IOR(P61_MAGIC, 0x05, uint64_t)
 /*!
  * \brief IOCTL to add throughput measurement source code in device driver
  *
  */
-#define P61_SET_THROUGHPUT _IOW(P61_MAGIC, 0x06, long)
+#define P61_SET_THROUGHPUT _IOW(P61_MAGIC, 0x06, uint64_t)
 /*!
  * \brief IOCTL to get the ESE access
  *
  */
-#define P61_GET_ESE_ACCESS _IOW(P61_MAGIC, 0x07, long)
+#define P61_GET_ESE_ACCESS _IOW(P61_MAGIC, 0x07, uint64_t)
 /*!
  * \brief IOCTL to set the power scheme
  *
  */
-#define P61_SET_POWER_SCHEME _IOW(P61_MAGIC, 0x08, long)
+#define P61_SET_POWER_SCHEME _IOW(P61_MAGIC, 0x08, uint64_t)
 /*!
  * \brief This function is used to set the ESE jcop
  *  download state.
  */
-#define P61_SET_DWNLD_STATUS _IOW(P61_MAGIC, 0x09, long)
+#define P61_SET_DWNLD_STATUS _IOW(P61_MAGIC, 0x09, uint64_t)
 
 /*!
  * \brief This function is used to set disable ESE GPIO
  *  state On&Off
  */
-#define P61_INHIBIT_PWR_CNTRL _IOW(P61_MAGIC, 0x0A, long)
+#define P61_INHIBIT_PWR_CNTRL _IOW(P61_MAGIC, 0x0A, uint64_t)
 /*!
  * \brief IOCTL to set the GPIO for the eSE to distinguish
  *        the logical interface
  */
-#define ESE_SET_TRUSTED_ACCESS _IOW(P61_MAGIC, 0x0B, long)
+#define ESE_SET_TRUSTED_ACCESS _IOW(P61_MAGIC, 0x0B, uint64_t)
 
 /*!
  * \brief IOCTL to perform the eSE COLD_RESET  via NFC driver.
  */
-#define ESE_PERFORM_COLD_RESET _IOW(P61_MAGIC, 0x0C, long)
+#define ESE_PERFORM_COLD_RESET _IOW(P61_MAGIC, 0x0C, uint64_t)
 /*!
  * \brief IOCTL to enable/disable GPIO/COLD reset protection.
  */
-#define PERFORM_RESET_PROTECTION _IOW(P61_MAGIC, 0x0D, long)
+#define PERFORM_RESET_PROTECTION _IOW(P61_MAGIC, 0x0D, uint64_t)
 
 class EseTransport {
  public:

@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaWlanApPolicyLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "wlan_ap_policy")
 
     def wlanStartAccessPoint(self, target_ssid, security_type, target_pwd,
                              connectivity_mode, operating_band):
@@ -42,8 +41,6 @@ class FuchsiaWlanApPolicyLib(BaseLib):
         """
 
         test_cmd = "wlan_ap_policy.start_access_point"
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
         test_args = {
             "target_ssid": target_ssid,
@@ -53,7 +50,7 @@ class FuchsiaWlanApPolicyLib(BaseLib):
             "operating_band": operating_band,
         }
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanStopAccessPoint(self, target_ssid, security_type, target_pwd=""):
         """ Stops an active Access Point.
@@ -68,8 +65,6 @@ class FuchsiaWlanApPolicyLib(BaseLib):
         """
 
         test_cmd = "wlan_ap_policy.stop_access_point"
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
         test_args = {
             "target_ssid": target_ssid,
@@ -77,7 +72,7 @@ class FuchsiaWlanApPolicyLib(BaseLib):
             "target_pwd": target_pwd
         }
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanStopAllAccessPoint(self):
         """ Stops all Access Points
@@ -87,12 +82,10 @@ class FuchsiaWlanApPolicyLib(BaseLib):
         """
 
         test_cmd = "wlan_ap_policy.stop_all_access_points"
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
         test_args = {}
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanSetNewListener(self):
         """ Sets the update listener stream of the facade to a new stream so that updates will be
@@ -100,10 +93,8 @@ class FuchsiaWlanApPolicyLib(BaseLib):
             independent from previous tests.
         """
         test_cmd = "wlan_ap_policy.set_new_update_listener"
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanGetUpdate(self, timeout=30):
         """ Gets a list of AP state updates. This call will return with an update immediately the
@@ -115,9 +106,5 @@ class FuchsiaWlanApPolicyLib(BaseLib):
                 structure that matches the FIDL AccessPointState struct given for updates.
         """
         test_cmd = "wlan_ap_policy.get_update"
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id,
-                                 test_cmd, {},
-                                 response_timeout=timeout)
+        return self.send_command(test_cmd, {}, response_timeout=timeout)

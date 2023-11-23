@@ -23,7 +23,10 @@ java_library {
     name: "cts-sensors-tests",
     defaults: ["cts_error_prone_rules_tests"],
 
-    static_libs: ["compatibility-device-util-axt"],
+    static_libs: [
+        "compatibility-device-util-axt",
+        "cts-input-lib",
+    ],
 
     libs: [
         "platform-test-annotations",
@@ -32,7 +35,16 @@ java_library {
 
     sdk_version: "test_current",
 
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/**/*.java",
+        "src/**/*.kt",
+    ],
+    exclude_srcs: [
+        // Depends on resources, so can't be included in a java_library - we add
+        // this file explicitly to CtsSensorTestCases, which is the only place
+        // it's actually needed
+        "src/android/hardware/cts/SensorHeadTrackerTest.java",
+    ],
 }
 
 //
@@ -98,6 +110,10 @@ android_test {
     libs: [
         "android.test.runner.stubs",
         "android.test.base.stubs",
+    ],
+
+    srcs: [
+        "src/android/hardware/cts/SensorHeadTrackerTest.java",
     ],
 
     stl: "c++_shared",

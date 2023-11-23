@@ -23,15 +23,14 @@ java_test_host {
     java_resource_dirs: ["res"],
     // tag this module as a cts test artifact
     test_suites: [
-        "cts",
         "general-tests",
         "sts",
     ],
+    static_libs: ["sts-host-util"],
     // Must match the package name in CtsTestCaseList.mk
     libs: [
         "compatibility-host-util",
         "cts-tradefed",
-        "sts-host-util",
         "tradefed",
     ],
     data: [
@@ -44,6 +43,7 @@ java_test_host {
 
 cc_defaults {
     name: "cts_hostsidetests_securitybulletin_defaults",
+    auto_gen_config: false,
     compile_multilib: "both",
     multilib: {
         lib32: {
@@ -60,10 +60,10 @@ cc_defaults {
         },
     },
     test_suites: [
-        "cts",
         "sts",
         "general-tests",
     ],
+    cpp_std: "gnu++20",
     cflags: [
         "-Wall",
         "-Werror",

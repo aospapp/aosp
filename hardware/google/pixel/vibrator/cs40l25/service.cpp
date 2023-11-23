@@ -20,10 +20,12 @@
 #include <log/log.h>
 
 #include "Hardware.h"
+#include "Stats.h"
 #include "Vibrator.h"
 
 using ::aidl::android::hardware::vibrator::HwApi;
 using ::aidl::android::hardware::vibrator::HwCal;
+using ::aidl::android::hardware::vibrator::StatsApi;
 using ::aidl::android::hardware::vibrator::Vibrator;
 using ::android::defaultServiceManager;
 using ::android::ProcessState;
@@ -35,8 +37,8 @@ using ::android::String16;
 #endif
 
 int main() {
-    auto svc = ndk::SharedRefBase::make<Vibrator>(std::make_unique<HwApi>(),
-                                                  std::make_unique<HwCal>());
+    auto svc = ndk::SharedRefBase::make<Vibrator>(
+            std::make_unique<HwApi>(), std::make_unique<HwCal>(), std::make_unique<StatsApi>());
     const auto svcName = std::string() + svc->descriptor + "/" + VIBRATOR_NAME;
 
     ProcessState::initWithDriver("/dev/vndbinder");

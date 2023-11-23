@@ -17,14 +17,12 @@ aidl_interface {
         "android.hardware.security.secureclock-V1",
     ],
     stability: "vintf",
+    frozen: true,
     backend: {
         java: {
             platform_apis: true,
         },
         ndk: {
-            vndk: {
-                enabled: true,
-            },
             apps_enabled: false,
         },
         rust: {
@@ -44,6 +42,10 @@ aidl_interface {
             version: "2",
             imports: ["android.hardware.security.secureclock-V1"],
         },
+        {
+            version: "3",
+            imports: ["android.hardware.security.secureclock-V1"],
+        },
 
     ],
 
@@ -55,21 +57,28 @@ aidl_interface {
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_ndk_static",
     static_libs: [
-        "android.hardware.security.keymint-V2-ndk",
+        "android.hardware.security.keymint-V3-ndk",
     ],
 }
 
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_ndk_shared",
     shared_libs: [
-        "android.hardware.security.keymint-V2-ndk",
+        "android.hardware.security.keymint-V3-ndk",
     ],
 }
 
 cc_defaults {
     name: "keymint_use_latest_hal_aidl_cpp_static",
     static_libs: [
-        "android.hardware.security.keymint-V2-cpp",
+        "android.hardware.security.keymint-V3-cpp",
+    ],
+}
+
+cc_defaults {
+    name: "keymint_use_latest_hal_aidl_cpp_shared",
+    shared_libs: [
+        "android.hardware.security.keymint-V3-cpp",
     ],
 }
 
@@ -79,6 +88,6 @@ cc_defaults {
 rust_defaults {
     name: "keymint_use_latest_hal_aidl_rust",
     rustlibs: [
-        "android.hardware.security.keymint-V2-rust",
+        "android.hardware.security.keymint-V3-rust",
     ],
 }

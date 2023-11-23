@@ -533,6 +533,26 @@ public class CameraVideoActivity extends PassFailButtons.Activity
                                     releaseMediaRecorder();
 
                                     mPlaybackView.setVideoPath(outputVideoFile.getPath());
+
+                                    // Crop playback vertically if necessary
+                                    float videoWidth = (float) mNextPreviewSize.width;
+                                    float videoHeight = (float) mNextPreviewSize.height;
+                                    if (mVideoRotation == 90 || mVideoRotation == 270) {
+                                        videoWidth = (float) mNextPreviewSize.height;
+                                        videoHeight = (float) mNextPreviewSize.width;
+                                    }
+
+                                    float potentialHeight = mPlaybackView.getWidth()
+                                            * (videoHeight / videoWidth);
+                                    if (potentialHeight > mPreviewTexHeight) {
+                                        // Use mPreviewTexHeight as a reference as
+                                        // mPlaybackView.getHeight() is from the previous playback
+                                        float scaleY = potentialHeight / (float) mPreviewTexHeight;
+                                        mPlaybackView.setScaleY(scaleY);
+                                    } else {
+                                        mPlaybackView.setScaleY(1.0f);
+                                    }
+
                                     mPlaybackView.start();
                                     isRecording = false;
                                     isPlayingBack = true;

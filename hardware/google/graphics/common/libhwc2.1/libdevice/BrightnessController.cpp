@@ -34,10 +34,12 @@ BrightnessController::BrightnessController(int32_t panelIndex, std::function<voi
         mLhbm(false),
         mSdrDim(false),
         mPrevSdrDim(false),
+        mDimBrightnessReq(false),
         mFrameRefresh(refresh),
         mHdrLayerState(HdrLayerState::kHdrNone),
         mUpdateDcLhbm(updateDcLhbm) {
     initBrightnessSysfs();
+    initCabcSysfs();
 }
 
 BrightnessController::~BrightnessController() {
@@ -58,14 +60,21 @@ int BrightnessController::initDrm(const DrmDevice& drmDevice,
 
     mLhbmSupported = connector.lhbm_on().id() != 0;
     mGhbmSupported = connector.hbm_mode().id() != 0;
+
+    /* allow the first brightness to apply */
+    mBrightnessFloatReq.set_dirty();
     return NO_ERROR;
 }
 
 void BrightnessController::initDimmingUsage() {
-    mBrightnessDimmingUsage = static_cast<BrightnessDimmingUsage>(
-            property_get_int32("vendor.display.brightness.dimming.usage", 0));
-    mHbmDimmingTimeUs =
-            property_get_int32("vendor.display.brightness.dimming.hbm_time", kHbmDimmingTimeUs);
+    String8 propName;
+    propName.appendFormat(kDimmingUsagePropName, mPanelIndex);
+
+    mBrightnessDimmingUsage = static_cast<BrightnessDimmingUsage>(property_get_int32(propName, 0));
+
+    propName.clear();
+    propName.appendFormat(kDimmingHbmTimePropName, mPanelIndex);
+    mHbmDimmingTimeUs = property_get_int32(propName, kHbmDimmingTimeUs);
 
     if (mBrightnessDimmingUsage == BrightnessDimmingUsage::NORMAL) {
         mDimming.store(true);
@@ -98,6 +107,21 @@ void BrightnessController::initBrightnessSysfs() {
 
     ifsMaxBrightness >> mMaxBrightness;
     ifsMaxBrightness.close();
+}
+
+void BrightnessController::initCabcSysfs() {
+    mCabcSupport = property_get_bool("vendor.display.cabc.supported", false);
+    if (!mCabcSupport) return;
+
+    String8 nodeName;
+    nodeName.appendFormat(kLocalCabcModeFileNode, mPanelIndex);
+
+    mCabcModeOfs.open(nodeName.string(), std::ofstream::out);
+    if (mCabcModeOfs.fail()) {
+        ALOGE("%s %s fail to open", __func__, nodeName.string());
+        mCabcModeOfs.close();
+        return;
+    }
 }
 
 void BrightnessController::initBrightnessTable(const DrmDevice& drmDevice,
@@ -133,9 +157,25 @@ void BrightnessController::initBrightnessTable(const DrmDevice& drmDevice,
 
     // init to min before SF sets the brightness
     mDisplayWhitePointNits = cap->normal.nits.min;
+    mPrevDisplayWhitePointNits = mDisplayWhitePointNits;
     mBrightnessIntfSupported = true;
 
     drmModeFreePropertyBlob(blob);
+
+    String8 nodeName;
+    nodeName.appendFormat(kDimBrightnessFileNode, mPanelIndex);
+
+    std::ifstream ifsDimBrightness(nodeName.string());
+    if (ifsDimBrightness.fail()) {
+        ALOGW("%s fail to open %s", __func__, nodeName.string());
+    } else {
+        ifsDimBrightness >> mDimBrightness;
+        ifsDimBrightness.close();
+        if (mDimBrightness >= mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBklStart)
+            mDimBrightness = 0;
+    }
+    mDbmSupported = !!mDimBrightness;
+    ALOGI("%s mDimBrightness=%d, mDbmSupported=%d", __func__, mDimBrightness, mDbmSupported);
 }
 
 int BrightnessController::processEnhancedHbm(bool on) {
@@ -177,6 +217,9 @@ int BrightnessController::processDisplayBrightness(float brightness, const nsecs
 
     {
         std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
+        /* apply the first brightness */
+        if (mBrightnessFloatReq.is_dirty()) mBrightnessLevel.set_dirty();
+
         mBrightnessFloatReq.store(brightness);
         if (!mBrightnessFloatReq.is_dirty()) {
             return NO_ERROR;
@@ -185,20 +228,14 @@ int BrightnessController::processDisplayBrightness(float brightness, const nsecs
         // check if it will go drm path for below cases.
         // case 1: hbm state will change
         // case 2: for hwc3, brightness command could apply at next present if possible
-        if (mGhbmSupported || waitPresent) {
+        if (queryBrightness(brightness, &ghbm, &level) == NO_ERROR) {
             // ghbm on/off always go drm path
-            if (mGhbmSupported) {
-                if (queryBrightness(brightness, &ghbm, &level)) {
-                    ALOGE("%s failed to convert brightness %f", __func__, brightness);
-                    return -EINVAL;
-                }
-                // check if this will cause a hbm transition
-                if ((mGhbm.get() != HbmMode::OFF) != ghbm) {
-                    // this brightness change will go drm path
-                    updateStates();
-                    mFrameRefresh(); // force next frame to update brightness
-                    return NO_ERROR;
-                }
+            // check if this will cause a hbm transition
+            if (mGhbmSupported && (mGhbm.get() != HbmMode::OFF) != ghbm) {
+                // this brightness change will go drm path
+                updateStates();
+                mFrameRefresh(); // force next frame to update brightness
+                return NO_ERROR;
             }
             // there will be a Present to apply this brightness change
             if (waitPresent) {
@@ -209,21 +246,23 @@ int BrightnessController::processDisplayBrightness(float brightness, const nsecs
         } else {
             level = brightness < 0 ? 0 : static_cast<uint32_t>(brightness * mMaxBrightness + 0.5f);
         }
-        // go sysfs path
+        // clear dirty before go sysfs path
+        mBrightnessFloatReq.clear_dirty();
     }
 
     // Sysfs path is faster than drm path. If there is an unchecked drm path change, the sysfs
     // path should check the sysfs content.
     if (mUncheckedGbhmRequest) {
         ATRACE_NAME("check_ghbm_mode");
-        checkSysfsStatus(kGlobalHbmModeFileNode,
-                         std::to_string(toUnderlying(mPendingGhbmStatus.load())), vsyncNs * 5);
+        checkSysfsStatus(GetPanelSysfileByIndex(kGlobalHbmModeFileNode),
+                         {std::to_string(toUnderlying(mPendingGhbmStatus.load()))}, vsyncNs * 5);
         mUncheckedGbhmRequest = false;
     }
 
     if (mUncheckedLhbmRequest) {
         ATRACE_NAME("check_lhbm_mode");
-        checkSysfsStatus(kLocalHbmModeFileNode, std::to_string(mPendingLhbmStatus), vsyncNs * 5);
+        checkSysfsStatus(GetPanelSysfileByIndex(kLocalHbmModeFileNode),
+                         {std::to_string(mPendingLhbmStatus)}, vsyncNs * 5);
         mUncheckedLhbmRequest = false;
     }
 
@@ -262,7 +301,8 @@ int BrightnessController::applyPendingChangeViaSysfs(const nsecs_t vsyncNs) {
 
     if (mUncheckedBlRequest) {
         ATRACE_NAME("check_bl_value");
-        checkSysfsStatus(BRIGHTNESS_SYSFS_NODE, std::to_string(mPendingBl), vsyncNs * 5);
+        checkSysfsStatus(GetPanelSysfileByIndex(BRIGHTNESS_SYSFS_NODE),
+                         {std::to_string(mPendingBl)}, vsyncNs * 5);
         mUncheckedBlRequest = false;
     }
 
@@ -276,6 +316,13 @@ int BrightnessController::processLocalHbm(bool on) {
 
     std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
     mLhbmReq.store(on);
+    // As kernel timeout timer might disable LHBM without letting HWC know, enforce mLhbmReq and
+    // mLhbm dirty to ensure the enabling request can be passed through kernel unconditionally.
+    // TODO-b/260915350: move LHBM timeout mechanism from kernel to HWC for easier control and sync.
+    if (on) {
+        mLhbmReq.set_dirty();
+        mLhbm.set_dirty();
+    }
     if (mLhbmReq.is_dirty()) {
         updateStates();
     }
@@ -310,6 +357,16 @@ int BrightnessController::processInstantHbm(bool on) {
     return NO_ERROR;
 }
 
+int BrightnessController::processDimBrightness(bool on) {
+    std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
+    mDimBrightnessReq.store(on);
+    if (mDimBrightnessReq.is_dirty()) {
+        updateStates();
+        ALOGI("%s request = %d", __func__, mDimBrightnessReq.get());
+    }
+    return NO_ERROR;
+}
+
 float BrightnessController::getSdrDimRatioForInstantHbm() {
     if (!mBrightnessIntfSupported || !mGhbmSupported) {
         return 1.0f;
@@ -340,28 +397,36 @@ float BrightnessController::getSdrDimRatioForInstantHbm() {
     return ratio;
 }
 
-void BrightnessController::onClearDisplay() {
-    std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
-    mEnhanceHbmReq.reset(false);
-    mLhbmReq.reset(false);
-    mBrightnessFloatReq.reset(-1);
+void BrightnessController::onClearDisplay(bool needModeClear) {
+    resetLhbmState();
     mInstantHbmReq.reset(false);
 
+    if (mBrightnessLevel.is_dirty()) applyBrightnessViaSysfs(mBrightnessLevel.get());
+
+    if (!needModeClear) return;
+
+    std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
+    mEnhanceHbmReq.reset(false);
+    mBrightnessFloatReq.reset(-1);
+
     mBrightnessLevel.reset(0);
+    mDisplayWhitePointNits = 0;
+    mPrevDisplayWhitePointNits = 0;
     mGhbm.reset(HbmMode::OFF);
     mDimming.reset(false);
     mHbmDimming = false;
     if (mBrightnessDimmingUsage == BrightnessDimmingUsage::NORMAL) {
         mDimming.store(true);
     }
-    mLhbm.reset(false);
 
-    mLhbmBrightnessAdj = false;
+    std::lock_guard<std::recursive_mutex> lock1(mCabcModeMutex);
+    mCabcMode.reset(CabcMode::OFF);
 }
 
 int BrightnessController::prepareFrameCommit(ExynosDisplay& display,
                               const DrmConnector& connector,
                               ExynosDisplayDrmInterface::DrmModeAtomicReq& drmReq,
+                              const bool mixedComposition,
                               bool& ghbmSync, bool& lhbmSync, bool& blSync) {
     int ret;
 
@@ -371,6 +436,17 @@ int BrightnessController::prepareFrameCommit(ExynosDisplay& display,
 
     ATRACE_CALL();
     std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
+
+    bool sync = false;
+    if (mixedComposition && mPrevDisplayWhitePointNits > 0 && mDisplayWhitePointNits > 0) {
+        float diff = std::abs(mPrevDisplayWhitePointNits - mDisplayWhitePointNits);
+        float min = std::min(mPrevDisplayWhitePointNits, mDisplayWhitePointNits);
+        if (diff / min > kBrightnessSyncThreshold) {
+            sync = true;
+            ALOGD("%s: enable brightness sync for change from %f to %f", __func__,
+                  mPrevDisplayWhitePointNits, mDisplayWhitePointNits);
+        }
+    }
 
     if (mDimming.is_dirty()) {
         if ((ret = drmReq.atomicAddProperty(connector.id(), connector.dimming_on(),
@@ -437,9 +513,11 @@ int BrightnessController::prepareFrameCommit(ExynosDisplay& display,
             } else {
                 mUncheckedBlRequest = true;
                 mPendingBl = mBrightnessLevel.get();
+                blSync = sync;
             }
         }
         mBrightnessLevel.clear_dirty();
+        mPrevDisplayWhitePointNits = mDisplayWhitePointNits;
     }
 
     if (mGhbm.is_dirty() && mGhbmSupported) {
@@ -455,7 +533,7 @@ int BrightnessController::prepareFrameCommit(ExynosDisplay& display,
                                             hbmEnum)) < 0) {
             ALOGE("%s: Fail to set hbm_mode property", __func__);
         } else {
-            ghbmSync = true;
+            ghbmSync = sync;
         }
         mGhbm.clear_dirty();
     }
@@ -558,11 +636,11 @@ int BrightnessController::updateStates() {
     mInstantHbmReq.clear_dirty();
     mSdrDim.clear_dirty();
     mPrevSdrDim.clear_dirty();
+    mDimBrightnessReq.clear_dirty();
 
     if (mBrightnessLevel.is_dirty() || mDimming.is_dirty() || mGhbm.is_dirty() ||
         mLhbm.is_dirty()) {
-        ALOGI("level=%d, DimmingOn=%d, Hbm=%d, LhbmOn=%d.", mBrightnessLevel.get(), mDimming.get(),
-              mGhbm.get(), mLhbm.get());
+        printBrightnessStates("drm");
     }
     return NO_ERROR;
 }
@@ -570,6 +648,15 @@ int BrightnessController::updateStates() {
 int BrightnessController::queryBrightness(float brightness, bool *ghbm, uint32_t *level,
                                                float *nits) {
     if (!mBrightnessIntfSupported) {
+        return HWC2_ERROR_UNSUPPORTED;
+    }
+
+    if (mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBklStart == 0 &&
+        mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBklEnd == 0 &&
+        mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBriStart == 0 &&
+        mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mBriEnd == 0 &&
+        mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mNitsStart == 0 &&
+        mBrightnessTable[toUnderlying(BrightnessRange::NORMAL)].mNitsEnd == 0) {
         return HWC2_ERROR_UNSUPPORTED;
     }
 
@@ -608,7 +695,10 @@ int BrightnessController::queryBrightness(float brightness, bool *ghbm, uint32_t
                     *nits = norm * nSpan + mBrightnessTable[i].mNitsStart;
                 }
             }
-
+            if ((i == toUnderlying(BrightnessRange::NORMAL)) && mDbmSupported &&
+                (mDimBrightnessReq.get() == true) && (*level == mBrightnessTable[i].mBklStart)) {
+                *level = mDimBrightness;
+            }
             return NO_ERROR;
         }
     }
@@ -617,27 +707,39 @@ int BrightnessController::queryBrightness(float brightness, bool *ghbm, uint32_t
 }
 
 // Return immediately if it's already in the status. Otherwise poll the status
-int BrightnessController::checkSysfsStatus(const char* file, const std::string& expectedValue,
+int BrightnessController::checkSysfsStatus(const std::string& file,
+                                           const std::vector<std::string>& expectedValue,
                                            const nsecs_t timeoutNs) {
     ATRACE_CALL();
+
+    if (expectedValue.size() == 0) {
+      return -EINVAL;
+    }
+
     char buf[16];
-    String8 nodeName;
-    nodeName.appendFormat(file, mPanelIndex);
-    UniqueFd fd = open(nodeName.string(), O_RDONLY);
+    UniqueFd fd = open(file.c_str(), O_RDONLY);
+    if (fd.get() < 0) {
+        ALOGE("%s failed to open sysfs %s: %s", __func__, file.c_str(), strerror(errno));
+        return -ENOENT;
+    }
 
     int size = read(fd.get(), buf, sizeof(buf));
     if (size <= 0) {
-        ALOGE("%s failed to read from %s", __func__, kLocalHbmModeFileNode);
-        return false;
+        ALOGE("%s failed to read from %s: %s", __func__, file.c_str(), strerror(errno));
+        return -EIO;
     }
 
     // '- 1' to remove trailing '\n'
-    if (std::string_view(buf, size - 1) == expectedValue) {
-        return true;
+    std::string val = std::string(buf, size - 1);
+    if (std::find(expectedValue.begin(), expectedValue.end(), val) != expectedValue.end()) {
+        return OK;
+    } else if (timeoutNs == 0) {
+        // not get the expected value and no intention to wait
+        return -EINVAL;
     }
 
     struct pollfd pfd;
-    int ret = EINVAL;
+    int ret = -EINVAL;
 
     auto startTime = systemTime(SYSTEM_TIME_MONOTONIC);
     pfd.fd = fd.get();
@@ -651,9 +753,9 @@ int BrightnessController::checkSysfsStatus(const char* file, const std::string& 
         }
         int pollRet = poll(&pfd, 1, ns2ms(remainTimeNs));
         if (pollRet == 0) {
-            ALOGW("%s poll timeout", __func__);
+            ALOGW("%s poll %s timeout", __func__, file.c_str());
             // time out
-            ret = ETIMEDOUT;
+            ret = -ETIMEDOUT;
             break;
         } else if (pollRet > 0) {
             if (!(pfd.revents & POLLPRI)) {
@@ -663,31 +765,72 @@ int BrightnessController::checkSysfsStatus(const char* file, const std::string& 
             lseek(fd.get(), 0, SEEK_SET);
             size = read(fd.get(), buf, sizeof(buf));
             if (size > 0) {
-                if (std::string_view(buf, size - 1) == expectedValue) {
-                    ret = 0;
+                val = std::string(buf, size - 1);
+                if (std::find(expectedValue.begin(), expectedValue.end(), val) !=
+                    expectedValue.end()) {
+                    ret = OK;
+                    break;
                 } else {
-                    buf[size - 1] = 0;
-                    ALOGE("%s read %s expected %s after notified", __func__, buf,
-                          expectedValue.c_str());
-                    ret = EINVAL;
+                    std::string values;
+                    for (auto& s : expectedValue) {
+                        values += s + std::string(" ");
+                    }
+                    if (values.size() > 0) {
+                        values.resize(values.size() - 1);
+                    }
+                    ALOGW("%s read %s expected %s after notified on file %s", __func__, val.c_str(),
+                          values.c_str(), file.c_str());
                 }
             } else {
-                ret = EIO;
-                ALOGE("%s failed to read after notified %d", __func__, errno);
+                ret = -EIO;
+                ALOGE("%s failed to read after notified %d on file %s", __func__, errno,
+                      file.c_str());
+                break;
             }
-            break;
         } else {
             if (errno == EAGAIN || errno == EINTR) {
                 continue;
             }
 
-            ALOGE("%s poll failed %d", __func__, errno);
-            ret = errno;
+            ALOGE("%s poll failed %d on file %s", __func__, errno, file.c_str());
+            ret = -errno;
             break;
         }
     };
 
-    return ret == NO_ERROR;
+    return ret;
+}
+
+void BrightnessController::resetLhbmState() {
+    std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
+    mLhbmReq.reset(false);
+    mLhbm.reset(false);
+    mLhbmBrightnessAdj = false;
+}
+
+void BrightnessController::setOutdoorVisibility(LbeState state) {
+    std::lock_guard<std::recursive_mutex> lock(mCabcModeMutex);
+    mOutdoorVisibility = (state != LbeState::OFF);
+}
+
+int BrightnessController::updateCabcMode() {
+    if (!mCabcSupport || mCabcModeOfs.fail()) return HWC2_ERROR_UNSUPPORTED;
+
+    std::lock_guard<std::recursive_mutex> lock(mCabcModeMutex);
+    CabcMode mode;
+    if (mOutdoorVisibility)
+        mode = CabcMode::OFF;
+    else
+        mode = isHdrLayerOn() ? CabcMode::CABC_MOVIE_MODE : CabcMode::CABC_UI_MODE;
+    mCabcMode.store(mode);
+
+    if (mCabcMode.is_dirty()) {
+        applyCabcModeViaSysfs(static_cast<uint8_t>(mode));
+        ALOGD("%s, isHdrLayerOn: %d, mOutdoorVisibility: %d.", __func__, isHdrLayerOn(),
+              mOutdoorVisibility);
+        mCabcMode.clear_dirty();
+    }
+    return NO_ERROR;
 }
 
 int BrightnessController::applyBrightnessViaSysfs(uint32_t level) {
@@ -705,14 +848,30 @@ int BrightnessController::applyBrightnessViaSysfs(uint32_t level) {
         {
             std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
             mBrightnessLevel.reset(level);
-            ALOGI("level=%d, DimmingOn=%d, Hbm=%d, LhbmOn=%d", level,
-                  mDimming.get(), mGhbm.get(), mLhbm.get());
+            mPrevDisplayWhitePointNits = mDisplayWhitePointNits;
+            printBrightnessStates("sysfs");
         }
 
         return NO_ERROR;
     }
 
     return HWC2_ERROR_UNSUPPORTED;
+}
+
+int BrightnessController::applyCabcModeViaSysfs(uint8_t mode) {
+    if (!mCabcModeOfs.is_open()) return HWC2_ERROR_UNSUPPORTED;
+
+    ATRACE_NAME("write_cabc_mode_sysfs");
+    mCabcModeOfs.seekp(std::ios_base::beg);
+    mCabcModeOfs << std::to_string(mode);
+    mCabcModeOfs.flush();
+    if (mCabcModeOfs.fail()) {
+        ALOGE("%s fail to write CabcMode %d", __func__, mode);
+        mCabcModeOfs.clear();
+        return HWC2_ERROR_NO_RESOURCES;
+    }
+    ALOGI("%s Cabc_Mode=%d", __func__, mode);
+    return NO_ERROR;
 }
 
 // brightness is normalized to current display brightness
@@ -745,6 +904,15 @@ void BrightnessController::parseHbmModeEnums(const DrmProperty& property) {
     }
 }
 
+/*
+ * WARNING: This print is parsed by Battery Historian. Consult with the Battery
+ *   Historian team before modifying (b/239640926).
+ */
+void BrightnessController::printBrightnessStates(const char* path) {
+    ALOGI("path=%s, id=%d, level=%d, DimmingOn=%d, Hbm=%d, LhbmOn=%d", path ?: "unknown",
+          mPanelIndex, mBrightnessLevel.get(), mDimming.get(), mGhbm.get(), mLhbm.get());
+}
+
 void BrightnessController::dump(String8& result) {
     std::lock_guard<std::recursive_mutex> lock(mBrightnessMutex);
 
@@ -753,10 +921,10 @@ void BrightnessController::dump(String8& result) {
                         "lhbm supported %d, ghbm supported %d\n", mBrightnessOfs.is_open(),
                         mMaxBrightness, mBrightnessIntfSupported, mLhbmSupported, mGhbmSupported);
     result.appendFormat("\trequests: enhance hbm %d, lhbm %d, "
-                        "brightness %f, instant hbm %d\n",
+                        "brightness %f, instant hbm %d, DimBrightness %d\n",
                         mEnhanceHbmReq.get(), mLhbmReq.get(), mBrightnessFloatReq.get(),
-                        mInstantHbmReq.get());
-    result.appendFormat("\tstates: brighntess level %d, ghbm %d, dimming %d, lhbm %d\n",
+                        mInstantHbmReq.get(), mDimBrightnessReq.get());
+    result.appendFormat("\tstates: brighntess level %d, ghbm %d, dimming %d, lhbm %d",
                         mBrightnessLevel.get(), mGhbm.get(), mDimming.get(), mLhbm.get());
     result.appendFormat("\thdr layer state %d, unchecked lhbm request %d(%d), "
                         "unchecked ghbm request %d(%d)\n",
@@ -765,6 +933,10 @@ void BrightnessController::dump(String8& result) {
                         mPendingGhbmStatus.load());
     result.appendFormat("\tdimming usage %d, hbm dimming %d, time us %d\n", mBrightnessDimmingUsage,
                         mHbmDimming, mHbmDimmingTimeUs);
-    result.appendFormat("\twhite point nits %f\n", mDisplayWhitePointNits);
+    result.appendFormat("\twhite point nits current %f, previous %f\n", mDisplayWhitePointNits,
+                        mPrevDisplayWhitePointNits);
+    result.appendFormat("\tcabc supported %d, cabcMode %d\n", mCabcModeOfs.is_open(),
+                        mCabcMode.get());
+
     result.appendFormat("\n");
 }

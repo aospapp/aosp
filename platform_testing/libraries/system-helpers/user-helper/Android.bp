@@ -21,7 +21,6 @@ package {
 java_library {
     name: "user-helper",
     libs: [
-        "ub-uiautomator",
         "androidx.test.rules",
         "commands-helper",
     ],

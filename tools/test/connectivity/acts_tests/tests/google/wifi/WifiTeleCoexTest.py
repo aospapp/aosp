@@ -1,6 +1,5 @@
 #!/usr/bin/env python3.4
 
-import queue
 import time
 
 import acts.base_test
@@ -36,9 +35,9 @@ WIFI_PWD = "wifi_network_pass"
 STRESS_COUNT = "stress_iteration"
 DEFAULT_TIMEOUT = 10
 
+
 class WifiTeleCoexTest(TelephonyBaseTest):
     """Tests for WiFi, Celular Co-existance."""
-
 
     def setup_class(self):
         TelephonyBaseTest.setup_class(self)
@@ -53,11 +52,11 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.dut = self.android_devices[0]
         self.wifi_network_ssid = self.user_params.get(WIFI_SSID)
         self.wifi_network_pass = self.user_params.get(WIFI_PWD)
-        self.network = { WifiEnums.SSID_KEY : self.wifi_network_ssid,
-                         WifiEnums.PWD_KEY : self.wifi_network_pass
-                       }
+        self.network = {
+            WifiEnums.SSID_KEY: self.wifi_network_ssid,
+            WifiEnums.PWD_KEY: self.wifi_network_pass
+        }
         self.stress_count = self.user_params.get(STRESS_COUNT)
-
 
     def setup_test(self):
         """ Setup test make sure the DUT is wake and screen unlock"""
@@ -66,7 +65,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             ad.droid.wakeUpNow()
             ad.droid.telephonyToggleDataConnection(True)
         wifi_utils.wifi_toggle_state(self.dut, True)
-
 
     def teardown_test(self):
         """ End test make sure the DUT return idle"""
@@ -77,7 +75,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         nutil.stop_usb_tethering(self.dut)
 
     """Helper Functions"""
-
 
     def connect_to_wifi(self, ad, network):
         """Connection logic for open and psk wifi networks.
@@ -90,12 +87,11 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         ad.ed.clear_all_events()
         wifi_utils.start_wifi_connection_scan(ad)
         scan_results = ad.droid.wifiGetScanResults()
-        wifi_utils.assert_network_in_list({WifiEnums.SSID_KEY:
-                self.wifi_network_ssid}, scan_results)
+        wifi_utils.assert_network_in_list(
+            {WifiEnums.SSID_KEY: self.wifi_network_ssid}, scan_results)
         wifi_utils.wifi_connect(ad, network)
-        self.log.debug("Connected to %s network on %s device" % (
-                network[WifiEnums.SSID_KEY], ad.serial))
-
+        self.log.debug("Connected to %s network on %s device" %
+                       (network[WifiEnums.SSID_KEY], ad.serial))
 
     def stress_toggle_wifi(self, stress_count):
         """Toggle WiFi in a loop.
@@ -112,7 +108,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             raise signals.TestFailure("WiFi did not turn on after toggling it"
                                       " %d times" % self.stress_count)
 
-
     def stress_toggle_airplane(self, stress_count):
         """Toggle Airplane mode in a loop.
 
@@ -128,7 +123,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             raise signals.TestFailure("WiFi did not turn on after toggling it"
                                       " %d times" % self.stress_count)
 
-
     def stress_toggle_airplane_and_wifi(self, stress_count):
         """Toggle Airplane and WiFi modes in a loop.
 
@@ -138,7 +132,8 @@ class WifiTeleCoexTest(TelephonyBaseTest):
 
         """
         for count in range(stress_count):
-            self.log.debug("stress_toggle_airplane_and_wifi: Iteration %d" % count)
+            self.log.debug("stress_toggle_airplane_and_wifi: Iteration %d" %
+                           count)
             self.log.debug("Toggling Airplane mode ON")
             asserts.assert_true(
                 acts.utils.force_airplane_mode(self.dut, True),
@@ -150,7 +145,8 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             # Sleep for 1s before getting new WiFi state.
             time.sleep(1)
             if not self.dut.droid.wifiGetisWifiEnabled():
-                raise signals.TestFailure("WiFi did not turn on after turning ON"
+                raise signals.TestFailure(
+                    "WiFi did not turn on after turning ON"
                     " Airplane mode")
             asserts.assert_true(
                 acts.utils.force_airplane_mode(self.dut, False),
@@ -159,7 +155,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         if not self.dut.droid.wifiGetisWifiEnabled():
             raise signals.TestFailure("WiFi did not turn on after toggling it"
                                       " %d times" % self.stress_count)
-
 
     def setup_cellular_voice_calling(self):
         """Setup phone for voice general calling and make sure phone is
@@ -170,7 +165,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
                 raise signals.TestFailure("Phone failed to setup for voice"
                                           " calling serial:%s" % ad.serial)
         self.log.debug("Finished setting up phones for voice calling")
-
 
     def validate_cellular_and_wifi(self):
         """Validate WiFi, make some cellular calls.
@@ -185,13 +179,13 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         time.sleep(30)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         if wifi_info[WifiEnums.SSID_KEY] != self.wifi_network_ssid:
-            raise signals.TestFailure("Phone failed to connect to %s network on"
-                                      " %s" % (self.wifi_network_ssid,
-                                      self.dut.serial))
+            raise signals.TestFailure(
+                "Phone failed to connect to %s network on"
+                " %s" % (self.wifi_network_ssid, self.dut.serial))
 
         # Make short call sequence between Phone A and Phone B.
-        two_phone_call_short_seq(self.log, self.ads[0], None, None, self.ads[1],
-                                 None, None)
+        two_phone_call_short_seq(self.log, self.ads[0], None, None,
+                                 self.ads[1], None, None)
 
     def _phone_idle_iwlan(self):
         return phone_idle_iwlan(self.log, self.android_devices[0])
@@ -212,31 +206,29 @@ class WifiTeleCoexTest(TelephonyBaseTest):
           (failure is logged) True otherwise.
 
         """
-        tele_utils.toggle_airplane_mode(self.log, self.android_devices[0], False)
+        tele_utils.toggle_airplane_mode(self.log, self.android_devices[0],
+                                        False)
         toggle_volte(self.log, self.android_devices[0], volte_mode)
-        if not ensure_network_generation(
-                self.log,
-                self.android_devices[0],
-                GEN_4G,
-                voice_or_data=NETWORK_SERVICE_DATA):
+        if not ensure_network_generation(self.log,
+                                         self.android_devices[0],
+                                         GEN_4G,
+                                         voice_or_data=NETWORK_SERVICE_DATA):
             return False
         if not set_wfc_mode(self.log, self.android_devices[0], wfc_mode):
             self.log.error("{} set WFC mode failed.".format(
                 self.android_devices[0].serial))
             return False
         tele_utils.toggle_airplane_mode(self.log, self.android_devices[0],
-                             is_airplane_mode)
-        if not tel_wifi_utils.ensure_wifi_connected(self.log, self.android_devices[0],
-                                     self.wifi_network_ssid,
-                                     self.wifi_network_pass):
+                                        is_airplane_mode)
+        if not tel_wifi_utils.ensure_wifi_connected(
+                self.log, self.android_devices[0], self.wifi_network_ssid,
+                self.wifi_network_pass):
             self.log.error("{} connect WiFI failed".format(
                 self.android_devices[0].serial))
             return False
         return True
 
-
     """Tests"""
-
 
     @test_tracker_info(uuid="8b9b6fb9-964b-43e7-b75f-675774ee346f")
     @TelephonyBaseTest.tel_test_wrap
@@ -259,7 +251,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.validate_cellular_and_wifi()
         return True
 
-
     @test_tracker_info(uuid="caf22447-6354-4a2e-99e5-0ff235fc8f20")
     @TelephonyBaseTest.tel_test_wrap
     def test_toggle_airplane_call(self):
@@ -280,7 +271,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         wifi_utils.toggle_airplane_mode_on_and_off(self.dut)
         self.validate_cellular_and_wifi()
         return True
-
 
     @test_tracker_info(uuid="dd888b35-f820-409a-89af-4b0f6551e4d6")
     @TelephonyBaseTest.tel_test_wrap
@@ -305,7 +295,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.validate_cellular_and_wifi()
         return True
 
-
     @test_tracker_info(uuid="15db5b7e-827e-4bc8-8e77-7fcce343a323")
     @TelephonyBaseTest.tel_test_wrap
     def test_stress_toggle_wifi_call(self):
@@ -327,7 +316,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.validate_cellular_and_wifi()
         return True
 
-
     @test_tracker_info(uuid="80a2f1bf-5e41-453a-9b8e-be3b41d4d313")
     @TelephonyBaseTest.tel_test_wrap
     def test_stress_toggle_airplane_call(self):
@@ -348,7 +336,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.stress_toggle_airplane(self.stress_count)
         self.validate_cellular_and_wifi()
         return True
-
 
     @test_tracker_info(uuid="b88ad3e7-6462-4280-ad57-22d0ac91fdd8")
     @TelephonyBaseTest.tel_test_wrap
@@ -377,7 +364,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
     @test_tracker_info(uuid="7cd9698c-7cde-4c99-b73a-67a2246ca4ec")
     @TelephonyBaseTest.tel_test_wrap
     def test_toggle_WFC_call(self):
-
         """Test to toggle WiFi and then perform WiFi connection and
            cellular calls.
 
@@ -397,7 +383,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             The device is using WiFi calling to call out.
 
         """
-        mo_mt=[]
+        mo_mt = []
         if mo_mt == DIRECTION_MOBILE_ORIGINATED:
             ad_caller = self.ads[0]
             ad_callee = self.ads[1]
@@ -411,7 +397,7 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         self.connect_to_wifi(self.dut, self.network)
         asserts.assert_true(
             acts.utils.force_airplane_mode(self.dut, True),
-                "Can not turn on airplane mode on: %s" % self.dut.serial)
+            "Can not turn on airplane mode on: %s" % self.dut.serial)
         time.sleep(1)
         self.log.info("Toggling wifi ON")
         wifi_utils.wifi_toggle_state(self.dut, True)
@@ -421,13 +407,13 @@ class WifiTeleCoexTest(TelephonyBaseTest):
         if not self._phone_idle_iwlan():
             self.log.error("no in wifi calling")
             raise signals.TestFailure("The Wifi calling test is failed."
-                "WiFi State = %d" %self.dut.droid.wifiCheckState())
+                                      "WiFi State = %d" %
+                                      self.dut.droid.wifiCheckState())
         tele_utils.hangup_call(self.log, self.ads[0])
 
     @test_tracker_info(uuid="c1f0e0a7-b651-4d6c-a4a5-f946cabf56ef")
     @TelephonyBaseTest.tel_test_wrap
     def test_back_to_back_of_the_modem_restart(self):
-
         """Make sure DUT can connect to AP after modem restart
 
         Raises:
@@ -461,13 +447,13 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             time.sleep(20)
             self.connect_to_wifi(self.dut, self.network)
         except:
-            raise signals.TestFailure("The Wifi connect failed after modem restart."
-                "WiFi State = %d" %self.dut.droid.wifiCheckState())
+            raise signals.TestFailure(
+                "The Wifi connect failed after modem restart."
+                "WiFi State = %d" % self.dut.droid.wifiCheckState())
 
     @test_tracker_info(uuid="a72ff9da-3855-4c21-b447-b80f43227961")
     @TelephonyBaseTest.tel_test_wrap
     def test_internet_accessing_over_wifi_and_mms_test(self):
-
         """Verify when MMS is working WLAN connection can work normally as well.
 
         Raises:
@@ -492,15 +478,14 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             mms_utils._mms_test(self.log, self.ads)
             if not tele_utils.verify_internet_connection(
                     self.dut2.log, self.dut2):
-                    raise signals.TestFailure("The internet connection is stop."
-                        "Current WiFi state is %d"
-                        % self.dut2.droid.wifiCheckState())
+                raise signals.TestFailure("The internet connection is stop."
+                                          "Current WiFi state is %d" %
+                                          self.dut2.droid.wifiCheckState())
             time.sleep(30)
 
     @test_tracker_info(uuid="a7d774e4-ead3-465c-b4a6-f39a6397dfe3")
     @TelephonyBaseTest.tel_test_wrap
     def test_internet_accessing_wifi_and_data_test(self):
-
         """Verify interwork between Wi-Fi and data.
 
         Raises:
@@ -525,8 +510,8 @@ class WifiTeleCoexTest(TelephonyBaseTest):
                     self.dut.log, self.dut):
                 raise signals.TestFailure(
                     "The internet connection is stop"
-                    "for WiFi off. Current WiFi state is %d"
-                    % self.dut.droid.wifiCheckState())
+                    "for WiFi off. Current WiFi state is %d" %
+                    self.dut.droid.wifiCheckState())
             wifi_utils.wifi_toggle_state(self.dut, True)
             time.sleep(DEFAULT_TIMEOUT)
             self.dut.log.info("DUT data is disable")
@@ -536,8 +521,8 @@ class WifiTeleCoexTest(TelephonyBaseTest):
                     self.dut.log, self.dut):
                 raise signals.TestFailure(
                     "The internet connection is stop"
-                    "for Data off. Current WiFi state is %d"
-                    % self.dut.droid.wifiCheckState())
+                    "for Data off. Current WiFi state is %d" %
+                    self.dut.droid.wifiCheckState())
             self.dut.log.info("DUT data is enable")
             self.dut.droid.telephonyToggleDataConnection(True)
             time.sleep(DEFAULT_TIMEOUT)
@@ -545,7 +530,6 @@ class WifiTeleCoexTest(TelephonyBaseTest):
     @test_tracker_info(uuid="e53adef6-d537-4098-a354-1e63457ab444")
     @TelephonyBaseTest.tel_test_wrap
     def test_internet_accessing_wifi_and_usb_tethering(self):
-
         """Verify interwork between Wi-Fi and USB_TETHERED.
 
         Raises:
@@ -570,13 +554,15 @@ class WifiTeleCoexTest(TelephonyBaseTest):
             time.sleep(DEFAULT_TIMEOUT)
             if not tele_utils.verify_internet_connection(
                     self.dut.log, self.dut):
-                raise signals.TestFailure("The internet connection is stop"
-                    "for tethering enable. Current WiFi state is %d"
-                    % self.dut.droid.wifiCheckState())
+                raise signals.TestFailure(
+                    "The internet connection is stop"
+                    "for tethering enable. Current WiFi state is %d" %
+                    self.dut.droid.wifiCheckState())
             nutil.stop_usb_tethering(self.dut)
             time.sleep(DEFAULT_TIMEOUT)
             if not tele_utils.verify_internet_connection(
                     self.dut.log, self.dut):
-                raise signals.TestFailure("The internet connection is stop"
-                    "for tethering disable. Current WiFi state is %d"
-                    % self.dut.droid.wifiCheckState())
+                raise signals.TestFailure(
+                    "The internet connection is stop"
+                    "for tethering disable. Current WiFi state is %d" %
+                    self.dut.droid.wifiCheckState())

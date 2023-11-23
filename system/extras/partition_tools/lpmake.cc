@@ -17,9 +17,11 @@
 #include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <stdlib.h>
 #ifndef WIN32
 #include <sysexits.h>
 #endif
+#include <unistd.h>
 
 #include <algorithm>
 #include <memory>
@@ -27,6 +29,7 @@
 #include <android-base/parseint.h>
 #include <android-base/result.h>
 #include <android-base/strings.h>
+#include <android-base/unique_fd.h>
 #include <liblp/builder.h>
 #include <liblp/liblp.h>
 
@@ -35,12 +38,15 @@ using namespace android::fs_mgr;
 
 using android::base::Error;
 using android::base::Result;
+using android::base::unique_fd;
 
 #ifdef WIN32
 static constexpr int EX_OK = 0;
 static constexpr int EX_USAGE = 1;
 static constexpr int EX_SOFTWARE = 2;
 static constexpr int EX_CANTCREAT = 3;
+#else
+static constexpr int O_BINARY = 0;
 #endif
 
 /* Prints program usage to |where|. */
@@ -165,14 +171,45 @@ struct PartitionInfo {
 };
 
 static uint64_t CalculateBlockDeviceSize(uint32_t alignment, uint32_t metadata_size,
+                                         uint32_t metadata_slots,
                                          const std::vector<PartitionInfo>& partitions) {
-    uint64_t ret = std::max(alignment, LP_PARTITION_RESERVED_BYTES +
-                                               (LP_METADATA_GEOMETRY_SIZE + metadata_size) * 2) +
-                   partitions.size() * alignment;
+    uint64_t ret = LP_PARTITION_RESERVED_BYTES;
+    ret += LP_METADATA_GEOMETRY_SIZE * 2;
+
+    // Each metadata slot has a primary and backup copy.
+    ret += metadata_slots * metadata_size * 2;
+
+    if (alignment) {
+        uint64_t remainder = ret % alignment;
+        uint64_t to_add = alignment - remainder;
+        if (to_add > std::numeric_limits<uint64_t>::max() - ret) {
+            return 0;
+        }
+        ret += to_add;
+    }
+
+    ret += partitions.size() * alignment;
     for (const auto& partition_info : partitions) {
         ret += partition_info.size;
     }
     return ret;
+}
+
+static bool GetFileSize(const std::string& path, uint64_t* size) {
+    unique_fd fd(open(path.c_str(), O_RDONLY | O_BINARY));
+    if (fd < 0) {
+        fprintf(stderr, "Could not open file: %s: %s\n", path.c_str(), strerror(errno));
+        return false;
+    }
+
+    auto offs = lseek(fd.get(), 0, SEEK_END);
+    if (offs < 0) {
+        fprintf(stderr, "Failed to seek file: %s: %s\n", path.c_str(), strerror(errno));
+        return false;
+    }
+
+    *size = offs;
+    return true;
 }
 
 int main(int argc, char* argv[]) {
@@ -182,7 +219,7 @@ int main(int argc, char* argv[]) {
         { "metadata-slots", required_argument, nullptr, (int)Option::kMetadataSlots },
         { "partition", required_argument, nullptr, (int)Option::kPartition },
         { "output", required_argument, nullptr, (int)Option::kOutput },
-        { "help", no_argument, nullptr, (int)Option::kOutput },
+        { "help", no_argument, nullptr, (int)Option::kHelp },
         { "alignment-offset", required_argument, nullptr, (int)Option::kAlignmentOffset },
         { "alignment", required_argument, nullptr, (int)Option::kAlignment },
         { "sparse", no_argument, nullptr, (int)Option::kSparse },
@@ -347,7 +384,12 @@ int main(int argc, char* argv[]) {
     }
 
     if (auto_blockdevice_size) {
-        blockdevice_size = CalculateBlockDeviceSize(alignment, metadata_size, partitions);
+        blockdevice_size =
+                CalculateBlockDeviceSize(alignment, metadata_size, metadata_slots, partitions);
+        if (!blockdevice_size) {
+            fprintf(stderr, "Invalid block device parameters.\n");
+            return EX_USAGE;
+        }
     }
 
     // Must specify a block device via the old method (--device-size etc) or
@@ -425,12 +467,20 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    for (const auto& partition_info : partitions) {
+    for (auto& partition_info : partitions) {
         Partition* partition = builder->AddPartition(partition_info.name, partition_info.group_name,
                                                      partition_info.attribute_flags);
         if (!partition) {
             fprintf(stderr, "Could not add partition: %s\n", partition_info.name.c_str());
             return EX_SOFTWARE;
+        }
+        if (!partition_info.size) {
+            // Deduce the size automatically.
+            if (auto iter = images.find(partition_info.name); iter != images.end()) {
+                if (!GetFileSize(iter->second, &partition_info.size)) {
+                    return EX_SOFTWARE;
+                }
+            }
         }
         if (!builder->ResizePartition(partition, partition_info.size)) {
             fprintf(stderr, "Not enough space on device for partition %s with size %" PRIu64 "\n",

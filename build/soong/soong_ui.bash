@@ -14,38 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# To track how long we took to startup. %N isn't supported on Darwin, but
-# that's detected in the Go code, which skips calculating the startup time.
-export TRACE_BEGIN_SOONG=$(date +%s%N)
+# To track how long we took to startup.
+case $(uname -s) in
+  Darwin)
+    export TRACE_BEGIN_SOONG=`$T/prebuilts/build-tools/path/darwin-x86/date +%s%3N`
+    ;;
+  *)
+    export TRACE_BEGIN_SOONG=$(date +%s%N)
+    ;;
+esac
 
-# Function to find top of the source tree (if $TOP isn't set) by walking up the
-# tree.
-function gettop
-{
-    local TOPFILE=build/soong/root.bp
-    if [ -n "${TOP-}" -a -f "${TOP-}/${TOPFILE}" ] ; then
-        # The following circumlocution ensures we remove symlinks from TOP.
-        (cd $TOP; PWD= /bin/pwd)
-    else
-        if [ -f $TOPFILE ] ; then
-            # The following circumlocution (repeated below as well) ensures
-            # that we record the true directory name and not one that is
-            # faked up with symlink names.
-            PWD= /bin/pwd
-        else
-            local HERE=$PWD
-            T=
-            while [ \( ! \( -f $TOPFILE \) \) -a \( $PWD != "/" \) ]; do
-                \cd ..
-                T=`PWD= /bin/pwd -P`
-            done
-            \cd $HERE
-            if [ -f "$T/$TOPFILE" ]; then
-                echo $T
-            fi
-        fi
-    fi
-}
+source $(cd $(dirname $BASH_SOURCE) &> /dev/null && pwd)/../make/shell_utils.sh
+require_top
 
 # Save the current PWD for use in soong_ui
 export ORIGINAL_PWD=${PWD}
@@ -53,8 +33,8 @@ export TOP=$(gettop)
 source ${TOP}/build/soong/scripts/microfactory.bash
 
 soong_build_go soong_ui android/soong/cmd/soong_ui
-soong_build_go mk2rbc android/soong/mk2rbc/cmd
-soong_build_go rbcrun rbcrun/cmd
+soong_build_go mk2rbc android/soong/mk2rbc/mk2rbc
+soong_build_go rbcrun rbcrun/rbcrun
 
 cd ${TOP}
 exec "$(getoutdir)/soong_ui" "$@"

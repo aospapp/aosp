@@ -24,6 +24,10 @@
             android:allowEmbedded="true"
             android:exported="true" />
 
+        <activity android:name=".ClipboardTestActivity"
+                  android:allowEmbedded="true"
+                  android:exported="true"/>
+
         <activity android:name=".NoEmbedActivity"
             android:exported="true" />
 
@@ -31,6 +35,16 @@
             android:allowEmbedded="true"
             android:canDisplayOnRemoteDevices="false"
             android:exported="true" />
+
+        <activity android:name=".ReporterActivityA"
+            android:exported="true" />
+
+        <activity android:name=".ReporterActivityB"
+            android:exported="true" />
+        <activity android:name=".RestrictToDisplayCategoryActivity"
+            android:allowEmbedded="true"
+            android:exported="true"
+            android:requiredDisplayCategory="automotive"/>
 
         <service android:name=".StreamedAppService"
             android:exported="true" />

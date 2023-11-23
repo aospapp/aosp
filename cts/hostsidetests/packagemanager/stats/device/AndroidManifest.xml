@@ -20,6 +20,9 @@
     <application>
         <uses-library android:name="android.test.runner" />
     </application>
+    <queries>
+        <package android:name="com.android.server.cts.device.statsdatom" />
+    </queries>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.cts.packagemanager.stats.device" />

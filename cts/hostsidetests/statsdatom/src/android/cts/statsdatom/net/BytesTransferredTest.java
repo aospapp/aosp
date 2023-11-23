@@ -15,6 +15,7 @@
  */
 package android.cts.statsdatom.net;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -49,7 +50,7 @@ public class BytesTransferredTest extends DeviceTestCase implements IBuildReceiv
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installTestApp(getDevice(), DeviceUtils.STATSD_ATOM_TEST_APK,
                 DeviceUtils.STATSD_ATOM_TEST_PKG, mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -172,15 +173,15 @@ public class BytesTransferredTest extends DeviceTestCase implements IBuildReceiv
         // Generate some mobile traffic.
         DeviceUtils.runDeviceTests(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG, ".AtomTests",
                 "testGenerateMobileTraffic");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Force poll NetworkStatsService to get most updated network stats from lower layer.
         DeviceUtils.runDeviceTests(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG, ".AtomTests",
                 "testForcePollNetworkStats");
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Trigger atom pull.
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         final List<Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice(),
                 /*checkTimestampTruncated=*/true);
         assertThat(atoms.size()).isAtLeast(1);

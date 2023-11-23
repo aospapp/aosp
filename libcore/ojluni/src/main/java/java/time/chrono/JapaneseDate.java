@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -124,6 +124,7 @@ public final class JapaneseDate
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = -305327627230580483L;
 
     /**
@@ -133,11 +134,11 @@ public final class JapaneseDate
     /**
      * The JapaneseEra of this date.
      */
-    private transient JapaneseEra era;
+    private final transient JapaneseEra era;
     /**
      * The Japanese imperial calendar year of this date.
      */
-    private transient int yearOfEra;
+    private final transient int yearOfEra;
 
     /**
      * The first day supported by the JapaneseChronology is Meiji 6, January 1st.
@@ -509,17 +510,16 @@ public final class JapaneseDate
     //-----------------------------------------------------------------------
     @Override
     public JapaneseDate with(TemporalField field, long newValue) {
-        if (field instanceof ChronoField) {
-            ChronoField f = (ChronoField) field;
-            if (getLong(f) == newValue) {  // getLong() validates for supported fields
+        if (field instanceof ChronoField chronoField) {
+            if (getLong(chronoField) == newValue) {  // getLong() validates for supported fields
                 return this;
             }
-            switch (f) {
+            switch (chronoField) {
                 case YEAR_OF_ERA:
                 case YEAR:
                 case ERA: {
-                    int nvalue = getChronology().range(f).checkValidIntValue(newValue, f);
-                    switch (f) {
+                    int nvalue = getChronology().range(chronoField).checkValidIntValue(newValue, chronoField);
+                    switch (chronoField) {
                         case YEAR_OF_ERA:
                             return this.withYear(nvalue);
                         case YEAR:
@@ -692,11 +692,8 @@ public final class JapaneseDate
         if (this == obj) {
             return true;
         }
-        if (obj instanceof JapaneseDate) {
-            JapaneseDate otherDate = (JapaneseDate) obj;
-            return this.isoDate.equals(otherDate.isoDate);
-        }
-        return false;
+        return (obj instanceof JapaneseDate otherDate)
+            && this.isoDate.equals(otherDate.isoDate);
     }
 
     /**
@@ -716,13 +713,14 @@ public final class JapaneseDate
      * @param s the stream to read
      * @throws InvalidObjectException always
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s) throws InvalidObjectException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }
 
     /**
      * Writes the object using a
-     * <a href="../../../serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
      * @serialData
      * <pre>
      *  out.writeByte(4);                 // identifies a JapaneseDate
@@ -733,6 +731,7 @@ public final class JapaneseDate
      *
      * @return the instance of {@code Ser}, not null
      */
+    @java.io.Serial
     private Object writeReplace() {
         return new Ser(Ser.JAPANESE_DATE_TYPE, this);
     }

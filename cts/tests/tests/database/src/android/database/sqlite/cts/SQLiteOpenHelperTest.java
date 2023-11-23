@@ -158,7 +158,7 @@ public class SQLiteOpenHelperTest extends AndroidTestCase {
         boolean dbStatFound = false;
         SQLiteDebug.PagerStats info = SQLiteDebug.getDatabaseInfo();
         for (SQLiteDebug.DbStats dbStat : info.dbStats) {
-            if (dbStat.dbName.endsWith(dbName)) {
+            if (dbStat.dbName.endsWith(dbName) && !dbStat.arePoolStats) {
                 dbStatFound = true;
                 Log.i(TAG, "Lookaside for " + dbStat.dbName + " " + dbStat.lookaside);
                 if (expectDisabled) {

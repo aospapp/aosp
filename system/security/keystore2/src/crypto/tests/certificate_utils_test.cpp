@@ -313,7 +313,15 @@ TEST_P(CertificateUtilsWithRsa, CertSigningWithCallbackRsa) {
     const uint8_t* p = encCert.data();
     X509_Ptr decoded_cert(d2i_X509(nullptr, &p, (long)encCert.size()));
     EVP_PKEY_Ptr decoded_pkey(X509_get_pubkey(decoded_cert.get()));
-    ASSERT_TRUE(X509_verify(decoded_cert.get(), decoded_pkey.get()));
+    if ((padding == Padding::PSS) && (digest == Digest::SHA1 || digest == Digest::SHA224)) {
+        // BoringSSL after https://boringssl-review.googlesource.com/c/boringssl/+/53865
+        // does not support these PSS combinations, so skip certificate verification for them
+        // and just check _something_ was returned.
+        EXPECT_NE(decoded_cert.get(), nullptr);
+        EXPECT_NE(decoded_pkey.get(), nullptr);
+    } else {
+        ASSERT_TRUE(X509_verify(decoded_cert.get(), decoded_pkey.get()));
+    }
 }
 
 TEST(TimeStringTests, toTimeStringTest) {

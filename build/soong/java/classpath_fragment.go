@@ -111,7 +111,7 @@ func gatherPossibleApexModuleNamesAndStems(ctx android.ModuleContext, contents [
 			ctx.PropertyErrorf("contents", "%v is not a ModuleWithStem", name)
 		}
 	}
-	return android.SortedStringKeys(set)
+	return android.SortedKeys(set)
 }
 
 // Converts android.ConfiguredJarList into a list of classpathJars for each given classpathType.
@@ -130,17 +130,17 @@ func configuredJarListToClasspathJars(ctx android.ModuleContext, configuredJars 
 				if s, ok := m.(*SdkLibrary); ok {
 					// TODO(208456999): instead of mapping "current" to latest, min_sdk_version should never be set to "current"
 					if s.minSdkVersion.Specified() {
-						if s.minSdkVersion.ApiLevel.IsCurrent() {
+						if s.minSdkVersion.IsCurrent() {
 							jar.minSdkVersion = ctx.Config().DefaultAppTargetSdk(ctx).String()
 						} else {
-							jar.minSdkVersion = s.minSdkVersion.ApiLevel.String()
+							jar.minSdkVersion = s.minSdkVersion.String()
 						}
 					}
 					if s.maxSdkVersion.Specified() {
-						if s.maxSdkVersion.ApiLevel.IsCurrent() {
+						if s.maxSdkVersion.IsCurrent() {
 							jar.maxSdkVersion = ctx.Config().DefaultAppTargetSdk(ctx).String()
 						} else {
-							jar.maxSdkVersion = s.maxSdkVersion.ApiLevel.String()
+							jar.maxSdkVersion = s.maxSdkVersion.String()
 						}
 					}
 				}

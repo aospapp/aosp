@@ -16,46 +16,64 @@
 
 package android.voicerecognition.cts;
 
-import static androidx.test.InstrumentationRegistry.getInstrumentation;
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
+import static com.android.compatibility.common.util.SystemUtil.getEventually;
+
+import static com.google.common.truth.Truth.assertWithMessage;
+
+import android.app.UiAutomation;
 import android.content.ComponentName;
 import android.speech.SpeechRecognizer;
 import android.util.Log;
 
-import androidx.test.runner.AndroidJUnit4;
+import androidx.annotation.NonNull;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** Recognition service tests for a default speech recognition service. */
-@RunWith(AndroidJUnit4.class)
 public final class OnDeviceRecognitionServiceTest extends AbstractRecognitionServiceTest {
     private static final String TAG = OnDeviceRecognitionServiceTest.class.getSimpleName();
 
-    private SpeechRecognizer mRecognizer;
+    // UiAutomation connection timeout in milliseconds.
+    private static final int UIAUTOMATION_CONNECTION_TIMEOUT_MILLIS = 10000;
+
+    private final List<SpeechRecognizer> mRecognizers = new ArrayList<>();
 
     @Before
-    public void setUp() {
-        getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
-                "android.permission.MANAGE_SPEECH_RECOGNITION");
+    public void setUp() throws Exception {
+        getNonNullUiAutomation(UIAUTOMATION_CONNECTION_TIMEOUT_MILLIS)
+                .adoptShellPermissionIdentity("android.permission.MANAGE_SPEECH_RECOGNITION");
     }
 
     @After
-    public void tearDown() {
-        if (mRecognizer != null) {
-            mRecognizer.setTemporaryOnDeviceRecognizer(null);
-            mRecognizer = null;
+    public void tearDown() throws Exception {
+        if (mRecognizers != null) {
+            for (SpeechRecognizer recognizer : mRecognizers) {
+                if (recognizer != null) {
+                    recognizer.setTemporaryOnDeviceRecognizer(null);
+                }
+            }
+            mRecognizers.clear();
         }
 
-        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        try {
+            getNonNullUiAutomation(UIAUTOMATION_CONNECTION_TIMEOUT_MILLIS)
+                    .dropShellPermissionIdentity();
+        } catch (Exception e) {
+            Log.w(TAG, "Tear down failed.", e);
+        }
     }
 
     @Override
     protected void setCurrentRecognizer(SpeechRecognizer recognizer, String component) {
         Log.i(TAG, "Setting recognizer to " + component);
-        mRecognizer = recognizer;
         recognizer.setTemporaryOnDeviceRecognizer(ComponentName.unflattenFromString(component));
+        mRecognizers.add(recognizer);
     }
 
     @Override
@@ -67,5 +85,16 @@ public final class OnDeviceRecognitionServiceTest extends AbstractRecognitionSer
     String customRecognizer() {
         // We will use the default one (specified in config).
         return null;
+    }
+
+    // android.app.Instrumentation#getUiAutomation may return null if UiAutomation fails to connect.
+    // That getter should be retried until a non-null value is returned or it times out.
+    @NonNull
+    private UiAutomation getNonNullUiAutomation(int timeoutMillis) throws Exception {
+        return getEventually(() -> {
+            final UiAutomation uiAutomation = getInstrumentation().getUiAutomation();
+            assertWithMessage("UiAutomation failed to connect").that(uiAutomation).isNotNull();
+            return uiAutomation;
+        }, timeoutMillis);
     }
 }

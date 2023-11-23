@@ -16,11 +16,12 @@
 
 #include "reporter.h"
 
-#include <algorithm>
-
 #include <android-base/parseint.h>
 
+#include <algorithm>
+
 #include "base/flags.h"
+#include "base/stl_util.h"
 #include "oat_file_manager.h"
 #include "runtime.h"
 #include "runtime_options.h"
@@ -126,10 +127,17 @@ void MetricsReporter::BackgroundThreadRun() {
 
   // Configure the backends
   if (config_.dump_to_logcat) {
-    backends_.emplace_back(new LogBackend(LogSeverity::INFO));
+    backends_.emplace_back(new LogBackend(std::make_unique<TextFormatter>(), LogSeverity::INFO));
   }
   if (config_.dump_to_file.has_value()) {
-    backends_.emplace_back(new FileBackend(config_.dump_to_file.value()));
+    std::unique_ptr<MetricsFormatter> formatter;
+    if (config_.metrics_format == "xml") {
+      formatter = std::make_unique<XmlFormatter>();
+    } else {
+      formatter = std::make_unique<TextFormatter>();
+    }
+
+    backends_.emplace_back(new FileBackend(std::move(formatter), config_.dump_to_file.value()));
   }
   if (config_.dump_to_statsd) {
     auto backend = CreateStatsdBackend();
@@ -189,12 +197,10 @@ void MetricsReporter::MaybeResetTimeout() {
   }
 }
 
-const ArtMetrics* MetricsReporter::GetMetrics() {
-  return runtime_->GetMetrics();
-}
+ArtMetrics* MetricsReporter::GetMetrics() { return runtime_->GetMetrics(); }
 
 void MetricsReporter::ReportMetrics() {
-  const ArtMetrics* metrics = GetMetrics();
+  ArtMetrics* metrics = GetMetrics();
 
   if (!session_started_) {
     for (auto& backend : backends_) {
@@ -203,9 +209,7 @@ void MetricsReporter::ReportMetrics() {
     session_started_ = true;
   }
 
-  for (auto& backend : backends_) {
-    metrics->ReportAllMetrics(backend.get());
-  }
+  metrics->ReportAllMetricsAndResetValueMetrics(MakeNonOwningPointerVector(backends_));
 }
 
 void MetricsReporter::UpdateSessionInBackends() {
@@ -291,6 +295,7 @@ ReportingConfig ReportingConfig::FromFlags(bool is_system_server) {
       .dump_to_logcat = gFlags.MetricsWriteToLogcat(),
       .dump_to_file = gFlags.MetricsWriteToFile.GetValueOptional(),
       .dump_to_statsd = gFlags.MetricsWriteToStatsd(),
+      .metrics_format = gFlags.MetricsFormat(),
       .period_spec = period_spec,
       .reporting_num_mods = reporting_num_mods,
       .reporting_mods = reporting_mods,

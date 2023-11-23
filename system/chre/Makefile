@@ -64,7 +64,7 @@ endif
 
 # Optional tokenized logging support.
 ifeq ($(CHRE_TOKENIZED_LOGGING_ENABLED), true)
-COMMON_CFLAGS += -DCHRE_USE_TOKENIZED_LOGGING
+COMMON_CFLAGS += -DCHRE_TOKENIZED_LOGGING_ENABLED
 include $(CHRE_PREFIX)/external/pigweed/pw_tokenizer.mk
 endif
 
@@ -111,6 +111,8 @@ include $(CHRE_PREFIX)/util/util.mk
 ifneq ($(CHRE_TARGET_EXTENSION),)
 include $(CHRE_TARGET_EXTENSION)
 endif
+include $(CHRE_PREFIX)/build/variant/aosp_cm4_exynos-embos.mk
+include $(CHRE_PREFIX)/build/variant/aosp_riscv55e03_tinysys.mk
 include $(CHRE_PREFIX)/build/variant/google_arm64_android.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv62_slpi.mk
 include $(CHRE_PREFIX)/build/variant/google_hexagonv62_slpi-uimg.mk

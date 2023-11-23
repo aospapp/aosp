@@ -24,6 +24,7 @@ from aidegen.lib import common_util
 from aidegen.vscode import vscode_native_project_file_gen
 
 
+# pylint: disable=protected-access
 class VSCodeNativeProjectFileGenUnittests(unittest.TestCase):
     """Unit tests for vscode_native_project_file_gen.py"""
 

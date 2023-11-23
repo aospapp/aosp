@@ -63,12 +63,30 @@ status_t FileSystemImpl::listFiles(const std::string& path, std::vector<std::str
     return -saved_errno;
 }
 
+status_t FileSystemImpl::modifiedTime(const std::string& path, int64_t* mtime,
+                                      std::string* error) const {
+    struct stat stat_buf;
+    if (stat(path.c_str(), &stat_buf) != 0) {
+        int saved_errno = errno;
+        if (error) {
+            *error = "Cannot open " + path + ": " + strerror(saved_errno);
+        }
+        return saved_errno == 0 ? UNKNOWN_ERROR : -saved_errno;
+    }
+    *mtime = stat_buf.st_mtime;
+    return OK;
+}
+
 status_t FileSystemNoOp::fetch(const std::string&, std::string*, std::string*) const {
     return NAME_NOT_FOUND;
 }
 
 status_t FileSystemNoOp::listFiles(const std::string&, std::vector<std::string>*,
                                    std::string*) const {
+    return NAME_NOT_FOUND;
+}
+
+status_t FileSystemNoOp::modifiedTime(const std::string&, int64_t*, std::string*) const {
     return NAME_NOT_FOUND;
 }
 
@@ -87,6 +105,11 @@ status_t FileSystemUnderPath::fetch(const std::string& path, std::string* fetche
 status_t FileSystemUnderPath::listFiles(const std::string& path, std::vector<std::string>* out,
                                         std::string* error) const {
     return mImpl.listFiles(mRootDir + path, out, error);
+}
+
+status_t FileSystemUnderPath::modifiedTime(const std::string& path, int64_t* mtime,
+                                           std::string* error) const {
+    return mImpl.modifiedTime(mRootDir + path, mtime, error);
 }
 
 const std::string& FileSystemUnderPath::getRootDir() const {

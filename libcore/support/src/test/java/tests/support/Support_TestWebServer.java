@@ -547,7 +547,7 @@ public class Support_TestWebServer implements Support_HttpConstants {
             int nread = 0;
             log("Read content");
             String lengthString = headers.get(requestHeaders[REQ_CONTENT_LENGTH]);
-            int length = new Integer(lengthString).intValue();
+            int length = Integer.valueOf(lengthString).intValue();
 
             // Read content
             length = readData(is, length);

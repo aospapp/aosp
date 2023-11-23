@@ -30,4 +30,6 @@ public final class AnnotationRunPrecedence {
     public static final int PRECEDENCE_NOT_IMPORTANT = 20000;
     // Use to ensure that an annotation is the last to run.
     public static final int LAST = Integer.MAX_VALUE;
+
+    public static final int REQUIRE_RUN_ON_PRECEDENCE = EARLY - 1;
 }

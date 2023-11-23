@@ -101,7 +101,7 @@ public class DefaultDialerOperationsTest extends InstrumentationTestCase {
 
     /** Default dialer should be the default package handling ACTION_DIAL. */
     public void testActionDialHandling() throws Exception {
-        if (!TestUtils.shouldTestTelecom(mContext)) {
+        if (!TestUtils.shouldTestTelecom(mContext) || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         Intent intent = new Intent(Intent.ACTION_DIAL);

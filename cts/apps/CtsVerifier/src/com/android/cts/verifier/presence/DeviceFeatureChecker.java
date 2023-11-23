@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.android.cts.verifier.presence;
+
 import android.app.Activity;
 import android.content.Context;
 import android.util.Log;
@@ -21,15 +23,10 @@ import android.view.View;
 import android.widget.Toast;
 
 /**
- * Checks if a device supports a hardware feature needed for a test, and passes the test
+ * Checks if a device supports a hardware feature needed for a presence test, and passes the test
  * automatically otherwise.
  */
 public class DeviceFeatureChecker {
-
-    /** Checks if a feature is supported.
-     *
-     * @param feature must be a string defined in PackageManager
-     */
     public static void checkFeatureSupported(Context context, View passButton, String feature) {
         if (!context.getPackageManager().hasSystemFeature(feature)) {
             String message = String.format("Device does not support %s, automatically passing test",
@@ -37,7 +34,7 @@ public class DeviceFeatureChecker {
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show();
             Log.e(context.getClass().getName(), message);
             passButton.performClick();
-            Activity activity = (Activity) (context);
+            Activity activity = (Activity) context;
             activity.finish();
         }
     }

@@ -16,6 +16,8 @@
 
 package com.android.bedstead.harrier.annotations;
 
+import org.junit.Ignore;
+
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -29,5 +31,6 @@ import java.lang.annotation.Target;
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
+@Ignore("b/279403001: Cannot adopt RESET_PASSWORD permission")
 public @interface RequiresNonGrantablePermission {
 }

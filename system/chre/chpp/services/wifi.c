@@ -303,7 +303,7 @@ static enum ChppAppErrorCode chppWifiServiceOpen(
     error = CHPP_APP_ERROR_BEYOND_CHPP;
 
   } else {
-    CHPP_LOGI("WiFi service opened");
+    CHPP_LOGD("WiFi service opened");
     wifiServiceContext->service.openState = CHPP_OPEN_STATE_OPENED;
 
     struct ChppAppHeader *response =
@@ -339,7 +339,7 @@ static enum ChppAppErrorCode chppWifiServiceClose(
   wifiServiceContext->api->close();
   wifiServiceContext->service.openState = CHPP_OPEN_STATE_CLOSED;
 
-  CHPP_LOGI("WiFi service closed");
+  CHPP_LOGD("WiFi service closed");
 
   struct ChppAppHeader *response =
       chppAllocServiceResponseFixed(requestHeader, struct ChppAppHeader);
@@ -368,7 +368,7 @@ static void chppWifiServiceNotifyReset(void *serviceContext) {
   if (wifiServiceContext->service.openState != CHPP_OPEN_STATE_OPENED) {
     CHPP_LOGW("WiFi service reset but wasn't open");
   } else {
-    CHPP_LOGI("WiFi service reset. Closing");
+    CHPP_LOGD("WiFi service reset. Closing");
     wifiServiceContext->service.openState = CHPP_OPEN_STATE_CLOSED;
     wifiServiceContext->api->close();
   }
@@ -1019,10 +1019,8 @@ void chppRegisterWifiService(struct ChppAppState *appContext) {
                           "WiFi PAL API incompatible. Cannot register service");
 
   } else {
-    gWifiServiceContext.service.appContext = appContext;
-    gWifiServiceContext.service.openState = CHPP_OPEN_STATE_CLOSED;
-    gWifiServiceContext.service.handle = chppRegisterService(
-        appContext, (void *)&gWifiServiceContext, &kWifiServiceConfig);
+    chppRegisterService(appContext, (void *)&gWifiServiceContext,
+                        &gWifiServiceContext.service, &kWifiServiceConfig);
     CHPP_DEBUG_ASSERT(gWifiServiceContext.service.handle);
   }
 }

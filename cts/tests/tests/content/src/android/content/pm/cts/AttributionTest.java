@@ -59,7 +59,7 @@ public class AttributionTest {
     @Test
     public void getAttributionsAndVerify() throws Exception {
         PackageInfo packageInfo = sContext.getPackageManager().getPackageInfo(PACKAGE_NAME,
-                PackageManager.PackageInfoFlags.of(PackageManager.GET_ATTRIBUTIONS));
+                PackageManager.PackageInfoFlags.of(PackageManager.GET_ATTRIBUTIONS_LONG));
         assertNotNull(packageInfo);
         assertNotNull(packageInfo.attributions);
         assertEquals(packageInfo.attributions.length, NUM_ATTRIBUTIONS);

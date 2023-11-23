@@ -1079,6 +1079,47 @@ TEST_P(NdkBinderTest_Aidl, ParcelableHolderCopyTest) {
   EXPECT_EQ("mystr", myext3->b);
 }
 
+TEST_P(NdkBinderTest_Aidl, ParcelableHolderAssignmentWithLocalStabilityTest) {
+  ndk::AParcelableHolder ph1{ndk::STABILITY_LOCAL};
+  MyExt myext1;
+  myext1.a = 42;
+  myext1.b = "mystr";
+  EXPECT_EQ(STATUS_OK, ph1.setParcelable(myext1));
+
+  ndk::AParcelableHolder ph2{ndk::STABILITY_LOCAL};
+  MyExt myext2;
+  myext2.a = 0xdb;
+  myext2.b = "magic";
+  EXPECT_EQ(STATUS_OK, ph2.setParcelable(myext2));
+
+  ph2 = ph1;
+  std::optional<MyExt> myext3;
+  EXPECT_EQ(STATUS_OK, ph2.getParcelable(&myext3));
+  EXPECT_NE(std::nullopt, myext3);
+  EXPECT_TRUE(myext3 != myext2);
+  EXPECT_TRUE(myext3 == myext1);
+}
+
+TEST_P(NdkBinderTest_Aidl, ParcelableHolderAssignmentWithVintfStabilityTest) {
+  ndk::AParcelableHolder ph1{ndk::STABILITY_VINTF};
+  MyExt myext1;
+  myext1.a = 42;
+  myext1.b = "mystr";
+  // STABILITY_VINTF Pracelable can't set with STABILITY_LOCAL.
+  EXPECT_EQ(STATUS_BAD_VALUE, ph1.setParcelable(myext1));
+
+  ndk::AParcelableHolder ph2{ndk::STABILITY_VINTF};
+  MyExt myext2;
+  myext2.a = 0xbd;
+  myext2.b = "cigam";
+  EXPECT_EQ(STATUS_BAD_VALUE, ph2.setParcelable(myext2));
+
+  ph2 = ph1;
+  std::optional<MyExt> myext3;
+  EXPECT_EQ(STATUS_OK, ph2.getParcelable(&myext3));
+  EXPECT_EQ(std::nullopt, myext3);
+}
+
 TEST_P(NdkBinderTest_Aidl, ParcelableHolderCommunicationTest) {
   ExtendableParcelable ep;
   ep.c = 42L;

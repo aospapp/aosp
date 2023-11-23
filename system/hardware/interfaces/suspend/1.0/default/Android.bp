@@ -30,8 +30,8 @@ cc_defaults {
     cflags: [
         "-Wall",
         "-Werror",
+        "-Wthread-safety",
     ],
-    cpp_std: "c++17",
 }
 
 cc_defaults {
@@ -43,20 +43,20 @@ cc_defaults {
 }
 
 cc_binary {
-    name: "android.system.suspend@1.0-service",
+    name: "android.system.suspend-service",
     relative_install_path: "hw",
     defaults: [
         "system_suspend_defaults",
         "system_suspend_stats_defaults",
     ],
-    init_rc: ["android.system.suspend@1.0-service.rc"],
-    vintf_fragments: ["android.system.suspend@1.0-service.xml"],
+    init_rc: ["android.system.suspend-service.rc"],
+    vintf_fragments: ["android.system.suspend-service.xml"],
     shared_libs: [
         "android.system.suspend-V1-ndk",
         "android.system.suspend.control-V1-cpp",
         "android.system.suspend.control.internal-cpp",
         "android.system.suspend@1.0",
-        "SuspendProperties",
+        "libSuspendProperties",
     ],
     srcs: [
         "main.cpp",
@@ -82,7 +82,6 @@ cc_test {
         "android.system.suspend.control-V1-cpp",
         "android.system.suspend.control.internal-cpp",
         "libgmock",
-        "SuspendProperties",
     ],
     tidy_timeout_srcs: [
         "SystemSuspendUnitTest.cpp",

@@ -2,6 +2,8 @@
 
 #include <android/aidl/tests/BackendType.h>
 #include <android/aidl/tests/ByteEnum.h>
+#include <android/aidl/tests/CircularParcelable.h>
+#include <android/aidl/tests/ICircular.h>
 #include <android/aidl/tests/INamedCallback.h>
 #include <android/aidl/tests/INewName.h>
 #include <android/aidl/tests/IOldName.h>
@@ -13,24 +15,51 @@
 #include <android/aidl/tests/Union.h>
 #include <android/aidl/tests/extension/ExtendableParcelable.h>
 #include <android/binder_to_string.h>
+#include <array>
+#include <binder/Delegate.h>
+#include <binder/Enums.h>
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
 #include <binder/Parcel.h>
 #include <binder/ParcelFileDescriptor.h>
 #include <binder/Status.h>
+#include <binder/Trace.h>
+#include <cassert>
 #include <cstdint>
 #include <optional>
 #include <string>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
+#include <variant>
 #include <vector>
 
+#ifndef __BIONIC__
+#define __assert2(a,b,c,d) ((void)0)
+#endif
+
+namespace android::aidl::tests {
+class CircularParcelable;
+class ICircular;
+class INamedCallback;
+class INewName;
+class IOldName;
+class RecursiveList;
+class StructuredParcelable;
+}  // namespace android::aidl::tests
+namespace android::aidl::tests::extension {
+class ExtendableParcelable;
+}  // namespace android::aidl::tests::extension
 namespace android {
 namespace aidl {
 namespace tests {
+class ITestServiceDelegator;
+
 class ITestService : public ::android::IInterface {
 public:
+  typedef ITestServiceDelegator DefaultDelegator;
   DECLARE_META_INTERFACE(TestService)
   class Empty : public ::android::Parcelable {
   public:
@@ -56,8 +85,8 @@ public:
     ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
     ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
     static const ::android::String16& getParcelableDescriptor() {
-      static const ::android::StaticString16 DESCIPTOR (u"android.aidl.tests.ITestService.Empty");
-      return DESCIPTOR;
+      static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.ITestService.Empty");
+      return DESCRIPTOR;
     }
     inline std::string toString() const {
       std::ostringstream os;
@@ -68,6 +97,171 @@ public:
   };  // class Empty
   class CompilerChecks : public ::android::Parcelable {
   public:
+    class IFooDelegator;
+
+    class IFoo : public ::android::IInterface {
+    public:
+      typedef IFooDelegator DefaultDelegator;
+      DECLARE_META_INTERFACE(Foo)
+    };  // class IFoo
+
+    class IFooDefault : public IFoo {
+    public:
+      ::android::IBinder* onAsBinder() override {
+        return nullptr;
+      }
+    };  // class IFooDefault
+    class BpFoo : public ::android::BpInterface<IFoo> {
+    public:
+      explicit BpFoo(const ::android::sp<::android::IBinder>& _aidl_impl);
+      virtual ~BpFoo() = default;
+    };  // class BpFoo
+    class BnFoo : public ::android::BnInterface<IFoo> {
+    public:
+      explicit BnFoo();
+      ::android::status_t onTransact(uint32_t _aidl_code, const ::android::Parcel& _aidl_data, ::android::Parcel* _aidl_reply, uint32_t _aidl_flags) override;
+    };  // class BnFoo
+
+    class IFooDelegator : public BnFoo {
+    public:
+      explicit IFooDelegator(const ::android::sp<IFoo> &impl) : _aidl_delegate(impl) {}
+
+      ::android::sp<IFoo> getImpl() { return _aidl_delegate; }
+    private:
+      ::android::sp<IFoo> _aidl_delegate;
+    };  // class IFooDelegator
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated-declarations"
+    class HasDeprecated : public ::android::Parcelable {
+    public:
+      int32_t __attribute__((deprecated("field"))) deprecated = 0;
+      inline bool operator!=(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) != std::tie(rhs.deprecated);
+      }
+      inline bool operator<(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) < std::tie(rhs.deprecated);
+      }
+      inline bool operator<=(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) <= std::tie(rhs.deprecated);
+      }
+      inline bool operator==(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) == std::tie(rhs.deprecated);
+      }
+      inline bool operator>(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) > std::tie(rhs.deprecated);
+      }
+      inline bool operator>=(const HasDeprecated& rhs) const {
+        return std::tie(deprecated) >= std::tie(rhs.deprecated);
+      }
+
+      ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
+      ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
+      static const ::android::String16& getParcelableDescriptor() {
+        static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.ITestService.CompilerChecks.HasDeprecated");
+        return DESCRIPTOR;
+      }
+      inline std::string toString() const {
+        std::ostringstream os;
+        os << "HasDeprecated{";
+        os << "deprecated: " << ::android::internal::ToString(deprecated);
+        os << "}";
+        return os.str();
+      }
+    };  // class HasDeprecated
+    #pragma clang diagnostic pop
+    class UsingHasDeprecated : public ::android::Parcelable {
+    public:
+      enum class Tag : int32_t {
+        n = 0,
+        m = 1,
+      };
+      // Expose tag symbols for legacy code
+      static const inline Tag n = Tag::n;
+      static const inline Tag m = Tag::m;
+
+      template<typename _Tp>
+      static constexpr bool _not_self = !std::is_same_v<std::remove_cv_t<std::remove_reference_t<_Tp>>, UsingHasDeprecated>;
+
+      UsingHasDeprecated() : _value(std::in_place_index<static_cast<size_t>(n)>, int32_t(0)) { }
+
+      template <typename _Tp, typename = std::enable_if_t<_not_self<_Tp>>>
+      // NOLINTNEXTLINE(google-explicit-constructor)
+      constexpr UsingHasDeprecated(_Tp&& _arg)
+          : _value(std::forward<_Tp>(_arg)) {}
+
+      template <size_t _Np, typename... _Tp>
+      constexpr explicit UsingHasDeprecated(std::in_place_index_t<_Np>, _Tp&&... _args)
+          : _value(std::in_place_index<_Np>, std::forward<_Tp>(_args)...) {}
+
+      template <Tag _tag, typename... _Tp>
+      static UsingHasDeprecated make(_Tp&&... _args) {
+        return UsingHasDeprecated(std::in_place_index<static_cast<size_t>(_tag)>, std::forward<_Tp>(_args)...);
+      }
+
+      template <Tag _tag, typename _Tp, typename... _Up>
+      static UsingHasDeprecated make(std::initializer_list<_Tp> _il, _Up&&... _args) {
+        return UsingHasDeprecated(std::in_place_index<static_cast<size_t>(_tag)>, std::move(_il), std::forward<_Up>(_args)...);
+      }
+
+      Tag getTag() const {
+        return static_cast<Tag>(_value.index());
+      }
+
+      template <Tag _tag>
+      const auto& get() const {
+        if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
+        return std::get<static_cast<size_t>(_tag)>(_value);
+      }
+
+      template <Tag _tag>
+      auto& get() {
+        if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
+        return std::get<static_cast<size_t>(_tag)>(_value);
+      }
+
+      template <Tag _tag, typename... _Tp>
+      void set(_Tp&&... _args) {
+        _value.emplace<static_cast<size_t>(_tag)>(std::forward<_Tp>(_args)...);
+      }
+
+      inline bool operator!=(const UsingHasDeprecated& rhs) const {
+        return _value != rhs._value;
+      }
+      inline bool operator<(const UsingHasDeprecated& rhs) const {
+        return _value < rhs._value;
+      }
+      inline bool operator<=(const UsingHasDeprecated& rhs) const {
+        return _value <= rhs._value;
+      }
+      inline bool operator==(const UsingHasDeprecated& rhs) const {
+        return _value == rhs._value;
+      }
+      inline bool operator>(const UsingHasDeprecated& rhs) const {
+        return _value > rhs._value;
+      }
+      inline bool operator>=(const UsingHasDeprecated& rhs) const {
+        return _value >= rhs._value;
+      }
+
+      ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
+      ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
+      static const ::android::String16& getParcelableDescriptor() {
+        static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.ITestService.CompilerChecks.UsingHasDeprecated");
+        return DESCRIPTOR;
+      }
+      inline std::string toString() const {
+        std::ostringstream os;
+        os << "UsingHasDeprecated{";
+        switch (getTag()) {
+        case n: os << "n: " << ::android::internal::ToString(get<n>()); break;
+        case m: os << "m: " << ::android::internal::ToString(get<m>()); break;
+        }
+        os << "}";
+        return os.str();
+      }
+    private:
+      std::variant<int32_t, ::android::aidl::tests::ITestService::CompilerChecks::HasDeprecated> _value;
+    };  // class UsingHasDeprecated
     ::android::sp<::android::IBinder> binder;
     ::android::sp<::android::IBinder> nullable_binder;
     ::std::vector<::android::sp<::android::IBinder>> binder_array;
@@ -108,8 +302,8 @@ public:
     ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
     ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
     static const ::android::String16& getParcelableDescriptor() {
-      static const ::android::StaticString16 DESCIPTOR (u"android.aidl.tests.ITestService.CompilerChecks");
-      return DESCIPTOR;
+      static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.tests.ITestService.CompilerChecks");
+      return DESCRIPTOR;
     }
     inline std::string toString() const {
       std::ostringstream os;
@@ -152,6 +346,22 @@ public:
   enum : int64_t { LONG_TEST_CONSTANT = 1099511627776L };
   static const ::android::String16& STRING_TEST_CONSTANT();
   static const ::android::String16& STRING_TEST_CONSTANT2();
+  static constexpr float FLOAT_TEST_CONSTANT = 1.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT2 = -1.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT3 = 1.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT4 = 2.200000f;
+  static constexpr float FLOAT_TEST_CONSTANT5 = -2.200000f;
+  static constexpr float FLOAT_TEST_CONSTANT6 = -0.000000f;
+  static constexpr float FLOAT_TEST_CONSTANT7 = 0.000000f;
+  static constexpr double DOUBLE_TEST_CONSTANT = 1.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT2 = -1.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT3 = 1.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT4 = 2.200000;
+  static constexpr double DOUBLE_TEST_CONSTANT5 = -2.200000;
+  static constexpr double DOUBLE_TEST_CONSTANT6 = -0.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT7 = 0.000000;
+  static constexpr double DOUBLE_TEST_CONSTANT8 = 1.100000;
+  static constexpr double DOUBLE_TEST_CONSTANT9 = -1.100000;
   static const ::std::string& STRING_TEST_CONSTANT_UTF8();
   enum : int32_t { A1 = 1 };
   enum : int32_t { A2 = 1 };
@@ -236,6 +446,7 @@ public:
   virtual ::android::binder::Status ReverseIntEnum(const ::std::vector<::android::aidl::tests::IntEnum>& input, ::std::vector<::android::aidl::tests::IntEnum>* repeated, ::std::vector<::android::aidl::tests::IntEnum>* _aidl_return) = 0;
   virtual ::android::binder::Status ReverseLongEnum(const ::std::vector<::android::aidl::tests::LongEnum>& input, ::std::vector<::android::aidl::tests::LongEnum>* repeated, ::std::vector<::android::aidl::tests::LongEnum>* _aidl_return) = 0;
   virtual ::android::binder::Status GetOtherTestService(const ::android::String16& name, ::android::sp<::android::aidl::tests::INamedCallback>* _aidl_return) = 0;
+  virtual ::android::binder::Status SetOtherTestService(const ::android::String16& name, const ::android::sp<::android::aidl::tests::INamedCallback>& service, bool* _aidl_return) = 0;
   virtual ::android::binder::Status VerifyName(const ::android::sp<::android::aidl::tests::INamedCallback>& service, const ::android::String16& name, bool* _aidl_return) = 0;
   virtual ::android::binder::Status GetInterfaceArray(const ::std::vector<::android::String16>& names, ::std::vector<::android::sp<::android::aidl::tests::INamedCallback>>* _aidl_return) = 0;
   virtual ::android::binder::Status VerifyNamesWithInterfaceArray(const ::std::vector<::android::sp<::android::aidl::tests::INamedCallback>>& services, const ::std::vector<::android::String16>& names, bool* _aidl_return) = 0;
@@ -276,6 +487,7 @@ public:
   virtual ::android::binder::Status GetUnionTags(const ::std::vector<::android::aidl::tests::Union>& input, ::std::vector<::android::aidl::tests::Union::Tag>* _aidl_return) = 0;
   virtual ::android::binder::Status GetCppJavaTests(::android::sp<::android::IBinder>* _aidl_return) = 0;
   virtual ::android::binder::Status getBackendType(::android::aidl::tests::BackendType* _aidl_return) = 0;
+  virtual ::android::binder::Status GetCircular(::android::aidl::tests::CircularParcelable* cp, ::android::sp<::android::aidl::tests::ICircular>* _aidl_return) = 0;
 };  // class ITestService
 
 class ITestServiceDefault : public ITestService {
@@ -359,6 +571,9 @@ public:
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
   }
   ::android::binder::Status GetOtherTestService(const ::android::String16& /*name*/, ::android::sp<::android::aidl::tests::INamedCallback>* /*_aidl_return*/) override {
+    return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
+  }
+  ::android::binder::Status SetOtherTestService(const ::android::String16& /*name*/, const ::android::sp<::android::aidl::tests::INamedCallback>& /*service*/, bool* /*_aidl_return*/) override {
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
   }
   ::android::binder::Status VerifyName(const ::android::sp<::android::aidl::tests::INamedCallback>& /*service*/, const ::android::String16& /*name*/, bool* /*_aidl_return*/) override {
@@ -481,7 +696,38 @@ public:
   ::android::binder::Status getBackendType(::android::aidl::tests::BackendType* /*_aidl_return*/) override {
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
   }
+  ::android::binder::Status GetCircular(::android::aidl::tests::CircularParcelable* /*cp*/, ::android::sp<::android::aidl::tests::ICircular>* /*_aidl_return*/) override {
+    return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
+  }
 };  // class ITestServiceDefault
 }  // namespace tests
 }  // namespace aidl
+}  // namespace android
+namespace android {
+namespace aidl {
+namespace tests {
+[[nodiscard]] static inline std::string toString(ITestService::CompilerChecks::UsingHasDeprecated::Tag val) {
+  switch(val) {
+  case ITestService::CompilerChecks::UsingHasDeprecated::Tag::n:
+    return "n";
+  case ITestService::CompilerChecks::UsingHasDeprecated::Tag::m:
+    return "m";
+  default:
+    return std::to_string(static_cast<int32_t>(val));
+  }
+}
+}  // namespace tests
+}  // namespace aidl
+}  // namespace android
+namespace android {
+namespace internal {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wc++17-extensions"
+template <>
+constexpr inline std::array<::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag, 2> enum_values<::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag> = {
+  ::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag::n,
+  ::android::aidl::tests::ITestService::CompilerChecks::UsingHasDeprecated::Tag::m,
+};
+#pragma clang diagnostic pop
+}  // namespace internal
 }  // namespace android

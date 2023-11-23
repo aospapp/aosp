@@ -43,6 +43,7 @@ cc_library_headers {
     host_supported: true,
     export_include_dirs: ["include_jni"],
     native_bridge_supported: true,
+    product_available: true,
     vendor_available: true,
     target: {
         windows: {

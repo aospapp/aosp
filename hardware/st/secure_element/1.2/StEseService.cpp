@@ -17,11 +17,15 @@
  *
  ******************************************************************************/
 #define LOG_TAG "ese@1.2-service.st"
+#include <android-base/properties.h>
 #include <android/hardware/secure_element/1.2/ISecureElement.h>
+#include <dlfcn.h>
 #include <hidl/LegacySupport.h>
 #include <log/log.h>
 
 #include "SecureElement.h"
+
+typedef int (*STEsePreProcess)(void);
 
 // Generated HIDL files
 using android::OK;
@@ -36,6 +40,22 @@ int main() {
   ALOGD("Secure Element HAL Service 1.2 is starting.");
   sp<ISecureElement> se_service = new SecureElement();
   configureRpcThreadpool(1, true /*callerWillJoin*/);
+
+  // Ignore this dlopen if you don't need it.
+  std::string valueStr =
+      android::base::GetProperty("persist.vendor.se.stpreprocess", "");
+  void* stdll = dlopen(valueStr.c_str(), RTLD_NOW);
+  if (stdll) {
+    STEsePreProcess fn = (STEsePreProcess)dlsym(stdll, "pre_process");
+    if (fn) {
+      if (fn() == 0) {
+        ALOGD("%s: init done", __func__);
+      } else {
+        ALOGE("%s: Error init ", __func__);
+      }
+    }
+  }
+
   status_t status = se_service->registerAsService("eSE1");
   if (status != OK) {
     LOG_ALWAYS_FATAL(

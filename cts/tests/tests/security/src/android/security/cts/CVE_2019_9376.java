@@ -25,12 +25,13 @@ import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AsbSecurityTest;
 import android.os.Parcel;
 import androidx.test.runner.AndroidJUnit4;
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
-public class CVE_2019_9376 {
+public class CVE_2019_9376 extends StsExtraBusinessLogicTestCase {
 
     @AppModeFull
     @AsbSecurityTest(cveBugId = 129287265)

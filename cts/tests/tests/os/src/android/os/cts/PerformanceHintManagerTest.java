@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
@@ -24,12 +25,16 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNotNull;
 
+import android.os.HandlerThread;
 import android.os.PerformanceHintManager;
 import android.os.PerformanceHintManager.Session;
 import android.os.Process;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import com.google.common.base.Strings;
 
@@ -39,6 +44,8 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class PerformanceHintManagerTest {
+    private static final String TAG = "PerformanceHintManagerTest";
+
     private final long DEFAULT_TARGET_NS = 16666666L;
     private PerformanceHintManager mPerformanceHintManager;
 
@@ -165,10 +172,105 @@ public class PerformanceHintManagerTest {
     }
 
     @Test
+    @ApiTest(apis = {"android.os.PerformanceHintManager.Session#sendHint"})
+    public void testSendHint() {
+        Session s = createSession();
+        assumeNotNull(s);
+        s.sendHint(Session.CPU_LOAD_UP);
+        s.sendHint(Session.CPU_LOAD_RESET);
+    }
+
+    @Test
+    @ApiTest(apis = {"android.os.PerformanceHintManager.Session#sendHint"})
+    public void testSendHintWithNegativeHint() {
+        Session s = createSession();
+        assumeNotNull(s);
+        assertThrows(IllegalArgumentException.class, () -> {
+            s.sendHint(-1);
+        });
+    }
+
+    @Test
     public void testCloseHintSession() {
         Session s = createSession();
         assumeNotNull(s);
         s.close();
+    }
+
+    private static final class SyncRunnable implements Runnable {
+
+        /** true if run is completed. */
+        private boolean mHadCompleted;
+
+        SyncRunnable() {}
+
+        public void run() {
+            synchronized (this) {
+                mHadCompleted = true;
+                notifyAll();
+            }
+        }
+
+        public synchronized void waitForComplete() throws InterruptedException {
+            if (!mHadCompleted) {
+                wait(1000);
+            }
+        }
+    }
+
+    private static class TestHandlerThread extends HandlerThread {
+        private Runnable mTarget;
+
+        TestHandlerThread(Runnable target) {
+            super("testSetThreadIdsHandlerThread");
+            mTarget = target;
+        }
+
+        @Override
+        protected void onLooperPrepared() {
+            super.onLooperPrepared();
+            mTarget.run();
+        }
+    }
+
+    @Test
+    @ApiTest(apis = {"android.os.PerformanceHintManager.Session#setThreads"})
+    public void testSetThreads() {
+        Session s = createSession();
+        assumeNotNull(s);
+        int[] oldTids = new int[]{Process.myPid()};
+        assertArrayEquals(oldTids, s.getThreadIds());
+
+        final SyncRunnable sr = new SyncRunnable();
+        HandlerThread thread = new TestHandlerThread(sr);
+        thread.start();
+        try {
+            sr.waitForComplete();
+        } catch (InterruptedException e) {
+            Log.e(TAG, "Error happens when waiting for handler thread: " + e);
+        }
+        int[] newTids = new int[]{thread.getThreadId()};
+        s.setThreads(newTids);
+        assertArrayEquals(newTids, s.getThreadIds());
+    }
+
+    @Test
+    @ApiTest(apis = {"android.os.PerformanceHintManager.Session#setThreads"})
+    public void testSetThreadsWithEmptyList() {
+        Session s = createSession();
+        assumeNotNull(s);
+        assertThrows(IllegalArgumentException.class, () -> {
+            s.setThreads(new int[]{});
+        });
+    }
+
+    @Test
+    @ApiTest(apis = {"android.os.PerformanceHintManager.Session#setThreads"})
+    public void testSetThreadsWithInvalidTid() {
+        final String failureMessage = nativeTestSetThreadsWithInvalidTid();
+        if (!Strings.isNullOrEmpty(failureMessage)) {
+            fail(failureMessage);
+        }
     }
 
     private native String nativeTestCreateHintSession();
@@ -177,4 +279,5 @@ public class PerformanceHintManagerTest {
     private native String nativeUpdateTargetWorkDurationWithNegativeDuration();
     private native String nativeReportActualWorkDuration();
     private native String nativeReportActualWorkDurationWithIllegalArgument();
+    private native String nativeTestSetThreadsWithInvalidTid();
 }

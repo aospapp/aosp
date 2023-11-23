@@ -28,8 +28,10 @@
 #include "test_aaudio.h"
 #include "utils.h"
 
+class AAudioTestMMap : public AAudioCtsBase {};
+
 // Test allowed values of policy.
-TEST(test_aaudio_mmap, testCurrentPolicy) {
+TEST_F(AAudioTestMMap, testCurrentPolicy) {
     aaudio_policy_t policy = (aaudio_policy_t) AAudioExtensions::getMMapPolicyProperty();
 
     // It must be one of these defined enum values.
@@ -46,7 +48,7 @@ TEST(test_aaudio_mmap, testCurrentPolicy) {
 
 // An application should not be able to create an MMAP stream
 // by enabling MMAP when the system "aaudio.mmap_policy" says not to.
-TEST(test_aaudio_mmap, testElevatingMMapPolicy) {
+TEST_F(AAudioTestMMap, testElevatingMMapPolicy) {
     aaudio_result_t result = AAUDIO_OK;
     AAudioStreamBuilder *builder = nullptr;
     AAudioStream *stream = nullptr;
@@ -75,7 +77,7 @@ TEST(test_aaudio_mmap, testElevatingMMapPolicy) {
 
 // An application should be able to create a low-latency MMAP output stream
 // if MMAP is supported.
-TEST(test_aaudio_mmap, testBasicMmapOutput) {
+TEST_F(AAudioTestMMap, testBasicMmapOutput) {
     aaudio_result_t result = AAUDIO_OK;
     AAudioStreamBuilder *builder = nullptr;
     AAudioStream *stream = nullptr;

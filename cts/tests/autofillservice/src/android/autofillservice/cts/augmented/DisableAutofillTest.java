@@ -26,10 +26,11 @@ import android.autofillservice.cts.testcore.CannedAugmentedFillResponse;
 import android.autofillservice.cts.testcore.CannedFillResponse;
 import android.autofillservice.cts.testcore.CtsAugmentedAutofillService.AugmentedFillRequest;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.uiautomator.UiObject2;
 import android.view.autofill.AutofillId;
 import android.view.autofill.AutofillValue;
 import android.widget.EditText;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 
@@ -85,7 +86,7 @@ public class DisableAutofillTest extends AugmentedAutofillManualActivityLaunchTe
         // Set standard service only, so we don't trigger augmented autofill when we launch the
         // first activity
         enableService();
-        resetAugmentedService();
+        resetAugmentedService(sContext);
 
         // Use PreSimpleSaveActivity disable standard autofill
         sReplier.addResponse(

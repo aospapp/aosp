@@ -27,7 +27,7 @@ java_test_host {
     ],
     static_libs: [
         "GameCoreHelperHost",
-        "truth-prebuilt-host-jar",
-        "gson-prebuilt-jar",
+        "truth",
+        "gson",
     ],
 }

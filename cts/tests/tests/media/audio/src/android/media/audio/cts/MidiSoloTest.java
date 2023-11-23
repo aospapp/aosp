@@ -21,10 +21,12 @@ import android.content.pm.PackageManager;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiManager;
 import android.media.midi.MidiReceiver;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
 
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.CtsAndroidTestCase;
 
 import java.io.IOException;
@@ -78,6 +80,20 @@ public class MidiSoloTest extends CtsAndroidTestCase {
     protected void tearDown() throws Exception {
         // Test case clean up.
         super.tearDown();
+    }
+
+    // CDD 13 section 2.2.7.1 says:
+    // [5.6/H-1-5] MUST support class compliant MIDI devices and declare
+    // the MIDI feature flag.
+    @CddTest(requirements = {"2.2.7.1/5.6/H-1-5"})
+    public void testMediaPerformanceClassSupportsMidi() throws Exception {
+        PackageManager pm = getContext().getPackageManager();
+        boolean supportsMidi = pm.hasSystemFeature(PackageManager.FEATURE_MIDI);
+        int mpc = Build.VERSION.MEDIA_PERFORMANCE_CLASS;
+        if (mpc >= Build.VERSION_CODES.TIRAMISU) {
+            assertTrue("MPC13 and higher should declare support for MIDI.",
+                       supportsMidi);
+        }
     }
 
     public void testMidiManager() throws Exception {

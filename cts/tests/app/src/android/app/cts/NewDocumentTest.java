@@ -52,7 +52,8 @@ public class NewDocumentTest extends AndroidTestCase {
         private final CountDownLatch latch = new CountDownLatch(1);
 
         Receiver(String action) {
-            getContext().registerReceiver(this, new IntentFilter(action));
+            getContext().registerReceiver(this, new IntentFilter(action),
+                    Context.RECEIVER_EXPORTED);
         }
 
         void await() throws InterruptedException {

@@ -20,6 +20,6 @@ package {
 
 sh_binary {
     name: "check_dynamic_partitions",
-    src: "check_dynamic_partitions",
+    src: "check_dynamic_partitions.sh",
     product_specific: true,
 }

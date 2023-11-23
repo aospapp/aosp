@@ -80,14 +80,6 @@ if sys.version_info.major == 2:
                                                 sys.version_info.micro))
     sys.exit(1)
 
-# (b/219847353) Move googleapiclient to the last position of sys.path when
-#  existed.
-for lib in sys.path:
-    if 'googleapiclient' in lib:
-        sys.path.remove(lib)
-        sys.path.append(lib)
-        break
-
 # By Default silence root logger's stream handler since 3p lib may initial
 # root logger no matter what level we're using. The acloud logger behavior will
 # be defined in _SetupLogging(). This also could workaround to get rid of below
@@ -195,6 +187,12 @@ def _ParseArgs(args):
         required=False,
         help="Emulator build branch name, e.g. aosp-emu-master-dev. If specified"
         " without emulator_build_id, the last green build will be used.")
+    create_gf_parser.add_argument(
+        "--emulator-build-target",
+        dest="emulator_build_target",
+        required=False,
+        help="Emulator build target used to run the images. e.g. "
+        "emulator-linux_x64_nolocationui.")
     create_gf_parser.add_argument(
         "--base_image",
         type=str,
@@ -405,10 +403,11 @@ def main(argv=None):
         reporter = create_goldfish_action.CreateDevices(
             cfg=cfg,
             build_target=args.build_target,
+            branch=args.branch,
             build_id=args.build_id,
             emulator_build_id=args.emulator_build_id,
-            branch=args.branch,
             emulator_branch=args.emulator_branch,
+            emulator_build_target=args.emulator_build_target,
             kernel_build_id=args.kernel_build_id,
             kernel_branch=args.kernel_branch,
             kernel_build_target=args.kernel_build_target,

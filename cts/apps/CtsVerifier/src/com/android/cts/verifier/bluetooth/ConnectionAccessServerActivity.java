@@ -16,8 +16,7 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
@@ -34,8 +33,10 @@ import android.view.View;
 import android.view.View.OnClickListener;
 import android.view.Window;
 import android.widget.Button;
-import android.widget.TextView;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 public class ConnectionAccessServerActivity extends PassFailButtons.Activity {
 
@@ -77,7 +78,7 @@ public class ConnectionAccessServerActivity extends PassFailButtons.Activity {
 
         mConnectionAccessRequestReceiver = new ConnectionAccessRequestReceiver();
         IntentFilter intentFilter = new IntentFilter(ACTION_CONNECTION_ACCESS_REQUEST);
-        registerReceiver(mConnectionAccessRequestReceiver, intentFilter);
+        registerReceiver(mConnectionAccessRequestReceiver, intentFilter, RECEIVER_EXPORTED);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (mBluetoothAdapter.isEnabled()) {

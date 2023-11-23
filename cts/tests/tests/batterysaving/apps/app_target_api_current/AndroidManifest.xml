@@ -14,7 +14,9 @@
      limitations under the License.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.os.cts.batterysaving.app_target_api_current">
+  package="android.os.cts.batterysaving.app_target_api_current">
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
 
     <!-- Keep this section in sync with the other app manifest(s) -->
     <application>
@@ -23,7 +25,9 @@
         </receiver>
 
         <service android:name="android.os.cts.batterysaving.app.TestService"
+            android:foregroundServiceType="specialUse"
             android:enabled="true" android:exported="true">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
         </service>
     </application>
 </manifest>

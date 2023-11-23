@@ -82,6 +82,31 @@ public final class DisplayHelperTest {
         }
     }
 
+    @Test
+    public void testDisplayType() throws Exception {
+        // check the assumption
+        String requiredFeature = PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS;
+        // failure indicates that the device is not able to support multi-display and can
+        // not create virtual display to check virtual type
+        assumeTrue(mContext.getPackageManager().hasSystemFeature(requiredFeature));
+
+        // setup
+        DisplayManager displayManager = mContext.getSystemService(DisplayManager.class);
+        Display defaultDisplay = displayManager.getDisplay(Display.DEFAULT_DISPLAY);
+
+        // execute and assert
+        // check physical (external or internal) type
+        int displayType = DisplayHelper.getType(defaultDisplay);
+        assertThat(displayType).isAnyOf(DisplayHelper.TYPE_INTERNAL, DisplayHelper.TYPE_EXTERNAL);
+
+        // check virtual type
+        try (VirtualDisplaySession session = new VirtualDisplaySession()) {
+            Display vDisplay = session.createDisplayWithDefaultDisplayMetricsAndWait(mContext,
+                    /* isPrivate= */ true);
+            assertThat(DisplayHelper.getType(vDisplay)).isEqualTo(DisplayHelper.TYPE_VIRTUAL);
+        }
+    }
+
     private ArrayList<Display> getAllLocalDisplays() {
         DisplayManager displayManager = mContext.getSystemService(DisplayManager.class);
         Display[] allDisplays = displayManager.getDisplays();

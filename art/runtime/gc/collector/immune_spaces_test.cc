@@ -16,7 +16,8 @@
 
 #include <sys/mman.h>
 
-#include "common_runtime_test.h"
+#include "base/common_art_test.h"
+#include "base/utils.h"
 #include "gc/collector/immune_spaces.h"
 #include "gc/space/image_space.h"
 #include "gc/space/space-inl.h"
@@ -46,7 +47,7 @@ class FakeImageSpace : public space::ImageSpace {
                  MemMap&& oat_map)
       : ImageSpace("FakeImageSpace",
                    /*image_location=*/"",
-                   /*profile_file=*/{},
+                   /*profile_files=*/{},
                    std::move(map),
                    std::move(live_bitmap),
                    map.End()),
@@ -59,7 +60,7 @@ class FakeImageSpace : public space::ImageSpace {
   MemMap oat_map_;
 };
 
-class ImmuneSpacesTest : public CommonRuntimeTest {
+class ImmuneSpacesTest : public CommonArtTest {
   static constexpr size_t kMaxBitmaps = 10;
 
  public:

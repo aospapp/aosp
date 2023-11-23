@@ -16,13 +16,15 @@
 
 #include <keymaster/km_openssl/ecdh_operation.h>
 
+#include <utility>
+#include <vector>
+
 #include <keymaster/km_openssl/ec_key.h>
 #include <keymaster/km_openssl/openssl_err.h>
 #include <keymaster/km_openssl/openssl_utils.h>
 #include <keymaster/logger.h>
 #include <openssl/curve25519.h>
 #include <openssl/err.h>
-#include <vector>
 
 namespace keymaster {
 
@@ -149,14 +151,14 @@ OperationPtr EcdhOperationFactory::CreateOperation(Key&& key,
     *error = KM_ERROR_OK;
 
     EcdhOperation* op = nullptr;
-    switch (EVP_PKEY_type(pkey->type)) {
+    switch (EVP_PKEY_id(pkey.get())) {
     case EVP_PKEY_X25519:
-        op = new (std::nothrow) X25519Operation(move(key.hw_enforced_move()),
-                                                move(key.sw_enforced_move()), pkey.release());
+        op = new (std::nothrow) X25519Operation(std::move(key.hw_enforced_move()),
+                                                std::move(key.sw_enforced_move()), pkey.release());
         break;
     case EVP_PKEY_EC:
-        op = new (std::nothrow) EcdhOperation(move(key.hw_enforced_move()),
-                                              move(key.sw_enforced_move()), pkey.release());
+        op = new (std::nothrow) EcdhOperation(std::move(key.hw_enforced_move()),
+                                              std::move(key.sw_enforced_move()), pkey.release());
         break;
     default:
         *error = KM_ERROR_UNKNOWN_ERROR;

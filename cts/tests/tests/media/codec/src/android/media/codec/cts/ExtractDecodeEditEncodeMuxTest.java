@@ -16,12 +16,14 @@
 
 package android.media.codec.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.annotation.TargetApi;
 import android.content.res.AssetFileDescriptor;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
-import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
 import android.media.MediaCodecList;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -29,25 +31,30 @@ import android.media.MediaMuxer;
 import android.media.MediaPlayer;
 import android.media.cts.InputSurface;
 import android.media.cts.MediaStubActivity;
+import android.media.cts.MediaTestBase;
 import android.media.cts.OutputSurface;
-import android.media.cts.Preconditions;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.Surface;
 
-import android.media.MediaCodecInfo;
-import android.media.MediaCodecInfo.CodecCapabilities;
-import android.media.MediaCodecInfo.CodecProfileLevel;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.Preconditions;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Test for the integration of MediaMuxer and MediaCodec's encoder.
@@ -62,10 +69,34 @@ import java.util.concurrent.CountDownLatch;
  * <p>It also tests the way the codec config buffers need to be passed from the MediaCodec to the
  * MediaMuxer.
  */
+@ApiTest(apis = {"android.opengl.GLES20#GL_FRAGMENT_SHADER",
+        "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+        "android.media.MediaFormat#KEY_BIT_RATE",
+        "android.media.MediaFormat#KEY_COLOR_FORMAT",
+        "android.media.MediaFormat#KEY_FRAME_RATE",
+        "android.media.MediaFormat#KEY_I_FRAME_INTERVAL",
+        "android.media.MediaFormat#KEY_SAMPLE_RATE",
+        "android.media.MediaFormat#KEY_CHANNEL_COUNT",
+        "android.media.MediaFormat#KEY_PROFILE",
+        "android.media.MediaFormat#KEY_AAC_PROFILE",
+        "android.media.MediaExtractor#setDataSource",
+        "android.media.MediaExtractor#getTrackCount",
+        "android.media.MediaExtractor#getTrackFormat",
+        "android.media.MediaExtractor#selectTrack",
+        "android.media.MediaExtractor#readSampleData",
+        "android.media.MediaExtractor#getSampleTime",
+        "android.media.MediaExtractor#getSampleFlags",
+        "android.media.MediaExtractor#advance",
+        "android.media.MediaExtractor#release",
+        "android.media.MediaMuxer#start",
+        "android.media.MediaMuxer#stop",
+        "android.media.MediaMuxer#addTrack",
+        "android.media.MediaMuxer#writeSampleData",
+        "android.media.MediaMuxer#release"})
 @TargetApi(18)
 @AppModeFull(reason = "Instant apps cannot access the SD card")
-public class ExtractDecodeEditEncodeMuxTest
-        extends ActivityInstrumentationTestCase2<MediaStubActivity> {
+@RunWith(AndroidJUnit4.class)
+public class ExtractDecodeEditEncodeMuxTest extends MediaTestBase {
 
     private static final String TAG = ExtractDecodeEditEncodeMuxTest.class.getSimpleName();
     private static final boolean VERBOSE = false; // lots of logging
@@ -79,7 +110,7 @@ public class ExtractDecodeEditEncodeMuxTest
 
     // parameters for the video encoder
     private static final int OUTPUT_VIDEO_BIT_RATE = 2000000;   // 2Mbps
-    private static final int OUTPUT_VIDEO_FRAME_RATE = 15;      // 15fps
+    private static final int OUTPUT_VIDEO_FRAME_RATE = 30;      // 30fps
     private static final int OUTPUT_VIDEO_IFRAME_INTERVAL = 10; // 10 seconds between I-frames
     private static final int OUTPUT_VIDEO_COLOR_FORMAT =
             MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface;
@@ -126,42 +157,55 @@ public class ExtractDecodeEditEncodeMuxTest
 
     private String mOutputVideoMimeType;
 
-    public ExtractDecodeEditEncodeMuxTest() {
-        super(MediaStubActivity.class);
+    @Override
+    @Before
+    public void setUp() throws Throwable {
+        super.setUp();
     }
 
+    @Override
+    @After
+    public void tearDown() {
+        super.tearDown();
+    }
+
+    @Test
     public void testExtractDecodeEditEncodeMuxQCIF() throws Throwable {
         if(!setSize(176, 144)) return;
         setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
-        setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
+        setOutputVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         TestWrapper.runTest(this);
     }
 
+    @Test
     public void testExtractDecodeEditEncodeMuxQVGA() throws Throwable {
         if(!setSize(320, 240)) return;
         setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
-        setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
+        setOutputVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         TestWrapper.runTest(this);
     }
 
+    @Test
     public void testExtractDecodeEditEncodeMux720p() throws Throwable {
         if(!setSize(1280, 720)) return;
         setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
-        setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
+        setOutputVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         TestWrapper.runTest(this);
     }
 
+    @Test
     public void testExtractDecodeEditEncodeMux2160pHevc() throws Throwable {
         if(!setSize(3840, 2160)) return;
         setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyVideo();
-        setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_HEVC);
+        setOutputVideoMimeType(MediaFormat.MIMETYPE_VIDEO_HEVC);
         TestWrapper.runTest(this);
     }
 
+    @Test
     public void testExtractDecodeEditEncodeMuxAudio() throws Throwable {
         if(!setSize(1280, 720)) return;
         setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
@@ -170,11 +214,13 @@ public class ExtractDecodeEditEncodeMuxTest
         TestWrapper.runTest(this);
     }
 
+    @Test
     public void testExtractDecodeEditEncodeMuxAudioVideo() throws Throwable {
         if(!setSize(1280, 720)) return;
         setSource("video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
         setCopyAudio();
         setCopyVideo();
+        setOutputVideoMimeType(MediaFormat.MIMETYPE_VIDEO_AVC);
         setVerifyAudioFormat();
         TestWrapper.runTest(this);
     }
@@ -289,7 +335,7 @@ public class ExtractDecodeEditEncodeMuxTest
         mOutputFile = sb.toString();
     }
 
-    private void setVideoMimeType(String mimeType) {
+    private void setOutputVideoMimeType(String mimeType) {
         mOutputVideoMimeType = mimeType;
     }
 
@@ -305,44 +351,52 @@ public class ExtractDecodeEditEncodeMuxTest
 
         MediaCodecList mcl = new MediaCodecList(MediaCodecList.REGULAR_CODECS);
 
-        // We avoid the device-specific limitations on width and height by using values
-        // that are multiples of 16, which all tested devices seem to be able to handle.
-        MediaFormat outputVideoFormat =
-                MediaFormat.createVideoFormat(mOutputVideoMimeType, mWidth, mHeight);
+        String videoEncoderName = null;
+        MediaFormat outputVideoFormat = null;
+        if (mCopyVideo) {
+            // We avoid the device-specific limitations on width and height by using values
+            // that are multiples of 16, which all tested devices seem to be able to handle.
+            outputVideoFormat =
+                    MediaFormat.createVideoFormat(mOutputVideoMimeType, mWidth, mHeight);
 
-        // Set some properties. Failing to specify some of these can cause the MediaCodec
-        // configure() call to throw an unhelpful exception.
-        outputVideoFormat.setInteger(
-                MediaFormat.KEY_COLOR_FORMAT, OUTPUT_VIDEO_COLOR_FORMAT);
-        outputVideoFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_VIDEO_BIT_RATE);
-        outputVideoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, OUTPUT_VIDEO_FRAME_RATE);
-        outputVideoFormat.setInteger(
-                MediaFormat.KEY_I_FRAME_INTERVAL, OUTPUT_VIDEO_IFRAME_INTERVAL);
-        if (VERBOSE) Log.d(TAG, "video format: " + outputVideoFormat);
+            // Set some properties. Failing to specify some of these can cause the MediaCodec
+            // configure() call to throw an unhelpful exception.
+            outputVideoFormat.setInteger(
+                    MediaFormat.KEY_COLOR_FORMAT, OUTPUT_VIDEO_COLOR_FORMAT);
+            outputVideoFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_VIDEO_BIT_RATE);
+            outputVideoFormat.setInteger(MediaFormat.KEY_FRAME_RATE, OUTPUT_VIDEO_FRAME_RATE);
+            outputVideoFormat.setInteger(
+                    MediaFormat.KEY_I_FRAME_INTERVAL, OUTPUT_VIDEO_IFRAME_INTERVAL);
+            if (VERBOSE) Log.d(TAG, "video format: " + outputVideoFormat);
 
-        String videoEncoderName = mcl.findEncoderForFormat(outputVideoFormat);
-        if (videoEncoderName == null) {
-            // Don't fail CTS if they don't have an AVC codec (not here, anyway).
-            Log.e(TAG, "Unable to find an appropriate codec for " + outputVideoFormat);
-            return;
+            videoEncoderName = mcl.findEncoderForFormat(outputVideoFormat);
+            if (videoEncoderName == null) {
+                // Don't fail CTS if they don't have an AVC codec (not here, anyway).
+                Log.e(TAG, "Unable to find an appropriate codec for " + outputVideoFormat);
+                return;
+            }
+            if (VERBOSE) Log.d(TAG, "video found codec: " + videoEncoderName);
         }
-        if (VERBOSE) Log.d(TAG, "video found codec: " + videoEncoderName);
 
-        MediaFormat outputAudioFormat =
-                MediaFormat.createAudioFormat(
-                        OUTPUT_AUDIO_MIME_TYPE, OUTPUT_AUDIO_SAMPLE_RATE_HZ,
-                        OUTPUT_AUDIO_CHANNEL_COUNT);
-        outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_AUDIO_BIT_RATE);
-        // TODO: Bug workaround --- uncomment once fixed.
-        // outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, OUTPUT_AUDIO_AAC_PROFILE);
+        String audioEncoderName = null;
+        MediaFormat outputAudioFormat = null;
+        if (mCopyAudio) {
+            outputAudioFormat =
+                    MediaFormat.createAudioFormat(
+                            OUTPUT_AUDIO_MIME_TYPE, OUTPUT_AUDIO_SAMPLE_RATE_HZ,
+                            OUTPUT_AUDIO_CHANNEL_COUNT);
+            outputAudioFormat.setInteger(MediaFormat.KEY_BIT_RATE, OUTPUT_AUDIO_BIT_RATE);
+            // TODO: Bug workaround --- uncomment once fixed.
+            // outputAudioFormat.setInteger(MediaFormat.KEY_AAC_PROFILE, OUTPUT_AUDIO_AAC_PROFILE);
 
-        String audioEncoderName = mcl.findEncoderForFormat(outputAudioFormat);
-        if (audioEncoderName == null) {
-            // Don't fail CTS if they don't have an AAC codec (not here, anyway).
-            Log.e(TAG, "Unable to find an appropriate codec for " + outputAudioFormat);
-            return;
+            audioEncoderName = mcl.findEncoderForFormat(outputAudioFormat);
+            if (audioEncoderName == null) {
+                // Don't fail CTS if they don't have an AAC codec (not here, anyway).
+                Log.e(TAG, "Unable to find an appropriate codec for " + outputAudioFormat);
+                return;
+            }
+            if (VERBOSE) Log.d(TAG, "audio found codec: " + audioEncoderName);
         }
-        if (VERBOSE) Log.d(TAG, "audio found codec: " + audioEncoderName);
 
         MediaExtractor videoExtractor = null;
         MediaExtractor audioExtractor = null;
@@ -863,9 +917,15 @@ public class ExtractDecodeEditEncodeMuxTest
                 ByteBuffer decoderInputBuffer = audioDecoderInputBuffers[decoderInputBufferIndex];
                 int size = audioExtractor.readSampleData(decoderInputBuffer, 0);
                 long presentationTime = audioExtractor.getSampleTime();
+                int flags = audioExtractor.getSampleFlags();
                 if (VERBOSE) {
                     Log.d(TAG, "audio extractor: returned buffer of size " + size);
                     Log.d(TAG, "audio extractor: returned buffer for time " + presentationTime);
+                }
+                audioExtractorDone = !audioExtractor.advance();
+                if (audioExtractorDone) {
+                    if (VERBOSE) Log.d(TAG, "audio extractor: EOS");
+                    flags = flags | MediaCodec.BUFFER_FLAG_END_OF_STREAM;
                 }
                 if (size >= 0) {
                     audioDecoder.queueInputBuffer(
@@ -873,19 +933,9 @@ public class ExtractDecodeEditEncodeMuxTest
                             0,
                             size,
                             presentationTime,
-                            audioExtractor.getSampleFlags());
+                            flags);
+                    audioExtractedFrameCount++;
                 }
-                audioExtractorDone = !audioExtractor.advance();
-                if (audioExtractorDone) {
-                    if (VERBOSE) Log.d(TAG, "audio extractor: EOS");
-                    audioDecoder.queueInputBuffer(
-                            decoderInputBufferIndex,
-                            0,
-                            0,
-                            0,
-                            MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-                }
-                audioExtractedFrameCount++;
                 // We extracted a frame, let's try something else next.
                 break;
             }

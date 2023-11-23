@@ -393,6 +393,12 @@ table NanConfigurationUpdate {
   enabled:bool;
 }
 
+// Debug configurastion that will be send from Android AP to CHRE during boot time
+table DebugConfiguration {
+  // Should HealthMonitor::onFailure crash when receiving a false condition
+  health_monitor_failure_crash:bool;
+}
+
 /// A union that joins together all possible messages. Note that in FlatBuffers,
 /// unions have an implicit type
 union ChreMessage {
@@ -438,6 +444,8 @@ union ChreMessage {
 
   NanConfigurationRequest,
   NanConfigurationUpdate,
+
+  DebugConfiguration,
 }
 
 struct HostAddress {

@@ -1,14 +1,19 @@
+PRODUCT_SOONG_NAMESPACES += vendor/google_nos/init/citadel
 # Citadel
 PRODUCT_PACKAGES += \
     citadeld \
     citadel_updater \
     android.hardware.authsecret@1.0-service.citadel \
+    android.hardware.authsecret-service.citadel \
     android.hardware.oemlock@1.0-service.citadel \
+    android.hardware.oemlock-service.citadel \
     android.hardware.weaver@1.0-service.citadel \
+    android.hardware.weaver-service.citadel \
     android.hardware.keymaster@4.1-service.citadel \
     android.hardware.identity@1.0-service.citadel \
     android.hardware.fastboot@1.1-impl.pixel \
-    wait_for_strongbox
+    wait_for_strongbox \
+    init_citadel
 
 # Citadel debug stuff
 PRODUCT_PACKAGES_DEBUG += \
@@ -17,9 +22,6 @@ PRODUCT_PACKAGES_DEBUG += \
 # Resume on Reboot support
 PRODUCT_PACKAGES += \
     android.hardware.rebootescrow-service.citadel
-
-# init scripts (won't be in AOSP)
--include vendor/google_nos/init/citadel/init.mk
 
 ifneq ($(wildcard vendor/google_nos/provision),)
 PRODUCT_PACKAGES_DEBUG += CitadelProvision
@@ -37,3 +39,10 @@ endif
 
 # Sepolicy
 BOARD_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/citadel
+
+# USERDEBUG ONLY: Install test packages
+ifneq (,$(filter userdebug eng,$(TARGET_BUILD_VARIANT)))
+PRODUCT_PACKAGES_DEBUG += citadel_integration_tests \
+                          pwntest \
+                          nugget_targeted_tests
+endif

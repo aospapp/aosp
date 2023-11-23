@@ -16,7 +16,6 @@
 
 package android.autofillservice.cts.inline;
 
-import static android.autofillservice.cts.testcore.Helper.getContext;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
 
 import android.autofillservice.cts.commontests.DatasetFilteringTest;
@@ -43,6 +42,6 @@ public class DatasetFilteringInlineTest extends DatasetFilteringTest {
 
     @Override
     protected void enableService() {
-        Helper.enableAutofillService(getContext(), SERVICE_NAME);
+        Helper.enableAutofillService(SERVICE_NAME);
     }
 }

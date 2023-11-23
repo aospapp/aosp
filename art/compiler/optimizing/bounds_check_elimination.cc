@@ -24,7 +24,7 @@
 #include "nodes.h"
 #include "side_effects_analysis.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class MonotonicValueRange;
 
@@ -490,7 +490,7 @@ class MonotonicValueRange : public ValueRange {
   DISALLOW_COPY_AND_ASSIGN(MonotonicValueRange);
 };
 
-class BCEVisitor : public HGraphVisitor {
+class BCEVisitor final : public HGraphVisitor {
  public:
   // The least number of bounds checks that should be eliminated by triggering
   // the deoptimization technique.
@@ -564,6 +564,19 @@ class BCEVisitor : public HGraphVisitor {
     early_exit_loop_.clear();
     taken_test_loop_.clear();
     finite_loop_.clear();
+
+    // We may have eliminated all bounds checks so we should update the flag.
+    // TODO(solanes): Do this without a linear pass of the graph?
+    GetGraph()->SetHasBoundsChecks(false);
+    for (HBasicBlock* block : GetGraph()->GetReversePostOrder()) {
+      for (HInstructionIterator it(block->GetInstructions()); !it.Done(); it.Advance()) {
+        HInstruction* instruction = it.Current();
+        if (instruction->IsBoundsCheck()) {
+          GetGraph()->SetHasBoundsChecks(true);
+          return;
+        }
+      }
+    }
   }
 
  private:
@@ -1818,6 +1831,7 @@ class BCEVisitor : public HGraphVisitor {
                          HInstruction* condition,
                          bool is_null_check = false) {
     HInstruction* suspend = loop->GetSuspendCheck();
+    DCHECK(suspend != nullptr);
     block->InsertInstructionBefore(condition, block->GetLastInstruction());
     DeoptimizationKind kind =
         is_null_check ? DeoptimizationKind::kLoopNullBCE : DeoptimizationKind::kLoopBoundsBCE;
@@ -1997,7 +2011,7 @@ class BCEVisitor : public HGraphVisitor {
     phi->SetRawInputAt(0, instruction);
     phi->SetRawInputAt(1, zero);
     if (type == DataType::Type::kReference) {
-      phi->SetReferenceTypeInfo(instruction->GetReferenceTypeInfo());
+      phi->SetReferenceTypeInfoIfValid(instruction->GetReferenceTypeInfo());
     }
     new_preheader->AddPhi(phi);
     return phi;

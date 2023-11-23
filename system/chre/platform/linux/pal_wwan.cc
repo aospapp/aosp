@@ -16,22 +16,26 @@
 
 #include "chre/pal/wwan.h"
 
+#include "chre/platform/linux/task_util/task_manager.h"
+
 #include "chre/util/memory.h"
 #include "chre/util/unique_ptr.h"
 
 #include <chrono>
 #include <cinttypes>
-#include <thread>
 
 /**
  * A simulated implementation of the WWAN PAL for the linux platform.
  */
 namespace {
+
+using chre::TaskManagerSingleton;
+
 const struct chrePalSystemApi *gSystemApi = nullptr;
 const struct chrePalWwanCallbacks *gCallbacks = nullptr;
 
-//! Thread to deliver asynchronous WWAN cell info results after a CHRE request.
-std::thread gCellInfosThread;
+//! Task to deliver asynchronous WWAN cell info results after a CHRE request.
+std::optional<uint32_t> gCellInfosTaskId;
 
 void sendCellInfoResult() {
   auto result = chre::MakeUniqueZeroFill<struct chreWwanCellInfoResult>();
@@ -56,9 +60,9 @@ void sendCellInfoResult() {
   gCallbacks->cellInfoResultCallback(result.release());
 }
 
-void stopCellInfoThread() {
-  if (gCellInfosThread.joinable()) {
-    gCellInfosThread.join();
+void stopCellInfoTask() {
+  if (gCellInfosTaskId.has_value()) {
+    TaskManagerSingleton::get()->cancelTask(*gCellInfosTaskId);
   }
 }
 
@@ -67,11 +71,9 @@ uint32_t chrePalWwanGetCapabilities() {
 }
 
 bool chrePalWwanRequestCellInfo() {
-  stopCellInfoThread();
-
-  gCellInfosThread = std::thread(sendCellInfoResult);
-
-  return true;
+  stopCellInfoTask();
+  gCellInfosTaskId = TaskManagerSingleton::get()->addTask(sendCellInfoResult);
+  return gCellInfosTaskId.has_value();
 }
 
 void chrePalWwanReleaseCellInfoResult(struct chreWwanCellInfoResult *result) {
@@ -82,7 +84,7 @@ void chrePalWwanReleaseCellInfoResult(struct chreWwanCellInfoResult *result) {
 }
 
 void chrePalWwanApiClose() {
-  stopCellInfoThread();
+  stopCellInfoTask();
 }
 
 bool chrePalWwanApiOpen(const struct chrePalSystemApi *systemApi,

@@ -16,17 +16,21 @@
 
 package android.security.cts;
 
-import java.util.concurrent.Callable;
-
-import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.*;
 
+import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.concurrent.Callable;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Poc17_03 extends SecurityTestCase {
+public class Poc17_03 extends NonRootSecurityTestCase {
 
     /**
      *  b/31824853
@@ -38,7 +42,7 @@ public class Poc17_03 extends SecurityTestCase {
              AdbUtils.runPocNoOutput("CVE-2016-8479", getDevice(), TIMEOUT_NONDETERMINISTIC);
             // CTS begins the next test before device finishes rebooting,
             // sleep to allow time for device to reboot.
-            Thread.sleep(70000);
+            RunUtil.getDefault().sleep(70000);
         }
     }
 
@@ -53,7 +57,7 @@ public class Poc17_03 extends SecurityTestCase {
             AdbUtils.runPocNoOutput("CVE-2017-0508", getDevice(), 30);
             // CTS begins the next test before device finishes rebooting,
             // sleep to allow time for device to reboot.
-            Thread.sleep(60000);
+            RunUtil.getDefault().sleep(60000);
         }
     }
 
@@ -66,7 +70,7 @@ public class Poc17_03 extends SecurityTestCase {
         if (containsDriver(getDevice(), "/dev/dri/renderD128")) {
             AdbUtils.runPocNoOutput("CVE-2017-0333", getDevice(), 30);
             // Device takes up to 30 seconds to crash after ioctl call
-            Thread.sleep(30000);
+            RunUtil.getDefault().sleep(30000);
         }
     }
 

@@ -15,9 +15,8 @@
  */
 #include <general_test/wifi_capabilities_test.h>
 
-#include <chre.h>
-
 #include <shared/send_message.h>
+#include "chre_api/chre.h"
 
 namespace general_test {
 
@@ -38,6 +37,9 @@ void WifiCapabilitiesTest::setUp(uint32_t messageSize,
     if (mApiVersion >= CHRE_API_VERSION_1_2) {
       allCapabilities |= CHRE_WIFI_CAPABILITIES_RADIO_CHAIN_PREF |
                          CHRE_WIFI_CAPABILITIES_RTT_RANGING;
+    }
+    if (mApiVersion >= CHRE_API_VERSION_1_6) {
+      allCapabilities |= CHRE_WIFI_CAPABILITIES_NAN_SUB;
     }
 
     // Call the new API

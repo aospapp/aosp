@@ -23,7 +23,7 @@
 #include "mirror/string.h"
 #include "nodes.h"
 
-namespace art {
+namespace art HIDDEN {
 
 using helpers::CanFitInShifterOperand;
 using helpers::HasShifterOperand;
@@ -31,7 +31,7 @@ using helpers::IsSubRightSubLeftShl;
 
 namespace arm {
 
-class InstructionSimplifierArmVisitor : public HGraphVisitor {
+class InstructionSimplifierArmVisitor final : public HGraphVisitor {
  public:
   InstructionSimplifierArmVisitor(HGraph* graph, OptimizingCompilerStats* stats)
       : HGraphVisitor(graph), stats_(stats) {}

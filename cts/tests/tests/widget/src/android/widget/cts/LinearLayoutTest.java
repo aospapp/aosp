@@ -53,6 +53,7 @@ import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.WidgetTestUtils;
 
 import org.junit.Before;
@@ -961,12 +962,14 @@ public class LinearLayoutTest {
         final int parentWidth = parent.getWidth();
         final int parentHeight = parent.getHeight();
 
-        final boolean expectingLeftDivider =
-                (expectedDividerPositionMask & LinearLayout.SHOW_DIVIDER_BEGINNING) != 0;
+        final boolean isLayoutRtl = parent.getLayoutDirection() == View.LAYOUT_DIRECTION_RTL;
+        final boolean expectingLeftDivider = (expectedDividerPositionMask & (isLayoutRtl
+                ? LinearLayout.SHOW_DIVIDER_END : LinearLayout.SHOW_DIVIDER_BEGINNING)) != 0;
         final boolean expectingMiddleDivider =
                 (expectedDividerPositionMask & LinearLayout.SHOW_DIVIDER_MIDDLE) != 0;
         final boolean expectingRightDivider =
-                (expectedDividerPositionMask & LinearLayout.SHOW_DIVIDER_END) != 0;
+                (expectedDividerPositionMask & (isLayoutRtl ? LinearLayout.SHOW_DIVIDER_BEGINNING
+                        : LinearLayout.SHOW_DIVIDER_END)) != 0;
         final int expectedDividerCount = (expectingLeftDivider ? 1 : 0)
                 + (expectingMiddleDivider ? 1 : 0) + (expectingRightDivider ? 1 : 0);
 
@@ -977,14 +980,14 @@ public class LinearLayoutTest {
         TestUtils.assertRegionPixelsOfColor("Region of first child is blue", parent,
                 new Rect(expectedLeftChildLeft, 0,
                         expectedLeftChildLeft + expectedChildWidth, parentHeight),
-                Color.BLUE, 1, true);
+                isLayoutRtl ? Color.GREEN : Color.BLUE, 1, true);
 
         final int expectedRightChildRight =
                 expectingRightDivider ? parentWidth - expectedDividerSize : parentWidth;
         TestUtils.assertRegionPixelsOfColor("Region of second child is green", parent,
                 new Rect(expectedRightChildRight - expectedChildWidth, 0, expectedRightChildRight,
                         parentHeight),
-                Color.GREEN, 1, true);
+                isLayoutRtl ? Color.BLUE : Color.GREEN, 1, true);
 
         if (expectedDividerSize == 0) {
             return;
@@ -1080,18 +1083,50 @@ public class LinearLayoutTest {
      * | ------------  |  -------------  |
      * -----------------------------------
      *
-     * Parent is filled with yellow color. Child 1 is filled with green and child 2 is filled
-     * with blue. Divider is red at the beginning. Throughout this method we reconfigure the
+     * Parent is filled with yellow color. Child 1 is filled with blue and child 2 is filled
+     * with green. Divider is red at the beginning. Throughout this method we reconfigure the
      * visibility, drawable and paddings of the divider and verify the overall visuals of the
      * container.
      */
     @Test
+    @ApiTest(apis={"android.widget.LinearLayout#setShowDividers"})
     public void testDividersInHorizontalLayout() throws Throwable {
+        testDividersInHorizontalLayout(false /* isRtl */);
+    }
+
+    /**
+     * layout of RTL horizontal LinearLayout.
+     * -----------------------------------
+     * | ------------  |  -------------  |
+     * | |          |     |           |  |
+     * | |          |  d  |           |  |
+     * | |          |  i  |           |  |
+     * | |          |  v  |           |  |
+     * | |  child2  |  i  |  child1   |  |
+     * | |          |  d  |           |  |
+     * | |          |  e  |           |  |
+     * | |          |  r  |           |  |
+     * | |          |     |           |  |
+     * | ------------  |  -------------  |
+     * -----------------------------------
+     *
+     * Parent is filled with yellow color. Child 1 is filled with blue and child 2 is filled
+     * with green. Divider is red at the beginning. Throughout this method we reconfigure the
+     * visibility, drawable and paddings of the divider and verify the overall visuals of the
+     * container.
+     */
+    @Test
+    @ApiTest(apis={"android.widget.LinearLayout#setShowDividers"})
+    public void testDividersInRTLHorizontalLayout() throws Throwable {
+        testDividersInHorizontalLayout(true /* isRtl */);
+    }
+
+    private void testDividersInHorizontalLayout(boolean isRtl) {
         final LinearLayout parent =
                 (LinearLayout) mActivity.findViewById(R.id.linear_horizontal_with_divider);
 
-        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent,
-                () -> parent.setLayoutDirection(View.LAYOUT_DIRECTION_LTR));
+        WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, parent, () -> parent.setLayoutDirection(
+                isRtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR));
 
         final Resources res = mActivity.getResources();
         final int dividerSize = res.getDimensionPixelSize(R.dimen.linear_layout_divider_size);

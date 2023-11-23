@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_ECDSA_OPERATION_H_
 #define SYSTEM_KEYMASTER_ECDSA_OPERATION_H_
 
+#include <utility>
+
 #include <openssl/ec.h>
 #include <openssl/evp.h>
 
@@ -32,7 +34,7 @@ class EcdsaOperation : public Operation {
   public:
     EcdsaOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                    keymaster_purpose_t purpose, keymaster_digest_t digest, EVP_PKEY* key)
-        : Operation(purpose, move(hw_enforced), move(sw_enforced)), digest_(digest),
+        : Operation(purpose, std::move(hw_enforced), std::move(sw_enforced)), digest_(digest),
           digest_algorithm_(nullptr), ecdsa_key_(key) {
         EVP_MD_CTX_init(&digest_ctx_);
     }
@@ -55,7 +57,8 @@ class EcdsaSignOperation : public EcdsaOperation {
   public:
     EcdsaSignOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                        keymaster_digest_t digest, EVP_PKEY* key)
-        : EcdsaOperation(move(hw_enforced), move(sw_enforced), KM_PURPOSE_SIGN, digest, key) {}
+        : EcdsaOperation(std::move(hw_enforced), std::move(sw_enforced), KM_PURPOSE_SIGN, digest,
+                         key) {}
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override;
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
@@ -70,7 +73,8 @@ class EcdsaVerifyOperation : public EcdsaOperation {
   public:
     EcdsaVerifyOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                          keymaster_digest_t digest, EVP_PKEY* key)
-        : EcdsaOperation(move(hw_enforced), move(sw_enforced), KM_PURPOSE_VERIFY, digest, key) {}
+        : EcdsaOperation(std::move(hw_enforced), std::move(sw_enforced), KM_PURPOSE_VERIFY, digest,
+                         key) {}
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override;
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
@@ -85,7 +89,7 @@ class Ed25519SignOperation : public EcdsaSignOperation {
   public:
     Ed25519SignOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                          keymaster_digest_t digest, EVP_PKEY* key)
-        : EcdsaSignOperation(move(hw_enforced), move(sw_enforced), digest, key) {}
+        : EcdsaSignOperation(std::move(hw_enforced), std::move(sw_enforced), digest, key) {}
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override;
     keymaster_error_t Update(const AuthorizationSet& additional_params, const Buffer& input,
@@ -119,10 +123,10 @@ class EcdsaSignOperationFactory : public EcdsaOperationFactory {
                                     keymaster_digest_t digest, EVP_PKEY* key) override {
         if (IsEd25519Key(hw_enforced, sw_enforced)) {
             return new (std::nothrow)
-                Ed25519SignOperation(move(hw_enforced), move(sw_enforced), digest, key);
+                Ed25519SignOperation(std::move(hw_enforced), std::move(sw_enforced), digest, key);
         } else {
             return new (std::nothrow)
-                EcdsaSignOperation(move(hw_enforced), move(sw_enforced), digest, key);
+                EcdsaSignOperation(std::move(hw_enforced), std::move(sw_enforced), digest, key);
         }
     }
 };
@@ -133,7 +137,7 @@ class EcdsaVerifyOperationFactory : public EcdsaOperationFactory {
     Operation* InstantiateOperation(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                                     keymaster_digest_t digest, EVP_PKEY* key) override {
         return new (std::nothrow)
-            EcdsaVerifyOperation(move(hw_enforced), move(sw_enforced), digest, key);
+            EcdsaVerifyOperation(std::move(hw_enforced), std::move(sw_enforced), digest, key);
     }
 };
 

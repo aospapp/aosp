@@ -44,7 +44,7 @@ public:
         COMPOSITION_MIXED   = COMPOSITION_GLES | COMPOSITION_HWC
     };
 
-    ExynosVirtualDisplay(uint32_t index, ExynosDevice *device);
+    ExynosVirtualDisplay(uint32_t index, ExynosDevice* device, const std::string& displayName);
     ~ExynosVirtualDisplay();
 
     void createVirtualDisplay(uint32_t width, uint32_t height, int32_t* format);

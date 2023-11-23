@@ -20,19 +20,22 @@ import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP;
 import static android.server.wm.ComponentNameUtils.getActivityName;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
+import static android.server.wm.WindowManagerState.STATE_INITIALIZING;
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
 import static android.server.wm.app.Components.ENTRY_POINT_ALIAS_ACTIVITY;
 import static android.server.wm.app.Components.LAUNCHING_ACTIVITY;
 import static android.server.wm.app.Components.SINGLE_TASK_ACTIVITY;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
 import static android.view.Display.DEFAULT_DISPLAY;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.greaterThanOrEqualTo;
-import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import android.content.ComponentName;
 import android.platform.test.annotations.Presubmit;
 
+import org.junit.After;
 import org.junit.Test;
 
 /**
@@ -44,21 +47,13 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
 
     @Test
     public void testDashD() {
-        // Run at least 2 rounds to verify that -D works with an existing process.
-        // -D could fail in this case if the force stop of process is broken.
-        int prevProcId = -1;
-        for (int i = 0; i < 2; i++) {
-            executeShellCommand("am start -n " + getActivityName(TEST_ACTIVITY) + " -D");
+        executeShellCommand("am start -n " + getActivityName(TEST_ACTIVITY) + " -D");
 
-            mWmState.waitForDebuggerWindowVisible(TEST_ACTIVITY);
-            int procId = mWmState.getActivityProcId(TEST_ACTIVITY);
-
-            assertThat("Invalid ProcId.", procId, greaterThanOrEqualTo(0));
-            if (i > 0) {
-                assertNotEquals("Run " + i + " didn't start new proc.", prevProcId, procId);
-            }
-            prevProcId = procId;
-        }
+        mWmState.waitForDebuggerWindowVisible(TEST_ACTIVITY);
+        WindowManagerState.Activity activity = mWmState.getActivity(TEST_ACTIVITY);
+        assertNotNull("Must have activity component created", activity);
+        assertTrue(activity.getState().equals(STATE_INITIALIZING) || activity.getState().equals(
+                STATE_RESUMED));
     }
 
     @Test
@@ -115,5 +110,11 @@ public class AmStartOptionsTests extends ActivityManagerTestBase {
 
         waitAndAssertTopResumedActivity(actualActivity, DEFAULT_DISPLAY,
                 "Activity must be launched");
+    }
+
+    @After
+    public void tearDown() {
+        // Ensure debug app is cleaned to avoid impacting other tests (b/271998036)
+        executeShellCommand("am clear-debug-app");
     }
 }

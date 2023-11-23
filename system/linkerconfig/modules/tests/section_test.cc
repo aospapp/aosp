@@ -42,10 +42,16 @@ namespace.default.asan.search.paths += /apex/search_path2
 namespace.default.asan.permitted.paths = /data/asan/permitted_path1
 namespace.default.asan.permitted.paths += /permitted_path1
 namespace.default.asan.permitted.paths += /apex/permitted_path2
+namespace.default.hwasan.search.paths = /search_path1/hwasan
+namespace.default.hwasan.search.paths += /search_path1
+namespace.default.hwasan.search.paths += /apex/search_path2/hwasan
+namespace.default.hwasan.search.paths += /apex/search_path2
+namespace.default.hwasan.permitted.paths = /permitted_path1/hwasan
+namespace.default.hwasan.permitted.paths += /permitted_path1
+namespace.default.hwasan.permitted.paths += /apex/permitted_path2/hwasan
+namespace.default.hwasan.permitted.paths += /apex/permitted_path2
 namespace.default.links = namespace1,namespace2
-namespace.default.link.namespace1.shared_libs = lib1.so
-namespace.default.link.namespace1.shared_libs += lib2.so
-namespace.default.link.namespace1.shared_libs += lib3.so
+namespace.default.link.namespace1.shared_libs = lib1.so:lib2.so:lib3.so
 namespace.default.link.namespace2.allow_all_shared_libs = true
 namespace.namespace1.isolated = false
 namespace.namespace1.search.paths = /search_path1
@@ -58,10 +64,16 @@ namespace.namespace1.asan.search.paths += /apex/search_path2
 namespace.namespace1.asan.permitted.paths = /data/asan/permitted_path1
 namespace.namespace1.asan.permitted.paths += /permitted_path1
 namespace.namespace1.asan.permitted.paths += /apex/permitted_path2
+namespace.namespace1.hwasan.search.paths = /search_path1/hwasan
+namespace.namespace1.hwasan.search.paths += /search_path1
+namespace.namespace1.hwasan.search.paths += /apex/search_path2/hwasan
+namespace.namespace1.hwasan.search.paths += /apex/search_path2
+namespace.namespace1.hwasan.permitted.paths = /permitted_path1/hwasan
+namespace.namespace1.hwasan.permitted.paths += /permitted_path1
+namespace.namespace1.hwasan.permitted.paths += /apex/permitted_path2/hwasan
+namespace.namespace1.hwasan.permitted.paths += /apex/permitted_path2
 namespace.namespace1.links = default,namespace2
-namespace.namespace1.link.default.shared_libs = lib1.so
-namespace.namespace1.link.default.shared_libs += lib2.so
-namespace.namespace1.link.default.shared_libs += lib3.so
+namespace.namespace1.link.default.shared_libs = lib1.so:lib2.so:lib3.so
 namespace.namespace1.link.namespace2.allow_all_shared_libs = true
 namespace.namespace2.isolated = false
 namespace.namespace2.search.paths = /search_path1
@@ -74,6 +86,14 @@ namespace.namespace2.asan.search.paths += /apex/search_path2
 namespace.namespace2.asan.permitted.paths = /data/asan/permitted_path1
 namespace.namespace2.asan.permitted.paths += /permitted_path1
 namespace.namespace2.asan.permitted.paths += /apex/permitted_path2
+namespace.namespace2.hwasan.search.paths = /search_path1/hwasan
+namespace.namespace2.hwasan.search.paths += /search_path1
+namespace.namespace2.hwasan.search.paths += /apex/search_path2/hwasan
+namespace.namespace2.hwasan.search.paths += /apex/search_path2
+namespace.namespace2.hwasan.permitted.paths = /permitted_path1/hwasan
+namespace.namespace2.hwasan.permitted.paths += /permitted_path1
+namespace.namespace2.hwasan.permitted.paths += /apex/permitted_path2/hwasan
+namespace.namespace2.hwasan.permitted.paths += /apex/permitted_path2
 )";
 
 constexpr const char* kSectionWithOneNamespaceExpectedResult =
@@ -89,6 +109,14 @@ namespace.default.asan.search.paths += /apex/search_path2
 namespace.default.asan.permitted.paths = /data/asan/permitted_path1
 namespace.default.asan.permitted.paths += /permitted_path1
 namespace.default.asan.permitted.paths += /apex/permitted_path2
+namespace.default.hwasan.search.paths = /search_path1/hwasan
+namespace.default.hwasan.search.paths += /search_path1
+namespace.default.hwasan.search.paths += /apex/search_path2/hwasan
+namespace.default.hwasan.search.paths += /apex/search_path2
+namespace.default.hwasan.permitted.paths = /permitted_path1/hwasan
+namespace.default.hwasan.permitted.paths += /permitted_path1
+namespace.default.hwasan.permitted.paths += /apex/permitted_path2/hwasan
+namespace.default.hwasan.permitted.paths += /apex/permitted_path2
 )";
 
 TEST(linkerconfig_section, section_with_namespaces) {
@@ -162,9 +190,14 @@ TEST(linkerconfig_section, error_if_duplicate_providing) {
   bar.AddRequires(std::vector{"libfoo.so"});
 
   Section section("section", std::move(namespaces));
-  auto result = section.Resolve(ctx);
-  ASSERT_EQ("duplicate: libfoo.so is provided by foo1 and foo2 in [section]",
-            result.error().message());
+  ASSERT_EXIT(section.Resolve(ctx),
+              testing::KilledBySignal(SIGABRT),
+#ifndef __ANDROID__
+              "duplicate: libfoo\\.so is provided by foo1 and foo2"
+#else
+              ""
+#endif
+  );
 }
 
 TEST(linkerconfig_section, error_if_no_providers_in_strict_mode) {
@@ -176,9 +209,14 @@ TEST(linkerconfig_section, error_if_no_providers_in_strict_mode) {
   foo.AddRequires(std::vector{"libfoo.so"});
 
   Section section("section", std::move(namespaces));
-  auto result = section.Resolve(ctx);
-  ASSERT_EQ("not found: libfoo.so is required by foo in [section]",
-            result.error().message());
+  ASSERT_EXIT(section.Resolve(ctx),
+              testing::KilledBySignal(SIGABRT),
+#ifndef __ANDROID__
+              "not found: libfoo\\.so is required by foo"
+#else
+              ""
+#endif
+  );
 }
 
 TEST(linkerconfig_section, ignore_unmet_requirements) {
@@ -190,8 +228,7 @@ TEST(linkerconfig_section, ignore_unmet_requirements) {
   foo.AddRequires(std::vector{"libfoo.so"});
 
   Section section("section", std::move(namespaces));
-  auto result = section.Resolve(ctx);
-  ASSERT_RESULT_OK(result);
+  section.Resolve(ctx);
 
   ConfigWriter writer;
   section.WriteConfig(writer);
@@ -204,21 +241,19 @@ TEST(linkerconfig_section, ignore_unmet_requirements) {
 
 TEST(linkerconfig_section, resolve_section_with_apex) {
   BaseContext ctx;
-  ctx.AddApexModule(ApexInfo(
-      "foo", "", {"a.so"}, {"b.so"}, {}, {}, {}, true, true, false, false));
-  ctx.AddApexModule(
-      ApexInfo("bar", "", {"b.so"}, {}, {}, {}, {}, true, true, false, false));
-  ctx.AddApexModule(ApexInfo(
-      "baz", "", {"c.so"}, {"a.so"}, {}, {}, {}, true, true, false, false));
-
+  ctx.SetApexModules(
+      {ApexInfo(
+           "foo", "", {"a.so"}, {"b.so"}, {}, {}, {}, true, true, false, false),
+       ApexInfo("bar", "", {"b.so"}, {}, {}, {}, {}, true, true, false, false),
+       ApexInfo(
+           "baz", "", {"c.so"}, {"a.so"}, {}, {}, {}, true, true, false, false)});
   std::vector<Namespace> namespaces;
   Namespace& default_ns = namespaces.emplace_back("default");
   default_ns.AddRequires(std::vector{"a.so", "b.so"});
 
   Section section("section", std::move(namespaces));
-  auto result = section.Resolve(ctx);
+  section.Resolve(ctx);
 
-  EXPECT_RESULT_OK(result);
   EXPECT_THAT(
       std::vector<std::string>{"a.so"},
       ::testing::ContainerEq(

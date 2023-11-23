@@ -26,6 +26,7 @@ import android.webkit.CookieSyncManager;
 import android.webkit.SslErrorHandler;
 import android.webkit.WebView;
 import android.webkit.cts.CtsTestServer;
+import android.webkit.cts.SslMode;
 import android.webkit.cts.WebViewSyncLoader;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 
@@ -69,7 +70,7 @@ public class WebViewDeviceSideStartupTest
         }
 
         // Instant app can only have https connection.
-        CtsTestServer server = new CtsTestServer(mActivity, true);
+        CtsTestServer server = new CtsTestServer(mActivity, SslMode.NO_CLIENT_AUTH);
         final String url = server.getCookieUrl("death.html");
 
         Thread background = new Thread(new Runnable() {
@@ -121,6 +122,7 @@ public class WebViewDeviceSideStartupTest
         StrictMode.VmPolicy oldVmPolicy = StrictMode.getVmPolicy();
         StrictMode.setThreadPolicy(new StrictMode.ThreadPolicy.Builder()
                 .detectAll()
+                .permitExplicitGc()
                 .penaltyLog()
                 .penaltyDeath()
                 .build());

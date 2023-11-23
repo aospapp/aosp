@@ -49,7 +49,12 @@ std::vector<std::string> runCommand(const std::string& command) {
     size_t bufsize = 0;
     ssize_t linelen = 0;
     while ((linelen = getline(&line, &bufsize, f)) >= 0) {
-        lines.push_back(std::string(line, linelen));
+        std::string str = std::string(line, linelen);
+        const size_t lastNotWhitespace = str.find_last_not_of(" \t\n\r");
+        if (lastNotWhitespace != std::string::npos) {
+            str = str.substr(0, lastNotWhitespace + 1);
+        }
+        lines.push_back(str);
         free(line);
         line = nullptr;
     }

@@ -100,3 +100,17 @@ Java_sun_nio_ch_PollArrayWrapper_interrupt(JNIEnv *env, jobject this, jint fd)
                                           "Write to interrupt fd failed");
     }
 }
+
+// Android-changed: register native methods.
+#include <nativehelper/JNIHelp.h>
+#define NATIVE_METHOD(className, functionName, signature) \
+{ #functionName, signature, (void*)(className ## _ ## functionName) }
+
+static JNINativeMethod gMethods[] = {
+  NATIVE_METHOD(Java_sun_nio_ch_PollArrayWrapper, interrupt, "(I)V"),
+  NATIVE_METHOD(Java_sun_nio_ch_PollArrayWrapper, poll0, "(JIJ)I"),
+};
+
+void register_java_sun_nio_ch_PollArrayWrapper(JNIEnv* env) {
+  jniRegisterNativeMethods(env, "sun/nio/ch/PollArrayWrapper", gMethods, NELEM(gMethods));
+}

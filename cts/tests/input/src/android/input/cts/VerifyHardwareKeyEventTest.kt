@@ -87,5 +87,7 @@ class VerifyHardwareKeyEventTest {
         injectEvents(keyboardDevice, intArrayOf(EV_KEY, KEY_A, EV_KEY_UP, EV_SYN, SYN_REPORT, 0))
 
         assertReceivedEventsCanBeVerified(2 /*numEvents*/)
+
+        keyboardDevice.close()
     }
 }

@@ -116,7 +116,9 @@ class StubWriter(
 
     private fun writePackageInfo(pkg: PackageItem) {
         val annotations = pkg.modifiers.annotations()
-        if (annotations.isNotEmpty() && generateAnnotations || !pkg.documentation.isBlank()) {
+        val writeAnnotations = annotations.isNotEmpty() && generateAnnotations
+        val writeDocumentation = docStubs && pkg.documentation.isNotBlank()
+        if (writeAnnotations || writeDocumentation) {
             val sourceFile = File(getPackageDir(pkg), "package-info.java")
             val packageInfoWriter = try {
                 PrintWriter(BufferedWriter(FileWriter(sourceFile)))
@@ -163,7 +165,10 @@ class StubWriter(
         assert(classItem.containingClass() == null) { "Should only be called on top level classes" }
         val packageDir = getPackageDir(classItem.containingPackage())
 
-        return if (classItem.isKotlin() && options.kotlinStubs) {
+        // Kotlin From-text stub generation is not supported.
+        // This method will raise an error if
+        // options.kotlinStubs == true and classItem is TextClassItem.
+        return if (options.kotlinStubs && classItem.isKotlin()) {
             File(packageDir, "${classItem.simpleName()}.kt")
         } else {
             File(packageDir, "${classItem.simpleName()}.java")

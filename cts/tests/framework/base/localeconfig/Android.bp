@@ -31,11 +31,11 @@ android_test {
     ],
 
     static_libs: [
+        "compatibility-device-util-axt",
         "ctstestrunner-axt",
+        "cts-wm-util",
         "junit",
     ],
-
-    java_resource_dirs: ["res"],
 
     srcs: [
         "src/**/*.java",
@@ -43,9 +43,9 @@ android_test {
 
     sdk_version: "test_current",
     data: [
-        ":CtsMalformedInputTests",
-        ":CtsNoLocaleConfigTagTests",
+        ":ApkWithoutLocaleConfig",
+        ":ApkWithLocaleConfig",
+        ":ApkRemoveAppLocalesInLocaleConfig",
     ],
     per_testcase_directory: true,
 }
-

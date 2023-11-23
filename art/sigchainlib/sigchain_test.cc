@@ -37,6 +37,12 @@
 
 #include "sigchain.h"
 
+#if defined(__clang__) && __has_feature(hwaddress_sanitizer)
+#define DISABLE_HWASAN __attribute__((no_sanitize("hwaddress")))
+#else
+#define DISABLE_HWASAN
+#endif
+
 #if !defined(__BIONIC__)
 using sigset64_t = sigset_t;
 
@@ -75,13 +81,17 @@ class SigchainTest : public ::testing::Test {
   void RaiseHandled() {
       sigval value;
       value.sival_ptr = &value;
-      pthread_sigqueue(pthread_self(), SIGSEGV, value);
+      // pthread_sigqueue would guarantee the signal is delivered to this
+      // thread, but it is a nonstandard extension and does not exist in
+      // musl.  Gtest is single threaded, and these tests don't create any
+      // threads, so sigqueue can be used and will deliver to this thread.
+      sigqueue(getpid(), SIGSEGV, value);
   }
 
   void RaiseUnhandled() {
       sigval value;
       value.sival_ptr = nullptr;
-      pthread_sigqueue(pthread_self(), SIGSEGV, value);
+      sigqueue(getpid(), SIGSEGV, value);
   }
 };
 
@@ -245,9 +255,10 @@ TEST_F(SigchainTest, EnsureFrontOfChain) {
   called = 0;
 }
 
-TEST_F(SigchainTest, fault_address_tag) {
-#define SA_EXPOSE_TAGBITS 0x00000800
 #if defined(__aarch64__)
+// The test intentionally dereferences (tagged) null to trigger SIGSEGV.
+// We need to disable HWASAN since it would catch the dereference first.
+DISABLE_HWASAN void fault_address_tag_impl() {
   struct sigaction action = {};
   action.sa_flags = SA_SIGINFO;
   action.sa_sigaction = [](int, siginfo_t* siginfo, void*) {
@@ -269,6 +280,13 @@ TEST_F(SigchainTest, fault_address_tag) {
     EXPECT_EXIT({ volatile int load __attribute__((unused)) = *tagged_null; },
                 testing::ExitedWithCode(0x2b), "");
   }
+}
+#endif
+
+TEST_F(SigchainTest, fault_address_tag) {
+#define SA_EXPOSE_TAGBITS 0x00000800
+#if defined(__aarch64__)
+  fault_address_tag_impl();
 #else
   GTEST_SKIP() << "arm64 only";
 #endif

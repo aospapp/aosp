@@ -29,6 +29,7 @@ import android.app.Instrumentation;
 import android.app.UiAutomation;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.platform.test.annotations.Presubmit;
 import android.test.suitebuilder.annotation.MediumTest;
 import android.text.Selection;
 import android.text.TextUtils;
@@ -41,6 +42,8 @@ import android.widget.TextView;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -55,6 +58,8 @@ import org.junit.runner.RunWith;
  * a View at several granularities.
  */
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityTextTraversalTest {
     // The number of characters per page may vary with font, so this number is slightly uncertain.
     // We need some threshold, however, to make sure moving by a page isn't just moving by a line.

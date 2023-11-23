@@ -40,6 +40,17 @@
                 <data android:path="/android/view/inputmethod/ctstestapp" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".TranslucentActivity"
+            android:exported="true"
+            android:label="CtsInputMethodStandaloneTestTranslucentActivity"
+            android:windowSoftInputMode="stateAlwaysHidden"
+            android:theme="@android:style/Theme.Material.Dialog.MinWidth">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>

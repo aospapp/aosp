@@ -15,6 +15,7 @@
  */
 
 #include <iostream>
+#include <utility>
 
 #include <openssl/asn1.h>
 #include <openssl/evp.h>
@@ -40,7 +41,7 @@ constexpr int kKeyAgreementKeyUsageBit = 4;
 constexpr int kMaxKeyUsageBit = 8;
 
 template <typename T> T&& min(T&& a, T&& b) {
-    return (a < b) ? forward<T>(a) : forward<T>(b);
+    return (a < b) ? std::forward<T>(a) : std::forward<T>(b);
 }
 
 keymaster_error_t fake_sign_cert(X509* cert) {
@@ -76,7 +77,7 @@ keymaster_error_t make_name_from_str(const char name[], X509_NAME_Ptr* name_out)
                                     0 /* set */)) {
         return TranslateLastOpenSslError();
     }
-    *name_out = move(x509_name);
+    *name_out = std::move(x509_name);
     return KM_ERROR_OK;
 }
 
@@ -89,7 +90,7 @@ keymaster_error_t make_name_from_der(const keymaster_blob_t& name, X509_NAME_Ptr
         return TranslateLastOpenSslError();
     }
 
-    *name_out = move(x509_name);
+    *name_out = std::move(x509_name);
     return KM_ERROR_OK;
 }
 
@@ -124,7 +125,7 @@ keymaster_error_t get_certificate_params(const AuthorizationSet& caller_params,
         // Default serial is one.
         BN_one(serial.get());
     }
-    cert_params->serial = move(serial);
+    cert_params->serial = std::move(serial);
 
     cert_params->active_date_time = 0;
     cert_params->expire_date_time = kUndefinedExpirationDateTime;
@@ -228,7 +229,7 @@ keymaster_error_t make_key_usage_extension(bool is_signing_key, bool is_encrypti
         return TranslateLastOpenSslError();
     }
 
-    *usage_extension_out = move(key_usage_extension);
+    *usage_extension_out = std::move(key_usage_extension);
 
     return KM_ERROR_OK;
 }
@@ -285,7 +286,7 @@ keymaster_error_t make_cert_rump(const X509_NAME* issuer,
         return TranslateLastOpenSslError();
     }
 
-    *cert_out = move(certificate);
+    *cert_out = std::move(certificate);
     return KM_ERROR_OK;
 }
 
@@ -315,7 +316,7 @@ keymaster_error_t make_cert(const EVP_PKEY* evp_pkey, const X509_NAME* issuer,
         return TranslateLastOpenSslError();
     }
 
-    *cert_out = move(certificate);
+    *cert_out = std::move(certificate);
     return KM_ERROR_OK;
 }
 

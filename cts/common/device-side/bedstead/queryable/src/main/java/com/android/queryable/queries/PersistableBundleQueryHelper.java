@@ -21,6 +21,7 @@ import android.os.Parcelable;
 import android.os.PersistableBundle;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
@@ -39,9 +40,30 @@ public final class PersistableBundleQueryHelper<E extends Queryable>
     private final transient E mQuery;
     private final Map<String, PersistableBundleKeyQueryHelper<E>> mKeyQueryHelpers;
 
-    PersistableBundleQueryHelper() {
-        mQuery = (E) this;
-        mKeyQueryHelpers = new HashMap<>();
+    public static final class PersistableBundleQueryBase extends
+            QueryableBaseWithMatch<PersistableBundle,
+                    PersistableBundleQueryHelper<PersistableBundleQueryBase>> {
+        PersistableBundleQueryBase() {
+            super();
+            setQuery(new PersistableBundleQueryHelper<>(this));
+        }
+
+        PersistableBundleQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<PersistableBundleQueryHelper.PersistableBundleQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public PersistableBundleQueryHelper.PersistableBundleQueryBase createFromParcel(
+                            Parcel in) {
+                        return new PersistableBundleQueryHelper.PersistableBundleQueryBase(in);
+                    }
+
+                    public PersistableBundleQueryHelper.PersistableBundleQueryBase[] newArray(
+                            int size) {
+                        return new PersistableBundleQueryHelper.PersistableBundleQueryBase[size];
+                    }
+                };
     }
 
     public PersistableBundleQueryHelper(E query) {
@@ -62,6 +84,17 @@ public final class PersistableBundleQueryHelper<E extends Queryable>
             mKeyQueryHelpers.put(key, new PersistableBundleKeyQueryHelper<>(mQuery));
         }
         return mKeyQueryHelpers.get(key);
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        for (Map.Entry<String, PersistableBundleKeyQueryHelper<E>> keyQueries :
+                mKeyQueryHelpers.entrySet()) {
+            if (!Queryable.isEmptyQuery(keyQueries.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

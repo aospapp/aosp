@@ -217,9 +217,14 @@ bool ZslSnapshotCaptureSession::IsStreamConfigurationSupported(
 
   bool has_eligible_snapshot_stream = false;
   bool has_preview_stream = false;
+  bool has_hdr_preview_stream = false;
   for (const auto& stream : stream_config.streams) {
     if (stream.is_physical_camera_stream) {
-      ALOGE("%s: support logical camera only", __FUNCTION__);
+      ALOGE("%s: support logical stream only", __FUNCTION__);
+      return false;
+    }
+    if (utils::IsSecuredStream(stream)) {
+      ALOGE("%s: don't support secured stream", __FUNCTION__);
       return false;
     }
     if (utils::IsJPEGSnapshotStream(stream) ||
@@ -229,6 +234,9 @@ bool ZslSnapshotCaptureSession::IsStreamConfigurationSupported(
       }
     } else if (utils::IsPreviewStream(stream)) {
       has_preview_stream = true;
+      if (utils::IsHdrStream(stream)) {
+        has_hdr_preview_stream = true;
+      }
     } else {
       ALOGE("%s: only support preview + (snapshot and/or YUV) streams",
             __FUNCTION__);
@@ -242,6 +250,11 @@ bool ZslSnapshotCaptureSession::IsStreamConfigurationSupported(
 
   if (!has_preview_stream) {
     ALOGE("%s: no preview stream", __FUNCTION__);
+    return false;
+  }
+  if (has_hdr_preview_stream) {
+    ALOGE("%s: 10-bit HDR preview stream does not support ZSL snapshot",
+          __FUNCTION__);
     return false;
   }
 
@@ -740,7 +753,7 @@ status_t ZslSnapshotCaptureSession::Initialize(
     partial_result_count_ = partial_result_entry.data.i32[0];
   }
   result_dispatcher_ = ZslResultDispatcher::Create(
-      partial_result_count_, process_capture_result, notify);
+      partial_result_count_, process_capture_result, notify, stream_config);
   if (result_dispatcher_ == nullptr) {
     ALOGE("%s: Cannot create result dispatcher.", __FUNCTION__);
     return UNKNOWN_ERROR;
@@ -808,11 +821,16 @@ status_t ZslSnapshotCaptureSession::Initialize(
 status_t ZslSnapshotCaptureSession::ProcessRequest(const CaptureRequest& request) {
   ATRACE_CALL();
   bool is_zsl_request = false;
+  bool is_preview_intent = false;
   camera_metadata_ro_entry entry;
   if (request.settings != nullptr) {
     if (request.settings->Get(ANDROID_CONTROL_ENABLE_ZSL, &entry) == OK &&
         *entry.data.u8 == ANDROID_CONTROL_ENABLE_ZSL_TRUE) {
       is_zsl_request = true;
+    }
+    if (request.settings->Get(ANDROID_CONTROL_CAPTURE_INTENT, &entry) == OK &&
+        *entry.data.u8 == ANDROID_CONTROL_CAPTURE_INTENT_PREVIEW) {
+      is_preview_intent = true;
     }
   }
   status_t res = result_dispatcher_->AddPendingRequest(request, is_zsl_request);
@@ -827,12 +845,18 @@ status_t ZslSnapshotCaptureSession::ProcessRequest(const CaptureRequest& request
       ALOGW(
           "%s: frame (%d) fall back to real time request for snapshot: %s (%d)",
           __FUNCTION__, request.frame_number, strerror(-res), res);
+      if (realtime_zsl_result_request_processor_ != nullptr) {
+        realtime_zsl_result_request_processor_->UpdateOutputBufferCount(
+            request.frame_number, request.output_buffers.size(),
+            is_preview_intent);
+      }
       res = realtime_request_processor_->ProcessRequest(request);
     }
   } else {
     if (realtime_zsl_result_request_processor_ != nullptr) {
       realtime_zsl_result_request_processor_->UpdateOutputBufferCount(
-          request.frame_number, request.output_buffers.size());
+          request.frame_number, request.output_buffers.size(),
+          is_preview_intent);
     }
 
     res = realtime_request_processor_->ProcessRequest(request);

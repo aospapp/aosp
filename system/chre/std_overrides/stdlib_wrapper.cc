@@ -33,8 +33,9 @@
 #include <cstdlib>
 #include <new>
 
-#include <chre.h>
 #include "chre/util/nanoapp/assert.h"
+
+#include "chre_api/chre.h"
 
 #if defined(stderr) && !defined(_CSTD)
 // Provides a definition for stderr when the macro has been defined, but the
@@ -73,6 +74,10 @@ void exit(int exitCode) {
     ;
 }
 
+void abort(void) {
+  exit(CHRE_ERROR);
+}
+
 int fprintf(FILE * /*stream*/, const char * /*fmt*/, ...) {
   return 0;
 }
@@ -97,4 +102,34 @@ void operator delete(void * /*ptr*/, std::align_val_t /*al*/) {
 void operator delete(void * /*ptr*/, std::size_t /*sz*/,
                      std::align_val_t /*al*/) {
   CHRE_ASSERT(false);
+}
+
+void operator delete[](void * /*ptr*/) {
+  CHRE_ASSERT(false);
+}
+
+void operator delete[](void * /*ptr*/, std::size_t /*sz*/) {
+  CHRE_ASSERT(false);
+}
+
+void operator delete[](void * /*ptr*/, std::align_val_t /*al*/) {
+  CHRE_ASSERT(false);
+}
+
+void operator delete[](void * /*ptr*/, std::size_t /*sz*/,
+                       std::align_val_t /*al*/) {
+  CHRE_ASSERT(false);
+}
+
+void *operator new[](std::size_t /* count */) noexcept(false) {
+  // We return a static pointer here since in development build, using new will
+  // lead to crash so the returned pointer is not important.
+  CHRE_ASSERT(false);
+  return reinterpret_cast<void *>(0xDEADBEEF);
+}
+
+void *operator new[](std::size_t /* count */,
+                     std::align_val_t /* al */) noexcept(false) {
+  CHRE_ASSERT(false);
+  return reinterpret_cast<void *>(0xDEADBEEF);
 }

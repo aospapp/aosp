@@ -16,7 +16,6 @@
 """
 Sanity tests for voice tests in telephony
 """
-import time
 
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import CBCHSetup
@@ -147,12 +146,11 @@ class TelLabCmasTest(TelephonyBaseTest):
                 self.log.error("No valid RAT provided for CMAS test.")
                 return False
 
-            if not ensure_network_rat(
-                    self.log,
-                    self.ad,
-                    preferred_network_setting,
-                    rat_family,
-                    toggle_apm_after_setting=True):
+            if not ensure_network_rat(self.log,
+                                      self.ad,
+                                      preferred_network_setting,
+                                      rat_family,
+                                      toggle_apm_after_setting=True):
                 self.log.error(
                     "Failed to set rat family {}, preferred network:{}".format(
                         rat_family, preferred_network_setting))
@@ -164,8 +162,9 @@ class TelLabCmasTest(TelephonyBaseTest):
                         self.log, self.ad, self.anritsu,
                         next(TelLabCmasTest.SERIAL_NO), message_id,
                         warning_message):
-                    self.log.warning("Phone {} Failed to receive CMAS message"
-                                     .format(self.ad.serial))
+                    self.log.warning(
+                        "Phone {} Failed to receive CMAS message".format(
+                            self.ad.serial))
                     # Another check of logcat before confirming failure
                     if self.ad.search_logcat(warning_message):
                         self.ad.log.info(
@@ -179,8 +178,9 @@ class TelLabCmasTest(TelephonyBaseTest):
                         next(TelLabCmasTest.SERIAL_NO), message_id,
                         warning_message, c2k_response_type, c2k_severity,
                         c2k_urgency, c2k_certainty):
-                    self.log.warning("Phone {} Failed to receive CMAS message"
-                                     .format(self.ad.serial))
+                    self.log.warning(
+                        "Phone {} Failed to receive CMAS message".format(
+                            self.ad.serial))
                     if self.ad.search_logcat(warning_message):
                         self.ad.log.info(
                             "Confirmed from Logcat - User received %s",
@@ -234,9 +234,9 @@ class TelLabCmasTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self._send_receive_cmas_message(set_system_model_lte, RAT_LTE,
-                                               CMAS_MESSAGE_PRESIDENTIAL_ALERT,
-                                               "LTE CMAS Presidential Alert")
+        return self._send_receive_cmas_message(
+            set_system_model_lte, RAT_LTE, CMAS_MESSAGE_PRESIDENTIAL_ALERT,
+            "LTE CMAS Presidential Alert")
 
     @test_tracker_info(uuid="33be2aaa-e8a6-4832-afea-8bd7e5555cc7")
     @TelephonyBaseTest.tel_test_wrap
@@ -434,9 +434,10 @@ class TelLabCmasTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self._send_receive_cmas_message(
-            set_system_model_1x_evdo, RAT_1XRTT,
-            CMAS_C2K_CATEGORY_PRESIDENTIAL, "1X CMAS Presidential Alert")
+        return self._send_receive_cmas_message(set_system_model_1x_evdo,
+                                               RAT_1XRTT,
+                                               CMAS_C2K_CATEGORY_PRESIDENTIAL,
+                                               "1X CMAS Presidential Alert")
 
     @test_tracker_info(uuid="d1283544-81d0-4852-9387-c94826794896")
     @TelephonyBaseTest.tel_test_wrap
@@ -502,9 +503,9 @@ class TelLabCmasTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self._send_receive_cmas_message(set_system_model_gsm, RAT_GSM,
-                                               CMAS_MESSAGE_PRESIDENTIAL_ALERT,
-                                               "GSM CMAS Presidential Alert")
+        return self._send_receive_cmas_message(
+            set_system_model_gsm, RAT_GSM, CMAS_MESSAGE_PRESIDENTIAL_ALERT,
+            "GSM CMAS Presidential Alert")
 
     @test_tracker_info(uuid="c6d6b57b-c915-46e3-acbe-4d7f8cd6e52e")
     @TelephonyBaseTest.tel_test_wrap

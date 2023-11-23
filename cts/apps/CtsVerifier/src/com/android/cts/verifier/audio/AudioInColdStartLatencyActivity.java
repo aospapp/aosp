@@ -21,19 +21,13 @@ import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
-import android.widget.TextView;
 
 import com.android.compatibility.common.util.CddTest;
-
 import com.android.cts.verifier.R;
-import com.android.cts.verifier.audio.audiolib.AudioSystemParams;
 
-import org.hyphonate.megaaudio.recorder.AudioSinkProvider;
 import org.hyphonate.megaaudio.recorder.Recorder;
 import org.hyphonate.megaaudio.recorder.RecorderBuilder;
 import org.hyphonate.megaaudio.recorder.sinks.AppCallback;
-import org.hyphonate.megaaudio.recorder.sinks.AppCallbackAudioSink;
 import org.hyphonate.megaaudio.recorder.sinks.AppCallbackAudioSinkProvider;
 
 /**
@@ -51,10 +45,7 @@ public class AudioInColdStartLatencyActivity
     // MegaAudio
     private Recorder mRecorder;
 
-//    private TextView mCallbackDeltaTxt;
-
     private long mPreviousCallbackTime;
-    private long mCallbackDeltaTime;
 
     private long mNominalCallbackDelta;
     private long mCallbackThresholdTime;
@@ -65,8 +56,6 @@ public class AudioInColdStartLatencyActivity
     protected void onCreate(Bundle savedInstanceState) {
         setContentView(R.layout.audio_coldstart_in_activity);
         super.onCreate(savedInstanceState);
-
-//        mCallbackDeltaTxt = (TextView) findViewById(R.id.coldstart_inCallbackDeltaTxt);
 
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
@@ -80,7 +69,7 @@ public class AudioInColdStartLatencyActivity
     }
 
     boolean calcTestResult() {
-        boolean pass = mColdStartlatencyMS <= LATENCY_MS_MUST;
+        boolean pass = mColdStartlatencyMS <= 0 ? false : mColdStartlatencyMS <= LATENCY_MS_MUST;
         getPassButton().setEnabled(pass);
         return pass;
     }
@@ -93,10 +82,6 @@ public class AudioInColdStartLatencyActivity
     void showInResults() {
         calcTestResult();
         showColdStartLatency();
-    }
-
-    protected void stopAudio() {
-        stopAudioTest();
     }
 
     @Override
@@ -113,25 +98,21 @@ public class AudioInColdStartLatencyActivity
     // Audio Streaming
     //
     @Override
-    boolean startAudioTest() {
-        AudioSystemParams audioSystemParams = new AudioSystemParams();
-        audioSystemParams.init(this);
-
-        mSampleRate = audioSystemParams.getSystemSampleRate();
-        mNumBufferFrames = audioSystemParams.getSystemBurstFrames();
-
+    boolean runAudioTest() {
+        mPreviousCallbackTime = 0;
         mAccumulatedTime = 0;
         mNumCallbacks = 0;
 
-        AudioSinkProvider sinkProvider =
-                new AppCallbackAudioSinkProvider(new ColdStartAppCallback());
         try {
             mPreOpenTime = System.nanoTime();
-            mRecorder = (new RecorderBuilder())
-                    .setRecorderType(mAudioApi)
-                    .setAudioSinkProvider(sinkProvider)
-                    .build();
-            mRecorder.setupStream(NUM_CHANNELS, mSampleRate, mNumBufferFrames);
+            RecorderBuilder builder = new RecorderBuilder();
+            builder.setAudioSinkProvider(
+                    new AppCallbackAudioSinkProvider(new ColdStartAppCallback()))
+                .setRecorderType(mAudioApi)
+                .setChannelCount(NUM_CHANNELS)
+                .setSampleRate(mSampleRate)
+                .setNumExchangeFrames(mNumExchangeFrames);
+            mRecorder = builder.build();
             mPostOpenTime = System.nanoTime();
 
             mIsTestRunning = true;
@@ -156,7 +137,7 @@ public class AudioInColdStartLatencyActivity
     }
 
     @Override
-    void stopAudioTest() {
+    void stopAudio() {
         if (!mIsTestRunning) {
             return;
         }
@@ -168,10 +149,6 @@ public class AudioInColdStartLatencyActivity
 
         mStartBtn.setEnabled(true);
         mStopBtn.setEnabled(false);
-
-        calcColdStartLatency();
-
-        showInResults();
     }
 
     // Callback for Recorder
@@ -186,24 +163,27 @@ public class AudioInColdStartLatencyActivity
 
             long time = System.nanoTime();
             if (mPreviousCallbackTime == 0) {
-                mNumBufferFrames = numFrames;
-                mNominalCallbackDelta
-                        = (long)((1000000000.0 * (double) mNumBufferFrames) / (double) mSampleRate);
+                mNumExchangeFrames = numFrames;
+                mNominalCallbackDelta = (long) ((1000000000.0 * (double) mNumExchangeFrames)
+                                            / (double) mSampleRate);
                 mCallbackThresholdTime = mNominalCallbackDelta + (mNominalCallbackDelta / 8);
                 // update attributes with actual buffer size
                 // showAttributes();
                 mPreviousCallbackTime = time;
             } else {
-                mCallbackDeltaTime = time - mPreviousCallbackTime;
+                long callbackDeltaTime = time - mPreviousCallbackTime;
 
                 mPreviousCallbackTime = time;
-                mAccumulatedTime += mCallbackDeltaTime;
+                mAccumulatedTime += callbackDeltaTime;
 
-                if (mCallbackDeltaTime < mCallbackThresholdTime) {
+                if (callbackDeltaTime < mCallbackThresholdTime) {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            stopAudioTest();
+                            stopAudio();
+                            updateTestStateButtons();
+                            calcColdStartLatency();
+                            showInResults();
                         }
                     });
                 }

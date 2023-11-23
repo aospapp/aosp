@@ -222,3 +222,9 @@ void register_sun_nio_ch_IOUtil(JNIEnv* env) {
 
   IOUtil_initIDs(env);
 }
+
+void
+setfdval(JNIEnv *env, jobject fdo, jint val) {
+    (*env)->SetIntField(env, fdo, fd_fdID, val);
+}
+

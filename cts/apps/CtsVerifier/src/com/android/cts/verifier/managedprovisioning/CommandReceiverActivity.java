@@ -318,9 +318,13 @@ public class CommandReceiverActivity extends Activity {
                 } break;
                 case COMMAND_REQUEST_BUGREPORT: {
                     if (!mDpm.isDeviceOwnerApp(getPackageName())) {
+                        Log.i(TAG, "Not requesting bugreport as " + getPackageName() + " is not a "
+                                + "DO when asked to " + mDpm);
                         return;
                     }
+                    Log.i(TAG, "Requesting a bugreport using " + mDpm);
                     final boolean bugreportStarted = mDpm.requestBugreport(mAdmin);
+                    Log.i(TAG, "Bug report started: " + bugreportStarted);
                     if (!bugreportStarted) {
                         Utils.showBugreportNotification(this, getString(
                                 R.string.bugreport_already_in_progress),
@@ -682,8 +686,9 @@ public class CommandReceiverActivity extends Activity {
         in.close();
         out.close();
         session.commit(PendingIntent
-                .getBroadcast(this, 0, new Intent(ACTION_INSTALL_COMPLETE),
-                        PendingIntent.FLAG_MUTABLE_UNAUDITED)
+                .getBroadcast(this, 0,
+                        new Intent(ACTION_INSTALL_COMPLETE).setPackage(getPackageName()),
+                        PendingIntent.FLAG_MUTABLE)
                 .getIntentSender());
     }
 
@@ -693,8 +698,9 @@ public class CommandReceiverActivity extends Activity {
         Log.i(TAG, "Uninstalling package " + HELPER_APP_PKG + " using " + packageInstaller);
         try {
             packageInstaller.uninstall(HELPER_APP_PKG, PendingIntent.getBroadcast(this,
-                    /* requestCode= */ 0, new Intent(ACTION_UNINSTALL_COMPLETE),
-                    PendingIntent.FLAG_MUTABLE_UNAUDITED).getIntentSender());
+                    /* requestCode= */ 0,
+                    new Intent(ACTION_UNINSTALL_COMPLETE).setPackage(getPackageName()),
+                    PendingIntent.FLAG_MUTABLE).getIntentSender());
         } catch (IllegalArgumentException e) {
             // The package is not installed: that's fine
         }

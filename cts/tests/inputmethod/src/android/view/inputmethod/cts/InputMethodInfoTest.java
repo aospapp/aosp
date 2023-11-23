@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.atLeastOnce;
@@ -33,9 +34,9 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.ServiceInfo;
+import android.icu.util.ULocale;
+import android.os.Bundle;
 import android.os.Parcel;
-import android.os.ParcelFileDescriptor;
-import android.text.TextUtils;
 import android.util.Printer;
 import android.view.inputmethod.InputMethod;
 import android.view.inputmethod.InputMethodInfo;
@@ -47,15 +48,14 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.PropertyUtil;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.xmlpull.v1.XmlPullParserException;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @SmallTest
@@ -84,6 +84,8 @@ public class InputMethodInfoTest {
     private boolean mSubtypeIsAuxiliary;
     private boolean mSubtypeOverridesImplicitlyEnabledSubtype;
     private int mSubtypeId;
+    private boolean mSupportsStylusHandwriting;
+    private String mSettingsActivityActionForStylusHandwriting;
     private InputMethodSubtype mInputMethodSubtype;
 
     @Before
@@ -94,7 +96,10 @@ public class InputMethodInfoTest {
         mClassName = InputMethodSettingsActivityStub.class.getName();
         mLabel = "test";
         mSettingsActivity = "android.view.inputmethod.cts.InputMethodSettingsActivityStub";
-        mInputMethodInfo = new InputMethodInfo(mPackageName, mClassName, mLabel, mSettingsActivity);
+        mSupportsStylusHandwriting = true;
+        mSettingsActivityActionForStylusHandwriting = mSettingsActivity;
+        mInputMethodInfo = new InputMethodInfo(mPackageName, mClassName, mLabel, mSettingsActivity,
+                mSupportsStylusHandwriting, mSettingsActivityActionForStylusHandwriting);
 
         mSubtypeNameResId = 0;
         mSubtypeIconResId = 0;
@@ -106,6 +111,7 @@ public class InputMethodInfoTest {
         mSubtypeIsAuxiliary = false;
         mSubtypeOverridesImplicitlyEnabledSubtype = false;
         mSubtypeId = 99;
+
         mInputMethodSubtype = new InputMethodSubtype(mSubtypeNameResId, mSubtypeIconResId,
                 mSubtypeLocale, mSubtypeMode, mSubtypeExtraValue, mSubtypeIsAuxiliary,
                 mSubtypeOverridesImplicitlyEnabledSubtype, mSubtypeId);
@@ -164,6 +170,9 @@ public class InputMethodInfoTest {
         String expectedId = component.flattenToShortString();
         assertEquals(expectedId, info.getId());
         assertEquals(mClassName, info.getServiceName());
+        assertEquals(mSupportsStylusHandwriting, info.supportsStylusHandwriting());
+        assertEquals(mSettingsActivityActionForStylusHandwriting,
+                info.createStylusHandwritingSettingsActivityIntent().getComponent().getClassName());
     }
 
     @Test
@@ -207,6 +216,10 @@ public class InputMethodInfoTest {
         assertEquals(mInputMethodInfo.getSettingsActivity(), imi.getSettingsActivity());
         assertEquals(mInputMethodInfo.getId(), imi.getId());
         assertEquals(mInputMethodInfo.getIsDefaultResourceId(), imi.getIsDefaultResourceId());
+        assertEquals(mInputMethodInfo.supportsStylusHandwriting(), imi.supportsStylusHandwriting());
+        assertEquals(mInputMethodInfo.createStylusHandwritingSettingsActivityIntent().getComponent()
+                        .getClassName(),
+                imi.createStylusHandwritingSettingsActivityIntent().getComponent().getClassName());
         assertService(mInputMethodInfo.getServiceInfo(), imi.getServiceInfo());
     }
 
@@ -240,8 +253,8 @@ public class InputMethodInfoTest {
             return;
         }
 
-        if (!TextUtils.equals("native", getFbeMode())) {
-            // Skip the test unless the device is in native FBE mode.
+        // If the device doesn't use FBE, skip the test.
+        if (!PropertyUtil.propertyEquals("ro.crypto.type", "file")) {
             return;
         }
 
@@ -262,23 +275,6 @@ public class InputMethodInfoTest {
             }
         }
         assertTrue(hasEncryptionAwareInputMethod);
-    }
-
-    private String getFbeMode() {
-        try (ParcelFileDescriptor.AutoCloseInputStream in =
-                     new ParcelFileDescriptor.AutoCloseInputStream(InstrumentationRegistry
-                             .getInstrumentation()
-                             .getUiAutomation()
-                             .executeShellCommand("sm get-fbe-mode"))) {
-            try (BufferedReader br =
-                         new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
-                // Assume that the output of "sm get-fbe-mode" is always one-line.
-                final String line = br.readLine();
-                return line != null ? line.trim() : "";
-            }
-        } catch (IOException e) {
-            return "";
-        }
     }
 
     @Test
@@ -302,5 +298,30 @@ public class InputMethodInfoTest {
             }
         }
         return null;
+    }
+
+    @Test
+    public void testParsingPhysicalKeyboardAttributes() throws Exception {
+        final ServiceInfo serviceInfo = new ServiceInfo();
+        serviceInfo.applicationInfo = mContext.getApplicationInfo();
+        serviceInfo.packageName = mContext.getPackageName();
+        serviceInfo.name = "TestIme";
+        serviceInfo.metaData = new Bundle();
+        serviceInfo.metaData.putInt(InputMethod.SERVICE_META_DATA, R.xml.ime_meta_subtypes);
+        final ResolveInfo resolveInfo = new ResolveInfo();
+        resolveInfo.serviceInfo = serviceInfo;
+        InputMethodInfo imi = new InputMethodInfo(mContext, resolveInfo);
+
+        assertEquals(2, imi.getSubtypeCount());
+
+        InputMethodSubtype subtype = imi.getSubtypeAt(0);
+        assertEquals("en-US", subtype.getLanguageTag());
+        assertNull(subtype.getPhysicalKeyboardHintLanguageTag());
+        assertEquals("", subtype.getPhysicalKeyboardHintLayoutType());
+
+        subtype = imi.getSubtypeAt(1);
+        assertEquals("zh-CN", subtype.getLanguageTag());
+        assertEquals(new ULocale("en-US"), subtype.getPhysicalKeyboardHintLanguageTag());
+        assertEquals("qwerty", subtype.getPhysicalKeyboardHintLayoutType());
     }
 }

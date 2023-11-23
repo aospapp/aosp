@@ -171,7 +171,7 @@ public class MultiStaConcurrencyRestrictedWifiNetworkSuggestionTest extends Wifi
         List<WifiConfiguration> savedNetworks = ShellIdentityUtils.invokeWithShellPermissions(
                 () -> mWifiManager.getPrivilegedConfiguredNetworks());
         List<WifiConfiguration> matchingNetworksWithBssid =
-                TestHelper.findMatchingSavedNetworksWithBssid(mWifiManager, savedNetworks);
+                TestHelper.findMatchingSavedNetworksWithBssid(mWifiManager, savedNetworks, 2);
         assertWithMessage("Need at least 2 saved network bssids in range").that(
                 matchingNetworksWithBssid.size()).isAtLeast(2);
         // Pick any 2 bssid for test.

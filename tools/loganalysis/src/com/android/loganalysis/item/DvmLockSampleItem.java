@@ -17,7 +17,6 @@ package com.android.loganalysis.item;
 
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -43,17 +42,16 @@ public class DvmLockSampleItem extends GenericItem {
             OWNER_ACQUIRE_SOURCE_LINE, SAMPLE_PERCENTAGE));
 
     @SuppressWarnings("serial")
-    private static final Map<String, Class<?>> TYPES = new HashMap<String, Class<?>>() {{
-        put(PROCESS_NAME, String.class);
-        put(SENSITIVITY_FLAG, Boolean.class);
-        put(WAITING_THREAD_NAME, String.class);
-        put(WAIT_TIME, Integer.class);
-        put(WAITING_SOURCE_FILE, String.class);
-        put(WAITING_SOURCE_LINE, Integer.class);
-        put(OWNER_FILE_NAME, String.class);
-        put(OWNER_ACQUIRE_SOURCE_LINE, Integer.class);
-        put(SAMPLE_PERCENTAGE, Integer.class);
-    }};
+    private static final Map<String, Class<?>> TYPES = Map.of(
+        PROCESS_NAME, String.class,
+        SENSITIVITY_FLAG, Boolean.class,
+        WAITING_THREAD_NAME, String.class,
+        WAIT_TIME, Integer.class,
+        WAITING_SOURCE_FILE, String.class,
+        WAITING_SOURCE_LINE, Integer.class,
+        OWNER_FILE_NAME, String.class,
+        OWNER_ACQUIRE_SOURCE_LINE, Integer.class,
+        SAMPLE_PERCENTAGE, Integer.class);
 
     public DvmLockSampleItem() {
         super(ATTRIBUTES);

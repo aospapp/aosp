@@ -63,12 +63,8 @@ inline void MockVndkUsingCoreVariant() {
       "VNDK_USING_CORE_VARIANT_LIBRARIES", "vndk_using_core_variant_libraries");
 }
 
-inline android::linkerconfig::contents::Context GenerateContextWithVndk() {
+inline android::linkerconfig::modules::ApexInfo CreateTestVndkApex() {
   android::linkerconfig::modules::ApexInfo vndk_apex;
   vndk_apex.name = "com.android.vndk.v99";
-
-  android::linkerconfig::contents::Context ctx;
-  ctx.AddApexModule(vndk_apex);
-
-  return ctx;
+  return vndk_apex;
 }

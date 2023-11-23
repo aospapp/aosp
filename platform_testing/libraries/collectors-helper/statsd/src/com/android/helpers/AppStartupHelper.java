@@ -121,6 +121,8 @@ public class AppStartupHelper implements ICollectorHelper<StringBuilder> {
                         break;
                     case AtomsProto.AppStartOccurred.UNKNOWN:
                         break;
+                    default:
+                        break;
                 }
                 if (!typeKey.isEmpty()) {
                     metricTypeKey = MetricUtility.constructKey(typeKey, pkgName);
@@ -170,6 +172,10 @@ public class AppStartupHelper implements ICollectorHelper<StringBuilder> {
                     case AtomsProto.AppStartFullyDrawn.WITHOUT_BUNDLE:
                         metricKey = MetricUtility.constructKey(
                                 STARTUP_FULLY_DRAWN_WITHOUT_BUNDLE, pkgName);
+                        break;
+                    default:
+                        metricKey = MetricUtility.constructKey(
+                                STARTUP_FULLY_DRAWN_UNKNOWN, pkgName);
                         break;
                 }
                 if (!metricKey.isEmpty()) {

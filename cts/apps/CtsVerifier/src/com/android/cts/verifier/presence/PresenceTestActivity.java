@@ -42,13 +42,7 @@ public class PresenceTestActivity extends PassFailButtons.TestListActivity {
             setInfoResources(R.string.presence_test, R.string.presence_test_tv_info, -1);
             int firstSdk = SystemProperties.getInt("ro.product.first_api_level", 0);
             if (firstSdk < Build.VERSION_CODES.TIRAMISU) {
-                disabledTest.add("com.android.cts.verifier.presence.UwbPrecisionActivity");
-                disabledTest.add("com.android.cts.verifier.presence.UwbShortRangeActivity");
                 disabledTest.add("com.android.cts.verifier.presence.BleRssiPrecisionActivity");
-                disabledTest.add("com.android.cts.verifier.presence.BleRxTxCalibrationActivity");
-                disabledTest.add("com.android.cts.verifier.presence.BleRxOffsetActivity");
-                disabledTest.add("com.android.cts.verifier.presence.BleTxOffsetActivity");
-                disabledTest.add("com.android.cts.verifier.presence.NanPrecisionTestActivity");
             }
         } else {
             setInfoResources(R.string.presence_test, R.string.presence_test_info, -1);

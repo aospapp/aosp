@@ -138,7 +138,8 @@ target_config = {
         }
     },
     'art-tracing' : {
-        'run-test' : ['--trace']
+        'run-test' : ['--trace',
+                      '--stream']
     },
     'art-interpreter-tracing' : {
         'run-test' : ['--interpreter',
@@ -241,6 +242,20 @@ target_config = {
 
     'art-gtest-asan': {
         'make' : 'test-art-host-gtest',
+        'env': {
+            'SANITIZE_HOST' : 'address',
+            'ASAN_OPTIONS' : 'detect_leaks=0'
+        }
+    },
+    'art-gtest-asan32': {
+        'make' : 'test-art-host-gtest32',
+        'env': {
+            'SANITIZE_HOST' : 'address',
+            'ASAN_OPTIONS' : 'detect_leaks=0'
+        }
+    },
+    'art-gtest-asan64': {
+        'make' : 'test-art-host-gtest64',
         'env': {
             'SANITIZE_HOST' : 'address',
             'ASAN_OPTIONS' : 'detect_leaks=0'

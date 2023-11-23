@@ -24,6 +24,7 @@
 #include <android-base/properties.h>
 
 #include "environment.h"
+#include "read_elf.h"
 #include "utils.h"
 
 namespace simpleperf {
@@ -263,6 +264,10 @@ bool ProcessKernelSymbols(std::string& symbol_data,
       p = data_end;
     }
     if (ret >= 3) {
+      if (IsArmMappingSymbol(name)) {
+        continue;
+      }
+
       symbol.name = name;
       size_t module_len = strlen(module);
       if (module_len > 2 && module[0] == '[' && module[module_len - 1] == ']') {

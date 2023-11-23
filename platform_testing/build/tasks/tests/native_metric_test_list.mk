@@ -16,7 +16,7 @@ native_metric_tests := \
     binderAddInts \
     binderRpcBenchmark \
     bionic-benchmarks \
-    buffer_transport_benchmark \
+    binder_thread_stats \
     hwuimacro \
     hwuimicro \
     inputflinger_benchmarks \

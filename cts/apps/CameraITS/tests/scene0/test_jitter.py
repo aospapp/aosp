@@ -82,8 +82,8 @@ class JitterTest(its_base_test.ItsBaseTest):
       pylab.title(_NAME)
       pylab.xlabel('frame number')
       pylab.ylabel('jitter (ms)')
-      name = os.path.join(self.log_path, _NAME)
-      matplotlib.pyplot.savefig('%s_deltas.png' % (name))
+      name_with_log_path = os.path.join(self.log_path, _NAME)
+      matplotlib.pyplot.savefig(f'{name_with_log_path}_deltas.png')
 
       # Test for pass/fail.
       if avg <= _MIN_AVG_FRAME_DELTA:

@@ -27,6 +27,7 @@
 #include "base/histogram-inl.h"
 #include "base/time_utils.h"
 #include "class_linker.h"
+#include "class_root-inl.h"
 #include "common_throws.h"
 #include "debugger.h"
 #include "gc/space/bump_pointer_space.h"
@@ -41,37 +42,26 @@
 #include "mirror/array-alloc-inl.h"
 #include "mirror/array-inl.h"
 #include "mirror/class.h"
-#include "mirror/object_array-inl.h"
+#include "mirror/object_array-alloc-inl.h"
 #include "native_util.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "nativehelper/scoped_utf_chars.h"
 #include "scoped_fast_native_object_access-inl.h"
+#include "string_array_utils.h"
+#include "thread-inl.h"
 #include "trace.h"
-#include "well_known_classes.h"
 
 namespace art {
 
 static jobjectArray VMDebug_getVmFeatureList(JNIEnv* env, jclass) {
-  static const char* features[] = {
-    "method-trace-profiling",
-    "method-trace-profiling-streaming",
-    "method-sample-profiling",
-    "hprof-heap-dump",
-    "hprof-heap-dump-streaming",
-  };
-  jobjectArray result = env->NewObjectArray(arraysize(features),
-                                            WellKnownClasses::java_lang_String,
-                                            nullptr);
-  if (result != nullptr) {
-    for (size_t i = 0; i < arraysize(features); ++i) {
-      ScopedLocalRef<jstring> jfeature(env, env->NewStringUTF(features[i]));
-      if (jfeature.get() == nullptr) {
-        return nullptr;
-      }
-      env->SetObjectArrayElement(result, i, jfeature.get());
-    }
-  }
-  return result;
+  ScopedObjectAccess soa(Thread::ForEnv(env));
+  return soa.AddLocalReference<jobjectArray>(CreateStringArray(soa.Self(), {
+      "method-trace-profiling",
+      "method-trace-profiling-streaming",
+      "method-sample-profiling",
+      "hprof-heap-dump",
+      "hprof-heap-dump-streaming",
+  }));
 }
 
 static void VMDebug_startAllocCounting(JNIEnv*, jclass) {
@@ -176,6 +166,13 @@ static jlong VMDebug_lastDebuggerActivity(JNIEnv*, jclass) {
   // This function will be replaced by the debugger when it's connected. See
   // external/oj-libjdwp/src/share/vmDebug.c for implementation when debugger is connected.
   return -1;
+}
+
+static void VMDebug_suspendAllAndSendVmStart(JNIEnv*, jclass)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
+  // This function will be replaced by the debugger when it's connected. See
+  // external/oj-libjdwp/src/share/vmDebug.c for implementation when debugger is connected.
+  ThrowRuntimeException("ART's suspendAllAndSendVmStart is not implemented");
 }
 
 static void VMDebug_printLoadedClasses(JNIEnv* env, jclass, jint flags) {
@@ -373,55 +370,77 @@ static jstring VMDebug_getRuntimeStatInternal(JNIEnv* env, jclass, jint statId) 
   }
 }
 
-static bool SetRuntimeStatValue(JNIEnv* env,
-                                jobjectArray result,
+static bool SetRuntimeStatValue(Thread* self,
+                                Handle<mirror::ObjectArray<mirror::String>> array,
                                 VMDebugRuntimeStatId id,
-                                const std::string& value) {
-  ScopedLocalRef<jstring> jvalue(env, env->NewStringUTF(value.c_str()));
-  if (jvalue.get() == nullptr) {
+                                const std::string& value) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::String> ovalue = mirror::String::AllocFromModifiedUtf8(self, value.c_str());
+  if (ovalue == nullptr) {
+    DCHECK(self->IsExceptionPending());
     return false;
   }
-  env->SetObjectArrayElement(result, static_cast<jint>(id), jvalue.get());
+  // We're initializing a newly allocated array object, so we do not need to record that under
+  // a transaction. If the transaction is aborted, the whole object shall be unreachable.
+  array->SetWithoutChecks</*kTransactionActive=*/ false, /*kCheckTransaction=*/ false>(
+      static_cast<int32_t>(id), ovalue);
   return true;
 }
 
 static jobjectArray VMDebug_getRuntimeStatsInternal(JNIEnv* env, jclass) {
-  jobjectArray result = env->NewObjectArray(
-      static_cast<jint>(VMDebugRuntimeStatId::kNumRuntimeStats),
-      WellKnownClasses::java_lang_String,
-      nullptr);
-  if (result == nullptr) {
+  Thread* self = Thread::ForEnv(env);
+  ScopedObjectAccess soa(self);
+  StackHandleScope<1u> hs(self);
+  int32_t size = enum_cast<int32_t>(VMDebugRuntimeStatId::kNumRuntimeStats);
+  Handle<mirror::ObjectArray<mirror::String>> array = hs.NewHandle(
+      mirror::ObjectArray<mirror::String>::Alloc(
+          self, GetClassRoot<mirror::ObjectArray<mirror::String>>(), size));
+  if (array == nullptr) {
+    DCHECK(self->IsExceptionPending());
     return nullptr;
   }
   gc::Heap* heap = Runtime::Current()->GetHeap();
-  if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcGcCount,
+  if (!SetRuntimeStatValue(self,
+                           array,
+                           VMDebugRuntimeStatId::kArtGcGcCount,
                            std::to_string(heap->GetGcCount()))) {
     return nullptr;
   }
-  if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcGcTime,
+  if (!SetRuntimeStatValue(self,
+                           array,
+                           VMDebugRuntimeStatId::kArtGcGcTime,
                            std::to_string(NsToMs(heap->GetGcTime())))) {
     return nullptr;
   }
-  if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcBytesAllocated,
+  if (!SetRuntimeStatValue(self,
+                           array,
+                           VMDebugRuntimeStatId::kArtGcBytesAllocated,
                            std::to_string(heap->GetBytesAllocatedEver()))) {
     return nullptr;
   }
-  if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcBytesFreed,
+  if (!SetRuntimeStatValue(self,
+                           array,
+                           VMDebugRuntimeStatId::kArtGcBytesFreed,
                            std::to_string(heap->GetBytesFreedEver()))) {
     return nullptr;
   }
-  if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcBlockingGcCount,
+  if (!SetRuntimeStatValue(self,
+                           array,
+                           VMDebugRuntimeStatId::kArtGcBlockingGcCount,
                            std::to_string(heap->GetBlockingGcCount()))) {
     return nullptr;
   }
-  if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcBlockingGcTime,
+  if (!SetRuntimeStatValue(self,
+                           array,
+                           VMDebugRuntimeStatId::kArtGcBlockingGcTime,
                            std::to_string(NsToMs(heap->GetBlockingGcTime())))) {
     return nullptr;
   }
   {
     std::ostringstream output;
     heap->DumpGcCountRateHistogram(output);
-    if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcGcCountRateHistogram,
+    if (!SetRuntimeStatValue(self,
+                             array,
+                             VMDebugRuntimeStatId::kArtGcGcCountRateHistogram,
                              output.str())) {
       return nullptr;
     }
@@ -429,12 +448,14 @@ static jobjectArray VMDebug_getRuntimeStatsInternal(JNIEnv* env, jclass) {
   {
     std::ostringstream output;
     heap->DumpBlockingGcCountRateHistogram(output);
-    if (!SetRuntimeStatValue(env, result, VMDebugRuntimeStatId::kArtGcBlockingGcCountRateHistogram,
+    if (!SetRuntimeStatValue(self,
+                             array,
+                             VMDebugRuntimeStatId::kArtGcBlockingGcCountRateHistogram,
                              output.str())) {
       return nullptr;
     }
   }
-  return result;
+  return soa.AddLocalReference<jobjectArray>(array.Get());
 }
 
 static void VMDebug_nativeAttachAgent(JNIEnv* env, jclass, jstring agent, jobject classloader) {
@@ -466,7 +487,7 @@ static void VMDebug_allowHiddenApiReflectionFrom(JNIEnv* env, jclass, jclass j_c
   Runtime* runtime = Runtime::Current();
   ScopedObjectAccess soa(env);
 
-  if (!runtime->IsJavaDebuggable()) {
+  if (!runtime->IsJavaDebuggableAtInit()) {
     ThrowSecurityException("Can't exempt class, process is not debuggable.");
     return;
   }
@@ -495,32 +516,33 @@ static void VMDebug_setAllocTrackerStackDepth(JNIEnv* env, jclass, jint stack_de
 }
 
 static JNINativeMethod gMethods[] = {
-  NATIVE_METHOD(VMDebug, countInstancesOfClass, "(Ljava/lang/Class;Z)J"),
-  NATIVE_METHOD(VMDebug, countInstancesOfClasses, "([Ljava/lang/Class;Z)[J"),
-  NATIVE_METHOD(VMDebug, dumpHprofData, "(Ljava/lang/String;I)V"),
-  NATIVE_METHOD(VMDebug, dumpHprofDataDdms, "()V"),
-  NATIVE_METHOD(VMDebug, dumpReferenceTables, "()V"),
-  NATIVE_METHOD(VMDebug, getAllocCount, "(I)I"),
-  FAST_NATIVE_METHOD(VMDebug, getLoadedClassCount, "()I"),
-  NATIVE_METHOD(VMDebug, getVmFeatureList, "()[Ljava/lang/String;"),
-  FAST_NATIVE_METHOD(VMDebug, isDebuggerConnected, "()Z"),
-  FAST_NATIVE_METHOD(VMDebug, isDebuggingEnabled, "()Z"),
-  NATIVE_METHOD(VMDebug, getMethodTracingMode, "()I"),
-  FAST_NATIVE_METHOD(VMDebug, lastDebuggerActivity, "()J"),
-  FAST_NATIVE_METHOD(VMDebug, printLoadedClasses, "(I)V"),
-  NATIVE_METHOD(VMDebug, resetAllocCount, "(I)V"),
-  NATIVE_METHOD(VMDebug, startAllocCounting, "()V"),
-  NATIVE_METHOD(VMDebug, startMethodTracingDdmsImpl, "(IIZI)V"),
-  NATIVE_METHOD(VMDebug, startMethodTracingFd, "(Ljava/lang/String;IIIZIZ)V"),
-  NATIVE_METHOD(VMDebug, startMethodTracingFilename, "(Ljava/lang/String;IIZI)V"),
-  NATIVE_METHOD(VMDebug, stopAllocCounting, "()V"),
-  NATIVE_METHOD(VMDebug, stopMethodTracing, "()V"),
-  FAST_NATIVE_METHOD(VMDebug, threadCpuTimeNanos, "()J"),
-  NATIVE_METHOD(VMDebug, getRuntimeStatInternal, "(I)Ljava/lang/String;"),
-  NATIVE_METHOD(VMDebug, getRuntimeStatsInternal, "()[Ljava/lang/String;"),
-  NATIVE_METHOD(VMDebug, nativeAttachAgent, "(Ljava/lang/String;Ljava/lang/ClassLoader;)V"),
-  NATIVE_METHOD(VMDebug, allowHiddenApiReflectionFrom, "(Ljava/lang/Class;)V"),
-  NATIVE_METHOD(VMDebug, setAllocTrackerStackDepth, "(I)V"),
+    NATIVE_METHOD(VMDebug, countInstancesOfClass, "(Ljava/lang/Class;Z)J"),
+    NATIVE_METHOD(VMDebug, countInstancesOfClasses, "([Ljava/lang/Class;Z)[J"),
+    NATIVE_METHOD(VMDebug, dumpHprofData, "(Ljava/lang/String;I)V"),
+    NATIVE_METHOD(VMDebug, dumpHprofDataDdms, "()V"),
+    NATIVE_METHOD(VMDebug, dumpReferenceTables, "()V"),
+    NATIVE_METHOD(VMDebug, getAllocCount, "(I)I"),
+    FAST_NATIVE_METHOD(VMDebug, getLoadedClassCount, "()I"),
+    NATIVE_METHOD(VMDebug, getVmFeatureList, "()[Ljava/lang/String;"),
+    FAST_NATIVE_METHOD(VMDebug, isDebuggerConnected, "()Z"),
+    FAST_NATIVE_METHOD(VMDebug, isDebuggingEnabled, "()Z"),
+    NATIVE_METHOD(VMDebug, suspendAllAndSendVmStart, "()V"),
+    NATIVE_METHOD(VMDebug, getMethodTracingMode, "()I"),
+    FAST_NATIVE_METHOD(VMDebug, lastDebuggerActivity, "()J"),
+    FAST_NATIVE_METHOD(VMDebug, printLoadedClasses, "(I)V"),
+    NATIVE_METHOD(VMDebug, resetAllocCount, "(I)V"),
+    NATIVE_METHOD(VMDebug, startAllocCounting, "()V"),
+    NATIVE_METHOD(VMDebug, startMethodTracingDdmsImpl, "(IIZI)V"),
+    NATIVE_METHOD(VMDebug, startMethodTracingFd, "(Ljava/lang/String;IIIZIZ)V"),
+    NATIVE_METHOD(VMDebug, startMethodTracingFilename, "(Ljava/lang/String;IIZI)V"),
+    NATIVE_METHOD(VMDebug, stopAllocCounting, "()V"),
+    NATIVE_METHOD(VMDebug, stopMethodTracing, "()V"),
+    FAST_NATIVE_METHOD(VMDebug, threadCpuTimeNanos, "()J"),
+    NATIVE_METHOD(VMDebug, getRuntimeStatInternal, "(I)Ljava/lang/String;"),
+    NATIVE_METHOD(VMDebug, getRuntimeStatsInternal, "()[Ljava/lang/String;"),
+    NATIVE_METHOD(VMDebug, nativeAttachAgent, "(Ljava/lang/String;Ljava/lang/ClassLoader;)V"),
+    NATIVE_METHOD(VMDebug, allowHiddenApiReflectionFrom, "(Ljava/lang/Class;)V"),
+    NATIVE_METHOD(VMDebug, setAllocTrackerStackDepth, "(I)V"),
 };
 
 void register_dalvik_system_VMDebug(JNIEnv* env) {

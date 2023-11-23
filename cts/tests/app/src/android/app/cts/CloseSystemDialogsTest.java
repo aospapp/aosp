@@ -17,7 +17,6 @@
 package android.app.cts;
 
 import static android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES;
-import static android.app.cts.NotificationManagerTest.toggleListenerAccess;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 
@@ -32,11 +31,11 @@ import android.Manifest;
 import android.app.ActivityManager;
 import android.app.Instrumentation;
 import android.app.UiAutomation;
-import android.app.cts.android.app.cts.tools.FutureServiceConnection;
-import android.app.cts.android.app.cts.tools.NotificationHelper;
-import android.app.stubs.TestNotificationListener;
+import android.app.stubs.shared.FutureServiceConnection;
 import android.app.stubs.shared.FakeView;
 import android.app.stubs.shared.ICloseSystemDialogsTestsService;
+import android.app.stubs.shared.NotificationHelper;
+import android.app.stubs.shared.TestNotificationListener;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.ContentResolver;
@@ -125,9 +124,9 @@ public class CloseSystemDialogsTest {
         PermissionUtils.grantPermission(APP_SELF, Manifest.permission.POST_NOTIFICATIONS);
         mResolver = mContext.getContentResolver();
         mMainHandler = new Handler(Looper.getMainLooper());
-        toggleListenerAccess(mContext, true);
+        mNotificationHelper = new NotificationHelper(mContext);
+        mNotificationHelper.enableListener(APP_SELF);
         mNotificationListener = TestNotificationListener.getInstance();
-        mNotificationHelper = new NotificationHelper(mContext, () -> mNotificationListener);
         mWindowState = new WindowManagerStateHelper();
         enableUserFinal();
 
@@ -142,7 +141,7 @@ public class CloseSystemDialogsTest {
         IntentFilter filter = new IntentFilter();
         filter.addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
         filter.addAction(ACTION_SENTINEL);
-        mContext.registerReceiver(mIntentReceiver, filter);
+        mContext.registerReceiver(mIntentReceiver, filter, Context.RECEIVER_EXPORTED_UNAUDITED);
 
         // Add a view to verify if the view got the callback or not
         mSawContext = getContextForSaw(mContext);
@@ -167,6 +166,7 @@ public class CloseSystemDialogsTest {
         setHiddenApiPolicy(mPreviousHiddenApiPolicy);
         compat(APP_COMPAT_RESET, ActivityManager.LOCK_DOWN_CLOSE_SYSTEM_DIALOGS, APP_HELPER);
         compat(APP_COMPAT_RESET, "NOTIFICATION_TRAMPOLINE_BLOCK", APP_HELPER);
+        mNotificationHelper.disableListener(APP_SELF);
         mNotificationListener.resetData();
         // Use test API to prevent PermissionManager from killing the test process when revoking
         // permission.

@@ -53,6 +53,10 @@ bool isBreakable(unsigned long codePoint) {
     }
 }
 
+bool isNewline(unsigned long codePoint) {
+    return codePoint == '\n';
+}
+
 Error TextFace::setCharSize(signed long char_size, unsigned int dpi) {
     if (!face_) return Error::NotInitialized;
     auto error = FT_Set_Char_Size(*face_, 0, char_size, 0, dpi);

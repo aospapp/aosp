@@ -69,16 +69,27 @@ cc_test {
     ],
     srcs: [
         "vts_gki_compliance_test.cpp",
+        "kernel_version_test.cpp",
+        "kernel_version_matrix.proto",
     ],
     static_libs: [
+        "libgmock",
+        "libkver",
         "libvintf",
+        "libvts_vintf_test_common",
     ],
+    proto: {
+        type: "full",
+    },
     header_libs: [
         "bootimg_headers",
     ],
     test_suites: [
         "device-tests",
         "vts",
+    ],
+    data: [
+        ":kernel_version_matrix.textproto",
     ],
 
     require_root: true,

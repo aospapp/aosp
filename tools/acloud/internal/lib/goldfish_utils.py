@@ -15,6 +15,7 @@
 """Utility functions that process goldfish images and arguments."""
 
 import os
+import re
 import shutil
 
 from acloud import errors
@@ -37,6 +38,11 @@ _SYSTEM_QEMU_CONFIG_FILE_NAME = "system-qemu-config.txt"
 _DISK_IMAGE_NAMES = (SYSTEM_QEMU_IMAGE_NAME, _SDK_REPO_SYSTEM_IMAGE_NAME)
 _KERNEL_IMAGE_NAMES = ("kernel-ranchu", "kernel-ranchu-64", "kernel")
 _RAMDISK_IMAGE_NAMES = ("ramdisk-qemu.img", "ramdisk.img")
+# Remote host instance name.
+_REMOTE_HOST_INSTANCE_NAME_FORMAT = (
+    "host-goldfish-%(ip_addr)s-%(console_port)s-%(build_info)s")
+_REMOTE_HOST_INSTANCE_NAME_PATTERN = re.compile(
+    r"host-goldfish-(?P<ip_addr>[\d.]+)-(?P<console_port>\d+)-.+")
 
 
 def _FindFileByNames(parent_dir, names):
@@ -207,6 +213,44 @@ def MixWithSystemImage(output_dir, image_dir, system_image_path, ota):
             partition, image_dir, super=mixed_super_image_path,
             vbmeta=vbmeta_image_path))
     return disk_image
+
+
+def FormatRemoteHostInstanceName(ip_addr, console_port, build_info):
+    """Convert address and build info to a remote host instance name.
+
+    Args:
+        ip_addr: A string, the IP address of the host.
+        console_port: An integer, the emulator console port.
+        build_info: A dict containing the build ID and target.
+
+    Returns:
+        A string, the instance name.
+    """
+    build_id = build_info.get(constants.BUILD_ID)
+    build_target = build_info.get(constants.BUILD_TARGET)
+    build_info_str = (f"{build_id}-{build_target}" if
+                      build_id and build_target else
+                      "userbuild")
+    return _REMOTE_HOST_INSTANCE_NAME_FORMAT % {
+        "ip_addr": ip_addr,
+        "console_port": console_port,
+        "build_info": build_info_str,
+    }
+
+
+def ParseRemoteHostConsoleAddress(instance_name):
+    """Parse emulator console address from a remote host instance name.
+
+    Args:
+        instance_name: A string, the instance name.
+
+    Returns:
+        The IP address as a string and the console port as an integer.
+        None if the name does not represent a goldfish instance on remote host.
+    """
+    match = _REMOTE_HOST_INSTANCE_NAME_PATTERN.fullmatch(instance_name)
+    return ((match.group("ip_addr"), int(match.group("console_port")))
+            if match else None)
 
 
 def ConvertAvdSpecToArgs(avd_spec):

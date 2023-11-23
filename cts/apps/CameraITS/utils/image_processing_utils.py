@@ -19,15 +19,14 @@ import io
 import logging
 import math
 import os
-import random
 import sys
-import unittest
 
-import capture_request_utils
-import cv2
 import error_util
 import numpy
 from PIL import Image
+from PIL import ImageCms
+
+import capture_request_utils
 
 
 # The matrix is from JFIF spec
@@ -43,6 +42,30 @@ DEFAULT_GAMMA_LUT = numpy.array([
 NUM_TRIES = 2
 NUM_FRAMES = 4
 TEST_IMG_DIR = os.path.join(os.environ['CAMERA_ITS_TOP'], 'test_images')
+
+# Expected adapted primaries in ICC profile per color space
+EXPECTED_RX_P3 = 0.682
+EXPECTED_RY_P3 = 0.319
+EXPECTED_GX_P3 = 0.285
+EXPECTED_GY_P3 = 0.675
+EXPECTED_BX_P3 = 0.156
+EXPECTED_BY_P3 = 0.066
+
+EXPECTED_RX_SRGB = 0.648
+EXPECTED_RY_SRGB = 0.331
+EXPECTED_GX_SRGB = 0.321
+EXPECTED_GY_SRGB = 0.598
+EXPECTED_BX_SRGB = 0.156
+EXPECTED_BY_SRGB = 0.066
+
+# Chosen empirically - tolerance for the point in triangle test for colorspace
+# chromaticities
+COLORSPACE_TRIANGLE_AREA_TOL = 0.00028
+
+
+def convert_image_to_uint8(image):
+  image *= 255
+  return image.astype(numpy.uint8)
 
 
 def assert_props_is_not_none(props):
@@ -79,7 +102,7 @@ def convert_capture_to_rgb_image(cap,
     u = cap['data'][w * h: w * h * 5//4]
     v = cap['data'][w * h * 5//4: w * h * 6//4]
     return convert_yuv420_planar_to_rgb_image(y, u, v, w, h)
-  elif cap['format'] == 'jpeg':
+  elif cap['format'] == 'jpeg' or cap['format'] == 'jpeg_r':
     return decompress_jpeg_to_rgb_image(cap['data'])
   elif cap['format'] == 'raw' or cap['format'] == 'rawStats':
     assert_props_is_not_none(props)
@@ -90,7 +113,7 @@ def convert_capture_to_rgb_image(cap,
     y = cap['data'][0: w * h]
     return convert_y8_to_rgb_image(y, w, h)
   else:
-    raise error_util.CameraItsError('Invalid format %s' % (cap['format']))
+    raise error_util.CameraItsError(f"Invalid format {cap['format']}")
 
 
 def unpack_raw10_capture(cap):
@@ -246,6 +269,30 @@ def decompress_jpeg_to_rgb_image(jpeg_buffer):
   return numpy.array(img).reshape((h, w, 3)) / 255.0
 
 
+def decompress_jpeg_to_yuv_image(jpeg_buffer):
+  """Decompress a JPEG-compressed image, returning as a YUV image.
+
+  Args:
+    jpeg_buffer: The JPEG stream.
+
+  Returns:
+     A numpy array for the YUV image, with pixels in [0,1].
+  """
+  img = Image.open(io.BytesIO(jpeg_buffer))
+  img = img.convert('YCbCr')
+  w = img.size[0]
+  h = img.size[1]
+  return numpy.array(img).reshape((h, w, 3)) / 255.0
+
+
+def extract_luma_from_patch(cap, patch_x, patch_y, patch_w, patch_h):
+  """Extract luma from capture."""
+  y, _, _ = convert_capture_to_planes(cap)
+  patch = get_image_patch(y, patch_x, patch_y, patch_w, patch_h)
+  luma = compute_image_means(patch)[0]
+  return luma
+
+
 def convert_image_to_numpy_array(image_path):
   """Converts image at image_path to numpy array and returns the array.
 
@@ -364,7 +411,7 @@ def convert_capture_to_planes(cap, props=None):
     idxs = get_canonical_cfa_order(props)
     return [mean_image[:, :, i] / white_level for i in idxs]
   else:
-    raise error_util.CameraItsError('Invalid format %s' % (cap['format']))
+    raise error_util.CameraItsError(f"Invalid format {cap['format']}")
 
 
 def downscale_image(img, f):
@@ -474,13 +521,13 @@ def convert_y8_to_rgb_image(y_plane, w, h):
   return rgb.astype(numpy.float32) / 255.0
 
 
-def write_image(img, fname, apply_gamma=False):
+def write_image(img, fname, apply_gamma=False, is_yuv=False):
   """Save a float-3 numpy array image to a file.
 
   Supported formats: PNG, JPEG, and others; see PIL docs for more.
 
-  Image can be 3-channel, which is interpreted as RGB, or can be 1-channel,
-  which is greyscale.
+  Image can be 3-channel, which is interpreted as RGB or YUV, or can be
+  1-channel, which is greyscale.
 
   Can optionally specify that the image should be gamma-encoded prior to
   writing it out; this should be done if the image contains linear pixel
@@ -490,12 +537,16 @@ def write_image(img, fname, apply_gamma=False):
    img: Numpy image array data.
    fname: Path of file to save to; the extension specifies the format.
    apply_gamma: (Optional) apply gamma to the image prior to writing it.
+   is_yuv: Whether the image is in YUV format.
   """
   if apply_gamma:
     img = apply_lut_to_image(img, DEFAULT_GAMMA_LUT)
   (h, w, chans) = img.shape
   if chans == 3:
-    Image.fromarray((img * 255.0).astype(numpy.uint8), 'RGB').save(fname)
+    if not is_yuv:
+      Image.fromarray((img * 255.0).astype(numpy.uint8), 'RGB').save(fname)
+    else:
+      Image.fromarray((img * 255.0).astype(numpy.uint8), 'YCbCr').save(fname)
   elif chans == 1:
     img3 = (img * 255.0).astype(numpy.uint8).repeat(3).reshape(h, w, 3)
     Image.fromarray(img3, 'RGB').save(fname)
@@ -537,7 +588,7 @@ def apply_lut_to_image(img, lut):
   """
   n = len(lut)
   if n <= 0 or n > MAX_LUT_SIZE or (n & (n - 1)) != 0:
-    raise error_util.CameraItsError('Invalid arg LUT size: %d' % (n))
+    raise error_util.CameraItsError(f'Invalid arg LUT size: {n}')
   m = float(n - 1)
   return (lut[(img * m).astype(numpy.uint16)] / m).astype(numpy.float32)
 
@@ -864,85 +915,207 @@ def compute_image_rms_difference_3d(rgb_x, rgb_y):
                     (shape_rgb_x[0] * shape_rgb_x[1] * shape_rgb_x[2])))
 
 
-class ImageProcessingUtilsTest(unittest.TestCase):
-  """Unit tests for this module."""
-  _SQRT_2 = numpy.sqrt(2)
-  _YUV_FULL_SCALE = 1023
+def compute_image_sad(img_x, img_y):
+  """Calculate the sum of absolute differences between 2 images.
 
-  def test_unpack_raw10_image(self):
-    """Unit test for unpack_raw10_image.
+  Args:
+    img_x: image array in the form of w * h * channels
+    img_y: image array in the form of w * h * channels
 
-    RAW10 bit packing format
-            bit 7   bit 6   bit 5   bit 4   bit 3   bit 2   bit 1   bit 0
-    Byte 0: P0[9]   P0[8]   P0[7]   P0[6]   P0[5]   P0[4]   P0[3]   P0[2]
-    Byte 1: P1[9]   P1[8]   P1[7]   P1[6]   P1[5]   P1[4]   P1[3]   P1[2]
-    Byte 2: P2[9]   P2[8]   P2[7]   P2[6]   P2[5]   P2[4]   P2[3]   P2[2]
-    Byte 3: P3[9]   P3[8]   P3[7]   P3[6]   P3[5]   P3[4]   P3[3]   P3[2]
-    Byte 4: P3[1]   P3[0]   P2[1]   P2[0]   P1[1]   P1[0]   P0[1]   P0[0]
-    """
-    # Test using a random 4x4 10-bit image
-    img_w, img_h = 4, 4
-    check_list = random.sample(range(0, 1024), img_h*img_w)
-    img_check = numpy.array(check_list).reshape(img_h, img_w)
-
-    # Pack bits
-    for row_start in range(0, len(check_list), img_w):
-      msbs = []
-      lsbs = ''
-      for pixel in range(img_w):
-        val = numpy.binary_repr(check_list[row_start+pixel], 10)
-        msbs.append(int(val[:8], base=2))
-        lsbs = val[8:] + lsbs
-      packed = msbs
-      packed.append(int(lsbs, base=2))
-      chunk_raw10 = numpy.array(packed, dtype='uint8').reshape(1, 5)
-      if row_start == 0:
-        img_raw10 = chunk_raw10
-      else:
-        img_raw10 = numpy.vstack((img_raw10, chunk_raw10))
-
-    # Unpack and check against original
-    self.assertTrue(numpy.array_equal(unpack_raw10_image(img_raw10),
-                                      img_check))
-
-  def test_compute_image_sharpness(self):
-    """Unit test for compute_img_sharpness.
-
-    Tests by using PNG of ISO12233 chart and blurring intentionally.
-    'sharpness' should drop off by sqrt(2) for 2x blur of image.
-
-    We do one level of initial blur as PNG image is not perfect.
-    """
-    blur_levels = [2, 4, 8]
-    chart_file = os.path.join(TEST_IMG_DIR, 'ISO12233.png')
-    chart = cv2.imread(chart_file, cv2.IMREAD_ANYDEPTH)
-    white_level = numpy.amax(chart).astype(float)
-    sharpness = {}
-    for blur in blur_levels:
-      chart_blurred = cv2.blur(chart, (blur, blur))
-      chart_blurred = chart_blurred[:, :, numpy.newaxis]
-      sharpness[blur] = self._YUV_FULL_SCALE * compute_image_sharpness(
-          chart_blurred / white_level)
-
-    for i in range(len(blur_levels)-1):
-      self.assertTrue(numpy.isclose(
-          sharpness[blur_levels[i]]/sharpness[blur_levels[i+1]], self._SQRT_2,
-          atol=0.1))
-
-  def test_apply_lut_to_image(self):
-    """Unit test for apply_lut_to_image.
-
-    Test by using a canned set of values on a 1x1 pixel image.
-    The look-up table should double the value of the index: lut[x] = x*2
-    """
-    ref_image = [0.1, 0.2, 0.3]
-    lut_max = 65536
-    lut = numpy.array([i*2 for i in range(lut_max)])
-    x = numpy.array(ref_image).reshape((1, 1, 3))
-    y = apply_lut_to_image(x, lut).reshape(3).tolist()
-    y_ref = [i*2 for i in ref_image]
-    self.assertTrue(numpy.allclose(y, y_ref, atol=1/lut_max))
+  Returns:
+    sad
+  """
+  img_x = img_x[:, :, 1:].ravel()
+  img_y = img_y[:, :, 1:].ravel()
+  return numpy.sum(numpy.abs(numpy.subtract(img_x, img_y, dtype=float)))
 
 
-if __name__ == '__main__':
-  unittest.main()
+def get_img(buffer):
+  """Return a PIL.Image of the capture buffer.
+
+  Args:
+    buffer: data field from the capture result.
+
+  Returns:
+    A PIL.Image
+  """
+  return Image.open(io.BytesIO(buffer))
+
+
+def jpeg_has_icc_profile(jpeg_img):
+  """Checks if a jpeg PIL.Image has an icc profile attached.
+
+  Args:
+    jpeg_img: The PIL.Image.
+
+  Returns:
+    True if an icc profile is present, False otherwise.
+  """
+  return jpeg_img.info.get('icc_profile') is not None
+
+
+def get_primary_chromaticity(primary):
+  """Given an ImageCms primary, returns just the xy chromaticity coordinates.
+
+  Args:
+    primary: The primary from the ImageCms profile.
+
+  Returns:
+    (float, float): The xy chromaticity coordinates of the primary.
+  """
+  ((_, _, _), (x, y, _)) = primary
+  return x, y
+
+
+def is_jpeg_icc_profile_correct(jpeg_img, color_space, icc_profile_path=None):
+  """Compare a jpeg's icc profile to a color space's expected parameters.
+
+  Args:
+    jpeg_img: The PIL.Image.
+    color_space: 'DISPLAY_P3' or 'SRGB'
+    icc_profile_path: Optional path to an icc file to be created with the
+        raw contents.
+
+  Returns:
+    True if the icc profile matches expectations, False otherwise.
+  """
+  icc = jpeg_img.info.get('icc_profile')
+  f = io.BytesIO(icc)
+  icc_profile = ImageCms.getOpenProfile(f)
+
+  if icc_profile_path is not None:
+    raw_icc_bytes = f.getvalue()
+    f = open(icc_profile_path, 'wb')
+    f.write(raw_icc_bytes)
+    f.close()
+
+  cms_profile = icc_profile.profile
+  (rx, ry) = get_primary_chromaticity(cms_profile.red_primary)
+  (gx, gy) = get_primary_chromaticity(cms_profile.green_primary)
+  (bx, by) = get_primary_chromaticity(cms_profile.blue_primary)
+
+  if color_space == 'DISPLAY_P3':
+    # Expected primaries based on Apple's Display P3 primaries
+    expected_rx = EXPECTED_RX_P3
+    expected_ry = EXPECTED_RY_P3
+    expected_gx = EXPECTED_GX_P3
+    expected_gy = EXPECTED_GY_P3
+    expected_bx = EXPECTED_BX_P3
+    expected_by = EXPECTED_BY_P3
+  elif color_space == 'SRGB':
+    # Expected primaries based on Pixel sRGB profile
+    expected_rx = EXPECTED_RX_SRGB
+    expected_ry = EXPECTED_RY_SRGB
+    expected_gx = EXPECTED_GX_SRGB
+    expected_gy = EXPECTED_GY_SRGB
+    expected_bx = EXPECTED_BX_SRGB
+    expected_by = EXPECTED_BY_SRGB
+  else:
+    # Unsupported color space for comparison
+    return False
+
+  cmp_values = [
+      [rx, expected_rx],
+      [ry, expected_ry],
+      [gx, expected_gx],
+      [gy, expected_gy],
+      [bx, expected_bx],
+      [by, expected_by]
+  ]
+
+  for (actual, expected) in cmp_values:
+    if not math.isclose(actual, expected, abs_tol=0.001):
+      # Values significantly differ
+      return False
+
+  return True
+
+
+def area_of_triangle(x1, y1, x2, y2, x3, y3):
+  """Calculates the area of a triangle formed by three points.
+
+  Args:
+    x1 (float): The x-coordinate of the first point.
+    y1 (float): The y-coordinate of the first point.
+    x2 (float): The x-coordinate of the second point.
+    y2 (float): The y-coordinate of the second point.
+    x3 (float): The x-coordinate of the third point.
+    y3 (float): The y-coordinate of the third point.
+
+  Returns:
+    float: The area of the triangle.
+  """
+  area = abs((x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2)) / 2.0)
+  return area
+
+
+def point_in_triangle(x1, y1, x2, y2, x3, y3, xp, yp, abs_tol):
+  """Checks if the point (xp, yp) is inside the triangle.
+
+  Args:
+    x1 (float): The x-coordinate of the first point.
+    y1 (float): The y-coordinate of the first point.
+    x2 (float): The x-coordinate of the second point.
+    y2 (float): The y-coordinate of the second point.
+    x3 (float): The x-coordinate of the third point.
+    y3 (float): The y-coordinate of the third point.
+    xp (float): The x-coordinate of the point to check.
+    yp (float): The y-coordinate of the point to check.
+    abs_tol (float): Absolute tolerance amount.
+
+  Returns:
+    bool: True if the point is inside the triangle, False otherwise.
+  """
+  a = area_of_triangle(x1, y1, x2, y2, x3, y3)
+  a1 = area_of_triangle(xp, yp, x2, y2, x3, y3)
+  a2 = area_of_triangle(x1, y1, xp, yp, x3, y3)
+  a3 = area_of_triangle(x1, y1, x2, y2, xp, yp)
+  return math.isclose(a, (a1 + a2 + a3), abs_tol=abs_tol)
+
+
+def p3_img_has_wide_gamut(wide_img):
+  """Check if a DISPLAY_P3 image contains wide gamut pixels.
+
+  Given a DISPLAY_P3 image that should have a wider gamut than SRGB, checks all
+  pixel values to see if any reside outside the SRGB gamut.
+
+  Args:
+    wide_img: The PIL.Image in the DISPLAY_P3 color space.
+
+  Returns:
+    True if the gamut of wide_img is greater than that of SRGB.
+    False otherwise.
+  """
+  # Import in this function because this is the only function that uses this
+  # library in UDC, and the test that calls into this will be skipped on the
+  # vast majority of devices. In future versions, this is imported at the top.
+  import colour
+
+  w = wide_img.size[0]
+  h = wide_img.size[1]
+  wide_arr = numpy.array(wide_img)
+
+  img_arr = colour.RGB_to_XYZ(
+      wide_arr / 255.0,
+      colour.models.rgb.datasets.display_p3.RGB_COLOURSPACE_DISPLAY_P3.whitepoint,
+      colour.models.rgb.datasets.display_p3.RGB_COLOURSPACE_DISPLAY_P3.whitepoint,
+      colour.models.rgb.datasets.display_p3.RGB_COLOURSPACE_DISPLAY_P3.matrix_RGB_to_XYZ,
+      'Bradford', lambda x: colour.eotf(x, 'sRGB'))
+
+  xy_arr = colour.XYZ_to_xy(img_arr)
+
+  srgb_colorspace = colour.models.RGB_COLOURSPACE_sRGB
+  srgb_primaries = srgb_colorspace.primaries
+
+  for y in range(h):
+    for x in range(w):
+      # Check if the pixel chromaticity is inside or outside the SRGB gamut.
+      # This check is not guaranteed not to emit false positives / negatives,
+      # however the probability of either on an arbitrary DISPLAY_P3 camera
+      # capture is exceedingly unlikely.
+      if not point_in_triangle(*srgb_primaries.reshape(6),
+                               xy_arr[y][x][0], xy_arr[y][x][1],
+                               COLORSPACE_TRIANGLE_AREA_TOL):
+        return True
+
+  return False

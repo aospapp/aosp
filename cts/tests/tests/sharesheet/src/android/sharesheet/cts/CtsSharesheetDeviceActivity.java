@@ -16,16 +16,26 @@
 package android.sharesheet.cts;
 
 import android.app.Activity;
-import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 
-import java.lang.Override;
+import java.util.function.Consumer;
 
 public class CtsSharesheetDeviceActivity extends Activity {
+    private static Consumer<Intent> sOnIntentReceivedConsumer;
+
+    public static void setOnIntentReceivedConsumer(Consumer<Intent> consumer) {
+        sOnIntentReceivedConsumer = consumer;
+    }
 
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+        if (sOnIntentReceivedConsumer != null) {
+            sOnIntentReceivedConsumer.accept(getIntent());
+            sOnIntentReceivedConsumer = null;
+        }
+
         // This activity may be opened to ensure click behavior functions properly.
         // To ensure test repeatability do not stay open.
         finish();

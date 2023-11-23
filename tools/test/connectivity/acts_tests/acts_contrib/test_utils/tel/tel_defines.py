@@ -14,6 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+import enum
+
 ###############################################
 # TIMERS
 ###############################################
@@ -258,6 +260,9 @@ SIM2_SLOT_INDEX = 1
 
 # invalid Subscription ID
 INVALID_SUB_ID = -1
+
+# invalid port index
+INVALID_PORT_INDEX = -1
 
 # invalid SIM slot index
 INVALID_SIM_SLOT_INDEX = -1
@@ -701,6 +706,7 @@ SL4A_PACKAGE_NAME = "com.googlecode.android_scripting"
 CARRIER_TEST_CONF_XML_PATH = "/data/user_de/0/com.android.phone/files/"
 MAIN_ACTIVITY = "android.intent.action.MAIN"
 CBR_PACKAGE = "com.google.android.cellbroadcastreceiver"
+CBR_APEX_PACKAGE = "com.google.android.cellbroadcast"
 SYSUI_PACKAGE = "com.android.systemui"
 CBR_ACTIVITY = "com.android.cellbroadcastreceiver.CellBroadcastSettings"
 CBR_TEST_APK = "com.android.cellbroadcastreceiver.tests"
@@ -710,9 +716,14 @@ PLMN_ADB_PROPERTY = "gsm.sim.operator.numeric"
 WAIT_TIME_FOR_ALERTS_TO_POPULATE = 60
 WAIT_TIME_FOR_UI = 5
 SCROLL_DOWN = "input swipe 300 900 300 300"
+SLOW_SCROLL_DOWN = "input swipe 300 900 300 100"
+SCROLL_UP = "input swipe 300 500 300 900"
+KEYEVENT_DEL = 'input keyevent KEYCODE_DEL'
 WAIT_TIME_FOR_ALERT_TO_RECEIVE = 15
 DEFAULT_SOUND_TIME = 16
 DEFAULT_VIBRATION_TIME = 10
+NO_VIBRATION_TIME = -1
+NO_SOUND_TIME = -1
 DEFAULT_OFFSET = 1
 EXIT_ALERT_LIST = ["Got it", "OK", "Hide", "TO CLOSE", "Yes"]
 CMD_DND_OFF = "cmd notification set_dnd off"
@@ -752,6 +763,7 @@ NEWZEALAND = "newzealand"
 OMAN = "oman"
 PERU_ENTEL = "peru_entel"
 PERU_TELEFONICA = "peru_telefonica"
+SPAIN_TELEFONICA = "spain_telefonica"
 PUERTORICO = "puertorico"
 ROMANIA = "romania"
 SAUDIARABIA = "saudiarabia"
@@ -762,7 +774,39 @@ UK = "uk"
 US_ATT = "us_att"
 US_TMO = "us_tmo"
 US_VZW = "us_vzw"
-
+MEXICO = "mexico"
+BAHAMAS = "bahamas"
+UK_EE = "uk_ee"
+COLUMBIA_TELEFONICA = "columbia_telefonica"
+JAPAN_EMOBILE = "japan_emobile"
+JAPAN_WIRELESSCITYPLANNING ="japan_wirelesscityplanning"
+JAPAN_DOCOMO = "japan_docomo"
+JAPAN_RAKUTEN = "japan_rakuten"
+KOREA_SKT = "korea_skt"
+KOREA_LGU = "korea_lgu"
+VENEZUELA = "venezuela"
+RUSSIA = "russia"
+RUSSIA_MEGAFON = "russia_megafon"
+TURKEY = "turkey"
+US = "us"
+US_SPRINT = "us_sprint"
+US_USC = "us_usc"
+AZERBAIJAN = "azerbaijan"
+CHINA = "china"
+SOUTHAFRICA_TELKOM = 'southafrica_telkom'
+GUATEMALA_TELEFONICA = "guatemala_telefonica"
+INDIA = "india"
+HUNGARY_TELEKOM = "hungary_telekom"
+CROATIA_HRVATSKI = "croatia_hrvatski"
+CZECH_TMOBILE = "czech_tmobile"
+SLOVAKIA_TELEKOM = "slovakia_telekom"
+AUSTRIA_MAGENTA = "austria_magenta"
+POLAND_TMOBILE = "poland_tmobile"
+AUSTRIA_TMOBILE = "austria_tmobile"
+MACEDONIA_TELEKOM = "macedonia_telekom"
+MONTENEGRO_TELEKOM = "montenegro_telekom"
+UKRAINE = "ukraine"
+NORWAY = "norway"
 # Carrier Config Update
 CARRIER_ID_VERSION = "3"
 ER_DB_ID_VERSION = "99999"
@@ -982,6 +1026,16 @@ class CarrierConfigs:
     DEFAULT_WFC_IMS_MODE_INT = "carrier_default_wfc_ims_mode_int"
     DEFAULT_WFC_IMS_ROAMING_ENABLED_BOOL = "carrier_default_wfc_ims_roaming_enabled_bool"
     DEFAULT_WFC_IMS_ROAMING_MODE_INT = "carrier_default_wfc_ims_roaming_mode_int"
+
+
+class SimSlotInfo(enum.Enum):
+    """Mapping table of SIM_SLOT.
+
+    [SIM_SLOT_ID, PORT_ID, PHYSICAL_SLOT_ID]
+    """
+    SLOT_0 = [0, 0, 1]
+    SLOT_1 = [1, 0, 0]
+    SLOT_2 = [2, 1, 0]
 
 
 """

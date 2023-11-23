@@ -1,0 +1,36 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+java_library_host {
+    name: "InteractiveCommon",
+    srcs: [
+        "common/src/main/java/**/*.java",
+    ],
+}
+
+android_library {
+    name: "InteractiveCommonAndroid",
+    srcs: [
+        "common/src/main/java/**/*.java",
+    ],
+    manifest: "common/src/main/AndroidManifest.xml",
+    min_sdk_version: "29",
+    platform_apis: true,
+}
+
+android_library {
+    name: "Interactive",
+    srcs: [
+        "src/main/java/**/*.java",
+        "steps/src/main/java/**/*.java",
+    ],
+    manifest: "src/main/AndroidManifest.xml",
+    min_sdk_version: "29",
+    static_libs: [
+        "Nene",
+        "Harrier",
+        "InteractiveCommonAndroid",
+    ],
+    resource_dirs: ["src/main/res"],
+}

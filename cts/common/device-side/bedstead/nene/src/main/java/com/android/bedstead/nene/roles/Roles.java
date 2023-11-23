@@ -17,6 +17,7 @@
 package com.android.bedstead.nene.roles;
 
 import static com.android.bedstead.nene.permissions.CommonPermissions.BYPASS_ROLE_QUALIFICATION;
+import static com.android.bedstead.nene.permissions.CommonPermissions.MANAGE_ROLE_HOLDERS;
 import static com.android.bedstead.nene.utils.Versions.T;
 
 import android.annotation.TargetApi;
@@ -26,10 +27,20 @@ import android.os.Build;
 
 import com.android.bedstead.nene.TestApis;
 import com.android.bedstead.nene.annotations.Experimental;
+import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.utils.Versions;
 
-/** Test APIs related to roles. */
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Test APIs related to roles.
+ *
+ * <p>To add or remove a role to or from a specific package, see
+ * {@link Package#setAsRoleHolder(String)} and {@link Package#removeAsRoleHolder(String)}.
+ */
 @TargetApi(Build.VERSION_CODES.TIRAMISU)
 public class Roles {
     public static final Roles sInstance = new Roles();
@@ -50,6 +61,17 @@ public class Roles {
                 BYPASS_ROLE_QUALIFICATION)) {
             sContext.getSystemService(RoleManager.class)
                     .setBypassingRoleQualification(bypassingRoleQualification);
+        }
+    }
+
+    /**
+     * @see RoleManager#getRoleHolders(String)
+     */
+    @Experimental
+    public Set<String> getRoleHolders(String role) {
+        try (PermissionContext p = TestApis.permissions().withPermission(
+                MANAGE_ROLE_HOLDERS)) {
+            return new HashSet<>(sContext.getSystemService(RoleManager.class).getRoleHolders(role));
         }
     }
 }

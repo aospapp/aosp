@@ -27,7 +27,7 @@
 #include "mirror/array-inl.h"
 #include "mirror/string.h"
 
-namespace art {
+namespace art HIDDEN {
 
 // Enables vectorization (SIMDization) in the loop optimizer.
 static constexpr bool kEnableVectorization = true;
@@ -507,9 +507,8 @@ bool HLoopOptimization::Run() {
     graph_->SetHasLoops(false);  // no more loops
   }
 
-  // Detach.
+  // Detach allocator.
   loop_allocator_ = nullptr;
-  last_loop_ = top_loop_ = nullptr;
 
   return did_loop_opt;
 }
@@ -530,11 +529,7 @@ bool HLoopOptimization::LocalRun() {
       AddLoop(block->GetLoopInformation());
     }
   }
-
-  // TODO(solanes): How can `top_loop_` be null if `graph_->HasLoops()` is true?
-  if (top_loop_ == nullptr) {
-    return false;
-  }
+  DCHECK(top_loop_ != nullptr);
 
   // Traverse the loop hierarchy inner-to-outer and optimize. Traversal can use
   // temporary data structures using the phase-local allocator. All new HIR
@@ -681,6 +676,50 @@ void HLoopOptimization::CalculateAndSetTryCatchKind(LoopNode* node) {
 }
 
 //
+// This optimization applies to loops with plain simple operations
+// (I.e. no calls to java code or runtime) with a known small trip_count * instr_count
+// value.
+//
+bool HLoopOptimization::TryToRemoveSuspendCheckFromLoopHeader(LoopAnalysisInfo* analysis_info,
+                                                              bool generate_code) {
+  if (!graph_->SuspendChecksAreAllowedToNoOp()) {
+    return false;
+  }
+
+  int64_t trip_count = analysis_info->GetTripCount();
+
+  if (trip_count == LoopAnalysisInfo::kUnknownTripCount) {
+    return false;
+  }
+
+  int64_t instruction_count = analysis_info->GetNumberOfInstructions();
+  int64_t total_instruction_count = trip_count * instruction_count;
+
+  // The inclusion of the HasInstructionsPreventingScalarOpts() prevents this
+  // optimization from being applied to loops that have calls.
+  bool can_optimize =
+      total_instruction_count <= HLoopOptimization::kMaxTotalInstRemoveSuspendCheck &&
+      !analysis_info->HasInstructionsPreventingScalarOpts();
+
+  if (!can_optimize) {
+    return false;
+  }
+
+  // If we should do the optimization, disable codegen for the SuspendCheck.
+  if (generate_code) {
+    HLoopInformation* loop_info = analysis_info->GetLoopInfo();
+    HBasicBlock* header = loop_info->GetHeader();
+    HSuspendCheck* instruction = header->GetLoopInformation()->GetSuspendCheck();
+    // As other optimizations depend on SuspendCheck
+    // (e.g: CHAGuardVisitor::HoistGuard), disable its codegen instead of
+    // removing the SuspendCheck instruction.
+    instruction->SetIsNoOp(true);
+  }
+
+  return true;
+}
+
+//
 // Optimization.
 //
 
@@ -824,7 +863,7 @@ bool HLoopOptimization::TryOptimizeInnerLoopFinite(LoopNode* node) {
 }
 
 bool HLoopOptimization::OptimizeInnerLoop(LoopNode* node) {
-  return TryOptimizeInnerLoopFinite(node) || TryPeelingAndUnrolling(node);
+  return TryOptimizeInnerLoopFinite(node) || TryLoopScalarOpts(node);
 }
 
 //
@@ -928,7 +967,7 @@ bool HLoopOptimization::TryFullUnrolling(LoopAnalysisInfo* analysis_info, bool g
   return true;
 }
 
-bool HLoopOptimization::TryPeelingAndUnrolling(LoopNode* node) {
+bool HLoopOptimization::TryLoopScalarOpts(LoopNode* node) {
   HLoopInformation* loop_info = node->loop_info;
   int64_t trip_count = LoopAnalysis::GetLoopTripCount(loop_info, &induction_range_);
   LoopAnalysisInfo analysis_info(loop_info);
@@ -941,9 +980,15 @@ bool HLoopOptimization::TryPeelingAndUnrolling(LoopNode* node) {
 
   if (!TryFullUnrolling(&analysis_info, /*generate_code*/ false) &&
       !TryPeelingForLoopInvariantExitsElimination(&analysis_info, /*generate_code*/ false) &&
-      !TryUnrollingForBranchPenaltyReduction(&analysis_info, /*generate_code*/ false)) {
+      !TryUnrollingForBranchPenaltyReduction(&analysis_info, /*generate_code*/ false) &&
+      !TryToRemoveSuspendCheckFromLoopHeader(&analysis_info, /*generate_code*/ false)) {
     return false;
   }
+
+  // Try the suspend check removal even for non-clonable loops. Also this
+  // optimization doesn't interfere with other scalar loop optimizations so it can
+  // be done prior to them.
+  bool removed_suspend_check = TryToRemoveSuspendCheckFromLoopHeader(&analysis_info);
 
   // Run 'IsLoopClonable' the last as it might be time-consuming.
   if (!LoopClonerHelper::IsLoopClonable(loop_info)) {
@@ -952,7 +997,7 @@ bool HLoopOptimization::TryPeelingAndUnrolling(LoopNode* node) {
 
   return TryFullUnrolling(&analysis_info) ||
          TryPeelingForLoopInvariantExitsElimination(&analysis_info) ||
-         TryUnrollingForBranchPenaltyReduction(&analysis_info);
+         TryUnrollingForBranchPenaltyReduction(&analysis_info) || removed_suspend_check;
 }
 
 //

@@ -17,6 +17,7 @@
 package android.server.wm;
 
 import static android.graphics.PixelFormat.TRANSLUCENT;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
 import static android.view.KeyEvent.ACTION_DOWN;
 import static android.view.KeyEvent.KEYCODE_BACK;
 import static android.view.View.SYSTEM_UI_FLAG_FULLSCREEN;
@@ -59,6 +60,7 @@ import android.app.AlertDialog;
 import android.app.Instrumentation;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
@@ -99,6 +101,7 @@ import java.util.function.Supplier;
  *     atest CtsWindowManagerDeviceTestCases:WindowInsetsControllerTests
  */
 @Presubmit
+@android.server.wm.annotation.Group2
 public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     private final static long TIMEOUT = 1000; // milliseconds
@@ -114,6 +117,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testHide() {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -132,6 +137,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testShow() {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -179,6 +186,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testTopAppHidesStatusBarByMethod() {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -188,6 +197,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testTopAppHidesStatusBarByWindowFlag() {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivity(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -197,6 +208,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testTopAppHidesStatusBarBySystemUiFlag() {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivity(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -226,6 +239,11 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
         final Instrumentation instrumentation = getInstrumentation();
         assumeThat(MockImeSession.getUnavailabilityReason(instrumentation.getContext()),
                 nullValue());
+        final Resources resources = instrumentation.getContext().getResources();
+        final boolean isHideNavBarForKeyboardEnabled = resources.getBoolean(
+                resources.getIdentifier("config_hideNavBarForKeyboard", "bool", "android"));
+        assumeFalse("Device is configured to not show navigation bar for keyboard",
+                isHideNavBarForKeyboardEnabled);
         final MockImeSession imeSession = MockImeHelper.createManagedMockImeSession(this);
         final ImeEventStream stream = imeSession.openEventStream();
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
@@ -284,6 +302,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testSetSystemBarsBehavior_default() throws InterruptedException {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -310,6 +330,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testSetSystemBarsBehavior_showTransientBarsBySwipe() throws InterruptedException {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivity(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -391,8 +413,15 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testSystemUiVisibilityCallbackCausedByInsets() {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivity(TestActivity.class);
         final View controlTarget = activity.getWindow().getDecorView();
+
+        // Assume we have at least one visible system bar.
+        assumeTrue(controlTarget.getRootWindowInsets().isVisible(statusBars()) ||
+                controlTarget.getRootWindowInsets().isVisible(navigationBars()));
+
         final int[] targetSysUiVis = new int[1];
         final View nonControlTarget = new View(mTargetContext);
         final int[] nonTargetSysUiVis = new int[1];
@@ -415,6 +444,7 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     private void testSysUiVisCallbackCausedByInsets(int insetsType, int sysUiFlag, View target,
             int[] targetSysUiVis, int[] nonTargetSysUiVis) {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
         if (target.getRootWindowInsets().isVisible(insetsType)) {
 
             // Controlled by methods
@@ -443,6 +473,11 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
     public void testSystemUiVisibilityCallbackCausedByAppearance() {
         final TestActivity activity = startActivity(TestActivity.class);
         final View controlTarget = activity.getWindow().getDecorView();
+
+        // Assume we have at least one visible system bar.
+        assumeTrue(controlTarget.getRootWindowInsets().isVisible(statusBars()) ||
+                controlTarget.getRootWindowInsets().isVisible(navigationBars()));
+
         final int[] targetSysUiVis = new int[1];
         getInstrumentation().runOnMainSync(() -> {
             controlTarget.setOnSystemUiVisibilityChangeListener(
@@ -458,6 +493,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testSetSystemUiVisibilityAfterCleared_showBarsBySwipe() throws Exception {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -517,6 +554,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testSetSystemUiVisibilityAfterCleared_showBarsByApp() throws Exception {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
 
@@ -557,6 +596,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testHideOnCreate() throws Exception {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestHideOnCreateActivity activity =
                 startActivityInWindowingModeFullScreen(TestHideOnCreateActivity.class);
         final View rootView = activity.getWindow().getDecorView();
@@ -644,6 +685,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testInsetsDispatch() throws Exception {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         // Start an activity which hides system bars in fullscreen mode,
         // otherwise, it might not be able to hide system bars in other windowing modes.
         final TestHideOnCreateActivity activity = startActivityInWindowingModeFullScreen(
@@ -678,6 +721,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testWindowInsetsController_availableAfterAddView() throws Exception {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestHideOnCreateActivity activity =
                 startActivityInWindowingModeFullScreen(TestHideOnCreateActivity.class);
         final View rootView = activity.getWindow().getDecorView();
@@ -701,6 +746,8 @@ public class WindowInsetsControllerTests extends WindowManagerTestBase {
 
     @Test
     public void testDispatchApplyWindowInsetsCount_systemBars() throws InterruptedException {
+        assumeFalse(isCar() && remoteInsetsControllerControlsSystemBars());
+
         final TestActivity activity = startActivityInWindowingModeFullScreen(TestActivity.class);
         final View rootView = activity.getWindow().getDecorView();
         getInstrumentation().waitForIdleSync();

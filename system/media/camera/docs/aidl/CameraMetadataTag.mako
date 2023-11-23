@@ -57,7 +57,7 @@ enum CameraMetadataTag {
 <% gap = False %>\
 % for sec_idx,sec in enumerate(find_all_sections(metadata)):
   % for idx,entry in enumerate(remove_synthetic(find_unique_entries(sec))):
-    % if entry.visibility == 'fwk_only':
+    % if entry.visibility in ('fwk_only', 'fwk_java_public'):
 <% gap = True %>\
 <% curIdx += 1 %>\
 <% continue %>\

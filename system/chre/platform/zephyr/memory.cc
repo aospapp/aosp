@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <kernel.h>
+#include <zephyr/kernel.h>
 #include <cstdlib>
 
 #include "chre/platform/memory.h"

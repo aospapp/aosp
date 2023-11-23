@@ -17,9 +17,55 @@
 package android.server.wm.backgroundactivity.appb;
 
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Bundle;
 
 /**
  * Foreground activity that makes AppB as foreground.
  */
 public class ForegroundActivity extends Activity {
+    private Components mB;
+    private int mActivityId = -1;
+
+    private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            int activityId = intent.getIntExtra(mB.FOREGROUND_ACTIVITY_EXTRA.ACTIVITY_ID,
+                    mActivityId);
+            if (activityId != mActivityId) {
+                return;
+            }
+
+            if (mB.FOREGROUND_ACTIVITY_ACTIONS.FINISH_ACTIVITY.equals(action)
+                    || intent.getBooleanExtra(mB.FOREGROUND_ACTIVITY_EXTRA.FINISH_FIRST, false))  {
+                finish();
+            }
+
+            if (mB.FOREGROUND_ACTIVITY_ACTIONS.LAUNCH_BACKGROUND_ACTIVITIES.equals(action)) {
+                // Need to copy as a new array instead of just casting to Intent[] since a new
+                // array of type Parcelable[] is created when deserializing.
+                Intent[] intents = intent.getParcelableArrayExtra(
+                        mB.FOREGROUND_ACTIVITY_EXTRA.LAUNCH_INTENTS, Intent.class);
+                startActivities(intents);
+            }
+        }
+    };
+
+    @Override
+    public void onCreate(Bundle bundle) {
+        super.onCreate(bundle);
+        mB = Components.get(getApplicationContext());
+
+        Intent intent = getIntent();
+        mActivityId = intent.getIntExtra(mB.FOREGROUND_ACTIVITY_EXTRA.ACTIVITY_ID, -1);
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(mB.FOREGROUND_ACTIVITY_ACTIONS.LAUNCH_BACKGROUND_ACTIVITIES);
+        filter.addAction(mB.FOREGROUND_ACTIVITY_ACTIONS.FINISH_ACTIVITY);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
+    }
 }

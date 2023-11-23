@@ -80,4 +80,9 @@ public class AmUtils {
     public static void waitForBroadcastIdle() {
         SystemUtil.runCommandAndPrintOnLogcat(TAG, "am wait-for-broadcast-idle");
     }
+
+    /** Wait until all broad queues have passed barrier. */
+    public static void waitForBroadcastBarrier() {
+        SystemUtil.runCommandAndPrintOnLogcat(TAG, "am wait-for-broadcast-barrier");
+    }
 }

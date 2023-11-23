@@ -16,19 +16,33 @@
 
 package android.webkit.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.webkit.HttpAuthHandler;
 import android.webkit.WebView;
 import android.webkit.cts.WebViewSyncLoader.WaitForLoadedClient;
 
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.MediumTest;
+
 import com.android.compatibility.common.util.NullWebViewUtils;
 
 import org.apache.http.HttpStatus;
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @AppModeFull
-public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebViewCtsActivity> {
-
+@MediumTest
+@RunWith(AndroidJUnit4.class)
+public class HttpAuthHandlerTest extends SharedWebViewTest {
     private static final long TIMEOUT = 10000;
 
     private static final String WRONG_USERNAME = "wrong_user";
@@ -36,32 +50,52 @@ public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebVie
     private static final String CORRECT_USERNAME = CtsTestServer.AUTH_USER;
     private static final String CORRECT_PASSWORD = CtsTestServer.AUTH_PASS;
 
-    private CtsTestServer mWebServer;
+    private SharedSdkWebServer mWebServer;
     private WebViewOnUiThread mOnUiThread;
 
-    public HttpAuthHandlerTest() {
-        super("android.webkit.cts", WebViewCtsActivity.class);
-    }
+    @Rule
+    public ActivityScenarioRule mActivityScenarioRule =
+            new ActivityScenarioRule(WebViewCtsActivity.class);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        WebView webview = getActivity().getWebView();
+    @Before
+    public void setUp() throws Exception {
+        WebView webview = getTestEnvironment().getWebView();
         if (webview != null) {
             mOnUiThread = new WebViewOnUiThread(webview);
         }
+
+        mWebServer = getTestEnvironment().getSetupWebServer(SslMode.INSECURE);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         if (mOnUiThread != null) {
             mOnUiThread.cleanUp();
         }
-
         if (mWebServer != null) {
             mWebServer.shutdown();
         }
-        super.tearDown();
+    }
+
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        Assume.assumeTrue("WebView is not available", NullWebViewUtils.isWebViewAvailable());
+
+        SharedWebViewTestEnvironment.Builder builder = new SharedWebViewTestEnvironment.Builder();
+
+        mActivityScenarioRule
+                .getScenario()
+                .onActivity(
+                        activity -> {
+                            WebView webView = ((WebViewCtsActivity) activity).getWebView();
+                            builder.setHostAppInvoker(
+                                            SharedWebViewTestEnvironment.createHostAppInvoker(
+                                                activity))
+                                    .setContext(activity)
+                                    .setWebView(webView);
+                        });
+
+        return builder.build();
     }
 
     private class ProceedHttpAuthClient extends WaitForLoadedClient {
@@ -146,11 +180,8 @@ public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebVie
         assertEquals(TestHtmlConstants.HELLO_WORLD_TITLE, mOnUiThread.getTitle());
     }
 
+    @Test
     public void testProceed() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-        mWebServer = new CtsTestServer(getActivity());
         String url = mWebServer.getAuthAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
 
         incorrectCredentialsAccessDenied(url);
@@ -158,11 +189,8 @@ public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebVie
         correctCredentialsAccessGranted(url);
     }
 
+    @Test
     public void testCancel() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-        mWebServer = new CtsTestServer(getActivity());
         String url = mWebServer.getAuthAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
 
         CancelHttpAuthClient client = new CancelHttpAuthClient();
@@ -173,11 +201,8 @@ public class HttpAuthHandlerTest extends ActivityInstrumentationTestCase2<WebVie
         assertEquals(CtsTestServer.getReasonString(HttpStatus.SC_UNAUTHORIZED), mOnUiThread.getTitle());
     }
 
+    @Test
     public void testUseHttpAuthUsernamePassword() throws Throwable {
-        if (!NullWebViewUtils.isWebViewAvailable()) {
-            return;
-        }
-        mWebServer = new CtsTestServer(getActivity());
         String url = mWebServer.getAuthAssetUrl(TestHtmlConstants.HELLO_WORLD_URL);
 
         // Try to login once with incorrect credentials. This should cause

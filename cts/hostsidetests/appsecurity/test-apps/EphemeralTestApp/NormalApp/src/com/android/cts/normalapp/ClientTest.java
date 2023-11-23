@@ -98,8 +98,8 @@ public class ClientTest {
                 new IntentFilter("com.android.cts.ephemeraltest.START_ACTIVITY");
         filter.addCategory(Intent.CATEGORY_DEFAULT);
         mReceiver = new ActivityBroadcastReceiver(mResultQueue);
-        InstrumentationRegistry.getContext()
-                .registerReceiver(mReceiver, filter, Context.RECEIVER_VISIBLE_TO_INSTANT_APPS);
+        InstrumentationRegistry.getContext().registerReceiver(mReceiver, filter,
+                Context.RECEIVER_VISIBLE_TO_INSTANT_APPS | Context.RECEIVER_EXPORTED);
     }
 
     @After

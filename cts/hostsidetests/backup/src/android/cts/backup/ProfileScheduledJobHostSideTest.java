@@ -61,6 +61,10 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
     private static final int TIMEOUT_FOR_FULL_BACKUP_SECONDS = 5 * 60; // 5 minutes.
 
     private static final String JOB_SCHEDULER_RUN_COMMAND = "cmd jobscheduler run -f android";
+    private static final String LOGCAT_BUFFER_SIZE_GET_COMMAND =
+            "logcat -g | grep -E -o '[0-9]*([[:space:]]KiB|[[:space:]]MiB)' | head -1";
+    private static final String LOGCAT_BUFFER_SIZE_SET_COMMAND = "logcat -G ";
+    private static final String LOGCAT_MAX_BUFFER_SIZE = "16MiB";
 
     private final BackupUtils mBackupUtils = getBackupUtils();
     private ITestDevice mDevice;
@@ -115,6 +119,14 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
         // Install a new key value backup app.
         installPackageAsUser(KEY_VALUE_APK, profileUserId);
 
+        String previousBufferSize = mBackupUtils.executeShellCommandAndReturnOutput(
+                LOGCAT_BUFFER_SIZE_GET_COMMAND);
+        // Remove all whitespaces and non-visible characters
+        previousBufferSize = previousBufferSize.replaceAll("\\s+", "");
+
+        mBackupUtils.executeShellCommandSync(
+                LOGCAT_BUFFER_SIZE_SET_COMMAND + LOGCAT_MAX_BUFFER_SIZE);
+
         // Force run k/v job.
         String startLog = mLogcatInspector.mark(TAG);
         int jobId = getJobIdForUser(KEY_VALUE_MIN_JOB_ID, profileUserId);
@@ -126,6 +138,8 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
 
         // Check job rescheduled.
         assertThat(isSystemJobScheduled(jobId, KEY_VALUE_JOB_NAME)).isTrue();
+
+        mBackupUtils.executeShellCommandSync(LOGCAT_BUFFER_SIZE_SET_COMMAND + previousBufferSize);
     }
 
     /** Stop the profile user and assert that the key value job is no longer scheduled. */
@@ -165,6 +179,14 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
         installPackageAsUser(FULL_BACKUP_APK, profileUserId);
         mBackupUtils.backupNowAndAssertSuccessForUser(PACKAGE_MANAGER_SENTINEL, profileUserId);
 
+        String previousBufferSize = mBackupUtils.executeShellCommandAndReturnOutput(
+                LOGCAT_BUFFER_SIZE_GET_COMMAND);
+        // Remove all whitespaces and non-visible characters
+        previousBufferSize = previousBufferSize.replaceAll("\\s+", "");
+
+        mBackupUtils.executeShellCommandSync(
+                LOGCAT_BUFFER_SIZE_SET_COMMAND + LOGCAT_MAX_BUFFER_SIZE);
+
         // Force run full backup job.
         String startLog = mLogcatInspector.mark(TAG);
         int jobId = getJobIdForUser(FULL_BACKUP_MIN_JOB_ID, profileUserId);
@@ -176,6 +198,8 @@ public class ProfileScheduledJobHostSideTest extends BaseMultiUserBackupHostSide
 
         // Check job rescheduled.
         assertThat(isSystemJobScheduled(jobId, FULL_BACKUP_JOB_NAME)).isTrue();
+
+        mBackupUtils.executeShellCommandSync(LOGCAT_BUFFER_SIZE_SET_COMMAND + previousBufferSize);
     }
 
     /** Stop the profile user and assert that the full backup job is no longer scheduled. */

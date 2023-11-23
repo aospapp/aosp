@@ -5,8 +5,10 @@ load("//build/bazel_common_rules/dist:dist.bzl", "copy_to_dist_dir")
 copy_to_dist_dir(
     name = "mainline_modules",
     data = [
-        "//system/timezone/apex:com.android.tzdata.apex",
-        "//packages/modules/adb/apex:com.android.adbd.apex",
+        "//frameworks/av/apex:com.android.media.swcodec",
+        "//packages/modules/NeuralNetworks/apex:com.android.neuralnetworks",
+        "//packages/modules/adb/apex:com.android.adbd",
+        "//system/timezone/apex:com.android.tzdata",
     ],
     flat = True,
 )

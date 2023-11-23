@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 
+import org.junit.After;
 import org.junit.Test;
 import org.junit.runner.Description;
 import org.junit.runner.RunWith;
@@ -34,6 +35,12 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class CompilationFilterRuleTest {
     private static final Description TEST_DESC = Description.createTestDescription("clzz", "mthd");
+
+    @After
+    public void teardown() {
+        CompilationFilterRule.mCompiledTests.clear();
+    }
+
     /** Tests that this rule will fail to register if no apps are supplied. */
     @Test
     public void testNoAppToCompileFails() throws InitializationError {
@@ -96,6 +103,75 @@ public class CompilationFilterRuleTest {
         String compileCmd = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT, "speed",
                 "example.package");
         assertThat(rule.getOperations()).containsExactly("test", compileCmd)
+                .inOrder();
+    }
+
+    /** Tests that this rule will compile a app only after the first iteration of the test. */
+    @Test
+    public void testOneAppToCompileMultipleIterations() throws Throwable {
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                return CompilationFilterRule.COMPILE_SUCCESS;
+            }
+        };
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz$1", "mthd1"))
+                .evaluate();
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz$2", "mthd1"))
+                .evaluate();
+        String compileCmd = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT, "speed",
+                "example.package");
+        assertThat(rule.getOperations()).containsExactly("test", compileCmd,"test")
+                .inOrder();
+    }
+
+    /** Tests that this rule will compile a app multiple times for different tests. */
+    @Test
+    public void testOneAppMultipleCompileMultipleTests() throws Throwable {
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                return CompilationFilterRule.COMPILE_SUCCESS;
+            }
+        };
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz$1", "mthd1"))
+                .evaluate();
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz$2", "mthd2"))
+                .evaluate();
+        String compileCmd = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT, "speed",
+                "example.package");
+        assertThat(rule.getOperations()).containsExactly("test", compileCmd, "test", compileCmd)
+                .inOrder();
+    }
+
+    /** Tests that this rule will compile a app only once for duplicate tests. */
+    @Test
+    public void testOneAppToCompileDuplicateTests() throws Throwable {
+        Bundle filterBundle = new Bundle();
+        filterBundle.putString(CompilationFilterRule.COMPILE_FILTER_OPTION, "speed");
+        TestableCompilationFilterRule rule = new TestableCompilationFilterRule(filterBundle,
+                "example.package") {
+            @Override
+            protected String executeShellCommand(String cmd) {
+                super.executeShellCommand(cmd);
+                return CompilationFilterRule.COMPILE_SUCCESS;
+            }
+        };
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd1"))
+                .evaluate();
+        rule.apply(rule.getTestStatement(), Description.createTestDescription("clzz", "mthd1"))
+                .evaluate();
+        String compileCmd = String.format(CompilationFilterRule.COMPILE_CMD_FORMAT, "speed",
+                "example.package");
+        assertThat(rule.getOperations()).containsExactly("test", compileCmd,"test")
                 .inOrder();
     }
 

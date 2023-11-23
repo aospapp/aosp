@@ -15,6 +15,10 @@
  */
 #include "linkerconfig/stringutil.h"
 
+#include <set>
+#include <sstream>
+#include <vector>
+
 #include <android-base/strings.h>
 
 namespace android {
@@ -25,6 +29,25 @@ std::string TrimPrefix(const std::string& s, const std::string& prefix) {
     return s.substr(prefix.size());
   }
   return s;
+}
+
+// merge a list of libs into a single value (concat with ":")
+std::string MergeLibs(const std::vector<std::string>& libs) {
+  std::set<std::string> seen;
+  std::ostringstream oss;
+  for (const auto& part : libs) {
+    std::istringstream iss(part);
+    std::string lib;
+    while (std::getline(iss, lib, ':')) {
+      if (!lib.empty() && seen.insert(lib).second) {  // for a new lib
+        if (oss.tellp() > 0) {
+          oss << ':';
+        }
+        oss << lib;
+      }
+    }
+  }
+  return oss.str();
 }
 }  // namespace modules
 }  // namespace linkerconfig

@@ -2,6 +2,9 @@
 #include <libexif/exif-loader.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
+
+constexpr size_t kMaxDataSize = 32;
 
 /* Extract all MakerNote tags */
 static void mnote_dump(ExifData *data) {
@@ -32,8 +35,15 @@ static void data_dump(ExifData *data) {
 }
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
+  if (!data) {
+    return 0;
+  }
+
+  size = (size % kMaxDataSize);
+  uint8_t *buffer = (uint8_t *)malloc(size * sizeof(uint8_t));
+  memcpy(buffer, data, size);
   // Parse tags using (ultimately) exif_data_load_data()
-  auto image = exif_data_new_from_data(data, size);
+  auto image = exif_data_new_from_data(buffer, size);
   if (image) {
     // Exercise the EXIF tag manipulation code
     exif_data_get_mnote_data(image);
@@ -52,14 +62,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
   // be identical to what has been loaded (and fuzzed) above.
   ExifLoader *loader = exif_loader_new();
   if (!loader) {
+    free(buffer);
     return 0;
   }
-  exif_loader_write(loader, const_cast<unsigned char *>(data), size);
+  exif_loader_write(loader, const_cast<unsigned char *>(buffer), size);
   image = exif_loader_get_data(loader);
   if (image) {
     exif_data_unref(image);
   }
   exif_loader_unref(loader);
-
+  free(buffer);
   return 0;
 }

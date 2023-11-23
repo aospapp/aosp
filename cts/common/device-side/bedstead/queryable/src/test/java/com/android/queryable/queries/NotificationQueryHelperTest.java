@@ -17,6 +17,7 @@
 package com.android.queryable.queries;
 
 import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+import static com.android.queryable.queries.NotificationQuery.notification;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -34,7 +35,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(BedsteadJUnit4.class)
-public class NotificationQueryHelperTest {
+public final class NotificationQueryHelperTest {
 
     @ClassRule @Rule
     public static DeviceState sDeviceState = new DeviceState();
@@ -86,5 +87,33 @@ public class NotificationQueryHelperTest {
         notificationQueryHelper.channelId().isEqualTo("");
 
         assertParcelsCorrectly(NotificationQueryHelper.class, notificationQueryHelper);
+    }
+
+    @Test
+    public void notificationQueryHelper_queries() {
+        Notification notification =
+                new Notification.Builder(CONTEXT, /* channelId= */ STRING_VALUE).build();
+
+        assertThat(notification()
+                .where().channelId().isEqualTo(STRING_VALUE)
+                .matches(notification)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        NotificationQueryHelper<Queryable> notificationQueryHelper =
+                new NotificationQueryHelper<>(mQuery);
+
+        assertThat(notificationQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasChannelIdQuery_returnsFalse() {
+        NotificationQueryHelper<Queryable> notificationQueryHelper =
+                new NotificationQueryHelper<>(mQuery);
+
+        notificationQueryHelper.channelId().isEqualTo("");
+
+        assertThat(notificationQueryHelper.isEmptyQuery()).isFalse();
     }
 }

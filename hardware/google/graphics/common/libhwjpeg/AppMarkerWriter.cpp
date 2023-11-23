@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-#include "hwjpeg-internal.h"
 #include "AppMarkerWriter.h"
-#include "IFDWriter.h"
 
-static const char ExifAsciiPrefix[] = { 'A', 'S', 'C', 'I', 'I', 0x0, 0x0, 0x0 };
-static const char ExifIdentifierCode[6] = { 'E', 'x', 'i', 'f', 0x00, 0x00 };
-static char TiffHeader[8] = { 'I', 'I', 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00 };
-static const unsigned char ComponentsConfiguration[4] = { 1, 2, 3, 0 }; // YCbCr
-static const unsigned char SceneType[4] = { 1, 0, 0, 0 }; // A directly photographed image
+#include "IFDWriter.h"
+#include "hwjpeg-internal.h"
+
+static const char ExifAsciiPrefix[] = {'A', 'S', 'C', 'I', 'I', 0x0, 0x0, 0x0};
+static const char ExifIdentifierCode[6] = {'E', 'x', 'i', 'f', 0x00, 0x00};
+static char TiffHeader[8] = {'I', 'I', 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00};
+static const unsigned char ComponentsConfiguration[4] = {1, 2, 3, 0}; // YCbCr
+static const unsigned char SceneType[4] = {1, 0, 0, 0}; // A directly photographed image
 
 #ifndef __LITTLE_ENDIAN__
 CEndianessChecker __LITTLE_ENDIAN__;
 #endif
 
-CEndianessChecker::CEndianessChecker()
-{
+CEndianessChecker::CEndianessChecker() {
     int num = 1;
     __little = (*reinterpret_cast<char *>(&num) == 1);
     if (__little) {
@@ -42,15 +42,12 @@ CEndianessChecker::CEndianessChecker()
     }
 }
 
-
 CAppMarkerWriter::CAppMarkerWriter()
-        : m_pAppBase(NULL), m_pApp1End(NULL), m_pExif(NULL), m_pExtra(NULL)
-{
+      : m_pAppBase(NULL), m_pApp1End(NULL), m_pExif(NULL), m_pExtra(NULL) {
     Init();
 }
 
-CAppMarkerWriter::CAppMarkerWriter(char *base, exif_attribute_t *exif, debug_attribute_t *debug)
-{
+CAppMarkerWriter::CAppMarkerWriter(char *base, exif_attribute_t *exif, debug_attribute_t *debug) {
     extra_appinfo_t extraInfo;
     app_info_t appInfo[15];
 
@@ -64,8 +61,7 @@ CAppMarkerWriter::CAppMarkerWriter(char *base, exif_attribute_t *exif, debug_att
     PrepareAppWriter(base, exif, &extraInfo);
 }
 
-void CAppMarkerWriter::Init()
-{
+void CAppMarkerWriter::Init() {
     m_pApp1End = NULL;
 
     m_szApp1 = 0;
@@ -85,8 +81,8 @@ void CAppMarkerWriter::Init()
     m_pThumbSizePlaceholder = NULL;
 }
 
-void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extra_appinfo_t *extra)
-{
+void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif,
+                                        extra_appinfo_t *extra) {
     m_pAppBase = base;
     m_pExif = exif;
 
@@ -96,8 +92,7 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
 
     if (exif) {
         // APP1
-        applen += JPEG_SEGMENT_LENFIELD_SIZE +
-                  ARRSIZE(ExifIdentifierCode) + ARRSIZE(TiffHeader);
+        applen += JPEG_SEGMENT_LENFIELD_SIZE + ARRSIZE(ExifIdentifierCode) + ARRSIZE(TiffHeader);
 
         // 0th IFD: Make, Model, Orientation, Software,
         //          DateTime, YCbCrPositioning, X/Y Resolutions, Exif and GPS
@@ -112,24 +107,21 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
         if (m_szMake > 0) {
             m_n0thIFDFields++;
             applen += IFD_FIELD_SIZE;
-            if (m_szMake > 3)
-                    applen += m_szMake + 1;
+            if (m_szMake > 3) applen += m_szMake + 1;
         }
 
         m_szSoftware = strlen(m_pExif->software);
         if (m_szSoftware > 0) {
             m_n0thIFDFields++;
             applen += IFD_FIELD_SIZE;
-            if (m_szSoftware > 3)
-                    applen += m_szSoftware + 1;
+            if (m_szSoftware > 3) applen += m_szSoftware + 1;
         }
 
         m_szModel = strlen(m_pExif->model);
         if (m_szModel > 0) {
             m_n0thIFDFields++;
             applen += IFD_FIELD_SIZE;
-            if (m_szModel > 3)
-                applen += m_szModel + 1;
+            if (m_szModel > 3) applen += m_szModel + 1;
         }
 
         if (m_pExif->enableGps) {
@@ -144,11 +136,11 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
          * - Flash, FlashPixVersion, ColorSpace, PixelXDimension, PixelYDimension,
          * - ExposureMode, WhiteBalance, FocalLengthIn35mmFilm, SceneCaptureType,
          * - ComponentsConfiguration
-	 * - SceneType, CustomRendered, Contrast, Saturation, Sharpness
+         * - SceneType, CustomRendered, Contrast, Saturation, Sharpness
          * (S)Rational Fields: 9
          * - ExposureTime, FNumber, ShutterSpeedValue, ApertureValue,
          * - BrightnessValue, ExposureBiasValue, MaxApertureValue, FocalLength
-	 * - DigitalZoomRatio
+         * - DigitalZoomRatio
          * ASCII Fields: 6
          * - DateTimeOriginal, DateTimeDigitized, SubsecTime, SubsecTimeOriginal,
          * - SubsecTimeDigitized, ImageUniqueID
@@ -174,28 +166,24 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
         if (m_szUniqueID > 0) {
             m_nExifIFDFields++;
             applen += IFD_FIELD_SIZE;
-            if (m_szUniqueID > 3)
-                applen += m_szUniqueID + 1;
+            if (m_szUniqueID > 3) applen += m_szUniqueID + 1;
         }
 
         if (m_pExif->maker_note_size > 0) {
             m_nExifIFDFields++;
             applen += IFD_FIELD_SIZE;
-            if (m_pExif->maker_note_size > 4)
-                applen += m_pExif->maker_note_size;
+            if (m_pExif->maker_note_size > 4) applen += m_pExif->maker_note_size;
         }
 
         if (m_pExif->user_comment_size > 0) {
             m_nExifIFDFields++;
             applen += IFD_FIELD_SIZE;
-            if (m_pExif->user_comment_size > 4)
-                applen += m_pExif->user_comment_size;
+            if (m_pExif->user_comment_size > 4) applen += m_pExif->user_comment_size;
         }
 
         // Interoperability SubIFD
         m_nExifIFDFields++; // Interoperability is sub IFD of Exif sub IFD
-        applen += IFD_FIELD_SIZE +
-                  IFD_FIELDCOUNT_SIZE + IFD_VALOFF_SIZE + IFD_FIELD_SIZE * 2;
+        applen += IFD_FIELD_SIZE + IFD_FIELDCOUNT_SIZE + IFD_VALOFF_SIZE + IFD_FIELD_SIZE * 2;
 
         if (m_pExif->enableGps) {
             size_t len;
@@ -233,8 +221,8 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
              * - JPEGInterchangeFormat, JPEGInterchangeFormatLength
              */
             if ((m_pExif->widthThumb < 16) || (m_pExif->heightThumb < 16)) {
-                ALOGE("Insufficient thumbnail information %dx%d",
-                      m_pExif->widthThumb, m_pExif->heightThumb);
+                ALOGE("Insufficient thumbnail information %dx%d", m_pExif->widthThumb,
+                      m_pExif->heightThumb);
                 return;
             }
 
@@ -251,13 +239,17 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
 
     if (extra) {
         for (int idx = 0; idx < extra->num_of_appmarker; idx++) {
-            if ((extra->appInfo[idx].appid < EXTRA_APPMARKER_MIN) || (extra->appInfo[idx].appid >= EXTRA_APPMARKER_LIMIT)) {
+            if ((extra->appInfo[idx].appid < EXTRA_APPMARKER_MIN) ||
+                (extra->appInfo[idx].appid >= EXTRA_APPMARKER_LIMIT)) {
                 ALOGE("Invalid extra APP segment ID %d", extra->appInfo[idx].appid);
                 return;
             }
 
-            if ((extra->appInfo[idx].dataSize == 0) || (extra->appInfo[idx].dataSize > (JPEG_MAX_SEGMENT_SIZE - JPEG_SEGMENT_LENFIELD_SIZE))) {
-                ALOGE("Invalid APP%d segment size, %u bytes", extra->appInfo[idx].appid, extra->appInfo[idx].dataSize);
+            if ((extra->appInfo[idx].dataSize == 0) ||
+                (extra->appInfo[idx].dataSize >
+                 (JPEG_MAX_SEGMENT_SIZE - JPEG_SEGMENT_LENFIELD_SIZE))) {
+                ALOGE("Invalid APP%d segment size, %u bytes", extra->appInfo[idx].appid,
+                      extra->appInfo[idx].dataSize);
                 return;
             }
 
@@ -268,7 +260,7 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
     m_pExtra = extra;
 
     //     |<- m_szApp1 ->|<- m_szMaxThumbSize ->|<-m_szAppX->|
-    //     |<----- size of total APP1 and APP4 segments ----->|<-APP11->|<-- main image
+    //     |<----- size of total APP1 and APPX segments ----->|<-APP11->|<-- main image
     // m_pAppBase   m_pThumbBase                 |            |    return
     //     |              |                      |            |        ||
     //     v              v                      |            |        v|
@@ -283,20 +275,16 @@ void CAppMarkerWriter::PrepareAppWriter(char *base, exif_attribute_t *exif, extr
 }
 
 #define APPMARKLEN (JPEG_MARKER_SIZE + JPEG_SEGMENT_LENFIELD_SIZE)
-char *CAppMarkerWriter::WriteAPP11(char *current, size_t dummy, size_t align)
-{
+char *CAppMarkerWriter::WriteAPP11(char *current, size_t dummy, size_t align) {
     ALOG_ASSERT((align & ~align) == 0);
 
-    if ((dummy == 0) && (align == 1))
-        return current;
+    if ((dummy == 0) && (align == 1)) return current;
 
-    if (!m_pExif && !m_pExtra)
-        return current;
+    if (!m_pExif && !m_pExtra) return current;
 
     uint16_t len = PTR_TO_ULONG(current + APPMARKLEN) & (align - 1);
 
-    if (len)
-        len = align - len;
+    if (len) len = align - len;
 
     len += dummy + JPEG_SEGMENT_LENFIELD_SIZE;
 
@@ -307,10 +295,8 @@ char *CAppMarkerWriter::WriteAPP11(char *current, size_t dummy, size_t align)
     return current + len;
 }
 
-char *CAppMarkerWriter::WriteAPPX(char *current, bool just_reserve)
-{
-    if (!m_pExtra)
-        return current;
+char *CAppMarkerWriter::WriteAPPX(char *current, bool just_reserve) {
+    if (!m_pExtra) return current;
 
     for (int idx = 0; idx < m_pExtra->num_of_appmarker; idx++) {
         int appid = m_pExtra->appInfo[idx].appid;
@@ -330,10 +316,8 @@ char *CAppMarkerWriter::WriteAPPX(char *current, bool just_reserve)
     return current;
 }
 
-char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, bool updating)
-{
-    if (!m_pExif)
-        return current;
+char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, bool updating) {
+    if (!m_pExif) return current;
 
     // APP1 Marker
     *current++ = 0xFF;
@@ -344,18 +328,15 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
         current += JPEG_SEGMENT_LENFIELD_SIZE;
     } else {
         uint16_t len = m_szApp1;
-        if (reserve_thumbnail_space)
-            len += m_szMaxThumbSize + JPEG_APP1_OEM_RESERVED;
+        if (reserve_thumbnail_space) len += m_szMaxThumbSize + JPEG_APP1_OEM_RESERVED;
         current = WriteDataInBig(current, len);
     }
 
     // Exif Identifier
-    for (size_t i = 0; i < ARRSIZE(ExifIdentifierCode); i++)
-        *current++ = ExifIdentifierCode[i];
+    for (size_t i = 0; i < ARRSIZE(ExifIdentifierCode); i++) *current++ = ExifIdentifierCode[i];
 
     char *tiffheader = current;
-    for (size_t i = 0; i < ARRSIZE(TiffHeader); i++)
-        *current++ = TiffHeader[i];
+    for (size_t i = 0; i < ARRSIZE(TiffHeader); i++) *current++ = TiffHeader[i];
 
     CIFDWriter writer(tiffheader, current, m_n0thIFDFields);
 
@@ -364,12 +345,9 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
     writer.WriteRational(EXIF_TAG_X_RESOLUTION, 1, &m_pExif->x_resolution);
     writer.WriteRational(EXIF_TAG_Y_RESOLUTION, 1, &m_pExif->y_resolution);
     writer.WriteShort(EXIF_TAG_RESOLUTION_UNIT, 1, &m_pExif->resolution_unit);
-    if (m_szMake > 0)
-        writer.WriteASCII(EXIF_TAG_MAKE, m_szMake + 1, m_pExif->maker);
-    if (m_szModel > 0)
-        writer.WriteASCII(EXIF_TAG_MODEL, m_szModel + 1, m_pExif->model);
-    if (m_szSoftware > 0)
-        writer.WriteASCII(EXIF_TAG_SOFTWARE, m_szSoftware + 1, m_pExif->software);
+    if (m_szMake > 0) writer.WriteASCII(EXIF_TAG_MAKE, m_szMake + 1, m_pExif->maker);
+    if (m_szModel > 0) writer.WriteASCII(EXIF_TAG_MODEL, m_szModel + 1, m_pExif->model);
+    if (m_szSoftware > 0) writer.WriteASCII(EXIF_TAG_SOFTWARE, m_szSoftware + 1, m_pExif->software);
     writer.WriteCString(EXIF_TAG_DATE_TIME, EXIF_DATETIME_LENGTH, m_pExif->date_time);
 
     char *pSubIFDBase = writer.BeginSubIFD(EXIF_TAG_EXIF_IFD_POINTER);
@@ -379,9 +357,11 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
         exifwriter.WriteRational(EXIF_TAG_FNUMBER, 1, &m_pExif->fnumber);
         exifwriter.WriteShort(EXIF_TAG_EXPOSURE_PROGRAM, 1, &m_pExif->exposure_program);
         exifwriter.WriteShort(EXIF_TAG_ISO_SPEED_RATING, 1, &m_pExif->iso_speed_rating);
-        exifwriter.WriteUndef(EXIF_TAG_EXIF_VERSION, 4, reinterpret_cast<unsigned char *>(m_pExif->exif_version));
+        exifwriter.WriteUndef(EXIF_TAG_EXIF_VERSION, 4,
+                              reinterpret_cast<unsigned char *>(m_pExif->exif_version));
         exifwriter.WriteCString(EXIF_TAG_DATE_TIME_ORG, EXIF_DATETIME_LENGTH, m_pExif->date_time);
-        exifwriter.WriteCString(EXIF_TAG_DATE_TIME_DIGITIZE, EXIF_DATETIME_LENGTH, m_pExif->date_time);
+        exifwriter.WriteCString(EXIF_TAG_DATE_TIME_DIGITIZE, EXIF_DATETIME_LENGTH,
+                                m_pExif->date_time);
         exifwriter.WriteSRational(EXIF_TAG_SHUTTER_SPEED, 1, &m_pExif->shutter_speed);
         exifwriter.WriteRational(EXIF_TAG_APERTURE, 1, &m_pExif->aperture);
         exifwriter.WriteSRational(EXIF_TAG_BRIGHTNESS, 1, &m_pExif->brightness);
@@ -389,16 +369,21 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
         exifwriter.WriteRational(EXIF_TAG_MAX_APERTURE, 1, &m_pExif->max_aperture);
         exifwriter.WriteShort(EXIF_TAG_METERING_MODE, 1, &m_pExif->metering_mode);
         exifwriter.WriteShort(EXIF_TAG_FLASH, 1, &m_pExif->flash);
-        exifwriter.WriteUndef(EXIF_TAG_FLASHPIX_VERSION, 4, reinterpret_cast<const unsigned char *>("0100"));
+        exifwriter.WriteUndef(EXIF_TAG_FLASHPIX_VERSION, 4,
+                              reinterpret_cast<const unsigned char *>("0100"));
         exifwriter.WriteUndef(EXIF_TAG_COMPONENTS_CONFIGURATION, 4, ComponentsConfiguration);
         exifwriter.WriteRational(EXIF_TAG_FOCAL_LENGTH, 1, &m_pExif->focal_length);
         exifwriter.WriteCString(EXIF_TAG_SUBSEC_TIME, EXIF_SUBSECTIME_LENGTH, m_pExif->sec_time);
-        exifwriter.WriteCString(EXIF_TAG_SUBSEC_TIME_ORIG, EXIF_SUBSECTIME_LENGTH, m_pExif->sec_time);
-        exifwriter.WriteCString(EXIF_TAG_SUBSEC_TIME_DIG, EXIF_SUBSECTIME_LENGTH, m_pExif->sec_time);
+        exifwriter.WriteCString(EXIF_TAG_SUBSEC_TIME_ORIG, EXIF_SUBSECTIME_LENGTH,
+                                m_pExif->sec_time);
+        exifwriter.WriteCString(EXIF_TAG_SUBSEC_TIME_DIG, EXIF_SUBSECTIME_LENGTH,
+                                m_pExif->sec_time);
         if (m_pExif->maker_note_size > 0)
-            exifwriter.WriteUndef(EXIF_TAG_MAKER_NOTE, m_pExif->maker_note_size, m_pExif->maker_note);
+            exifwriter.WriteUndef(EXIF_TAG_MAKER_NOTE, m_pExif->maker_note_size,
+                                  m_pExif->maker_note);
         if (m_pExif->user_comment_size > 0)
-            exifwriter.WriteUndef(EXIF_TAG_USER_COMMENT, m_pExif->user_comment_size, m_pExif->user_comment);
+            exifwriter.WriteUndef(EXIF_TAG_USER_COMMENT, m_pExif->user_comment_size,
+                                  m_pExif->user_comment);
         exifwriter.WriteShort(EXIF_TAG_COLOR_SPACE, 1, &m_pExif->color_space);
         exifwriter.WriteLong(EXIF_TAG_PIXEL_X_DIMENSION, 1, &m_pExif->width);
         exifwriter.WriteLong(EXIF_TAG_PIXEL_Y_DIMENSION, 1, &m_pExif->height);
@@ -407,7 +392,8 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
         exifwriter.WriteShort(EXIF_TAG_EXPOSURE_MODE, 1, &m_pExif->exposure_mode);
         exifwriter.WriteShort(EXIF_TAG_WHITE_BALANCE, 1, &m_pExif->white_balance);
         exifwriter.WriteRational(EXIF_TAG_DIGITAL_ZOOM_RATIO, 1, &m_pExif->digital_zoom_ratio);
-        exifwriter.WriteShort(EXIF_TAG_FOCA_LENGTH_IN_35MM_FILM, 1, &m_pExif->focal_length_in_35mm_length);
+        exifwriter.WriteShort(EXIF_TAG_FOCA_LENGTH_IN_35MM_FILM, 1,
+                              &m_pExif->focal_length_in_35mm_length);
         exifwriter.WriteShort(EXIF_TAG_SCENCE_CAPTURE_TYPE, 1, &m_pExif->scene_capture_type);
         exifwriter.WriteShort(EXIF_TAG_CONTRAST, 1, &m_pExif->contrast);
         exifwriter.WriteShort(EXIF_TAG_SATURATION, 1, &m_pExif->saturation);
@@ -451,9 +437,9 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
                 size_t idx;
                 len = min(len, static_cast<size_t>(99UL));
                 unsigned char buf[sizeof(ExifAsciiPrefix) + len + 1];
-                for (idx = 0; idx < sizeof(ExifAsciiPrefix); idx++)
-                    buf[idx] = ExifAsciiPrefix[idx];
-                strncpy(reinterpret_cast<char *>(buf) + idx, m_pExif->gps_processing_method, len + 1);
+                for (idx = 0; idx < sizeof(ExifAsciiPrefix); idx++) buf[idx] = ExifAsciiPrefix[idx];
+                strncpy(reinterpret_cast<char *>(buf) + idx, m_pExif->gps_processing_method,
+                        len + 1);
                 len += idx;
                 buf[len] = '\0';
                 gpswriter.WriteUndef(EXIF_TAG_GPS_PROCESSING_METHOD, len + 1, buf);
@@ -466,8 +452,7 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
     }
 
     // thumbnail and the next IFD pointer is never updated.
-    if (updating)
-        return NULL;
+    if (updating) return NULL;
 
     if (m_pExif->enableThumb) {
         writer.Finish(false);
@@ -496,16 +481,14 @@ char *CAppMarkerWriter::WriteAPP1(char *current, bool reserve_thumbnail_space, b
     return writer.GetNextIFDBase();
 }
 
-void CAppMarkerWriter::Finalize(size_t thumbsize)
-{
+void CAppMarkerWriter::Finalize(size_t thumbsize) {
     if (m_pThumbSizePlaceholder) {
         uint32_t len = static_cast<uint32_t>(thumbsize);
         WriteData(m_pThumbSizePlaceholder, len);
         m_pThumbSizePlaceholder = NULL;
     }
 }
-void CAppMarkerWriter::UpdateApp1Size(size_t amount)
-{
+void CAppMarkerWriter::UpdateApp1Size(size_t amount) {
     if (m_pAppBase) {
         uint16_t len = m_szApp1 + amount;
         WriteDataInBig(m_pAppBase + JPEG_MARKER_SIZE, len);
@@ -514,24 +497,25 @@ void CAppMarkerWriter::UpdateApp1Size(size_t amount)
 
 static const char *dbgerrmsg = "Updating debug data failed";
 
-static inline size_t GetSegLen(char *p)
-{
+static inline size_t GetSegLen(char *p) {
     size_t len = (*reinterpret_cast<unsigned char *>(p) & 0xFF) << 8;
     return len | (*reinterpret_cast<unsigned char *>(p + 1) & 0xFF);
 }
 
-static inline size_t GetExtraAPPSize(extra_appinfo_t *info)
-{
+static inline size_t GetExtraAPPSize(extra_appinfo_t *info) {
     size_t len = 0;
 
     for (int idx = 0; idx < info->num_of_appmarker; idx++) {
-        if ((info->appInfo[idx].appid < EXTRA_APPMARKER_MIN) || (info->appInfo[idx].appid >= EXTRA_APPMARKER_LIMIT)) {
+        if ((info->appInfo[idx].appid < EXTRA_APPMARKER_MIN) ||
+            (info->appInfo[idx].appid >= EXTRA_APPMARKER_LIMIT)) {
             ALOGE("%s: Invalid extra APP segment ID %d", dbgerrmsg, info->appInfo[idx].appid);
             return 0;
         }
 
-        if ((info->appInfo[idx].dataSize == 0) || (info->appInfo[idx].dataSize > (JPEG_MAX_SEGMENT_SIZE - JPEG_SEGMENT_LENFIELD_SIZE))) {
-            ALOGE("%s: Invalid APP%d segment size, %u bytes.", dbgerrmsg, info->appInfo[idx].appid, info->appInfo[idx].dataSize);
+        if ((info->appInfo[idx].dataSize == 0) ||
+            (info->appInfo[idx].dataSize > (JPEG_MAX_SEGMENT_SIZE - JPEG_SEGMENT_LENFIELD_SIZE))) {
+            ALOGE("%s: Invalid APP%d segment size, %u bytes.", dbgerrmsg, info->appInfo[idx].appid,
+                  info->appInfo[idx].dataSize);
             return 0;
         }
 
@@ -594,34 +578,33 @@ bool UpdateDebugData(char *jpeg, size_t jpeglen, extra_appinfo_t *extra) // incl
         }
 
         appid = marker & 0xF;
-        if (((marker & 0xF0) == 0xE0) && ((appid >= EXTRA_APPMARKER_MIN) && (appid <= EXTRA_APPMARKER_LIMIT))) {
+        if (((marker & 0xF0) == 0xE0) &&
+            ((appid >= EXTRA_APPMARKER_MIN) && (appid <= EXTRA_APPMARKER_LIMIT))) {
             if (appid != extra->appInfo[idx].appid) {
-                ALOGE("%s: stored appid(%d) is different with updated appid(%d)",
-                        dbgerrmsg, appid, extra->appInfo[idx].appid);
+                ALOGE("%s: stored appid(%d) is different with updated appid(%d)", dbgerrmsg, appid,
+                      extra->appInfo[idx].appid);
                 return false;
             }
 
             seglen = GetSegLen(jpeg);
             if (seglen < (extra->appInfo[idx].dataSize + JPEG_SEGMENT_LENFIELD_SIZE)) {
-                ALOGE("%s: too small APP%d length %zu to store %u bytes",
-                        dbgerrmsg, appid, seglen, extra->appInfo[idx].dataSize);
+                ALOGE("%s: too small APP%d length %zu to store %u bytes", dbgerrmsg, appid, seglen,
+                      extra->appInfo[idx].dataSize);
                 return false;
             }
 
-            memcpy(jpeg + JPEG_SEGMENT_LENFIELD_SIZE,
-                    extra->appInfo[idx].appData, extra->appInfo[idx].dataSize);
+            memcpy(jpeg + JPEG_SEGMENT_LENFIELD_SIZE, extra->appInfo[idx].appData,
+                   extra->appInfo[idx].dataSize);
             ALOGD("Successfully updated %u bytes to APP%d", extra->appInfo[idx].dataSize, appid);
 
-            validlen -= extra->appInfo[idx].dataSize + JPEG_MARKER_SIZE + JPEG_SEGMENT_LENFIELD_SIZE;
+            validlen -=
+                    extra->appInfo[idx].dataSize + JPEG_MARKER_SIZE + JPEG_SEGMENT_LENFIELD_SIZE;
             idx++;
         } else {
             // just skip all other segments
             seglen = GetSegLen(jpeg);
-            if (seglen == 0)
-                seglen++; // fixup for invalid segment lengths
-            if (jpeglen < seglen)
-                seglen = jpeglen;
-
+            if (seglen == 0) seglen++; // fixup for invalid segment lengths
+            if (jpeglen < seglen) seglen = jpeglen;
         }
 
         jpeg += seglen;
@@ -633,8 +616,7 @@ bool UpdateDebugData(char *jpeg, size_t jpeglen, extra_appinfo_t *extra) // incl
 
 static const char *exiferrmsg = "Updating exif failed";
 
-bool UpdateExif(char *jpeg, size_t jpeglen, exif_attribute_t *exif)
-{
+bool UpdateExif(char *jpeg, size_t jpeglen, exif_attribute_t *exif) {
     if (!exif) {
         ALOGI("No Exif to update");
         return true;
@@ -668,8 +650,7 @@ bool UpdateExif(char *jpeg, size_t jpeglen, exif_attribute_t *exif)
     return true;
 }
 
-void ExtractDebugAttributeInfo(debug_attribute_t *debug, extra_appinfo_t *extra)
-{
+void ExtractDebugAttributeInfo(debug_attribute_t *debug, extra_appinfo_t *extra) {
     if (!debug) {
         extra->num_of_appmarker = 0;
         return;

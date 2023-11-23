@@ -15,6 +15,7 @@
  */
 package com.android.cts.signedconfig;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.hamcrest.Matchers.is;
@@ -110,7 +111,7 @@ public class SignedConfigHostTest implements IDeviceTest, IBuildReceiver {
         int tries = 0;
         String v;
         do {
-            Thread.sleep(500);
+            RunUtil.getDefault().sleep(500);
             v = getDevice().getSetting("global", setting);
             tries++;
         } while (tries < 10 && !Objects.equals(value, v));
@@ -130,7 +131,7 @@ public class SignedConfigHostTest implements IDeviceTest, IBuildReceiver {
     }
 
     private void waitForDevice(int seconds) throws Exception {
-        Thread.sleep(seconds * 1000);
+        RunUtil.getDefault().sleep(seconds * 1000);
     }
 
     private void waitForDevice() throws Exception {

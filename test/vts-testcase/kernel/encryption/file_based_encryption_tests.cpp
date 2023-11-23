@@ -73,6 +73,9 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include <chrono>
+#include <thread>
+
 #include "vts_kernel_encryption.h"
 
 /* These values are missing from <linux/f2fs.h> */
@@ -86,6 +89,19 @@ enum f2fs_compress_algorithm {
 
 namespace android {
 namespace kernel {
+
+// The main mountpoint of the filesystem the test will use to test FBE.
+constexpr const char *kTestMountpoint = "/data";
+
+// A directory on the kTestMountpoint filesystem that doesn't already have an
+// encryption policy, and therefore allows the creation of subdirectories with
+// custom encryption policies.
+constexpr const char *kUnencryptedDir = "/data/unencrypted";
+
+// A directory on the kTestMountpoint filesystem that already has an encryption
+// policy.  Any files created in this directory will be encrypted using the
+// encryption settings that Android is configured to use.
+constexpr const char *kTmpDir = "/data/local/tmp";
 
 // Assumed size of filesystem blocks, in bytes
 constexpr int kFilesystemBlockSize = 4096;
@@ -195,25 +211,46 @@ static bool IsFscryptV2Supported(const std::string &mountpoint) {
   }
 }
 
-// Helper class to pin / unpin a file on f2fs, to prevent f2fs from moving the
-// file's blocks while the test is accessing them via the underlying device.
+// Helper class to freeze / unfreeze a filesystem, to prevent the filesystem
+// from moving the file's blocks while the test is accessing them via the
+// underlying device.  ext4 doesn't need this, but f2fs does because f2fs does
+// background garbage collection.  We cannot use F2FS_IOC_SET_PIN_FILE because
+// F2FS_IOC_SET_PIN_FILE doesn't support compressed files.
 //
-// This can be used without checking the filesystem type, since on other
-// filesystem types F2FS_IOC_SET_PIN_FILE will just fail and do nothing.
-class ScopedF2fsFilePinning {
+// The fd given can be any fd to a file or directory on the filesystem.
+// FIFREEZE operates on the whole filesystem, not on the individual file given.
+class ScopedFsFreezer {
  public:
-  explicit ScopedF2fsFilePinning(int fd) : fd_(fd) {
-    __u32 set = 1;
-    ioctl(fd_, F2FS_IOC_SET_PIN_FILE, &set);
+  explicit ScopedFsFreezer(int fd) {
+    auto start = std::chrono::steady_clock::now();
+    do {
+      if (ioctl(fd, FIFREEZE, NULL) == 0) {
+        fd_ = fd;
+        return;
+      }
+      if (errno == EBUSY) {
+        // Filesystem is already frozen, perhaps by a concurrent execution of
+        // this same test.  Since we don't have control over exactly when
+        // another process unfreezes the filesystem, we don't continue on with
+        // the test but rather just keep retrying the freeze until it works.
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        continue;
+      }
+      ADD_FAILURE() << "Failed to freeze filesystem" << Errno();
+      return;
+    } while (std::chrono::steady_clock::now() - start <
+             std::chrono::seconds(10));
+    ADD_FAILURE() << "Timed out while waiting to freeze filesystem";
   }
 
-  ~ScopedF2fsFilePinning() {
-    __u32 set = 0;
-    ioctl(fd_, F2FS_IOC_SET_PIN_FILE, &set);
+  ~ScopedFsFreezer() {
+    if (fd_ != -1 && ioctl(fd_, FITHAW, NULL) != 0) {
+      ADD_FAILURE() << "Failed to thaw filesystem" << Errno();
+    }
   }
 
  private:
-  int fd_;
+  int fd_ = -1;
 };
 
 // Reads the raw data of the file specified by |fd| from its underlying block
@@ -228,21 +265,20 @@ static bool ReadRawDataOfFile(int fd, const std::string &blk_device,
 
   EXPECT_TRUE(expected_data_size % kFilesystemBlockSize == 0);
 
-  // It's not entirely clear how F2FS_IOC_SET_PIN_FILE interacts with dirty
-  // data, so do an extra sync here and don't just rely on FIEMAP_FLAG_SYNC.
   if (fsync(fd) != 0) {
     ADD_FAILURE() << "Failed to sync file" << Errno();
     return false;
   }
 
-  ScopedF2fsFilePinning pinned_file(fd);  // no-op on non-f2fs
+  // Freeze the filesystem containing the file.
+  ScopedFsFreezer freezer(fd);
 
   // Query the file's extents.
   size_t allocsize = offsetof(struct fiemap, fm_extents[max_extents]);
   std::unique_ptr<struct fiemap> map(
       new (::operator new(allocsize)) struct fiemap);
   memset(map.get(), 0, allocsize);
-  map->fm_flags = FIEMAP_FLAG_SYNC;
+  map->fm_flags = 0;
   map->fm_length = UINT64_MAX;
   map->fm_extent_count = max_extents;
   if (ioctl(fd, FS_IOC_FIEMAP, map.get()) != 0) {
@@ -428,14 +464,6 @@ static bool DecompressLZ4Cluster(const uint8_t *in, uint8_t *out,
 
 class FBEPolicyTest : public ::testing::Test {
  protected:
-  // Location of the test directory and file.  Since it's not possible to
-  // override an existing encryption policy, in order for these tests to set
-  // their own encryption policy the parent directory must be unencrypted.
-  static constexpr const char *kTestMountpoint = "/data";
-  static constexpr const char *kTestDir = "/data/unencrypted/vts-test-dir";
-  static constexpr const char *kTestFile =
-      "/data/unencrypted/vts-test-dir/file";
-
   void SetUp() override;
   void TearDown() override;
   bool SetMasterKey(const std::vector<uint8_t> &master_key, uint32_t flags = 0,
@@ -462,13 +490,15 @@ class FBEPolicyTest : public ::testing::Test {
                                       const std::vector<uint8_t> &enc_key);
   bool EnableF2fsCompressionOnTestDir();
   bool F2fsCompressOptionsSupported(const struct f2fs_comp_option &opts);
+  std::string test_dir_;
+  std::string test_file_;
   struct fscrypt_key_specifier master_key_specifier_;
   bool skip_test_ = false;
   bool key_added_ = false;
   FilesystemInfo fs_info_;
 };
 
-// Test setup procedure.  Creates a test directory kTestDir and does other
+// Test setup procedure.  Creates a test directory test_dir_ and does other
 // preparations. skip_test_ is set to true if the test should be skipped.
 void FBEPolicyTest::SetUp() {
   if (!IsFscryptV2Supported(kTestMountpoint)) {
@@ -481,16 +511,24 @@ void FBEPolicyTest::SetUp() {
     return;
   }
 
+  // Make sure that if multiple test processes run simultaneously, they generate
+  // different encryption keys.
+  srand(getpid());
+
+  test_dir_ = android::base::StringPrintf("%s/FBEPolicyTest.%d",
+                                          kUnencryptedDir, getpid());
+  test_file_ = test_dir_ + "/file";
+
   ASSERT_TRUE(GetFilesystemInfo(kTestMountpoint, &fs_info_));
 
-  DeleteRecursively(kTestDir);
-  if (mkdir(kTestDir, 0700) != 0) {
-    FAIL() << "Failed to create " << kTestDir << Errno();
+  DeleteRecursively(test_dir_);
+  if (mkdir(test_dir_.c_str(), 0700) != 0) {
+    FAIL() << "Failed to create " << test_dir_ << Errno();
   }
 }
 
 void FBEPolicyTest::TearDown() {
-  DeleteRecursively(kTestDir);
+  DeleteRecursively(test_dir_);
 
   // Remove the test key from kTestMountpoint.
   if (key_added_) {
@@ -618,19 +656,19 @@ bool FBEPolicyTest::SetEncryptionPolicy(int contents_mode, int filenames_mode,
          FSCRYPT_KEY_IDENTIFIER_SIZE);
 
   android::base::unique_fd dirfd(
-      open(kTestDir, O_RDONLY | O_DIRECTORY | O_CLOEXEC));
+      open(test_dir_.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC));
   if (dirfd < 0) {
-    ADD_FAILURE() << "Failed to open " << kTestDir << Errno();
+    ADD_FAILURE() << "Failed to open " << test_dir_ << Errno();
     return false;
   }
-  GTEST_LOG_(INFO) << "Setting encryption policy on " << kTestDir;
+  GTEST_LOG_(INFO) << "Setting encryption policy on " << test_dir_;
   if (ioctl(dirfd, FS_IOC_SET_ENCRYPTION_POLICY, &policy) != 0) {
     if (errno == EINVAL && (skip_flags & kSkipIfNoPolicySupport)) {
       GTEST_LOG_(INFO) << "Skipping test because encryption policy is "
                           "unsupported on this filesystem / kernel";
       return false;
     }
-    ADD_FAILURE() << "FS_IOC_SET_ENCRYPTION_POLICY failed on " << kTestDir
+    ADD_FAILURE() << "FS_IOC_SET_ENCRYPTION_POLICY failed on " << test_dir_
                   << " using contents_mode=" << contents_mode
                   << ", filenames_mode=" << filenames_mode << ", flags=0x"
                   << std::hex << flags << std::dec << Errno();
@@ -638,7 +676,7 @@ bool FBEPolicyTest::SetEncryptionPolicy(int contents_mode, int filenames_mode,
   }
   if (skip_flags & (kSkipIfNoCryptoAPISupport | kSkipIfNoHardwareSupport)) {
     android::base::unique_fd fd(
-        open(kTestFile, O_WRONLY | O_CREAT | O_CLOEXEC, 0600));
+        open(test_file_.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0600));
     if (fd < 0) {
       // Setting an encryption policy that uses modes that aren't enabled in the
       // kernel's crypto API (e.g. FSCRYPT_MODE_ADIANTUM when the kernel lacks
@@ -660,7 +698,7 @@ bool FBEPolicyTest::SetEncryptionPolicy(int contents_mode, int filenames_mode,
         return false;
       }
     }
-    unlink(kTestFile);
+    unlink(test_file_.c_str());
   }
   return true;
 }
@@ -678,23 +716,23 @@ bool FBEPolicyTest::GenerateTestFile(
                                     compress_options->log_cluster_size))
     return false;
 
-  if (!WriteTestFile(info->plaintext, kTestFile, fs_info_.raw_blk_device,
+  if (!WriteTestFile(info->plaintext, test_file_, fs_info_.raw_blk_device,
                      compress_options, &info->actual_ciphertext))
     return false;
 
-  android::base::unique_fd fd(open(kTestFile, O_RDONLY | O_CLOEXEC));
+  android::base::unique_fd fd(open(test_file_.c_str(), O_RDONLY | O_CLOEXEC));
   if (fd < 0) {
-    ADD_FAILURE() << "Failed to open " << kTestFile << Errno();
+    ADD_FAILURE() << "Failed to open " << test_file_ << Errno();
     return false;
   }
 
   // Get the file's inode number.
-  if (!GetInodeNumber(kTestFile, &info->inode_number)) return false;
+  if (!GetInodeNumber(test_file_, &info->inode_number)) return false;
   GTEST_LOG_(INFO) << "Inode number: " << info->inode_number;
 
   // Get the file's nonce.
   if (ioctl(fd, FS_IOC_GET_ENCRYPTION_NONCE, info->nonce.bytes) != 0) {
-    ADD_FAILURE() << "FS_IOC_GET_ENCRYPTION_NONCE failed on " << kTestFile
+    ADD_FAILURE() << "FS_IOC_GET_ENCRYPTION_NONCE failed on " << test_file_
                   << Errno();
     return false;
   }
@@ -932,7 +970,7 @@ TEST_F(FBEPolicyTest, TestAesInlineCryptOptimizedHwWrappedKeyPolicy) {
 // With IV_INO_LBLK_32, the DUN (IV) can wrap from UINT32_MAX to 0 in the middle
 // of the file.  This method tests that this case appears to be handled
 // correctly, by doing I/O across the place where the DUN wraps around.  Assumes
-// that kTestDir has already been set up with an IV_INO_LBLK_32 policy.
+// that test_dir_ has already been set up with an IV_INO_LBLK_32 policy.
 void FBEPolicyTest::TestEmmcOptimizedDunWraparound(
     const std::vector<uint8_t> &master_key,
     const std::vector<uint8_t> &enc_key) {
@@ -961,7 +999,7 @@ void FBEPolicyTest::TestEmmcOptimizedDunWraparound(
     // The probability we'll need over 1000 tries is less than 1e-25.
     ASSERT_LT(i, 1000) << "Tried too many times to find a usable test file";
 
-    path = android::base::StringPrintf("%s/file%d", kTestDir, i);
+    path = android::base::StringPrintf("%s/file%d", test_dir_.c_str(), i);
     android::base::unique_fd fd(
         open(path.c_str(), O_WRONLY | O_CREAT | O_CLOEXEC, 0600));
     ASSERT_GE(fd, 0) << "Failed to create " << path << Errno();
@@ -1118,15 +1156,15 @@ TEST_F(FBEPolicyTest, TestHwWrappedKeyCorruption) {
 }
 
 bool FBEPolicyTest::EnableF2fsCompressionOnTestDir() {
-  android::base::unique_fd fd(open(kTestDir, O_RDONLY | O_CLOEXEC));
+  android::base::unique_fd fd(open(test_dir_.c_str(), O_RDONLY | O_CLOEXEC));
   if (fd < 0) {
-    ADD_FAILURE() << "Failed to open " << kTestDir << Errno();
+    ADD_FAILURE() << "Failed to open " << test_dir_ << Errno();
     return false;
   }
 
   int flags;
   if (ioctl(fd, FS_IOC_GETFLAGS, &flags) != 0) {
-    ADD_FAILURE() << "Unexpected error getting flags of " << kTestDir
+    ADD_FAILURE() << "Unexpected error getting flags of " << test_dir_
                   << Errno();
     return false;
   }
@@ -1138,7 +1176,7 @@ bool FBEPolicyTest::EnableF2fsCompressionOnTestDir() {
           << kTestMountpoint;
       return false;
     }
-    ADD_FAILURE() << "Unexpected error enabling compression on " << kTestDir
+    ADD_FAILURE() << "Unexpected error enabling compression on " << test_dir_
                   << Errno();
     return false;
   }
@@ -1162,7 +1200,23 @@ static std::string F2fsCompressAlgorithmName(int algorithm) {
 
 bool FBEPolicyTest::F2fsCompressOptionsSupported(
     const struct f2fs_comp_option &opts) {
-  android::base::unique_fd fd(open(kTestFile, O_WRONLY | O_CREAT, 0600));
+  android::base::unique_fd fd(
+      open(test_file_.c_str(), O_WRONLY | O_CREAT, 0600));
+  if (fd < 0) {
+    // If the filesystem has the compression feature flag enabled but f2fs
+    // compression support was compiled out of the kernel, then setting
+    // FS_COMPR_FL on the directory will succeed, but creating a file in the
+    // directory will fail with EOPNOTSUPP.
+    if (errno == EOPNOTSUPP) {
+      GTEST_LOG_(INFO)
+          << "Skipping test because kernel doesn't support f2fs compression";
+      return false;
+    }
+    ADD_FAILURE() << "Unexpected error creating " << test_file_
+                  << " after enabling f2fs compression on parent directory"
+                  << Errno();
+    return false;
+  }
 
   if (ioctl(fd, F2FS_IOC_SET_COMPRESS_OPTION, &opts) != 0) {
     if (errno == ENOTTY || errno == EOPNOTSUPP) {
@@ -1177,7 +1231,7 @@ bool FBEPolicyTest::F2fsCompressOptionsSupported(
   }
   // Unsupported compression algorithms aren't detected until the file is
   // reopened.
-  fd.reset(open(kTestFile, O_WRONLY));
+  fd.reset(open(test_file_.c_str(), O_WRONLY));
   if (fd < 0) {
     if (errno == EOPNOTSUPP || errno == ENOPKG) {
       GTEST_LOG_(INFO) << "Skipping test because kernel doesn't support "
@@ -1190,7 +1244,7 @@ bool FBEPolicyTest::F2fsCompressOptionsSupported(
                   << Errno();
     return false;
   }
-  unlink(kTestFile);
+  unlink(test_file_.c_str());
   return true;
 }
 
@@ -1360,13 +1414,15 @@ static bool GetKeyUsedByDir(const std::string &dir,
 // it applies regardless of the encryption format and key.  Thus it runs even on
 // old devices, including ones that used a vendor-specific encryption format.
 TEST(FBETest, TestFileContentsRandomness) {
-  constexpr const char *path_1 = "/data/local/tmp/vts-test-file-1";
-  constexpr const char *path_2 = "/data/local/tmp/vts-test-file-2";
+  const std::string path_1 =
+      android::base::StringPrintf("%s/FBETest-1.%d", kTmpDir, getpid());
+  const std::string path_2 =
+      android::base::StringPrintf("%s/FBETest-2.%d", kTmpDir, getpid());
 
   if (!DeviceUsesFBE()) return;
 
   FilesystemInfo fs_info;
-  ASSERT_TRUE(GetFilesystemInfo("/data", &fs_info));
+  ASSERT_TRUE(GetFilesystemInfo(kTestMountpoint, &fs_info));
 
   std::vector<uint8_t> zeroes(kTestFileBytes, 0);
   std::vector<uint8_t> ciphertext_1;
@@ -1391,8 +1447,8 @@ TEST(FBETest, TestFileContentsRandomness) {
                                  ciphertext_2.begin(), ciphertext_2.end());
   ASSERT_TRUE(VerifyDataRandomness(concatenated_ciphertext));
 
-  ASSERT_EQ(unlink(path_1), 0);
-  ASSERT_EQ(unlink(path_2), 0);
+  ASSERT_EQ(unlink(path_1.c_str()), 0);
+  ASSERT_EQ(unlink(path_2.c_str()), 0);
 }
 
 // Tests that all of user 0's directories that should be encrypted actually are,

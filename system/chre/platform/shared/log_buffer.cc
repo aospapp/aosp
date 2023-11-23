@@ -246,7 +246,7 @@ void LogBuffer::copyLogToBuffer(LogBufferLogLevel level, uint32_t timestampMs,
 void LogBuffer::discardExcessOldLogsLocked(bool encoded,
                                            uint8_t currentLogLen) {
   size_t totalLogSize =
-      kLogDataOffset + (encoded ? currentLogLen + 1 : currentLogLen);
+      kLogDataOffset + (encoded ? currentLogLen : currentLogLen + 1);
   while (mBufferDataSize + totalLogSize > mBufferMaxSize) {
     mNumLogsDropped++;
     size_t logSize;

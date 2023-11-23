@@ -36,6 +36,11 @@ import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
 /** HDMI CEC test to verify that device ignores invalid messages (Section 12) */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
@@ -57,6 +62,7 @@ public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
 
     private LogicalAddress source;
     private LogicalAddress targetLogicalAddress;
+    private LogicalAddress mNonLocalPlaybackAddress;
 
     @Rule
     public RuleChain ruleChain =
@@ -65,10 +71,31 @@ public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
                     .around(hdmiCecClient);
 
     @Before
-    public void setup() throws Exception {
+    public void setupLogicalAddresses() throws Exception {
         source = (hasDeviceType(HdmiCecConstants.CEC_DEVICE_TYPE_TV)) ? LogicalAddress.RECORDER_1
                                                                       : LogicalAddress.TV;
         targetLogicalAddress = getTargetLogicalAddress();
+        mNonLocalPlaybackAddress =
+                (targetLogicalAddress == LogicalAddress.PLAYBACK_1)
+                        ? LogicalAddress.PLAYBACK_2
+                        : LogicalAddress.PLAYBACK_1;
+    }
+
+    private int getUnusedPhysicalAddress(int usedValue) {
+        return (usedValue == 0x2000) ? 0x3000 : 0x2000;
+    }
+
+    private void reportPhysicalAddress(LogicalAddress logicalAddress, int physicalAddress,
+            int deviceType) throws Exception {
+        String formattedPhysicalAddress = CecMessage.formatParams(physicalAddress,
+                HdmiCecConstants.PHYSICAL_ADDRESS_LENGTH);
+        String formattedDeviceType = CecMessage.formatParams(deviceType);
+        hdmiCecClient.sendCecMessage(
+                logicalAddress,
+                LogicalAddress.BROADCAST,
+                CecOperand.REPORT_PHYSICAL_ADDRESS,
+                formattedPhysicalAddress + formattedDeviceType
+        );
     }
 
     /**
@@ -200,19 +227,40 @@ public final class HdmiCecInvalidMessagesTest extends BaseHdmiCecCtsTest {
     /**
      * <p>Tests that the device ignores a broadcasted message {@code <REQUEST_ACTIVE_SOURCE>} if its
      * source has the logical address equal to device's logical address
+     * Change the active source to another device (a new Playback) first.
      */
     @Test
     public void cect_IgnoreBroadcastedFromSameSource()
             throws Exception {
-        ITestDevice device = getDevice();
-        device.executeShellCommand("input keyevent KEYCODE_HOME");
-        // The device shall broadcast an <Active Source> message.
-        hdmiCecClient.checkExpectedOutput(
-                LogicalAddress.BROADCAST, CecOperand.ACTIVE_SOURCE);
-        hdmiCecClient.sendCecMessage(
-                targetLogicalAddress, LogicalAddress.BROADCAST, CecOperand.REQUEST_ACTIVE_SOURCE);
-        hdmiCecClient.checkOutputDoesNotContainMessage(
-                LogicalAddress.BROADCAST, CecOperand.ACTIVE_SOURCE);
+        String previousPowerStateChange = setPowerStateChangeOnActiveSourceLost(
+                HdmiCecConstants.POWER_STATE_CHANGE_ON_ACTIVE_SOURCE_LOST_NONE);
+        try {
+            int dumpsysPhysicalAddress = getDumpsysPhysicalAddress();
+            // Add a new playback device in the network.
+            int playbackPhysicalAddress = getUnusedPhysicalAddress(dumpsysPhysicalAddress);
+            reportPhysicalAddress(
+                    mNonLocalPlaybackAddress,
+                    playbackPhysicalAddress,
+                    HdmiCecConstants.CEC_DEVICE_TYPE_PLAYBACK_DEVICE);
+            // Make the new Playback the active source.
+            hdmiCecClient.broadcastActiveSource(mNonLocalPlaybackAddress, playbackPhysicalAddress);
+            // Wait for the <Active Source> message to be processed by the DUT.
+            TimeUnit.SECONDS.sleep(HdmiCecConstants.DEVICE_WAIT_TIME_SECONDS);
+
+            // Press Home key and the DUT shall broadcast an <Active Source> message.
+            ITestDevice device = getDevice();
+            device.executeShellCommand("input keyevent KEYCODE_HOME");
+            hdmiCecClient.checkExpectedOutput(
+                    LogicalAddress.BROADCAST, CecOperand.ACTIVE_SOURCE);
+            // The DUT shouldn't send <Active Source> again.
+            hdmiCecClient.sendCecMessage(
+                    targetLogicalAddress, LogicalAddress.BROADCAST, CecOperand.REQUEST_ACTIVE_SOURCE);
+            hdmiCecClient.checkOutputDoesNotContainMessage(
+                    LogicalAddress.BROADCAST, CecOperand.ACTIVE_SOURCE);
+        } finally {
+            // Restore the previous power state change.
+            setPowerStateChangeOnActiveSourceLost(previousPowerStateChange);
+        }
     }
 
     /**

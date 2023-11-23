@@ -19,32 +19,33 @@ package android.media.codec.cts;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecList;
 import android.media.MediaFormat;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.cts.TestArgs;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
-import android.util.Size;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.NonMainlineTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
-import org.junit.Test;
-
 /**
  * Tests to check if MediaCodec decoding works with rotation.
  */
 @SmallTest
 @RequiresDevice
-@NonMediaMainlineTest   // fails in windowing on pure older releases
+@NonMainlineTest   // fails in windowing on pure older releases
 @RunWith(Parameterized.class)
 public class VideoDecoderRotationTest {
     private static final String TAG = "VideoDecoderRotationTest";
@@ -96,6 +97,7 @@ public class VideoDecoderRotationTest {
         return testParams;
     }
 
+    @ApiTest(apis = "android.media.MediaFormat#KEY_ROTATION")
     @Test
     public void testRendering800x480Rotated() throws Throwable {
         if (mImpl.isConcurrentEncodingDecodingSupported(

@@ -43,7 +43,7 @@ apex {
 ```
 {
   "name": "com.android.my.apex",
-  "version": 1
+  "version": 0
 }
 ```
 
@@ -80,6 +80,12 @@ executables    | `/bin`
 java libraries | `/javalib`
 android apps   | `/app` or `/priv-app`
 prebuilts      | `/etc`
+
+#### Version overriding
+
+The apex version should be set to 0 on development branches. This is a
+placeholder version which will be overridden by Soong during build. Soong will
+set it to the correct version for the current branch.
 
 ### Transitive dependencies
 

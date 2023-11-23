@@ -15,6 +15,7 @@
  */
 package android.cts.statsdatom.statsd;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -79,7 +80,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
         DeviceUtils.turnBatteryStatsAutoResetOff(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -103,10 +104,10 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         String aodState = getAodState();
         setAodState("0");
         DeviceUtils.turnScreenOn(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         DeviceUtils.turnScreenOff(getDevice());
         // Ensure that the screen on/off atoms are pushed before the config is uploaded.
-        Thread.sleep(5_000);
+        RunUtil.getDefault().sleep(5_000);
 
         final int atomTag = Atom.SCREEN_STATE_CHANGED_FIELD_NUMBER;
 
@@ -128,9 +129,9 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         // Trigger events in same order.
         DeviceUtils.turnScreenOn(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.turnScreenOff(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
@@ -147,7 +148,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         if (DeviceUtils.hasFeature(getDevice(), FEATURE_AUTOMOTIVE)) return;
         // Setup, set charging state to full.
         DeviceUtils.setChargingState(getDevice(), 5);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         final int atomTag = Atom.CHARGING_STATE_CHANGED_FIELD_NUMBER;
 
@@ -171,22 +172,22 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         // Trigger events in same order.
         DeviceUtils.setChargingState(getDevice(), 1);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         DeviceUtils.setChargingState(getDevice(), 2);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         DeviceUtils.setChargingState(getDevice(), 3);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         DeviceUtils.setChargingState(getDevice(), 4);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         DeviceUtils.setChargingState(getDevice(), 5);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
 
         // Unfreeze battery state after test
         DeviceUtils.resetBatteryStatus(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Assert that the events happened in the expected order.
         AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, AtomTestUtils.WAIT_TIME_SHORT,
@@ -198,7 +199,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         // Setup, unplug device.
         DeviceUtils.unplugDevice(getDevice());
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         final int atomTag = Atom.PLUGGED_STATE_CHANGED_FIELD_NUMBER;
 
@@ -221,19 +222,19 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         // Trigger events in same order.
         DeviceUtils.plugInAc(getDevice());
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.unplugDevice(getDevice());
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         plugInUsb();
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.unplugDevice(getDevice());
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         plugInWireless();
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         DeviceUtils.unplugDevice(getDevice());
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
 
@@ -242,7 +243,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         // Unfreeze battery state after test
         DeviceUtils.resetBatteryStatus(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Assert that the events happened in the expected order.
         AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, AtomTestUtils.WAIT_TIME_LONG,
@@ -254,7 +255,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         // Setup, set battery level to full.
         setBatteryLevel(100);
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         final int atomTag = Atom.BATTERY_LEVEL_CHANGED_FIELD_NUMBER;
 
@@ -274,26 +275,26 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
         // Trigger events in same order.
         setBatteryLevel(2);
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         setBatteryLevel(25);
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         setBatteryLevel(50);
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         setBatteryLevel(75);
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         setBatteryLevel(100);
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
 
         // Unfreeze battery state after test
         DeviceUtils.resetBatteryStatus(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Assert that the events happened in the expected order.
         AtomTestUtils.assertStatesOccurredInOrder(stateSet, data, AtomTestUtils.WAIT_TIME_LONG,
@@ -303,7 +304,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
     public void testDeviceIdleModeStateChangedAtom() throws Exception {
         // Setup, leave doze mode.
         leaveDozeMode();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         final int atomTag = Atom.DEVICE_IDLE_MODE_STATE_CHANGED_FIELD_NUMBER;
 
@@ -322,11 +323,11 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         // Trigger events in same order.
         enterDozeModeLight();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         enterDozeModeDeep();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         leaveDozeMode();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Sorted list of events in order in which they occurred.
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
@@ -339,6 +340,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
     public void testBatterySaverModeStateChangedAtom() throws Exception {
         if (DeviceUtils.hasFeature(getDevice(), FEATURE_TWM)) return;
         if (DeviceUtils.hasFeature(getDevice(), FEATURE_AUTOMOTIVE)) return;
+        if (DeviceUtils.hasFeature(getDevice(), FEATURE_WATCH)) return;
         // Setup, turn off battery saver.
         turnBatterySaverOff();
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
@@ -358,7 +360,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         // Trigger events in same order.
         turnBatterySaverOn();
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         turnBatterySaverOff();
         DeviceUtils.flushBatteryStatsHandlers(getDevice());
 
@@ -379,7 +381,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.REMAINING_BATTERY_CAPACITY_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -401,7 +403,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.FULL_BATTERY_CAPACITY_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -420,7 +422,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.BATTERY_VOLTAGE_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -440,7 +442,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.BATTERY_LEVEL_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -461,7 +463,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.KERNEL_WAKELOCK_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -495,7 +497,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.WIFI_ACTIVITY_INFO_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> dataList = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -514,7 +516,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 Atom.BUILD_INFORMATION_FIELD_NUMBER);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
 
@@ -543,7 +545,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 atomTag);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AppBreadcrumbReported atom = data.get(0).getAtom().getAppBreadcrumbReported();
@@ -558,7 +560,7 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
                 atomTag);
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
         // Get the stats incident section.
         List<ConfigMetricsReportList> listList = getReportsFromStatsDataDumpProto();
@@ -596,10 +598,10 @@ public class HostAtomTests extends DeviceTestCase implements IBuildReceiver {
 
         turnOnAirplaneMode();
         // wait long enough for airplane mode events to propagate.
-        Thread.sleep(1_200);
+        RunUtil.getDefault().sleep(1_200);
         turnOffAirplaneMode();
         // wait long enough for the device to restore connection
-        Thread.sleep(13_000);
+        RunUtil.getDefault().sleep(13_000);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         // at least 1 disconnect and 1 connect

@@ -81,7 +81,7 @@ bool GetUnboxedPrimitiveType(ObjPtr<mirror::Class> klass, Primitive::Type* type)
 ObjPtr<mirror::Class> GetBoxedPrimitiveClass(Primitive::Type type)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ScopedAssertNoThreadSuspension ants(__FUNCTION__);
-  jmethodID m = nullptr;
+  ArtMethod* m = nullptr;
   switch (type) {
 #define CASE_PRIMITIVE(primitive, _, java_name, __)              \
     case primitive:                                              \
@@ -93,7 +93,7 @@ ObjPtr<mirror::Class> GetBoxedPrimitiveClass(Primitive::Type type)
     case Primitive::Type::kPrimVoid:
       return nullptr;
   }
-  return jni::DecodeArtMethod(m)->GetDeclaringClass();
+  return m->GetDeclaringClass();
 }
 
 bool GetUnboxedTypeAndValue(ObjPtr<mirror::Object> o, Primitive::Type* type, JValue* value)
@@ -290,6 +290,13 @@ bool ConvertJValueCommon(
       return false;
     }
 
+    ObjPtr<mirror::Class> from_obj_type = from_obj->GetClass();
+    Primitive::Type from_primitive_type;
+    if (!GetUnboxedPrimitiveType(from_obj_type, &from_primitive_type)) {
+      ThrowClassCastException(from, to);
+      return false;
+    }
+
     Primitive::Type unboxed_type;
     JValue unboxed_value;
     if (UNLIKELY(!GetUnboxedTypeAndValue(from_obj, &unboxed_type, &unboxed_value))) {
@@ -393,7 +400,7 @@ static inline bool MethodHandleInvokeTransform(Thread* self,
 
   const char* old_cause = self->StartAssertNoThreadSuspension("MethodHandleInvokeTransform");
   ShadowFrameAllocaUniquePtr shadow_frame_unique_ptr =
-      CREATE_SHADOW_FRAME(kNumRegsForTransform, &shadow_frame, called_method, /* dex pc */ 0);
+      CREATE_SHADOW_FRAME(kNumRegsForTransform, called_method, /* dex pc */ 0);
   ShadowFrame* new_shadow_frame = shadow_frame_unique_ptr.get();
   new_shadow_frame->SetVRegReference(0, method_handle.Get());
   new_shadow_frame->SetVRegReference(1, sf.Get());
@@ -459,7 +466,7 @@ ArtMethod* RefineTargetMethod(Thread* self,
   } else if (handle_kind == mirror::MethodHandle::Kind::kInvokeDirect) {
     // String constructors are a special case, they are replaced with
     // StringFactory methods.
-    if (target_method->IsConstructor() && target_method->GetDeclaringClass()->IsStringClass()) {
+    if (target_method->IsStringConstructor()) {
       DCHECK(handle_type->GetRType()->IsStringClass());
       return WellKnownClasses::StringInitToStringFactory(target_method);
     }
@@ -544,31 +551,30 @@ inline bool MethodHandleFieldPut(Thread* self,
                                  JValue& value) REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK(!Runtime::Current()->IsActiveTransaction());
   static const bool kTransaction = false;         // Not in a transaction.
-  static const bool kAssignabilityCheck = false;  // No access check.
   switch (field_type) {
     case Primitive::kPrimBoolean:
       return
-          DoFieldPutCommon<Primitive::kPrimBoolean, kAssignabilityCheck, kTransaction>(
+          DoFieldPutCommon<Primitive::kPrimBoolean, kTransaction>(
               self, shadow_frame, obj, field, value);
     case Primitive::kPrimByte:
-      return DoFieldPutCommon<Primitive::kPrimByte, kAssignabilityCheck, kTransaction>(
+      return DoFieldPutCommon<Primitive::kPrimByte, kTransaction>(
           self, shadow_frame, obj, field, value);
     case Primitive::kPrimChar:
-      return DoFieldPutCommon<Primitive::kPrimChar, kAssignabilityCheck, kTransaction>(
+      return DoFieldPutCommon<Primitive::kPrimChar, kTransaction>(
           self, shadow_frame, obj, field, value);
     case Primitive::kPrimShort:
-      return DoFieldPutCommon<Primitive::kPrimShort, kAssignabilityCheck, kTransaction>(
+      return DoFieldPutCommon<Primitive::kPrimShort, kTransaction>(
           self, shadow_frame, obj, field, value);
     case Primitive::kPrimInt:
     case Primitive::kPrimFloat:
-      return DoFieldPutCommon<Primitive::kPrimInt, kAssignabilityCheck, kTransaction>(
+      return DoFieldPutCommon<Primitive::kPrimInt, kTransaction>(
           self, shadow_frame, obj, field, value);
     case Primitive::kPrimLong:
     case Primitive::kPrimDouble:
-      return DoFieldPutCommon<Primitive::kPrimLong, kAssignabilityCheck, kTransaction>(
+      return DoFieldPutCommon<Primitive::kPrimLong, kTransaction>(
           self, shadow_frame, obj, field, value);
     case Primitive::kPrimNot:
-      return DoFieldPutCommon<Primitive::kPrimNot, kAssignabilityCheck, kTransaction>(
+      return DoFieldPutCommon<Primitive::kPrimNot, kTransaction>(
           self, shadow_frame, obj, field, value);
     case Primitive::kPrimVoid:
       LOG(FATAL) << "Unreachable: " << field_type;
@@ -625,6 +631,10 @@ bool MethodHandleFieldAccess(Thread* self,
     case mirror::MethodHandle::kInstanceGet: {
       size_t obj_reg = operands->GetOperand(0);
       ObjPtr<mirror::Object> obj = shadow_frame.GetVRegReference(obj_reg);
+      if (obj == nullptr) {
+        ThrowNullPointerException("Receiver is null");
+        return false;
+      }
       MethodHandleFieldGet(self, shadow_frame, obj, field, field_type, result);
       return true;
     }
@@ -648,6 +658,10 @@ bool MethodHandleFieldAccess(Thread* self,
           callsite_type->GetPTypes()->Get(kPTypeIndex)->GetPrimitiveType(),
           value_reg);
       ObjPtr<mirror::Object> obj = shadow_frame.GetVRegReference(obj_reg);
+      if (obj == nullptr) {
+        ThrowNullPointerException("Receiver is null");
+        return false;
+      }
       return MethodHandleFieldPut(self, shadow_frame, obj, field, field_type, value);
     }
     case mirror::MethodHandle::kStaticPut: {
@@ -769,7 +783,7 @@ static bool DoMethodHandleInvokeMethod(Thread* self,
 
   const char* old_cause = self->StartAssertNoThreadSuspension("DoMethodHandleInvokeMethod");
   ShadowFrameAllocaUniquePtr shadow_frame_unique_ptr =
-      CREATE_SHADOW_FRAME(num_regs, &shadow_frame, called_method, /* dex pc */ 0);
+      CREATE_SHADOW_FRAME(num_regs, called_method, /* dex pc */ 0);
   ShadowFrame* new_shadow_frame = shadow_frame_unique_ptr.get();
   CopyArgumentsFromCallerFrame(shadow_frame, new_shadow_frame, operands, first_dest_reg);
   self->EndAssertNoThreadSuspension(old_cause);
@@ -856,19 +870,13 @@ static bool MethodHandleInvokeInternal(Thread* self,
   if (atc == nullptr || !callsite_type->IsExactMatch(atc->GetMethodType())) {
     // Cached asType adapter does not exist or is for another call site. Call
     // MethodHandle::asType() to get an appropriate adapter.
-    ArtMethod* as_type =
-        jni::DecodeArtMethod(WellKnownClasses::java_lang_invoke_MethodHandle_asType);
-    uint32_t as_type_args[] = {
-        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(method_handle.Get())),
-        static_cast<uint32_t>(reinterpret_cast<uintptr_t>(callsite_type.Get()))};
-    JValue atc_result;
-    as_type->Invoke(self, as_type_args, sizeof(as_type_args), &atc_result, "LL");
-    if (atc_result.GetL() == nullptr) {
+    ArtMethod* as_type = WellKnownClasses::java_lang_invoke_MethodHandle_asType;
+    ObjPtr<mirror::MethodHandle> atc_method_handle = ObjPtr<mirror::MethodHandle>::DownCast(
+        as_type->InvokeVirtual<'L', 'L'>(self, method_handle.Get(), callsite_type.Get()));
+    if (atc_method_handle == nullptr) {
       DCHECK(self->IsExceptionPending());
       return false;
     }
-    ObjPtr<mirror::MethodHandle> atc_method_handle =
-        down_cast<mirror::MethodHandle*>(atc_result.GetL());
     atc.Assign(atc_method_handle);
     DCHECK(!atc.IsNull());
   }
@@ -909,10 +917,9 @@ void MethodHandleInvokeExactWithFrame(Thread* self,
   const uint16_t num_vregs = callsite_type->NumberOfVRegs();
 
   const char* old_cause = self->StartAssertNoThreadSuspension("EmulatedStackFrame to ShadowFrame");
-  ArtMethod* invoke_exact =
-      jni::DecodeArtMethod(WellKnownClasses::java_lang_invoke_MethodHandle_invokeExact);
+  ArtMethod* invoke_exact = WellKnownClasses::java_lang_invoke_MethodHandle_invokeExact;
   ShadowFrameAllocaUniquePtr shadow_frame =
-      CREATE_SHADOW_FRAME(num_vregs, /*link*/ nullptr, invoke_exact, /*dex_pc*/ 0);
+      CREATE_SHADOW_FRAME(num_vregs, invoke_exact, /*dex_pc*/ 0);
   emulated_frame->WriteToShadowFrame(self, callsite_type, 0, shadow_frame.get());
   self->EndAssertNoThreadSuspension(old_cause);
 

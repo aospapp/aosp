@@ -22,36 +22,35 @@ import sys
 
 from aidegen import constant
 from aidegen.lib import common_util
-from atest import atest_utils
 
-# When combine 3 paths in a single try block, it's hard for the coverage
-# counting algorithm to judge the each real path clearly. So, separating them
+# When combining 3 paths in a single try block, it's hard for the coverage
+# counting algorithm to judge each real path clearly. So, separating them
 # into its own try block will increase the coverage.
 
 # Original code as follows,
 # try:
-#     from asuite.metrics import metrics
-#     from asuite.metrics import metrics_base
-#     from asuite.metrics import metrics_utils
+#     from atest.metrics import metrics
+#     from atest.metrics import metrics_base
+#     from atest.metrics import metrics_utils
 # except ImportError:
 #     logging.debug('Import metrics fail, can\'t send metrics.')
 #     metrics = None
 #     metrics_base = None
 #     metrics_utils = None
 try:
-    from asuite.metrics import metrics
+    from atest.metrics import metrics
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics = None
 
 try:
-    from asuite.metrics import metrics_base
+    from atest.metrics import metrics_base
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics_base = None
 
 try:
-    from asuite.metrics import metrics_utils
+    from atest.metrics import metrics_utils
 except ImportError:
     logging.debug('Import metrics fail, can\'t send metrics.')
     metrics_utils = None
@@ -68,7 +67,7 @@ def starts_asuite_metrics(references):
     """
     if not metrics:
         return
-    atest_utils.print_data_collection_notice()
+    metrics_utils.print_data_collection_notice()
     metrics_base.MetricsBase.tool_name = constant.AIDEGEN_TOOL_NAME
     metrics_utils.get_start_time()
     command = ' '.join(sys.argv)
@@ -138,7 +137,7 @@ def performance_metrics(process_type, duration):
         return False
 
     metrics.LocalDetectEvent(
-        detect_type = process_type,
-        result = int(duration)
+        detect_type=process_type,
+        result=int(duration)
         )
     return True

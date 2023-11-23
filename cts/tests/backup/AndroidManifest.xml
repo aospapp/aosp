@@ -19,6 +19,8 @@
     package="android.backup.cts">
 
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+
     <application>
         <uses-library android:name="android.test.runner" />
         <uses-library android:name="org.apache.http.legacy" />

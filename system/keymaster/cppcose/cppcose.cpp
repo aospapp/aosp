@@ -27,6 +27,7 @@
 
 namespace cppcose {
 constexpr int kP256AffinePointSize = 32;
+constexpr int kP384AffinePointSize = 48;
 
 using EVP_PKEY_Ptr = bssl::UniquePtr<EVP_PKEY>;
 using EVP_PKEY_CTX_Ptr = bssl::UniquePtr<EVP_PKEY_CTX>;
@@ -58,7 +59,7 @@ ErrMsgOr<bssl::UniquePtr<EVP_CIPHER_CTX>> aesGcmInitAndProcessAad(const bytevec&
     return std::move(ctx);
 }
 
-ErrMsgOr<bytevec> signEcdsaDigest(const bytevec& key, const bytevec& data) {
+ErrMsgOr<bytevec> signP256Digest(const bytevec& key, const bytevec& data) {
     auto bn = BIGNUM_Ptr(BN_bin2bn(key.data(), key.size(), nullptr));
     if (bn.get() == nullptr) {
         return "Error creating BIGNUM";
@@ -141,19 +142,17 @@ ErrMsgOr<bytevec> ecdh(const bytevec& publicKey, const bytevec& privateKey) {
     return sharedSecret;
 }
 
-}  // namespace
-
-ErrMsgOr<bytevec> ecdsaCoseSignatureToDer(const bytevec& ecdsaCoseSignature) {
-    if (ecdsaCoseSignature.size() != 64) {
+ErrMsgOr<bytevec> ecdsaCoseSignatureToDer(int point_size, const bytevec& ecdsaCoseSignature) {
+    if (ecdsaCoseSignature.size() != (size_t)(point_size * 2)) {
         return "COSE signature wrong length";
     }
 
-    auto rBn = BIGNUM_Ptr(BN_bin2bn(ecdsaCoseSignature.data(), 32, nullptr));
+    auto rBn = BIGNUM_Ptr(BN_bin2bn(ecdsaCoseSignature.data(), point_size, nullptr));
     if (rBn.get() == nullptr) {
         return "Error creating BIGNUM for r";
     }
 
-    auto sBn = BIGNUM_Ptr(BN_bin2bn(ecdsaCoseSignature.data() + 32, 32, nullptr));
+    auto sBn = BIGNUM_Ptr(BN_bin2bn(ecdsaCoseSignature.data() + point_size, point_size, nullptr));
     if (sBn.get() == nullptr) {
         return "Error creating BIGNUM for s";
     }
@@ -169,22 +168,57 @@ ErrMsgOr<bytevec> ecdsaCoseSignatureToDer(const bytevec& ecdsaCoseSignature) {
     return derSignature;
 }
 
-ErrMsgOr<bytevec> ecdsaDerSignatureToCose(const bytevec& ecdsaSignature) {
+ErrMsgOr<bytevec> ecdsaDerSignatureToCose(int point_size, const bytevec& ecdsaSignature) {
     const unsigned char* p = ecdsaSignature.data();
     auto sig = ECDSA_SIG_Ptr(d2i_ECDSA_SIG(nullptr, &p, ecdsaSignature.size()));
     if (sig == nullptr) {
         return "Error decoding DER signature";
     }
 
-    bytevec ecdsaCoseSignature(64, 0);
-    if (BN_bn2binpad(ECDSA_SIG_get0_r(sig.get()), ecdsaCoseSignature.data(), 32) != 32) {
+    bytevec ecdsaCoseSignature(point_size * 2, 0);
+    if (BN_bn2binpad(ECDSA_SIG_get0_r(sig.get()), ecdsaCoseSignature.data(), point_size) !=
+        point_size) {
         return "Error encoding r";
     }
-    if (BN_bn2binpad(ECDSA_SIG_get0_s(sig.get()), ecdsaCoseSignature.data() + 32, 32) != 32) {
+    if (BN_bn2binpad(ECDSA_SIG_get0_s(sig.get()), ecdsaCoseSignature.data() + point_size,
+                     point_size) != point_size) {
         return "Error encoding s";
     }
     return ecdsaCoseSignature;
 }
+
+bool verifyEcdsaDigest(int curve_nid, const bytevec& key, const bytevec& digest,
+                       const bytevec& signature) {
+    const unsigned char* p = (unsigned char*)signature.data();
+    auto sig = ECDSA_SIG_Ptr(d2i_ECDSA_SIG(nullptr, &p, signature.size()));
+    if (sig.get() == nullptr) {
+        return false;
+    }
+
+    auto group = EC_GROUP_Ptr(EC_GROUP_new_by_curve_name(curve_nid));
+    auto point = EC_POINT_Ptr(EC_POINT_new(group.get()));
+    if (EC_POINT_oct2point(group.get(), point.get(), key.data(), key.size(), nullptr) != 1) {
+        return false;
+    }
+    auto ecKey = EC_KEY_Ptr(EC_KEY_new());
+    if (ecKey.get() == nullptr) {
+        return false;
+    }
+    if (EC_KEY_set_group(ecKey.get(), group.get()) != 1) {
+        return false;
+    }
+    if (EC_KEY_set_public_key(ecKey.get(), point.get()) != 1) {
+        return false;
+    }
+
+    int rc = ECDSA_do_verify(digest.data(), digest.size(), sig.get(), ecKey.get());
+    if (rc != 1) {
+        return false;
+    }
+    return true;
+}
+
+}  // namespace
 
 ErrMsgOr<HmacSha256> generateHmacSha256(const bytevec& key, const bytevec& data) {
     HmacSha256 digest;
@@ -275,10 +309,10 @@ ErrMsgOr<bytevec> createECDSACoseSign1Signature(const bytevec& key, const byteve
                                  .add(aad)
                                  .add(payload)
                                  .encode();
-    auto ecdsaSignature = signEcdsaDigest(key, sha256(signatureInput));
+    auto ecdsaSignature = signP256Digest(key, sha256(signatureInput));
     if (!ecdsaSignature) return ecdsaSignature.moveMessage();
 
-    return ecdsaDerSignatureToCose(*ecdsaSignature);
+    return ecdsaDerSignatureToCose(kP256AffinePointSize, *ecdsaSignature);
 }
 
 ErrMsgOr<bytevec> createCoseSign1Signature(const bytevec& key, const bytevec& protectedParams,
@@ -354,7 +388,8 @@ ErrMsgOr<bytevec> verifyAndParseCoseSign1(const cppbor::Array* coseSign1,
 
     auto& algorithm = parsedProtParams->asMap()->get(ALGORITHM);
     if (!algorithm || !algorithm->asInt() ||
-        !(algorithm->asInt()->value() == EDDSA || algorithm->asInt()->value() == ES256)) {
+        !(algorithm->asInt()->value() == EDDSA || algorithm->asInt()->value() == ES256 ||
+          algorithm->asInt()->value() == ES384)) {
         return "Unsupported signature algorithm";
     }
 
@@ -376,7 +411,7 @@ ErrMsgOr<bytevec> verifyAndParseCoseSign1(const cppbor::Array* coseSign1,
                             key->getBstrValue(CoseKey::PUBKEY_X)->data())) {
             return "Signature verification failed";
         }
-    } else {  // P256
+    } else if (algorithm->asInt()->value() == ES256) {
         auto key = CoseKey::parseP256(selfSigned ? payload->value() : signingCoseKey);
         if (!key || key->getBstrValue(CoseKey::PUBKEY_X)->empty() ||
             key->getBstrValue(CoseKey::PUBKEY_Y)->empty()) {
@@ -385,13 +420,33 @@ ErrMsgOr<bytevec> verifyAndParseCoseSign1(const cppbor::Array* coseSign1,
         auto publicKey = key->getEcPublicKey();
         if (!publicKey) return publicKey.moveMessage();
 
-        auto ecdsaDerSignature = ecdsaCoseSignatureToDer(signature->value());
+        auto ecdsaDerSignature = ecdsaCoseSignatureToDer(kP256AffinePointSize, signature->value());
         if (!ecdsaDerSignature) return ecdsaDerSignature.moveMessage();
 
         // convert public key to uncompressed form by prepending 0x04 at begin.
         publicKey->insert(publicKey->begin(), 0x04);
 
-        if (!verifyEcdsaDigest(publicKey.moveValue(), sha256(signatureInput), *ecdsaDerSignature)) {
+        if (!verifyEcdsaDigest(NID_X9_62_prime256v1, publicKey.moveValue(), sha256(signatureInput),
+                               *ecdsaDerSignature)) {
+            return "Signature verification failed";
+        }
+    } else {  // ES384
+        auto key = CoseKey::parseP384(selfSigned ? payload->value() : signingCoseKey);
+        if (!key || key->getBstrValue(CoseKey::PUBKEY_X)->empty() ||
+            key->getBstrValue(CoseKey::PUBKEY_Y)->empty()) {
+            return "Bad signing key: " + key.moveMessage();
+        }
+        auto publicKey = key->getEcPublicKey();
+        if (!publicKey) return publicKey.moveMessage();
+
+        auto ecdsaDerSignature = ecdsaCoseSignatureToDer(kP384AffinePointSize, signature->value());
+        if (!ecdsaDerSignature) return ecdsaDerSignature.moveMessage();
+
+        // convert public key to uncompressed form by prepending 0x04 at begin.
+        publicKey->insert(publicKey->begin(), 0x04);
+
+        if (!verifyEcdsaDigest(NID_secp384r1, publicKey.moveValue(), sha384(signatureInput),
+                               *ecdsaDerSignature)) {
             return "Signature verification failed";
         }
     }
@@ -708,34 +763,13 @@ bytevec sha256(const bytevec& data) {
     return ret;
 }
 
-bool verifyEcdsaDigest(const bytevec& key, const bytevec& digest, const bytevec& signature) {
-    const unsigned char* p = (unsigned char*)signature.data();
-    auto sig = ECDSA_SIG_Ptr(d2i_ECDSA_SIG(nullptr, &p, signature.size()));
-    if (sig.get() == nullptr) {
-        return false;
-    }
-
-    auto group = EC_GROUP_Ptr(EC_GROUP_new_by_curve_name(NID_X9_62_prime256v1));
-    auto point = EC_POINT_Ptr(EC_POINT_new(group.get()));
-    if (EC_POINT_oct2point(group.get(), point.get(), key.data(), key.size(), nullptr) != 1) {
-        return false;
-    }
-    auto ecKey = EC_KEY_Ptr(EC_KEY_new());
-    if (ecKey.get() == nullptr) {
-        return false;
-    }
-    if (EC_KEY_set_group(ecKey.get(), group.get()) != 1) {
-        return false;
-    }
-    if (EC_KEY_set_public_key(ecKey.get(), point.get()) != 1) {
-        return false;
-    }
-
-    int rc = ECDSA_do_verify(digest.data(), digest.size(), sig.get(), ecKey.get());
-    if (rc != 1) {
-        return false;
-    }
-    return true;
+bytevec sha384(const bytevec& data) {
+    bytevec ret(SHA384_DIGEST_LENGTH);
+    SHA512_CTX ctx;
+    SHA384_Init(&ctx);
+    SHA384_Update(&ctx, data.data(), data.size());
+    SHA384_Final((unsigned char*)ret.data(), &ctx);
+    return ret;
 }
 
 }  // namespace cppcose

@@ -301,7 +301,13 @@ ScopedAStatus AidlCameraProvider::isConcurrentStreamCombinationSupported(
       devices_stream_configs(configs.size());
   status_t res = OK;
   size_t c = 0;
-  for (auto& config : configs) {
+  std::vector<CameraIdAndStreamCombination> configsWithOverriddenSensorPixelModes =
+      configs;
+  for (auto& config : configsWithOverriddenSensorPixelModes) {
+    aidl_utils::FixSensorPixelModesInStreamConfig(&config.streamConfiguration);
+  }
+
+  for (auto& config : configsWithOverriddenSensorPixelModes) {
     res = aidl_utils::ConvertToHalStreamConfig(
         config.streamConfiguration,
         &devices_stream_configs[c].stream_configuration);
@@ -317,7 +323,7 @@ ScopedAStatus AidlCameraProvider::isConcurrentStreamCombinationSupported(
   res = google_camera_provider_->IsConcurrentStreamCombinationSupported(
       devices_stream_configs, supported);
   if (res != OK) {
-    ALOGE("%s: ConverToHalStreamConfig failed", __FUNCTION__);
+    ALOGE("%s: IsConcurrentStreamCombinationSupported failed", __FUNCTION__);
     return ScopedAStatus::fromServiceSpecificError(
         static_cast<int32_t>(Status::INTERNAL_ERROR));
   }

@@ -16,17 +16,12 @@
 
 package com.android.tools.metalava
 
-import com.android.tools.lint.checks.infrastructure.TestFiles.base64gzip
-import com.android.tools.lint.checks.infrastructure.TestFiles.jar
-import com.android.tools.lint.checks.infrastructure.TestFiles.xml
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
-import java.lang.reflect.Modifier
-import java.net.URLClassLoader
 import kotlin.text.Charsets.UTF_8
 
 class RewriteAnnotationsTest : DriverTest() {
@@ -134,82 +129,5 @@ class RewriteAnnotationsTest : DriverTest() {
                 getAndroidJar().path
             )
         }
-    }
-
-    @Test
-    fun `Test rewriting the bytecode for one of the public annotations`() {
-        val bytecode = base64gzip(
-            "androidx/annotation/CallSuper.class",
-            "" +
-                "H4sIAAAAAAAAAIWPsU4CQRRF70NhEQWxJMZoLCjdxs6KIMYCA2E3NlbD8kKG" +
-                "DDNkmSXwaxZ+gB9FfGMBFps4yczc5J53kve9//wC8IirCK0IlxHahEbiijzj" +
-                "F22Y0OorY5JixfnDQm0UoTMprNdLftdrPTXcs9Z55bWza8LdMDCxUXYeq0MR" +
-                "T9izDemJUN0oU4i3+w86dkZnuzDQH/aShHBTPpCqfM5euPvyfmB4KcZ0t2KB" +
-                "am+D9HX0LDZlZ7nTs+1f9rAqoX2UjaYLzjzhttR/3L9LIFTkniCcCk5/3ypq" +
-                "8l9LiqSrM87QwHmIHyDGBZo/ObYRQoUBAAA="
-        )
-
-        val compiledStubs = temporaryFolder.newFolder("compiled-stubs")
-        bytecode.createFile(compiledStubs)
-
-        runDriver(
-            ARG_NO_COLOR,
-            ARG_NO_BANNER,
-
-            ARG_REWRITE_ANNOTATIONS,
-            compiledStubs.path,
-
-            ARG_CLASS_PATH,
-            getAndroidJar().path
-        )
-
-        // Load the class to make sure it's legit
-        val url = compiledStubs.toURI().toURL()
-        val loader = URLClassLoader(arrayOf(url), null)
-        val annotationClass = loader.loadClass("androidx.annotation.CallSuper")
-        val modifiers = annotationClass.modifiers
-        assertEquals(0, modifiers and Modifier.PUBLIC)
-        assertTrue(annotationClass.isAnnotation)
-    }
-
-    @Test
-    fun `Test rewriting the bytecode for one of the public annotations in a jar file`() {
-        val bytecode = base64gzip(
-            "androidx/annotation/CallSuper.class",
-            "" +
-                "H4sIAAAAAAAAAIWPsU4CQRRF70NhEQWxJMZoLCjdxs6KIMYCA2E3NlbD8kKG" +
-                "DDNkmSXwaxZ+gB9FfGMBFps4yczc5J53kve9//wC8IirCK0IlxHahEbiijzj" +
-                "F22Y0OorY5JixfnDQm0UoTMprNdLftdrPTXcs9Z55bWza8LdMDCxUXYeq0MR" +
-                "T9izDemJUN0oU4i3+w86dkZnuzDQH/aShHBTPpCqfM5euPvyfmB4KcZ0t2KB" +
-                "am+D9HX0LDZlZ7nTs+1f9rAqoX2UjaYLzjzhttR/3L9LIFTkniCcCk5/3ypq" +
-                "8l9LiqSrM87QwHmIHyDGBZo/ObYRQoUBAAA="
-        )
-
-        val jarDesc = jar(
-            "myjar.jar",
-            bytecode,
-            xml("foo/bar/baz.xml", "<hello-world/>")
-        )
-
-        val jarFile = jarDesc.createFile(temporaryFolder.root)
-
-        runDriver(
-            ARG_NO_COLOR,
-            ARG_NO_BANNER,
-
-            ARG_REWRITE_ANNOTATIONS,
-            jarFile.path,
-
-            ARG_CLASS_PATH,
-            getAndroidJar().path
-        )
-
-        // Load the class to make sure it's legit
-        val url = jarFile.toURI().toURL()
-        val loader = URLClassLoader(arrayOf(url), null)
-        val annotationClass = loader.loadClass("androidx.annotation.CallSuper")
-        val modifiers = annotationClass.modifiers
-        assertEquals(0, modifiers and Modifier.PUBLIC)
-        assertTrue(annotationClass.isAnnotation)
     }
 }

@@ -28,17 +28,17 @@ import its_session_utils
 # if the var(x) > var(stable) * this threshold, then device is considered
 # vibrated.Test results shows the variance difference is larger for higher
 # sampling frequency.This threshold is good enough for 50hz samples.
-THRESHOLD_VIBRATION_VAR = 10.0
+_THRESHOLD_VIBRATION_VAR = 10.0
 
 # Match CameraDevice.java constant
-AUDIO_RESTRICTION_VIBRATION = 1
+_AUDIO_RESTRICTION_VIBRATION = 1
 
 # The sleep time between vibrator on/off to avoid getting some residual
 # vibrations
-SLEEP_BETWEEN_SAMPLES_SEC = 0.5
+_SLEEP_BETWEEN_SAMPLES_SEC = 0.5
 # The sleep time to collect sensor samples
-SLEEP_COLLECT_SAMPLES_SEC = 1.0
-PATTERN_MS = [0, 1000]
+_SLEEP_COLLECT_SAMPLES_SEC = 1.0
+_PATTERN_MS = [0, 1000]
 
 
 def calc_magnitude(e):
@@ -64,8 +64,8 @@ class VibrationRestrictionTest(its_base_test.ItsBaseTest):
           sensors.get('accel') and sensors.get('vibrator'))
 
       cam.start_sensor_events()
-      cam.do_vibrate(PATTERN_MS)
-      test_length_second = sum(PATTERN_MS) / 1000
+      cam.do_vibrate(_PATTERN_MS)
+      test_length_second = sum(_PATTERN_MS) / 1000
       time.sleep(test_length_second)
       events = cam.get_sensor_events()
       logging.debug('Accelerometer events over %ds: %d ', test_length_second,
@@ -76,24 +76,24 @@ class VibrationRestrictionTest(its_base_test.ItsBaseTest):
       magnitudes = [calc_magnitude(e) for e in events['accel']]
       var_w_vibration = np.var(magnitudes)
 
-      time.sleep(SLEEP_BETWEEN_SAMPLES_SEC)
+      time.sleep(_SLEEP_BETWEEN_SAMPLES_SEC)
       cam.start_sensor_events()
-      time.sleep(SLEEP_COLLECT_SAMPLES_SEC)
+      time.sleep(_SLEEP_COLLECT_SAMPLES_SEC)
       events = cam.get_sensor_events()
       magnitudes = [calc_magnitude(e) for e in events['accel']]
       var_wo_vibration = np.var(magnitudes)
 
-      if var_w_vibration < var_wo_vibration * THRESHOLD_VIBRATION_VAR:
+      if var_w_vibration < var_wo_vibration * _THRESHOLD_VIBRATION_VAR:
         logging.debug(
             'Warning: unable to detect vibration, variance w/wo'
             'vibration too close: %f/%f. Make sure device is on'
             'non-dampening surface', var_w_vibration, var_wo_vibration)
 
-      time.sleep(SLEEP_BETWEEN_SAMPLES_SEC)
+      time.sleep(_SLEEP_BETWEEN_SAMPLES_SEC)
       cam.start_sensor_events()
-      cam.set_audio_restriction(AUDIO_RESTRICTION_VIBRATION)
-      cam.do_vibrate(PATTERN_MS)
-      time.sleep(SLEEP_COLLECT_SAMPLES_SEC)
+      cam.set_audio_restriction(_AUDIO_RESTRICTION_VIBRATION)
+      cam.do_vibrate(_PATTERN_MS)
+      time.sleep(_SLEEP_COLLECT_SAMPLES_SEC)
       events = cam.get_sensor_events()
       magnitudes = [calc_magnitude(e) for e in events['accel']]
       var_w_vibration_restricted = np.var(magnitudes)
@@ -103,7 +103,7 @@ class VibrationRestrictionTest(its_base_test.ItsBaseTest):
           var_w_vibration, var_wo_vibration, var_w_vibration_restricted)
 
       vibration_variance = var_w_vibration_restricted < (
-          var_wo_vibration * THRESHOLD_VIBRATION_VAR)
+          var_wo_vibration * _THRESHOLD_VIBRATION_VAR)
       if not vibration_variance:
         raise AssertionError('Device vibrated while vibration is muted.')
 

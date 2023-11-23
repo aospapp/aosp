@@ -29,18 +29,16 @@ import android.content.pm.PackageManager;
 import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioMetadata;
 import android.media.AudioMetadataReadMap;
 import android.media.AudioPresentation;
 import android.media.AudioSystem;
 import android.media.AudioTimestamp;
 import android.media.AudioTrack;
 import android.media.PlaybackParams;
+import android.media.cts.AudioHelper;
 import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaMetricsManager;
 import android.media.metrics.PlaybackSession;
-import android.media.cts.AudioHelper;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
@@ -50,19 +48,17 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.DeviceReportLog;
-import com.android.compatibility.common.util.ResultType;
-import com.android.compatibility.common.util.ResultUnit;
+import com.android.compatibility.common.util.NonMainlineTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 import java.util.concurrent.Executor;
 
-import org.junit.Test;
-import org.junit.runner.RunWith;
-
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class AudioTrackTest {
     private String TAG = "AudioTrackTest";
@@ -454,6 +450,32 @@ public class AudioTrackTest {
                         || performanceMode == AudioTrack.PERFORMANCE_MODE_NONE);
             }
         }
+    }
+
+    // Test case 6: build AudioTrack with Context and otherwise default arguments, expect success.
+    @Test
+    public void testBuilderWithContext() {
+        final int expectedDefaultEncoding = AudioFormat.ENCODING_PCM_16BIT;
+        final int expectedDefaultRate =
+                AudioTrack.getNativeOutputSampleRate(AudioManager.STREAM_MUSIC);
+        final int expectedDefaultChannels = AudioFormat.CHANNEL_OUT_STEREO;
+
+        final AudioTrack track = new AudioTrack.Builder()
+                .setContext(getContext())
+                .build();
+
+        assertEquals(AudioTrack.STATE_INITIALIZED, track.getState());
+        assertEquals(expectedDefaultEncoding, track.getAudioFormat());
+        assertEquals(expectedDefaultRate, track.getSampleRate());
+        assertEquals(expectedDefaultChannels, track.getChannelConfiguration());
+    }
+
+    // Test case 7: build AudioTrack with Context and otherwise default arguments, expect success.
+    @Test
+    public void testBuilderWithNullContext() {
+        assertThrows(NullPointerException.class, () -> new AudioTrack.Builder()
+                .setContext(/*context=*/null)
+                .build());
     }
 
     // -----------------------------------------------------------------
@@ -1765,7 +1787,7 @@ public class AudioTrackTest {
                 AudioFormat.CHANNEL_OUT_QUAD,    // 4.0
                 AudioFormat.CHANNEL_OUT_QUAD | AudioFormat.CHANNEL_OUT_FRONT_CENTER,   // 5.0
                 AudioFormat.CHANNEL_OUT_5POINT1, // 5.1
-                AudioFormat.CHANNEL_OUT_5POINT1 | AudioFormat.CHANNEL_OUT_BACK_CENTER, // 6.1
+                AudioFormat.CHANNEL_OUT_6POINT1, // 6.1
                 AudioFormat.CHANNEL_OUT_7POINT1_SURROUND, // 7.1
         };
         final int TEST_MODE = AudioTrack.MODE_STREAM;
@@ -3032,19 +3054,31 @@ public class AudioTrackTest {
      * @param frames
      * @throws Exception
      */
-    private static void validateWriteStartsStream(
+    private static void validateWriteStartsStreamWithSetStartThreshold(
             AudioTrack track, int frames) throws Exception {
+        // Set our threshold to frames.
+        validateSetStartThresholdInFrames(track, frames);
+
+        validateWriteStartsStream(track, frames);
+    }
+
+    /**
+     * Helper test that validates writing exactly frames amount of data is needed to start the
+     * track streaming.
+     *
+     * @param track
+     * @param frames
+     * @throws Exception
+     */
+    private static void validateWriteStartsStream(AudioTrack track, int frames) throws Exception {
         assertEquals(1, track.getChannelCount()); // must be MONO
         final short[] data = new short[frames];
 
         // The track must be idle/underrun or the test will fail.
         int expectedFrames = track.getPlaybackHeadPosition();
 
-        // Set our threshold to frames.
-        validateSetStartThresholdInFrames(track, frames);
-
         Thread.sleep(START_THRESHOLD_SLEEP_MILLIS);
-        assertEquals("Changing start threshold doesn't start if it is larger than buffer data",
+        assertEquals("Streaming doesn't start if the start threshold is larger than buffered data",
                 expectedFrames, track.getPlaybackHeadPosition());
 
         // Write a small amount of data, this isn't enough to start the track.
@@ -3091,7 +3125,7 @@ public class AudioTrackTest {
         assertEquals("Track needs enough frames to start",
                 expectedFrames, track.getPlaybackHeadPosition());
 
-        // Reduce our start threshold.  This should start streaming.
+        // Reduce our start threshold. This should start streaming.
         validateSetStartThresholdInFrames(track, frames);
 
         // Verify that we have processed the data now.
@@ -3099,6 +3133,34 @@ public class AudioTrackTest {
         Thread.sleep(frames * 1000L / track.getSampleRate());  // accommodate for #frames.
         validatePlaybackHeadPosition(track, expectedFrames,
                 "Changing start threshold to buffer data level should start streaming");
+    }
+
+    // Tests the default fill buffer value to start playing an AudioTrack
+    @Test
+    public void testDefaultStartThresholdInFrames() throws Exception {
+        if (!hasAudioOutput()) {
+            return;
+        }
+
+        AudioTrack audioTrack = null;
+        try {
+            // Build our audiotrack
+            audioTrack = new AudioTrack.Builder()
+                    .setAudioFormat(new AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build())
+                    .build();
+
+            // Start the AudioTrack. Now the track is waiting for data.
+            audioTrack.play();
+
+            validateWriteStartsStream(audioTrack, audioTrack.getStartThresholdInFrames());
+        } finally {
+            if (audioTrack != null) {
+                audioTrack.release();
+            }
+        }
     }
 
     // Start threshold levels that we check.
@@ -3148,7 +3210,8 @@ public class AudioTrackTest {
                 // Start the AudioTrack. Now the track is waiting for data.
                 audioTrack.play();
 
-                validateWriteStartsStream(audioTrack, TARGET_THRESHOLD_IN_FRAMES);
+                validateWriteStartsStreamWithSetStartThreshold(
+                        audioTrack, TARGET_THRESHOLD_IN_FRAMES);
 
                 // Try a condition that requires buffers to be filled again.
                 if (false) {

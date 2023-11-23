@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,21 +26,21 @@
 #include <dirent.h>
 #include <utils/Trace.h>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
 constexpr std::string_view kDeviceType("iio:device");
 constexpr std::string_view kIioRootDir("/sys/bus/iio/devices");
 constexpr std::string_view kEnergyValueNode("energy_value");
 
-using android::base::ReadFileToString;
-using android::base::StringPrintf;
+using ::android::base::ReadFileToString;
+using ::android::base::StringPrintf;
 
-bool PowerFiles::registerPowerRailsToWatch(std::string_view config_path) {
-    if (!ParsePowerRailInfo(config_path, &power_rail_info_map_)) {
+bool PowerFiles::registerPowerRailsToWatch(const Json::Value &config) {
+    if (!ParsePowerRailInfo(config, &power_rail_info_map_)) {
         LOG(ERROR) << "Failed to parse power rail info config";
         return false;
     }
@@ -159,7 +159,7 @@ bool PowerFiles::updateEnergyValues(void) {
 
     ATRACE_CALL();
     for (const auto &path : energy_path_set_) {
-        if (!android::base::ReadFileToString(path, &deviceEnergyContent)) {
+        if (!::android::base::ReadFileToString(path, &deviceEnergyContent)) {
             LOG(ERROR) << "Failed to read energy content from " << path;
             return false;
         } else {
@@ -336,7 +336,7 @@ bool PowerFiles::refreshPowerStatus(void) {
 }
 
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

@@ -16,7 +16,6 @@
 
 import base64
 from google.protobuf import message
-import os
 import time
 
 from acts.metrics.core import ProtoMetric
@@ -28,8 +27,8 @@ def recursive_assign(proto, dct):
     """Assign values in dct to proto recursively."""
     for metric in dir(proto):
         if metric in dct:
-            if (isinstance(dct[metric], dict) and
-                    isinstance(getattr(proto, metric), message.Message)):
+            if (isinstance(dct[metric], dict)
+                    and isinstance(getattr(proto, metric), message.Message)):
                 recursive_assign(getattr(proto, metric), dct[metric])
             else:
                 setattr(proto, metric, dct[metric])
@@ -50,19 +49,20 @@ class BluetoothMetricLogger(MetricLogger):
         self.results = []
         self.start_time = int(time.time())
 
-        self.proto_map = {'BluetoothPairAndConnectTest': self.proto_module
-                              .BluetoothPairAndConnectTestResult(),
-                          'BluetoothReconnectTest': self.proto_module
-                              .BluetoothReconnectTestResult(),
-                          'BluetoothThroughputTest': self.proto_module
-                              .BluetoothDataTestResult(),
-                          'BluetoothLatencyTest': self.proto_module
-                              .BluetoothDataTestResult(),
-                          'BtCodecSweepTest': self.proto_module
-                              .BluetoothAudioTestResult(),
-                          'BtRangeCodecTest': self.proto_module
-                              .BluetoothAudioTestResult(),
-                          }
+        self.proto_map = {
+            'BluetoothPairAndConnectTest':
+            self.proto_module.BluetoothPairAndConnectTestResult(),
+            'BluetoothReconnectTest':
+            self.proto_module.BluetoothReconnectTestResult(),
+            'BluetoothThroughputTest':
+            self.proto_module.BluetoothDataTestResult(),
+            'BluetoothLatencyTest':
+            self.proto_module.BluetoothDataTestResult(),
+            'BtCodecSweepTest':
+            self.proto_module.BluetoothAudioTestResult(),
+            'BtRangeCodecTest':
+            self.proto_module.BluetoothAudioTestResult(),
+        }
 
     @staticmethod
     def get_configuration_data(device):
@@ -82,21 +82,24 @@ class BluetoothMetricLogger(MetricLogger):
 
         if device.__class__.__name__ == 'AndroidDevice':
             # TODO(b/124066126): Add remaining config data
-            data = {'device_class': 'phone',
-                    'device_model': device.model,
-                    'android_release_id': device.build_info['build_id'],
-                    'android_build_type': device.build_info['build_type'],
-                    'android_build_number': device.build_info[
-                        'incremental_build_id'],
-                    'android_branch_name': 'git_qt-release',
-                    'software_version': device.build_info['build_id']}
+            data = {
+                'device_class': 'phone',
+                'device_model': device.model,
+                'android_release_id': device.build_info['build_id'],
+                'android_build_type': device.build_info['build_type'],
+                'android_build_number':
+                device.build_info['incremental_build_id'],
+                'android_branch_name': 'git_qt-release',
+                'software_version': device.build_info['build_id']
+            }
 
         if device.__class__.__name__ == 'ParentDevice':
-            data = {'device_class': 'headset',
-                    'device_model': device.dut_type,
-                    'software_version': device.get_version()[1][
-                        'Fw Build Label'],
-                    'android_build_number': device.version}
+            data = {
+                'device_class': 'headset',
+                'device_model': device.dut_type,
+                'software_version': device.get_version()[1]['Fw Build Label'],
+                'android_build_number': device.version
+            }
 
         return data
 
@@ -128,10 +131,15 @@ class BluetoothMetricLogger(MetricLogger):
 
     def get_proto_dict(self, test, proto):
         """Return dict with proto, readable ascii proto, and test name."""
-        return {'proto': base64.b64encode(ProtoMetric(test, proto)
-                                          .get_binary()).decode('utf-8'),
-                'proto_ascii': ProtoMetric(test, proto).get_ascii(),
-                'test_name': test}
+        return {
+            'proto':
+            base64.b64encode(ProtoMetric(test,
+                                         proto).get_binary()).decode('utf-8'),
+            'proto_ascii':
+            ProtoMetric(test, proto).get_ascii(),
+            'test_name':
+            test
+        }
 
     def add_proto_to_results(self, proto, test):
         """Adds proto as ProtoMetric object to self.results."""

@@ -26,8 +26,10 @@ import static android.permission.cts.PermissionUtils.uninstallApp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -38,6 +40,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Instant apps cannot read properties of other packages which is needed "
         + "to grant permissions to them.")
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 public class SharedUidPermissionsTest {
     /** The package name of all apps used in the test */
     private static final String PKG_THAT_REQUESTS_PERMISSIONS =

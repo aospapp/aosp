@@ -1377,8 +1377,10 @@ public class StagefrightTest extends StsExtraBusinessLogicTestCase {
         };
         server.start();
         String uri = "rtsp://127.0.0.1:8080/cve_2016_3880";
-        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(new CrashUtils.Config()
-                .setSignals(CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT));
+        final MediaPlayerCrashListener mpcl = new MediaPlayerCrashListener(
+                new CrashUtils.Config()
+                        .setSignals(CrashUtils.SIGSEGV, CrashUtils.SIGBUS, CrashUtils.SIGABRT)
+                        .appendAbortMessageExcludes("CHECK\\(IsRTSPVersion"));
         LooperThread t = new LooperThread(new Runnable() {
             @Override
             public void run() {
@@ -1808,6 +1810,60 @@ public class StagefrightTest extends StsExtraBusinessLogicTestCase {
      to prevent merge conflicts, add Q tests below this comment,
      before any existing test methods
      ***********************************************************/
+    @Test
+    @AsbSecurityTest(cveBugId = 240971780)
+    public void testStagefright_cve_2022_33234() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_33234);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 235102508)
+    public void testStagefright_cve_2022_25669() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_25669);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 223209306)
+    public void testStagefright_cve_2022_22085() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_22085);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 223209816)
+    public void testStagefright_cve_2022_22084() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_22084);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 223211218)
+    public void testStagefright_cve_2022_22086() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_22086);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 228101819)
+    public void testStagefright_cve_2022_25659() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_25659);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 223210917)
+    public void testStagefright_cve_2022_22083() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_22083);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 223209610)
+    public void testStagefright_cve_2022_22087() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_22087);
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 228101835)
+    public void testStagefright_cve_2022_25657() throws Exception {
+         doStagefrightTest(R.raw.cve_2022_25657);
+    }
+
     @Test
     @AsbSecurityTest(cveBugId = 231156126)
     public void testStagefright_cve_2022_22059() throws Exception {

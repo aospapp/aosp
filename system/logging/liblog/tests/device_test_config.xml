@@ -21,11 +21,11 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
-        <option name="push" value="CtsLiblogTestCases->/data/local/tmp/CtsLiblogTestCases" />
+        <option name="push" value="CtsLiblogTestCases->/data/local/tests/unrestricted/CtsLiblogTestCases" />
         <option name="append-bitness" value="true" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.GTest" >
-        <option name="native-test-device-path" value="/data/local/tmp" />
+        <option name="native-test-device-path" value="/data/local/tests/unrestricted" />
         <option name="module-name" value="CtsLiblogTestCases" />
         <option name="runtime-hint" value="65s" />
     </test>

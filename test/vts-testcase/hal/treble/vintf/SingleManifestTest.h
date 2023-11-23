@@ -17,18 +17,53 @@
 #ifndef VTS_TREBLE_VINTF_TEST_SINGLE_MANIFEST_TEST_H_
 #define VTS_TREBLE_VINTF_TEST_SINGLE_MANIFEST_TEST_H_
 #include <gtest/gtest.h>
+#include <hidl-util/FqInstance.h>
+
 #include "VtsTrebleVintfTestBase.h"
 
 namespace android {
 namespace vintf {
 namespace testing {
 
-// A parameterized test for common tests on device and framework manifest.
-class SingleManifestTest
-    : public VtsTrebleVintfTestBase,
-      public ::testing::WithParamInterface<HalManifestPtr> {
+// A parameterized test for an HIDL HAL declared in a device or framework
+// manifest.
+class SingleHidlTest : public VtsTrebleVintfTestBase,
+                       public ::testing::WithParamInterface<
+                           std::tuple<HidlInstance, HalManifestPtr>> {
  public:
-  virtual ~SingleManifestTest() {}
+  virtual ~SingleHidlTest() {}
+
+  sp<IBase> GetPassthroughService(const android::FqInstance& fq_instance);
+};
+
+// A parameterized test for an HIDL HAL registered through hwservicemanager
+// for a given device or framework manifest.
+class SingleHwbinderHalTest
+    : public VtsTrebleVintfTestBase,
+      public ::testing::WithParamInterface<
+          std::tuple<std::string /* fq instance name */, HalManifestPtr>> {
+ public:
+  virtual ~SingleHwbinderHalTest() {}
+
+  static std::string GetTestCaseSuffix(
+      const ::testing::TestParamInfo<ParamType>& info);
+};
+
+// A parameterized test for an AIDL HAL declared in a device or framework
+// manifest.
+class SingleAidlTest : public VtsTrebleVintfTestBase,
+                       public ::testing::WithParamInterface<
+                           std::tuple<AidlInstance, HalManifestPtr>> {
+ public:
+  virtual ~SingleAidlTest() {}
+};
+
+// A parameterized test for a native HAL in one of the manifests.
+class SingleNativeTest : public VtsTrebleVintfTestBase,
+                         public ::testing::WithParamInterface<
+                             std::tuple<NativeInstance, HalManifestPtr>> {
+ public:
+  virtual ~SingleNativeTest() {}
 };
 
 }  // namespace testing

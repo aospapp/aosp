@@ -39,6 +39,7 @@ import android.text.TextUtils;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.bedstead.nene.utils.ShellCommand;
 import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 
 import org.junit.After;
@@ -151,7 +152,10 @@ public class QuietModeTest {
         assertNotNull("Failed to receive ACTION_MANAGED_PROFILE_UNAVAILABLE broadcast", intent);
         assertTrue(mUserManager.isQuietModeEnabled(mTargetUser));
 
-        waitForUserLocked();
+        if (!ShellCommand.builder("dumpsys device_policy").execute()
+                .contains("Keep profiles running: true")) {
+            waitForUserLocked();
+        }
 
         intent = trySetQuietModeEnabled(false,
                 UserManager.QUIET_MODE_DISABLE_ONLY_IF_CREDENTIAL_NOT_REQUIRED, false);

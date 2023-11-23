@@ -101,6 +101,13 @@ std::vector<const MatrixKernel*> KernelInfo::getMatchedKernelRequirements(
         }
 
         // matrix level >= kernel level
+
+        // for kernel level >= S, do not allow matrix level > kernel level; i.e. only check
+        // matching KMI.
+        if (kernelLevel >= Level::S && matrixKernelLevel > kernelLevel) {
+            continue;
+        }
+
         kernelsForLevel[matrixKernelLevel].push_back(&matrixKernel);
     }
 
@@ -161,6 +168,8 @@ std::vector<const MatrixKernel*> KernelInfo::getMatchedKernelRequirements(
 
     // Use new behavior when kernel FCM version is specified. e.g. kernel FCM version 3 (P)
     // matches kernel 4.4-p, 4.9-p, 4.14-p, 4.9-q, 4.14-q, 4.14-r etc., but not 5.4-r.
+    // For kernel FCM version >= S, only matching KMI is accepted. e.g. kernel FCM version 6 (S)
+    // matches 4.19-stable, 5.10-android12, 5.4-android12, not x.y-android13.
     // Note we already filtered |kernels| based on kernel version.
     auto [firstMatrixKernelLevel, firstMatrixKernels] = *kernelsForLevel.begin();
     if (firstMatrixKernelLevel == Level::UNSPECIFIED || firstMatrixKernelLevel > kernelLevel) {

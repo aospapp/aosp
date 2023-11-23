@@ -17,12 +17,15 @@
 package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2020_0072 extends SecurityTestCase {
+public class CVE_2020_0072 extends NonRootSecurityTestCase {
 
     /**
      * b/147310271
@@ -35,7 +38,6 @@ public class CVE_2020_0072 extends SecurityTestCase {
         assumeIsSupportedNfcDevice(getDevice());
         pocPusher.only64();
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig("CVE-2020-0072", getDevice());
-        testConfig.checkCrash = false;
         AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
     }
 }

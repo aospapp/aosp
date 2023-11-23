@@ -20,9 +20,10 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.autofillservice.cts.R;
 import android.autofillservice.cts.testcore.UiBot;
 import android.os.Bundle;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.widget.TextView;
+
+import androidx.test.uiautomator.UiObject2;
 
 /**
  * Activity that is used to test restored mechanism will work while running below steps:

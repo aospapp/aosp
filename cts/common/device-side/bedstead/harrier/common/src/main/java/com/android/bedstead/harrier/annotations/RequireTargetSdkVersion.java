@@ -16,7 +16,7 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.FIRST;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  * Mark that a test method should only run in an apk targeting the specified sdk version.
  *
  * <p>Your test configuration may be configured so that this test is only run in an apk with the
- * given version. Otherwise, you can use {@code Devicestate} to ensure that the test is
+ * given version. Otherwise, you can use {@code DeviceState} to ensure that the test is
  * not run when the target sdk version is not correct.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
@@ -47,5 +47,5 @@ public @interface RequireTargetSdkVersion {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default EARLY;
+    int weight() default FIRST;
 }

@@ -61,6 +61,13 @@ public class DrawableMarginSpanTest {
     }
 
     @Test
+    public void testConstructAndGet() {
+        DrawableMarginSpan span = new DrawableMarginSpan(mDrawable, 32);
+        assertEquals(mDrawable, span.getDrawable());
+        assertEquals(32, span.getPadding());
+    }
+
+    @Test
     public void testGetLeadingMargin() {
         DrawableMarginSpan drawableMarginSpan = new DrawableMarginSpan(mDrawable, 1);
         int leadingMargin1 = drawableMarginSpan.getLeadingMargin(true);

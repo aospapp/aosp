@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.bluetooth.BluetoothAdapter;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -60,7 +62,7 @@ public class BluetoothToggleActivity extends PassFailButtons.Activity {
 
         mReceiver = new BluetoothBroadcastReceiver();
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, RECEIVER_EXPORTED);
 
         mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
 

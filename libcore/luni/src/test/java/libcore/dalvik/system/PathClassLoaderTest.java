@@ -18,22 +18,21 @@ package libcore.dalvik.system;
 
 import dalvik.system.BlockGuard;
 import dalvik.system.PathClassLoader;
-import java.lang.reflect.Method;
+
+import libcore.io.Streams;
+
+import junit.framework.TestCase;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.CodeSigner;
-import java.security.cert.Certificate;
-import java.util.Enumeration;
+import java.lang.reflect.Method;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.zip.ZipFile;
 
-import libcore.io.Streams;
 import tests.support.resource.Support_Resources;
-
-import junit.framework.TestCase;
 
 public final class PathClassLoaderTest extends TestCase {
 
@@ -73,7 +72,7 @@ public final class PathClassLoaderTest extends TestCase {
              FileOutputStream out = new FileOutputStream(jar)) {
             Streams.copy(in, out);
         }
-
+        assertTrue(jar.setReadOnly());
         return jar;
     }
 
@@ -97,6 +96,7 @@ public final class PathClassLoaderTest extends TestCase {
         String signedEntryName = "coucou/FileAccess.class";
         Support_Resources.copyFile(resources, null, jar);
         File f = new File(resources, jar);
+        assertTrue(f.setReadOnly());
         PathClassLoader pcl = new PathClassLoader(
                 f.getAbsolutePath(), this.getClass().getClassLoader());
         InputStream is = pcl.getResourceAsStream(signedEntryName);

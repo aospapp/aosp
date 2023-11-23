@@ -14,6 +14,8 @@
      limitations under the License.
 -->
 <configuration description="Runs art_standalone_oatdump_tests.">
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.art.apex" />
+
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="art_standalone_oatdump_tests->/data/local/tmp/art_standalone_oatdump_tests/art_standalone_oatdump_tests" />
@@ -54,7 +56,8 @@
         <!-- ART Mainline Module (external (AOSP) version). -->
         <option name="mainline-module-package-name" value="com.android.art" />
     </object>
-
+    <!-- Skip on HWASan. TODO(b/230394041): Re-enable -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.SkipHWASanModuleController" />
     <!-- Only run tests if the device under test is SDK version 31 (Android 12) or above. -->
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk31ModuleController" />
 </configuration>

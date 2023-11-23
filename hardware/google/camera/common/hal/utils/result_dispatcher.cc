@@ -17,12 +17,16 @@
 //#define LOG_NDEBUG 0
 #define LOG_TAG "GCH_ResultDispatcher"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
-#include <log/log.h>
-#include <utils/Trace.h>
+#include "result_dispatcher.h"
 
 #include <inttypes.h>
+#include <log/log.h>
+#include <sys/resource.h>
+#include <utils/Trace.h>
 
-#include "result_dispatcher.h"
+#include <string>
+#include <string_view>
+
 #include "utils.h"
 
 namespace android {
@@ -30,12 +34,15 @@ namespace google_camera_hal {
 
 std::unique_ptr<ResultDispatcher> ResultDispatcher::Create(
     uint32_t partial_result_count,
-    ProcessCaptureResultFunc process_capture_result, NotifyFunc notify) {
+    ProcessCaptureResultFunc process_capture_result, NotifyFunc notify,
+    const StreamConfiguration& stream_config, std::string_view name) {
   ATRACE_CALL();
-  auto dispatcher = std::unique_ptr<ResultDispatcher>(new ResultDispatcher(
-      partial_result_count, process_capture_result, notify));
+  auto dispatcher = std::unique_ptr<ResultDispatcher>(
+      new ResultDispatcher(partial_result_count, process_capture_result, notify,
+                           stream_config, name));
   if (dispatcher == nullptr) {
-    ALOGE("%s: Creating ResultDispatcher failed.", __FUNCTION__);
+    ALOGE("[%s] %s: Creating ResultDispatcher failed.",
+          std::string(name).c_str(), __FUNCTION__);
     return nullptr;
   }
 
@@ -44,8 +51,10 @@ std::unique_ptr<ResultDispatcher> ResultDispatcher::Create(
 
 ResultDispatcher::ResultDispatcher(
     uint32_t partial_result_count,
-    ProcessCaptureResultFunc process_capture_result, NotifyFunc notify)
+    ProcessCaptureResultFunc process_capture_result, NotifyFunc notify,
+    const StreamConfiguration& stream_config, std::string_view name)
     : kPartialResultCount(partial_result_count),
+      name_(name),
       process_capture_result_(process_capture_result),
       notify_(notify) {
   ATRACE_CALL();
@@ -56,11 +65,21 @@ ResultDispatcher::ResultDispatcher(
     status_t res =
         utils::SetRealtimeThread(notify_callback_thread_.native_handle());
     if (res != OK) {
-      ALOGE("%s: SetRealtimeThread fail", __FUNCTION__);
+      ALOGE("[%s] %s: SetRealtimeThread fail", name_.c_str(), __FUNCTION__);
     } else {
-      ALOGI("%s: SetRealtimeThread OK", __FUNCTION__);
+      ALOGI("[%s] %s: SetRealtimeThread OK", name_.c_str(), __FUNCTION__);
+    }
+  } else {
+    // Assign higher priority to reduce the preemption when CPU usage is high
+    int32_t res = setpriority(
+        PRIO_PROCESS,
+        pthread_gettid_np(notify_callback_thread_.native_handle()), -20);
+    if (res != 0) {
+      ALOGE("[%s] %s: Set thread priority fail with error: %s", name_.c_str(),
+            __FUNCTION__, strerror(errno));
     }
   }
+  InitializeGroupStreamIdsMap(stream_config);
 }
 
 ResultDispatcher::~ResultDispatcher() {
@@ -87,8 +106,8 @@ status_t ResultDispatcher::AddPendingRequest(
 
   status_t res = AddPendingRequestLocked(pending_request);
   if (res != OK) {
-    ALOGE("%s: Adding a pending request failed: %s(%d).", __FUNCTION__,
-          strerror(-res), res);
+    ALOGE("[%s] %s: Adding a pending request failed: %s(%d).", name_.c_str(),
+          __FUNCTION__, strerror(-res), res);
     RemovePendingRequestLocked(pending_request.frame_number);
     return res;
   }
@@ -103,23 +122,23 @@ status_t ResultDispatcher::AddPendingRequestLocked(
 
   status_t res = AddPendingShutterLocked(frame_number);
   if (res != OK) {
-    ALOGE("%s: Adding pending shutter for frame %u failed: %s(%d)",
-          __FUNCTION__, frame_number, strerror(-res), res);
+    ALOGE("[%s] %s: Adding pending shutter for frame %u failed: %s(%d)",
+          name_.c_str(), __FUNCTION__, frame_number, strerror(-res), res);
     return res;
   }
 
   res = AddPendingFinalResultMetadataLocked(frame_number);
   if (res != OK) {
-    ALOGE("%s: Adding pending result metadata for frame %u failed: %s(%d)",
-          __FUNCTION__, frame_number, strerror(-res), res);
+    ALOGE("[%s] %s: Adding pending result metadata for frame %u failed: %s(%d)",
+          name_.c_str(), __FUNCTION__, frame_number, strerror(-res), res);
     return res;
   }
 
   for (auto& buffer : pending_request.input_buffers) {
     res = AddPendingBufferLocked(frame_number, buffer, /*is_input=*/true);
     if (res != OK) {
-      ALOGE("%s: Adding pending input buffer for frame %u failed: %s(%d)",
-            __FUNCTION__, frame_number, strerror(-res), res);
+      ALOGE("[%s] %s: Adding pending input buffer for frame %u failed: %s(%d)",
+            name_.c_str(), __FUNCTION__, frame_number, strerror(-res), res);
       return res;
     }
   }
@@ -127,8 +146,8 @@ status_t ResultDispatcher::AddPendingRequestLocked(
   for (auto& buffer : pending_request.output_buffers) {
     res = AddPendingBufferLocked(frame_number, buffer, /*is_input=*/false);
     if (res != OK) {
-      ALOGE("%s: Adding pending output buffer for frame %u failed: %s(%d)",
-            __FUNCTION__, frame_number, strerror(-res), res);
+      ALOGE("[%s] %s: Adding pending output buffer for frame %u failed: %s(%d)",
+            name_.c_str(), __FUNCTION__, frame_number, strerror(-res), res);
       return res;
     }
   }
@@ -139,8 +158,8 @@ status_t ResultDispatcher::AddPendingRequestLocked(
 status_t ResultDispatcher::AddPendingShutterLocked(uint32_t frame_number) {
   ATRACE_CALL();
   if (pending_shutters_.find(frame_number) != pending_shutters_.end()) {
-    ALOGE("%s: Pending shutter for frame %u already exists.", __FUNCTION__,
-          frame_number);
+    ALOGE("[%s] %s: Pending shutter for frame %u already exists.",
+          name_.c_str(), __FUNCTION__, frame_number);
     return ALREADY_EXISTS;
   }
 
@@ -153,8 +172,8 @@ status_t ResultDispatcher::AddPendingFinalResultMetadataLocked(
   ATRACE_CALL();
   if (pending_final_metadata_.find(frame_number) !=
       pending_final_metadata_.end()) {
-    ALOGE("%s: Pending final result metadata for frame %u already exists.",
-          __FUNCTION__, frame_number);
+    ALOGE("[%s] %s: Pending final result metadata for frame %u already exists.",
+          name_.c_str(), __FUNCTION__, frame_number);
     return ALREADY_EXISTS;
   }
 
@@ -166,21 +185,23 @@ status_t ResultDispatcher::AddPendingBufferLocked(uint32_t frame_number,
                                                   const StreamBuffer& buffer,
                                                   bool is_input) {
   ATRACE_CALL();
-  uint32_t stream_id = buffer.stream_id;
-  if (stream_pending_buffers_map_.find(stream_id) ==
+  StreamKey stream_key = CreateStreamKey(buffer.stream_id);
+  if (stream_pending_buffers_map_.find(stream_key) ==
       stream_pending_buffers_map_.end()) {
-    stream_pending_buffers_map_[stream_id] = std::map<uint32_t, PendingBuffer>();
+    stream_pending_buffers_map_[stream_key] =
+        std::map<uint32_t, PendingBuffer>();
   }
 
-  if (stream_pending_buffers_map_[stream_id].find(frame_number) !=
-      stream_pending_buffers_map_[stream_id].end()) {
-    ALOGE("%s: Pending buffer of stream %u for frame %u already exists.",
-          __FUNCTION__, stream_id, frame_number);
+  if (stream_pending_buffers_map_[stream_key].find(frame_number) !=
+      stream_pending_buffers_map_[stream_key].end()) {
+    ALOGE("[%s] %s: Pending buffer of stream %s for frame %u already exists.",
+          name_.c_str(), __FUNCTION__, DumpStreamKey(stream_key).c_str(),
+          frame_number);
     return ALREADY_EXISTS;
   }
 
   PendingBuffer pending_buffer = {.is_input = is_input};
-  stream_pending_buffers_map_[stream_id][frame_number] = pending_buffer;
+  stream_pending_buffers_map_[stream_key][frame_number] = pending_buffer;
   return OK;
 }
 
@@ -205,8 +226,8 @@ status_t ResultDispatcher::AddResult(std::unique_ptr<CaptureResult> result) {
                             std::move(result->physical_metadata),
                             result->partial_result);
     if (res != OK) {
-      ALOGE("%s: Adding result metadata failed: %s (%d)", __FUNCTION__,
-            strerror(-res), res);
+      ALOGE("[%s] %s: Adding result metadata failed: %s (%d)", name_.c_str(),
+            __FUNCTION__, strerror(-res), res);
       failed = true;
     }
   }
@@ -214,8 +235,8 @@ status_t ResultDispatcher::AddResult(std::unique_ptr<CaptureResult> result) {
   for (auto& buffer : result->output_buffers) {
     res = AddBuffer(frame_number, buffer);
     if (res != OK) {
-      ALOGE("%s: Adding an output buffer failed: %s (%d)", __FUNCTION__,
-            strerror(-res), res);
+      ALOGE("[%s] %s: Adding an output buffer failed: %s (%d)", name_.c_str(),
+            __FUNCTION__, strerror(-res), res);
       failed = true;
     }
   }
@@ -223,8 +244,8 @@ status_t ResultDispatcher::AddResult(std::unique_ptr<CaptureResult> result) {
   for (auto& buffer : result->input_buffers) {
     res = AddBuffer(frame_number, buffer);
     if (res != OK) {
-      ALOGE("%s: Adding an input buffer failed: %s (%d)", __FUNCTION__,
-            strerror(-res), res);
+      ALOGE("[%s] %s: Adding an input buffer failed: %s (%d)", name_.c_str(),
+            __FUNCTION__, strerror(-res), res);
       failed = true;
     }
   }
@@ -245,17 +266,16 @@ status_t ResultDispatcher::AddShutter(uint32_t frame_number,
 
     auto shutter_it = pending_shutters_.find(frame_number);
     if (shutter_it == pending_shutters_.end()) {
-      ALOGE("%s: Cannot find the pending shutter for frame %u", __FUNCTION__,
-            frame_number);
+      ALOGE("[%s] %s: Cannot find the pending shutter for frame %u",
+            name_.c_str(), __FUNCTION__, frame_number);
       return NAME_NOT_FOUND;
     }
 
     if (shutter_it->second.ready) {
-      ALOGE("%s: Already received shutter (%" PRId64
-            ") for frame %u. New "
-            "timestamp %" PRId64,
-            __FUNCTION__, shutter_it->second.timestamp_ns, frame_number,
-            timestamp_ns);
+      ALOGE("[%s] %s: Already received shutter (%" PRId64
+            ") for frame %u. New timestamp %" PRId64,
+            name_.c_str(), __FUNCTION__, shutter_it->second.timestamp_ns,
+            frame_number, timestamp_ns);
       return ALREADY_EXISTS;
     }
 
@@ -288,8 +308,8 @@ status_t ResultDispatcher::AddError(const ErrorMessage& error) {
   }
 
   NotifyMessage message = {.type = MessageType::kError, .message.error = error};
-  ALOGV("%s: Notify error %u for frame %u stream %d", __FUNCTION__,
-        error.error_code, frame_number, error.error_stream_id);
+  ALOGV("[%s] %s: Notify error %u for frame %u stream %d", name_.c_str(),
+        __FUNCTION__, error.error_code, frame_number, error.error_stream_id);
   notify_(message);
 
   return OK;
@@ -318,14 +338,14 @@ status_t ResultDispatcher::AddFinalResultMetadata(
 
   auto metadata_it = pending_final_metadata_.find(frame_number);
   if (metadata_it == pending_final_metadata_.end()) {
-    ALOGE("%s: Cannot find the pending result metadata for frame %u",
-          __FUNCTION__, frame_number);
+    ALOGE("[%s] %s: Cannot find the pending result metadata for frame %u",
+          name_.c_str(), __FUNCTION__, frame_number);
     return NAME_NOT_FOUND;
   }
 
   if (metadata_it->second.ready) {
-    ALOGE("%s: Already received final result metadata for frame %u.",
-          __FUNCTION__, frame_number);
+    ALOGE("[%s] %s: Already received final result metadata for frame %u.",
+          name_.c_str(), __FUNCTION__, frame_number);
     return ALREADY_EXISTS;
   }
 
@@ -341,13 +361,15 @@ status_t ResultDispatcher::AddResultMetadata(
     uint32_t partial_result) {
   ATRACE_CALL();
   if (metadata == nullptr) {
-    ALOGE("%s: metadata is nullptr.", __FUNCTION__);
+    ALOGE("[%s] %s: metadata is nullptr.", name_.c_str(), __FUNCTION__);
     return BAD_VALUE;
   }
 
   if (partial_result > kPartialResultCount) {
-    ALOGE("%s: partial_result %u cannot be larger than partial result count %u",
-          __FUNCTION__, partial_result, kPartialResultCount);
+    ALOGE(
+        "[%s] %s: partial_result %u cannot be larger than partial result count "
+        "%u",
+        name_.c_str(), __FUNCTION__, partial_result, kPartialResultCount);
     return BAD_VALUE;
   }
 
@@ -367,24 +389,26 @@ status_t ResultDispatcher::AddBuffer(uint32_t frame_number,
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(result_lock_);
 
-  uint32_t stream_id = buffer.stream_id;
-  auto pending_buffers_it = stream_pending_buffers_map_.find(stream_id);
+  StreamKey stream_key = CreateStreamKey(buffer.stream_id);
+  auto pending_buffers_it = stream_pending_buffers_map_.find(stream_key);
   if (pending_buffers_it == stream_pending_buffers_map_.end()) {
-    ALOGE("%s: Cannot find the pending buffer for stream %u", __FUNCTION__,
-          stream_id);
+    ALOGE("[%s] %s: Cannot find the pending buffer for stream %s",
+          name_.c_str(), __FUNCTION__, DumpStreamKey(stream_key).c_str());
     return NAME_NOT_FOUND;
   }
 
   auto pending_buffer_it = pending_buffers_it->second.find(frame_number);
   if (pending_buffer_it == pending_buffers_it->second.end()) {
-    ALOGE("%s: Cannot find the pending buffer for stream %u for frame %u",
-          __FUNCTION__, stream_id, frame_number);
+    ALOGE("[%s] %s: Cannot find the pending buffer for stream %s for frame %u",
+          name_.c_str(), __FUNCTION__, DumpStreamKey(stream_key).c_str(),
+          frame_number);
     return NAME_NOT_FOUND;
   }
 
   if (pending_buffer_it->second.ready) {
-    ALOGE("%s: Already received a buffer for stream %u for frame %u",
-          __FUNCTION__, stream_id, frame_number);
+    ALOGE("[%s] %s: Already received a buffer for stream %s for frame %u",
+          name_.c_str(), __FUNCTION__, DumpStreamKey(stream_key).c_str(),
+          frame_number);
     return ALREADY_EXISTS;
   }
 
@@ -395,8 +419,11 @@ status_t ResultDispatcher::AddBuffer(uint32_t frame_number,
 }
 
 void ResultDispatcher::NotifyCallbackThreadLoop() {
-  // max thread name len = 16
-  pthread_setname_np(pthread_self(), "ResDispatcher");
+  // '\0' counts toward the 16-character restriction.
+  constexpr int kPthreadNameLenMinusOne = 16 - 1;
+  pthread_setname_np(
+      pthread_self(),
+      name_.substr(/*pos=*/0, /*count=*/kPthreadNameLenMinusOne).c_str());
 
   while (1) {
     NotifyShutters();
@@ -405,7 +432,8 @@ void ResultDispatcher::NotifyCallbackThreadLoop() {
 
     std::unique_lock<std::mutex> lock(notify_callback_lock_);
     if (notify_callback_thread_exiting_) {
-      ALOGV("%s: NotifyCallbackThreadLoop exits.", __FUNCTION__);
+      ALOGV("[%s] %s: NotifyCallbackThreadLoop exits.", name_.c_str(),
+            __FUNCTION__);
       return;
     }
     if (!is_result_shutter_updated_) {
@@ -422,27 +450,59 @@ void ResultDispatcher::NotifyCallbackThreadLoop() {
 void ResultDispatcher::PrintTimeoutMessages() {
   std::lock_guard<std::mutex> lock(result_lock_);
   for (auto& [frame_number, shutter] : pending_shutters_) {
-    ALOGW("%s: pending shutter for frame %u ready %d", __FUNCTION__,
-          frame_number, shutter.ready);
+    ALOGW("[%s] %s: pending shutter for frame %u ready %d", name_.c_str(),
+          __FUNCTION__, frame_number, shutter.ready);
   }
 
   for (auto& [frame_number, final_metadata] : pending_final_metadata_) {
-    ALOGW("%s: pending final result metadaata for frame %u ready %d",
-          __FUNCTION__, frame_number, final_metadata.ready);
+    ALOGW("[%s] %s: pending final result metadaata for frame %u ready %d",
+          name_.c_str(), __FUNCTION__, frame_number, final_metadata.ready);
   }
 
-  for (auto& [stream_id, pending_buffers] : stream_pending_buffers_map_) {
+  for (auto& [stream_key, pending_buffers] : stream_pending_buffers_map_) {
     for (auto& [frame_number, pending_buffer] : pending_buffers) {
-      ALOGW("%s: pending buffer of stream %d for frame %u ready %d",
-            __FUNCTION__, stream_id, frame_number, pending_buffer.ready);
+      ALOGW("[%s] %s: pending buffer of stream %s for frame %u ready %d",
+            name_.c_str(), __FUNCTION__, DumpStreamKey(stream_key).c_str(),
+            frame_number, pending_buffer.ready);
     }
+  }
+}
+
+void ResultDispatcher::InitializeGroupStreamIdsMap(
+    const StreamConfiguration& stream_config) {
+  std::lock_guard<std::mutex> lock(result_lock_);
+  for (const auto& stream : stream_config.streams) {
+    if (stream.group_id != -1) {
+      group_stream_map_[stream.id] = stream.group_id;
+    }
+  }
+}
+
+ResultDispatcher::StreamKey ResultDispatcher::CreateStreamKey(
+    int32_t stream_id) const {
+  if (group_stream_map_.count(stream_id) == 0) {
+    return StreamKey(stream_id, StreamKeyType::kSingleStream);
+  } else {
+    return StreamKey(group_stream_map_.at(stream_id),
+                     StreamKeyType::kGroupStream);
+  }
+}
+
+std::string ResultDispatcher::DumpStreamKey(const StreamKey& stream_key) const {
+  switch (stream_key.second) {
+    case StreamKeyType::kSingleStream:
+      return std::to_string(stream_key.first);
+    case StreamKeyType::kGroupStream:
+      return "group " + std::to_string(stream_key.first);
+    default:
+      return "Invalid stream key type";
   }
 }
 
 status_t ResultDispatcher::GetReadyShutterMessage(NotifyMessage* message) {
   ATRACE_CALL();
   if (message == nullptr) {
-    ALOGE("%s: message is nullptr", __FUNCTION__);
+    ALOGE("[%s] %s: message is nullptr", name_.c_str(), __FUNCTION__);
     return BAD_VALUE;
   }
 
@@ -470,9 +530,9 @@ void ResultDispatcher::NotifyShutters() {
     if (GetReadyShutterMessage(&message) != OK) {
       break;
     }
-    ALOGV("%s: Notify shutter for frame %u timestamp %" PRIu64
+    ALOGV("[%s] %s: Notify shutter for frame %u timestamp %" PRIu64
           " readout_timestamp %" PRIu64,
-          __FUNCTION__, message.message.shutter.frame_number,
+          name_.c_str(), __FUNCTION__, message.message.shutter.frame_number,
           message.message.shutter.timestamp_ns,
           message.message.shutter.readout_timestamp_ns);
     notify_(message);
@@ -484,8 +544,8 @@ status_t ResultDispatcher::GetReadyFinalMetadata(
     std::vector<PhysicalCameraMetadata>* physical_metadata) {
   ATRACE_CALL();
   if (final_metadata == nullptr || frame_number == nullptr) {
-    ALOGE("%s: final_metadata (%p) or frame_number (%p) is nullptr",
-          __FUNCTION__, final_metadata, frame_number);
+    ALOGE("[%s] %s: final_metadata (%p) or frame_number (%p) is nullptr",
+          name_.c_str(), __FUNCTION__, final_metadata, frame_number);
     return BAD_VALUE;
   }
 
@@ -514,7 +574,8 @@ void ResultDispatcher::NotifyFinalResultMetadata() {
 
   while (GetReadyFinalMetadata(&frame_number, &final_metadata,
                                &physical_metadata) == OK) {
-    ALOGV("%s: Notify final metadata for frame %u", __FUNCTION__, frame_number);
+    ALOGV("[%s] %s: Notify final metadata for frame %u", name_.c_str(),
+          __FUNCTION__, frame_number);
     NotifyResultMetadata(frame_number, std::move(final_metadata),
                          std::move(physical_metadata), kPartialResultCount);
   }
@@ -525,7 +586,7 @@ status_t ResultDispatcher::GetReadyBufferResult(
   ATRACE_CALL();
   std::lock_guard<std::mutex> lock(result_lock_);
   if (result == nullptr) {
-    ALOGE("%s: result is nullptr.", __FUNCTION__);
+    ALOGE("[%s] %s: result is nullptr.", name_.c_str(), __FUNCTION__);
     return BAD_VALUE;
   }
 
@@ -563,7 +624,7 @@ void ResultDispatcher::NotifyBuffers() {
 
   while (GetReadyBufferResult(&result) == OK) {
     if (result == nullptr) {
-      ALOGE("%s: result is nullptr", __FUNCTION__);
+      ALOGE("[%s] %s: result is nullptr", name_.c_str(), __FUNCTION__);
       return;
     }
     std::lock_guard<std::mutex> lock(process_capture_result_lock_);

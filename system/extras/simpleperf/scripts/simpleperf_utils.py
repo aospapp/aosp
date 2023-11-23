@@ -447,7 +447,7 @@ class BinaryFinder:
                 return path
         # Find binary by path in binary cache.
         if self.binary_cache_dir:
-            path = self.binary_cache_dir / dso_path_in_record_file[1:]
+            path = self.binary_cache_dir / dso_path_in_record_file[1:].replace('/', os.sep)
             if self._check_path(path, expected_build_id):
                 return path
         # Find binary by its absolute path.
@@ -1006,6 +1006,7 @@ class ReportLibOptions:
     trace_offcpu: str
     proguard_mapping_files: List[str]
     sample_filters: List[str]
+    aggregate_threads: List[str]
 
 
 class BaseArgumentParser(argparse.ArgumentParser):
@@ -1036,6 +1037,11 @@ class BaseArgumentParser(argparse.ArgumentParser):
                     If not set, mixed-on-off-cpu mode is used.
                 """)
         self._add_sample_filter_options(sample_filter_group, sample_filter_with_pid_shortcut)
+        parser.add_argument(
+            '--aggregate-threads', nargs='+', metavar='thread_name_regex',
+            help="""Aggregate threads with names matching the same regex. As a result, samples from
+                    different threads (like a thread pool) can be shown in one flamegraph.
+                """)
 
     def _add_sample_filter_options(
             self, group: Optional[Any] = None, with_pid_shortcut: bool = True):
@@ -1118,7 +1124,7 @@ class BaseArgumentParser(argparse.ArgumentParser):
             sample_filters = self._build_sample_filter(namespace)
             report_lib_options = ReportLibOptions(
                 namespace.show_art_frames, namespace.trace_offcpu, namespace.proguard_mapping_file,
-                sample_filters)
+                sample_filters, namespace.aggregate_threads)
             setattr(namespace, 'report_lib_options', report_lib_options)
 
         if not Log.initialized:

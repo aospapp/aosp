@@ -139,6 +139,16 @@ enum UwbVendorCapabilityTlvTypes {
     /** Int value for indicating supported ran multiplier */
     CCC_SUPPORTED_RAN_MULTIPLIER = 0xA7,
 
+    /**
+     * Int value to indicate supported max number of ccc ranging sessions
+     */
+    CCC_SUPPORTED_MAX_RANGING_SESSION_NUMBER = 0xA8,
+
+    /**
+     * Int value to indicate the smallest supported CCC uwb initiation time in ms
+     */
+    CCC_SUPPORTED_MIN_UWB_INITIATION_TIME_MS = 0xA9,
+
     /*********************************************
      * FIRA specific
      ********************************************/
@@ -150,4 +160,57 @@ enum UwbVendorCapabilityTlvTypes {
      *  0 - Feature not supported.
      */
     SUPPORTED_AOA_RESULT_REQ_ANTENNA_INTERLEAVING = 0xE3,
+
+    /**
+     * 4 byte value to indicate supported min ranging interval in ms.
+     */
+    SUPPORTED_MIN_RANGING_INTERVAL_MS = 0xE4,
+
+    /**
+     * 4 byte bitmask to indicate the supported RANGE_DATA_NTF_CONFIG values
+     *
+     * Bitmask where each bit corresponds to values used in
+     * RANGE_DATA_NTF_CONFIG in SET_APP_CFG_CMD
+     */
+    SUPPORTED_RANGE_DATA_NTF_CONFIG = 0xE5,
+
+    /**
+     * 1 byte bitmask to indicate the supported RSSI_REPORTING values
+     * Values:
+     * 1 - Feature supported.
+     * 0 - Feature not supported.
+     */
+    SUPPORTED_RSSI_REPORTING = 0xE6,
+
+    /**
+     * 1 byte value to indicate support for diagnostics feature.
+     * Values:
+     *  1 - Feature supported.
+     *  0 - Feature not supported.
+     */
+    SUPPORTED_DIAGNOSTICS = 0xE7,
+
+    /**
+     * 4 byte value to indicate supported min slot duration in rstu.
+     */
+    SUPPORTED_MIN_SLOT_DURATION_RSTU = 0xE8,
+
+    /**
+     * Int value to indicate supported max number of fira ranging sessions
+     */
+    SUPPORTED_MAX_RANGING_SESSION_NUMBER = 0xE9,
+
+    /**
+     * 2 byte bitmask to indicate the channels that support AoA.
+     * Each "1" in this bitmap corresponds to a specific UWB channel where:
+     *  0x01 = "Channel 5",
+     *  0x02 = "Channel 6",
+     *  0x04 = "Channel 8",
+     *  0x08 = "Channel 9",
+     *  0x10 = "Channel 10",
+     *  0x20 = "Channel 12",
+     *  0x40 = "Channel 13",
+     *  0x80 = "Channel 14"
+     */
+    SUPPORTED_CHANNELS_AOA = 0xEA,
 }

@@ -95,6 +95,15 @@ interface TypeItem {
         return s
     }
 
+    /**
+     * Returns the element type if the type is an array or contains a vararg.
+     * If the element is not an array or does not contain a vararg,
+     * returns the original type string.
+     */
+    fun toElementType(): String {
+        return toErasedTypeString().replace("...", "").replace("[]", "")
+    }
+
     val primitive: Boolean
 
     fun typeArgumentClasses(): List<ClassItem>
@@ -127,13 +136,10 @@ interface TypeItem {
     fun defaultValue(): Any? {
         return when (toTypeString()) {
             "boolean" -> false
+            "char", "int", "float", "double" -> 0
             "byte" -> 0.toByte()
-            "char" -> '\u0000'
             "short" -> 0.toShort()
-            "int" -> 0
             "long" -> 0L
-            "float" -> 0f
-            "double" -> 0.0
             else -> null
         }
     }
@@ -141,6 +147,53 @@ interface TypeItem {
     fun defaultValueString(): String = defaultValue()?.toString() ?: "null"
 
     fun hasTypeArguments(): Boolean = toTypeString().contains("<")
+
+    /**
+     * If the item has type arguments, return a list of type arguments.
+     * If simplified is true, returns the simplified forms of the type arguments.
+     * e.g. when type arguments are <K, V extends some.arbitrary.Class>, [K, V] will be returned.
+     * If the item does not have any type arguments, return an empty list.
+     */
+    fun typeArguments(simplified: Boolean = false): List<String> {
+        if (!hasTypeArguments()) {
+            return emptyList()
+        }
+        val typeString = toTypeString()
+        val bracketRemovedTypeString = toTypeString().indexOf('<')
+            .let { typeString.substring(it + 1, typeString.length - 1) }
+        val typeArguments = mutableListOf<String>()
+        var builder = StringBuilder()
+        var balance = 0
+        var idx = 0
+        while (idx < bracketRemovedTypeString.length) {
+            when (val s = bracketRemovedTypeString[idx]) {
+                ',' -> {
+                    if (balance == 0) {
+                        typeArguments.add(builder.toString())
+                        builder = StringBuilder()
+                    } else {
+                        builder.append(s)
+                    }
+                }
+                '<' -> {
+                    balance += 1
+                    builder.append(s)
+                }
+                '>' -> {
+                    balance -= 1
+                    builder.append(s)
+                }
+                else -> builder.append(s)
+            }
+            idx += 1
+        }
+        typeArguments.add(builder.toString())
+
+        if (simplified) {
+            return typeArguments.map { it.substringBefore(" extends ").trim() }
+        }
+        return typeArguments.map { it.trim() }
+    }
 
     /**
      * If this type is a type parameter, then return the corresponding [TypeParameterItem].

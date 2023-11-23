@@ -232,7 +232,7 @@ public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
             // build burst capture
             ArrayList<CaptureRequest> rawRequestList = createBurstRequest(rawBurstBuilder);
 
-            // submit captrue
+            // submit capture
             Log.i(TAG, "Submitting Burst Request.");
             mSession.captureBurst(rawRequestList, rawCaptureCallback, mHandler);
 
@@ -287,7 +287,7 @@ public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
             // build burst capture
             ArrayList<CaptureRequest> rawRequestList = createBurstRequest(rawBurstBuilder);
 
-            // submit captrue but ignore
+            // submit capture but ignore
             mSession.captureBurst(rawRequestList, rawCaptureCallback, mHandler);
 
             // drain the capture result
@@ -297,7 +297,7 @@ public class BurstCaptureRawTest extends Camera2SurfaceViewTestCase {
             copyBurstRequetBuilder(rawBurstBuilder, originBuilder);
             rawRequestList = createBurstRequestWith3A(rawBurstBuilder);
 
-            // submit captrue but ignore
+            // submit capture but ignore
             mSession.captureBurst(rawRequestList, rawCaptureCallback, mHandler);
 
             // drain the capture result

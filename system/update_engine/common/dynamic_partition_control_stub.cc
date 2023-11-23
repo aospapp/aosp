@@ -38,7 +38,13 @@ FeatureFlag DynamicPartitionControlStub::GetVirtualAbCompressionFeatureFlag() {
   return FeatureFlag(FeatureFlag::Value::NONE);
 }
 
-FeatureFlag DynamicPartitionControlStub::GetVirtualAbCompressionXorFeatureFlag() {
+FeatureFlag
+DynamicPartitionControlStub::GetVirtualAbCompressionXorFeatureFlag() {
+  return FeatureFlag(FeatureFlag::Value::NONE);
+}
+
+FeatureFlag
+DynamicPartitionControlStub::GetVirtualAbUserspaceSnapshotsFeatureFlag() {
   return FeatureFlag(FeatureFlag::Value::NONE);
 }
 

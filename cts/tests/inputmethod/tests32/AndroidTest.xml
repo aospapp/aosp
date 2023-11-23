@@ -22,6 +22,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsInputMethodTestCases32.apk" />
@@ -71,6 +72,11 @@
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS com.android.cts.mockime" />
         <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.view.inputmethod.ctstestapp"  />
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.view.inputmethod.ctstestapp" />
+
+        <!-- Wait for PACKAGE_ADDED broadcasts to be delivered to InputMethodManagerService. -->
+        <option name="run-command" value="am wait-for-broadcast-barrier"  />
+        <!-- Dismiss any system dialogs (e.g. crashes, ANR). -->
+        <option name="run-command" value="am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS --receiver-foreground"  />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="android.view.inputmethod.cts.sdk32" />

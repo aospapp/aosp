@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
+#include <chre/util/nanoapp/log.h>
+#include <shared/send_message.h>
 #include <shared/test_success_marker.h>
 
-#include <chre/re.h>
-#include <shared/send_message.h>
+#define LOG_TAG "[SuccessMarkerTest]"
 
 namespace nanoapp_testing {
 
@@ -35,7 +36,7 @@ void TestSuccessMarker::markStage(uint32_t stage) {
     sendFatalFailureToHost("markSuccess invalid stage", &stage);
   }
   if ((mFinishedBitmask & finishedBit) == 0) {
-    chreLog(CHRE_LOG_DEBUG, "Stage %" PRIu32 " succeeded", stage);
+    LOGD("Stage %" PRIu32 " succeeded", stage);
     mFinishedBitmask |= finishedBit;
   }
 }

@@ -16,9 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="android.input.cts">
-
-    <uses-permission android:name="android.permission.INJECT_EVENTS"/>
-
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS"/>
     <application android:label="InputTest">
         <activity android:name=".OverlayActivity"
                   android:label="Overlay activity"
@@ -44,7 +42,7 @@
         </activity>
         <activity android:name="android.input.cts.CaptureEventActivity"
                   android:label="Capture events"
-                  android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|navigation|keyboard|density|fontScale|layoutDirection|locale|mcc|mnc|smallestScreenSize"
+                  android:configChanges="touchscreen|uiMode|orientation|screenSize|screenLayout|keyboardHidden|uiMode|navigation|keyboard|density|fontScale|layoutDirection|locale|mcc|mnc|smallestScreenSize"
                   android:turnScreenOn="true"
                   android:exported="true">
         </activity>
@@ -53,6 +51,16 @@
                   android:turnScreenOn="true"
                   android:exported="true">
         </activity>
+
+        <receiver android:name="android.input.cts.KeyboardLayoutTest.CtsKeyboardLayoutProvider"
+                  android:label="CTS keyboard layout provider"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.hardware.input.action.QUERY_KEYBOARD_LAYOUTS" />
+            </intent-filter>
+            <meta-data android:name="android.hardware.input.metadata.KEYBOARD_LAYOUTS"
+                       android:resource="@xml/keyboard_layouts" />
+        </receiver>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

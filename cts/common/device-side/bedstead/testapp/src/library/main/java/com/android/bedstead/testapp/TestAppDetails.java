@@ -36,7 +36,7 @@ class TestAppDetails {
     final Set<ServiceInfo> mServices = new HashSet<>();
 
     /**
-     * Get the shared user ID of the test app, or {@code Null} if none.
+     * Gets the shared user ID of the test app, or {@code Null} if none.
      */
     @Nullable
     public String sharedUserId() {
@@ -45,6 +45,22 @@ class TestAppDetails {
         }
 
         return mApp.getSharedUserId();
+    }
+
+    /**
+     * Gets the label of the test app, or {@code Null} if none.
+     */
+    @Nullable
+    public String label() {
+        if (mApp.getLabel().isEmpty()) {
+            return null;
+        }
+
+        return mApp.getLabel();
+    }
+
+    public boolean crossProfile() {
+        return mApp.getCrossProfile();
     }
 
     @Override

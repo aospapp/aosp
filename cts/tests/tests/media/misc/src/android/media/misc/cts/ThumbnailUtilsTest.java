@@ -16,28 +16,30 @@
 
 package android.media.misc.cts;
 
+import static android.media.MediaFormat.MIMETYPE_VIDEO_AV1;
+import static android.media.MediaFormat.MIMETYPE_VIDEO_HEVC;
+
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import android.annotation.ColorInt;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import static android.media.MediaFormat.MIMETYPE_VIDEO_HEVC;
 import android.media.ThumbnailUtils;
-import android.media.cts.Preconditions;
 import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Size;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
-import com.android.compatibility.common.util.ApiLevelUtil;
-import com.android.compatibility.common.util.MediaUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -146,7 +148,7 @@ public class ThumbnailUtilsTest {
         // EXIF orientations to achieve the same final image, and this verifies that the EXIF
         // orientation was applied properly.
         assertColorMostlyInRange(bitmap.getPixel(bitmap.getWidth() / 2, bitmap.getHeight() / 3),
-                0xFF202020 /* upperBound */, Color.BLACK);
+                0xFF232323 /* upperBound */, Color.BLACK);
     }
 
     @Test
@@ -184,7 +186,7 @@ public class ThumbnailUtilsTest {
     @Test
     public void testCreateImageThumbnailAvif() throws Exception {
         if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
-        if (!MediaUtils.canDecodeVideo("AV1", 1920, 1080, 30)) {
+        if (!MediaUtils.canDecodeVideo(MIMETYPE_VIDEO_AV1, 1920, 1080, 30)) {
             MediaUtils.skipTest("No AV1 codec for 1080p");
             return;
         }

@@ -14,6 +14,7 @@
 
 
 import logging
+import os
 import time
 
 import its_session_utils
@@ -32,6 +33,7 @@ WAIT_TIME_SEC = 5
 SCROLLER_TIMEOUT_MS = 3000
 VALID_NUM_DEVICES = (1, 2)
 NOT_YET_MANDATED_ALL = 100
+FRONT_CAMERA_ID_PREFIX = '1'
 
 # Not yet mandated tests ['test', first_api_level not yet mandatory]
 # ie. ['test_test_patterns', 30] is MANDATED for first_api_level > 30
@@ -45,12 +47,17 @@ NOT_YET_MANDATED = {
     'scene2_c': [],
     'scene2_d': [['test_num_faces', 30]],
     'scene2_e': [['test_num_faces', 30], ['test_continuous_picture', 30]],
+    'scene2_f': [['test_num_faces', 30]],
     'scene3': [],
     'scene4': [],
     'scene5': [],
     'scene6': [['test_zoom', 30]],
     'sensor_fusion': [],
+    'scene_hdr': [],
+    'scene_night': [],
 }
+
+logging.getLogger('matplotlib.font_manager').disabled = True
 
 
 class ItsBaseTest(base_test.BaseTestClass):
@@ -83,9 +90,10 @@ class ItsBaseTest(base_test.BaseTestClass):
     else:
       self.lighting_cntl = 'None'
       self.lighting_ch = '1'
+    if self.user_params.get('tablet_device'):
+      self.tablet_device = self.user_params['tablet_device'] == 'True'
     if self.user_params.get('debug_mode'):
-      self.debug_mode = True if self.user_params[
-          'debug_mode'] == 'True' else False
+      self.debug_mode = self.user_params['debug_mode'] == 'True'
     if self.user_params.get('scene'):
       self.scene = self.user_params['scene']
     camera_id_combo = self.parse_hidden_camera_id()
@@ -100,6 +108,13 @@ class ItsBaseTest(base_test.BaseTestClass):
       try:
         self.tablet = devices[1]
         self.tablet_screen_brightness = self.user_params['brightness']
+        tablet_name_unencoded = self.tablet.adb.shell(
+            ['getprop', 'ro.build.product']
+        )
+        tablet_name = str(tablet_name_unencoded.decode('utf-8')).strip()
+        logging.debug('tablet name: %s', tablet_name)
+        its_session_utils.validate_tablet_brightness(
+            tablet_name, self.tablet_screen_brightness)
       except KeyError:
         logging.debug('Not all tablet arguments set.')
     else:  # sensor_fusion or manual run
@@ -119,10 +134,31 @@ class ItsBaseTest(base_test.BaseTestClass):
 
     arduino_serial_port = lighting_control_utils.lighting_control(
         self.lighting_cntl, self.lighting_ch)
-    if arduino_serial_port:
+    if arduino_serial_port and self.scene != 'scene0':
       lighting_control_utils.set_light_brightness(
           self.lighting_ch, 255, arduino_serial_port)
       logging.debug('Light is turned ON.')
+
+    # Check if current foldable state matches scene, if applicable
+    if self.user_params.get('foldable_device', 'False') == 'True':
+      foldable_state_unencoded = tablet_name_unencoded = self.dut.adb.shell(
+          ['cmd', 'device_state', 'state']
+      )
+      foldable_state = str(foldable_state_unencoded.decode('utf-8')).strip()
+      is_folded = 'CLOSE' in foldable_state
+      scene_with_suffix = self.user_params.get('scene_with_suffix')
+      if scene_with_suffix:
+        if 'folded' in scene_with_suffix and not is_folded:
+          raise AssertionError(
+              f'Testing folded scene {scene_with_suffix} with unfolded device!')
+        if ('folded' not in scene_with_suffix and is_folded and
+            self.camera.startswith(FRONT_CAMERA_ID_PREFIX)):  # Not rear camera
+          raise AssertionError(
+              f'Testing unfolded scene {scene_with_suffix} with a '
+              'non-rear camera while device is folded!'
+          )
+      else:
+        logging.debug('Testing without `run_all_tests`')
 
   def _setup_devices(self, num):
     """Sets up each device in parallel if more than one device."""
@@ -197,6 +233,28 @@ class ItsBaseTest(base_test.BaseTestClass):
                   int(self.tablet.adb.shell(
                       'settings get system user_rotation')))
 
+  def set_screen_brightness(self, brightness_level):
+    """Sets the screen brightness to desired level.
+
+    Args:
+       brightness_level : brightness level to set.
+    """
+    # Turn off the adaptive brightness on tablet.
+    self.tablet.adb.shell(
+        ['settings', 'put', 'system', 'screen_brightness_mode', '0'])
+    # Set the screen brightness
+    self.tablet.adb.shell([
+        'settings', 'put', 'system', 'screen_brightness',
+        brightness_level
+    ])
+    logging.debug('Tablet brightness set to: %s', brightness_level)
+    actual_brightness = self.tablet.adb.shell(
+        'settings get system screen_brightness')
+    if int(actual_brightness) != int(brightness_level):
+      raise AssertionError('Brightness was not set as expected! '
+                           'Requested brightness: {brightness_level}, '
+                           'Actual brightness: {actual_brightness}')
+
   def parse_hidden_camera_id(self):
     """Parse the string of camera ID into an array.
 
@@ -244,4 +302,16 @@ class ItsBaseTest(base_test.BaseTestClass):
         logging.debug('%s is not yet mandated.', self.current_test_info.name)
         asserts.fail('Not yet mandated test', extras='Not yet mandated test')
 
-
+  def teardown_class(self):
+    # edit root_output_path and summary_writer path
+    # to add test name to output directory
+    logging.debug('summary_writer._path: %s', self.summary_writer._path)
+    summary_head, summary_tail = os.path.split(self.summary_writer._path)
+    self.summary_writer._path = os.path.join(
+        f'{summary_head}_{self.__class__.__name__}', summary_tail)
+    os.rename(self.root_output_path,
+              f'{self.root_output_path}_{self.__class__.__name__}')
+    # print root_output_path so that it can be written to report log.
+    # Note: Do not replace print with logging.debug here.
+    print('root_output_path:',
+          f'{self.root_output_path}_{self.__class__.__name__}')

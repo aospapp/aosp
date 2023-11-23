@@ -22,7 +22,7 @@ tradefed_binary_host {
     wrapper: "etc/mts-tradefed",
     short_name: "MTS",
     full_name: "Mainline Test Suite",
-    version: "3.0",
+    version: "4.0",
     static_libs: ["cts-tradefed-harness"],
     java_resource_dirs: ["res"],
 }

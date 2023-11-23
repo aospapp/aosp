@@ -42,6 +42,7 @@ def parse_args():
                       help='Enable GC stress configuration (device|host only).')
   parser.add_argument('tests', nargs="*",
                       help='Name(s) of the test(s) to run')
+  parser.add_argument('--verbose', action='store_true', help='Print verbose output from vogar.')
   return parser.parse_args()
 
 ART_TEST_ANDROID_ROOT = os.environ.get("ART_TEST_ANDROID_ROOT", "/system")
@@ -91,7 +92,10 @@ LIBCORE_TEST_NAMES = [
   "libcore.sun.util",
   "libcore.xml",
   "org.apache.harmony.annotation",
-  "org.apache.harmony.luni",
+  "org.apache.harmony.luni.tests.internal.net.www.protocol.http.HttpURLConnection",
+  "org.apache.harmony.luni.tests.internal.net.www.protocol.https.HttpsURLConnection",
+  "org.apache.harmony.luni.tests.java.io",
+  "org.apache.harmony.luni.tests.java.net",
   "org.apache.harmony.nio",
   "org.apache.harmony.regex",
   "org.apache.harmony.testframework",
@@ -122,7 +126,8 @@ LIBCORE_TEST_NAMES = [
   "test.java.lang.Long",
   # Sharded test.java.lang.StrictMath
   "test.java.lang.StrictMath.CubeRootTests",
-  "test.java.lang.StrictMath.ExactArithTests",
+  # TODO: disable the test until b/248208762 is fixed.
+  # "test.java.lang.StrictMath.ExactArithTests",
   "test.java.lang.StrictMath.Expm1Tests",
   "test.java.lang.StrictMath.ExpTests",
   "test.java.lang.StrictMath.HyperbolicTests",
@@ -159,21 +164,15 @@ LIBCORE_TEST_NAMES = [
   "test.java.math.BigInteger#testDivideAndReminder",
   "test.java.math.BigInteger#testDivideLarge",
   "test.java.math.BigInteger#testModExp",
-  "test.java.math.BigInteger#testModInv",
   "test.java.math.BigInteger#testMultiplyLarge",
   "test.java.math.BigInteger#testNextProbablePrime",
   "test.java.math.BigInteger#testPow",
-  "test.java.math.BigInteger#testPrime",
   "test.java.math.BigInteger#testSerialize",
   "test.java.math.BigInteger#testShift",
   "test.java.math.BigInteger#testSquare",
   "test.java.math.BigInteger#testSquareLarge",
-  "test.java.math.BigInteger#testSquareRoot",
   "test.java.math.BigInteger#testSquareRootAndReminder",
   "test.java.math.BigInteger#testStringConv_generic",
-  "test.java.math.BigInteger#testStringConv_schoenhage_threshold_pow0",
-  "test.java.math.BigInteger#testStringConv_schoenhage_threshold_pow1",
-  "test.java.math.BigInteger#testStringConv_schoenhage_threshold_pow2",
   "test.java.math.RoundingMode",
   # test.java.net
   "test.java.net.DatagramSocket",
@@ -190,7 +189,6 @@ LIBCORE_TEST_NAMES = [
   "test.java.security.cert",
   # Sharded test.java.security.KeyAgreement
   "test.java.security.KeyAgreement.KeyAgreementTest",
-  "test.java.security.KeyAgreement.KeySizeTest#testDHKeySize",
   "test.java.security.KeyAgreement.KeySizeTest#testECDHKeySize",
   "test.java.security.KeyAgreement.KeySpecTest",
   "test.java.security.KeyAgreement.MultiThreadTest",
@@ -242,6 +240,130 @@ BOOT_CLASSPATH = [
 
 CLASSPATH = ["core-tests", "core-ojtests", "jsr166-tests", "mockito-target"]
 
+SLOW_OJLUNI_TESTS = {
+  "test.java.awt",
+  "test.java.lang.String",
+  "test.java.lang.invoke",
+  "test.java.nio.channels.Selector",
+  "test.java.time",
+  "test.java.util.Arrays",
+  "test.java.util.Map",
+  "test.java.util.concurrent",
+  "test.java.util.stream",
+  "test.java.util.zip.ZipFile",
+  "tck.java.time",
+}
+
+# Disabled to unblock art-buildbot
+# These tests fail with "java.io.IOException: Stream closed", tracked in
+# http://b/235566533 and http://b/208639267
+DISABLED_GCSTRESS_DEBUG_TESTS = {
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard1",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard2",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard3",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard4",
+  "test.java.math.BigDecimal",
+  "test.java.math.BigInteger#testConstructor",
+}
+
+DISABLED_FUGU_TESTS = {
+  "org.apache.harmony.luni.tests.internal.net.www.protocol.http.HttpURLConnection",
+  "org.apache.harmony.luni.tests.internal.net.www.protocol.https.HttpsURLConnection",
+  "test.java.awt",
+  "test.java.io.ByteArrayInputStream",
+  "test.java.io.ByteArrayOutputStream",
+  "test.java.io.InputStream",
+  "test.java.io.OutputStream",
+  "test.java.io.PrintStream",
+  "test.java.io.PrintWriter",
+  "test.java.io.Reader",
+  "test.java.io.Writer",
+  "test.java.lang.Boolean",
+  "test.java.lang.ClassLoader",
+  "test.java.lang.Double",
+  "test.java.lang.Float",
+  "test.java.lang.Integer",
+  "test.java.lang.Long",
+  "test.java.lang.StrictMath.CubeRootTests",
+  "test.java.lang.StrictMath.Expm1Tests",
+  "test.java.lang.StrictMath.ExpTests",
+  "test.java.lang.StrictMath.HyperbolicTests",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard1",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard2",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard3",
+  "test.java.lang.StrictMath.HypotTests#testAgainstTranslit_shard4",
+  "test.java.lang.StrictMath.HypotTests#testHypot",
+  "test.java.lang.StrictMath.Log1pTests",
+  "test.java.lang.StrictMath.Log10Tests",
+  "test.java.lang.StrictMath.MultiplicationTests",
+  "test.java.lang.StrictMath.PowTests",
+  "test.java.lang.String",
+  "test.java.lang.Thread",
+  "test.java.lang.invoke",
+  "test.java.lang.ref.SoftReference",
+  "test.java.lang.ref.BasicTest",
+  "test.java.lang.ref.EnqueueNullRefTest",
+  "test.java.lang.ref.EnqueuePollRaceTest",
+  "test.java.lang.ref.ReferenceCloneTest",
+  "test.java.lang.ref.ReferenceEnqueuePendingTest",
+  "test.java.math.BigDecimal",
+  "test.java.math.BigInteger#testArithmetic",
+  "test.java.math.BigInteger#testBitCount",
+  "test.java.math.BigInteger#testBitLength",
+  "test.java.math.BigInteger#testbitOps",
+  "test.java.math.BigInteger#testBitwise",
+  "test.java.math.BigInteger#testByteArrayConv",
+  "test.java.math.BigInteger#testConstructor",
+  "test.java.math.BigInteger#testDivideAndReminder",
+  "test.java.math.BigInteger#testDivideLarge",
+  "test.java.math.BigInteger#testModExp",
+  "test.java.math.BigInteger#testMultiplyLarge",
+  "test.java.math.BigInteger#testNextProbablePrime",
+  "test.java.math.BigInteger#testPow",
+  "test.java.math.BigInteger#testSerialize",
+  "test.java.math.BigInteger#testShift",
+  "test.java.math.BigInteger#testSquare",
+  "test.java.math.BigInteger#testSquareLarge",
+  "test.java.math.BigInteger#testSquareRootAndReminder",
+  "test.java.math.BigInteger#testStringConv_generic",
+  "test.java.math.RoundingMode",
+  "test.java.net.DatagramSocket",
+  "test.java.net.Socket",
+  "test.java.net.SocketOptions",
+  "test.java.net.URLDecoder",
+  "test.java.net.URLEncoder",
+  "test.java.nio.channels.Channels",
+  "test.java.nio.channels.SelectionKey",
+  "test.java.nio.channels.Selector",
+  "test.java.nio.file",
+  "test.java.security.cert",
+  "test.java.security.KeyAgreement.KeyAgreementTest",
+  "test.java.security.KeyAgreement.KeySizeTest#testECDHKeySize",
+  "test.java.security.KeyAgreement.KeySpecTest",
+  "test.java.security.KeyAgreement.MultiThreadTest",
+  "test.java.security.KeyAgreement.NegativeTest",
+  "test.java.security.KeyStore",
+  "test.java.security.Provider",
+  "test.java.time",
+  "test.java.util.Arrays",
+  "test.java.util.Collection",
+  "test.java.util.Collections",
+  "test.java.util.Date",
+  "test.java.util.EnumMap",
+  "test.java.util.EnumSet",
+  "test.java.util.GregorianCalendar",
+  "test.java.util.LinkedHashMap",
+  "test.java.util.LinkedHashSet",
+  "test.java.util.List",
+  "test.java.util.Map",
+  "test.java.util.Optional",
+  "test.java.util.TestFormatter",
+  "test.java.util.TimeZone",
+  "test.java.util.function",
+  "test.java.util.stream",
+  "tck.java.time",
+}
+
 def get_jar_filename(classpath):
   base_path = (ANDROID_PRODUCT_OUT + "/../..") if ANDROID_PRODUCT_OUT else "out/target"
   base_path = os.path.normpath(base_path)  # Normalize ".." components for readability.
@@ -275,6 +397,13 @@ def get_test_names():
   # See b/78228743 and b/178351808.
   if args.gcstress or args.debug or args.mode == "jvm":
     test_names = list(t for t in test_names if not t.startswith("libcore.highmemorytest"))
+    test_names = list(filter(lambda x: x not in SLOW_OJLUNI_TESTS, test_names))
+  if args.gcstress and args.debug:
+    test_names = list(filter(lambda x: x not in DISABLED_GCSTRESS_DEBUG_TESTS, test_names))
+  if not args.getrandom:
+    # Disable libcore.highmemorytest due to limited ram on fugu. http://b/258173036
+    test_names = list(filter(lambda x: x not in DISABLED_FUGU_TESTS and
+                                       not x.startswith("libcore.highmemorytest"), test_names))
   return test_names
 
 def get_vogar_command(test_name):
@@ -282,6 +411,7 @@ def get_vogar_command(test_name):
   if args.mode == "device":
     cmd.append("--mode=device --vm-arg -Ximage:/system/framework/art_boot_images/boot.art")
     cmd.append("--vm-arg -Xbootclasspath:" + ":".join(BOOT_CLASSPATH))
+
   if args.mode == "host":
     # We explicitly give a wrong path for the image, to ensure vogar
     # will create a boot image with the default compiler. Note that
@@ -298,11 +428,16 @@ def get_vogar_command(test_name):
   if args.debug:
     cmd.append("--vm-arg -XXlib:libartd.so --vm-arg -XX:SlowDebug=true")
 
+  # The only device in go/art-buildbot without getrandom is fugu. We limit the amount of memory
+  # per runtime for fugu to avoid low memory killer, fugu has 4-cores 1GB RAM (b/258171768).
+  if not args.getrandom:
+    cmd.append("--vm-arg -Xmx128M")
+
   if args.mode == "device":
     if ART_TEST_CHROOT:
       cmd.append(f"--chroot {ART_TEST_CHROOT} --device-dir=/tmp/vogar/test-{test_name}")
     else:
-      cmd.append("--device-dir=/data/local/tmp/vogar/test-{test_name}")
+      cmd.append(f"--device-dir=/data/local/tmp/vogar/test-{test_name}")
     cmd.append(f"--vm-command={ART_TEST_ANDROID_ROOT}/bin/art")
   else:
     cmd.append(f"--device-dir=/tmp/vogar/test-{test_name}")
@@ -313,6 +448,9 @@ def get_vogar_command(test_name):
     if args.jit:
       cmd.append("--vm-arg -Xcompiler-option --vm-arg --compiler-filter=quicken")
     cmd.append("--vm-arg -Xusejit:{}".format(str(args.jit).lower()))
+
+  if args.verbose:
+    cmd.append("--verbose")
 
   # Suppress color codes if not attached to a terminal
   if not sys.stdout.isatty():
@@ -370,7 +508,7 @@ def main():
     print(f"Running {len(futures)} tasks on {args.jobs} core(s)...\n")
     for i, future in enumerate(concurrent.futures.as_completed(futures)):
       test_name, cmd, stdout, exit_code = future.result()
-      if exit_code != 0 or args.dry_run:
+      if exit_code != 0 or args.dry_run or args.verbose:
         print(cmd)
         print(stdout.strip())
       else:

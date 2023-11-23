@@ -16,6 +16,7 @@
 
 #include "gnss_pal_impl_test.h"
 
+#include "chre/platform/linux/task_util/task_manager.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/pal_system_api.h"
 #include "chre/platform/system_time.h"
@@ -145,6 +146,8 @@ void validateMeasurementEvent(const struct chreGnssDataEvent &event) {
 }  // anonymous namespace
 
 void PalGnssTest::SetUp() {
+  chre::TaskManagerSingleton::deinit();
+  chre::TaskManagerSingleton::init();
   api_ = chrePalGnssGetApi(CHRE_PAL_GNSS_API_CURRENT_VERSION);
   ASSERT_NE(api_, nullptr);
   EXPECT_EQ(api_->moduleVersion, CHRE_PAL_GNSS_API_CURRENT_VERSION);
@@ -172,6 +175,7 @@ void PalGnssTest::TearDown() {
   if (api_ != nullptr) {
     api_->close();
   }
+  chre::TaskManagerSingleton::deinit();
 }
 
 void PalGnssTest::requestStateResync() {

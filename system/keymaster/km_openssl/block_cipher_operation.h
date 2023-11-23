@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_BLOCK_CIPHER_OPERATION_H_
 #define SYSTEM_KEYMASTER_BLOCK_CIPHER_OPERATION_H_
 
+#include <utility>
+
 #include <openssl/evp.h>
 
 #include <keymaster/operation.h>
@@ -121,7 +123,7 @@ class BlockCipherEvpEncryptOperation : public BlockCipherEvpOperation {
                                    bool caller_iv, size_t tag_length, Key&& key,
                                    const EvpCipherDescription& cipher_description)
         : BlockCipherEvpOperation(KM_PURPOSE_ENCRYPT, block_mode, padding, caller_iv, tag_length,
-                                  move(key), cipher_description) {}
+                                  std::move(key), cipher_description) {}
 
     keymaster_error_t Begin(const AuthorizationSet& input_params,
                             AuthorizationSet* output_params) override;
@@ -141,7 +143,7 @@ class BlockCipherEvpDecryptOperation : public BlockCipherEvpOperation {
                                    size_t tag_length, Key&& key,
                                    const EvpCipherDescription& cipher_description)
         : BlockCipherEvpOperation(KM_PURPOSE_DECRYPT, block_mode, padding,
-                                  false /* caller_iv -- don't care */, tag_length, move(key),
+                                  false /* caller_iv -- don't care */, tag_length, std::move(key),
                                   cipher_description) {}
 
     keymaster_error_t Begin(const AuthorizationSet& input_params,

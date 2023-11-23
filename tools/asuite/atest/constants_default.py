@@ -45,6 +45,7 @@ SERIAL = 'SERIAL'
 SHARDING = 'SHARDING'
 ALL_ABI = 'ALL_ABI'
 HOST = 'HOST'
+DEVICE_ONLY = 'DEVICE_ONLY'
 CUSTOM_ARGS = 'CUSTOM_ARGS'
 DRY_RUN = 'DRY_RUN'
 ANDROID_SERIAL = 'ANDROID_SERIAL'
@@ -61,6 +62,7 @@ FLAKES_INFO = 'FLAKES_INFO'
 TF_EARLY_DEVICE_RELEASE = 'TF_EARLY_DEVICE_RELEASE'
 BAZEL_MODE_FEATURES = 'BAZEL_MODE_FEATURES'
 REQUEST_UPLOAD_RESULT = 'REQUEST_UPLOAD_RESULT'
+DISABLE_UPLOAD_RESULT = 'DISABLE_UPLOAD_RESULT'
 MODULES_IN = 'MODULES-IN-'
 NO_ENABLE_ROOT = 'NO_ENABLE_ROOT'
 VERIFY_ENV_VARIABLE = 'VERIFY_ENV_VARIABLE'
@@ -69,8 +71,11 @@ AGGREGATE_METRIC_FILTER_ARG = 'AGGREGATE_METRIC_FILTER'
 ENABLE_DEVICE_PREPARER = 'ENABLE_DEVICE_PREPARER'
 ANNOTATION_FILTER = 'ANNOTATION_FILTER'
 BAZEL_ARG = 'BAZEL_ARG'
+COVERAGE = 'COVERAGE'
 TEST_FILTER = 'TEST_FILTER'
 TEST_TIMEOUT = 'TEST_TIMEOUT'
+VERBOSE = 'VERBOSE'
+LD_LIBRARY_PATH = 'LD_LIBRARY_PATH'
 
 # Robolectric Types:
 ROBOTYPE_MODERN = 1
@@ -100,8 +105,15 @@ MODULE_SRCS = 'srcs'
 MODULE_IS_UNIT_TEST = 'is_unit_test'
 MODULE_SHARED_LIBS = 'shared_libs'
 MODULE_RUNTIME_DEPS = 'runtime_dependencies'
+MODULE_STATIC_DEPS = 'static_dependencies'
 MODULE_DATA_DEPS = 'data_dependencies'
 MODULE_SUPPORTED_VARIANTS = 'supported_variants'
+MODULE_LIBS = 'libs'
+MODULE_STATIC_LIBS = 'static_libs'
+MODULE_HOST_DEPS = 'host_dependencies'
+MODULE_TARGET_DEPS = 'target_dependencies'
+MODULE_TEST_OPTIONS_TAGS = 'test_options_tags'
+MODULE_INFO_ID = 'module_info_id'
 
 
 # Env constants
@@ -185,13 +197,6 @@ EXTERNAL = 'EXTERNAL_RUN'
 INTERNAL = 'INTERNAL_RUN'
 INTERNAL_EMAIL = '@google.com'
 INTERNAL_HOSTNAME = ['.google.com', 'c.googlers.com']
-CONTENT_LICENSES_URL = 'https://source.android.com/setup/start/licenses'
-CONTRIBUTOR_AGREEMENT_URL = {
-    'INTERNAL': 'https://cla.developers.google.com/',
-    'EXTERNAL': 'https://opensource.google.com/docs/cla/'
-}
-PRIVACY_POLICY_URL = 'https://policies.google.com/privacy'
-TERMS_SERVICE_URL = 'https://policies.google.com/terms'
 TOOL_NAME = 'atest'
 SUB_TOOL_NAME = ''
 USER_FROM_TOOL = 'USER_FROM_TOOL'
@@ -236,7 +241,6 @@ ATEST_TF_MODULE = 'atest-tradefed'
 # Atest index path and relative dirs/caches.
 INDEX_DIR = os.path.join(os.getenv(ANDROID_HOST_OUT, ''), 'indexes')
 LOCATE_CACHE = os.path.join(INDEX_DIR, 'plocate.db')
-LOCATE_CACHE_MD5 = os.path.join(INDEX_DIR, 'plocate.md5')
 BUILDFILES_MD5 = os.path.join(INDEX_DIR, 'buildfiles.md5')
 INT_INDEX = os.path.join(INDEX_DIR, 'integration.idx')
 CLASS_INDEX = os.path.join(INDEX_DIR, 'classes.idx')
@@ -245,7 +249,6 @@ PACKAGE_INDEX = os.path.join(INDEX_DIR, 'packages.idx')
 QCLASS_INDEX = os.path.join(INDEX_DIR, 'fqcn.idx')
 MODULE_INDEX = 'modules.idx'
 MODULE_INFO_MD5 = 'module-info.md5'
-VERSION_FILE = os.path.join(os.path.dirname(__file__), 'VERSION')
 
 # Regeular Expressions
 CC_EXT_RE = re.compile(r'.*\.(cc|cpp)$')
@@ -256,8 +259,6 @@ CC_OUTPUT_RE = re.compile(
     r'(?P<test_name>\w+)\s*,\s*(?P<method_name>\w+)\)\s*\{')
 # Used by locate command.
 CC_GREP_RE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\(\w+,'
-# Used by find command.
-CC_GREP_KWRE = r'^\s*(TYPED_TEST(_P)*|TEST(_F|_P)*)\s*\({2},'
 # e.g. /path/to/Javafile.java:package com.android.settings.accessibility
 # grab the path, Javafile(class) and com.android.settings.accessibility(package)
 CLASS_OUTPUT_RE = re.compile(r'(?P<java_path>.*/(?P<class>[A-Z]\w+)\.\w+)[:].*')
@@ -269,24 +270,26 @@ PACKAGE_OUTPUT_RE = re.compile(r'(?P<java_dir>/.*/).*[.](java|kt)[:]\s*package\s
 ATEST_RESULT_ROOT = '/tmp/atest_result'
 ATEST_TEST_RECORD_PROTO = 'test_record.proto'
 LATEST_RESULT_FILE = os.path.join(ATEST_RESULT_ROOT, 'LATEST', 'test_result')
-ACLOUD_REPORT_FILE_RE = re.compile(r'.*--report[_-]file(=|\s+)(?P<report_file>[\w/.]+)')
 TEST_WITH_MAINLINE_MODULES_RE = re.compile(r'(?P<test>.*)\[(?P<mainline_modules>.*'
                                            r'[.](apk|apks|apex))\]$')
 
-# Tests list which need vts_kernel_tests as test dependency
-REQUIRED_KERNEL_TEST_MODULES = [
+# Tests list which need vts_ltp_tests as test dependency
+REQUIRED_LTP_TEST_MODULES = [
     'vts_ltp_test_arm',
     'vts_ltp_test_arm_64',
-    'vts_linux_kselftest_arm_32',
-    'vts_linux_kselftest_arm_64',
-    'vts_linux_kselftest_x86_32',
-    'vts_linux_kselftest_x86_64',
     'vts_ltp_test_arm_64_lowmem',
     'vts_ltp_test_arm_64_hwasan',
     'vts_ltp_test_arm_64_lowmem_hwasan',
     'vts_ltp_test_arm_lowmem',
     'vts_ltp_test_x86_64',
     'vts_ltp_test_x86'
+]
+# Tests list which need vts_kselftest_tests as test dependency
+REQUIRED_KSELFTEST_TEST_MODULES = [
+    'vts_linux_kselftest_arm_32',
+    'vts_linux_kselftest_arm_64',
+    'vts_linux_kselftest_x86_32',
+    'vts_linux_kselftest_x86_64',
 ]
 
 # XTS suite set dependency.
@@ -329,9 +332,10 @@ UPLOAD_TEST_RESULT_MSG = 'Upload test result?'
 DISCOVERY_SERVICE = ''
 STORAGE2_TEST_URI = ''
 
-# messages that share among libraries.
-REBUILD_MODULE_INFO_MSG = ('(This can happen after a repo sync or if the test'
-                           ' is new. Running with "{}" may resolve the issue.)')
+# SSO constants.
+TOKEN_EXCHANGE_COMMAND = ''
+TOKEN_EXCHANGE_REQUEST = ''
+SCOPE = ''
 
 # Example arguments used in ~/.atest/config
 ATEST_EXAMPLE_ARGS = ('## Specify only one option per line; any test name/path will be ignored automatically.\n'
@@ -374,15 +378,15 @@ DEFAULT_EXCLUDE_NOT_PARAS = {'not_' + TF_PARA_INSTANT_APP,
                             'not_' + TF_PARA_MULTIABI}
 
 # ATest integration test related constants.
-INTEGRATION_TESTS = [os.path.join(
-    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
-    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
 VERIFY_DATA_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_commands.json')
 VERIFY_ENV_PATH = os.path.join(
     os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
     'tools/asuite/atest/test_data/test_environ.json')
+RUNNER_COMMAND_PATH = os.path.join(
+    os.environ.get(ANDROID_BUILD_TOP, os.getcwd()),
+    'tools/asuite/atest/test_data/runner_commands.json')
 
 # Gtest Types
 GTEST_REGULAR = 'regular native test'
@@ -400,3 +404,6 @@ LOG_SAVER_EXT_OPTION = ''
 REQUIRE_DEVICES_MSG = (
     'Please ensure there is at least one connected device via:\n'
     '    $ adb devices')
+
+# Default shard num.
+SHARD_NUM = 2

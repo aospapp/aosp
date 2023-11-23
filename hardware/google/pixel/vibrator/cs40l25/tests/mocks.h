@@ -44,7 +44,7 @@ class MockApi : public ::aidl::android::hardware::vibrator::Vibrator::HwApi {
     MOCK_METHOD1(setGpioFallScale, bool(uint32_t value));
     MOCK_METHOD1(setGpioRiseIndex, bool(uint32_t value));
     MOCK_METHOD1(setGpioRiseScale, bool(uint32_t value));
-    MOCK_METHOD1(pollVibeState, bool(bool value));
+    MOCK_METHOD2(pollVibeState, bool(uint32_t value, int32_t timeoutMs));
     MOCK_METHOD1(setClabEnable, bool(bool value));
     MOCK_METHOD1(getAvailablePwleSegments, bool(uint32_t *value));
     MOCK_METHOD0(hasPwle, bool());
@@ -73,6 +73,19 @@ class MockCal : public ::aidl::android::hardware::vibrator::Vibrator::HwCal {
     MOCK_METHOD1(debug, void(int fd));
 
     ~MockCal() override { destructor(); };
+};
+
+class MockStats : public ::aidl::android::hardware::vibrator::Vibrator::StatsApi {
+  public:
+    MOCK_METHOD0(destructor, void());
+    MOCK_METHOD1(logPrimitive, bool(uint16_t effectIndex));
+    MOCK_METHOD2(logWaveform, bool(uint16_t effectIndex, int32_t duration));
+    MOCK_METHOD1(logError, bool(uint16_t errorIndex));
+    MOCK_METHOD1(logLatencyStart, bool(uint16_t latencyIndex));
+    MOCK_METHOD0(logLatencyEnd, bool());
+    MOCK_METHOD1(debug, void(int fd));
+
+    ~MockStats() override { destructor(); };
 };
 
 class MockVibratorCallback : public aidl::android::hardware::vibrator::BnVibratorCallback {

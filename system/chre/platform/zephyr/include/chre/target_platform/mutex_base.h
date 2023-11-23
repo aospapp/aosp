@@ -17,7 +17,7 @@
 #ifndef CHRE_PLATFORM_ZEPHYR_MUTEX_BASE_H_
 #define CHRE_PLATFORM_ZEPHYR_MUTEX_BASE_H_
 
-#include <sys/mutex.h>
+#include <zephyr/sys/mutex.h>
 
 namespace chre {
 

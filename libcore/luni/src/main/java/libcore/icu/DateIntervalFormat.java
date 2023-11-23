@@ -17,81 +17,103 @@
 package libcore.icu;
 
 import android.compat.annotation.UnsupportedAppUsage;
-import android.icu.util.Calendar;
-import android.icu.util.ULocale;
 
-import java.text.FieldPosition;
-import java.util.TimeZone;
+import dalvik.annotation.compat.VersionCodes;
 
-import static libcore.icu.DateUtilsBridge.FORMAT_UTC;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.text.DateFormat;
+import java.util.Formatter;
 
 /**
- * This class is only kept for @UnsupportedAppUsage, and should not used by libcore/frameworks.
+ * This class is only kept for @UnsupportedAppUsage, and should not be used by libcore / frameworks.
  *
  * @hide
  */
 public final class DateIntervalFormat {
 
-  private DateIntervalFormat() {
-  }
+    private static final int FORMAT_SHOW_TIME = 0x00001;
+    private static final int FORMAT_12HOUR = 0x00040;
+    private static final int FORMAT_24HOUR = 0x00080;
 
-  @UnsupportedAppUsage
-  public static String formatDateRange(long startMs, long endMs, int flags, String olsonId) {
-    if ((flags & FORMAT_UTC) != 0) {
-      olsonId = "UTC";
-    }
-    // We create a java.util.TimeZone here to use libcore's data and libcore's olson ID / pseudo-tz
-    // logic.
-    TimeZone tz = (olsonId != null) ? TimeZone.getTimeZone(olsonId) : TimeZone.getDefault();
-    android.icu.util.TimeZone icuTimeZone = DateUtilsBridge.icuTimeZone(tz);
-    ULocale icuLocale = ULocale.getDefault();
-    return formatDateRange(icuLocale, icuTimeZone, startMs, endMs, flags);
-  }
-
-  // This is our slightly more sensible internal API. (A better replacement would take a
-  // skeleton instead of int flags.)
-  public static String formatDateRange(ULocale icuLocale, android.icu.util.TimeZone icuTimeZone,
-      long startMs, long endMs, int flags) {
-    Calendar startCalendar = DateUtilsBridge.createIcuCalendar(icuTimeZone, icuLocale, startMs);
-    Calendar endCalendar;
-    if (startMs == endMs) {
-      endCalendar = startCalendar;
-    } else {
-      endCalendar = DateUtilsBridge.createIcuCalendar(icuTimeZone, icuLocale, endMs);
+    private DateIntervalFormat() {
     }
 
-    // Special handling when the range ends at midnight:
-    // - If we're not showing times, and the range is non-empty, we fudge the end date so we don't
-    //   count the day that's about to start.
-    // - If we are showing times, and the range ends at exactly 00:00 of the day following its start
-    //   (which can be thought of as 24:00 the same day), we fudge the end date so we don't show the
-    //    dates --- unless the start is anything displayed as 00:00, in which case we include both
-    //    dates to disambiguate.
-    // This is not the behavior of icu4j's DateIntervalFormat, but it's the required behavior
-    // of Android's DateUtils.formatDateRange.
-    if (isExactlyMidnight(endCalendar)) {
-      boolean showTime =
-          (flags & DateUtilsBridge.FORMAT_SHOW_TIME) == DateUtilsBridge.FORMAT_SHOW_TIME;
-      boolean endsDayAfterStart = DateUtilsBridge.dayDistance(startCalendar, endCalendar) == 1;
-      if ((!showTime && startMs != endMs)
-          || (endsDayAfterStart
-                  && !DateUtilsBridge.isDisplayMidnightUsingSkeleton(startCalendar))) {
-        endCalendar.add(Calendar.DAY_OF_MONTH, -1);
-      }
+    /**
+     * Do not use this method because it's only kept for app backward compatibility.
+     * To format a date range, please use {@link android.icu.text.DateIntervalFormat} instead.
+     *
+     * @implNote best-effort implementation to invoke the frameworks' implementation. If it fails
+     * when framework.jar is absent in the boot class path, it returns null instead of
+     * throwing exception to avoid crash.
+     *
+     * @return null if the corresponding frameworks' method is not found.
+     */
+    @UnsupportedAppUsage(maxTargetSdk = VersionCodes.TIRAMISU,
+            publicAlternatives = "Use {@code android.text.format.DateUtils#formatDateRange("
+                    + "Context, Formatter, long, long, int, String)} instead.")
+    public static String formatDateRange(long startMs, long endMs, int flags, String olsonId) {
+        // First, try the internal method in android.text.format.DateIntervalFormat, which
+        // can be modified by the OEMs.
+        Method m = getFrameworksDateIntervaFormatMethod();
+        if (m != null) {
+            try {
+                return (String) m.invoke(null, startMs, endMs, flags, olsonId);
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                return null;
+            }
+        }
+
+        // Second, try the public SDK method in android.text.format.DateUtils.
+        m = getDateUtilsMethod();
+        if (m != null) {
+            try {
+                // To pass null frameworks' Context pointer, pre-process the flags here.
+                if ((flags & (FORMAT_SHOW_TIME | FORMAT_12HOUR | FORMAT_24HOUR))
+                        == FORMAT_SHOW_TIME) {
+                    // Make an arbitrary choice of using 24-hour format if is24Hour is null.
+                    if (DateFormat.is24Hour == null || DateFormat.is24Hour) {
+                        flags |= FORMAT_24HOUR;
+                    } else {
+                        flags |= FORMAT_12HOUR;
+                    }
+                }
+
+                Formatter formatter = new Formatter();
+                m.invoke(null, /*context="*/ null, formatter, startMs, endMs, flags, olsonId);
+                return formatter.toString();
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                return null;
+            }
+        }
+
+        // If the above 2 attempts fail, it's likely that frameworks.jar is not present in the
+        // boot class path, and no 3rd party app code is running in this process. It should be safe
+        // to return null here.
+        return null;
     }
 
-    String skeleton = DateUtilsBridge.toSkeleton(startCalendar, endCalendar, flags);
-    android.icu.text.DateIntervalFormat formatter =
-            android.icu.text.DateIntervalFormat.getInstance(skeleton, icuLocale);
-    formatter.setTimeZone(icuTimeZone);
-    return formatter.format(startCalendar, endCalendar, new StringBuffer(),
-        new FieldPosition(0)).toString();
-  }
+    private static Method getFrameworksDateIntervaFormatMethod() {
+        try {
+            Class<?> cls = Class.forName("android.text.format.DateIntervalFormat");
+            Method m = cls.getDeclaredMethod("formatDateRange", long.class, long.class, int.class,
+                    String.class);
+            m.setAccessible(true);
+            return m;
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            return null;
+        }
+    }
 
-  private static boolean isExactlyMidnight(Calendar c) {
-    return c.get(Calendar.HOUR_OF_DAY) == 0 &&
-        c.get(Calendar.MINUTE) == 0 &&
-        c.get(Calendar.SECOND) == 0 &&
-        c.get(Calendar.MILLISECOND) == 0;
-  }
+    private static Method getDateUtilsMethod() {
+        try {
+            Class<?> cls = Class.forName("android.text.format.DateUtils");
+            Method m = cls.getMethod("formatDateRange", Class.forName("android.content.Context"),
+                    Formatter.class, long.class, long.class, int.class, String.class);
+            return m;
+        } catch (ClassNotFoundException | NoSuchMethodException e) {
+            return null;
+        }
+    }
+
 }

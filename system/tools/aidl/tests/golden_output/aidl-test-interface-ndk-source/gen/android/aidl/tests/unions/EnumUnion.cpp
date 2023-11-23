@@ -9,6 +9,8 @@ namespace tests {
 namespace unions {
 const char* EnumUnion::descriptor = "android.aidl.tests.unions.EnumUnion";
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 binder_status_t EnumUnion::readFromParcel(const AParcel* _parcel) {
   binder_status_t _aidl_ret_status;
   int32_t _aidl_tag;
@@ -34,8 +36,6 @@ binder_status_t EnumUnion::readFromParcel(const AParcel* _parcel) {
       set<longEnum>(std::move(_aidl_value));
     }
     return STATUS_OK; }
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   case deprecatedField: {
     int32_t _aidl_value;
     if ((_aidl_ret_status = ::ndk::AParcel_readData(_parcel, &_aidl_value)) != STATUS_OK) return _aidl_ret_status;
@@ -46,7 +46,6 @@ binder_status_t EnumUnion::readFromParcel(const AParcel* _parcel) {
       set<deprecatedField>(std::move(_aidl_value));
     }
     return STATUS_OK; }
-  #pragma clang diagnostic pop
   }
   return STATUS_BAD_VALUE;
 }
@@ -63,6 +62,7 @@ binder_status_t EnumUnion::writeToParcel(AParcel* _parcel) const {
   }
   __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
 }
+#pragma clang diagnostic pop
 
 }  // namespace unions
 }  // namespace tests

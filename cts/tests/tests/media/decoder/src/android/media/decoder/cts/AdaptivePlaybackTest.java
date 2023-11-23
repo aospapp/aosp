@@ -17,9 +17,12 @@
 package android.media.decoder.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeFalse;
 
+import android.hardware.display.DisplayManager;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaCodecInfo.CodecCapabilities;
@@ -29,27 +32,22 @@ import android.media.MediaFormat;
 import android.media.cts.MediaHeavyPresubmitTest;
 import android.media.cts.MediaTestBase;
 import android.media.cts.OutputSurface;
-import android.media.cts.Preconditions;
 import android.media.cts.TestArgs;
+import android.opengl.GLES20;
 import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+import android.view.Display;
 import android.view.Surface;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
-
-import android.opengl.GLES20;
-
-import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.ext.junit.runners.AndroidJUnit4;
+import com.android.compatibility.common.util.Preconditions;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
-
-import javax.microedition.khronos.opengles.GL10;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -61,10 +59,7 @@ import java.util.Vector;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.zip.CRC32;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeFalse;
+import javax.microedition.khronos.opengles.GL10;
 
 @MediaHeavyPresubmitTest
 @AppModeFull
@@ -285,7 +280,7 @@ public class AdaptivePlaybackTest extends MediaTestBase {
         return argsList;
     }
 
-    @Parameterized.Parameters(name = "{index}({0})")
+    @Parameterized.Parameters(name = "{index}_{0}")
     public static Collection<Object[]> input() {
         final List<Object> exhaustiveArgsList = Arrays.asList(new Object[]{
                 H264(), HEVC(), VP8(), VP9(), AV1(), Mpeg2(), Mpeg4(), H263()
@@ -908,6 +903,9 @@ public class AdaptivePlaybackTest extends MediaTestBase {
         private final static String TAG = "AdaptiveDecoder";
         final long kTimeOutUs = 5000;
         final long kCSDTimeOutUs = 1000000;
+        // Sufficiently large number of frames to expect actual render on surface
+        static final int RENDERED_FRAMES_THRESHOLD  = 32;
+        static final long NSECS_IN_1SEC = 1000000000;
         MediaCodec mCodec;
         ByteBuffer[] mInputBuffers;
         ByteBuffer[] mOutputBuffers;
@@ -920,6 +918,8 @@ public class AdaptivePlaybackTest extends MediaTestBase {
         CopyOnWriteArrayList<String> mWarnings;
         Vector<Long> mRenderedTimeStamps; // using Vector as it is implicitly synchronized
         long mLastRenderNanoTime;
+        long mLastReleaseBucket;
+        long mBucketNs;
         int mFramesNotifiedRendered;
         // True iff previous dequeue request returned INFO_OUTPUT_FORMAT_CHANGED.
         boolean mOutputFormatChanged;
@@ -928,6 +928,7 @@ public class AdaptivePlaybackTest extends MediaTestBase {
         // Save the timestamps of the first frame of each sequence.
         // Note: this is the only time output format change could happen.
         ArrayList<Long> mFirstQueueTimestamps;
+        Object mRenderLock = new Object();
 
         public Decoder(String codecName) {
             MediaCodec codec = null;
@@ -944,6 +945,15 @@ public class AdaptivePlaybackTest extends MediaTestBase {
             mWarnings = new CopyOnWriteArrayList<String>();
             mRenderedTimeStamps = new Vector<Long>();
             mLastRenderNanoTime = System.nanoTime();
+
+            mLastReleaseBucket = 0;
+            DisplayManager dm = getActivity().getSystemService(DisplayManager.class);
+            Display display = (dm == null) ? null : dm.getDisplay(Display.DEFAULT_DISPLAY);
+            // Pick a reasonable default of 30 fps if display is not detected for some reason
+            float refreshRate = (display == null) ? 30 : display.getRefreshRate();
+            // Two buckets per refresh interval. No more than 3 buffers queued per VSYNC period
+            mBucketNs = (long) ((double) NSECS_IN_1SEC / refreshRate / 2);
+
             mFramesNotifiedRendered = 0;
             mOutputFormatChanged = false;
             mOutputFormatChangeCount = 0;
@@ -953,14 +963,16 @@ public class AdaptivePlaybackTest extends MediaTestBase {
         }
 
         public void onFrameRendered(MediaCodec codec, long presentationTimeUs, long nanoTime) {
-            final long NSECS_IN_1SEC = 1000000000;
             if (!mRenderedTimeStamps.remove(presentationTimeUs)) {
                 warn("invalid (rendered) timestamp " + presentationTimeUs + ", rendered " +
                         mRenderedTimeStamps);
             }
             assert nanoTime > mLastRenderNanoTime;
             mLastRenderNanoTime = nanoTime;
-            ++mFramesNotifiedRendered;
+            synchronized (mRenderLock) {
+                ++mFramesNotifiedRendered;
+                mRenderLock.notifyAll();
+            }
             assert nanoTime > System.nanoTime() - NSECS_IN_1SEC;
         }
 
@@ -1009,18 +1021,33 @@ public class AdaptivePlaybackTest extends MediaTestBase {
             mQueuedEos = false;
             mRenderedTimeStamps.clear();
             mLastRenderNanoTime = System.nanoTime();
+            mLastReleaseBucket = 0;
             mFramesNotifiedRendered = 0;
         }
 
         public void stop() {
             Log.i(TAG, "stop");
-            mCodec.stop();
-            // if we have queued 32 frames or more, at least one should have been notified
-            // to have rendered.
-            if (mRenderedTimeStamps.size() > 32 && mFramesNotifiedRendered == 0) {
-                fail("rendered " + mRenderedTimeStamps.size() +
-                        " frames, but none have been notified.");
+            if (mRenderedTimeStamps.size() > RENDERED_FRAMES_THRESHOLD) {
+                synchronized (mRenderLock) {
+                    long untilMs = System.currentTimeMillis() + 1000;
+                    while (mFramesNotifiedRendered == 0) {
+                        long nowMs = System.currentTimeMillis();
+                        if (nowMs >= untilMs) {
+                            break;
+                        }
+                        try {
+                            mRenderLock.wait(untilMs - nowMs);
+                        } catch (InterruptedException e) {
+                            break;
+                        }
+                    }
+                    Log.i(TAG, "waited for " + (System.currentTimeMillis() + 1000 - untilMs)
+                            + "ms for rendering");
+                }
+                assertFalse("rendered " + mRenderedTimeStamps.size()
+                        + " frames, but none have been notified.", mFramesNotifiedRendered == 0);
             }
+            mCodec.stop();
         }
 
         public void flush() {
@@ -1071,16 +1098,28 @@ public class AdaptivePlaybackTest extends MediaTestBase {
                 }
                 mCodec.releaseOutputBuffer(ix, doRender);
             } else if (doRender) {
-                // If using SurfaceTexture, as soon as we call releaseOutputBuffer, the
-                // buffer will be forwarded to SurfaceTexture to convert to a texture.
-                // The API doesn't guarantee that the texture will be available before
-                // the call returns, so we need to wait for the onFrameAvailable callback
-                // to fire.  If we don't wait, we risk dropping frames.
-                mSurface.prepare();
-                mCodec.releaseOutputBuffer(ix, doRender);
-                mSurface.waitForDraw();
                 if (mDoChecksum) {
+                    // If using SurfaceTexture, as soon as we call releaseOutputBuffer, the
+                    // buffer will be forwarded to SurfaceTexture to convert to a texture.
+                    // The API doesn't guarantee that the texture will be available before
+                    // the call returns, so we need to wait for the onFrameAvailable callback
+                    // to fire.  If we don't wait, we risk dropping frames.
+                    mSurface.prepare();
+                    mCodec.releaseOutputBuffer(ix, doRender);
+                    mSurface.waitForDraw();
                     sum = mSurface.checksum();
+                } else {
+                    // If using SurfaceView, throttle rendering by dropping frames if the
+                    // last rendered frame is in the same bucket as this frame.
+                    long renderTimeNs = System.nanoTime();
+                    long renderBucket = renderTimeNs / mBucketNs;
+                    if (renderBucket == mLastReleaseBucket) {
+                        mCodec.releaseOutputBuffer(ix, false);
+                        mRenderedTimeStamps.remove(info.presentationTimeUs);
+                    } else {
+                        mCodec.releaseOutputBuffer(ix, renderTimeNs);
+                        mLastReleaseBucket = renderBucket;
+                    }
                 }
             } else {
                 mCodec.releaseOutputBuffer(ix, doRender);
@@ -1525,7 +1564,7 @@ class Codec {
     }
 }
 
-class CodecList extends ArrayList<Codec> { };
+class CodecList extends ArrayList<Codec> {}
 
 /* all codecs of mime, plus named codec if exists */
 class CodecFamily extends CodecList {

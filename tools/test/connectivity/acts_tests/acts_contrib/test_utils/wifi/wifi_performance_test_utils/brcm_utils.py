@@ -378,16 +378,17 @@ class LinkLayerStats():
     LL_STATS_CLEAR_CMD = 'wl dump_clear ampdu; wl reset_cnts;'
     BW_REGEX = re.compile(r'Chanspec:.+ (?P<bandwidth>[0-9]+)MHz')
     MCS_REGEX = re.compile(r'(?P<count>[0-9]+)\((?P<percent>[0-9]+)%\)')
-    RX_REGEX = re.compile(r'RX (?P<mode>\S+)\s+:\s*(?P<nss1>[0-9, ,(,),%]*)'
-                          '\n\s*:?\s*(?P<nss2>[0-9, ,(,),%]*)')
-    TX_REGEX = re.compile(r'TX (?P<mode>\S+)\s+:\s*(?P<nss1>[0-9, ,(,),%]*)'
-                          '\n\s*:?\s*(?P<nss2>[0-9, ,(,),%]*)')
+    RX_REGEX = re.compile(
+        r'RX (?P<mode>MCS|VHT|HE|EHT)\s+:\s*(?P<nss1>[0-9, ,(,),%]*)'
+        '\n\s*:?\s*(?P<nss2>[0-9, ,(,),%]*)')
+    TX_REGEX = re.compile(
+        r'TX (?P<mode>MCS|VHT|HE|EHT)\s+:\s*(?P<nss1>[0-9, ,(,),%]*)'
+        '\n\s*:?\s*(?P<nss2>[0-9, ,(,),%]*)')
     TX_PER_REGEX = re.compile(
         r'(?P<mode>\S+) PER\s+:\s*(?P<nss1>[0-9, ,(,),%]*)'
         '\n\s*:?\s*(?P<nss2>[0-9, ,(,),%]*)')
-    RX_FCS_REGEX = re.compile(
-        r'rxbadfcs (?P<rx_bad_fcs>[0-9]*).+\n.+goodfcs (?P<rx_good_fcs>[0-9]*)'
-    )
+    RX_GOOD_FCS_REGEX = re.compile(r'goodfcs (?P<rx_good_fcs>[0-9]*)')
+    RX_BAD_FCS_REGEX = re.compile(r'rxbadfcs (?P<rx_bad_fcs>[0-9]*)')
     RX_AGG_REGEX = re.compile(r'rxmpduperampdu (?P<aggregation>[0-9]*)')
     TX_AGG_REGEX = re.compile(r' mpduperampdu (?P<aggregation>[0-9]*)')
     TX_AGG_STOP_REGEX = re.compile(
@@ -405,6 +406,7 @@ class LinkLayerStats():
         self.llstats_enabled = llstats_enabled
         self.llstats_cumulative = self._empty_llstats()
         self.llstats_incremental = self._empty_llstats()
+        self.bandwidth = None
 
     def update_stats(self):
         if self.llstats_enabled:
@@ -414,8 +416,9 @@ class LinkLayerStats():
                 self.dut.adb.shell_nb(self.LL_STATS_CLEAR_CMD)
 
                 wl_join = self.dut.adb.shell("wl status")
-                self.bandwidth = int(
-                    re.search(self.BW_REGEX, wl_join).group('bandwidth'))
+                if not self.bandwidth:
+                    self.bandwidth = int(
+                        re.search(self.BW_REGEX, wl_join).group('bandwidth'))
             except:
                 llstats_output = ''
         else:
@@ -494,33 +497,32 @@ class LinkLayerStats():
         rx_agg_match = re.search(self.RX_AGG_REGEX, llstats_output)
         tx_agg_match = re.search(self.TX_AGG_REGEX, llstats_output)
         tx_agg_stop_match = re.search(self.TX_AGG_STOP_REGEX, llstats_output)
-        rx_fcs_match = re.search(self.RX_FCS_REGEX, llstats_output)
+        rx_good_fcs_match = re.search(self.RX_GOOD_FCS_REGEX, llstats_output)
+        rx_bad_fcs_match = re.search(self.RX_BAD_FCS_REGEX, llstats_output)
 
-        if rx_agg_match and tx_agg_match and tx_agg_stop_match and rx_fcs_match:
-            agg_stop_dict = collections.OrderedDict(
-                rx_aggregation=int(rx_agg_match.group('aggregation')),
-                tx_aggregation=int(tx_agg_match.group('aggregation')),
-                tx_agg_tried=int(tx_agg_stop_match.group('agg_tried')),
-                tx_agg_canceled=int(tx_agg_stop_match.group('agg_canceled')),
-                rx_good_fcs=int(rx_fcs_match.group('rx_good_fcs')),
-                rx_bad_fcs=int(rx_fcs_match.group('rx_bad_fcs')),
-                agg_stop_reason=collections.OrderedDict())
+        mpdu_stats = collections.OrderedDict(
+            rx_aggregation=int(rx_agg_match.group('aggregation'))
+            if rx_agg_match else 0,
+            tx_aggregation=int(tx_agg_match.group('aggregation'))
+            if tx_agg_match else 0,
+            tx_agg_tried=int(tx_agg_stop_match.group('agg_tried'))
+            if tx_agg_stop_match else 0,
+            tx_agg_canceled=int(tx_agg_stop_match.group('agg_canceled'))
+            if tx_agg_stop_match else 0,
+            rx_good_fcs=int(rx_good_fcs_match.group('rx_good_fcs'))
+            if rx_good_fcs_match else 0,
+            rx_bad_fcs=int(rx_bad_fcs_match.group('rx_bad_fcs'))
+            if rx_bad_fcs_match else 0,
+            agg_stop_reason=collections.OrderedDict())
+        if tx_agg_stop_match:
             agg_reason_match = re.finditer(
                 self.TX_AGG_STOP_REASON_REGEX,
                 tx_agg_stop_match.group('agg_stop_reason'))
             for reason_match in agg_reason_match:
-                agg_stop_dict['agg_stop_reason'][reason_match.group(
+                mpdu_stats['agg_stop_reason'][reason_match.group(
                     'reason')] = reason_match.group('value')
 
-        else:
-            agg_stop_dict = collections.OrderedDict(rx_aggregation=0,
-                                                    tx_aggregation=0,
-                                                    tx_agg_tried=0,
-                                                    tx_agg_canceled=0,
-                                                    rx_good_fcs=0,
-                                                    rx_bad_fcs=0,
-                                                    agg_stop_reason=None)
-        return agg_stop_dict
+        return mpdu_stats
 
     def _generate_stats_summary(self, llstats_dict):
         llstats_summary = collections.OrderedDict(common_tx_mcs=None,
@@ -547,13 +549,17 @@ class LinkLayerStats():
         llstats_summary['common_tx_mcs_count'] = numpy.max(tx_mpdu)
         llstats_summary['common_rx_mcs'] = mcs_ids[numpy.argmax(rx_mpdu)]
         llstats_summary['common_rx_mcs_count'] = numpy.max(rx_mpdu)
-        if sum(tx_mpdu) and sum(rx_mpdu):
+        if sum(tx_mpdu):
             llstats_summary['mean_tx_phy_rate'] = numpy.average(
                 phy_rates, weights=tx_mpdu)
-            llstats_summary['mean_rx_phy_rate'] = numpy.average(
-                phy_rates, weights=rx_mpdu)
             llstats_summary['common_tx_mcs_freq'] = (
                 llstats_summary['common_tx_mcs_count'] / sum(tx_mpdu))
+        else:
+            llstats_summary['mean_tx_phy_rate'] = 0
+            llstats_summary['common_tx_mcs_freq'] = 0
+        if sum(rx_mpdu):
+            llstats_summary['mean_rx_phy_rate'] = numpy.average(
+                phy_rates, weights=rx_mpdu)
             llstats_summary['common_rx_mcs_freq'] = (
                 llstats_summary['common_rx_mcs_count'] / sum(rx_mpdu))
             total_rx_frames = llstats_dict['mpdu_stats'][
@@ -561,7 +567,11 @@ class LinkLayerStats():
             if total_rx_frames:
                 llstats_summary['rx_per'] = (
                     llstats_dict['mpdu_stats']['rx_bad_fcs'] /
-                    (total_rx_frames)) * 100
+                    total_rx_frames) * 100
+        else:
+            llstats_summary['mean_rx_phy_rate'] = 0
+            llstats_summary['common_rx_mcs_freq'] = 0
+            llstats_summary['rx_per'] = 0
         return llstats_summary
 
     def _update_stats(self, llstats_output):

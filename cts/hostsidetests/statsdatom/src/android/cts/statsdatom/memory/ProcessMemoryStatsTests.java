@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.memory;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -41,7 +42,7 @@ public class ProcessMemoryStatsTests extends DeviceTestCase implements IBuildRec
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -66,10 +67,10 @@ public class ProcessMemoryStatsTests extends DeviceTestCase implements IBuildRec
         try (AutoCloseable a = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, "StatsdCtsForegroundActivity", "action",
                 "action.show_notification")) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
             // Trigger a pull and wait for new pull before killing the process.
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         }
 
         // Assert about ProcessMemoryState for the test app.
@@ -103,10 +104,10 @@ public class ProcessMemoryStatsTests extends DeviceTestCase implements IBuildRec
         try (AutoCloseable a = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, "StatsdCtsForegroundActivity", "action",
                 "action.show_notification")) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
             // Trigger a pull and wait for new pull before killing the process.
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         }
 
         // Assert about ProcessMemoryHighWaterMark for the test app, statsd and system server.
@@ -145,7 +146,7 @@ public class ProcessMemoryStatsTests extends DeviceTestCase implements IBuildRec
         try (AutoCloseable a = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, "StatsdCtsForegroundActivity", "action",
                 "action.show_notification")) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
         }
 

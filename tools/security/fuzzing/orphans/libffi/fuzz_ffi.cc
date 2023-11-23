@@ -158,7 +158,6 @@ void runMainFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
     // Prep Closure
     ffi_closure* pcl = NULL;
     void* code;
-    ffi_status ret;
 
     pcl = reinterpret_cast<ffi_closure*>(
             ffi_closure_alloc(sizeof(ffi_closure), &code));
@@ -170,15 +169,8 @@ void runMainFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
             MAX_RESP_SIZE);
     std::vector<uint8_t> data_vector =
             dataProvider->ConsumeBytes<uint8_t>(buf_size);
-    ret = ffi_prep_closure_loc(
-            pcl,
-            cif,
-            closure_fn,
-            data_vector.data(),
-            code);
-    if (ret != FFI_OK) {
-        ffi_closure_free(pcl);
-    }
+    ffi_prep_closure_loc(pcl, cif, closure_fn, data_vector.data(), code);
+    ffi_closure_free(pcl);
 }
 
 void runRawFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
@@ -197,7 +189,6 @@ void runRawFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
     #if FFI_CLOSURES
     ffi_raw_closure* pcl = NULL;
     void* code;
-    ffi_status ret;
 
     pcl = static_cast<ffi_raw_closure*>(
             ffi_closure_alloc(sizeof(ffi_raw_closure), &code));
@@ -208,15 +199,9 @@ void runRawFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
             MAX_RESP_SIZE);
     std::vector<uint8_t> data_vector =
             dataProvider->ConsumeBytes<uint8_t>(buf_size);
-    ret = ffi_prep_raw_closure_loc(
-            pcl,
-            cif,
-            raw_closure_fn,
-            data_vector.data(),
-            code);
-    if (ret != FFI_OK) {
-        ffi_closure_free(pcl);
-    }
+    ffi_prep_raw_closure_loc(pcl, cif, raw_closure_fn, data_vector.data(),
+                             code);
+    ffi_closure_free(pcl);
 
     #endif  // FFI_CLOSURES
     #endif  // !FFI_NO_RAW_API && !FFI_NATIVE_RAW_API
@@ -242,7 +227,6 @@ void runJavaFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
     #if FFI_CLOSURES
     ffi_java_raw_closure* pcl = NULL;
     void* code;
-    ffi_status ret;
 
     pcl = static_cast<ffi_java_raw_closure*>(
             ffi_closure_alloc(sizeof(ffi_java_raw_closure), &code));
@@ -253,15 +237,11 @@ void runJavaFunctions(ffi_cif* cif, void* resp_buf, void** arg_array,
             MAX_RESP_SIZE);
     std::vector<uint8_t> data_vector =
             dataProvider->ConsumeBytes<uint8_t>(buf_size);
-    ret = ffi_prep_java_raw_closure_loc(
-            pcl,
-            cif,
-            raw_closure_fn,
-            data_vector.data(),
-            code);
-    if (ret != FFI_OK) {
-        ffi_closure_free(pcl);
-    }
+    ffi_prep_java_raw_closure_loc(pcl, cif, raw_closure_fn, data_vector.data(),
+                                  code);
+
+    ffi_closure_free(pcl);
+
 
     #endif  // FFI_CLOSURES
     #endif  // !FFI_NATIVE_RAW_API

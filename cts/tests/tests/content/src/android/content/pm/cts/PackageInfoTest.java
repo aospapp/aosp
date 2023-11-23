@@ -50,7 +50,7 @@ public class PackageInfoTest extends AndroidTestCase {
                                 | PackageManager.GET_INSTRUMENTATION
                                 | PackageManager.GET_PERMISSIONS
                                 | PackageManager.GET_PROVIDERS | PackageManager.GET_RECEIVERS
-                                | PackageManager.GET_SERVICES | PackageManager.GET_ATTRIBUTIONS
+                                | PackageManager.GET_SERVICES | PackageManager.GET_ATTRIBUTIONS_LONG
                                 | PackageManager.GET_SIGNATURES
                                 | PackageManager.GET_UNINSTALLED_PACKAGES));
     }
@@ -144,7 +144,7 @@ public class PackageInfoTest extends AndroidTestCase {
             assertNotNull(actual);
             assertEquals(expected.length, actual.length);
             for (int i = 0; i < expected.length; i++) {
-                actual[i].equals(expected[i]);
+                assertEquals(expected[i], actual[i]);
             }
         } else if (expected == null) {
             assertNull(actual);

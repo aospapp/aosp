@@ -22,7 +22,7 @@ java_library_static {
     srcs: [ "src/**/*.java" ],
     libs: [
         "androidx.test.runner",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "app-helpers-handheld-interfaces",
         "common-platform-scenarios",
         "handheld-app-helpers",

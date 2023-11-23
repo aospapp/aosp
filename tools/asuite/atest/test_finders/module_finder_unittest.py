@@ -16,43 +16,50 @@
 
 """Unittests for module_finder."""
 
+# pylint: disable=invalid-name
 # pylint: disable=line-too-long
+# pylint: disable=missing-function-docstring
 # pylint: disable=too-many-lines
 # pylint: disable=unsubscriptable-object
 
 import copy
 import re
+import tempfile
 import unittest
 import os
 
+from pathlib import Path
 from unittest import mock
 
-import atest_error
-import atest_configs
-import atest_utils
-import constants
-import module_info
-import unittest_constants as uc
-import unittest_utils
+# pylint: disable=import-error
+from pyfakefs import fake_filesystem_unittest
 
-from test_finders import module_finder
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_runners import atest_tf_test_runner as atf_tr
+from atest import atest_error
+from atest import atest_configs
+from atest import atest_utils
+from atest import constants
+from atest import module_info
+from atest import unittest_constants as uc
+from atest import unittest_utils
+
+from atest.test_finders import module_finder
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_runners import atest_tf_test_runner as atf_tr
 
 MODULE_CLASS = '%s:%s' % (uc.MODULE_NAME, uc.CLASS_NAME)
 MODULE_PACKAGE = '%s:%s' % (uc.MODULE_NAME, uc.PACKAGE)
 CC_MODULE_CLASS = '%s:%s' % (uc.CC_MODULE_NAME, uc.CC_CLASS_NAME)
 KERNEL_TEST_CLASS = 'test_class_1'
 KERNEL_TEST_CONFIG = 'KernelTest.xml.data'
-KERNEL_MODULE_CLASS = '%s:%s' % (constants.REQUIRED_KERNEL_TEST_MODULES[0],
+KERNEL_MODULE_CLASS = '%s:%s' % (constants.REQUIRED_LTP_TEST_MODULES[0],
                                  KERNEL_TEST_CLASS)
 KERNEL_CONFIG_FILE = os.path.join(uc.TEST_DATA_DIR, KERNEL_TEST_CONFIG)
 KERNEL_CLASS_FILTER = test_info.TestFilter(KERNEL_TEST_CLASS, frozenset())
 KERNEL_MODULE_CLASS_DATA = {constants.TI_REL_CONFIG: KERNEL_CONFIG_FILE,
                             constants.TI_FILTER: frozenset([KERNEL_CLASS_FILTER])}
 KERNEL_MODULE_CLASS_INFO = test_info.TestInfo(
-    constants.REQUIRED_KERNEL_TEST_MODULES[0],
+    constants.REQUIRED_LTP_TEST_MODULES[0],
     atf_tr.AtestTradefedTestRunner.NAME,
     uc.CLASS_BUILD_TARGETS, KERNEL_MODULE_CLASS_DATA)
 FLAT_METHOD_INFO = test_info.TestInfo(
@@ -96,6 +103,170 @@ def classoutside_side_effect(find_cmd, shell=False):
         return uc.FIND_ONE
     return None
 
+class ModuleFinderFindTestByModuleName(fake_filesystem_unittest.TestCase):
+    """Unit tests for module_finder.py"""
+
+    def setUp(self):
+        self.setUpPyfakefs()
+        self.build_top = Path('/')
+        self.product_out = self.build_top.joinpath('out/product')
+        self.product_out.mkdir(parents=True, exist_ok=True)
+        self.module_info_file = self.product_out.joinpath('atest_merged_dep.json')
+        self.fs.create_file(
+            self.module_info_file,
+            contents=('''
+                { "CtsJankDeviceTestCases": {
+                    "class":["APPS"],
+                    "path":["foo/bar/jank"],
+                    "tags": ["optional"],
+                    "installed": ["path/to/install/CtsJankDeviceTestCases.apk"],
+                    "test_config": ["foo/bar/jank/AndroidTest.xml",
+                                    "foo/bar/jank/CtsJankDeviceTestCases2.xml"],
+                    "module_name": "CtsJankDeviceTestCases" }
+                }''')
+            )
+
+    @mock.patch('builtins.input', return_value='1')
+    def test_find_test_by_module_name_w_multiple_config(self, _):
+        """Test find_test_by_module_name (test_config_select)"""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.test_config_select = True
+        # The original test name will be updated to the config name when multiple
+        # configs were found.
+        expected_test_info = create_test_info(
+            test_name='CtsJankDeviceTestCases2',
+            raw_test_name='CtsJankDeviceTestCases',
+            test_runner='AtestTradefedTestRunner',
+            module_class=['APPS'],
+            build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
+            data={'rel_config': 'foo/bar/jank/CtsJankDeviceTestCases2.xml',
+                  'filter': frozenset()}
+            )
+        self.fs.create_file(
+            self.build_top.joinpath('foo/bar/jank/CtsJankDeviceTestCases2.xml'),
+            contents=('''
+                <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+                    <option name="test-file-name" value="CtsUiDeviceTestCases.apk" />
+                </target_preparer>
+            ''')
+            )
+
+        mod_info = module_info.ModuleInfo(module_file=self.module_info_file)
+        mod_finder = module_finder.ModuleFinder(module_info=mod_info)
+        t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
+
+        self.assertEqual(len(t_infos), 1)
+        unittest_utils.assert_equal_testinfos(self,
+            t_infos[0], expected_test_info)
+
+    def test_find_test_by_module_name_w_multiple_config_all(self):
+        """Test find_test_by_module_name."""
+        atest_configs.GLOBAL_ARGS = mock.Mock()
+        atest_configs.GLOBAL_ARGS.test_config_select = False
+        expected_test_info = [
+            create_test_info(
+                test_name='CtsJankDeviceTestCases',
+                test_runner='AtestTradefedTestRunner',
+                module_class=['APPS'],
+                build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
+                data={'rel_config': 'foo/bar/jank/AndroidTest.xml',
+                      'filter': frozenset()}
+        ),
+            create_test_info(
+                test_name='CtsJankDeviceTestCases2',
+                raw_test_name='CtsJankDeviceTestCases',
+                test_runner='AtestTradefedTestRunner',
+                module_class=['APPS'],
+                build_targets={'MODULES-IN-foo-bar-jank', 'CtsJankDeviceTestCases'},
+                data={'rel_config': 'foo/bar/jank/CtsJankDeviceTestCases2.xml',
+                      'filter': frozenset()}
+            )]
+        self.fs.create_file(
+            self.build_top.joinpath('foo/bar/jank/AndroidTest.xml'),
+            contents=('''
+                <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+                    <option name="test-file-name" value="CtsUiDeviceTestCases.apk" />
+                </target_preparer>
+            ''')
+            )
+
+        mod_info = module_info.ModuleInfo(module_file=self.module_info_file)
+        mod_finder = module_finder.ModuleFinder(module_info=mod_info)
+        t_infos = mod_finder.find_test_by_module_name('CtsJankDeviceTestCases')
+
+        self.assertEqual(len(t_infos), 2)
+        unittest_utils.assert_equal_testinfos(self,
+            t_infos[0], expected_test_info[0])
+        unittest_utils.assert_equal_testinfos(self,
+            t_infos[1], expected_test_info[1])
+
+class ModuleFinderFindTestByPath(fake_filesystem_unittest.TestCase):
+    """Test cases that invoke find_test_by_path."""
+    def setUp(self):
+        self.setUpPyfakefs()
+
+    # pylint: disable=protected-access
+    def create_empty_module_info(self):
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        self.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+    def create_module_info(self, modules=None):
+        mod_info = self.create_empty_module_info()
+        modules = modules or []
+
+        for m in modules:
+            mod_info.name_to_module_info[m['module_name']] = m
+            for path in m['path']:
+                if path in mod_info.path_to_module_info:
+                    mod_info.path_to_module_info[path].append(m)
+                else:
+                    mod_info.path_to_module_info[path] = [m]
+
+        return mod_info
+
+    # TODO: remove below mocks and hide unnecessary information.
+    @mock.patch.object(module_finder.ModuleFinder, '_get_test_info_filter')
+    @mock.patch.object(test_finder_utils, 'find_parent_module_dir',
+                       return_value=None)
+    @mock.patch('os.path.exists')
+    #pylint: disable=unused-argument
+    def test_find_test_by_path_belong_to_dependencies(
+            self, _mock_exists, _mock_find_parent, _mock_test_filter):
+        """Test find_test_by_path if belong to test dependencies."""
+        test1 = module(name='test1',
+                       classes=['class'],
+                       dependencies=['lib1'],
+                       installed=['install/test1'],
+                       auto_test_config=[True])
+        test2 = module(name='test2',
+                       classes=['class'],
+                       dependencies=['lib2'],
+                       installed=['install/test2'],
+                       auto_test_config=[True])
+        lib1 = module(name='lib1',
+                      srcs=['path/src1'])
+        lib2 = module(name='lib2',
+                      srcs=['path/src2'])
+        mod_info = self.create_module_info(
+            [test1, test2, lib1, lib2])
+        mod_finder = module_finder.ModuleFinder(module_info=mod_info)
+        _mock_exists.return_value = True
+        test1_filter = test_info.TestFilter('test1Filter', frozenset())
+        _mock_test_filter.return_value = test1_filter
+
+        t_infos = mod_finder.find_test_by_path('path/src1')
+
+        unittest_utils.assert_equal_testinfos(
+            self,
+            test_info.TestInfo(
+                'test1',
+                atf_tr.AtestTradefedTestRunner.NAME,
+                {'test1', 'MODULES-IN-'},
+                {constants.TI_FILTER: test1_filter,
+                 constants.TI_REL_CONFIG: 'AndroidTest.xml'},
+                module_class=['class']),
+            t_infos[0])
 
 #pylint: disable=protected-access
 class ModuleFinderUnittests(unittest.TestCase):
@@ -125,6 +296,7 @@ class ModuleFinderUnittests(unittest.TestCase):
     def test_find_test_by_module_name(self, _get_targ):
         """Test find_test_by_module_name."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         mod_info = {'installed': ['/path/to/install'],
                     'path': [uc.MODULE_DIR],
@@ -140,55 +312,6 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = None
         self.mod_finder.module_info.is_testable_module.return_value = False
         self.assertIsNone(self.mod_finder.find_test_by_module_name('Not_Module'))
-
-    @mock.patch('builtins.input', return_value='1')
-    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
-    def test_find_test_by_module_name_w_multiple_config(
-            self, _get_targ, _mock_input):
-        """Test find_test_by_module_name."""
-        atest_configs.GLOBAL_ARGS = mock.Mock()
-        atest_configs.GLOBAL_ARGS.test_config_select = True
-        self.mod_finder.module_info.is_robolectric_test.return_value = False
-        self.mod_finder.module_info.has_test_config.return_value = True
-        mod_info = {'installed': ['/path/to/install'],
-                    'path': [uc.MODULE_DIR],
-                    constants.MODULE_CLASS: [],
-                    constants.MODULE_COMPATIBILITY_SUITES: [],
-                    constants.MODULE_TEST_CONFIG: [
-                        uc.CONFIG_FILE,
-                        uc.EXTRA_CONFIG_FILE]}
-        self.mod_finder.module_info.get_module_info.return_value = mod_info
-        self.mod_finder.module_info.get_robolectric_type.return_value = 0
-        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
-        # Only select one test
-        self.assertEqual(len(t_infos), 1)
-        # The t_info should be the EXTRA_CONFIG_FILE one.
-        unittest_utils.assert_equal_testinfos(
-            self, t_infos[0], uc.MODULE_INFO_W_CONFIG)
-
-    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
-                       return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
-    def test_find_test_by_module_name_w_multiple_config_all(
-            self, _get_targ,):
-        """Test find_test_by_module_name."""
-        atest_configs.GLOBAL_ARGS = mock.Mock()
-        atest_configs.GLOBAL_ARGS.test_config_select = False
-        self.mod_finder.module_info.is_robolectric_test.return_value = False
-        self.mod_finder.module_info.has_test_config.return_value = True
-        mod_info = {'installed': ['/path/to/install'],
-                    'path': [uc.MODULE_DIR],
-                    constants.MODULE_CLASS: [],
-                    constants.MODULE_COMPATIBILITY_SUITES: [],
-                    constants.MODULE_TEST_CONFIG: [
-                        uc.CONFIG_FILE,
-                        uc.EXTRA_CONFIG_FILE]}
-        self.mod_finder.module_info.get_module_info.return_value = mod_info
-        self.mod_finder.module_info.get_robolectric_type.return_value = 0
-        t_infos = self.mod_finder.find_test_by_module_name(uc.MODULE_NAME)
-        unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.MODULE_INFO)
-        unittest_utils.assert_equal_testinfos(
-            self, t_infos[1], uc.MODULE_INFO_W_CONFIG)
 
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
@@ -215,6 +338,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
         self.mod_finder.module_info.get_module_info.return_value = {
@@ -286,6 +410,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_class(MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CLASS_INFO)
         # with method
@@ -334,6 +459,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                                                'prefixes': set(),
                                                'typed': False}}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_class(CC_MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], uc.CC_MODULE_CLASS_INFO)
         # with method
@@ -374,6 +500,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_class(KERNEL_MODULE_CLASS)
         unittest_utils.assert_equal_testinfos(self, t_infos[0], KERNEL_MODULE_CLASS_INFO)
 
@@ -401,6 +528,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_COMPATIBILITY_SUITES: []
             }
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_package_name(uc.PACKAGE)
         unittest_utils.assert_equal_testinfos(
             self, t_infos[0],
@@ -439,6 +567,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                     constants.MODULE_CLASS: [],
                     constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_module_and_package(MODULE_PACKAGE)
         self.assertEqual(t_infos, None)
         _isdir.return_value = True
@@ -463,6 +592,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         self.assertIsNone(self.mod_finder.find_test_by_module_and_package(bad_pkg))
 
+    # TODO: Move and rewite it to ModuleFinderFindTestByPath.
     @mock.patch.object(test_finder_utils, 'find_host_unit_tests',
                        return_value=[])
     @mock.patch.object(test_finder_utils, 'get_cc_class_info', return_value={})
@@ -491,6 +621,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         """Test find_test_by_path."""
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.has_test_config.return_value = True
+        self.mod_finder.module_info.get_modules_by_include_deps.return_value = set()
         mock_build.return_value = set()
         # Check that we don't return anything with invalid test references.
         mock_pathexists.return_value = False
@@ -513,6 +644,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         class_path = '%s.kt' % uc.CLASS_NAME
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_path(class_path)
         unittest_utils.assert_equal_testinfos(
             self, uc.CLASS_INFO, t_infos[0])
@@ -556,6 +688,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         unittest_utils.assert_equal_testinfos(
             self, uc.CC_PATH_INFO2, t_infos[0])
 
+    # TODO: Move and rewite it to ModuleFinderFindTestByPath.
     @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets',
                        return_value=copy.deepcopy(uc.MODULE_BUILD_TARGETS))
     @mock.patch.object(module_finder.ModuleFinder, '_is_vts_module',
@@ -577,6 +710,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_path(class_dir)
         unittest_utils.assert_equal_testinfos(
             self, uc.PATH_INFO, t_infos[0])
@@ -627,6 +761,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         _class_info.return_value = {'PFTest': {'methods': {'test1', 'test2'},
                                                'prefixes': set(),
                                                'typed': False}}
@@ -733,6 +868,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_paths.return_value = [uc.TEST_DATA_CONFIG]
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_class_name(
             uc.FULL_CLASS_NAME, module_name=uc.MODULE_NAME,
             rel_config=uc.CONFIG_FILE)
@@ -763,6 +899,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         }
         self.mod_finder.module_info.get_paths.return_value = [uc.TEST_DATA_CONFIG]
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_package_name(
             uc.PACKAGE, module_name=uc.MODULE_NAME, rel_config=uc.CONFIG_FILE)
         unittest_utils.assert_equal_testinfos(
@@ -803,6 +940,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_CLASS: [],
             constants.MODULE_COMPATIBILITY_SUITES: []}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         # Happy path testing.
         mock_dir.return_value = uc.MODULE_DIR
         class_path = '%s.java' % uc.CLASS_NAME
@@ -843,6 +981,7 @@ class ModuleFinderUnittests(unittest.TestCase):
         mock_build.return_value = uc.CLASS_BUILD_TARGETS
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = False
         self.mod_finder.module_info.is_robolectric_test.return_value = False
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.has_test_config.return_value = True
         self.mod_finder.module_info.get_module_names.return_value = [uc.MODULE_NAME]
         self.mod_finder.module_info.get_module_info.return_value = {
@@ -934,6 +1073,7 @@ class ModuleFinderUnittests(unittest.TestCase):
             constants.MODULE_COMPATIBILITY_SUITES: [],
             constants.MODULE_SRCS: [class_path]}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         t_infos = self.mod_finder.find_test_by_path(class_path)
         unittest_utils.assert_equal_testinfos(self, uc.CLASS_INFO, t_infos[0])
 
@@ -995,6 +1135,7 @@ class ModuleFinderUnittests(unittest.TestCase):
                                               'prefixes': founded_prefixes,
                                               'typed': False}}
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         cc_path_data = {constants.TI_REL_CONFIG: uc.CC_CONFIG_FILE,
                         constants.TI_FILTER: frozenset(
                             {test_info.TestFilter(class_name='class1.*',
@@ -1035,13 +1176,51 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.mod_finder.module_info.is_robolectric_test.return_value = False
         self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
         self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        self.mod_finder.module_info.get_instrumentation_target_apps.return_value = {}
         self.mod_finder.module_info.get_module_info.return_value = mod_info
         processed_info = self.mod_finder._process_test_info(
-            copy.copy(uc.MODULE_INFO))
+            copy.deepcopy(uc.MODULE_INFO))
         unittest_utils.assert_equal_testinfos(
             self,
             processed_info,
             uc.MODULE_INFO_W_DALVIK)
+
+    # pylint: disable=unused-argument
+    @mock.patch.object(module_finder.ModuleFinder, '_get_build_targets')
+    @mock.patch.object(module_info.ModuleInfo, 'get_instrumentation_target_apps')
+    @mock.patch.object(module_info.ModuleInfo, 'get_robolectric_type')
+    @mock.patch.object(module_info.ModuleInfo, 'is_testable_module')
+    def test_process_test_info_with_instrumentation_target_apps(
+        self, testable, robotype, tapps, btargets):
+        """Test _process_test_info."""
+        testable.return_value = True
+        robotype.return_value = 0
+        target_module = 'AmSlam'
+        test_module = 'AmSlamTests'
+        artifact_path = '/out/somewhere/app/AmSlam.apk'
+        tapps.return_value = {target_module: {artifact_path}}
+        btargets.return_value = {target_module}
+        self.mod_finder.module_info.is_auto_gen_test_config.return_value = True
+        self.mod_finder.module_info.get_robolectric_type.return_value = 0
+        test1 = module(name=target_module,
+                       classes=['APPS'],
+                       path=['foo/bar/AmSlam'],
+                       installed=[artifact_path])
+        test2 = module(name=test_module,
+                       classes=['APPS'],
+                       path=['foo/bar/AmSlam/test'],
+                       installed=['/out/somewhere/app/AmSlamTests.apk'])
+        info = test_info.TestInfo(test_module,
+                                  atf_tr.AtestTradefedTestRunner.NAME,
+                                  set(),
+                                  {constants.TI_REL_CONFIG: uc.CONFIG_FILE,
+                                   constants.TI_FILTER: frozenset()})
+
+        self.mod_finder.module_info = create_module_info([test1, test2])
+        t_infos = self.mod_finder._process_test_info(info)
+
+        self.assertTrue(target_module in t_infos.build_targets)
+        self.assertEqual([artifact_path], t_infos.artifacts)
 
     @mock.patch.object(test_finder_utils, 'get_annotated_methods')
     def test_is_srcs_match_method_annotation_include_anno(
@@ -1192,6 +1371,107 @@ class ModuleFinderUnittests(unittest.TestCase):
         self.assertEqual(
             self.mod_finder.find_test_by_class_name('my.test.class'),
             None)
+
+
+def create_empty_module_info():
+    with fake_filesystem_unittest.Patcher() as patcher:
+        # pylint: disable=protected-access
+        fake_temp_file_name = next(tempfile._get_candidate_names())
+        patcher.fs.create_file(fake_temp_file_name, contents='{}')
+        return module_info.ModuleInfo(module_file=fake_temp_file_name)
+
+
+def create_module_info(modules=None):
+    mod_info = create_empty_module_info()
+    modules = modules or []
+
+    for m in modules:
+        mod_info.name_to_module_info[m['module_name']] = m
+
+    return mod_info
+
+
+# pylint: disable=too-many-arguments
+def module(
+    name=None,
+    path=None,
+    installed=None,
+    classes=None,
+    auto_test_config=None,
+    shared_libs=None,
+    dependencies=None,
+    runtime_dependencies=None,
+    data=None,
+    data_dependencies=None,
+    compatibility_suites=None,
+    host_dependencies=None,
+    srcs=None,
+):
+    name = name or 'libhello'
+
+    m = {}
+
+    m['module_name'] = name
+    m['class'] = classes
+    m['path'] = [path or '']
+    m['installed'] = installed or []
+    m['is_unit_test'] = 'false'
+    m['auto_test_config'] = auto_test_config or []
+    m['shared_libs'] = shared_libs or []
+    m['runtime_dependencies'] = runtime_dependencies or []
+    m['dependencies'] = dependencies or []
+    m['data'] = data or []
+    m['data_dependencies'] = data_dependencies or []
+    m['compatibility_suites'] = compatibility_suites or []
+    m['host_dependencies'] = host_dependencies or []
+    m['srcs'] = srcs or []
+    return m
+
+# pylint: disable=too-many-locals
+def create_test_info(**kwargs):
+    test_name = kwargs.pop('test_name')
+    test_runner = kwargs.pop('test_runner')
+    build_targets = kwargs.pop('build_targets')
+    data = kwargs.pop('data', None)
+    suite = kwargs.pop('suite', None)
+    module_class = kwargs.pop('module_class', None)
+    install_locations = kwargs.pop('install_locations', None)
+    test_finder = kwargs.pop('test_finder', '')
+    compatibility_suites = kwargs.pop('compatibility_suites', None)
+
+    t_info = test_info.TestInfo(
+        test_name=test_name,
+        test_runner=test_runner,
+        build_targets=build_targets,
+        data=data,
+        suite=suite,
+        module_class=module_class,
+        install_locations=install_locations,
+        test_finder=test_finder,
+        compatibility_suites=compatibility_suites
+    )
+    raw_test_name = kwargs.pop('raw_test_name', None)
+    if raw_test_name:
+        t_info.raw_test_name = raw_test_name
+    artifacts = kwargs.pop('artifacts', set())
+    if artifacts:
+        t_info.artifacts = artifacts
+    robo_type = kwargs.pop('robo_type', None)
+    if robo_type:
+        t_info.robo_type = robo_type
+    mainline_modules = kwargs.pop('mainline_modules', set())
+    if mainline_modules:
+        t_info._mainline_modules = mainline_modules
+    for keyword in ['from_test_mapping',
+                    'host',
+                    'aggregate_metrics_result']:
+        value = kwargs.pop(keyword, 'None')
+        if isinstance(value, bool):
+            setattr(t_info, keyword, value)
+    if kwargs:
+        assert f'Unknown keyword(s) for test_info: {kwargs.keys()}'
+    return t_info
+
 
 if __name__ == '__main__':
     unittest.main()

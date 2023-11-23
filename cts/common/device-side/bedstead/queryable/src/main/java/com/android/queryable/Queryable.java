@@ -28,6 +28,8 @@ public interface Queryable {
      */
     String describeQuery(String fieldName);
 
+    /** True if this query has not had any filters applied. */
+    boolean isEmptyQuery();
 
     /**
      * Join sub-parts of a query for use in {@link #describeQuery(String)}.
@@ -47,5 +49,9 @@ public interface Queryable {
     static String joinQueryStrings(Collection<String> queryStrings) {
         return queryStrings.stream().filter(i -> i != null && !i.isEmpty())
                 .collect(Collectors.joining(", "));
+    }
+
+    static boolean isEmptyQuery(Queryable queryable) {
+        return queryable == null || queryable.isEmptyQuery();
     }
 }

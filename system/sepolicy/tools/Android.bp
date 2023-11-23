@@ -59,6 +59,13 @@ cc_binary_host {
     srcs: ["version_policy.c"],
 }
 
+cc_binary {
+    name: "seamendc",
+    defaults: ["sepolicy_tools_defaults"],
+    srcs: ["seamendc.c"],
+    host_supported: true,
+}
+
 python_binary_host {
     name: "insertkeys",
     srcs: ["insertkeys.py"],
@@ -69,4 +76,9 @@ python_binary_host {
     srcs: ["sepolicy_generate_compat.py"],
     libs: ["mini_cil_parser", "pysepolwrap"],
     data: [":libsepolwrap"],
+}
+
+python_binary_host {
+    name: "fuzzer_bindings_check",
+    srcs: ["fuzzer_bindings_check.py"],
 }

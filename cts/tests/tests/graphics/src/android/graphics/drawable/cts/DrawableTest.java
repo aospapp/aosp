@@ -256,13 +256,14 @@ public class DrawableTest {
         }
     }
 
-    private Boolean isClosed = new Boolean(false);
+    private final Object isClosedLock = new Object();
+    private boolean isClosed = false;
 
     @Test
     public void testCreateFromStream2() throws IOException {
         FileInputStream inputStream = null;
         File imageFile = null;
-        synchronized (isClosed) {
+        synchronized (isClosedLock) {
             isClosed = false;
             try {
                 imageFile = new File(mContext.getFilesDir(), "tempimage.jpg");

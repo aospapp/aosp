@@ -27,11 +27,13 @@ sysprop_library {
         "//apex_available:platform",
         "com.android.art",
         "com.android.art.debug",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.tethering",
+        "com.android.virt",
     ],
     cpp: {
         min_sdk_version: "S",
     },
     vendor_available: true,
+    host_supported: true,
 }

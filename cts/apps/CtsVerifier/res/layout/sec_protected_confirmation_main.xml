@@ -68,6 +68,56 @@
 
     </LinearLayout>
 
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                  android:id="@+id/sec_protected_confirmation_tee_negative_layout"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:padding="10dp"
+                  android:orientation="horizontal"
+                  android:layout_centerInParent="true"
+                  android:layout_below="@id/sec_protected_confirmation_strongbox_layout"
+                  android:gravity="center"
+                  >
+
+        <Button android:id="@+id/sec_start_tee_negative_test_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sec_protected_confirmation_tee_negative_test"
+        />
+
+        <ImageView android:id="@+id/sec_protected_confirmation_tee_negative_test_success"
+                   android:layout_width="wrap_content"
+                   android:layout_height="wrap_content"
+                   android:src="@drawable/fs_good"
+        />
+
+    </LinearLayout>
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+                  android:id="@+id/sec_protected_confirmation_strongbox_negative_layout"
+                  android:layout_width="wrap_content"
+                  android:layout_height="wrap_content"
+                  android:padding="10dp"
+                  android:orientation="horizontal"
+                  android:layout_centerHorizontal="true"
+                  android:layout_below="@id/sec_protected_confirmation_tee_negative_layout"
+                  android:gravity="center"
+                  >
+
+        <Button android:id="@+id/sec_start_test_strongbox_negative_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/sec_protected_confirmation_strongbox_negative_test"
+        />
+
+        <ImageView android:id="@+id/sec_protected_confirmation_strongbox_negative_test_success"
+                   android:layout_width="wrap_content"
+                   android:layout_height="wrap_content"
+                   android:src="@drawable/fs_good"
+        />
+
+    </LinearLayout>
+
     <include android:layout_width="match_parent"
              android:layout_height="wrap_content"
              android:layout_alignParentBottom="true"

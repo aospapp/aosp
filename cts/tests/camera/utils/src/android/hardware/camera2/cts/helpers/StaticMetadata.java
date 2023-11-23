@@ -16,22 +16,26 @@
 
 package android.hardware.camera2.cts.helpers;
 
-import android.graphics.Rect;
+import static android.hardware.camera2.cts.helpers.AssertHelpers.assertArrayContainsAnyOf;
+
+import android.graphics.ColorSpace;
 import android.graphics.ImageFormat;
+import android.graphics.Rect;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraCharacteristics.Key;
 import android.hardware.camera2.CameraMetadata;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.cts.CameraTestUtils;
+import android.hardware.camera2.params.Capability;
+import android.hardware.camera2.params.ColorSpaceProfiles;
 import android.hardware.camera2.params.DynamicRangeProfiles;
 import android.hardware.camera2.params.StreamConfigurationMap;
-import android.hardware.camera2.params.Capability;
 import android.util.ArraySet;
-import android.util.Range;
-import android.util.Size;
 import android.util.Log;
+import android.util.Range;
 import android.util.Rational;
+import android.util.Size;
 
 import junit.framework.Assert;
 
@@ -43,9 +47,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import static android.hardware.camera2.cts.helpers.AssertHelpers.*;
-import static android.hardware.camera2.CameraCharacteristics.*;
 
 /**
  * Helpers to get common static info out of the camera.
@@ -79,7 +80,7 @@ public class StaticMetadata {
 
     // Last defined capability enum, for iterating over all of them
     public static final int LAST_CAPABILITY_ENUM =
-            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE;
+            CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_COLOR_SPACE_PROFILES;
 
     // Access via getAeModeName() to account for vendor extensions
     public static final String[] AE_MODE_NAMES = new String[] {
@@ -229,6 +230,13 @@ public class StaticMetadata {
      * at least the desired one (but could be higher)
      */
     public boolean isHardwareLevelAtLeast(int level) {
+        int deviceLevel = getHardwareLevelChecked();
+
+        return hardwareLevelPredicate(deviceLevel, level);
+    }
+
+    // Return true if level1 is at least level2
+    public static boolean hardwareLevelPredicate(int level1, int level2) {
         final int[] sortedHwLevels = {
             CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_LEGACY,
             CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_EXTERNAL,
@@ -236,19 +244,19 @@ public class StaticMetadata {
             CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_FULL,
             CameraCharacteristics.INFO_SUPPORTED_HARDWARE_LEVEL_3
         };
-        int deviceLevel = getHardwareLevelChecked();
-        if (level == deviceLevel) {
+
+        if (level1 == level2) {
             return true;
         }
 
         for (int sortedlevel : sortedHwLevels) {
-            if (sortedlevel == level) {
+            if (sortedlevel == level2) {
                 return true;
-            } else if (sortedlevel == deviceLevel) {
+            } else if (sortedlevel == level1) {
                 return false;
             }
         }
-        Assert.fail("Unknown hardwareLevel " + level + " and device hardware level " + deviceLevel);
+        Assert.fail("Unknown hardwareLevel " + level1 + " and device hardware level " + level2);
         return false;
     }
 
@@ -807,6 +815,22 @@ public class StaticMetadata {
         }
 
         return profiles.getSupportedProfiles();
+    }
+
+    /**
+     * Get and check the available data spaces.
+     *
+     * @return the available data spaces
+     */
+    public Set<ColorSpace.Named> getAvailableColorSpacesChecked(int imageFormat) {
+        ColorSpaceProfiles colorSpaceProfiles = mCharacteristics.get(
+                CameraCharacteristics.REQUEST_AVAILABLE_COLOR_SPACE_PROFILES);
+
+        if (colorSpaceProfiles == null) {
+            return new ArraySet<ColorSpace.Named>();
+        }
+
+        return colorSpaceProfiles.getSupportedColorSpaces(imageFormat);
     }
 
     /**
@@ -1851,11 +1875,39 @@ public class StaticMetadata {
         return modes;
     }
 
+    /**
+     * Get availableStreamUseCases.
+     *
+     * @return available stream use cases, empty array if it is unavailable.
+     */
+    public long[] getAvailableStreamUseCases() {
+        Key<long[]> key =
+                CameraCharacteristics.SCALER_AVAILABLE_STREAM_USE_CASES;
+        long[] useCases = getValueFromKeyNonNull(key);
+
+        if (useCases == null) {
+            return new long[0];
+        }
+        return useCases;
+    }
+
+    public Integer getChosenVideoStabilizationMode() {
+        Integer[] videoStabilizationModes =
+                CameraTestUtils.toObject(getAvailableVideoStabilizationModesChecked());
+        if (videoStabilizationModes.length == 1) {
+            return CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_OFF;
+        }
+        return Arrays.asList(videoStabilizationModes).contains(
+                CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON) ?
+                CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_ON :
+                CaptureRequest.CONTROL_VIDEO_STABILIZATION_MODE_PREVIEW_STABILIZATION;
+    }
+
     public boolean isVideoStabilizationSupported() {
         Integer[] videoStabModes =
                 CameraTestUtils.toObject(getAvailableVideoStabilizationModesChecked());
-        return Arrays.asList(videoStabModes).contains(
-                CameraMetadata.CONTROL_VIDEO_STABILIZATION_MODE_ON);
+        // VIDEO_STABILIZATION_MODE_OFF is guaranteed to be present
+        return (videoStabModes.length > 1);
     }
 
     /**
@@ -2137,6 +2189,27 @@ public class StaticMetadata {
     }
 
     /**
+     * Get the available settings overrides and do validity check.
+     *
+     * @Return reported available settings overrides, empty array if the value is unavailable.
+     */
+    private int[] getAvailableSettingsOverridesChecked() {
+        Key<int[]> key = CameraCharacteristics.CONTROL_AVAILABLE_SETTINGS_OVERRIDES;
+        int[] availableOverrides = mCharacteristics.get(key);
+        if (availableOverrides == null) {
+            return new int[0];
+        }
+
+        List<Integer> overridesList = Arrays.asList(CameraTestUtils.toObject(availableOverrides));
+        // OFF must be included.
+        checkTrueForKey(key, " OFF must be included",
+                overridesList.contains(CameraMetadata.CONTROL_SETTINGS_OVERRIDE_OFF));
+        checkTrueForKey(key, " must be included in CameraCharacteristics keys",
+                areKeysAvailable(key));
+        return availableOverrides;
+    }
+
+    /**
      * Determine whether the current device supports a capability or not.
      *
      * @param capability (non-negative)
@@ -2314,14 +2387,19 @@ public class StaticMetadata {
      * @return {@code true} if minimum set of keys are supported
      */
     public boolean areMaximumResolutionKeysSupported() {
-        return mCharacteristics.get(
-                CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION) != null &&
-                mCharacteristics.get(
-                        SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION) != null &&
-                mCharacteristics.get(
-                        SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION) != null &&
-                mCharacteristics.get(
-                        SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION) != null;
+        var sensorInfoActiveArraySizeMaxResolution =
+                CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION;
+        var sensorInfoPreCorrectionActivArraySizeMaxResolution =
+                CameraCharacteristics
+                .SENSOR_INFO_PRE_CORRECTION_ACTIVE_ARRAY_SIZE_MAXIMUM_RESOLUTION;
+        var sensorInfoPixelArraySizeMaximumResolution =
+                CameraCharacteristics.SENSOR_INFO_PIXEL_ARRAY_SIZE_MAXIMUM_RESOLUTION;
+        var scalerStreamConfigurationMapMaxResolution =
+                CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP_MAXIMUM_RESOLUTION;
+        return mCharacteristics.get(sensorInfoActiveArraySizeMaxResolution) != null
+                && mCharacteristics.get(sensorInfoPreCorrectionActivArraySizeMaxResolution) != null
+                && mCharacteristics.get(sensorInfoPixelArraySizeMaximumResolution) != null
+                && mCharacteristics.get(scalerStreamConfigurationMapMaxResolution) != null;
     }
 
     /*
@@ -2641,6 +2719,14 @@ public class StaticMetadata {
     }
 
     /**
+     * Check if Jpeg/R format is supported
+     */
+    public boolean isJpegRSupported() {
+        int[] formats = getAvailableFormats(StaticMetadata.StreamDirection.Output);
+        return CameraTestUtils.contains(formats, ImageFormat.JPEG_R);
+    }
+
+    /**
      * Check if the dynamic black level is supported.
      *
      * <p>
@@ -2749,6 +2835,55 @@ public class StaticMetadata {
         List<Integer> availableCapabilities = getAvailableCapabilitiesChecked();
         return (availableCapabilities.contains(
                 CameraCharacteristics.REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE));
+    }
+
+    /**
+     * Check if CROPPED_RAW stream use case is supported
+     */
+    public boolean isCroppedRawStreamUseCaseSupported() {
+        if (!isStreamUseCaseSupported()) {
+            return false;
+        }
+        long[] streamUseCasesSupported = getAvailableStreamUseCases();
+        return CameraTestUtils.contains(streamUseCasesSupported,
+                CameraMetadata.SCALER_AVAILABLE_STREAM_USE_CASES_CROPPED_RAW);
+    }
+    /**
+     * Check if settings override is supported
+     */
+    public boolean isSettingsOverrideSupported() {
+        int[] settingsOverrides = getAvailableSettingsOverridesChecked();
+        return settingsOverrides.length > 0;
+    }
+
+    /**
+     * Check if zoom settings override is supported
+     */
+    public boolean isZoomSettingsOverrideSupported() {
+        int[] settingsOverrides = getAvailableSettingsOverridesChecked();
+        return CameraTestUtils.contains(settingsOverrides,
+                CameraMetadata.CONTROL_SETTINGS_OVERRIDE_ZOOM);
+    }
+
+    /**
+     * Check if auto-framing is supported
+     */
+    public boolean isAutoframingSupported() {
+        return getValueFromKeyNonNull(CameraCharacteristics.CONTROL_AUTOFRAMING_AVAILABLE);
+    }
+
+    /**
+     * Check if the camera device's poseReference is UNDEFINED.
+     */
+    public boolean isPoseReferenceUndefined() {
+        boolean isPoseReferenceUndefined = false;
+        Integer poseReference = mCharacteristics.get(
+                CameraCharacteristics.LENS_POSE_REFERENCE);
+        if (poseReference != null) {
+            isPoseReferenceUndefined =
+                    (poseReference == CameraMetadata.LENS_POSE_REFERENCE_UNDEFINED);
+        }
+        return isPoseReferenceUndefined;
     }
 
     /**

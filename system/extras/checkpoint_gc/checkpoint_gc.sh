@@ -28,6 +28,15 @@ SLEEP=5
 TIME=0
 MAX_TIME=1200
 
+# GC_URGENT_MID, will fall back to GC_URGENT_HIGH if unsupported
+GC_TYPE=3
+
+# If we fall back, start off with less impactful GC
+# To avoid long wait time, ramp up over time
+GC_SLEEP_MAX=150
+GC_SLEEP_MIN=50
+GC_SLEEP_STEP=5
+
 # We only need to run this if we're using f2fs
 if [ ! -f /dev/sys/fs/by-name/userdata/gc_urgent ]; then
   exit 0
@@ -47,13 +56,31 @@ else
 fi
 
 log -pi -t checkpoint_gc Turning on GC for userdata
-echo 2 > /dev/sys/fs/by-name/userdata/gc_urgent || exit 1
+
+read OLD_SLEEP < /dev/sys/fs/by-name/userdata/gc_urgent_sleep_time || \
+  { log -pw -t checkpoint_gc Cannot read gc_urgent_sleep_time; exit 1; }
+GC_SLEEP=${GC_SLEEP_MAX}
+echo ${GC_SLEEP} > /dev/sys/fs/by-name/userdata/gc_urgent_sleep_time || \
+  { log -pw -t checkpoint_gc Cannot set gc_urgent_sleep_time; exit 1; }
+
+
+echo ${GC_TYPE} > /dev/sys/fs/by-name/userdata/gc_urgent \
+  || { GC_TYPE=1; log -pi -t checkpoint_gc GC_URGENT_MID not supported, using GC_URGENT_HIGH; }
+
+if [ ${GC_TYPE} -eq 1 ]; then
+  echo ${GC_TYPE} > /dev/sys/fs/by-name/userdata/gc_urgent || \
+    { echo ${OLD_SLEEP} > /dev/sys/fs/by-name/userdata/gc_urgent_sleep_time; \
+    log -pw -t checkpoint_gc Failed to set gc_urgent; exit 1; }
+else
+  # GC MID will wait for background I/O, so no need to start small
+  GC_SLEEP=${GC_SLEEP_MIN}
+fi
 
 
 CURRENT=${START}
 TODO=$((${START}-${THRESHOLD}))
 while [ ${CURRENT} -gt ${THRESHOLD} ]; do
-  log -pi -t checkpoint_gc ${METRIC}:${CURRENT} \(threshold:${THRESHOLD}\)
+  log -pi -t checkpoint_gc ${METRIC}:${CURRENT} \(threshold:${THRESHOLD}\) mode:${GC_TYPE} GC_SLEEP:${GC_SLEEP}
   PROGRESS=`echo "(${START}-${CURRENT})/${TODO}"|bc -l`
   if [[ $PROGRESS == -* ]]; then
       PROGRESS=0
@@ -67,17 +94,22 @@ while [ ${CURRENT} -gt ${THRESHOLD} ]; do
   sleep ${SLEEP}
   TIME=$((${TIME}+${SLEEP}))
   if [ ${TIME} -gt ${MAX_TIME} ]; then
-    log -pi -t checkpoint_gc Timed out with gc threshold not met.
+    log -pw -t checkpoint_gc Timed out with gc threshold not met.
     break
   fi
+  if [ ${GC_SLEEP} -gt ${GC_SLEEP_MIN} ]; then
+    GC_SLEEP=$((${GC_SLEEP}-${GC_SLEEP_STEP}))
+  fi
   # In case someone turns it off behind our back
-  echo 2 > /dev/sys/fs/by-name/userdata/gc_urgent
+  echo ${GC_SLEEP} > /dev/sys/fs/by-name/userdata/gc_urgent_sleep_time
+  echo ${GC_TYPE} > /dev/sys/fs/by-name/userdata/gc_urgent
 done
 
 # It could be a while before the system reboots for the update...
 # Leaving on low level GC can help ensure the boot for ota is faster
 # If powerhints decides to turn it off, we'll just rely on normal GC
-log -pi -t checkpoint_gc Leaving on low GC for userdata
+log -pi -t checkpoint_gc Leaving on GC_URGENT_LOW for userdata
+echo ${OLD_SLEEP} > /dev/sys/fs/by-name/userdata/gc_urgent_sleep_time
 echo 2 > /dev/sys/fs/by-name/userdata/gc_urgent
 sync
 

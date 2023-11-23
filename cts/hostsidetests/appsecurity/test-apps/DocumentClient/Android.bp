@@ -38,7 +38,9 @@ android_test_helper_app {
     test_suites: [
         "cts",
         "general-tests",
-        "mts",
+        "mts-documentsui",
+        "mts-mainline-infra",
+        "mts-mediaprovider",
         "sts",
     ],
     certificate: ":cts-testkey2",

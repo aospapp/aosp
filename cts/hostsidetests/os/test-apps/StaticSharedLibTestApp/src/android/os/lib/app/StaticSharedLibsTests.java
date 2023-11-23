@@ -20,10 +20,14 @@ import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.fail;
+
 import android.Manifest;
+import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
 import android.content.pm.SharedLibraryInfo;
@@ -43,6 +47,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.Optional;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -55,6 +60,7 @@ public class StaticSharedLibsTests {
     private static final String APK_BASE_PATH = "/data/local/tmp/cts/hostside/os/";
     private static final String STATIC_LIB_PROVIDER1_APK = APK_BASE_PATH
             + "CtsStaticSharedLibProviderApp1.apk";
+    private static final String STATIC_LIB_PROVIDER1_PKG = "android.os.lib.provider";
     private static final String STATIC_LIB_PROVIDER1_NAME = "foo.bar.lib";
     private static final Long STATIC_LIB_PROVIDER1_VERSION = 1L;
 
@@ -160,6 +166,89 @@ public class StaticSharedLibsTests {
         assertThat(kill.await(TIMEOUT_MS, TimeUnit.MILLISECONDS)).isTrue();
     }
 
+    @Test
+    public void testStaticSharedLibInstall_broadcastReceived() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_ADDED);
+        filter.addDataScheme("package");
+        InstallUninstallBroadcastReceiver receiver = new InstallUninstallBroadcastReceiver();
+        context.registerReceiver(receiver, filter);
+        try {
+            assertThat(runShellCommand("pm install -i " + context.getPackageName()
+                    + " " + STATIC_LIB_PROVIDER1_APK)).isEqualTo("Success\n");
+            Intent intent = receiver.getResult();
+            assertThat(intent).isNotNull();
+            assertThat(intent.getAction()).isEqualTo(Intent.ACTION_PACKAGE_ADDED);
+        } catch (InterruptedException e) {
+            fail(e.getMessage());
+        } finally {
+            context.unregisterReceiver(receiver);
+            uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        }
+    }
+
+    @Test
+    public void testStaticSharedLibInstall_incorrectInstallerPkgName_broadcastNotReceived() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_ADDED);
+        filter.addDataScheme("package");
+        InstallUninstallBroadcastReceiver receiver = new InstallUninstallBroadcastReceiver();
+        context.registerReceiver(receiver, filter);
+        try {
+            assertThat(runShellCommand("pm install -i com.incorrect.installer "
+                    + STATIC_LIB_PROVIDER1_APK)).isEqualTo("Success\n");
+            Intent intent = receiver.getResult();
+            assertThat(intent).isNull();
+        } catch (InterruptedException e) {
+            fail(e.getMessage());
+        } finally {
+            context.unregisterReceiver(receiver);
+            uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        }
+    }
+
+    @Test
+    public void testStaticSharedLibUninstall_broadcastReceived() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
+        filter.addDataScheme("package");
+        InstallUninstallBroadcastReceiver receiver = new InstallUninstallBroadcastReceiver();
+        context.registerReceiver(receiver, filter);
+        try {
+            // Only the pkg installer can receive PACKAGE_REMOVED broadcast
+            assertThat(runShellCommand("pm install -i " + context.getPackageName()
+                    + " " + STATIC_LIB_PROVIDER1_APK)).isEqualTo("Success\n");
+            assertThat(uninstallPackage(STATIC_LIB_PROVIDER1_PKG)).isEqualTo(true);
+            Intent intent = receiver.getResult();
+            assertThat(intent).isNotNull();
+            assertThat(intent.getAction()).isEqualTo(Intent.ACTION_PACKAGE_REMOVED);
+        } catch (InterruptedException e) {
+            fail(e.getMessage());
+        } finally {
+            context.unregisterReceiver(receiver);
+        }
+    }
+
+    @Test
+    public void testStaticSharedLibUninstall_incorrectInstallerPkgName_broadcastNotReceived() {
+        Context context = InstrumentationRegistry.getTargetContext();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_PACKAGE_REMOVED);
+        filter.addDataScheme("package");
+        InstallUninstallBroadcastReceiver receiver = new InstallUninstallBroadcastReceiver();
+        context.registerReceiver(receiver, filter);
+        try {
+            assertThat(runShellCommand("pm install -i com.incorrect.installer "
+                    + STATIC_LIB_PROVIDER1_APK)).isEqualTo("Success\n");
+            assertThat(uninstallPackage(STATIC_LIB_PROVIDER1_PKG)).isEqualTo(true);
+            Intent intent = receiver.getResult();
+            assertThat(intent).isNull();
+        } catch (InterruptedException e) {
+            fail(e.getMessage());
+        } finally {
+            context.unregisterReceiver(receiver);
+        }
+    }
+
     private SharedLibraryInfo getSharedLibraryInfo(String libName, long version) {
         final PackageManager packageManager = InstrumentationRegistry.getContext()
                 .getPackageManager();
@@ -174,7 +263,23 @@ public class StaticSharedLibsTests {
         return runShellCommand("pm install -t " + apkPath).equals("Success\n");
     }
 
-    private void uninstallPackage(String packageName) {
-        runShellCommand("pm uninstall " + packageName);
+    private boolean uninstallPackage(String packageName) {
+        return runShellCommand("pm uninstall " + packageName).equals("Success\n");
+    }
+
+    public static class InstallUninstallBroadcastReceiver extends BroadcastReceiver {
+
+        private ArrayBlockingQueue<Intent> mResults = new ArrayBlockingQueue<>(1);
+        private static final long TIMEOUT = 10;
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            mResults.clear();
+            mResults.add(intent);
+        }
+
+        public Intent getResult() throws InterruptedException {
+            return mResults.poll(TIMEOUT, TimeUnit.SECONDS);
+        }
     }
 }

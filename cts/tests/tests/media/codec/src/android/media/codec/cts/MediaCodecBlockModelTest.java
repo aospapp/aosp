@@ -16,30 +16,39 @@
 
 package android.media.codec.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import android.content.res.AssetFileDescriptor;
 import android.hardware.HardwareBuffer;
 import android.media.Image;
 import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.media.MediaCodec.CodecException;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.cts.MediaCodecAsyncHelper;
 import android.media.cts.MediaCodecBlockModelHelper;
-import android.media.cts.NonMediaMainlineTest;
-import android.media.cts.Preconditions;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
-import android.test.AndroidTestCase;
 import android.util.Log;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.NonMainlineTest;
+import com.android.compatibility.common.util.Preconditions;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -50,15 +59,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import androidx.test.filters.SdkSuppress;
-
 /**
  * MediaCodec tests with CONFIGURE_FLAG_USE_BLOCK_MODEL.
  */
 @SdkSuppress(minSdkVersion = Build.VERSION_CODES.R)
-@NonMediaMainlineTest
+@NonMainlineTest
 @AppModeFull(reason = "Instant apps cannot access the SD card")
-public class MediaCodecBlockModelTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class MediaCodecBlockModelTest {
     private static final String TAG = "MediaCodecBlockModelTest";
     private static final boolean VERBOSE = false;           // lots of logging
 
@@ -86,6 +94,8 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
     @Presubmit
     @SmallTest
     @RequiresDevice
+    @ApiTest(apis = "MediaCodec#CONFIGURE_FLAG_USE_BLOCK_MODEL")
+    @Test
     public void testDecodeShortVideo() throws InterruptedException {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         MediaCodecBlockModelHelper.runThread(() -> runDecodeShortVideo(
@@ -105,6 +115,8 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
     @Presubmit
     @SmallTest
     @RequiresDevice
+    @ApiTest(apis = "MediaCodec#CONFIGURE_FLAG_USE_BLOCK_MODEL")
+    @Test
     public void testDecodeShortAudio() throws InterruptedException {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         MediaCodecBlockModelHelper.runThread(() -> runDecodeShortAudio(
@@ -124,6 +136,8 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
     @Presubmit
     @SmallTest
     @RequiresDevice
+    @ApiTest(apis = "MediaCodec#CONFIGURE_FLAG_USE_BLOCK_MODEL")
+    @Test
     public void testEncodeShortAudio() throws InterruptedException {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         MediaCodecBlockModelHelper.runThread(() -> runEncodeShortAudio());
@@ -136,6 +150,8 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
     @Presubmit
     @SmallTest
     @RequiresDevice
+    @ApiTest(apis = "MediaCodec#CONFIGURE_FLAG_USE_BLOCK_MODEL")
+    @Test
     public void testEncodeShortVideo() throws InterruptedException {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         MediaCodecBlockModelHelper.runThread(() -> runEncodeShortVideo());
@@ -287,18 +303,18 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
 
             List<Long> timestampList = Collections.synchronizedList(new ArrayList<>());
 
-            final LinkedBlockingQueue<MediaCodecBlockModelHelper.SlotEvent> queue =
+            final LinkedBlockingQueue<MediaCodecAsyncHelper.SlotEvent> queue =
                 new LinkedBlockingQueue<>();
             mediaCodec.setCallback(new MediaCodec.Callback() {
                 @Override
                 public void onInputBufferAvailable(MediaCodec codec, int index) {
-                    queue.offer(new MediaCodecBlockModelHelper.SlotEvent(true, index));
+                    queue.offer(new MediaCodecAsyncHelper.SlotEvent(true, index));
                 }
 
                 @Override
                 public void onOutputBufferAvailable(
                         MediaCodec codec, int index, MediaCodec.BufferInfo info) {
-                    queue.offer(new MediaCodecBlockModelHelper.SlotEvent(false, index));
+                    queue.offer(new MediaCodecAsyncHelper.SlotEvent(false, index));
                 }
 
                 @Override
@@ -319,7 +335,7 @@ public class MediaCodecBlockModelTest extends AndroidTestCase {
             boolean signaledEos = false;
             int frameIndex = 0;
             while (!eos && !Thread.interrupted()) {
-                MediaCodecBlockModelHelper.SlotEvent event;
+                MediaCodecAsyncHelper.SlotEvent event;
                 try {
                     event = queue.take();
                 } catch (InterruptedException e) {

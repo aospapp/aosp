@@ -21,27 +21,33 @@ NANOAPP_NAME_STRING = \"Chre\ Cross\ Validator\ Sensor\"
 NANOAPP_VERSION = 0x00000002
 
 NANOAPP_PATH = $(CHRE_PREFIX)/apps/test/common/chre_cross_validator_sensor
+TEST_SHARED_PATH = $(CHRE_PREFIX)/apps/test/common/shared
+
 
 # Protobuf Sources #############################################################
 
 NANOPB_EXTENSION = nanopb
 
 NANOPB_SRCS += $(NANOAPP_PATH)/../proto/chre_cross_validation_sensor.proto
+NANOPB_SRCS += $(NANOAPP_PATH)/../proto/chre_test_common.proto
 NANOPB_INCLUDES = $(NANOAPP_PATH)/../proto
 
 # Source Code ##################################################################
 
 COMMON_SRCS += $(NANOAPP_PATH)/src/chre_cross_validator_sensor.cc
 COMMON_SRCS += $(NANOAPP_PATH)/src/chre_cross_validator_sensor_manager.cc
+COMMON_SRCS += $(TEST_SHARED_PATH)/src/send_message.cc
 COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
 
 # Compiler Flags ###############################################################
 
 # Defines
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_INFO
+COMMON_CFLAGS += -DCHRE_ASSERTIONS_ENABLED
 
 # Includes
 COMMON_CFLAGS += -I$(NANOAPP_PATH)/inc
+COMMON_CFLAGS += -I$(TEST_SHARED_PATH)/inc
 
 # Makefile Includes ############################################################
 

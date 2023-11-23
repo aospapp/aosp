@@ -20,13 +20,23 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.car.VehicleGear;
 import android.car.cts.utils.VehiclePropertyUtils;
+import android.car.test.ApiCheckerRule.Builder;
+import android.util.Log;
 
 import org.junit.Test;
 
 import java.util.List;
 
-public class VehicleGearTest {
-    private static final String TAG = "VehicleGearTest";
+public class VehicleGearTest extends AbstractCarLessTestCase {
+
+    private static final String TAG = VehicleGearTest.class.getSimpleName();
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     /**
      * Test for {@link VehicleGear#toString()}

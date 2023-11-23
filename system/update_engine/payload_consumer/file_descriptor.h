@@ -103,12 +103,19 @@ class FileDescriptor {
   // Indicates whether the descriptor is currently open.
   virtual bool IsOpen() = 0;
 
+  // Return the wrapped underlying file descriptor. Some classes might not
+  // support this.
+  // Using read/write syscall to read from the returned file descriptor should
+  // have same effect as calling Read()/Write() method of this FileDescriptor
+  // instance.
+  virtual int Fd() { return -1; }
+
  private:
   DISALLOW_COPY_AND_ASSIGN(FileDescriptor);
 };
 
 // A simple EINTR-immune wrapper implementation around standard system calls.
-class EintrSafeFileDescriptor : public FileDescriptor {
+class EintrSafeFileDescriptor final : public FileDescriptor {
  public:
   EintrSafeFileDescriptor() : fd_(-1) {}
   ~EintrSafeFileDescriptor();
@@ -128,6 +135,7 @@ class EintrSafeFileDescriptor : public FileDescriptor {
   bool Close() override;
   bool IsSettingErrno() override { return true; }
   bool IsOpen() override { return (fd_ >= 0); }
+  int Fd() override { return fd_; }
 
  protected:
   int fd_;

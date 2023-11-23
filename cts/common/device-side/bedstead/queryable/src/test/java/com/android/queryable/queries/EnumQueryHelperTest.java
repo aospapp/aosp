@@ -22,14 +22,21 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.testng.Assert.assertThrows;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class EnumQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class EnumQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private enum TestEnum {
         VALUE1, VALUE2
@@ -175,5 +182,53 @@ public class EnumQueryHelperTest {
         enumQueryHelper.isNotEqualTo(TestEnum.VALUE2);
 
         assertParcelsCorrectly(EnumQueryHelper.class, enumQueryHelper);
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        EnumQueryHelper<Queryable, TestEnum> enumQueryHelper =
+                new EnumQueryHelper<>(mQuery);
+
+        assertThat(enumQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIsEqualToQuery_returnsFalse() {
+        EnumQueryHelper<Queryable, TestEnum> enumQueryHelper =
+                new EnumQueryHelper<>(mQuery);
+
+        enumQueryHelper.isEqualTo(TestEnum.VALUE1);
+
+        assertThat(enumQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIsNotEqualToQuery_returnsFalse() {
+        EnumQueryHelper<Queryable, TestEnum> enumQueryHelper =
+                new EnumQueryHelper<>(mQuery);
+
+        enumQueryHelper.isNotEqualTo(TestEnum.VALUE1);
+
+        assertThat(enumQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIsOneOfQuery_returnsFalse() {
+        EnumQueryHelper<Queryable, TestEnum> enumQueryHelper =
+                new EnumQueryHelper<>(mQuery);
+
+        enumQueryHelper.isOneOf(TestEnum.VALUE1);
+
+        assertThat(enumQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIsNotOneOfQuery_returnsFalse() {
+        EnumQueryHelper<Queryable, TestEnum> enumQueryHelper =
+                new EnumQueryHelper<>(mQuery);
+
+        enumQueryHelper.isNotOneOf(TestEnum.VALUE1);
+
+        assertThat(enumQueryHelper.isEmptyQuery()).isFalse();
     }
 }

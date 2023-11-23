@@ -515,7 +515,7 @@ class Device(object):
           if count > expected_count * number_of_iterations:
             logging.info(
                 "[STRESS_TEST] In iteration %d, got duplicated %s : %d",
-                self.iteration, self.name, count)
+                self.iteration, event, count)
             logging.info("[STRESS_TEST] Will count only : %d",
                          expected_count * number_of_iterations)
             count = expected_count * number_of_iterations
@@ -637,6 +637,9 @@ class Device(object):
   def __AsyncCommand(self, command, log_output=False):
     result = self.Command(command).strip()
     if result and log_output:
+      # log both logcat and stress testing log
+      # some test will depend on adb command output (ex: dumpsys)
+      self.Command(['shell', 'log', '-t', 'STRESS_TEST', result])
       for line in result.splitlines():
         logging.info(line.decode("utf-8"))
 
@@ -682,13 +685,13 @@ class Device(object):
     sdk = int(self.Command(
         ["shell", "getprop", "ro.build.version.sdk"]).strip())
     if sdk >= 24:  # SDK 24 = Android N
-      with open(bugreport, "w") as bugreport_fp:
+      with open(bugreport, "wb") as bugreport_fp:
         bugreport_fp.write(self.Command(["bugreport", bugreport]))
     else:
       bugreport_txt = os.path.join(self.output_root,
                                    "%s_bugreport_iteration_%06d.txt" %
                                    (self.name, self.iteration))
-      with open(bugreport_txt, "w") as bugreport_fp:
+      with open(bugreport_txt, "wb") as bugreport_fp:
         bugreport_fp.write(self.Command(["bugreport"]))
       self.Command(["zip", bugreport, bugreport_txt])
 

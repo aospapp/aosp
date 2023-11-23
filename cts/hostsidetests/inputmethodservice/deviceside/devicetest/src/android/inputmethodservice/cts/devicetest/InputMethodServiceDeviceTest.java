@@ -37,6 +37,7 @@ import static android.inputmethodservice.cts.devicetest.MoreCollectors.startingF
 import static org.junit.Assume.assumeNotNull;
 import static org.junit.Assume.assumeTrue;
 
+import android.app.UiAutomation;
 import android.content.Context;
 import android.inputmethodservice.cts.DeviceEvent;
 import android.inputmethodservice.cts.common.DeviceEventConstants.DeviceEventType;
@@ -47,12 +48,12 @@ import android.inputmethodservice.cts.common.test.ShellCommandUtils;
 import android.inputmethodservice.cts.devicetest.SequenceMatcher.MatchResult;
 import android.os.PowerManager;
 import android.os.SystemClock;
-import android.support.test.uiautomator.UiObject2;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.InputMethodSubtype;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -416,10 +417,23 @@ public class InputMethodServiceDeviceTest {
 
     private static void showInputMethodPicker(TestHelper helper) throws Exception {
         // Test InputMethodManager#showInputMethodPicker() works as expected.
-        final Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        final InputMethodManager imm = context.getSystemService(InputMethodManager.class);
         helper.shell(ShellCommandUtils.showImePicker());
-        pollingCheck(() -> imm.isInputMethodPickerShown(), TIMEOUT,
+        pollingCheck(InputMethodServiceDeviceTest::isInputMethodPickerShown, TIMEOUT,
                 "InputMethod picker should be shown");
+    }
+
+    private static boolean isInputMethodPickerShown() {
+        final InputMethodManager imm = InstrumentationRegistry.getInstrumentation().getContext()
+                .getSystemService(InputMethodManager.class);
+        final UiAutomation uiAutomation =
+                InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            uiAutomation.adoptShellPermissionIdentity();
+            return imm.isInputMethodPickerShown();
+        } catch (Exception e) {
+            throw new RuntimeException("Caught exception", e);
+        } finally {
+            uiAutomation.dropShellPermissionIdentity();
+        }
     }
 }

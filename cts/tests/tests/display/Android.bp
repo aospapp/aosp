@@ -27,8 +27,10 @@ android_test {
     },
     srcs: ["src/**/*.java"],
     static_libs: [
-    "androidx.test.rules",
-    "compatibility-device-util-axt",
+        "androidx.test.core",
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+        "CtsSurfaceValidatorLib",
     ],
     libs: ["android.test.base"],
     // Tag this module as a cts test artifact
@@ -38,4 +40,6 @@ android_test {
         "sts",
     ],
     sdk_version: "test_current",
+    data: [":CtsAppTestStubs"],
+    per_testcase_directory: true,
 }

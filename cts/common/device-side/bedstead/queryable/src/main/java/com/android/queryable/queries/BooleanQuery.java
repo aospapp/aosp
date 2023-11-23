@@ -20,9 +20,10 @@ import com.android.queryable.Queryable;
 
 /** Query for a {@link Boolean}. */
 public interface BooleanQuery<E extends Queryable> extends Query<Boolean> {
+
     /** Queries a {@link Boolean}. */
-    static BooleanQuery<BooleanQuery<?>> Boolean() {
-        return new BooleanQueryHelper<>();
+    static BooleanQueryHelper.BooleanQueryBase Boolean() {
+        return new BooleanQueryHelper.BooleanQueryBase();
     }
 
     E isTrue();

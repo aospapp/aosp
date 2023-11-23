@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2021 NXP
+ * Copyright 2012-2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -859,13 +859,12 @@ static void hal_write_cb(void* pContext, phTmlNfc_TransactInfo_t* pInfo) {
 *******************************************************************************/
 static void hal_read_cb(void* pContext, phTmlNfc_TransactInfo_t* pInfo) {
   phNxpNciHal_Sem_t* p_cb_data = (phNxpNciHal_Sem_t*)pContext;
-  NFCSTATUS status;
   if (hal_write_timer_fired == 1) {
     NXPLOG_NCIHAL_D("hal_read_cb - response timeout occurred");
 
     hal_write_timer_fired = 0;
     p_cb_data->status = NFCSTATUS_RESPONSE_TIMEOUT;
-    status = phTmlNfc_ReadAbort();
+    phTmlNfc_ReadAbort();
   } else {
     NFCSTATUS status = phOsalNfc_Timer_Stop(timeoutTimerId);
 

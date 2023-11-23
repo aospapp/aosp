@@ -17,25 +17,30 @@
 package android.car.cts;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import android.car.Car;
 import android.car.VehicleAreaType;
+import android.car.VehiclePropertyIds;
 import android.car.VehiclePropertyType;
+import android.car.cts.utils.ShellPermissionUtils;
 import android.car.hardware.CarPropertyConfig;
+import android.car.hardware.property.AreaIdConfig;
 import android.car.hardware.property.CarPropertyManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.Assert;
 import org.junit.Test.None;
 import org.junit.runner.RunWith;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -43,20 +48,43 @@ import java.util.List;
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Instant apps cannot get car related permissions.")
-public class CarPropertyConfigTest extends CarApiTestBase {
-    private CarPropertyManager mCarPropertyManager;
-    private List<CarPropertyConfig> mConfigs = new ArrayList<>();
+public final class CarPropertyConfigTest extends AbstractCarTestCase {
+
+    private static final String TAG = CarPropertyConfigTest.class.getSimpleName();
     private static final float EPSILON = 0.00001f;
+
+    private List<CarPropertyConfig> mConfigs;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() throws Exception {
-        super.setUp();
-        mCarPropertyManager = (CarPropertyManager) getCar().getCarManager(Car.PROPERTY_SERVICE);
-        mConfigs = mCarPropertyManager.getPropertyList();
+        CarPropertyManager carPropertyManager = (CarPropertyManager) getCar().getCarManager(
+                Car.PROPERTY_SERVICE);
+        ShellPermissionUtils.runWithShellPermissionIdentity(
+                () -> mConfigs = carPropertyManager.getPropertyList());
+        assertThat(mConfigs.size()).isAtLeast(4);
     }
 
     @Test
     public void testGetPropertyId() {
+        List<Integer> expectedPropertyTypes = Arrays.asList(
+                VehiclePropertyType.STRING,
+                VehiclePropertyType.BOOLEAN,
+                VehiclePropertyType.INT32,
+                VehiclePropertyType.INT32_VEC,
+                VehiclePropertyType.INT64,
+                VehiclePropertyType.INT64_VEC,
+                VehiclePropertyType.FLOAT,
+                VehiclePropertyType.FLOAT_VEC,
+                VehiclePropertyType.BYTES,
+                VehiclePropertyType.MIXED);
+
         for (CarPropertyConfig cfg : mConfigs) {
             int propId = cfg.getPropertyId();
 
@@ -65,16 +93,6 @@ public class CarPropertyConfigTest extends CarApiTestBase {
                    (propId & VehiclePropertyGroup.MASK) == VehiclePropertyGroup.SYSTEM;
             Assert.assertTrue(verifyGroup);
 
-            List<Integer> expectedPropertyTypes = Arrays.asList(
-                    VehiclePropertyType.STRING,
-                    VehiclePropertyType.BOOLEAN,
-                    VehiclePropertyType.INT32,
-                    VehiclePropertyType.INT32_VEC,
-                    VehiclePropertyType.INT64_VEC,
-                    VehiclePropertyType.FLOAT,
-                    VehiclePropertyType.FLOAT_VEC,
-                    VehiclePropertyType.BYTES,
-                    VehiclePropertyType.MIXED);
             int propertyType = propId & VehiclePropertyType.MASK;
             assertThat(expectedPropertyTypes).contains(propertyType);
         }
@@ -170,12 +188,85 @@ public class CarPropertyConfigTest extends CarApiTestBase {
     }
 
     @Test
-    public void testAreaIds() {
-        for (CarPropertyConfig cfg : mConfigs) {
+    public void testGetAreaIds() {
+        for (CarPropertyConfig<?> cfg : mConfigs) {
             int[] areaIds = cfg.getAreaIds();
             Assert.assertNotNull(areaIds);
-            if (areaIds.length > 0) {
-                Assert.assertTrue(areaIdCheck(areaIds));
+            assertThat(areaIds).isNotEmpty();
+            Assert.assertTrue(areaIdCheck(areaIds));
+            assertThat(areaIds.length).isEqualTo(cfg.getAreaIdConfigs().size());
+            for (int areaId : areaIds) {
+                boolean found = false;
+                for (AreaIdConfig<?> areaIdConfig : cfg.getAreaIdConfigs()) {
+                    if (areaIdConfig.getAreaId() == areaId) {
+                        found = true;
+                        break;
+                    }
+                }
+                assertWithMessage("Property ID: " + VehiclePropertyIds.toString(cfg.getPropertyId())
+                        + " area ID: 0x" + Integer.toHexString(areaId)
+                        + " must be found in AreaIdConfigs list").that(found).isTrue();
+            }
+        }
+    }
+
+    @Test
+    public void testGetAreaIdConfigs() {
+        for (CarPropertyConfig<?> cfg : mConfigs) {
+            List<? extends AreaIdConfig<?>> areaIdConfigs = cfg.getAreaIdConfigs();
+            assertThat(areaIdConfigs).isNotNull();
+            assertThat(areaIdConfigs).isNotEmpty();
+            for (AreaIdConfig<?> areaIdConfig : areaIdConfigs) {
+                boolean minMaxCorrectlyDefined =
+                        (areaIdConfig.getMinValue() != null && areaIdConfig.getMaxValue() != null)
+                                || (areaIdConfig.getMinValue() == null
+                                && areaIdConfig.getMaxValue() == null);
+                assertWithMessage("Property ID: " + VehiclePropertyIds.toString(cfg.getPropertyId())
+                        + " area ID: 0x" + Integer.toHexString(areaIdConfig.getAreaId())
+                        + " min/max must be both defined or both null").that(
+                        minMaxCorrectlyDefined).isTrue();
+                if (cfg.getPropertyType().equals(Integer.class)) {
+                    if (areaIdConfig.getMinValue() != null) {
+                        assertThat((Integer) areaIdConfig.getMaxValue()).isAtLeast(
+                                (Integer) areaIdConfig.getMinValue());
+                        if (((Integer) areaIdConfig.getMinValue()).equals(0)) {
+                            assertThat((Integer) areaIdConfig.getMaxValue()).isNotEqualTo(0);
+                        }
+                    }
+                } else if (cfg.getPropertyType().equals(Long.class)) {
+                    if (areaIdConfig.getMinValue() != null) {
+                        assertThat((Long) areaIdConfig.getMaxValue()).isAtLeast(
+                                (Long) areaIdConfig.getMinValue());
+                        if (((Long) areaIdConfig.getMinValue()).equals(0L)) {
+                            assertThat((Long) areaIdConfig.getMaxValue()).isNotEqualTo(0L);
+                        }
+                    }
+                } else if (cfg.getPropertyType().equals(Float.class)) {
+                    if (areaIdConfig.getMinValue() != null) {
+                        assertThat((Float) areaIdConfig.getMaxValue()).isAtLeast(
+                                (Float) areaIdConfig.getMinValue());
+                        if (((Float) areaIdConfig.getMinValue()).equals(0F)) {
+                            assertThat((Float) areaIdConfig.getMaxValue()).isNotEqualTo(0F);
+                        }
+                    }
+                } else {
+                    assertThat(areaIdConfig.getMinValue()).isNull();
+                    assertThat(areaIdConfig.getMaxValue()).isNull();
+                }
+                assertThat(areaIdConfig.getSupportedEnumValues()).isNotNull();
+                assertThat(areaIdConfig.getSupportedEnumValues()).containsNoDuplicates();
+            }
+        }
+    }
+
+    @Test
+    public void testGetAreaIdConfig() {
+        for (CarPropertyConfig<?> cfg : mConfigs) {
+            for (int areaId : cfg.getAreaIds()) {
+                AreaIdConfig<?> areaIdConfig = cfg.getAreaIdConfig(areaId);
+                assertThat(areaIdConfig).isNotNull();
+                assertThat(areaIdConfig.getAreaId()).isEqualTo(areaId);
+                assertThat(areaIdConfig).isIn(cfg.getAreaIdConfigs());
             }
         }
     }
@@ -200,8 +291,8 @@ public class CarPropertyConfigTest extends CarApiTestBase {
      * @return
      */
     private boolean areaIdCheck(int[] areaIds) {
-        for (int i = 0; i < areaIds.length-1; i++) {
-            for (int j = i+1; j < areaIds.length; i++) {
+        for (int i = 0; i < areaIds.length - 1; i++) {
+            for (int j = i + 1; j < areaIds.length; j++) {
                 if ((areaIds[i] & areaIds[j]) != 0) {
                     return false;
                 }

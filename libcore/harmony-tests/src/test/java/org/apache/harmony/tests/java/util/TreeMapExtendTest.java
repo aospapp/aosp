@@ -1,20 +1,20 @@
 package org.apache.harmony.tests.java.util;
 
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import junit.framework.TestCase;
@@ -138,7 +138,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(tm.lastEntry(), treeMap.lastEntry());
         assertEquals(tm.keySet(), treeMap.keySet());
 
-        String key = new Integer(100).toString();
+        String key = Integer.valueOf(100).toString();
         assertEquals(tm.ceilingKey(key), treeMap.ceilingKey(key));
         assertEquals(tm.ceilingEntry(key), treeMap.ceilingEntry(key));
         assertEquals(tm.floorKey(key), treeMap.floorKey(key));
@@ -344,8 +344,8 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_SubMap_firstKey() {
-        String firstKey1 = new Integer(100).toString();
-        String firstKey2 = new Integer(101).toString();
+        String firstKey1 = Integer.valueOf(100).toString();
+        String firstKey2 = Integer.valueOf(101).toString();
         assertEquals(firstKey1, subMap_default.firstKey());
         assertEquals(firstKey2, subMap_startExcluded_endExcluded.firstKey());
         assertEquals(firstKey2, subMap_startExcluded_endIncluded.firstKey());
@@ -444,8 +444,8 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_SubMap_lastKey() {
-        String lastKey1 = new Integer(108).toString();
-        String lastKey2 = new Integer(109).toString();
+        String lastKey1 = Integer.valueOf(108).toString();
+        String lastKey2 = Integer.valueOf(109).toString();
         assertEquals(lastKey1, subMap_default.lastKey());
         assertEquals(lastKey1, subMap_startExcluded_endExcluded.lastKey());
         assertEquals(lastKey2, subMap_startExcluded_endIncluded.lastKey());
@@ -544,7 +544,7 @@ public class TreeMapExtendTest extends TestCase {
 
     public void test_SubMap_get() {
         // left boundary
-        Integer value = new Integer(100);
+        Integer value = Integer.valueOf(100);
         assertEquals(value, subMap_default.get(value.toString()));
         assertEquals(null, subMap_startExcluded_endExcluded.get(value
                 .toString()));
@@ -556,7 +556,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toString()));
 
         // normal value
-        value = new Integer(105);
+        value = Integer.valueOf(105);
         assertEquals(value, subMap_default.get(value.toString()));
         assertEquals(value, subMap_startExcluded_endExcluded.get(value
                 .toString()));
@@ -568,7 +568,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toString()));
 
         // right boundary
-        value = new Integer(109);
+        value = Integer.valueOf(109);
         assertEquals(null, subMap_default.get(value.toString()));
         assertEquals(null, subMap_startExcluded_endExcluded.get(value
                 .toString()));
@@ -581,20 +581,20 @@ public class TreeMapExtendTest extends TestCase {
 
         // With Comparator to test inInRange
         // left boundary
-        value = new Integer(100);
+        value = Integer.valueOf(100);
         assertEquals(value, subMap_default_comparator.get(value.toString()));
 
         // normal value
-        value = new Integer(105);
+        value = Integer.valueOf(105);
         assertEquals(value, subMap_default_comparator.get(value.toString()));
 
         // right boundary
-        value = new Integer(109);
+        value = Integer.valueOf(109);
         assertEquals(null, subMap_default_comparator.get(value.toString()));
     }
 
     public void test_SubMap_headMap() {
-        String endKey = new Integer(99).toString();
+        String endKey = Integer.valueOf(99).toString();
         try {
             subMap_default.headMap(endKey);
             fail("should throw IllegalArgumentException");
@@ -631,7 +631,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         SortedMap headMap = null;
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         headMap = subMap_default.headMap(endKey);
         assertEquals(0, headMap.size());
 
@@ -656,7 +656,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(0, headMap.size());
 
         for (int i = 0, j = 101; i < 8; i++) {
-            endKey = new Integer(i + j).toString();
+            endKey = Integer.valueOf(i + j).toString();
             headMap = subMap_default.headMap(endKey);
             assertEquals(i + 1, headMap.size());
 
@@ -673,7 +673,7 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(i + 1, headMap.size());
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headMap = subMap_default.headMap(endKey);
         assertEquals(9, headMap.size());
 
@@ -689,7 +689,7 @@ public class TreeMapExtendTest extends TestCase {
         headMap = subMap_startIncluded_endIncluded.headMap(endKey);
         assertEquals(9, headMap.size());
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             subMap_default.headMap(endKey);
             fail("should throw IllegalArgumentException");
@@ -726,7 +726,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         // With Comparator
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             subMap_default_comparator.headMap(endKey);
             fail("should throw IllegalArgumentException");
@@ -763,7 +763,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         headMap = null;
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         headMap = subMap_default_comparator.headMap(endKey);
         assertEquals(0, headMap.size());
 
@@ -788,7 +788,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(0, headMap.size());
 
         for (int i = 0, j = 101; i < 8; i++) {
-            endKey = new Integer(i + j).toString();
+            endKey = Integer.valueOf(i + j).toString();
             headMap = subMap_default_comparator.headMap(endKey);
             assertEquals(i + 1, headMap.size());
 
@@ -809,7 +809,7 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(i + 1, headMap.size());
         }
 
-        endKey = new Integer(108).toString();
+        endKey = Integer.valueOf(108).toString();
         headMap = subMap_default_comparator.headMap(endKey);
         assertEquals(8, headMap.size());
 
@@ -825,7 +825,7 @@ public class TreeMapExtendTest extends TestCase {
         headMap = subMap_startIncluded_endIncluded_comparator.headMap(endKey);
         assertEquals(8, headMap.size());
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             subMap_default_comparator.headMap(endKey);
             fail("should throw IllegalArgumentException");
@@ -869,7 +869,7 @@ public class TreeMapExtendTest extends TestCase {
         assertFalse(subMap_startIncluded_endExcluded.isEmpty());
         assertFalse(subMap_startIncluded_endIncluded.isEmpty());
 
-        Object startKey = new Integer(100);
+        Object startKey = Integer.valueOf(100);
         Object endKey = startKey;
         SortedMap subMap = tm.subMap(startKey.toString(), endKey.toString());
         assertTrue(subMap.isEmpty());
@@ -932,7 +932,7 @@ public class TreeMapExtendTest extends TestCase {
             assertFalse(subMap.isEmpty());
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey.toString(), endKey.toString());
         assertTrue(subMap.isEmpty());
@@ -966,7 +966,7 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_SubMap_put() {
-        Integer value = new Integer(100);
+        Integer value = Integer.valueOf(100);
         int addValue = 5;
 
         subMap_default.put(value.toString(), value + addValue);
@@ -998,7 +998,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(value + addValue, subMap_startIncluded_endIncluded
                 .get(value.toString()));
 
-        value = new Integer(109);
+        value = Integer.valueOf(109);
         try {
             subMap_default.put(value.toString(), value + addValue);
             fail("should throw IllegalArgumentException");
@@ -1034,7 +1034,7 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_SubMap_remove() {
-        Integer value = new Integer(100);
+        Integer value = Integer.valueOf(100);
 
         subMap_default.remove(value.toString());
         assertNull(subMap_default.get(value.toString()));
@@ -1051,7 +1051,7 @@ public class TreeMapExtendTest extends TestCase {
         subMap_startIncluded_endIncluded.remove(value.toString());
         assertNull(subMap_startIncluded_endIncluded.get(value.toString()));
 
-        value = new Integer(109);
+        value = Integer.valueOf(109);
         subMap_default.remove(value.toString());
         assertNull(subMap_default.get(value.toString()));
 
@@ -1108,7 +1108,7 @@ public class TreeMapExtendTest extends TestCase {
 
         SortedMap subSubMap = null;
         for (int i = 101; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
             endKey = startKey;
 
             subSubMap = subMap_default.subMap(startKey, endKey);
@@ -1132,8 +1132,8 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         for (int i = 101, j = 5; i < 105; i++) {
-            startKey = new Integer(i).toString();
-            endKey = new Integer(i + j).toString();
+            startKey = Integer.valueOf(i).toString();
+            endKey = Integer.valueOf(i + j).toString();
 
             subSubMap = subMap_default.subMap(startKey, endKey);
             assertEquals(j, subSubMap.size());
@@ -1155,8 +1155,8 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(j, subSubMap.size());
         }
 
-        startKey = new Integer(108).toString();
-        endKey = new Integer(109).toString();
+        startKey = Integer.valueOf(108).toString();
+        endKey = Integer.valueOf(109).toString();
 
         subSubMap = subMap_default.subMap(startKey, endKey);
         assertEquals(1, subSubMap.size());
@@ -1173,8 +1173,8 @@ public class TreeMapExtendTest extends TestCase {
         subSubMap = subMap_startIncluded_endIncluded.subMap(startKey, endKey);
         assertEquals(1, subSubMap.size());
 
-        startKey = new Integer(109).toString();
-        endKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
+        endKey = Integer.valueOf(109).toString();
 
         try {
             subMap_default.subMap(startKey, endKey);
@@ -1248,7 +1248,7 @@ public class TreeMapExtendTest extends TestCase {
 
         SortedMap subSubMap = null;
         for (int i = 101; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
             endKey = startKey;
 
             subSubMap = subMap_default_comparator.subMap(startKey, endKey);
@@ -1272,8 +1272,8 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         for (int i = 101, j = 5; i < 105; i++) {
-            startKey = new Integer(i).toString();
-            endKey = new Integer(i + j).toString();
+            startKey = Integer.valueOf(i).toString();
+            endKey = Integer.valueOf(i + j).toString();
 
             subSubMap = subMap_default_comparator.subMap(startKey, endKey);
             assertEquals(j, subSubMap.size());
@@ -1295,8 +1295,8 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(j, subSubMap.size());
         }
 
-        startKey = new Integer(108).toString();
-        endKey = new Integer(109).toString();
+        startKey = Integer.valueOf(108).toString();
+        endKey = Integer.valueOf(109).toString();
 
         subSubMap = subMap_default_comparator.subMap(startKey, endKey);
         assertEquals(1, subSubMap.size());
@@ -1317,8 +1317,8 @@ public class TreeMapExtendTest extends TestCase {
                 startKey, endKey);
         assertEquals(1, subSubMap.size());
 
-        startKey = new Integer(109).toString();
-        endKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
+        endKey = Integer.valueOf(109).toString();
 
         try {
             subMap_default_comparator.subMap(startKey, endKey);
@@ -1353,7 +1353,7 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_SubMap_tailMap() {
-        String startKey = new Integer(99).toString();
+        String startKey = Integer.valueOf(99).toString();
         try {
             subMap_default.tailMap(startKey);
             fail("should throw IllegalArgumentException");
@@ -1390,7 +1390,7 @@ public class TreeMapExtendTest extends TestCase {
         }
         SortedMap tailMap = null;
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         tailMap = subMap_default.tailMap(startKey);
         assertEquals(9, tailMap.size());
 
@@ -1415,7 +1415,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(10, tailMap.size());
 
         for (int i = 0, j = 101, end = 8; i < end; i++) {
-            startKey = new Integer(i + j).toString();
+            startKey = Integer.valueOf(i + j).toString();
             tailMap = subMap_default.tailMap(startKey);
             assertEquals(end - i, tailMap.size());
 
@@ -1432,7 +1432,7 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(end - i + 1, tailMap.size());
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         try {
             subMap_default.tailMap(startKey);
             fail("should throw IllegalArgumentException");
@@ -1459,7 +1459,7 @@ public class TreeMapExtendTest extends TestCase {
         tailMap = subMap_startIncluded_endIncluded.tailMap(startKey);
         assertEquals(1, tailMap.size());
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             subMap_default.tailMap(startKey);
             fail("should throw IllegalArgumentException");
@@ -1559,13 +1559,13 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_AscendingSubMap_ceilingEntry() {
-        String key = new Integer(99).toString();
+        String key = Integer.valueOf(99).toString();
         assertNull(navigableMap_startExcluded_endExcluded.ceilingEntry(key));
         assertNull(navigableMap_startExcluded_endIncluded.ceilingEntry(key));
         assertNull(navigableMap_startIncluded_endExcluded.ceilingEntry(key));
         assertNull(navigableMap_startIncluded_endIncluded.ceilingEntry(key));
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertEquals(101, navigableMap_startExcluded_endExcluded.ceilingEntry(
                 key).getValue());
         assertEquals(101, navigableMap_startExcluded_endIncluded.ceilingEntry(
@@ -1576,7 +1576,7 @@ public class TreeMapExtendTest extends TestCase {
                 key).getValue());
 
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertEquals(i, navigableMap_startExcluded_endExcluded
                     .ceilingEntry(key).getValue());
             assertEquals(i, navigableMap_startExcluded_endIncluded
@@ -1588,7 +1588,7 @@ public class TreeMapExtendTest extends TestCase {
 
         }
 
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertNull(navigableMap_startExcluded_endExcluded.ceilingEntry(key));
         assertEquals(109, navigableMap_startExcluded_endIncluded.ceilingEntry(
                 key).getValue());
@@ -1596,7 +1596,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(109, navigableMap_startIncluded_endIncluded.ceilingEntry(
                 key).getValue());
 
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertNull(navigableMap_startExcluded_endExcluded.ceilingEntry(key));
         assertNull(navigableMap_startExcluded_endIncluded.ceilingEntry(key));
         assertNull(navigableMap_startIncluded_endExcluded.ceilingEntry(key));
@@ -1667,7 +1667,7 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_AscendingSubMap_floorEntry() {
-        String key = new Integer(99).toString();
+        String key = Integer.valueOf(99).toString();
         assertEquals(108, navigableMap_startExcluded_endExcluded
                 .floorEntry(key).getValue());
         assertEquals(109, navigableMap_startExcluded_endIncluded
@@ -1677,7 +1677,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(109, navigableMap_startIncluded_endIncluded
                 .floorEntry(key).getValue());
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertNull(navigableMap_startExcluded_endExcluded.floorEntry(key));
         assertNull(navigableMap_startExcluded_endIncluded.floorEntry(key));
         assertEquals(100, navigableMap_startIncluded_endExcluded
@@ -1686,7 +1686,7 @@ public class TreeMapExtendTest extends TestCase {
                 .floorEntry(key).getValue());
 
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertEquals(i, navigableMap_startExcluded_endExcluded.floorEntry(
                     key).getValue());
             assertEquals(i, navigableMap_startExcluded_endIncluded.floorEntry(
@@ -1698,7 +1698,7 @@ public class TreeMapExtendTest extends TestCase {
 
         }
 
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertEquals(108, navigableMap_startExcluded_endExcluded
                 .floorEntry(key).getValue());
         assertEquals(109, navigableMap_startExcluded_endIncluded
@@ -1708,7 +1708,7 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(109, navigableMap_startIncluded_endIncluded
                 .floorEntry(key).getValue());
 
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertEquals(108, navigableMap_startExcluded_endExcluded
                 .floorEntry(key).getValue());
         assertEquals(109, navigableMap_startExcluded_endIncluded
@@ -1858,548 +1858,548 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_DescendingSubMap_ceilingEntry() {
-        NavigableMap decendingMap = tm.descendingMap();
-        String key = new Integer(-1).toString();
-        assertNull(decendingMap.ceilingEntry(key));
+        NavigableMap descendingMap = tm.descendingMap();
+        String key = Integer.valueOf(-1).toString();
+        assertNull(descendingMap.ceilingEntry(key));
         for (int i = 0; i < objArray.length; i++) {
             key = objArray[i].toString();
-            assertEquals(objArray[i], decendingMap.ceilingEntry(key).getValue());
+            assertEquals(objArray[i], descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(1000).toString();
-        assertEquals(100, decendingMap.ceilingEntry(key).getValue());
-        key = new Integer(1001).toString();
-        assertEquals(100, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(1000).toString();
+        assertEquals(100, descendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(1001).toString();
+        assertEquals(100, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        key = new Integer(100).toString();
-        assertNull(decendingMap.ceilingEntry(key));
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertNull(descendingMap.ceilingEntry(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(108, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(108, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        key = new Integer(100).toString();
-        assertNull(decendingMap.ceilingEntry(key));
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertNull(descendingMap.ceilingEntry(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.ceilingEntry(key).getValue());
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.ceilingEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(108, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(108, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.ceilingEntry(key).getValue());
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.ceilingEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.ceilingEntry(key).getValue());
 
         // With Comparator
-        decendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertNull(decendingMap.ceilingEntry(key));
+        key = Integer.valueOf(100).toString();
+        assertNull(descendingMap.ceilingEntry(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(108, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(108, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertNull(decendingMap.ceilingEntry(key));
+        key = Integer.valueOf(100).toString();
+        assertNull(descendingMap.ceilingEntry(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.ceilingEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(108, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(108, descendingMap.ceilingEntry(key).getValue());
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.ceilingEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.ceilingEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.ceilingEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.ceilingEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.ceilingEntry(key).getValue());
     }
 
     public void test_DescendingSubMap_descendingMap() {
-        NavigableMap decendingMap = tm.descendingMap();
-        NavigableMap decendingDecendingMap = decendingMap.descendingMap();
-        assertEquals(decendingMap, decendingDecendingMap);
+        NavigableMap descendingMap = tm.descendingMap();
+        NavigableMap descendingDescendingMap = descendingMap.descendingMap();
+        assertEquals(descendingMap, descendingDescendingMap);
 
-        NavigableMap decendingMapHeadMap = decendingMap.headMap(
-                new Integer(990).toString(), false);
-        NavigableMap decendingDecendingHeadMap = decendingMapHeadMap
+        NavigableMap descendingMapHeadMap = descendingMap.headMap(
+                Integer.valueOf(990).toString(), false);
+        NavigableMap descendingDescendingHeadMap = descendingMapHeadMap
                 .descendingMap();
-        assertNotNull(decendingMapHeadMap);
-        assertNotNull(decendingDecendingHeadMap);
-        assertEquals(decendingMapHeadMap, decendingDecendingHeadMap);
+        assertNotNull(descendingMapHeadMap);
+        assertNotNull(descendingDescendingHeadMap);
+        assertEquals(descendingMapHeadMap, descendingDescendingHeadMap);
 
-        NavigableMap decendingMapTailMap = decendingMap.tailMap(
-                new Integer(990).toString(), false);
-        NavigableMap decendingDecendingTailMap = decendingMapTailMap
+        NavigableMap descendingMapTailMap = descendingMap.tailMap(
+                Integer.valueOf(990).toString(), false);
+        NavigableMap descendingDescendingTailMap = descendingMapTailMap
                 .descendingMap();
-        assertNotNull(decendingMapTailMap);
-        assertNotNull(decendingDecendingTailMap);
-        // assertEquals(decendingMapTailMap,decendingDecendingTailMap);
+        assertNotNull(descendingMapTailMap);
+        assertNotNull(descendingDescendingTailMap);
+        // assertEquals(descendingMapTailMap,descendingDescendingTailMap);
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        decendingDecendingMap = decendingMap.descendingMap();
-        assertEquals(decendingMap, decendingDecendingMap);
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        descendingDescendingMap = descendingMap.descendingMap();
+        assertEquals(descendingMap, descendingDescendingMap);
 
-        decendingMapHeadMap = decendingMap.headMap(new Integer(104).toString(),
+        descendingMapHeadMap = descendingMap.headMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingHeadMap = decendingMapHeadMap.descendingMap();
-        assertEquals(decendingMapHeadMap, decendingDecendingHeadMap);
+        descendingDescendingHeadMap = descendingMapHeadMap.descendingMap();
+        assertEquals(descendingMapHeadMap, descendingDescendingHeadMap);
 
-        decendingMapTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingMapTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingTailMap = decendingMapTailMap.descendingMap();
-        assertEquals(decendingMapTailMap, decendingDecendingTailMap);
+        descendingDescendingTailMap = descendingMapTailMap.descendingMap();
+        assertEquals(descendingMapTailMap, descendingDescendingTailMap);
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        decendingDecendingMap = decendingMap.descendingMap();
-        assertEquals(decendingMap, decendingDecendingMap);
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        descendingDescendingMap = descendingMap.descendingMap();
+        assertEquals(descendingMap, descendingDescendingMap);
 
-        decendingMapHeadMap = decendingMap.headMap(new Integer(104).toString(),
+        descendingMapHeadMap = descendingMap.headMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingHeadMap = decendingMapHeadMap.descendingMap();
-        assertEquals(decendingMapHeadMap, decendingDecendingHeadMap);
+        descendingDescendingHeadMap = descendingMapHeadMap.descendingMap();
+        assertEquals(descendingMapHeadMap, descendingDescendingHeadMap);
 
-        decendingMapTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingMapTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingTailMap = decendingMapTailMap.descendingMap();
-        assertEquals(decendingMapTailMap, decendingDecendingTailMap);
+        descendingDescendingTailMap = descendingMapTailMap.descendingMap();
+        assertEquals(descendingMapTailMap, descendingDescendingTailMap);
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        decendingDecendingMap = decendingMap.descendingMap();
-        assertEquals(decendingMap, decendingDecendingMap);
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        descendingDescendingMap = descendingMap.descendingMap();
+        assertEquals(descendingMap, descendingDescendingMap);
 
-        decendingMapHeadMap = decendingMap.headMap(new Integer(104).toString(),
+        descendingMapHeadMap = descendingMap.headMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingHeadMap = decendingMapHeadMap.descendingMap();
-        assertEquals(decendingMapHeadMap, decendingDecendingHeadMap);
+        descendingDescendingHeadMap = descendingMapHeadMap.descendingMap();
+        assertEquals(descendingMapHeadMap, descendingDescendingHeadMap);
 
-        decendingMapTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingMapTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingTailMap = decendingMapTailMap.descendingMap();
-        assertEquals(decendingMapTailMap, decendingDecendingTailMap);
+        descendingDescendingTailMap = descendingMapTailMap.descendingMap();
+        assertEquals(descendingMapTailMap, descendingDescendingTailMap);
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        decendingDecendingMap = decendingMap.descendingMap();
-        assertEquals(decendingMap, decendingDecendingMap);
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        descendingDescendingMap = descendingMap.descendingMap();
+        assertEquals(descendingMap, descendingDescendingMap);
 
-        decendingMapHeadMap = decendingMap.headMap(new Integer(104).toString(),
+        descendingMapHeadMap = descendingMap.headMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingHeadMap = decendingMapHeadMap.descendingMap();
-        assertEquals(decendingMapHeadMap, decendingDecendingHeadMap);
+        descendingDescendingHeadMap = descendingMapHeadMap.descendingMap();
+        assertEquals(descendingMapHeadMap, descendingDescendingHeadMap);
 
-        decendingMapTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingMapTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        decendingDecendingTailMap = decendingMapTailMap.descendingMap();
-        assertEquals(decendingMapTailMap, decendingDecendingTailMap);
+        descendingDescendingTailMap = descendingMapTailMap.descendingMap();
+        assertEquals(descendingMapTailMap, descendingDescendingTailMap);
     }
 
     public void test_DescendingSubMap_firstEntry() {
-        NavigableMap decendingMap = tm.descendingMap();
-        assertEquals(999, decendingMap.firstEntry().getValue());
+        NavigableMap descendingMap = tm.descendingMap();
+        assertEquals(999, descendingMap.firstEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        assertEquals(108, decendingMap.firstEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        assertEquals(108, descendingMap.firstEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        assertEquals(109, decendingMap.firstEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        assertEquals(109, descendingMap.firstEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        assertEquals(108, decendingMap.firstEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        assertEquals(108, descendingMap.firstEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        assertEquals(109, decendingMap.firstEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        assertEquals(109, descendingMap.firstEntry().getValue());
     }
 
     public void test_DescendingSubMap_floorEntry() {
-        NavigableMap decendingMap = tm.descendingMap();
-        String key = new Integer(-1).toString();
-        assertEquals(0, decendingMap.floorEntry(key).getValue());
+        NavigableMap descendingMap = tm.descendingMap();
+        String key = Integer.valueOf(-1).toString();
+        assertEquals(0, descendingMap.floorEntry(key).getValue());
         for (int i = 0; i < objArray.length; i++) {
             key = objArray[i].toString();
-            assertEquals(objArray[i], decendingMap.floorEntry(key).getValue());
+            assertEquals(objArray[i], descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(1000).toString();
-        assertEquals(101, decendingMap.floorEntry(key).getValue());
-        key = new Integer(1001).toString();
-        assertEquals(101, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(1000).toString();
+        assertEquals(101, descendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(1001).toString();
+        assertEquals(101, descendingMap.floorEntry(key).getValue());
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(101, decendingMap.floorEntry(key).getValue());
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertEquals(101, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertNull(decendingMap.floorEntry(key));
+        key = Integer.valueOf(109).toString();
+        assertNull(descendingMap.floorEntry(key));
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(101, decendingMap.floorEntry(key).getValue());
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertEquals(101, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.floorEntry(key).getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.floorEntry(key).getValue());
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertNull(decendingMap.floorEntry(key));
+        key = Integer.valueOf(109).toString();
+        assertNull(descendingMap.floorEntry(key));
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.floorEntry(key).getValue());
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.floorEntry(key).getValue());
 
         // With Comparator
-        decendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(101, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(100).toString();
+        assertEquals(101, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertNull(decendingMap.floorEntry(key));
+        key = Integer.valueOf(109).toString();
+        assertNull(descendingMap.floorEntry(key));
 
-        decendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(101, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(100).toString();
+        assertEquals(101, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.floorEntry(key).getValue());
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertNull(decendingMap.floorEntry(key));
+        key = Integer.valueOf(109).toString();
+        assertNull(descendingMap.floorEntry(key));
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
                 .descendingMap();
-        key = new Integer(100).toString();
-        assertEquals(100, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(100).toString();
+        assertEquals(100, descendingMap.floorEntry(key).getValue());
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertEquals(i, decendingMap.floorEntry(key).getValue());
+            key = Integer.valueOf(i).toString();
+            assertEquals(i, descendingMap.floorEntry(key).getValue());
         }
-        key = new Integer(109).toString();
-        assertEquals(109, decendingMap.floorEntry(key).getValue());
+        key = Integer.valueOf(109).toString();
+        assertEquals(109, descendingMap.floorEntry(key).getValue());
     }
 
     public void test_DescendingSubMap_lastEntry() {
-        NavigableMap decendingMap = tm.descendingMap();
-        assertEquals(0, decendingMap.lastEntry().getValue());
+        NavigableMap descendingMap = tm.descendingMap();
+        assertEquals(0, descendingMap.lastEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        assertEquals(101, decendingMap.lastEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        assertEquals(101, descendingMap.lastEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        assertEquals(101, decendingMap.lastEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        assertEquals(101, descendingMap.lastEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        assertEquals(100, decendingMap.lastEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        assertEquals(100, descendingMap.lastEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        assertEquals(100, decendingMap.lastEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        assertEquals(100, descendingMap.lastEntry().getValue());
     }
 
     public void test_DescendingSubMap_higherEntry() {
-        NavigableMap decendingMap;
-        NavigableMap decendingTailMap;
+        NavigableMap descendingMap;
+        NavigableMap descendingTailMap;
         Integer value;
         Entry entry;
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        value = new Integer(101);
-        assertNull(decendingMap.higherEntry(value.toString()));
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        value = Integer.valueOf(101);
+        assertNull(descendingMap.higherEntry(value.toString()));
 
         for (int i = 108; i > 101; i--) {
-            value = new Integer(i);
-            entry = decendingMap.higherEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.higherEntry(value.toString());
             assertEquals(value - 1, entry.getValue());
         }
 
-        value = new Integer(109);
-        entry = decendingMap.higherEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingMap.higherEntry(value.toString());
         assertEquals(108, entry.getValue());
 
-        decendingTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        value = new Integer(109);
-        entry = decendingTailMap.higherEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingTailMap.higherEntry(value.toString());
         assertEquals(103, entry.getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        value = new Integer(100);
-        assertNull(decendingMap.higherEntry(value.toString()));
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        value = Integer.valueOf(100);
+        assertNull(descendingMap.higherEntry(value.toString()));
 
         for (int i = 108; i > 100; i--) {
-            value = new Integer(i);
-            entry = decendingMap.higherEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.higherEntry(value.toString());
             assertEquals(value - 1, entry.getValue());
         }
 
-        value = new Integer(109);
-        entry = decendingMap.higherEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingMap.higherEntry(value.toString());
         assertEquals(108, entry.getValue());
 
-        decendingTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        value = new Integer(109);
-        entry = decendingTailMap.higherEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingTailMap.higherEntry(value.toString());
         assertEquals(103, entry.getValue());
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        value = new Integer(101);
-        assertNull(decendingMap.higherEntry(value.toString()));
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        value = Integer.valueOf(101);
+        assertNull(descendingMap.higherEntry(value.toString()));
 
         for (int i = 109; i > 101; i--) {
-            value = new Integer(i);
-            entry = decendingMap.higherEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.higherEntry(value.toString());
             assertEquals(value - 1, entry.getValue());
         }
 
-        value = new Integer(2);
-        entry = decendingMap.higherEntry(value.toString());
+        value = Integer.valueOf(2);
+        entry = descendingMap.higherEntry(value.toString());
         assertEquals(109, entry.getValue());
 
-        decendingTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        value = new Integer(109);
-        entry = decendingTailMap.higherEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingTailMap.higherEntry(value.toString());
         assertEquals(103, entry.getValue());
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        value = new Integer(100);
-        assertNull(decendingMap.higherEntry(value.toString()));
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        value = Integer.valueOf(100);
+        assertNull(descendingMap.higherEntry(value.toString()));
 
         for (int i = 109; i > 100; i--) {
-            value = new Integer(i);
-            entry = decendingMap.higherEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.higherEntry(value.toString());
             assertEquals(value - 1, entry.getValue());
         }
 
-        value = new Integer(2);
-        entry = decendingMap.higherEntry(value.toString());
+        value = Integer.valueOf(2);
+        entry = descendingMap.higherEntry(value.toString());
         assertEquals(109, entry.getValue());
 
-        decendingTailMap = decendingMap.tailMap(new Integer(104).toString(),
+        descendingTailMap = descendingMap.tailMap(Integer.valueOf(104).toString(),
                 false);
-        value = new Integer(109);
-        entry = decendingTailMap.higherEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingTailMap.higherEntry(value.toString());
         assertEquals(103, entry.getValue());
     }
 
     public void test_DescendingSubMap_lowerEntry() {
-        NavigableMap decendingMap;
-        NavigableMap decendingHeadMap;
+        NavigableMap descendingMap;
+        NavigableMap descendingHeadMap;
         Integer value;
         Entry entry;
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        value = new Integer(99);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        value = Integer.valueOf(99);
+        assertNull(descendingMap.lowerEntry(value.toString()));
         for (int i = 100; i < 108; i++) {
-            value = new Integer(i);
-            entry = decendingMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(109);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        value = Integer.valueOf(109);
+        assertNull(descendingMap.lowerEntry(value.toString()));
 
-        decendingHeadMap = decendingMap.headMap(new Integer(103).toString(),
+        descendingHeadMap = descendingMap.headMap(Integer.valueOf(103).toString(),
                 false);
         for (int i = 104; i < 106; i++) {
-            value = new Integer(i);
-            entry = decendingHeadMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingHeadMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(102);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(102);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertEquals(104, entry.getValue());
 
-        value = new Integer(109);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(109);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertNull(entry);
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        value = new Integer(99);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        value = Integer.valueOf(99);
+        assertNull(descendingMap.lowerEntry(value.toString()));
         for (int i = 100; i < 109; i++) {
-            value = new Integer(i);
-            entry = decendingMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(110);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        value = Integer.valueOf(110);
+        assertNull(descendingMap.lowerEntry(value.toString()));
 
-        decendingHeadMap = decendingMap.headMap(new Integer(103).toString(),
+        descendingHeadMap = descendingMap.headMap(Integer.valueOf(103).toString(),
                 false);
         for (int i = 104; i < 109; i++) {
-            value = new Integer(i);
-            entry = decendingHeadMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingHeadMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(102);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(102);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertEquals(104, entry.getValue());
 
-        value = new Integer(2);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(2);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertNull(entry);
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        value = new Integer(99);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        value = Integer.valueOf(99);
+        assertNull(descendingMap.lowerEntry(value.toString()));
         for (int i = 100; i < 108; i++) {
-            value = new Integer(i);
-            entry = decendingMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(109);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        value = Integer.valueOf(109);
+        assertNull(descendingMap.lowerEntry(value.toString()));
 
-        decendingHeadMap = decendingMap.headMap(new Integer(103).toString(),
+        descendingHeadMap = descendingMap.headMap(Integer.valueOf(103).toString(),
                 false);
         for (int i = 104; i < 107; i++) {
-            value = new Integer(i);
-            entry = decendingHeadMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingHeadMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(102);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(102);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertEquals(104, entry.getValue());
 
-        value = new Integer(2);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(2);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertNull(entry);
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        value = new Integer(99);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        value = Integer.valueOf(99);
+        assertNull(descendingMap.lowerEntry(value.toString()));
         for (int i = 100; i < 109; i++) {
-            value = new Integer(i);
-            entry = decendingMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(110);
-        assertNull(decendingMap.lowerEntry(value.toString()));
+        value = Integer.valueOf(110);
+        assertNull(descendingMap.lowerEntry(value.toString()));
 
-        decendingHeadMap = decendingMap.headMap(new Integer(103).toString(),
+        descendingHeadMap = descendingMap.headMap(Integer.valueOf(103).toString(),
                 false);
         for (int i = 104; i < 109; i++) {
-            value = new Integer(i);
-            entry = decendingHeadMap.lowerEntry(value.toString());
+            value = Integer.valueOf(i);
+            entry = descendingHeadMap.lowerEntry(value.toString());
             assertEquals(value + 1, entry.getValue());
         }
-        value = new Integer(102);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(102);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertEquals(104, entry.getValue());
 
-        value = new Integer(2);
-        entry = decendingHeadMap.lowerEntry(value.toString());
+        value = Integer.valueOf(2);
+        entry = descendingHeadMap.lowerEntry(value.toString());
         assertNull(entry);
     }
 
     public void test_DescendingSubMap_pollFirstEntry() {
-        NavigableMap decendingMap = tm.descendingMap();
-        assertEquals(999, decendingMap.pollFirstEntry().getValue());
+        NavigableMap descendingMap = tm.descendingMap();
+        assertEquals(999, descendingMap.pollFirstEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        assertEquals(108, decendingMap.pollFirstEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        assertEquals(108, descendingMap.pollFirstEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        assertEquals(109, decendingMap.pollFirstEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        assertEquals(109, descendingMap.pollFirstEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        assertEquals(107, decendingMap.pollFirstEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        assertEquals(107, descendingMap.pollFirstEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        assertEquals(106, decendingMap.pollFirstEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        assertEquals(106, descendingMap.pollFirstEntry().getValue());
     }
 
     public void test_DescendingSubMap_pollLastEntry() {
-        NavigableMap decendingMap = tm.descendingMap();
-        assertEquals(0, decendingMap.pollLastEntry().getValue());
+        NavigableMap descendingMap = tm.descendingMap();
+        assertEquals(0, descendingMap.pollLastEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        assertEquals(101, decendingMap.pollLastEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        assertEquals(101, descendingMap.pollLastEntry().getValue());
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        assertEquals(102, decendingMap.pollLastEntry().getValue());
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        assertEquals(102, descendingMap.pollLastEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        assertEquals(100, decendingMap.pollLastEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        assertEquals(100, descendingMap.pollLastEntry().getValue());
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        assertEquals(103, decendingMap.pollLastEntry().getValue());
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        assertEquals(103, descendingMap.pollLastEntry().getValue());
     }
 
     public void test_DescendingSubMap_values() {
-        NavigableMap decendingMap = tm.descendingMap();
-        Collection values = decendingMap.values();
+        NavigableMap descendingMap = tm.descendingMap();
+        Collection values = descendingMap.values();
         assertFalse(values.isEmpty());
         assertFalse(values.contains(1000));
         for (int i = 999; i > 0; i--) {
@@ -2407,8 +2407,8 @@ public class TreeMapExtendTest extends TestCase {
         }
         assertTrue(values.contains(0));
 
-        String endKey = new Integer(99).toString();
-        NavigableMap headMap = decendingMap.headMap(endKey, false);
+        String endKey = Integer.valueOf(99).toString();
+        NavigableMap headMap = descendingMap.headMap(endKey, false);
         values = headMap.values();
         Iterator it = values.iterator();
         for (int i = 999; i > 990; i--) {
@@ -2416,8 +2416,8 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(i, it.next());
         }
 
-        String startKey = new Integer(11).toString();
-        NavigableMap tailMap = decendingMap.tailMap(startKey, false);
+        String startKey = Integer.valueOf(11).toString();
+        NavigableMap tailMap = descendingMap.tailMap(startKey, false);
         values = tailMap.values();
         it = values.iterator();
         for (int i = 109; i > 100; i--) {
@@ -2425,8 +2425,8 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(i, it.next());
         }
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        values = decendingMap.values();
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        values = descendingMap.values();
         assertFalse(values.isEmpty());
         assertFalse(values.contains(109));
         for (int i = 108; i > 100; i--) {
@@ -2434,8 +2434,8 @@ public class TreeMapExtendTest extends TestCase {
         }
         assertFalse(values.contains(100));
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        values = decendingMap.values();
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        values = descendingMap.values();
         assertFalse(values.isEmpty());
         assertFalse(values.contains(100));
         for (int i = 108; i > 100; i--) {
@@ -2443,8 +2443,8 @@ public class TreeMapExtendTest extends TestCase {
         }
         assertTrue(values.contains(109));
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        values = decendingMap.values();
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        values = descendingMap.values();
         assertFalse(values.isEmpty());
         assertTrue(values.contains(100));
         for (int i = 108; i > 100; i--) {
@@ -2452,8 +2452,8 @@ public class TreeMapExtendTest extends TestCase {
         }
         assertFalse(values.contains(109));
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        values = decendingMap.values();
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        values = descendingMap.values();
         assertFalse(values.isEmpty());
         assertTrue(values.contains(100));
         for (int i = 108; i > 100; i--) {
@@ -2463,250 +2463,250 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_DescendingSubMap_headMap() {
-        NavigableMap decendingMap = tm.descendingMap();
-        String endKey = new Integer(0).toString(), key;
-        SortedMap subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        SortedMap subDecendingMap_Excluded = decendingMap
+        NavigableMap descendingMap = tm.descendingMap();
+        String endKey = Integer.valueOf(0).toString(), key;
+        SortedMap subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        SortedMap subDescendingMap_Excluded = descendingMap
                 .headMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 1; i < 1000; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(1000).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(1000).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        endKey = new Integer(100).toString();
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.headMap(endKey, true);
+            descendingMap.headMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        endKey = new Integer(100).toString();
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.headMap(endKey, true);
+            descendingMap.headMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
         // With Comparator
 
-        decendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
                 .descendingMap();
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.headMap(endKey, true);
+            descendingMap.headMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
                 .descendingMap();
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.headMap(endKey, true);
+            descendingMap.headMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
                 .descendingMap();
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
                 .descendingMap();
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.headMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.headMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.headMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.headMap(endKey, false);
 
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
         for (int i = 102; i < 109; i++) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(109).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(109).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
     }
 
     public void test_DescendingSubMap_subMap() {
         NavigableMap descendingMap = tm.descendingMap();
-        String startKey = new Integer(109).toString();
-        String endKey = new Integer(100).toString();
+        String startKey = Integer.valueOf(109).toString();
+        String endKey = Integer.valueOf(100).toString();
         try {
             descendingMap.subMap(endKey, false, startKey, false);
         } catch (IllegalArgumentException e) {
@@ -2715,43 +2715,43 @@ public class TreeMapExtendTest extends TestCase {
 
         SortedMap subDescendingMap = descendingMap.subMap(startKey, false,
                 endKey, false);
-        String key = new Integer(100).toString();
+        String key = Integer.valueOf(100).toString();
         assertFalse(subDescendingMap.containsKey(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(subDescendingMap.containsKey(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertFalse(subDescendingMap.containsKey(key));
 
         subDescendingMap = descendingMap.subMap(startKey, false, endKey, true);
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertTrue(subDescendingMap.containsKey(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(subDescendingMap.containsKey(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertFalse(subDescendingMap.containsKey(key));
 
         subDescendingMap = descendingMap.subMap(startKey, true, endKey, false);
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertFalse(subDescendingMap.containsKey(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(subDescendingMap.containsKey(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertTrue(subDescendingMap.containsKey(key));
 
         subDescendingMap = descendingMap.subMap(startKey, true, endKey, true);
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertTrue(subDescendingMap.containsKey(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(subDescendingMap.containsKey(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertTrue(subDescendingMap.containsKey(key));
 
         TreeMap<Integer, String> treeMap = new TreeMap<Integer, String>();
@@ -2765,647 +2765,647 @@ public class TreeMapExtendTest extends TestCase {
 
     public void test_DescendingSubMap_tailMap() {
         // tm
-        NavigableMap decendingMap = tm.descendingMap();
-        String endKey = new Integer(1000).toString(), key;
-        SortedMap subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        SortedMap subDecendingMap_Excluded = decendingMap
+        NavigableMap descendingMap = tm.descendingMap();
+        String endKey = Integer.valueOf(1000).toString(), key;
+        SortedMap subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        SortedMap subDescendingMap_Excluded = descendingMap
                 .tailMap(endKey, false);
 
         key = endKey;
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
-        key = new Integer(100).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        key = new Integer(10).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(10).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        key = new Integer(1).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(1).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        key = new Integer(0).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(0).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(999).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(999).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 998; i > 0; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(0).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.containsKey(key));
+        key = Integer.valueOf(0).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(0).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
-        assertEquals(1, subDecendingMap_Included.size());
+        endKey = Integer.valueOf(0).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
+        assertEquals(1, subDescendingMap_Included.size());
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.isEmpty());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.isEmpty());
 
         // navigableMap_startExcluded_endExcluded
-        decendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
-        endKey = new Integer(110).toString();
+        descendingMap = navigableMap_startExcluded_endExcluded.descendingMap();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(1, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.isEmpty());
+        assertEquals(1, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.isEmpty());
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         // navigableMap_startExcluded_endIncluded
-        decendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
-        endKey = new Integer(110).toString();
+        descendingMap = navigableMap_startExcluded_endIncluded.descendingMap();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(109).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(1, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.isEmpty());
+        assertEquals(1, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.isEmpty());
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         // navigableMap_startIncluded_endExcluded
-        decendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
-        endKey = new Integer(110).toString();
+        descendingMap = navigableMap_startIncluded_endExcluded.descendingMap();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
 
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(2, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertEquals(2, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         // navigableMap_startIncluded_endIncluded
-        decendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
-        endKey = new Integer(110).toString();
+        descendingMap = navigableMap_startIncluded_endIncluded.descendingMap();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
 
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(2, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertEquals(2, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         // With Comparator
-        decendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
                 .descendingMap();
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(1, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.isEmpty());
+        assertEquals(1, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.isEmpty());
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        decendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
+        descendingMap = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
                 .descendingMap();
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(109).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertFalse(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertFalse(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(1, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Excluded.isEmpty());
+        assertEquals(1, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Excluded.isEmpty());
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         // navigableMap_startIncluded_endExcluded
-        decendingMap = ((NavigableMap) subMap_startIncluded_endExcluded)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endExcluded)
                 .descendingMap();
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
 
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(2, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertEquals(2, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        decendingMap = ((NavigableMap) subMap_startIncluded_endIncluded)
+        descendingMap = ((NavigableMap) subMap_startIncluded_endIncluded)
                 .descendingMap();
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
 
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(108).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(108).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
         for (int i = 107; i > 100; i--) {
-            key = new Integer(i).toString();
-            assertTrue(subDecendingMap_Included.containsKey(key));
-            assertTrue(subDecendingMap_Excluded.containsKey(key));
+            key = Integer.valueOf(i).toString();
+            assertTrue(subDescendingMap_Included.containsKey(key));
+            assertTrue(subDescendingMap_Excluded.containsKey(key));
         }
-        key = new Integer(100).toString();
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertTrue(subDecendingMap_Included.containsKey(key));
+        key = Integer.valueOf(100).toString();
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
 
-        endKey = new Integer(101).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(101).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertEquals(2, subDecendingMap_Included.size());
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertEquals(2, subDescendingMap_Included.size());
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(100).toString();
-        subDecendingMap_Included = decendingMap.tailMap(endKey, true);
-        subDecendingMap_Excluded = decendingMap.tailMap(endKey, false);
+        endKey = Integer.valueOf(100).toString();
+        subDescendingMap_Included = descendingMap.tailMap(endKey, true);
+        subDescendingMap_Excluded = descendingMap.tailMap(endKey, false);
         key = endKey;
-        assertTrue(subDecendingMap_Included.containsKey(key));
-        assertFalse(subDecendingMap_Excluded.containsKey(key));
+        assertTrue(subDescendingMap_Included.containsKey(key));
+        assertFalse(subDescendingMap_Excluded.containsKey(key));
 
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
-            decendingMap.tailMap(endKey, true);
+            descendingMap.tailMap(endKey, true);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
         }
         try {
-            decendingMap.tailMap(endKey, false);
+            descendingMap.tailMap(endKey, false);
             fail("should throw IllegalArgumentException");
         } catch (IllegalArgumentException e) {
             // Expected
@@ -3416,7 +3416,7 @@ public class TreeMapExtendTest extends TestCase {
         TreeMap treeMap = new TreeMap();
         Integer value = null;
         for (int i = 0; i < 50; i++) {
-            value = new Integer(i);
+            value = Integer.valueOf(i);
             treeMap.put(value, value);
         }
         Map checkedMap = Collections.checkedMap(treeMap, Integer.class,
@@ -3424,7 +3424,7 @@ public class TreeMapExtendTest extends TestCase {
         Set entrySet = checkedMap.entrySet();
         Iterator iterator = entrySet.iterator();
         Entry entry;
-        value = new Integer(0);
+        value = Integer.valueOf(0);
         for (; iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value, entry.setValue(value + 1));
@@ -3507,7 +3507,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             descendingSet = ((NavigableSet) entrySet).descendingSet();
@@ -3596,7 +3596,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();// 0...2
         if (entrySet instanceof NavigableSet) {
             // [2...0]
@@ -3607,7 +3607,7 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(0, ((Entry) iterator.next()).getValue());
         }
 
-        String startKey = new Integer(2).toString();
+        String startKey = Integer.valueOf(2).toString();
         entrySet = tm.tailMap(startKey, true).entrySet();// 2...
         if (entrySet instanceof NavigableSet) {
             // [2...0]
@@ -3757,7 +3757,7 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_DescendingSubMapEntrySet_pollFirst() {
-        String key = new Integer(2).toString();
+        String key = Integer.valueOf(2).toString();
         Set entrySet = tm.headMap(key, true).entrySet();// [0...2]
         NavigableSet descendingEntrySet;
         Entry entry;
@@ -3838,7 +3838,7 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_DescendingSubMapEntrySet_pollLast() {
-        String key = new Integer(2).toString();
+        String key = Integer.valueOf(2).toString();
         Set entrySet = tm.headMap(key, true).entrySet();// [0...2]
         NavigableSet descendingEntrySet;
         Entry entry;
@@ -3931,7 +3931,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();// 0...2
         if (entrySet instanceof NavigableSet) {
             // [2...0]
@@ -4140,7 +4140,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();// 0...2
         if (entrySet instanceof NavigableSet) {
             // [2...0]
@@ -4376,7 +4376,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();// 0...2
         if (entrySet instanceof NavigableSet) {
             // [2...0]
@@ -4504,7 +4504,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             // [2...0]
@@ -4738,7 +4738,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             descendingSubMapEntrySet = ((NavigableSet) entrySet)
@@ -4837,7 +4837,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             descendingSubMapEntrySet = ((NavigableSet) entrySet)
@@ -4975,7 +4975,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             descendingSet = ((NavigableSet) entrySet).descendingSet();
@@ -5089,7 +5089,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             descendingSet = ((NavigableSet) entrySet).descendingSet();
@@ -5242,7 +5242,7 @@ public class TreeMapExtendTest extends TestCase {
             assertTrue(comparator.compare(value1, value2) < 0);
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         assertNull(keySet.comparator());
         descendingKeySet = keySet.descendingSet();
@@ -5251,8 +5251,8 @@ public class TreeMapExtendTest extends TestCase {
 
     public void test_AscendingSubMapKeySet_first() {
         NavigableSet keySet;
-        String firstKey1 = new Integer(100).toString();
-        String firstKey2 = new Integer(101).toString();
+        String firstKey1 = Integer.valueOf(100).toString();
+        String firstKey2 = Integer.valueOf(101).toString();
 
         keySet = navigableMap_startExcluded_endExcluded.navigableKeySet();
         assertEquals(firstKey2, keySet.first());
@@ -5274,7 +5274,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(8, keySet.size());
         for (int value = 101; value < 109; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -5287,7 +5287,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 101; value < 110; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -5300,7 +5300,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 100; value < 109; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -5313,14 +5313,14 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(10, keySet.size());
         for (int value = 100; value < 110; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
     }
 
     public void test_DescendingSubMapKeySet_pollFirst() {
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         NavigableSet keySet = tm.headMap(endKey, true).navigableKeySet();
         NavigableSet descendingKeySet = keySet.descendingSet();
         assertEquals(endKey, descendingKeySet.pollFirst());
@@ -5333,7 +5333,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(8, keySet.size());
         for (int value = 108; value > 100; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -5346,7 +5346,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 109; value > 100; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -5359,7 +5359,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 108; value > 99; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -5372,17 +5372,17 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = descendingKeySet.iterator();
         assertEquals(10, keySet.size());
         for (int value = 109; value > 99; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
     }
 
     public void test_DescendingSubMapKeySet_pollLast() {
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         NavigableSet keySet = tm.headMap(endKey, true).navigableKeySet();
         NavigableSet descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(0).toString(), descendingKeySet.pollLast());
+        assertEquals(Integer.valueOf(0).toString(), descendingKeySet.pollLast());
     }
 
     public void test_DescendingSubMapKeySet_headSet() {
@@ -5394,7 +5394,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startExcluded_endExcluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5414,12 +5414,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5427,7 +5427,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5438,12 +5438,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5451,7 +5451,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5459,18 +5459,18 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
             headSet = descendingKeySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 108; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5478,7 +5478,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 108; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5486,12 +5486,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 108; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i - 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         try {
             headSet = descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5513,7 +5513,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5535,7 +5535,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5555,12 +5555,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5568,7 +5568,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5579,12 +5579,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5592,7 +5592,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5600,18 +5600,18 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
             headSet = descendingKeySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 109; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5619,7 +5619,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 109; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5627,17 +5627,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 109; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i - 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -5645,7 +5645,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -5653,11 +5653,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(108, index);
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5679,7 +5679,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5699,12 +5699,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5712,7 +5712,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5720,16 +5720,16 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5737,7 +5737,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5745,18 +5745,18 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 108; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
             headSet = descendingKeySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 108; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5764,7 +5764,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 108; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5772,12 +5772,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 108; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i - 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
 
         try {
             descendingKeySet.headSet(endKey);
@@ -5800,7 +5800,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5822,7 +5822,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5842,12 +5842,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5855,7 +5855,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -5863,16 +5863,16 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5880,7 +5880,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -5888,18 +5888,18 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
             headSet = descendingKeySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 109; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5907,7 +5907,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 109; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -5915,17 +5915,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 109; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i - 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = descendingKeySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -5933,7 +5933,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -5941,11 +5941,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(108, index);
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -5965,7 +5965,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         iterator = descendingKeySet.iterator();
@@ -5981,7 +5981,7 @@ public class TreeMapExtendTest extends TestCase {
         headSet = descendingKeySet.headSet(endKey, true);
         assertEquals(2, headSet.size());
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.tailMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         iterator = descendingKeySet.iterator();
@@ -6002,7 +6002,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startExcluded_endExcluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6024,7 +6024,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6045,12 +6045,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -6058,7 +6058,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -6066,19 +6066,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = descendingKeySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(100, j);
 
@@ -6086,7 +6086,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(100, j);
 
@@ -6094,12 +6094,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j - 1).toString(), key);
+                assertEquals(Integer.valueOf(j - 1).toString(), key);
             }
             assertEquals(101, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6116,11 +6116,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index - 1).toString(), key);
+            assertEquals(Integer.valueOf(index - 1).toString(), key);
         }
         assertEquals(101, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6142,7 +6142,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6164,7 +6164,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6184,12 +6184,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -6197,7 +6197,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -6205,19 +6205,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = descendingKeySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(100, j);
 
@@ -6225,7 +6225,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(100, j);
 
@@ -6233,17 +6233,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j - 1).toString(), key);
+                assertEquals(Integer.valueOf(j - 1).toString(), key);
             }
             assertEquals(101, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -6251,7 +6251,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(100, index);
 
@@ -6259,11 +6259,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index - 1).toString(), key);
+            assertEquals(Integer.valueOf(index - 1).toString(), key);
         }
         assertEquals(101, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6285,7 +6285,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6305,7 +6305,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         assertEquals(1, tailSet.size());
         iterator = tailSet.iterator();
@@ -6319,12 +6319,12 @@ public class TreeMapExtendTest extends TestCase {
         tailSet = descendingKeySet.tailSet(startKey, false);
         assertEquals(0, tailSet.size());
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
@@ -6332,7 +6332,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
@@ -6340,19 +6340,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index - 1).toString(), key);
+            assertEquals(Integer.valueOf(index - 1).toString(), key);
         }
         assertEquals(100, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = descendingKeySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(99, j);
 
@@ -6360,7 +6360,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(99, j);
 
@@ -6368,12 +6368,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j - 1).toString(), key);
+                assertEquals(Integer.valueOf(j - 1).toString(), key);
             }
             assertEquals(100, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6390,11 +6390,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index - 1).toString(), key);
+            assertEquals(Integer.valueOf(index - 1).toString(), key);
         }
         assertEquals(100, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6416,7 +6416,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6436,7 +6436,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         assertEquals(1, tailSet.size());
         iterator = tailSet.iterator();
@@ -6450,12 +6450,12 @@ public class TreeMapExtendTest extends TestCase {
         tailSet = descendingKeySet.tailSet(startKey, false);
         assertEquals(0, tailSet.size());
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
@@ -6463,7 +6463,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
@@ -6471,19 +6471,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index - 1).toString(), key);
+            assertEquals(Integer.valueOf(index - 1).toString(), key);
         }
         assertEquals(100, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = descendingKeySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(99, j);
 
@@ -6491,7 +6491,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(99, j);
 
@@ -6499,17 +6499,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j--) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j - 1).toString(), key);
+                assertEquals(Integer.valueOf(j - 1).toString(), key);
             }
             assertEquals(100, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         tailSet = descendingKeySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
@@ -6517,7 +6517,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(99, index);
 
@@ -6525,11 +6525,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index--) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index - 1).toString(), key);
+            assertEquals(Integer.valueOf(index - 1).toString(), key);
         }
         assertEquals(100, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             descendingKeySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -6549,7 +6549,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         iterator = descendingKeySet.iterator();
@@ -6559,17 +6559,17 @@ public class TreeMapExtendTest extends TestCase {
         tailSet = descendingKeySet.tailSet(startKey);
         assertEquals(112, tailSet.size());
         Iterator tailIterator = tailSet.iterator();
-        assertEquals(new Integer(199).toString(), tailIterator.next());
+        assertEquals(Integer.valueOf(199).toString(), tailIterator.next());
 
         tailSet = descendingKeySet.tailSet(startKey, true);
         assertEquals(112, tailSet.size());
         tailIterator = tailSet.iterator();
-        assertEquals(new Integer(199).toString(), tailIterator.next());
+        assertEquals(Integer.valueOf(199).toString(), tailIterator.next());
 
         tailSet = descendingKeySet.tailSet(startKey, false);
         assertEquals(111, tailSet.size());
         tailIterator = tailSet.iterator();
-        assertEquals(new Integer(198).toString(), tailIterator.next());
+        assertEquals(Integer.valueOf(198).toString(), tailIterator.next());
     }
 
     public void test_DescendingSubMapKeySet_subSet() {
@@ -6627,7 +6627,7 @@ public class TreeMapExtendTest extends TestCase {
                     subSet = descendingKeySet.subSet(startKey, endKey);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6635,7 +6635,7 @@ public class TreeMapExtendTest extends TestCase {
                             false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex - 1; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6643,7 +6643,7 @@ public class TreeMapExtendTest extends TestCase {
                             true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex - 1; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6651,7 +6651,7 @@ public class TreeMapExtendTest extends TestCase {
                             false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6659,14 +6659,14 @@ public class TreeMapExtendTest extends TestCase {
                             true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
                 }
             }
         }
 
-        endKey = new Integer(2).toString();
+        endKey = Integer.valueOf(2).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         Iterator iterator = descendingKeySet.iterator();
@@ -6786,7 +6786,7 @@ public class TreeMapExtendTest extends TestCase {
                     subSet = descendingKeySet.subSet(startKey, endKey);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6794,7 +6794,7 @@ public class TreeMapExtendTest extends TestCase {
                             false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex - 1; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6802,7 +6802,7 @@ public class TreeMapExtendTest extends TestCase {
                             true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex - 1; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6810,7 +6810,7 @@ public class TreeMapExtendTest extends TestCase {
                             false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
@@ -6818,7 +6818,7 @@ public class TreeMapExtendTest extends TestCase {
                             true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index--) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
                 }
@@ -6837,7 +6837,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingDescendingSet.iterator();
         assertTrue(iterator.hasNext());
         for (value = 101; iterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertEquals(109, value);
         try {
@@ -6853,7 +6853,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingDescendingSet.iterator();
         assertTrue(iterator.hasNext());
         for (value = 101; iterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertEquals(110, value);
         try {
@@ -6869,7 +6869,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingDescendingSet.iterator();
         assertTrue(iterator.hasNext());
         for (value = 100; iterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertEquals(109, value);
         try {
@@ -6885,7 +6885,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingDescendingSet.iterator();
         assertTrue(iterator.hasNext());
         for (value = 100; iterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertEquals(110, value);
         try {
@@ -6895,13 +6895,13 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingSet = keySet.descendingSet();
         descendingDescendingSet = descendingSet.descendingSet();
         assertEquals(keySet, descendingDescendingSet);
 
-        String startKey = new Integer(2).toString();
+        String startKey = Integer.valueOf(2).toString();
         keySet = tm.tailMap(startKey, true).navigableKeySet();
         descendingSet = keySet.descendingSet();
         descendingDescendingSet = descendingSet.descendingSet();
@@ -6918,7 +6918,7 @@ public class TreeMapExtendTest extends TestCase {
         descendingIterator = descendingSet.descendingIterator();
         assertTrue(descendingIterator.hasNext());
         for (value = 101; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
         assertEquals(109, value);
@@ -6930,19 +6930,19 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         descendingSet = descendingSet
-                .headSet(new Integer(105).toString(), true);
+                .headSet(Integer.valueOf(105).toString(), true);
         descendingIterator = descendingSet.descendingIterator();
         for (value = 105; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
 
         descendingSet = keySet.descendingSet();
         descendingSet = descendingSet
-                .tailSet(new Integer(105).toString(), true);
+                .tailSet(Integer.valueOf(105).toString(), true);
         descendingIterator = descendingSet.descendingIterator();
         for (value = 101; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
 
@@ -6951,7 +6951,7 @@ public class TreeMapExtendTest extends TestCase {
         descendingIterator = descendingSet.descendingIterator();
         assertTrue(descendingIterator.hasNext());
         for (value = 101; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
         assertEquals(110, value);
@@ -6963,19 +6963,19 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         descendingSet = descendingSet
-                .headSet(new Integer(105).toString(), true);
+                .headSet(Integer.valueOf(105).toString(), true);
         descendingIterator = descendingSet.descendingIterator();
         for (value = 105; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
 
         descendingSet = keySet.descendingSet();
         descendingSet = descendingSet
-                .tailSet(new Integer(105).toString(), true);
+                .tailSet(Integer.valueOf(105).toString(), true);
         descendingIterator = descendingSet.descendingIterator();
         for (value = 101; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
 
@@ -6984,7 +6984,7 @@ public class TreeMapExtendTest extends TestCase {
         descendingIterator = descendingSet.descendingIterator();
         assertTrue(descendingIterator.hasNext());
         for (value = 100; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
         assertEquals(109, value);
@@ -7000,7 +7000,7 @@ public class TreeMapExtendTest extends TestCase {
         descendingIterator = descendingSet.descendingIterator();
         assertTrue(descendingIterator.hasNext());
         for (value = 100; descendingIterator.hasNext(); value++) {
-            assertEquals(new Integer(value).toString(), descendingIterator
+            assertEquals(Integer.valueOf(value).toString(), descendingIterator
                     .next());
         }
         assertEquals(110, value);
@@ -7011,7 +7011,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         iterator = keySet.iterator();
 
@@ -7022,7 +7022,7 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(iterator.next(), descendingIterator.next());
         }
 
-        String startKey = new Integer(2).toString();
+        String startKey = Integer.valueOf(2).toString();
         keySet = tm.tailMap(startKey, true).navigableKeySet();
         iterator = keySet.iterator();
         descendingSet = keySet.descendingSet();
@@ -7054,11 +7054,11 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(101, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
@@ -7077,11 +7077,11 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(101, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
@@ -7100,11 +7100,11 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(100, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
@@ -7123,15 +7123,15 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(100, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         iterator = descendingKeySet.iterator();
@@ -7139,7 +7139,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator.next();
         key = (String) iterator.next();
         lowerKey = (String) descendingKeySet.lower(key);
-        assertEquals(new Integer(199).toString(), lowerKey);
+        assertEquals(Integer.valueOf(199).toString(), lowerKey);
         try {
             descendingKeySet.lower(null);
             fail("should throw NPE");
@@ -7147,29 +7147,29 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         String endKey = key;
 
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.lower(endKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.lower(endKey));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.lower(endKey));
-        assertEquals(new Integer(1).toString(), descendingKeySet.lower(key));
+        assertEquals(Integer.valueOf(1).toString(), descendingKeySet.lower(key));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.lower(endKey));
-        assertEquals(new Integer(1).toString(), descendingKeySet.lower(key));
+        assertEquals(Integer.valueOf(1).toString(), descendingKeySet.lower(key));
 
         // With Comparator
         keySet = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
@@ -7188,11 +7188,11 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(101, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
@@ -7212,11 +7212,11 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(101, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
@@ -7236,11 +7236,11 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertEquals(100, Integer.parseInt(lowerKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         lowerKey = (String) descendingKeySet.lower(key);
         assertNull(lowerKey);
 
@@ -7282,23 +7282,23 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("108", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(108, Integer.parseInt(higherKey));
 
@@ -7317,19 +7317,19 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("109", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(109, Integer.parseInt(higherKey));
 
@@ -7348,19 +7348,19 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("108", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(108, Integer.parseInt(higherKey));
 
@@ -7379,29 +7379,29 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("109", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(109, Integer.parseInt(higherKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         iterator = descendingKeySet.iterator();
         key = (String) iterator.next();
         higherKey = (String) descendingKeySet.higher(key);
-        assertEquals(new Integer(199).toString(), higherKey);
+        assertEquals(Integer.valueOf(199).toString(), higherKey);
         try {
             descendingKeySet.higher(null);
             fail("should throw NPE");
@@ -7409,29 +7409,29 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         String endKey = key;
 
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.higher(endKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.higher(endKey));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(998).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(998).toString(), descendingKeySet
                 .higher(endKey));
         assertNull(descendingKeySet.higher(key));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(998).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(998).toString(), descendingKeySet
                 .higher(endKey));
         assertNull(descendingKeySet.higher(key));
 
@@ -7452,23 +7452,23 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("108", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(108, Integer.parseInt(higherKey));
 
@@ -7488,19 +7488,19 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("109", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(109, Integer.parseInt(higherKey));
 
@@ -7520,19 +7520,19 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("108", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(108, Integer.parseInt(higherKey));
 
@@ -7552,29 +7552,29 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals("109", higherKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertNull(higherKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         higherKey = (String) descendingKeySet.higher(key);
         assertEquals(109, Integer.parseInt(higherKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         iterator = descendingKeySet.iterator();
         key = (String) iterator.next();
         higherKey = (String) descendingKeySet.higher(key);
-        assertEquals(new Integer(199).toString(), higherKey);
+        assertEquals(Integer.valueOf(199).toString(), higherKey);
         try {
             descendingKeySet.higher(null);
             fail("should throw NPE");
@@ -7582,29 +7582,29 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         endKey = key;
 
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.higher(endKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.higher(endKey));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(998).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(998).toString(), descendingKeySet
                 .higher(endKey));
         assertNull(descendingKeySet.higher(key));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(998).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(998).toString(), descendingKeySet
                 .higher(endKey));
         assertNull(descendingKeySet.higher(key));
     }
@@ -7620,22 +7620,22 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         ceilingKey = (String) descendingKeySet.ceiling(key);
         assertEquals(108, Integer.parseInt(ceilingKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         ceilingKey = (String) descendingKeySet.ceiling(key);
         assertNull(ceilingKey);
 
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         ceilingKey = (String) descendingKeySet.ceiling(key);
         assertNull(ceilingKey);
 
-        key = new Integer(99999).toString();
+        key = Integer.valueOf(99999).toString();
         ceilingKey = (String) descendingKeySet.ceiling(key);
         assertEquals(108, Integer.parseInt(ceilingKey));
 
@@ -7645,7 +7645,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
@@ -7654,7 +7654,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
@@ -7663,10 +7663,10 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         Iterator iterator = descendingKeySet.iterator();
@@ -7678,29 +7678,29 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         String endKey = key;
 
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertEquals(key, descendingKeySet.ceiling(endKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.ceiling(endKey));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(999).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(999).toString(), descendingKeySet
                 .ceiling(endKey));
         assertEquals(key, descendingKeySet.ceiling(key));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(998).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(998).toString(), descendingKeySet
                 .ceiling(endKey));
         assertEquals(key, descendingKeySet.ceiling(key));
 
@@ -7712,14 +7712,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         ceilingKey = (String) descendingKeySet.ceiling(key);
         assertEquals(108, Integer.parseInt(ceilingKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         ceilingKey = (String) descendingKeySet.ceiling(key);
         assertNull(ceilingKey);
 
@@ -7730,7 +7730,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
         keySet = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
@@ -7740,7 +7740,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
 
         keySet = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
@@ -7750,7 +7750,7 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             ceilingKey = (String) descendingKeySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), ceilingKey);
+            assertEquals(Integer.valueOf(j - i).toString(), ceilingKey);
         }
     }
 
@@ -7765,14 +7765,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        String key = new Integer(0).toString();
+        String key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(101, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
@@ -7782,14 +7782,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(101, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
@@ -7799,14 +7799,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(100, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
@@ -7816,18 +7816,18 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(100, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         Iterator iterator = descendingKeySet.iterator();
@@ -7839,26 +7839,26 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         String endKey = key;
 
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertEquals(key, descendingKeySet.floor(endKey));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.floor(endKey));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
-        assertEquals(new Integer(999).toString(), descendingKeySet
+        assertEquals(Integer.valueOf(999).toString(), descendingKeySet
                 .floor(endKey));
         assertEquals(key, descendingKeySet.floor(key));
 
-        endKey = new Integer(999).toString();
+        endKey = Integer.valueOf(999).toString();
         keySet = tm.headMap(endKey, false).navigableKeySet();
         descendingKeySet = keySet.descendingSet();
         assertNull(descendingKeySet.floor(endKey));
@@ -7872,14 +7872,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(101, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
@@ -7890,14 +7890,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(101, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
@@ -7908,14 +7908,14 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 108; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(100, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
 
@@ -7926,22 +7926,22 @@ public class TreeMapExtendTest extends TestCase {
                 .toArray(new String[descendingKeySet.size()]);
         for (int i = 0, j = 109; i < keyArray.length; i++) {
             floorKey = (String) descendingKeySet.floor(keyArray[i]);
-            assertEquals(new Integer(j - i).toString(), floorKey);
+            assertEquals(Integer.valueOf(j - i).toString(), floorKey);
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertEquals(100, Integer.parseInt(floorKey));
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         floorKey = (String) descendingKeySet.floor(key);
         assertNull(floorKey);
     }
 
     public void test_AscendingSubMapKeySet_last() {
         NavigableSet keySet;
-        String firstKey1 = new Integer(108).toString();
-        String firstKey2 = new Integer(109).toString();
+        String firstKey1 = Integer.valueOf(108).toString();
+        String firstKey2 = Integer.valueOf(109).toString();
 
         keySet = navigableMap_startExcluded_endExcluded.navigableKeySet();
         assertEquals(firstKey1, keySet.last());
@@ -7970,7 +7970,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
         assertNull(keySet.comparator());
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         assertNull(keySet.comparator());
     }
@@ -7981,7 +7981,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(8, keySet.size());
         for (int value = 101; value < 109; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollFirst());
@@ -7993,7 +7993,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 101; value < 110; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollFirst());
@@ -8005,7 +8005,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 100; value < 109; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollFirst());
@@ -8017,19 +8017,19 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(10, keySet.size());
         for (int value = 100; value < 110; value++) {
-            assertEquals(new Integer(value).toString(), keySet.pollFirst());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollFirst());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollFirst());
     }
 
     public void test_AscendingSubMapKeySet_pollFirst() {
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         NavigableSet keySet = tm.headMap(endKey, true).navigableKeySet();
-        assertEquals(new Integer(0).toString(), keySet.pollFirst());
+        assertEquals(Integer.valueOf(0).toString(), keySet.pollFirst());
 
         keySet = tm.tailMap(endKey, true).navigableKeySet();
-        assertEquals(new Integer(2).toString(), keySet.pollFirst());
+        assertEquals(Integer.valueOf(2).toString(), keySet.pollFirst());
     }
 
     public void test_AscendingSubMapKeySet_pollLast_startExcluded_endExcluded() {
@@ -8038,7 +8038,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(8, keySet.size());
         for (int value = 108; value > 100; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -8050,7 +8050,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 109; value > 100; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -8062,7 +8062,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(9, keySet.size());
         for (int value = 108; value > 99; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
@@ -8074,19 +8074,19 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = keySet.iterator();
         assertEquals(10, keySet.size());
         for (int value = 109; value > 99; value--) {
-            assertEquals(new Integer(value).toString(), keySet.pollLast());
+            assertEquals(Integer.valueOf(value).toString(), keySet.pollLast());
         }
         assertEquals(0, keySet.size());
         assertNull(keySet.pollLast());
     }
 
     public void test_AscendingSubMapKeySet_pollLast() {
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         NavigableSet keySet = tm.headMap(endKey, true).navigableKeySet();
-        assertEquals(new Integer(2).toString(), keySet.pollLast());
+        assertEquals(Integer.valueOf(2).toString(), keySet.pollLast());
 
         keySet = tm.tailMap(endKey, true).navigableKeySet();
-        assertEquals(new Integer(999).toString(), keySet.pollLast());
+        assertEquals(Integer.valueOf(999).toString(), keySet.pollLast());
     }
 
     public void test_AscendingSubMapKeySet_descendingIterator() {
@@ -8097,7 +8097,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = keySet.descendingIterator();
         for (int value = 108; value > 100; value--) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8111,7 +8111,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = keySet.descendingIterator();
         for (int value = 109; value > 100; value--) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8125,7 +8125,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = keySet.descendingIterator();
         for (int value = 108; value > 99; value--) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8139,7 +8139,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = keySet.descendingIterator();
         for (int value = 109; value > 99; value--) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8149,11 +8149,11 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         iterator = keySet.descendingIterator();
-        assertEquals(new Integer(2).toString(), iterator.next());
-        assertEquals(new Integer(199).toString(), iterator.next());
+        assertEquals(Integer.valueOf(2).toString(), iterator.next());
+        assertEquals(Integer.valueOf(199).toString(), iterator.next());
     }
 
     public void test_AscendingSubMapKeySet_descendingSet() {
@@ -8166,7 +8166,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingSet.iterator();
         for (int value = 101; value < 109; value++) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8182,7 +8182,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingSet.iterator();
         for (int value = 101; value < 110; value++) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8198,7 +8198,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingSet.iterator();
         for (int value = 100; value < 109; value++) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8214,7 +8214,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = descendingSet.iterator();
         for (int value = 100; value < 110; value++) {
             assertTrue(iterator.hasNext());
-            assertEquals(new Integer(value).toString(), iterator.next());
+            assertEquals(Integer.valueOf(value).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -8224,12 +8224,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        String endKey = new Integer(1).toString();
+        String endKey = Integer.valueOf(1).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         descendingSet = keySet.descendingSet();
         iterator = descendingSet.iterator();
-        assertEquals(new Integer(1).toString(), iterator.next());
-        assertEquals(new Integer(0).toString(), iterator.next());
+        assertEquals(Integer.valueOf(1).toString(), iterator.next());
+        assertEquals(Integer.valueOf(0).toString(), iterator.next());
     }
 
     public void test_AscendingSubMapKeySet_headSet() {
@@ -8239,7 +8239,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator;
 
         keySet = navigableMap_startExcluded_endExcluded.navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8259,7 +8259,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
             keySet.headSet(endKey, false);
             fail("should throw IllegalArgumentException");
@@ -8281,19 +8281,19 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey, false).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8301,7 +8301,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8309,18 +8309,18 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         int index;
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8328,7 +8328,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8339,7 +8339,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8360,7 +8360,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8380,7 +8380,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8402,20 +8402,20 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
 
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8423,7 +8423,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8431,17 +8431,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8449,7 +8449,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8457,11 +8457,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8482,7 +8482,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8502,17 +8502,17 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey, false).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -8520,7 +8520,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -8528,19 +8528,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(102, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
 
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8548,7 +8548,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8556,17 +8556,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8574,7 +8574,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8585,7 +8585,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8608,7 +8608,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8628,17 +8628,17 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey, false).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -8646,7 +8646,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -8654,19 +8654,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(102, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
 
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8674,7 +8674,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8682,17 +8682,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8700,7 +8700,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8708,11 +8708,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8732,7 +8732,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(1).toString();
+        key = Integer.valueOf(1).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         iterator = keySet.iterator();
         iterator.next();
@@ -8740,7 +8740,7 @@ public class TreeMapExtendTest extends TestCase {
         headSet = keySet.headSet(endKey, false);
         assertEquals(1, headSet.size());
         Iterator headSetIterator = headSet.iterator();
-        assertEquals(new Integer(0).toString(), headSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), headSetIterator.next());
         assertFalse(headSetIterator.hasNext());
         try {
             headSetIterator.next();
@@ -8758,8 +8758,8 @@ public class TreeMapExtendTest extends TestCase {
         headSet = keySet.headSet(endKey, true);
         assertEquals(2, headSet.size());
         headSetIterator = headSet.iterator();
-        assertEquals(new Integer(0).toString(), headSetIterator.next());
-        assertEquals(new Integer(1).toString(), headSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), headSetIterator.next());
+        assertEquals(Integer.valueOf(1).toString(), headSetIterator.next());
         assertFalse(headSetIterator.hasNext());
         try {
             headSetIterator.next();
@@ -8777,7 +8777,7 @@ public class TreeMapExtendTest extends TestCase {
         // With Comparator
         keySet = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
                 .navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8797,7 +8797,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
             keySet.headSet(endKey).size();
             fail("should throw IllegalArgumentException");
@@ -8819,19 +8819,19 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey, false).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8839,7 +8839,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8847,17 +8847,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8865,7 +8865,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8876,7 +8876,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8898,7 +8898,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = ((NavigableMap) subMap_startExcluded_endIncluded_comparator)
                 .navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8918,7 +8918,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -8940,20 +8940,20 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
 
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8961,7 +8961,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -8969,17 +8969,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 101; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8987,7 +8987,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -8995,11 +8995,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -9021,7 +9021,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = ((NavigableMap) subMap_startIncluded_endExcluded_comparator)
                 .navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -9041,17 +9041,17 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey, false).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -9059,7 +9059,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -9067,19 +9067,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(102, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
 
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -9087,7 +9087,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -9095,17 +9095,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9113,7 +9113,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9124,7 +9124,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -9148,7 +9148,7 @@ public class TreeMapExtendTest extends TestCase {
 
         keySet = ((NavigableMap) subMap_startIncluded_endIncluded_comparator)
                 .navigableKeySet();
-        endKey = new Integer(99).toString();
+        endKey = Integer.valueOf(99).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -9168,17 +9168,17 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(100).toString();
+        endKey = Integer.valueOf(100).toString();
         assertEquals(0, keySet.headSet(endKey).size());
         assertEquals(0, keySet.headSet(endKey, false).size());
         assertEquals(1, keySet.headSet(endKey, true).size());
 
-        endKey = new Integer(101).toString();
+        endKey = Integer.valueOf(101).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -9186,7 +9186,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(101, index);
 
@@ -9194,19 +9194,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(102, index);
 
         for (int i = 102; i < 109; i++) {
-            endKey = new Integer(i).toString();
+            endKey = Integer.valueOf(i).toString();
 
             headSet = keySet.headSet(endKey);
             iterator = headSet.iterator();
             int j;
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -9214,7 +9214,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i, j);
 
@@ -9222,17 +9222,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = headSet.iterator();
             for (j = 100; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(i + 1, j);
         }
 
-        endKey = new Integer(109).toString();
+        endKey = Integer.valueOf(109).toString();
         headSet = keySet.headSet(endKey);
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9240,7 +9240,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9248,11 +9248,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = headSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
-        endKey = new Integer(110).toString();
+        endKey = Integer.valueOf(110).toString();
         try {
             keySet.headSet(endKey);
             fail("should throw IllegalArgumentException");
@@ -9272,7 +9272,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(1).toString();
+        key = Integer.valueOf(1).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         iterator = keySet.iterator();
         iterator.next();
@@ -9280,7 +9280,7 @@ public class TreeMapExtendTest extends TestCase {
         headSet = keySet.headSet(endKey, false);
         assertEquals(1, headSet.size());
         headSetIterator = headSet.iterator();
-        assertEquals(new Integer(0).toString(), headSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), headSetIterator.next());
         assertFalse(headSetIterator.hasNext());
         try {
             headSetIterator.next();
@@ -9298,8 +9298,8 @@ public class TreeMapExtendTest extends TestCase {
         headSet = keySet.headSet(endKey, true);
         assertEquals(2, headSet.size());
         headSetIterator = headSet.iterator();
-        assertEquals(new Integer(0).toString(), headSetIterator.next());
-        assertEquals(new Integer(1).toString(), headSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), headSetIterator.next());
+        assertEquals(Integer.valueOf(1).toString(), headSetIterator.next());
         assertFalse(headSetIterator.hasNext());
         try {
             headSetIterator.next();
@@ -9330,7 +9330,7 @@ public class TreeMapExtendTest extends TestCase {
         }
         for (int i = 101; i < 108; i++) {
             assertNotNull(subMap_startExcluded_endExcluded_rm
-                    .remove(new Integer(i).toString()));
+                    .remove(Integer.valueOf(i).toString()));
         }
     }
 
@@ -9341,7 +9341,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator;
 
         keySet = navigableMap_startExcluded_endExcluded.navigableKeySet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9363,7 +9363,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9381,15 +9381,15 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; index < 109; index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9397,7 +9397,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9405,19 +9405,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(108, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = keySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(109, j);
 
@@ -9425,7 +9425,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(109, j);
 
@@ -9433,12 +9433,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j + 1).toString(), key);
+                assertEquals(Integer.valueOf(j + 1).toString(), key);
             }
             assertEquals(108, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9458,7 +9458,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9479,7 +9479,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9499,7 +9499,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9517,19 +9517,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = keySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(110, j);
 
@@ -9537,7 +9537,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(110, j);
 
@@ -9545,17 +9545,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j + 1).toString(), key);
+                assertEquals(Integer.valueOf(j + 1).toString(), key);
             }
             assertEquals(109, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9563,7 +9563,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9571,11 +9571,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9596,7 +9596,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9616,12 +9616,12 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9629,7 +9629,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9637,16 +9637,16 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(108, index);
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9654,7 +9654,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9662,19 +9662,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(108, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = keySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(109, j);
 
@@ -9682,7 +9682,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(109, j);
 
@@ -9690,12 +9690,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j + 1).toString(), key);
+                assertEquals(Integer.valueOf(j + 1).toString(), key);
             }
             assertEquals(108, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9715,7 +9715,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9736,7 +9736,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9755,12 +9755,12 @@ public class TreeMapExtendTest extends TestCase {
         } catch (IllegalArgumentException e) {
             // Expected
         }
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9768,7 +9768,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9776,16 +9776,16 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9793,7 +9793,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9801,19 +9801,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = keySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(110, j);
 
@@ -9821,7 +9821,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(110, j);
 
@@ -9829,17 +9829,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j + 1).toString(), key);
+                assertEquals(Integer.valueOf(j + 1).toString(), key);
             }
             assertEquals(109, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9847,7 +9847,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -9855,11 +9855,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9879,7 +9879,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        String endKey = new Integer(1).toString();
+        String endKey = Integer.valueOf(1).toString();
         keySet = tm.headMap(endKey, true).navigableKeySet();
         iterator = keySet.iterator();
         iterator.next();
@@ -9931,7 +9931,7 @@ public class TreeMapExtendTest extends TestCase {
         // With Comparator
         keySet = ((NavigableMap) subMap_startExcluded_endExcluded_comparator)
                 .navigableKeySet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9953,7 +9953,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -9970,15 +9970,15 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; index < 109; index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
 
-        startKey = new Integer(101).toString();
+        startKey = Integer.valueOf(101).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9986,7 +9986,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(109, index);
 
@@ -9994,19 +9994,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 101; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(108, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = keySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(109, j);
 
@@ -10014,7 +10014,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(109, j);
 
@@ -10022,12 +10022,12 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j + 1).toString(), key);
+                assertEquals(Integer.valueOf(j + 1).toString(), key);
             }
             assertEquals(108, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -10047,7 +10047,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -10068,7 +10068,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
-        startKey = new Integer(99).toString();
+        startKey = Integer.valueOf(99).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -10088,7 +10088,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(100).toString();
+        startKey = Integer.valueOf(100).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -10106,19 +10106,19 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 100; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
         for (int i = 102; i < 109; i++) {
-            startKey = new Integer(i).toString();
+            startKey = Integer.valueOf(i).toString();
 
             tailSet = keySet.tailSet(startKey);
             iterator = tailSet.iterator();
             int j;
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(110, j);
 
@@ -10126,7 +10126,7 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j).toString(), key);
+                assertEquals(Integer.valueOf(j).toString(), key);
             }
             assertEquals(110, j);
 
@@ -10134,17 +10134,17 @@ public class TreeMapExtendTest extends TestCase {
             iterator = tailSet.iterator();
             for (j = i; iterator.hasNext(); j++) {
                 key = (String) iterator.next();
-                assertEquals(new Integer(j + 1).toString(), key);
+                assertEquals(Integer.valueOf(j + 1).toString(), key);
             }
             assertEquals(109, j);
         }
 
-        startKey = new Integer(109).toString();
+        startKey = Integer.valueOf(109).toString();
         tailSet = keySet.tailSet(startKey);
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -10152,7 +10152,7 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index).toString(), key);
+            assertEquals(Integer.valueOf(index).toString(), key);
         }
         assertEquals(110, index);
 
@@ -10160,11 +10160,11 @@ public class TreeMapExtendTest extends TestCase {
         iterator = tailSet.iterator();
         for (index = 109; iterator.hasNext(); index++) {
             key = (String) iterator.next();
-            assertEquals(new Integer(index + 1).toString(), key);
+            assertEquals(Integer.valueOf(index + 1).toString(), key);
         }
         assertEquals(109, index);
 
-        startKey = new Integer(110).toString();
+        startKey = Integer.valueOf(110).toString();
         try {
             keySet.tailSet(startKey);
             fail("should throw IllegalArgumentException");
@@ -10239,42 +10239,42 @@ public class TreeMapExtendTest extends TestCase {
                     subSet = keySet.subSet(startKey, endKey);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, false, endKey, false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex + 1; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, false, endKey, true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex + 1; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, true, endKey, false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, true, endKey, true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
                 }
             }
         }
 
-        key = new Integer(1).toString();
+        key = Integer.valueOf(1).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         Iterator iterator = keySet.iterator();
         startKey = (String) iterator.next();
@@ -10283,7 +10283,7 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, endKey);
         assertEquals(1, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(0).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10297,7 +10297,7 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, false, endKey, true);
         assertEquals(1, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(1).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(1).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10308,7 +10308,7 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, true, endKey, false);
         assertEquals(1, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(0).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10319,8 +10319,8 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, true, endKey, true);
         assertEquals(2, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(0).toString(), subSetIterator.next());
-        assertEquals(new Integer(1).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(1).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10483,42 +10483,42 @@ public class TreeMapExtendTest extends TestCase {
                     subSet = keySet.subSet(startKey, endKey);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, false, endKey, false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex + 1; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, false, endKey, true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex + 1; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, true, endKey, false);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
 
                     subSet = keySet.subSet(startKey, true, endKey, true);
                     subSetIterator = subSet.iterator();
                     for (int index = startIndex; subSetIterator.hasNext(); index++) {
-                        assertEquals(new Integer(index).toString(),
+                        assertEquals(Integer.valueOf(index).toString(),
                                 subSetIterator.next());
                     }
                 }
             }
         }
 
-        key = new Integer(1).toString();
+        key = Integer.valueOf(1).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         iterator = keySet.iterator();
         startKey = (String) iterator.next();
@@ -10527,7 +10527,7 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, endKey);
         assertEquals(1, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(0).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10541,7 +10541,7 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, false, endKey, true);
         assertEquals(1, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(1).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(1).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10552,7 +10552,7 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, true, endKey, false);
         assertEquals(1, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(0).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10563,8 +10563,8 @@ public class TreeMapExtendTest extends TestCase {
         subSet = keySet.subSet(startKey, true, endKey, true);
         assertEquals(2, subSet.size());
         subSetIterator = subSet.iterator();
-        assertEquals(new Integer(0).toString(), subSetIterator.next());
-        assertEquals(new Integer(1).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(0).toString(), subSetIterator.next());
+        assertEquals(Integer.valueOf(1).toString(), subSetIterator.next());
         try {
             subSetIterator.next();
             fail("should throw NoSuchElementException");
@@ -10741,7 +10741,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         iterator = keySet.iterator();
         iterator.next();// 0
@@ -10755,19 +10755,19 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertNull(keySet.lower(key));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNull(keySet.lower(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertNotNull(keySet.lower(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNotNull(keySet.lower(key));
     }
@@ -10834,7 +10834,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         iterator = keySet.iterator();
         iterator.next();// 0
@@ -10850,19 +10850,19 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertNull(keySet.higher(key));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNull(keySet.higher(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertNull(keySet.higher(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNull(keySet.higher(key));
     }
@@ -10876,35 +10876,35 @@ public class TreeMapExtendTest extends TestCase {
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 101; i < keyArray.length; i++) {
             key = (String) keySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 101; i < keyArray.length; i++) {
             key = (String) keySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 100; i < keyArray.length; i++) {
             key = (String) keySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 100; i < keyArray.length; i++) {
             key = (String) keySet.ceiling(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         Iterator iterator = keySet.iterator();
         iterator.next();
-        assertEquals(new Integer(1).toString(), keySet.ceiling(iterator.next()));
+        assertEquals(Integer.valueOf(1).toString(), keySet.ceiling(iterator.next()));
 
         try {
             keySet.ceiling(null);
@@ -10913,19 +10913,19 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertEquals(key, keySet.ceiling(key));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNull(keySet.higher(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertNull(keySet.higher(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNull(keySet.higher(key));
     }
@@ -10939,35 +10939,35 @@ public class TreeMapExtendTest extends TestCase {
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 101; i < keyArray.length; i++) {
             key = (String) keySet.floor(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
         keySet = navigableMap_startExcluded_endIncluded.navigableKeySet();
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 101; i < keyArray.length; i++) {
             key = (String) keySet.floor(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
         keySet = navigableMap_startIncluded_endExcluded.navigableKeySet();
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 100; i < keyArray.length; i++) {
             key = (String) keySet.floor(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
         keySet = navigableMap_startIncluded_endIncluded.navigableKeySet();
         keyArray = (String[]) keySet.toArray(new String[keySet.size()]);
         for (int i = 0, j = 100; i < keyArray.length; i++) {
             key = (String) keySet.floor(keyArray[i]);
-            assertEquals(new Integer(i + j).toString(), key);
+            assertEquals(Integer.valueOf(i + j).toString(), key);
         }
 
-        key = new Integer(2).toString();
+        key = Integer.valueOf(2).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         Iterator iterator = keySet.iterator();
         iterator.next();
-        assertEquals(new Integer(1).toString(), keySet.floor(iterator.next()));
+        assertEquals(Integer.valueOf(1).toString(), keySet.floor(iterator.next()));
 
         try {
             keySet.floor(null);
@@ -10976,21 +10976,21 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertEquals(key, keySet.floor(key));
 
-        key = new Integer(0).toString();
+        key = Integer.valueOf(0).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
         assertNull(keySet.floor(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, true).navigableKeySet();
         assertEquals(key, keySet.floor(key));
 
-        key = new Integer(999).toString();
+        key = Integer.valueOf(999).toString();
         keySet = tm.headMap(key, false).navigableKeySet();
-        assertEquals(new Integer(998).toString(), keySet.floor(key));
+        assertEquals(Integer.valueOf(998).toString(), keySet.floor(key));
     }
 
     public void test_BoundedEntryIterator_next() {
@@ -11013,7 +11013,7 @@ public class TreeMapExtendTest extends TestCase {
         Iterator iterator = subMap_default.keySet().iterator();
         assertTrue(iterator.hasNext());
         for (int i = 100; iterator.hasNext(); i++) {
-            assertEquals(new Integer(i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(i).toString(), iterator.next());
         }
 
         try {
@@ -11025,8 +11025,8 @@ public class TreeMapExtendTest extends TestCase {
     }
 
     public void test_BoundedValueIterator_next() {
-        String startKey = new Integer(101).toString();
-        String endKey = new Integer(108).toString();
+        String startKey = Integer.valueOf(101).toString();
+        String endKey = Integer.valueOf(108).toString();
 
         Collection values = tm.subMap(startKey, endKey).values();
         Iterator iter = values.iterator();
@@ -11055,7 +11055,7 @@ public class TreeMapExtendTest extends TestCase {
         Set entrySet = subMap_default.entrySet();
         Iterator iterator;
         Entry entry;
-        Integer value = new Integer(100);
+        Integer value = Integer.valueOf(100);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11070,7 +11070,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startExcluded_endExcluded.entrySet();
-        value = new Integer(101);
+        value = Integer.valueOf(101);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11085,7 +11085,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startExcluded_endIncluded.entrySet();
-        value = new Integer(101);
+        value = Integer.valueOf(101);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11100,7 +11100,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startIncluded_endExcluded.entrySet();
-        value = new Integer(100);
+        value = Integer.valueOf(100);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11115,7 +11115,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startIncluded_endIncluded.entrySet();
-        value = new Integer(100);
+        value = Integer.valueOf(100);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11129,8 +11129,8 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        String startKey = new Integer(-1).toString();
-        String endKey = new Integer(0).toString();
+        String startKey = Integer.valueOf(-1).toString();
+        String endKey = Integer.valueOf(0).toString();
         SortedMap subMap = tm.subMap(startKey, endKey);
         entrySet = subMap.entrySet();
         iterator = entrySet.iterator();
@@ -11141,7 +11141,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(1).toString();
+        endKey = Integer.valueOf(1).toString();
         subMap = tm.subMap(startKey, endKey);
         entrySet = subMap.entrySet();
         iterator = entrySet.iterator();
@@ -11153,7 +11153,7 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        endKey = new Integer(2000).toString();
+        endKey = Integer.valueOf(2000).toString();
         subMap = tm.subMap(startKey, endKey);
         entrySet = subMap.entrySet();
         iterator = entrySet.iterator();
@@ -11167,8 +11167,8 @@ public class TreeMapExtendTest extends TestCase {
             // Expected
         }
 
-        startKey = new Integer(9).toString();
-        endKey = new Integer(100).toString();
+        startKey = Integer.valueOf(9).toString();
+        endKey = Integer.valueOf(100).toString();
         try {
             tm.subMap(startKey, endKey);
             fail("should throw IllegalArgumentException");
@@ -11178,7 +11178,7 @@ public class TreeMapExtendTest extends TestCase {
 
         // With Comparator
         entrySet = subMap_default_comparator.entrySet();
-        value = new Integer(100);
+        value = Integer.valueOf(100);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11193,7 +11193,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startExcluded_endExcluded_comparator.entrySet();
-        value = new Integer(101);
+        value = Integer.valueOf(101);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11208,7 +11208,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startExcluded_endIncluded_comparator.entrySet();
-        value = new Integer(101);
+        value = Integer.valueOf(101);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11223,7 +11223,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startIncluded_endExcluded_comparator.entrySet();
-        value = new Integer(100);
+        value = Integer.valueOf(100);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11238,7 +11238,7 @@ public class TreeMapExtendTest extends TestCase {
         }
 
         entrySet = subMap_startIncluded_endIncluded_comparator.entrySet();
-        value = new Integer(100);
+        value = Integer.valueOf(100);
         for (iterator = entrySet.iterator(); iterator.hasNext(); value++) {
             entry = (Entry) iterator.next();
             assertEquals(value.toString(), entry.getKey());
@@ -11302,16 +11302,16 @@ public class TreeMapExtendTest extends TestCase {
         assertFalse(subMap_startIncluded_endExcluded.entrySet().isEmpty());
         assertFalse(subMap_startIncluded_endIncluded.entrySet().isEmpty());
 
-        String startKey = new Integer(0).toString();
+        String startKey = Integer.valueOf(0).toString();
         String endKey = startKey;
         SortedMap subMap = tm.subMap(startKey, endKey);
         assertTrue(subMap.entrySet().isEmpty());
 
-        startKey = new Integer(-1).toString();
+        startKey = Integer.valueOf(-1).toString();
         subMap = tm.subMap(startKey, endKey);
         assertTrue(subMap.entrySet().isEmpty());
 
-        endKey = new Integer(1).toString();
+        endKey = Integer.valueOf(1).toString();
         subMap = tm.subMap(startKey, endKey);
         assertFalse(subMap.entrySet().isEmpty());
     }
@@ -11323,26 +11323,26 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(9, subMap_startIncluded_endExcluded.entrySet().size());
         assertEquals(10, subMap_startIncluded_endIncluded.entrySet().size());
 
-        String startKey = new Integer(0).toString();
-        String endKey = new Integer(2).toString();
+        String startKey = Integer.valueOf(0).toString();
+        String endKey = Integer.valueOf(2).toString();
         SortedMap subMap = tm.subMap(startKey, endKey);
         assertEquals(112, subMap.entrySet().size());
 
-        startKey = new Integer(0).toString();
+        startKey = Integer.valueOf(0).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertEquals(0, subMap.entrySet().size());
 
-        startKey = new Integer(-1).toString();
+        startKey = Integer.valueOf(-1).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertEquals(0, subMap.entrySet().size());
 
-        endKey = new Integer(1).toString();
+        endKey = Integer.valueOf(1).toString();
         subMap = tm.subMap(startKey, endKey);
         assertEquals(1, subMap.entrySet().size());
 
-        startKey = new Integer(999).toString();
+        startKey = Integer.valueOf(999).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertEquals(0, subMap.entrySet().size());
@@ -11359,7 +11359,7 @@ public class TreeMapExtendTest extends TestCase {
         Set keySet = subMap_default.keySet();
         Iterator iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(100 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(100 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11372,7 +11372,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startExcluded_endExcluded.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(101 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(101 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11385,7 +11385,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startExcluded_endIncluded.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(101 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(101 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11398,7 +11398,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startIncluded_endExcluded.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(100 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(100 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11411,7 +11411,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startIncluded_endIncluded.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(100 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(100 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11425,7 +11425,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_default_comparator.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(100 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(100 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11438,7 +11438,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startExcluded_endExcluded_comparator.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(101 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(101 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11451,7 +11451,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startExcluded_endIncluded_comparator.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(101 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(101 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11464,7 +11464,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startIncluded_endExcluded_comparator.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(100 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(100 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11477,7 +11477,7 @@ public class TreeMapExtendTest extends TestCase {
         keySet = subMap_startIncluded_endIncluded_comparator.keySet();
         iterator = keySet.iterator();
         for (int i = 0; i < keySet.size(); i++) {
-            assertEquals(new Integer(100 + i).toString(), iterator.next());
+            assertEquals(Integer.valueOf(100 + i).toString(), iterator.next());
         }
         assertFalse(iterator.hasNext());
         try {
@@ -11495,22 +11495,22 @@ public class TreeMapExtendTest extends TestCase {
         assertFalse(subMap_startIncluded_endExcluded.keySet().isEmpty());
         assertFalse(subMap_startIncluded_endIncluded.keySet().isEmpty());
 
-        String startKey = new Integer(0).toString();
+        String startKey = Integer.valueOf(0).toString();
         String endKey = startKey;
         SortedMap subMap = tm.subMap(startKey, endKey);
         assertTrue(subMap.keySet().isEmpty());
 
-        startKey = new Integer(999).toString();
+        startKey = Integer.valueOf(999).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertTrue(subMap.keySet().isEmpty());
 
-        startKey = new Integer(-1).toString();
-        endKey = new Integer(1).toString();
+        startKey = Integer.valueOf(-1).toString();
+        endKey = Integer.valueOf(1).toString();
         subMap = tm.subMap(startKey, endKey);
         assertFalse(subMap.keySet().isEmpty());
 
-        endKey = new Integer(0).toString();
+        endKey = Integer.valueOf(0).toString();
         subMap = tm.subMap(startKey, endKey);
         assertTrue(subMap.keySet().isEmpty());
     }
@@ -11523,21 +11523,21 @@ public class TreeMapExtendTest extends TestCase {
         } catch (NullPointerException e) {
             // Expected
         }
-        String key = new Integer(-1).toString();
+        String key = Integer.valueOf(-1).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(99).toString();
+        key = Integer.valueOf(99).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertTrue(keySet.contains(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(keySet.contains(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(1001).toString();
+        key = Integer.valueOf(1001).toString();
         assertFalse(keySet.contains(key));
 
         keySet = subMap_startExcluded_endExcluded.keySet();
@@ -11547,21 +11547,21 @@ public class TreeMapExtendTest extends TestCase {
         } catch (NullPointerException e) {
             // Expected
         }
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(99).toString();
+        key = Integer.valueOf(99).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertFalse(keySet.contains(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(keySet.contains(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(1001).toString();
+        key = Integer.valueOf(1001).toString();
         assertFalse(keySet.contains(key));
 
         keySet = subMap_startExcluded_endIncluded.keySet();
@@ -11571,21 +11571,21 @@ public class TreeMapExtendTest extends TestCase {
         } catch (NullPointerException e) {
             // Expected
         }
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(99).toString();
+        key = Integer.valueOf(99).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertFalse(keySet.contains(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(keySet.contains(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertTrue(keySet.contains(key));
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(1001).toString();
+        key = Integer.valueOf(1001).toString();
         assertFalse(keySet.contains(key));
 
         keySet = subMap_startIncluded_endExcluded.keySet();
@@ -11595,21 +11595,21 @@ public class TreeMapExtendTest extends TestCase {
         } catch (NullPointerException e) {
             // Expected
         }
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(99).toString();
+        key = Integer.valueOf(99).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertTrue(keySet.contains(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(keySet.contains(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(1001).toString();
+        key = Integer.valueOf(1001).toString();
         assertFalse(keySet.contains(key));
 
         keySet = subMap_startIncluded_endIncluded.keySet();
@@ -11619,21 +11619,21 @@ public class TreeMapExtendTest extends TestCase {
         } catch (NullPointerException e) {
             // Expected
         }
-        key = new Integer(-1).toString();
+        key = Integer.valueOf(-1).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(99).toString();
+        key = Integer.valueOf(99).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(100).toString();
+        key = Integer.valueOf(100).toString();
         assertTrue(keySet.contains(key));
         for (int i = 101; i < 109; i++) {
-            key = new Integer(i).toString();
+            key = Integer.valueOf(i).toString();
             assertTrue(keySet.contains(key));
         }
-        key = new Integer(109).toString();
+        key = Integer.valueOf(109).toString();
         assertTrue(keySet.contains(key));
-        key = new Integer(110).toString();
+        key = Integer.valueOf(110).toString();
         assertFalse(keySet.contains(key));
-        key = new Integer(1001).toString();
+        key = Integer.valueOf(1001).toString();
         assertFalse(keySet.contains(key));
     }
 
@@ -11644,26 +11644,26 @@ public class TreeMapExtendTest extends TestCase {
         assertEquals(9, subMap_startIncluded_endExcluded.keySet().size());
         assertEquals(10, subMap_startIncluded_endIncluded.keySet().size());
 
-        String startKey = new Integer(0).toString();
-        String endKey = new Integer(2).toString();
+        String startKey = Integer.valueOf(0).toString();
+        String endKey = Integer.valueOf(2).toString();
         SortedMap subMap = tm.subMap(startKey, endKey);
         assertEquals(112, subMap.keySet().size());
 
-        startKey = new Integer(0).toString();
+        startKey = Integer.valueOf(0).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertEquals(0, subMap.keySet().size());
 
-        startKey = new Integer(-1).toString();
+        startKey = Integer.valueOf(-1).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertEquals(0, subMap.keySet().size());
 
-        endKey = new Integer(1).toString();
+        endKey = Integer.valueOf(1).toString();
         subMap = tm.subMap(startKey, endKey);
         assertEquals(1, subMap.keySet().size());
 
-        startKey = new Integer(999).toString();
+        startKey = Integer.valueOf(999).toString();
         endKey = startKey;
         subMap = tm.subMap(startKey, endKey);
         assertEquals(0, subMap.keySet().size());
@@ -11884,7 +11884,7 @@ public class TreeMapExtendTest extends TestCase {
             assertEquals(99, value);
         }
 
-        String startKey = new Integer(2).toString();
+        String startKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(startKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             ascendingSubMapEntrySet = (NavigableSet) entrySet;
@@ -12574,7 +12574,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             ascendingSubMapEntrySet = (NavigableSet) entrySet;
@@ -12674,7 +12674,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             ascendingSubMapEntrySet = (NavigableSet) entrySet;
@@ -12822,7 +12822,7 @@ public class TreeMapExtendTest extends TestCase {
             }
         }
 
-        String endKey = new Integer(2).toString();
+        String endKey = Integer.valueOf(2).toString();
         entrySet = tm.headMap(endKey, true).entrySet();
         if (entrySet instanceof NavigableSet) {
             ascendingSubMapEntrySet = (NavigableSet) entrySet;
@@ -13239,7 +13239,7 @@ public class TreeMapExtendTest extends TestCase {
         tm = new TreeMap();
         tm_comparator = new TreeMap(new MockComparator());
         for (int i = 0; i < objArray.length; i++) {
-            Object x = objArray[i] = new Integer(i);
+            Object x = objArray[i] = Integer.valueOf(i);
             tm.put(x.toString(), x);
             tm_comparator.put(x.toString(), x);
         }
@@ -13554,8 +13554,8 @@ public class TreeMapExtendTest extends TestCase {
 
     public void test_headMap() throws Exception {
         TreeMap tree = new TreeMap();
-        tree.put(new Integer(0), null);
-        tree.put(new Integer(1), null);
+        tree.put(Integer.valueOf(0), null);
+        tree.put(Integer.valueOf(1), null);
         Map submap = tree.subMap(tree.firstKey(), tree.lastKey());
         tree.remove(tree.lastKey());
         assertEquals(submap, tree);

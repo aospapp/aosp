@@ -85,17 +85,20 @@ class ParamTonemapModeTest(its_base_test.ItsBaseTest):
       props = cam.override_with_hidden_physical_camera_props(props)
       camera_properties_utils.skip_unless(
           camera_properties_utils.compute_target_exposure(props) and
-          camera_properties_utils.per_frame_control(props))
+          camera_properties_utils.per_frame_control(props) and
+          camera_properties_utils.tonemap_mode(props, 0))
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Determine format, exposure and gain for requests
       largest_yuv = capture_request_utils.get_largest_yuv_format(props)
       match_ar = (largest_yuv['width'], largest_yuv['height'])
-      fmt = capture_request_utils.get_smallest_yuv_format(
+      fmt = capture_request_utils.get_near_vga_yuv_format(
           props, match_ar=match_ar)
       exp, sens = target_exposure_utils.get_target_exposure_combos(
           log_path, cam)['midExposureTime']
@@ -114,7 +117,7 @@ class ParamTonemapModeTest(its_base_test.ItsBaseTest):
             'blue': sum([[i/(_L_TMAP-1), min(1.0, (1+1.5*n)*i/(_L_TMAP-1))]
                          for i in range(_L_TMAP)], [])}
         cap = cam.do_capture(req, fmt)
-        img_name = '%s_n=%d.jpg' % (os.path.join(log_path, _NAME), n)
+        img_name = f'{name_with_log_path}_n={n}.jpg'
         means_1.append(compute_means_and_save(cap, img_name))
       if 0.0 in means_1[1]:
         raise AssertionError(f'0.0 value in test 1 means: {means_1[0]}')
@@ -138,7 +141,7 @@ class ParamTonemapModeTest(its_base_test.ItsBaseTest):
                                         'green': tonemap_curve,
                                         'blue': tonemap_curve}
         cap = cam.do_capture(req)
-        img_name = '%s_size=%02d.jpg' % (os.path.join(log_path, _NAME), size)
+        img_name = f'{name_with_log_path}_size={size:02d}.jpg'
         means_2.append(compute_means_and_save(cap, img_name))
 
       rgb_diffs = [means_2[1][i] - means_2[0][i] for i in range(_NUM_COLORS)]

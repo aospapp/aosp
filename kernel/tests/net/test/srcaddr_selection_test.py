@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2014 The Android Open Source Project
 #
@@ -109,7 +109,7 @@ class IPv6SourceAddressSelectionTest(multinetwork_base.MultiNetworkBaseTest):
     pktinfo = multinetwork_base.MakePktInfo(6, address, 0)
     cmsgs = [(net_test.SOL_IPV6, IPV6_PKTINFO, pktinfo)]
     s = self.BuildSocket(6, net_test.UDPSocket, netid, "mark")
-    return csocket.Sendmsg(s, (dest, 53), "Hello", cmsgs, 0)
+    return csocket.Sendmsg(s, (dest, 53), b"Hello", cmsgs, 0)
 
   def assertAddressUsable(self, address, netid):
     self.BindToAddress(address)
@@ -211,10 +211,7 @@ class OptimisticAddressTest(MultiInterfaceSourceAddressSelectionTest):
         self.test_ip, self.test_ifindex, iproute.IFA_F_OPTIMISTIC)
 
     # Optimistic addresses are usable but are not selected.
-    if net_test.LINUX_VERSION >= (3, 18, 0):
-      # The version checked in to android kernels <= 3.10 requires the
-      # use_optimistic sysctl to be turned on.
-      self.assertAddressUsable(self.test_ip, self.test_netid)
+    self.assertAddressUsable(self.test_ip, self.test_netid)
     self.assertAddressNotSelected(self.test_ip, self.test_netid)
 
     # Busy wait for DAD to complete (should be less than 1 second).
@@ -327,14 +324,11 @@ class NoNsFromOptimisticTest(MultiInterfaceSourceAddressSelectionTest):
         self.OnlinkPrefix(6, self.test_netid))
     self.SendWithSourceAddress(self.test_ip, self.test_netid, onlink_dest)
 
-    if net_test.LINUX_VERSION >= (3, 18, 0):
-      # Older versions will actually choose the optimistic address to
-      # originate Neighbor Solications (RFC violation).
-      expected_ns = packets.NS(
-          self.test_lladdr,
-          onlink_dest,
-          self.MyMacAddress(self.test_netid))[1]
-      self.ExpectPacketOn(self.test_netid, "link-local NS", expected_ns)
+    expected_ns = packets.NS(
+        self.test_lladdr,
+        onlink_dest,
+        self.MyMacAddress(self.test_netid))[1]
+    self.ExpectPacketOn(self.test_netid, "link-local NS", expected_ns)
 
 
 # TODO(ek): add tests listening for netlink events.

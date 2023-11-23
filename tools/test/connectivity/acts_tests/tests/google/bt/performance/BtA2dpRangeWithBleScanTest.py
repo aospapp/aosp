@@ -25,32 +25,50 @@ INIT_ATTEN = 0
 
 
 class BtA2dpRangeWithBleScanTest(A2dpBaseTest):
-    default_timeout = 10
+    """User can generate test case with below format.
+    test_bt_a2dp_range_codec_"Codec"_with_BLE_scan_"Scan Mode"
+
+    Below are the list of test cases:
+        test_bt_a2dp_range_codec_AAC_with_BLE_scan_balanced
+        test_bt_a2dp_range_codec_AAC_with_BLE_scan_low_latency
+        test_bt_a2dp_range_codec_AAC_with_BLE_scan_low_power
+        test_bt_a2dp_range_codec_AAC_with_BLE_scan_opportunistic
+        test_bt_a2dp_range_codec_SBC_with_BLE_scan_balanced
+        test_bt_a2dp_range_codec_SBC_with_BLE_scan_low_latency
+        test_bt_a2dp_range_codec_SBC_with_BLE_scan_low_power
+        test_bt_a2dp_range_codec_SBC_with_BLE_scan_opportunistic
+    """
 
     def __init__(self, configs):
         super().__init__(configs)
         req_params = ['attenuation_vector', 'codecs']
-        #'attenuation_vector' is a dict containing: start, stop and step of
-        #attenuation changes
+        opt_params = ['gain_mismatch', 'dual_chain']
+        #'attenuation_vector' is a dict containing: start, stop and step of attenuation changes
         #'codecs' is a list containing all codecs required in the tests
+        #'gain_mismatch' is an offset value between the BT two chains
+        #'dual_chain' set to 1 enable sweeping attenuation for BT two chains
         self.unpack_userparams(req_params)
+        self.unpack_userparams(opt_params, dual_chian=None, gain_mismatch=None)
+
+    def setup_generated_tests(self):
         for codec_config in self.codecs:
-            # Loop all BLE Scan modes
             for scan_mode in ble_scan_settings_modes.items():
-                self.generate_test_case(codec_config, scan_mode)
+                arg_set = [(codec_config, scan_mode)]
+                self.generate_tests(
+                    test_logic=self.BtA2dp_with_ble_scan_test_logic,
+                    name_func=self.create_test_name,
+                    arg_sets=arg_set)
 
     def setup_class(self):
         super().setup_class()
-        opt_params = ['gain_mismatch', 'dual_chain']
-        self.unpack_userparams(opt_params, dual_chain=None, gain_mismatch=None)
-        return setup_multiple_devices_for_bt_test(self.android_devices)
-        # Enable BQR on all android devices
+        #Enable BQR on all android devices
         btutils.enable_bqr(self.android_devices)
         if hasattr(self, 'dual_chain') and self.dual_chain == 1:
             self.atten_c0 = self.attenuators[0]
             self.atten_c1 = self.attenuators[1]
             self.atten_c0.set_atten(INIT_ATTEN)
             self.atten_c1.set_atten(INIT_ATTEN)
+        return setup_multiple_devices_for_bt_test(self.android_devices)
 
     def teardown_class(self):
         super().teardown_class()
@@ -58,31 +76,20 @@ class BtA2dpRangeWithBleScanTest(A2dpBaseTest):
             self.atten_c0.set_atten(INIT_ATTEN)
             self.atten_c1.set_atten(INIT_ATTEN)
 
-    def generate_test_case(self, codec_config, scan_mode):
-        """ Below are the list of test case's user can choose to run.
-        Test case list:
-        "test_bt_a2dp_range_codec_AAC_with_BLE_scan_balanced"
-        "test_bt_a2dp_range_codec_AAC_with_BLE_scan_low_latency"
-        "test_bt_a2dp_range_codec_AAC_with_BLE_scan_low_power"
-        "test_bt_a2dp_range_codec_AAC_with_BLE_scan_opportunistic"
-        "test_bt_a2dp_range_codec_SBC_with_BLE_scan_balanced"
-        "test_bt_a2dp_range_codec_SBC_with_BLE_scan_low_latency"
-        "test_bt_a2dp_range_codec_SBC_with_BLE_scan_low_power"
-        "test_bt_a2dp_range_codec_SBC_with_BLE_scan_opportunistic"
-        """
-        def test_case_fn():
-            scan_callback = self.start_ble_scan(scan_mode[1])
-            self.run_a2dp_to_max_range(codec_config)
-            self.dut.droid.bleStopBleScan(scan_callback)
-            self.log.info("BLE Scan stopped succssfully")
+    def BtA2dp_with_ble_scan_test_logic(self, codec_config, scan_mode):
+        scan_callback = self.start_ble_scan(scan_mode[1])
+        self.run_a2dp_to_max_range(codec_config)
+        self.dut.droid.bleStopBleScan(scan_callback)
+        self.log.info("BLE Scan stopped successfully")
 
+    def create_test_name(self, codec_config, scan_mode):
         if hasattr(self, 'dual_chain') and self.dual_chain == 1:
-            test_case_name = 'test_dual_bt_a2dp_range_codec_{}_gainmimatch_{}dB'.format(
-                codec_config['codec_type'], self.gain_mismatch)
+            test_case_name = 'test_dual_bt_a2dp_range_codec_{}_gainmismatch_{}dB_with_BLE_scan_{}'.format(
+                codec_config['codec_type'], self.gain_mismatch, scan_mode[0])
         else:
             test_case_name = 'test_bt_a2dp_range_codec_{}_with_BLE_scan_{}'.format(
                 codec_config['codec_type'], scan_mode[0])
-        setattr(self, test_case_name, test_case_fn)
+        return test_case_name
 
     def start_ble_scan(self, scan_mode):
         """ This function will start Ble Scan with different scan mode.
@@ -99,5 +106,6 @@ class BtA2dpRangeWithBleScanTest(A2dpBaseTest):
             self.dut.droid)
         self.dut.droid.bleStartBleScan(filter_list, scan_settings,
                                        scan_callback)
-        self.log.info("BLE Scanning started succssfully")
+        self.log.info("BLE Scanning started successfully")
         return scan_callback
+

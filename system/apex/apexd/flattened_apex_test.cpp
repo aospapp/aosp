@@ -86,7 +86,7 @@ TEST(FlattenedApexTest, ApexdIsNotRunning) {
 }  // namespace android
 
 int main(int argc, char** argv) {
-  android::base::InitLogging(argv, &android::base::StderrLogger);
   ::testing::InitGoogleTest(&argc, argv);
+  android::base::InitLogging(argv, &android::base::StderrLogger);
   return RUN_ALL_TESTS();
 }

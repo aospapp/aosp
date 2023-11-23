@@ -37,10 +37,11 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
     private final MockModemService mService;
     private IRadioConfigResponse mRadioConfigResponse;
     private IRadioConfigIndication mRadioConfigIndication;
-    private static MockModemConfigInterface[] sMockModemConfigInterfaces;
+    private MockModemConfigInterface mMockModemConfigInterface;
     private Object mCacheUpdateMutex;
     private final Handler mHandler;
     private int mSubId;
+    private String mTag;
 
     // ***** Events
     static final int EVENT_NUM_OF_LIVE_MODEM_CHANGED = 1;
@@ -54,11 +55,12 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
     private SimSlotStatus[] mSimSlotStatus;
 
     public IRadioConfigImpl(
-            MockModemService service, MockModemConfigInterface[] interfaces, int instanceId) {
-        Log.d(TAG, "Instantiated");
+            MockModemService service, MockModemConfigInterface configInterface, int instanceId) {
+        mTag = TAG + "-" + instanceId;
+        Log.d(mTag, "Instantiated");
 
         this.mService = service;
-        sMockModemConfigInterfaces = interfaces;
+        mMockModemConfigInterface = configInterface;
         mSlotNum = mService.getNumPhysicalSlots();
         mSimSlotStatus = new SimSlotStatus[mSlotNum];
         mCacheUpdateMutex = new Object();
@@ -66,12 +68,12 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
         mSubId = instanceId;
 
         // Register events
-        sMockModemConfigInterfaces[mSubId].registerForNumOfLiveModemChanged(
-                mHandler, EVENT_NUM_OF_LIVE_MODEM_CHANGED, null);
-        sMockModemConfigInterfaces[mSubId].registerForPhoneCapabilityChanged(
-                mHandler, EVENT_PHONE_CAPABILITY_CHANGED, null);
-        sMockModemConfigInterfaces[mSubId].registerForSimSlotStatusChanged(
-                mHandler, EVENT_SIM_SLOT_STATUS_CHANGED, null);
+        mMockModemConfigInterface.registerForNumOfLiveModemChanged(
+                mSubId, mHandler, EVENT_NUM_OF_LIVE_MODEM_CHANGED, null);
+        mMockModemConfigInterface.registerForPhoneCapabilityChanged(
+                mSubId, mHandler, EVENT_PHONE_CAPABILITY_CHANGED, null);
+        mMockModemConfigInterface.registerForSimSlotStatusChanged(
+                mSubId, mHandler, EVENT_SIM_SLOT_STATUS_CHANGED, null);
     }
 
     /** Handler class to handle callbacks */
@@ -82,36 +84,36 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
             synchronized (mCacheUpdateMutex) {
                 switch (msg.what) {
                     case EVENT_NUM_OF_LIVE_MODEM_CHANGED:
-                        Log.d(TAG, "Received EVENT_NUM_OF_LIVE_MODEM_CHANGED");
+                        Log.d(mTag, "Received EVENT_NUM_OF_LIVE_MODEM_CHANGED");
                         ar = (AsyncResult) msg.obj;
                         if (ar != null && ar.exception == null) {
                             mNumOfLiveModems = (byte) ar.result;
-                            Log.i(TAG, "Number of live modem: " + mNumOfLiveModems);
+                            Log.i(mTag, "Number of live modem: " + mNumOfLiveModems);
                         } else {
-                            Log.e(TAG, msg.what + " failure. Exception: " + ar.exception);
+                            Log.e(mTag, msg.what + " failure. Exception: " + ar.exception);
                         }
                         break;
                     case EVENT_PHONE_CAPABILITY_CHANGED:
-                        Log.d(TAG, "Received EVENT_PHONE_CAPABILITY_CHANGED");
+                        Log.d(mTag, "Received EVENT_PHONE_CAPABILITY_CHANGED");
                         ar = (AsyncResult) msg.obj;
                         if (ar != null && ar.exception == null) {
                             mPhoneCapability = (PhoneCapability) ar.result;
-                            Log.i(TAG, "Phone capability: " + mPhoneCapability);
+                            Log.i(mTag, "Phone capability: " + mPhoneCapability);
                         } else {
-                            Log.e(TAG, msg.what + " failure. Exception: " + ar.exception);
+                            Log.e(mTag, msg.what + " failure. Exception: " + ar.exception);
                         }
                         break;
                     case EVENT_SIM_SLOT_STATUS_CHANGED:
-                        Log.d(TAG, "Received EVENT_SIM_SLOT_STATUS_CHANGED");
+                        Log.d(mTag, "Received EVENT_SIM_SLOT_STATUS_CHANGED");
                         ar = (AsyncResult) msg.obj;
                         if (ar != null && ar.exception == null) {
                             mSimSlotStatus = (SimSlotStatus[]) ar.result;
                             for (int i = 0; i < mSlotNum; i++) {
-                                Log.i(TAG, "Sim slot status: " + mSimSlotStatus[i]);
+                                Log.i(mTag, "Sim slot status: " + mSimSlotStatus[i]);
                             }
                             unsolSimSlotsStatusChanged();
                         } else {
-                            Log.e(TAG, msg.what + " failure. Exception: " + ar.exception);
+                            Log.e(mTag, msg.what + " failure. Exception: " + ar.exception);
                         }
                         break;
                 }
@@ -122,7 +124,7 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
     // Implementation of IRadioConfig functions
     @Override
     public void getHalDeviceCapabilities(int serial) {
-        Log.d(TAG, "getHalDeviceCapabilities");
+        Log.d(mTag, "getHalDeviceCapabilities");
 
         boolean modemReducedFeatureSet1 = false;
 
@@ -131,14 +133,14 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
             mRadioConfigResponse.getHalDeviceCapabilitiesResponse(rsp, modemReducedFeatureSet1);
         } catch (RemoteException ex) {
             Log.e(
-                    TAG,
+                    mTag,
                     "Failed to invoke getHalDeviceCapabilitiesResponse from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getNumOfLiveModems(int serial) {
-        Log.d(TAG, "getNumOfLiveModems");
+        Log.d(mTag, "getNumOfLiveModems");
         byte numoflivemodem;
 
         synchronized (mCacheUpdateMutex) {
@@ -149,13 +151,13 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
         try {
             mRadioConfigResponse.getNumOfLiveModemsResponse(rsp, numoflivemodem);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to invoke getNumOfLiveModemsResponse from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to invoke getNumOfLiveModemsResponse from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getPhoneCapability(int serial) {
-        Log.d(TAG, "getPhoneCapability");
+        Log.d(mTag, "getPhoneCapability");
         PhoneCapability phoneCapability;
 
         synchronized (mCacheUpdateMutex) {
@@ -166,18 +168,18 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
         try {
             mRadioConfigResponse.getPhoneCapabilityResponse(rsp, phoneCapability);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to invoke getPhoneCapabilityResponse from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to invoke getPhoneCapabilityResponse from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void getSimSlotsStatus(int serial) {
-        Log.d(TAG, "getSimSlotsStatus");
+        Log.d(mTag, "getSimSlotsStatus");
         SimSlotStatus[] slotStatus;
 
         synchronized (mCacheUpdateMutex) {
             if (mSlotNum < 1) {
-                Log.d(TAG, "No slot information is retured.");
+                Log.d(mTag, "No slot information is retured.");
                 slotStatus = null;
             } else {
                 slotStatus = mSimSlotStatus;
@@ -188,33 +190,33 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
         try {
             mRadioConfigResponse.getSimSlotsStatusResponse(rsp, slotStatus);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to invoke getSimSlotsStatusResponse from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to invoke getSimSlotsStatusResponse from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void setNumOfLiveModems(int serial, byte numOfLiveModems) {
-        Log.d(TAG, "setNumOfLiveModems");
+        Log.d(mTag, "setNumOfLiveModems");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioConfigResponse.setNumOfLiveModemsResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to invoke setNumOfLiveModemsResponse from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to invoke setNumOfLiveModemsResponse from AIDL. Exception" + ex);
         }
     }
 
     @Override
     public void setPreferredDataModem(int serial, byte modemId) {
-        Log.d(TAG, "setPreferredDataModem");
+        Log.d(mTag, "setPreferredDataModem");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioConfigResponse.setPreferredDataModemResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to invoke setPreferredDataModemResponse from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to invoke setPreferredDataModemResponse from AIDL. Exception" + ex);
         }
     }
 
@@ -222,7 +224,7 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
     public void setResponseFunctions(
             IRadioConfigResponse radioConfigResponse,
             IRadioConfigIndication radioConfigIndication) {
-        Log.d(TAG, "setResponseFunctions");
+        Log.d(mTag, "setResponseFunctions");
         mRadioConfigResponse = radioConfigResponse;
         mRadioConfigIndication = radioConfigIndication;
         mService.countDownLatch(MockModemService.LATCH_RADIO_INTERFACES_READY);
@@ -230,25 +232,25 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
 
     @Override
     public void setSimSlotsMapping(int serial, SlotPortMapping[] slotMap) {
-        Log.d(TAG, "setSimSlotsMapping");
+        Log.d(mTag, "setSimSlotsMapping");
         // TODO: cache value
 
         RadioResponseInfo rsp = mService.makeSolRsp(serial, RadioError.REQUEST_NOT_SUPPORTED);
         try {
             mRadioConfigResponse.setSimSlotsMappingResponse(rsp);
         } catch (RemoteException ex) {
-            Log.e(TAG, "Failed to invoke setSimSlotsMappingResponse from AIDL. Exception" + ex);
+            Log.e(mTag, "Failed to invoke setSimSlotsMappingResponse from AIDL. Exception" + ex);
         }
     }
 
     public void unsolSimSlotsStatusChanged() {
-        Log.d(TAG, "unsolSimSlotsStatusChanged");
+        Log.d(mTag, "unsolSimSlotsStatusChanged");
         SimSlotStatus[] slotStatus;
 
         if (mRadioConfigIndication != null) {
             synchronized (mCacheUpdateMutex) {
                 if (mSlotNum < 1) {
-                    Log.d(TAG, "No slot information is retured.");
+                    Log.d(mTag, "No slot information is retured.");
                     slotStatus = null;
                 } else {
                     slotStatus = mSimSlotStatus;
@@ -259,10 +261,10 @@ public class IRadioConfigImpl extends IRadioConfig.Stub {
                 mRadioConfigIndication.simSlotsStatusChanged(
                         RadioIndicationType.UNSOLICITED, slotStatus);
             } catch (RemoteException ex) {
-                Log.e(TAG, "Failed to invoke simSlotsStatusChanged from AIDL. Exception" + ex);
+                Log.e(mTag, "Failed to invoke simSlotsStatusChanged from AIDL. Exception" + ex);
             }
         } else {
-            Log.e(TAG, "null mRadioConfigIndication");
+            Log.e(mTag, "null mRadioConfigIndication");
         }
     }
 

@@ -60,8 +60,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * are unresolved cyclic startup dependencies.
      */
     // BEGIN Android-changed: Using VarHandle instead of Unsafe
-    // private static final jdk.internal.misc.Unsafe U = jdk.internal.misc.Unsafe.getUnsafe();
-    // private static final long VALUE = U.objectFieldOffset(AtomicInteger.class, "value");
+    // private static final Unsafe U = Unsafe.getUnsafe();
+    // private static final long VALUE
+    //     = U.objectFieldOffset(AtomicInteger.class, "value");
     private static final VarHandle VALUE;
     static {
         try {
@@ -394,7 +395,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * Returns the current value of this {@code AtomicInteger} as a
      * {@code long} after a widening primitive conversion,
      * with memory effects as specified by {@link VarHandle#getVolatile}.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public long longValue() {
         return (long)get();
@@ -404,7 +405,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * Returns the current value of this {@code AtomicInteger} as a
      * {@code float} after a widening primitive conversion,
      * with memory effects as specified by {@link VarHandle#getVolatile}.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public float floatValue() {
         return (float)get();
@@ -414,7 +415,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * Returns the current value of this {@code AtomicInteger} as a
      * {@code double} after a widening primitive conversion,
      * with memory effects as specified by {@link VarHandle#getVolatile}.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public double doubleValue() {
         return (double)get();

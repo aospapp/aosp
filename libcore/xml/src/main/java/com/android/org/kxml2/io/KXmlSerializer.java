@@ -22,6 +22,7 @@
 package com.android.org.kxml2.io;
 
 import java.io.*;
+import java.util.Arrays;
 import java.util.Locale;
 import org.xmlpull.v1.*;
 
@@ -70,6 +71,23 @@ public class KXmlSerializer implements XmlSerializer {
             mPos += batch;
         }
     }
+
+    // BEGIN Android-added: Speed-up indentation. http://b/230007772
+    private void appendSpace(int length) throws IOException {
+        while (length > 0) {
+            if (mPos == BUFFER_LEN) {
+                flushBuffer();
+            }
+            int batch = BUFFER_LEN - mPos;
+            if (batch > length) {
+                batch = length;
+            }
+            Arrays.fill(mText, mPos, mPos + batch, ' ');
+            length -= batch;
+            mPos += batch;
+        }
+    }
+    // END Android-added: Speed-up indentation. http://b/230007772
 
     private void append(String str) throws IOException {
         append(str, 0, str.length());
@@ -401,9 +419,14 @@ public class KXmlSerializer implements XmlSerializer {
         //            namespace = "";
 
         if (indent[depth]) {
-            append("\r\n");
-            for (int i = 0; i < depth; i++)
-                append("  ");
+            // Android-changed: Speed-up indentation. http://b/230007772
+            // append("\r\n");
+            // for (int i = 0; i < depth; i++)
+            //     append("  ");
+            append('\r');
+            append('\n');
+            appendSpace(2 * depth);
+
         }
 
         int esp = depth * 3;
@@ -529,9 +552,13 @@ public class KXmlSerializer implements XmlSerializer {
         }
         else {
             if (indent[depth + 1]) {
-                append("\r\n");
-                for (int i = 0; i < depth; i++)
-                    append("  ");
+                // Android-changed: Speed-up indentation. http://b/230007772
+                // append("\r\n");
+                // for (int i = 0; i < depth; i++)
+                //    append("  ");
+                append('\r');
+                append('\n');
+                appendSpace(2 * depth);
             }
 
             append("</");

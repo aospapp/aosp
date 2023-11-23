@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/sysinfo.h>
 #include <sys/un.h>
 #include <sys/prctl.h>
 
@@ -39,7 +40,6 @@
 #include <cutils/properties.h>
 #include <jni.h>
 #include <linux/android/binder.h>
-#include <cpu-features.h>
 
 #include "../../../../hostsidetests/securitybulletin/securityPatch/includes/common.h"
 
@@ -447,6 +447,7 @@ void recv_txn(int fd, txn_t *t) {
             u32 cmd = parse_u32(p);
             void *dat = (void *)parser_get(p, _IOC_SIZE(cmd));
             if (dat == NULL) {
+                free_parser(p);
                 return;
             }
             handle_cmd(fd, cmd, dat);
@@ -1345,7 +1346,7 @@ void stage2_launcher(u64 arg) {
     for (int i = 3; i < 1024; i++)
         close(i);
     unshare_following_clone_files();
-    int cpu_count =  android_getCpuCount();
+    int cpu_count =  get_nprocs_conf();
     for (int cpu = 0; cpu < cpu_count; cpu++) {
         if (cpu_available(cpu)) {
             for (int i = 0; i < STAGE2_THREADS; i++)
@@ -1404,7 +1405,7 @@ void clean_slab() {
     // clean node
     alloc_txns(4096);
     // clean each cpu
-    int cpu_count =  android_getCpuCount();
+    int cpu_count =  get_nprocs_conf();
     for (int i = 0; i < cpu_count; i++) {
         if (cpu_available(i)) {
             set_cpu(i);
@@ -1682,11 +1683,15 @@ void handle_sig() {
 void rw_thread(u64 idx) {
     handle_sig();
     sync_wait(rw_thread_sync);
-    void *dat = malloc(0x2000);
-    dbg("starting blocked write");
-    if (write(uaf_pipe, dat, 0x2000) != 0x1000) {
-        fail("expected blocking write=0x1000");
-        return;
+    {
+        void *dat = malloc(0x2000);
+        dbg("starting blocked write");
+        if (write(uaf_pipe, dat, 0x2000) != 0x1000) {
+            fail("expected blocking write=0x1000");
+            free(dat);
+            return;
+        }
+        free(dat);
     }
     dbg("write unblocked");
     sync_done(rw_thread_sync);

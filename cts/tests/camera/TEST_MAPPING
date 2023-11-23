@@ -1,0 +1,113 @@
+{
+  "kernel-presubmit": [
+    {
+      "name": "CtsCameraTestCases",
+      "options": [
+        {
+          // b/209623644 Unfit for Cuttlefish. Permanently excluded from presubmit.
+          "exclude-filter": "android.hardware.cts.CameraGLTest#testCameraToSurfaceTextureMetadata"
+        },
+        {
+          // b/204295528 Unsuitable for CF. Permanently excluded from presubmit.
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testBasicVideoStabilizationRecording"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testSupportedVideoSizes"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testVideoPreviewSurfaceSharing"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testBasicRecording"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testRecordingFramerateLowToHigh"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testRecordingFromPersistentSurface"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testVideoSnapshot"
+        },
+        {
+          // TODO(b/264226747)
+          "exclude-filter": "android.hardware.camera2.cts.CameraManagerTest#testCameraManagerListenerCallbacks"
+        },
+        {
+          // TODO(b/275072581)
+          "exclude-filter": "android.hardware.camera2.cts.CaptureRequestTest#testFocusDistanceControl"
+        },
+        {
+          // TODO(b/273837507)
+          "exclude-filter": "android.hardware.camera2.cts.DngCreatorTest#testRaw16JpegConsistency"
+        },
+        {
+          // TODO(b/275072024)
+          "exclude-filter": "android.hardware.camera2.cts.ExtendedCameraCharacteristicsTest#testLandscapeToPortraitOverride"
+        },
+        {
+          // TODO(b/274666525)
+          "exclude-filter": "android.hardware.camera2.cts.ImageReaderTest#testLongProcessingRepeatingFlexibleYuv"
+        },
+        {
+          // TODO(b/230479954)
+          "exclude-filter": "android.hardware.camera2.cts.RecordingTest#testIntermediateSurfaceRecording"
+        },
+        {
+          // TODO(b/266222245)
+          "exclude-filter": "android.hardware.camera2.cts.RobustnessTest#testAeAndAfCausality"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RobustnessTest#testBasicTriggerSequence"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RobustnessTest#testAeThenAfTrigger"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RobustnessTest#testAfThenAeTrigger"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.RobustnessTest#testSimultaneousTriggers"
+        },
+        {
+          // TODO(b/269815708)
+          "exclude-filter": "android.hardware.camera2.cts.StillCaptureTest#testAeCompensation"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.StillCaptureTest#testBasicRawZslCapture"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.StillCaptureTest#testPreviewPersistence"
+        },
+        {
+          "exclude-filter": "android.hardware.camera2.cts.StillCaptureTest#testStillPreviewCombination"
+        },
+        {
+          // TODO(b/269968837)
+          "exclude-filter": "android.hardware.cts.CameraTest#testFocusDistances"
+        },
+        {
+          // TODO(b/262491831)
+          "exclude-filter": "android.hardware.cts.CameraTest#testMustPlayShutterSound"
+        },
+        {
+          "exclude-filter": "android.hardware.cts.CameraTest#testPreviewCallbackWithBuffer"
+        },
+        {
+          "exclude-filter": "android.hardware.cts.CameraTest#testPreviewPictureSizesCombination"
+        },
+        {
+          "exclude-filter": "android.hardware.cts.CameraTest#testTakePicture"
+        },
+        {
+          // TODO(b/269968837)
+          "exclude-filter": "android.hardware.cts.CameraTest#testVideoSnapshot"
+        },
+        {
+          // TODO(b/267597879)
+          "exclude-filter": "android.hardware.multiprocess.camera.cts.CameraEvictionTest#testCamera2AccessCallbackInSplitMode"
+        }
+      ]
+    }
+  ]
+}

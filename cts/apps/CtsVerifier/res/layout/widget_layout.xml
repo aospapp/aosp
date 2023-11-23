@@ -41,7 +41,7 @@
             android:gravity="top|left"
             android:layout_marginBottom="10dp"
             android:fontFamily="sans-serif"
-            android:textSize="20sp"
+            android:textSize="18sp"
             android:text="@string/widget_name"
             android:freezesText="true"/>
 
@@ -51,7 +51,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
             android:fontFamily="sans-serif-light"
-            android:textSize="16sp"
+            android:textSize="15sp"
             android:freezesText="true"/>
 
         <TextView
@@ -61,7 +61,7 @@
             android:layout_marginBottom="18dp"
             android:layout_gravity="center_horizontal"
             android:fontFamily="sans-serif-light"
-            android:textSize="16sp"/>
+            android:textSize="15sp"/>
 
         <ListView
             android:id="@+id/list"
@@ -84,12 +84,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="100dp"
+                android:textSize="15sp"
                 android:text="@string/widget_fail" />
             <Button
                 android:id="@+id/pass"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="100dp"
+                android:textSize="15sp"
                 android:text="@string/widget_pass" />
         </LinearLayout>
 

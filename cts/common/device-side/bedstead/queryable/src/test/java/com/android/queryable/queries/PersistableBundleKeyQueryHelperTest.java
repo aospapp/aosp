@@ -22,14 +22,21 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.PersistableBundle;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class PersistableBundleKeyQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class PersistableBundleKeyQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private static final String KEY = "Key";
     private static final String KEY2 = "Key2";
@@ -147,5 +154,53 @@ public class PersistableBundleKeyQueryHelperTest {
 
         assertParcelsCorrectly(PersistableBundleKeyQueryHelper.class,
                 persistableBundleKeyQueryHelper);
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        PersistableBundleKeyQueryHelper<Queryable> persistableBundleKeyQueryHelper =
+                new PersistableBundleKeyQueryHelper<>(mQuery);
+
+        assertThat(persistableBundleKeyQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasExistsQuery_returnsFalse() {
+        PersistableBundleKeyQueryHelper<Queryable> persistableBundleKeyQueryHelper =
+                new PersistableBundleKeyQueryHelper<>(mQuery);
+
+        persistableBundleKeyQueryHelper.exists();
+
+        assertThat(persistableBundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasDoesNotExistQuery_returnsFalse() {
+        PersistableBundleKeyQueryHelper<Queryable> persistableBundleKeyQueryHelper =
+                new PersistableBundleKeyQueryHelper<>(mQuery);
+
+        persistableBundleKeyQueryHelper.doesNotExist();
+
+        assertThat(persistableBundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasStringQuery_returnsFalse() {
+        PersistableBundleKeyQueryHelper<Queryable> persistableBundleKeyQueryHelper =
+                new PersistableBundleKeyQueryHelper<>(mQuery);
+
+        persistableBundleKeyQueryHelper.stringValue().isNotNull();
+
+        assertThat(persistableBundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasPersistableBundleQuery_returnsFalse() {
+        PersistableBundleKeyQueryHelper<Queryable> persistableBundleKeyQueryHelper =
+                new PersistableBundleKeyQueryHelper<>(mQuery);
+
+        persistableBundleKeyQueryHelper.persistableBundleValue().key("A").stringValue().isNotNull();
+
+        assertThat(persistableBundleKeyQueryHelper.isEmptyQuery()).isFalse();
     }
 }

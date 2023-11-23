@@ -96,3 +96,10 @@ cc_binary {
     defaults: ["simpleperf_runtest_defaults"],
     srcs: ["run_and_sleep.cpp"],
 }
+
+// Used as an example in collect_etm_data_for_autofdo.md.
+cc_binary {
+    name: "etm_test_loop",
+    srcs: ["etm_test_loop.cpp"],
+    // afdo: true,
+}

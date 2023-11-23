@@ -48,10 +48,10 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
 
     @Override
     protected void tearDown() throws Exception {
-        super.tearDown();
         if (mShouldTestTelecom) {
             setRttMasterSwitch(mInitialRttMode);
         }
+        super.tearDown();
     }
 
     public void testOutgoingRttCall() throws Exception {
@@ -234,14 +234,29 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
         assertNotNull(inCallSideRtt);
 
         verifyRttPipeIntegrity(inCallSideRtt, connectionSideRtt);
-        verifyRttPipeReadBlocking(connectionSideRtt);
+        verifyRttPipeReadBlocking(inCallSideRtt, connectionSideRtt);
     }
 
-    private void verifyRttPipeReadBlocking(Connection.RttTextStream connectionSide) {
+    private void verifyRttPipeReadBlocking(
+            Call.RttCall inCallSide, Connection.RttTextStream connectionSide) {
         // Make sure that nothing gets read from the pipe
         boolean[] flag = new boolean[1];
         flag[0] = false;
-        Thread t = new Thread(() -> {
+
+        Thread inCallSideThread = new Thread(() -> {
+            try {
+                inCallSide.read();
+                flag[0] = true;
+            } catch (Exception e) {
+                // do nothing
+            }
+        });
+        inCallSideThread.start();
+        sleep(500);
+        inCallSideThread.interrupt();
+        assertFalse(flag[0]);
+
+        Thread connectionSideThread = new Thread(() -> {
             try {
                 connectionSide.read();
                 flag[0] = true;
@@ -249,9 +264,9 @@ public class RttOperationsTest extends BaseTelecomTestWithMockServices {
                 // do nothing
             }
         });
-        t.start();
+        connectionSideThread.start();
         sleep(500);
-        t.interrupt();
+        connectionSideThread.interrupt();
         assertFalse(flag[0]);
     }
 

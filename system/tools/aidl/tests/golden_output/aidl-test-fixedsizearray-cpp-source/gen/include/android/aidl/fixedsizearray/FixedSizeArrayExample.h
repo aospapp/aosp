@@ -3,12 +3,14 @@
 #include <android/aidl/fixedsizearray/FixedSizeArrayExample.h>
 #include <android/binder_to_string.h>
 #include <array>
+#include <binder/Delegate.h>
 #include <binder/Enums.h>
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
 #include <binder/Parcel.h>
 #include <binder/ParcelFileDescriptor.h>
 #include <binder/Status.h>
+#include <binder/Trace.h>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -46,8 +48,8 @@ public:
     ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
     ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
     static const ::android::String16& getParcelableDescriptor() {
-      static const ::android::StaticString16 DESCIPTOR (u"android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable");
-      return DESCIPTOR;
+      static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable");
+      return DESCRIPTOR;
     }
     inline std::string toString() const {
       std::ostringstream os;
@@ -57,8 +59,11 @@ public:
       return os.str();
     }
   };  // class IntParcelable
+  class IRepeatFixedSizeArrayDelegator;
+
   class IRepeatFixedSizeArray : public ::android::IInterface {
   public:
+    typedef IRepeatFixedSizeArrayDelegator DefaultDelegator;
     DECLARE_META_INTERFACE(RepeatFixedSizeArray)
     virtual ::android::binder::Status RepeatBytes(const std::array<uint8_t, 3>& input, std::array<uint8_t, 3>* repeated, std::array<uint8_t, 3>* _aidl_return) = 0;
     virtual ::android::binder::Status RepeatInts(const std::array<int32_t, 3>& input, std::array<int32_t, 3>* repeated, std::array<int32_t, 3>* _aidl_return) = 0;
@@ -129,8 +134,9 @@ public:
 
   class IRepeatFixedSizeArrayDelegator : public BnRepeatFixedSizeArray {
   public:
-    explicit IRepeatFixedSizeArrayDelegator(::android::sp<IRepeatFixedSizeArray> &impl) : _aidl_delegate(impl) {}
+    explicit IRepeatFixedSizeArrayDelegator(const ::android::sp<IRepeatFixedSizeArray> &impl) : _aidl_delegate(impl) {}
 
+    ::android::sp<IRepeatFixedSizeArray> getImpl() { return _aidl_delegate; }
     ::android::binder::Status RepeatBytes(const std::array<uint8_t, 3>& input, std::array<uint8_t, 3>* repeated, std::array<uint8_t, 3>* _aidl_return) override {
       return _aidl_delegate->RepeatBytes(input, repeated, _aidl_return);
     }
@@ -167,8 +173,11 @@ public:
   enum class LongEnum : int64_t {
     A = 0L,
   };
+  class IEmptyInterfaceDelegator;
+
   class IEmptyInterface : public ::android::IInterface {
   public:
+    typedef IEmptyInterfaceDelegator DefaultDelegator;
     DECLARE_META_INTERFACE(EmptyInterface)
   };  // class IEmptyInterface
 
@@ -191,8 +200,9 @@ public:
 
   class IEmptyInterfaceDelegator : public BnEmptyInterface {
   public:
-    explicit IEmptyInterfaceDelegator(::android::sp<IEmptyInterface> &impl) : _aidl_delegate(impl) {}
+    explicit IEmptyInterfaceDelegator(const ::android::sp<IEmptyInterface> &impl) : _aidl_delegate(impl) {}
 
+    ::android::sp<IEmptyInterface> getImpl() { return _aidl_delegate; }
   private:
     ::android::sp<IEmptyInterface> _aidl_delegate;
   };  // class IEmptyInterfaceDelegator
@@ -273,8 +283,8 @@ public:
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
   ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const final;
   static const ::android::String16& getParcelableDescriptor() {
-    static const ::android::StaticString16 DESCIPTOR (u"android.aidl.fixedsizearray.FixedSizeArrayExample");
-    return DESCIPTOR;
+    static const ::android::StaticString16 DESCRIPTOR (u"android.aidl.fixedsizearray.FixedSizeArrayExample");
+    return DESCRIPTOR;
   }
   inline std::string toString() const {
     std::ostringstream os;

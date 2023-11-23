@@ -154,6 +154,9 @@ public class TestAppEvents implements ActivityEvents, BroadcastReceiverEvents,
 
     @Override
     public BroadcastReceivedEvent.BroadcastReceivedEventQuery broadcastReceived() {
+//        TestApis.broadcasts().waitForBroadcastBarrier(
+//                "When waiting for broadcastReceived we should push through any"
+//                        + " pending broadcasts");
         return BroadcastReceivedEvent.queryPackage(
                 mTestApp.packageName())
                 .onUser(mTestApp.user());

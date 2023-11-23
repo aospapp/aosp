@@ -125,6 +125,11 @@ void HintManager::EndHintStatus(const std::string &hint_type) {
 
 void HintManager::DoHintAction(const std::string &hint_type) {
     for (auto &action : actions_.at(hint_type).hint_actions) {
+        if (!action.enable_property.empty() &&
+            !android::base::GetBoolProperty(action.enable_property, true)) {
+            // Disabled action based on its control property
+            continue;
+        }
         switch (action.type) {
             case HintActionType::DoHint:
                 DoHint(action.value);
@@ -537,6 +542,7 @@ std::unordered_map<std::string, Hint> HintManager::ParseActions(
 
         HintActionType action_type = HintActionType::Node;
         std::string type_string = actions[i]["Type"].asString();
+        std::string enable_property = actions[i]["EnableProperty"].asString();
         LOG(VERBOSE) << "Action[" << i << "]'s Type: " << type_string;
         if (type_string.empty()) {
             LOG(VERBOSE) << "Failed to read "
@@ -599,7 +605,7 @@ std::unordered_map<std::string, Hint> HintManager::ParseActions(
                 }
             }
             actions_parsed[hint_type].node_actions.emplace_back(
-                    node_index, value_index, std::chrono::milliseconds(duration));
+                    node_index, value_index, std::chrono::milliseconds(duration), enable_property);
 
         } else {
             const std::string &hint_value = actions[i]["Value"].asString();
@@ -610,7 +616,8 @@ std::unordered_map<std::string, Hint> HintManager::ParseActions(
                 actions_parsed.clear();
                 return actions_parsed;
             }
-            actions_parsed[hint_type].hint_actions.emplace_back(action_type, hint_value);
+            actions_parsed[hint_type].hint_actions.emplace_back(action_type, hint_value,
+                                                                enable_property);
         }
 
         ++total_parsed;

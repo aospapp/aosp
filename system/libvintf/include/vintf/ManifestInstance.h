@@ -20,11 +20,10 @@
 #include <optional>
 #include <string>
 
-#include <hidl-util/FqInstance.h>
-
-#include "HalFormat.h"
-#include "TransportArch.h"
-#include "Version.h"
+#include <vintf/FqInstance.h>
+#include <vintf/HalFormat.h>
+#include <vintf/TransportArch.h>
+#include <vintf/Version.h>
 
 namespace android {
 namespace vintf {
@@ -44,7 +43,7 @@ class ManifestInstance {
                      const std::optional<std::string>& updatableViaApex);
     const std::string& package() const;
     Version version() const;
-    const std::string& interface() const;
+    std::string interface() const;
     const std::string& instance() const;
     Transport transport() const;
     Arch arch() const;

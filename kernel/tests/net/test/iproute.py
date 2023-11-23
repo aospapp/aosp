@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2014 The Android Open Source Project
 #
@@ -21,11 +21,13 @@
 from socket import AF_INET
 from socket import AF_INET6
 
+import binascii
 import errno
 import os
 import socket
 import struct
 
+import net_test
 import csocket
 import cstruct
 import netlink
@@ -232,12 +234,18 @@ IFLA_VTI_LOCAL = 4
 IFLA_VTI_REMOTE = 5
 
 
+CONSTANT_PREFIXES = netlink.MakeConstantPrefixes(
+    ["RTM_", "RTN_", "RTPROT_", "RT_SCOPE_", "RT_TABLE_", "RTA_", "RTMGRP_",
+     "RTNLGRP_", "RTAX_", "IFA_", "IFA_F_", "NDA_", "FRA_", "IFLA_",
+     "IFLA_INFO_", "IFLA_XFRM_", "IFLA_VTI_"])
+
+
 def CommandVerb(command):
   return ["NEW", "DEL", "GET", "SET"][command % 4]
 
 
 def CommandSubject(command):
-  return ["LINK", "ADDR", "ROUTE", "NEIGH", "RULE"][(command - 16) / 4]
+  return ["LINK", "ADDR", "ROUTE", "NEIGH", "RULE"][(command - 16) // 4]
 
 
 def CommandName(command):
@@ -251,12 +259,12 @@ class IPRoute(netlink.NetlinkSocket):
   """Provides a tiny subset of iproute functionality."""
 
   def _NlAttrInterfaceName(self, nla_type, interface):
-    return self._NlAttr(nla_type, interface + "\x00")
+    return self._NlAttr(nla_type, interface.encode() + b"\x00")
 
   def _GetConstantName(self, value, prefix):
     return super(IPRoute, self)._GetConstantName(__name__, value, prefix)
 
-  def _Decode(self, command, msg, nla_type, nla_data, nested=0):
+  def _Decode(self, command, msg, nla_type, nla_data, nested):
     """Decodes netlink attributes to Python types.
 
     Values for which the code knows the type (e.g., the fwmark ID in a
@@ -270,13 +278,11 @@ class IPRoute(netlink.NetlinkSocket):
           RTM_NEWROUTE command, attribute type 3 is the incoming interface and
           is an integer, but for a RTM_NEWRULE command, attribute type 3 is the
           incoming interface name and is a string.
-        - If negative, one of the following (negative) values:
-          - RTA_METRICS: Interpret as nested route metrics.
-          - IFLA_LINKINFO: Nested interface information.
       family: The address family. Used to convert IP addresses into strings.
       nla_type: An integer, then netlink attribute type.
       nla_data: A byte string, the netlink attribute data.
-      nested: An integer, how deep we're currently nested.
+      nested: A list, outermost first, of each of the attributes the NLAttrs are
+              nested inside. Empty for non-nested attributes.
 
     Returns:
       A tuple (name, data):
@@ -287,11 +293,12 @@ class IPRoute(netlink.NetlinkSocket):
          (e.g., RTACacheinfo), etc. If we didn't understand the attribute, it
          will be the raw byte string.
     """
-    if command == -RTA_METRICS:
+    lastnested = nested[-1] if nested else None
+    if lastnested == "RTA_METRICS":
       name = self._GetConstantName(nla_type, "RTAX_")
-    elif command == -IFLA_LINKINFO:
+    elif lastnested == "IFLA_LINKINFO":
       name = self._GetConstantName(nla_type, "IFLA_INFO_")
-    elif command == -IFLA_INFO_DATA:
+    elif lastnested == "IFLA_INFO_DATA":
       name = self._GetConstantName(nla_type, "IFLA_VTI_")
     elif CommandSubject(command) == "ADDR":
       name = self._GetConstantName(nla_type, "IFA_")
@@ -326,13 +333,9 @@ class IPRoute(netlink.NetlinkSocket):
       data = socket.inet_ntop(msg.family, nla_data)
     elif name in ["FRA_IIFNAME", "FRA_OIFNAME", "IFLA_IFNAME", "IFLA_QDISC",
                   "IFA_LABEL", "IFLA_INFO_KIND"]:
-      data = nla_data.strip("\x00")
-    elif name == "RTA_METRICS":
-      data = self._ParseAttributes(-RTA_METRICS, None, nla_data, nested + 1)
-    elif name == "IFLA_LINKINFO":
-      data = self._ParseAttributes(-IFLA_LINKINFO, None, nla_data, nested + 1)
-    elif name == "IFLA_INFO_DATA":
-      data = self._ParseAttributes(-IFLA_INFO_DATA, None, nla_data)
+      data = nla_data.strip(b"\x00")
+    elif name in ["RTA_METRICS", "IFLA_LINKINFO", "IFLA_INFO_DATA"]:
+      data = self._ParseAttributes(command, None, nla_data, nested + [name])
     elif name == "RTA_CACHEINFO":
       data = RTACacheinfo(nla_data)
     elif name == "IFA_CACHEINFO":
@@ -340,7 +343,7 @@ class IPRoute(netlink.NetlinkSocket):
     elif name == "NDA_CACHEINFO":
       data = NDACacheinfo(nla_data)
     elif name in ["NDA_LLADDR", "IFLA_ADDRESS", "IFLA_BROADCAST"]:
-      data = ":".join(x.encode("hex") for x in nla_data)
+      data = ":".join(net_test.ByteToHex(x) for x in nla_data)
     elif name == "FRA_UID_RANGE":
       data = FibRuleUidRange(nla_data)
     elif name == "IFLA_STATS":
@@ -474,16 +477,16 @@ class IPRoute(netlink.NetlinkSocket):
     # Create a struct rtmsg specifying the table and the given match attributes.
     family = self._AddressFamily(version)
     rtmsg = RTMsg((family, 0, 0, 0, 0, 0, 0, 0, 0))
-    return self._Dump(RTM_GETRULE, rtmsg, RTMsg, "")
+    return self._Dump(RTM_GETRULE, rtmsg, RTMsg)
 
   def DumpLinks(self):
     ifinfomsg = IfinfoMsg((0, 0, 0, 0, 0, 0))
-    return self._Dump(RTM_GETLINK, ifinfomsg, IfinfoMsg, "")
+    return self._Dump(RTM_GETLINK, ifinfomsg, IfinfoMsg)
 
   def DumpAddresses(self, version):
     family = self._AddressFamily(version)
     ifaddrmsg = IfAddrMsg((family, 0, 0, 0, 0))
-    return self._Dump(RTM_GETADDR, ifaddrmsg, IfAddrMsg, "")
+    return self._Dump(RTM_GETADDR, ifaddrmsg, IfAddrMsg)
 
   def _Address(self, version, command, addr, prefixlen, flags, scope, ifindex):
     """Adds or deletes an IP address."""
@@ -612,7 +615,7 @@ class IPRoute(netlink.NetlinkSocket):
 
   def DumpRoutes(self, version, ifindex):
     rtmsg = RTMsg(family=self._AddressFamily(version))
-    return [(m, r) for (m, r) in self._Dump(RTM_GETROUTE, rtmsg, RTMsg, "")
+    return [(m, r) for (m, r) in self._Dump(RTM_GETROUTE, rtmsg, RTMsg)
             if r['RTA_TABLE'] == ifindex]
 
   def _Neighbour(self, version, is_add, addr, lladdr, dev, state, flags=0):
@@ -622,9 +625,9 @@ class IPRoute(netlink.NetlinkSocket):
     # Convert the link-layer address to a raw byte string.
     if is_add and lladdr:
       lladdr = lladdr.split(":")
-      if len(lladdr) != 6:
+      if len(lladdr) != 6 or any (len(b) not in range(1, 3) for b in lladdr):
         raise ValueError("Invalid lladdr %s" % ":".join(lladdr))
-      lladdr = "".join(chr(int(hexbyte, 16)) for hexbyte in lladdr)
+      lladdr = binascii.unhexlify("".join(lladdr))
 
     ndmsg = NdMsg((family, dev, state, 0, RTN_UNICAST)).Pack()
     ndmsg += self._NlAttrIPAddress(NDA_DST, family, addr)
@@ -645,7 +648,7 @@ class IPRoute(netlink.NetlinkSocket):
 
   def DumpNeighbours(self, version, ifindex):
     ndmsg = NdMsg((self._AddressFamily(version), 0, 0, 0, 0))
-    attrs = self._NlAttrU32(NDA_IFINDEX, ifindex) if ifindex else ""
+    attrs = self._NlAttrU32(NDA_IFINDEX, ifindex) if ifindex else b""
     return self._Dump(RTM_GETNEIGH, ndmsg, NdMsg, attrs)
 
   def ParseNeighbourMessage(self, msg):
@@ -673,8 +676,8 @@ class IPRoute(netlink.NetlinkSocket):
     if hdr.type == RTM_NEWLINK:
       return cstruct.Read(data, IfinfoMsg)
     elif hdr.type == netlink.NLMSG_ERROR:
-      error = netlink.NLMsgErr(data).error
-      raise IOError(error, os.strerror(-error))
+      error = -netlink.NLMsgErr(data).error
+      raise IOError(error, os.strerror(error))
     else:
       raise ValueError("Unknown Netlink Message Type %d" % hdr.type)
 
@@ -686,13 +689,13 @@ class IPRoute(netlink.NetlinkSocket):
   def GetIfaceStats(self, dev_name):
     """Returns an RtnlLinkStats64 stats object for the specified interface."""
     _, attrs = self.GetIfinfo(dev_name)
-    attrs = self._ParseAttributes(RTM_NEWLINK, IfinfoMsg, attrs)
+    attrs = self._ParseAttributes(RTM_NEWLINK, IfinfoMsg, attrs, [])
     return attrs["IFLA_STATS64"]
 
   def GetIfinfoData(self, dev_name):
     """Returns an IFLA_INFO_DATA dict object for the specified interface."""
     _, attrs = self.GetIfinfo(dev_name)
-    attrs = self._ParseAttributes(RTM_NEWLINK, IfinfoMsg, attrs)
+    attrs = self._ParseAttributes(RTM_NEWLINK, IfinfoMsg, attrs, [])
     return attrs["IFLA_LINKINFO"]["IFLA_INFO_DATA"]
 
   def GetRxTxPackets(self, dev_name):

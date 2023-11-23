@@ -21,10 +21,11 @@
 
 #include "base/arena_bit_vector.h"
 #include "base/bit_vector-inl.h"
+#include "base/macros.h"
 #include "base/scoped_arena_allocator.h"
 #include "nodes.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class CodeGenerator;
 
@@ -54,6 +55,7 @@ class GraphChecker : public HGraphDelegateVisitor {
   void VisitInstruction(HInstruction* instruction) override;
   void VisitPhi(HPhi* phi) override;
 
+  void VisitArraySet(HArraySet* instruction) override;
   void VisitBinaryOperation(HBinaryOperation* op) override;
   void VisitBooleanNot(HBooleanNot* instruction) override;
   void VisitBoundType(HBoundType* instruction) override;
@@ -64,8 +66,11 @@ class GraphChecker : public HGraphDelegateVisitor {
   void VisitDeoptimize(HDeoptimize* instruction) override;
   void VisitIf(HIf* instruction) override;
   void VisitInstanceOf(HInstanceOf* check) override;
+  void VisitInvoke(HInvoke* invoke) override;
   void VisitInvokeStaticOrDirect(HInvokeStaticOrDirect* invoke) override;
+  void VisitLoadClass(HLoadClass* load) override;
   void VisitLoadException(HLoadException* load) override;
+  void VisitMonitorOperation(HMonitorOperation* monitor_operation) override;
   void VisitNeg(HNeg* instruction) override;
   void VisitPackedSwitch(HPackedSwitch* instruction) override;
   void VisitReturn(HReturn* ret) override;
@@ -102,15 +107,6 @@ class GraphChecker : public HGraphDelegateVisitor {
     }
   }
 
-  // Enable/Disable the reference type info check.
-  //
-  // Return: the previous status of the check.
-  bool SetRefTypeInfoCheckEnabled(bool value = true) {
-    bool old_value = check_reference_type_info_;
-    check_reference_type_info_ = value;
-    return old_value;
-  }
-
  protected:
   // Report a new error.
   void AddError(const std::string& error) {
@@ -123,17 +119,29 @@ class GraphChecker : public HGraphDelegateVisitor {
   ArenaVector<std::string> errors_;
 
  private:
+  void VisitReversePostOrder();
+
+  // Checks that the graph's flags are set correctly.
+  void CheckGraphFlags();
+
   // String displayed before dumped errors.
   const char* const dump_prefix_;
   ScopedArenaAllocator allocator_;
   ArenaBitVector seen_ids_;
-  // Whether to perform the reference type info check for instructions which use or produce
-  // object references, e.g. HNewInstance, HLoadClass.
-  // The default value is true.
-  bool check_reference_type_info_ = true;
 
   // Used to access target information.
   CodeGenerator* codegen_;
+
+  struct FlagInfo {
+    bool seen_try_boundary = false;
+    bool seen_monitor_operation = false;
+    bool seen_loop = false;
+    bool seen_irreducible_loop = false;
+    bool seen_SIMD = false;
+    bool seen_bounds_checks = false;
+    bool seen_always_throwing_invokes = false;
+  };
+  FlagInfo flag_info_;
 
   DISALLOW_COPY_AND_ASSIGN(GraphChecker);
 };

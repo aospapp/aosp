@@ -15,6 +15,7 @@
  */
 #include <android/binder_auto_utils.h>
 #include <android/binder_manager.h>
+#include <binder/ProcessState.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -26,6 +27,8 @@ using aidl::android::aidl::tests::ITestService;
 using aidl::android::aidl::tests::ITestServiceDelegator;
 
 static constexpr int8_t kCustomByte = 8;
+
+static_assert(std::is_same<ITestService::DefaultDelegator, ITestServiceDelegator>::value);
 
 struct CustomDelegator : public ITestServiceDelegator {
  public:
@@ -41,7 +44,9 @@ struct CustomDelegator : public ITestServiceDelegator {
 struct AidlDelegatorTest : testing::Test {
   template <typename T>
   std::shared_ptr<T> getService() {
-    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_getService(T::descriptor));
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
+    android::ProcessState::self()->startThreadPool();
+    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_waitForService(T::descriptor));
     return T::fromBinder(binder);
   }
   void SetUp() override { service = getService<ITestService>(); }

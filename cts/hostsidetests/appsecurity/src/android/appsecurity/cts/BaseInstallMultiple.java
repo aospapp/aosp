@@ -91,6 +91,8 @@ public class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
         if (grantPermissions) {
             addArg("-g");
         }
+        // Allow the install of test apps
+        addArg("-t");
     }
 
     T addArg(String arg) {

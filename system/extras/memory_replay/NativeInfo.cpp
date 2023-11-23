@@ -27,23 +27,12 @@
 #include <unistd.h>
 
 #include <android-base/unique_fd.h>
-#include <async_safe/log.h>
 
 #include "NativeInfo.h"
 
-void NativePrintf(const char* fmt, ...) {
-  va_list args;
-  va_start(args, fmt);
-  char buffer[512];
-  int buffer_len = async_safe_format_buffer_va_list(buffer, sizeof(buffer), fmt, args);
-  va_end(args);
-
-  (void)write(STDOUT_FILENO, buffer, buffer_len);
-}
-
 void NativeFormatFloat(char* buffer, size_t buffer_len, uint64_t value, uint64_t divisor) {
   uint64_t hundreds = ((((value % divisor) * 1000) / divisor) + 5) / 10;
-  async_safe_format_buffer(buffer, buffer_len, "%" PRIu64 ".%02" PRIu64, value / divisor, hundreds);
+  snprintf(buffer, buffer_len, "%" PRIu64 ".%02" PRIu64, value / divisor, hundreds);
 }
 
 // This function is not re-entrant since it uses a static buffer for
@@ -114,7 +103,7 @@ void NativePrintInfo(const char* preamble) {
   // Avoid any allocations, so use special non-allocating printfs.
   char buffer[256];
   NativeFormatFloat(buffer, sizeof(buffer), rss_bytes, 1024 * 1024);
-  NativePrintf("%sNative RSS: %zu bytes %sMB\n", preamble, rss_bytes, buffer);
+  dprintf(STDOUT_FILENO, "%sNative RSS: %zu bytes %sMB\n", preamble, rss_bytes, buffer);
   NativeFormatFloat(buffer, sizeof(buffer), va_bytes, 1024 * 1024);
-  NativePrintf("%sNative VA Space: %zu bytes %sMB\n", preamble, va_bytes, buffer);
+  dprintf(STDOUT_FILENO, "%sNative VA Space: %zu bytes %sMB\n", preamble, va_bytes, buffer);
 }

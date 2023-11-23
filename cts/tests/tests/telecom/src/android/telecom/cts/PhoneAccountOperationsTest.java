@@ -138,12 +138,15 @@ public class PhoneAccountOperationsTest extends InstrumentationTestCase {
         if (!TestUtils.shouldTestTelecom(mContext)) {
             return;
         }
-        mTelecomManager.unregisterPhoneAccount(TEST_PHONE_ACCOUNT_HANDLE);
-        PhoneAccount retrievedPhoneAccount = mTelecomManager.getPhoneAccount(
-                TEST_PHONE_ACCOUNT_HANDLE);
-        assertNull("Test account not deregistered.", retrievedPhoneAccount);
-
-        super.tearDown();
+        try {
+            mTelecomManager.unregisterPhoneAccount(TEST_PHONE_ACCOUNT_HANDLE);
+            PhoneAccount retrievedPhoneAccount = mTelecomManager.getPhoneAccount(
+                    TEST_PHONE_ACCOUNT_HANDLE);
+            assertNull("Test account not deregistered.", retrievedPhoneAccount);
+        } finally {
+            // Force tearDown if setUp errors out to ensure unused listeners are cleaned up.
+            super.tearDown();
+        }
     }
 
     public void testRegisterPhoneAccount_correctlyThrowsSecurityException() throws Exception {

@@ -15,7 +15,7 @@
  */
 
 #undef LOG_TAG
-#define LOG_TAG "virtualdisplay"
+#define LOG_TAG "hwc-virt-display"
 #include "ExynosVirtualDisplay.h"
 #include "../libdevice/ExynosDevice.h"
 #include "../libdevice/ExynosLayer.h"
@@ -28,13 +28,10 @@ using vendor::graphics::VendorGraphicBufferUsage;
 
 extern struct exynos_hwc_control exynosHWCControl;
 
-ExynosVirtualDisplay::ExynosVirtualDisplay(uint32_t index, ExynosDevice *device)
-    : ExynosDisplay(index, device)
-{
+ExynosVirtualDisplay::ExynosVirtualDisplay(uint32_t index, ExynosDevice* device,
+                                           const std::string& displayName)
+      : ExynosDisplay(HWC_DISPLAY_VIRTUAL, index, device, displayName) {
     /* Initialization */
-    mType = HWC_DISPLAY_VIRTUAL;
-    mIndex = index;
-    mDisplayId = getDisplayId(mType, mIndex);
 
     mDisplayControl.earlyStartMPP = false;
 

@@ -42,6 +42,8 @@ ByteBuffer(int mark, int pos, int lim, int cap) { super(0, 0, 0, 0, 0); throw ne
 
 @libcore.util.NonNull public abstract java.nio.ByteBuffer slice();
 
+@libcore.util.NonNull public abstract java.nio.ByteBuffer slice(int index, int length);
+
 @libcore.util.NonNull public abstract java.nio.ByteBuffer duplicate();
 
 @libcore.util.NonNull public abstract java.nio.ByteBuffer asReadOnlyBuffer();
@@ -95,6 +97,8 @@ public int hashCode() { throw new RuntimeException("Stub!"); }
 public boolean equals(@libcore.util.Nullable java.lang.Object ob) { throw new RuntimeException("Stub!"); }
 
 public int compareTo(@libcore.util.NonNull java.nio.ByteBuffer that) { throw new RuntimeException("Stub!"); }
+
+public int mismatch(@libcore.util.NonNull java.nio.ByteBuffer that);
 
 @libcore.util.NonNull public final java.nio.ByteOrder order() { throw new RuntimeException("Stub!"); }
 

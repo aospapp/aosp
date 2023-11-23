@@ -140,6 +140,8 @@ class DexLayout {
   void DumpBytecodes(uint32_t idx, const dex_ir::CodeItem* code, uint32_t code_offset);
   void DumpCatches(const dex_ir::CodeItem* code);
   void DumpClass(int idx, char** last_package);
+  void DumpMethodHandle(int idx);
+  void DumpCallSite(int idx);
   void DumpClassAnnotations(int idx);
   void DumpClassDef(int idx);
   void DumpCode(uint32_t idx,
@@ -197,6 +199,19 @@ class DexLayout {
   DexLayoutHotnessInfo layout_hotness_info_;
 
   DISALLOW_COPY_AND_ASSIGN(DexLayout);
+};
+
+class DexLoaderContainer : public MemoryDexFileContainer {
+ public:
+  DexLoaderContainer(const uint8_t* begin,
+                     const uint8_t* end,
+                     const uint8_t* data_begin,
+                     const uint8_t* data_end)
+      : MemoryDexFileContainer(begin, end), data_(data_begin, data_end - data_begin) {}
+  ArrayRef<const uint8_t> Data() const override { return data_; }
+
+ private:
+  ArrayRef<const uint8_t> data_;
 };
 
 }  // namespace art

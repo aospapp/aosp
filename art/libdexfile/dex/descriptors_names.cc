@@ -16,6 +16,8 @@
 
 #include "descriptors_names.h"
 
+#include <algorithm>
+
 #include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 
@@ -36,38 +38,58 @@ void AppendPrettyDescriptor(const char* descriptor, std::string* result) {
   }
 
   // Reference or primitive?
+  bool primitive = false;
   if (*c == 'L') {
     // "[[La/b/C;" -> "a.b.C[][]".
     c++;  // Skip the 'L'.
   } else {
+    primitive = true;
     // "[[B" -> "byte[][]".
-    // To make life easier, we make primitives look like unqualified
-    // reference types.
     switch (*c) {
-      case 'B': c = "byte;"; break;
-      case 'C': c = "char;"; break;
-      case 'D': c = "double;"; break;
-      case 'F': c = "float;"; break;
-      case 'I': c = "int;"; break;
-      case 'J': c = "long;"; break;
-      case 'S': c = "short;"; break;
-      case 'Z': c = "boolean;"; break;
-      case 'V': c = "void;"; break;  // Used when decoding return types.
+      case 'B':
+        c = "byte";
+        break;
+      case 'C':
+        c = "char";
+        break;
+      case 'D':
+        c = "double";
+        break;
+      case 'F':
+        c = "float";
+        break;
+      case 'I':
+        c = "int";
+        break;
+      case 'J':
+        c = "long";
+        break;
+      case 'S':
+        c = "short";
+        break;
+      case 'Z':
+        c = "boolean";
+        break;
+      case 'V':
+        c = "void";
+        break;  // Used when decoding return types.
       default: result->append(descriptor); return;
     }
   }
 
-  // At this point, 'c' is a string of the form "fully/qualified/Type;"
-  // or "primitive;". Rewrite the type with '.' instead of '/':
-  const char* p = c;
-  while (*p != ';') {
-    char ch = *p++;
-    if (ch == '/') {
-      ch = '.';
+  // At this point, 'c' is a string of the form "fully/qualified/Type;" or
+  // "primitive". In the former case, rewrite the type with '.' instead of '/':
+  std::string temp(c);
+  if (!primitive) {
+    std::replace(temp.begin(), temp.end(), '/', '.');
+    // ...and remove the semicolon:
+    if (temp.back() == ';') {
+      temp.pop_back();
     }
-    result->push_back(ch);
   }
-  // ...and replace the semicolon with 'dim' "[]" pairs:
+  result->append(temp);
+
+  // Finally, add 'dim' "[]" pairs:
   for (size_t i = 0; i < dim; ++i) {
     result->append("[]");
   }
@@ -76,6 +98,56 @@ void AppendPrettyDescriptor(const char* descriptor, std::string* result) {
 std::string PrettyDescriptor(const char* descriptor) {
   std::string result;
   AppendPrettyDescriptor(descriptor, &result);
+  return result;
+}
+
+std::string InversePrettyDescriptor(const std::string& pretty_descriptor) {
+  std::string result;
+
+  // Used to determine the length of the descriptor without trailing "[]"s.
+  size_t l = pretty_descriptor.length();
+
+  // Determine dimensionality, and append the necessary leading '['s.
+  size_t dim = 0;
+  size_t pos = 0;
+  static const std::string array_indicator = "[]";
+  while ((pos = pretty_descriptor.find(array_indicator, pos)) != std::string::npos) {
+    if (dim == 0) {
+      l = pos;
+    }
+    ++dim;
+    pos += array_indicator.length();
+  }
+  for (size_t i = 0; i < dim; ++i) {
+    result += '[';
+  }
+
+  // temp_descriptor is now in the form of "some.pretty.Type" or "primitive".
+  std::string temp_descriptor(pretty_descriptor, 0, l);
+  if (temp_descriptor == "byte") {
+    result += 'B';
+  } else if (temp_descriptor == "char") {
+    result += 'C';
+  } else if (temp_descriptor == "double") {
+    result += 'D';
+  } else if (temp_descriptor == "float") {
+    result += 'F';
+  } else if (temp_descriptor == "int") {
+    result += 'I';
+  } else if (temp_descriptor == "long") {
+    result += 'J';
+  } else if (temp_descriptor == "short") {
+    result += 'S';
+  } else if (temp_descriptor == "boolean") {
+    result += 'Z';
+  } else if (temp_descriptor == "void") {
+    result += 'V';
+  } else {
+    result += 'L';
+    std::replace(temp_descriptor.begin(), temp_descriptor.end(), '.', '/');
+    result += temp_descriptor;
+    result += ';';
+  }
   return result;
 }
 

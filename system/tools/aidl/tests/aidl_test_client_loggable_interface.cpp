@@ -48,8 +48,8 @@ TEST_F(AidlTest, LoggableInterface) {
   EXPECT_TRUE(status.isOk());
   if (backendType != BackendType::CPP) GTEST_SKIP();
 
-  sp<ILoggableInterface> loggable;
-  EXPECT_EQ(android::OK, android::getService(ILoggableInterface::descriptor, &loggable));
+  sp<ILoggableInterface> loggable =
+      android::waitForService<ILoggableInterface>(ILoggableInterface::descriptor);
   ASSERT_NE(nullptr, loggable);
 
   BpLoggableInterface::TransactionLog log;

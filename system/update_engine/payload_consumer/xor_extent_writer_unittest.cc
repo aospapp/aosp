@@ -94,7 +94,8 @@ TEST_F(XorExtentWriterTest, StreamTest) {
   ASSERT_TRUE(xor_map_.AddExtent(op3.dst_extent(), &op3));
   *op_.add_src_extents() = ExtentForRange(12, 4);
   *op_.add_dst_extents() = ExtentForRange(320, 4);
-  XORExtentWriter writer_{op_, source_fd_, &cow_writer_, xor_map_};
+  XORExtentWriter writer_{
+      op_, source_fd_, &cow_writer_, xor_map_, NUM_BLOCKS * kBlockSize};
 
   // OTA op:
   // [5-6] => [5-6], [45-47] => [455-457], [12-15] => [320-323]
@@ -129,6 +130,99 @@ TEST_F(XorExtentWriterTest, StreamTest) {
 
   ASSERT_TRUE(writer_.Init(op_.dst_extents(), kBlockSize));
   ASSERT_TRUE(writer_.Write(zeros->data(), 9 * kBlockSize));
+}
+
+TEST_F(XorExtentWriterTest, SubsetExtentTest) {
+  constexpr auto COW_XOR = CowMergeOperation::COW_XOR;
+  ON_CALL(cow_writer_, EmitXorBlocks(_, _, _, _, _))
+      .WillByDefault(Return(true));
+
+  const auto op3 = CreateCowMergeOperation(
+      ExtentForRange(12, 4), ExtentForRange(320, 4), COW_XOR, 777);
+  ASSERT_TRUE(xor_map_.AddExtent(op3.dst_extent(), &op3));
+
+  *op_.add_src_extents() = ExtentForRange(12, 3);
+  *op_.add_dst_extents() = ExtentForRange(320, 3);
+  *op_.add_src_extents() = ExtentForRange(20, 3);
+  *op_.add_dst_extents() = ExtentForRange(420, 3);
+  *op_.add_src_extents() = ExtentForRange(15, 1);
+  *op_.add_dst_extents() = ExtentForRange(323, 1);
+  XORExtentWriter writer_{
+      op_, source_fd_, &cow_writer_, xor_map_, NUM_BLOCKS * kBlockSize};
+
+  // OTA op:
+  // [12-14] => [320-322], [20-22] => [420-422], [15-16] => [323-324]
+
+  // merge op:
+  // [12-16] => [321-322]
+
+  // Expected result:
+  // [12-16] should be XOR blocks
+  // [420-422] should be regular replace blocks
+
+  auto zeros = utils::GetReadonlyZeroBlock(kBlockSize * 7);
+  EXPECT_CALL(
+      cow_writer_,
+      EmitRawBlocks(420, zeros->data() + 3 * kBlockSize, kBlockSize * 3))
+      .WillOnce(Return(true));
+
+  EXPECT_CALL(cow_writer_, EmitXorBlocks(320, _, kBlockSize * 3, 12, 777))
+      .WillOnce(Return(true));
+  EXPECT_CALL(cow_writer_, EmitXorBlocks(323, _, kBlockSize, 15, 777))
+      .WillOnce(Return(true));
+
+  ASSERT_TRUE(writer_.Init(op_.dst_extents(), kBlockSize));
+  ASSERT_TRUE(writer_.Write(zeros->data(), zeros->size()));
+}
+
+TEST_F(XorExtentWriterTest, LastBlockTest) {
+  constexpr auto COW_XOR = CowMergeOperation::COW_XOR;
+  ON_CALL(cow_writer_, EmitXorBlocks(_, _, _, _, _))
+      .WillByDefault(Return(true));
+
+  const auto op3 = CreateCowMergeOperation(
+      ExtentForRange(NUM_BLOCKS - 1, 1), ExtentForRange(2, 1), COW_XOR, 777);
+  ASSERT_TRUE(xor_map_.AddExtent(op3.dst_extent(), &op3));
+
+  *op_.add_src_extents() = ExtentForRange(12, 3);
+  *op_.add_dst_extents() = ExtentForRange(320, 3);
+
+  *op_.add_src_extents() = ExtentForRange(20, 3);
+  *op_.add_dst_extents() = ExtentForRange(420, 3);
+
+  *op_.add_src_extents() = ExtentForRange(NUM_BLOCKS - 3, 3);
+  *op_.add_dst_extents() = ExtentForRange(2, 3);
+  XORExtentWriter writer_{
+      op_, source_fd_, &cow_writer_, xor_map_, NUM_BLOCKS * kBlockSize};
+
+  // OTA op:
+  // [12-14] => [320-322], [20-22] => [420-422], [NUM_BLOCKS-3] => [2-5]
+
+  // merge op:
+  // [NUM_BLOCKS-1] => [2-3]
+
+  // Expected result:
+  // [12-16] should be REPLACE blocks
+  // [420-422] should be REPLACE blocks
+  // [2-4] should be REPLACE blocks
+
+  auto zeros = utils::GetReadonlyZeroBlock(kBlockSize * 9);
+  EXPECT_CALL(cow_writer_, EmitRawBlocks(320, zeros->data(), kBlockSize * 3))
+      .WillOnce(Return(true));
+  EXPECT_CALL(
+      cow_writer_,
+      EmitRawBlocks(420, zeros->data() + 3 * kBlockSize, kBlockSize * 3))
+      .WillOnce(Return(true));
+
+  EXPECT_CALL(cow_writer_,
+              EmitRawBlocks(2, zeros->data() + 6 * kBlockSize, kBlockSize))
+      .WillOnce(Return(true));
+  EXPECT_CALL(cow_writer_,
+              EmitRawBlocks(3, zeros->data() + 7 * kBlockSize, kBlockSize * 2))
+      .WillOnce(Return(true));
+
+  ASSERT_TRUE(writer_.Init(op_.dst_extents(), kBlockSize));
+  ASSERT_TRUE(writer_.Write(zeros->data(), zeros->size()));
 }
 
 }  // namespace chromeos_update_engine

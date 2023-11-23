@@ -22,14 +22,17 @@
 #include <ftw.h>
 #include <libgen.h>
 #include <stdlib.h>
+#include <sys/capability.h>
 #include <unistd.h>
 
 #include <cstdio>
 #include <filesystem>
+#include <functional>
 
 #include "android-base/file.h"
 #include "android-base/logging.h"
 #include "android-base/process.h"
+#include "android-base/scopeguard.h"
 #include "android-base/stringprintf.h"
 #include "android-base/strings.h"
 #include "android-base/unique_fd.h"
@@ -41,6 +44,7 @@
 #include "base/mutex.h"
 #include "base/os.h"
 #include "base/runtime_debug.h"
+#include "base/scoped_cap.h"
 #include "base/stl_util.h"
 #include "base/string_view_cpp20.h"
 #include "base/testing.h"
@@ -69,15 +73,7 @@ ScratchDir::ScratchDir(bool keep_files) : keep_files_(keep_files) {
 
 ScratchDir::~ScratchDir() {
   if (!keep_files_) {
-    // Recursively delete the directory and all its content.
-    nftw(path_.c_str(), [](const char* name, const struct stat*, int type, struct FTW *) {
-      if (type == FTW_F) {
-        unlink(name);
-      } else if (type == FTW_DP) {
-        rmdir(name);
-      }
-      return 0;
-    }, 256 /* max open file descriptors */, FTW_DEPTH);
+    std::filesystem::remove_all(path_);
   }
 }
 
@@ -143,6 +139,29 @@ void ScratchFile::Unlink() {
   Close();
   int unlink_result = unlink(filename_.c_str());
   CHECK_EQ(0, unlink_result);
+}
+
+// Temporarily drops all root capabilities when the test is run as root. This is a noop otherwise.
+android::base::ScopeGuard<std::function<void()>> ScopedUnroot() {
+  ScopedCap old_cap(cap_get_proc());
+  CHECK_NE(old_cap.Get(), nullptr);
+  ScopedCap new_cap(cap_dup(old_cap.Get()));
+  CHECK_NE(new_cap.Get(), nullptr);
+  CHECK_EQ(cap_clear_flag(new_cap.Get(), CAP_EFFECTIVE), 0);
+  CHECK_EQ(cap_set_proc(new_cap.Get()), 0);
+  // `old_cap` is actually not shared with anyone else, but we have to wrap it with a `shared_ptr`
+  // because `std::function` requires captures to be copyable.
+  return android::base::make_scope_guard(
+      [old_cap = std::make_shared<ScopedCap>(std::move(old_cap))]() {
+        CHECK_EQ(cap_set_proc(old_cap->Get()), 0);
+      });
+}
+
+// Temporarily drops write permission on a file/directory.
+android::base::ScopeGuard<std::function<void()>> ScopedInaccessible(const std::string& path) {
+  std::filesystem::perms old_perms = std::filesystem::status(path).permissions();
+  std::filesystem::permissions(path, std::filesystem::perms::none);
+  return android::base::make_scope_guard([=]() { std::filesystem::permissions(path, old_perms); });
 }
 
 std::string CommonArtTestImpl::GetAndroidBuildTop() {
@@ -247,7 +266,7 @@ void CommonArtTestImpl::SetUpAndroidRootEnvVars() {
     const char* android_i18n_root_from_env = getenv("ANDROID_I18N_ROOT");
     if (android_i18n_root_from_env == nullptr) {
       // Use ${ANDROID_I18N_OUT}/com.android.i18n for ANDROID_I18N_ROOT.
-      std::string android_i18n_root = android_host_out.c_str();
+      std::string android_i18n_root = android_host_out;
       android_i18n_root += "/com.android.i18n";
       setenv("ANDROID_I18N_ROOT", android_i18n_root.c_str(), 1);
     }
@@ -258,7 +277,7 @@ void CommonArtTestImpl::SetUpAndroidRootEnvVars() {
     const char* android_art_root_from_env = getenv("ANDROID_ART_ROOT");
     if (android_art_root_from_env == nullptr) {
       // Use ${ANDROID_HOST_OUT}/com.android.art for ANDROID_ART_ROOT.
-      std::string android_art_root = android_host_out.c_str();
+      std::string android_art_root = android_host_out;
       android_art_root += "/com.android.art";
       setenv("ANDROID_ART_ROOT", android_art_root.c_str(), 1);
     }
@@ -269,7 +288,7 @@ void CommonArtTestImpl::SetUpAndroidRootEnvVars() {
     const char* android_tzdata_root_from_env = getenv("ANDROID_TZDATA_ROOT");
     if (android_tzdata_root_from_env == nullptr) {
       // Use ${ANDROID_HOST_OUT}/com.android.tzdata for ANDROID_TZDATA_ROOT.
-      std::string android_tzdata_root = android_host_out.c_str();
+      std::string android_tzdata_root = android_host_out;
       android_tzdata_root += "/com.android.tzdata";
       setenv("ANDROID_TZDATA_ROOT", android_tzdata_root.c_str(), 1);
     }
@@ -309,17 +328,17 @@ void CommonArtTestImpl::SetUp() {
   SetUpAndroidDataDir(android_data_);
 
   // Re-use the data temporary directory for /system_ext tests
-  android_system_ext_.append(android_data_.c_str());
+  android_system_ext_.append(android_data_);
   android_system_ext_.append("/system_ext");
   int mkdir_result = mkdir(android_system_ext_.c_str(), 0700);
   ASSERT_EQ(mkdir_result, 0);
-  setenv("ANDROID_SYSTEM_EXT", android_system_ext_.c_str(), 1);
+  setenv("SYSTEM_EXT_ROOT", android_system_ext_.c_str(), 1);
 
   std::string system_ext_framework = android_system_ext_ + "/framework";
   mkdir_result = mkdir(system_ext_framework.c_str(), 0700);
   ASSERT_EQ(mkdir_result, 0);
 
-  dalvik_cache_.append(android_data_.c_str());
+  dalvik_cache_.append(android_data_);
   dalvik_cache_.append("/dalvik-cache");
   mkdir_result = mkdir(dalvik_cache_.c_str(), 0700);
   ASSERT_EQ(mkdir_result, 0);
@@ -370,14 +389,9 @@ std::unique_ptr<const DexFile> CommonArtTestImpl::LoadExpectSingleDexFile(const 
   std::string error_msg;
   MemMap::Init();
   static constexpr bool kVerifyChecksum = true;
-  const ArtDexFileLoader dex_file_loader;
   std::string filename(IsHost() ? GetAndroidBuildTop() + location : location);
-  if (!dex_file_loader.Open(filename.c_str(),
-                            std::string(location),
-                            /* verify= */ true,
-                            kVerifyChecksum,
-                            &error_msg,
-                            &dex_files)) {
+  ArtDexFileLoader dex_file_loader(filename.c_str(), std::string(location));
+  if (!dex_file_loader.Open(/* verify= */ true, kVerifyChecksum, &error_msg, &dex_files)) {
     LOG(FATAL) << "Could not open .dex file '" << filename << "': " << error_msg << "\n";
     UNREACHABLE();
   }
@@ -497,17 +511,11 @@ std::vector<std::unique_ptr<const DexFile>> CommonArtTestImpl::OpenDexFiles(cons
   static constexpr bool kVerify = true;
   static constexpr bool kVerifyChecksum = true;
   std::string error_msg;
-  const ArtDexFileLoader dex_file_loader;
+  ArtDexFileLoader dex_file_loader(filename);
   std::vector<std::unique_ptr<const DexFile>> dex_files;
-  bool success = dex_file_loader.Open(filename,
-                                      filename,
-                                      kVerify,
-                                      kVerifyChecksum,
-                                      &error_msg,
-                                      &dex_files);
+  bool success = dex_file_loader.Open(kVerify, kVerifyChecksum, &error_msg, &dex_files);
   CHECK(success) << "Failed to open '" << filename << "': " << error_msg;
   for (auto& dex_file : dex_files) {
-    CHECK_EQ(PROT_READ, dex_file->GetPermissions());
     CHECK(dex_file->IsReadOnly());
   }
   return dex_files;
@@ -592,6 +600,7 @@ CommonArtTestImpl::ForkAndExecResult CommonArtTestImpl::ForkAndExec(
   result.stage = ForkAndExecResult::kLink;
 
   std::vector<const char*> c_args;
+  c_args.reserve(argv.size() + 1);
   for (const std::string& str : argv) {
     c_args.push_back(str.c_str());
   }

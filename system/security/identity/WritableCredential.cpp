@@ -101,9 +101,11 @@ void WritableCredential::setAttestationCertificate(const vector<uint8_t>& attest
     attestationCertificate_ = attestationCertificate;
 }
 
-void WritableCredential::setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey) {
+void WritableCredential::setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey,
+                                                        int64_t minValidTimeMillis) {
     keyCount_ = keyCount;
     maxUsesPerKey_ = maxUsesPerKey;
+    minValidTimeMillis_ = minValidTimeMillis;
 }
 
 ssize_t WritableCredential::calcExpectedProofOfProvisioningSize(
@@ -260,7 +262,7 @@ WritableCredential::personalize(const vector<AccessControlProfileParcel>& access
     }
     data.setCredentialData(credentialData);
 
-    data.setAvailableAuthenticationKeys(keyCount_, maxUsesPerKey_);
+    data.setAvailableAuthenticationKeys(keyCount_, maxUsesPerKey_, minValidTimeMillis_);
 
     if (!data.saveToDisk()) {
         return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,

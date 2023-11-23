@@ -17,27 +17,19 @@
 #include <optional>
 #include <sstream>
 
+#include <BootControlClient.h>
 #include <android/hardware/boot/1.2/IBootControl.h>
 #include <sysexits.h>
 
 using android::sp;
 
-using android::hardware::hidl_string;
-using android::hardware::Return;
+using aidl::android::hardware::boot::MergeStatus;
 
-using android::hardware::boot::V1_0::BoolResult;
-using android::hardware::boot::V1_0::CommandResult;
-using android::hardware::boot::V1_0::Slot;
-using android::hardware::boot::V1_1::IBootControl;
-using android::hardware::boot::V1_1::MergeStatus;
+using android::hal::BootControlClient;
+using android::hal::BootControlVersion;
+using android::hal::CommandResult;
 
-namespace V1_0 = android::hardware::boot::V1_0;
-namespace V1_1 = android::hardware::boot::V1_1;
-namespace V1_2 = android::hardware::boot::V1_2;
-
-enum BootCtlVersion { BOOTCTL_V1_0, BOOTCTL_V1_1, BOOTCTL_V1_2 };
-
-static void usage(FILE* where, BootCtlVersion bootVersion, int /* argc */, char* argv[]) {
+static void usage(FILE* where, BootControlVersion bootVersion, int /* argc */, char* argv[]) {
     fprintf(where,
             "%s - command-line wrapper for the boot HAL.\n"
             "\n"
@@ -56,7 +48,7 @@ static void usage(FILE* where, BootCtlVersion bootVersion, int /* argc */, char*
             "  is-slot-marked-successful SLOT - Returns 0 only if SLOT is marked GOOD.\n"
             "  get-suffix SLOT                - Prints suffix for SLOT.\n",
             argv[0], argv[0]);
-    if (bootVersion >= BOOTCTL_V1_1) {
+    if (bootVersion >= BootControlVersion::BOOTCTL_V1_1) {
         fprintf(where,
                 "  set-snapshot-merge-status STAT - Sets whether a snapshot-merge of any dynamic\n"
                 "                                   partition is in progress. Valid STAT values\n"
@@ -69,32 +61,39 @@ static void usage(FILE* where, BootCtlVersion bootVersion, int /* argc */, char*
             "SLOT parameter is the zero-based slot-number.\n");
 }
 
-static int do_hal_info(const sp<V1_0::IBootControl> module) {
-    module->interfaceDescriptor([&](const auto& descriptor) {
-        fprintf(stdout, "HAL Version: %s\n", descriptor.c_str());
-    });
+static constexpr auto ToString(BootControlVersion ver) {
+    switch (ver) {
+        case BootControlVersion::BOOTCTL_V1_0:
+            return "android.hardware.boot@1.0::IBootControl";
+        case BootControlVersion::BOOTCTL_V1_1:
+            return "android.hardware.boot@1.1::IBootControl";
+        case BootControlVersion::BOOTCTL_V1_2:
+            return "android.hardware.boot@1.2::IBootControl";
+        case BootControlVersion::BOOTCTL_AIDL:
+            return "android.hardware.boot@aidl::IBootControl";
+    }
+}
+
+static int do_hal_info(const BootControlClient* module) {
+    fprintf(stdout, "HAL Version: %s\n", ToString(module->GetVersion()));
     return EX_OK;
 }
 
-static int do_get_number_slots(sp<V1_0::IBootControl> module) {
-    uint32_t numSlots = module->getNumberSlots();
+static int do_get_number_slots(BootControlClient* module) {
+    auto numSlots = module->GetNumSlots();
     fprintf(stdout, "%u\n", numSlots);
     return EX_OK;
 }
 
-static int do_get_current_slot(sp<V1_0::IBootControl> module) {
-    Slot curSlot = module->getCurrentSlot();
+static int do_get_current_slot(BootControlClient* module) {
+    auto curSlot = module->GetCurrentSlot();
     fprintf(stdout, "%u\n", curSlot);
     return EX_OK;
 }
 
-static std::function<void(CommandResult)> generate_callback(CommandResult* crp) {
-    return [=](CommandResult cr) { *crp = cr; };
-}
-
-static int handle_return(const Return<void>& ret, CommandResult cr, const char* errStr) {
-    if (!ret.isOk()) {
-        fprintf(stderr, errStr, ret.description().c_str());
+static int handle_return(CommandResult cr, const char* errStr) {
+    if (!cr.IsOk()) {
+        fprintf(stderr, errStr, cr.errMsg.c_str());
         return EX_SOFTWARE;
     } else if (!cr.success) {
         fprintf(stderr, errStr, cr.errMsg.c_str());
@@ -103,51 +102,48 @@ static int handle_return(const Return<void>& ret, CommandResult cr, const char* 
     return EX_OK;
 }
 
-static int do_mark_boot_successful(sp<V1_0::IBootControl> module) {
-    CommandResult cr;
-    Return<void> ret = module->markBootSuccessful(generate_callback(&cr));
-    return handle_return(ret, cr, "Error marking as having booted successfully: %s\n");
+static int do_mark_boot_successful(BootControlClient* module) {
+    auto ret = module->MarkBootSuccessful();
+    return handle_return(ret, "Error marking as having booted successfully: %s\n");
 }
 
-static int do_get_active_boot_slot(sp<V1_2::IBootControl> module) {
-    uint32_t slot = module->getActiveBootSlot();
+static int do_get_active_boot_slot(BootControlClient* module) {
+    uint32_t slot = module->GetActiveBootSlot();
     fprintf(stdout, "%u\n", slot);
     return EX_OK;
 }
 
-static int do_set_active_boot_slot(sp<V1_0::IBootControl> module, Slot slot_number) {
-    CommandResult cr;
-    Return<void> ret = module->setActiveBootSlot(slot_number, generate_callback(&cr));
-    return handle_return(ret, cr, "Error setting active boot slot: %s\n");
+static int do_set_active_boot_slot(BootControlClient* module, int32_t slot_number) {
+    const auto cr = module->SetActiveBootSlot(slot_number);
+    return handle_return(cr, "Error setting active boot slot: %s\n");
 }
 
-static int do_set_slot_as_unbootable(sp<V1_0::IBootControl> module, Slot slot_number) {
-    CommandResult cr;
-    Return<void> ret = module->setSlotAsUnbootable(slot_number, generate_callback(&cr));
-    return handle_return(ret, cr, "Error setting slot as unbootable: %s\n");
+static int do_set_slot_as_unbootable(BootControlClient* module, int32_t slot_number) {
+    const auto cr = module->MarkSlotUnbootable(slot_number);
+    return handle_return(cr, "Error setting slot as unbootable: %s\n");
 }
 
-static int handle_return(const Return<BoolResult>& ret, const char* errStr) {
-    if (!ret.isOk()) {
-        fprintf(stderr, errStr, ret.description().c_str());
+static int handle_return(const std::optional<bool>& ret, const char* errStr) {
+    if (!ret.has_value()) {
+        fprintf(stderr, errStr, "");
         return EX_SOFTWARE;
-    } else if (ret == BoolResult::INVALID_SLOT) {
-        fprintf(stderr, errStr, "Invalid slot");
-        return EX_SOFTWARE;
-    } else if (ret == BoolResult::TRUE) {
+    }
+    if (ret.value()) {
+        printf("%d\n", ret.value());
         return EX_OK;
     }
+    printf("%d\n", ret.value());
     return EX_SOFTWARE;
 }
 
-static int do_is_slot_bootable(sp<V1_0::IBootControl> module, Slot slot_number) {
-    Return<BoolResult> ret = module->isSlotBootable(slot_number);
-    return handle_return(ret, "Error calling isSlotBootable(): %s\n");
+static int do_is_slot_bootable(BootControlClient* module, int32_t slot_number) {
+    const auto ret = module->IsSlotBootable(slot_number);
+    return handle_return(ret, "Error calling isSlotBootable()\n");
 }
 
-static int do_is_slot_marked_successful(sp<V1_0::IBootControl> module, Slot slot_number) {
-    Return<BoolResult> ret = module->isSlotMarkedSuccessful(slot_number);
-    return handle_return(ret, "Error calling isSlotMarkedSuccessful(): %s\n");
+static int do_is_slot_marked_successful(BootControlClient* module, int32_t slot_number) {
+    const auto ret = module->IsSlotMarkedSuccessful(slot_number);
+    return handle_return(ret, "Error calling isSlotMarkedSuccessful()\n");
 }
 
 std::optional<MergeStatus> stringToMergeStatus(const std::string& status) {
@@ -159,7 +155,7 @@ std::optional<MergeStatus> stringToMergeStatus(const std::string& status) {
     return {};
 }
 
-static int do_set_snapshot_merge_status(sp<V1_1::IBootControl> module, BootCtlVersion bootVersion,
+static int do_set_snapshot_merge_status(BootControlClient* module, BootControlVersion bootVersion,
                                         int argc, char* argv[]) {
     if (argc != 3) {
         usage(stderr, bootVersion, argc, argv);
@@ -174,10 +170,8 @@ static int do_set_snapshot_merge_status(sp<V1_1::IBootControl> module, BootCtlVe
         return -1;
     }
 
-    if (!module->setSnapshotMergeStatus(status.value())) {
-        return EX_SOFTWARE;
-    }
-    return EX_OK;
+    const auto ret = module->SetSnapshotMergeStatus(status.value());
+    return handle_return(ret, "Failed to set snapshot merge status: %s\n");
 }
 
 std::ostream& operator<<(std::ostream& os, MergeStatus state) {
@@ -197,7 +191,7 @@ std::ostream& operator<<(std::ostream& os, MergeStatus state) {
     }
 }
 
-static int do_get_snapshot_merge_status(sp<V1_1::IBootControl> module) {
+static int do_get_snapshot_merge_status(BootControlClient* module) {
     MergeStatus ret = module->getSnapshotMergeStatus();
     std::stringstream ss;
     ss << ret;
@@ -205,19 +199,17 @@ static int do_get_snapshot_merge_status(sp<V1_1::IBootControl> module) {
     return EX_OK;
 }
 
-static int do_get_suffix(sp<V1_0::IBootControl> module, Slot slot_number) {
-    std::function<void(hidl_string)> cb = [](hidl_string suffix) {
-        fprintf(stdout, "%s\n", suffix.c_str());
-    };
-    Return<void> ret = module->getSuffix(slot_number, cb);
-    if (!ret.isOk()) {
-        fprintf(stderr, "Error calling getSuffix(): %s\n", ret.description().c_str());
+static int do_get_suffix(BootControlClient* module, int32_t slot_number) {
+    const auto ret = module->GetSuffix(slot_number);
+    if (ret.empty()) {
+        fprintf(stderr, "Error calling getSuffix()\n");
         return EX_SOFTWARE;
     }
+    printf("%s\n", ret.c_str());
     return EX_OK;
 }
 
-static uint32_t parse_slot(BootCtlVersion bootVersion, int pos, int argc, char* argv[]) {
+static uint32_t parse_slot(BootControlVersion bootVersion, int pos, int argc, char* argv[]) {
     if (pos > argc - 1) {
         usage(stderr, bootVersion, argc, argv);
         exit(EX_USAGE);
@@ -234,25 +226,12 @@ static uint32_t parse_slot(BootCtlVersion bootVersion, int pos, int argc, char* 
 }
 
 int main(int argc, char* argv[]) {
-    sp<V1_0::IBootControl> v1_0_module;
-    sp<V1_1::IBootControl> v1_1_module;
-    sp<V1_2::IBootControl> v1_2_module;
-    BootCtlVersion bootVersion = BOOTCTL_V1_0;
-
-    v1_0_module = V1_0::IBootControl::getService();
-    if (v1_0_module == nullptr) {
-        fprintf(stderr, "Error getting bootctrl v1.0 module.\n");
+    const auto client = android::hal::BootControlClient::WaitForService();
+    if (client == nullptr) {
+        fprintf(stderr, "Failed to get bootctl module.\n");
         return EX_SOFTWARE;
     }
-    v1_1_module = V1_1::IBootControl::castFrom(v1_0_module);
-    if (v1_1_module != nullptr) {
-        bootVersion = BOOTCTL_V1_1;
-    }
-
-    v1_2_module = V1_2::IBootControl::castFrom(v1_0_module);
-    if (v1_2_module != nullptr) {
-        bootVersion = BOOTCTL_V1_2;
-    }
+    const auto bootVersion = client->GetVersion();
 
     if (argc < 2) {
         usage(stderr, bootVersion, argc, argv);
@@ -261,46 +240,46 @@ int main(int argc, char* argv[]) {
 
     // Functions present from version 1.0
     if (strcmp(argv[1], "hal-info") == 0) {
-        return do_hal_info(v1_0_module);
+        return do_hal_info(client.get());
     } else if (strcmp(argv[1], "get-number-slots") == 0) {
-        return do_get_number_slots(v1_0_module);
+        return do_get_number_slots(client.get());
     } else if (strcmp(argv[1], "get-current-slot") == 0) {
-        return do_get_current_slot(v1_0_module);
+        return do_get_current_slot(client.get());
     } else if (strcmp(argv[1], "mark-boot-successful") == 0) {
-        return do_mark_boot_successful(v1_0_module);
+        return do_mark_boot_successful(client.get());
     } else if (strcmp(argv[1], "set-active-boot-slot") == 0) {
-        return do_set_active_boot_slot(v1_0_module, parse_slot(bootVersion, 2, argc, argv));
+        return do_set_active_boot_slot(client.get(), parse_slot(bootVersion, 2, argc, argv));
     } else if (strcmp(argv[1], "set-slot-as-unbootable") == 0) {
-        return do_set_slot_as_unbootable(v1_0_module, parse_slot(bootVersion, 2, argc, argv));
+        return do_set_slot_as_unbootable(client.get(), parse_slot(bootVersion, 2, argc, argv));
     } else if (strcmp(argv[1], "is-slot-bootable") == 0) {
-        return do_is_slot_bootable(v1_0_module, parse_slot(bootVersion, 2, argc, argv));
+        return do_is_slot_bootable(client.get(), parse_slot(bootVersion, 2, argc, argv));
     } else if (strcmp(argv[1], "is-slot-marked-successful") == 0) {
-        return do_is_slot_marked_successful(v1_0_module, parse_slot(bootVersion, 2, argc, argv));
+        return do_is_slot_marked_successful(client.get(), parse_slot(bootVersion, 2, argc, argv));
     } else if (strcmp(argv[1], "get-suffix") == 0) {
-        return do_get_suffix(v1_0_module, parse_slot(bootVersion, 2, argc, argv));
+        return do_get_suffix(client.get(), parse_slot(bootVersion, 2, argc, argv));
     }
 
     // Functions present from version 1.1
     if (strcmp(argv[1], "set-snapshot-merge-status") == 0 ||
         strcmp(argv[1], "get-snapshot-merge-status") == 0) {
-        if (v1_1_module == nullptr) {
+        if (bootVersion < BootControlVersion::BOOTCTL_V1_1) {
             fprintf(stderr, "Error getting bootctrl v1.1 module.\n");
             return EX_SOFTWARE;
         }
         if (strcmp(argv[1], "set-snapshot-merge-status") == 0) {
-            return do_set_snapshot_merge_status(v1_1_module, bootVersion, argc, argv);
+            return do_set_snapshot_merge_status(client.get(), bootVersion, argc, argv);
         } else if (strcmp(argv[1], "get-snapshot-merge-status") == 0) {
-            return do_get_snapshot_merge_status(v1_1_module);
+            return do_get_snapshot_merge_status(client.get());
         }
     }
 
     if (strcmp(argv[1], "get-active-boot-slot") == 0) {
-        if (v1_2_module == nullptr) {
+        if (bootVersion < BootControlVersion::BOOTCTL_V1_2) {
             fprintf(stderr, "Error getting bootctrl v1.2 module.\n");
             return EX_SOFTWARE;
         }
 
-        return do_get_active_boot_slot(v1_2_module);
+        return do_get_active_boot_slot(client.get());
     }
 
     // Parameter not matched, print usage

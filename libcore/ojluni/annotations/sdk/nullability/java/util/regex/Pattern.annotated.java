@@ -55,6 +55,8 @@ public java.lang.@libcore.util.NonNull String @libcore.util.NonNull [] split(@li
 
 @libcore.util.NonNull public java.util.function.Predicate<java.lang.@libcore.util.NonNull String> asPredicate() { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public java.util.function.Predicate<java.lang.@libcore.util.NonNull String> asMatchPredicate() { throw new RuntimeException("Stub!"); }
+
 @libcore.util.NonNull public java.util.stream.Stream<java.lang.@libcore.util.NonNull String> splitAsStream(@libcore.util.NonNull java.lang.CharSequence input) { throw new RuntimeException("Stub!"); }
 
 public static final int CANON_EQ = 128; // 0x80

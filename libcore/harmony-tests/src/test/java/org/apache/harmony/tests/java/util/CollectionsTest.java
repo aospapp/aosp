@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -129,9 +129,9 @@ public class CollectionsTest extends junit.framework.TestCase {
             normalCountingList = new ArrayList(colSize);
             offsetCountingList = new ArrayList(colSize);
             for (int i = 0; i < colSize; i++)
-                normalCountingList.add(new Integer(i));
+                normalCountingList.add(Integer.valueOf(i));
             for (int i = 0; i < colSize; i++)
-                offsetCountingList.add(new Integer(i + colSize));
+                offsetCountingList.add(Integer.valueOf(i + colSize));
             col.clear();
             if (offset)
                 col.addAll(offsetCountingList);
@@ -175,11 +175,11 @@ public class CollectionsTest extends junit.framework.TestCase {
         Map offsetCountingMap;
 
         public void run() {
-            Object firstNormalValue = normalCountingMap.get(new Integer(0));
+            Object firstNormalValue = normalCountingMap.get(Integer.valueOf(0));
             Object lastNormalValue = normalCountingMap.get(new Integer(
                     mapSize - 1));
             Object firstOffsetValue = offsetCountingMap
-                    .get(new Integer(mapSize));
+                    .get(Integer.valueOf(mapSize));
             Object lastOffsetValue = offsetCountingMap.get(new Integer(
                     2 * mapSize - 1));
             // ensure the list either contains the numbers from 0 to size-1 or
@@ -212,11 +212,11 @@ public class CollectionsTest extends junit.framework.TestCase {
             normalCountingMap = new HashMap(mapSize);
             offsetCountingMap = new HashMap(mapSize);
             for (int i = 0; i < mapSize; i++) {
-                myInt = new Integer(i);
+                myInt = Integer.valueOf(i);
                 normalCountingMap.put(myInt, myInt);
             }
             for (int i = 0; i < mapSize; i++) {
-                myInt = new Integer(i + mapSize);
+                myInt = Integer.valueOf(i + mapSize);
                 offsetCountingMap.put(myInt, myInt);
             }
             map.clear();
@@ -326,8 +326,8 @@ public class CollectionsTest extends junit.framework.TestCase {
         final int llSize = ll.size();
         ll.set(25, null);
         ArrayList al = new ArrayList();
-        Integer extraElement = new Integer(1);
-        Integer extraElement2 = new Integer(2);
+        Integer extraElement = Integer.valueOf(1);
+        Integer extraElement2 = Integer.valueOf(2);
         al.addAll(myReversedLinkedList);
         al.add(extraElement);
         al.add(extraElement2);
@@ -346,11 +346,11 @@ public class CollectionsTest extends junit.framework.TestCase {
         int i;
 
         for(i = 0; i < 5; i ++) {
-            ar2.add(new Integer(i));
+            ar2.add(Integer.valueOf(i));
         }
 
         for(i = 0; i < 10; i ++) {
-            ar1.add(new Integer(i));
+            ar1.add(Integer.valueOf(i));
         }
 
         try {
@@ -364,8 +364,8 @@ public class CollectionsTest extends junit.framework.TestCase {
         Mock_ArrayList mal2 = new Mock_ArrayList();
 
         for(i = 0; i < 10; i ++) {
-            mal1.add(new Integer(i));
-            mal2.add(new Integer(10 - i));
+            mal1.add(Integer.valueOf(i));
+            mal2.add(Integer.valueOf(10 - i));
         }
 
         try {
@@ -461,8 +461,8 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
 
         al.add("String");
-        al.add(new Integer(1));
-        al.add(new Double(3.14));
+        al.add(Integer.valueOf(1));
+        al.add(Double.valueOf(3.14));
 
         try {
             Collections.max(al);
@@ -557,10 +557,10 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
         ArrayList myList = new ArrayList();
         myList.add(null);
-        myList.add(new Integer(20));
+        myList.add(Integer.valueOf(20));
         Collections.reverse(myList);
         assertEquals("Did not reverse correctly--first element is: "
-                + myList.get(0), new Integer(20), myList.get(0));
+                + myList.get(0), Integer.valueOf(20), myList.get(0));
         assertNull("Did not reverse correctly--second element is: "
                 + myList.get(1), myList.get(1));
     }
@@ -741,8 +741,8 @@ public class CollectionsTest extends junit.framework.TestCase {
         ArrayList al = new ArrayList();
 
         al.add("String");
-        al.add(new Integer(1));
-        al.add(new Double(3.14));
+        al.add(Integer.valueOf(1));
+        al.add(Double.valueOf(3.14));
 
         try {
             Collections.sort(al, comp);
@@ -812,16 +812,16 @@ public class CollectionsTest extends junit.framework.TestCase {
 
         // test with valid parameters
         Collections.swap(smallList, 4, 7);
-        assertEquals("Didn't Swap the element at position 4 ", new Integer(7),
+        assertEquals("Didn't Swap the element at position 4 ", Integer.valueOf(7),
                 smallList.get(4));
-        assertEquals("Didn't Swap the element at position 7 ", new Integer(4),
+        assertEquals("Didn't Swap the element at position 7 ", Integer.valueOf(4),
                 smallList.get(7));
 
         // make sure other elements didn't get swapped by mistake
         for (int i = 0; i < 10; i++) {
             if (i != 4 && i != 7)
                 assertEquals("shouldn't have swapped the element at position "
-                        + i, new Integer(i), smallList.get(i));
+                        + i, Integer.valueOf(i), smallList.get(i));
         }
     }
 
@@ -833,7 +833,7 @@ public class CollectionsTest extends junit.framework.TestCase {
         char[] chars = string1.toCharArray();
         List list = new ArrayList();
         for (int i = 0; i < chars.length; i++) {
-            list.add(new Character(chars[i]));
+            list.add(Character.valueOf(chars[i]));
         }
 
         try {
@@ -844,32 +844,32 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
 
         // test replace for an element that is not in the list
-        boolean result = Collections.replaceAll(list, new Character('1'),
-                new Character('Z'));
+        boolean result = Collections.replaceAll(list, Character.valueOf('1'),
+                Character.valueOf('Z'));
         assertFalse("Test1: Collections.replaceAll() returned wrong result",
                 result);
         assertEquals("Test2 : ReplaceAll modified the list incorrectly",
                 string1, getString(list));
 
         // test replace for an element that is in the list
-        result = Collections.replaceAll(list, new Character('S'),
-                new Character('K'));
+        result = Collections.replaceAll(list, Character.valueOf('S'),
+                Character.valueOf('K'));
         assertTrue("Test3: Collections.replaceAll() returned wrong result",
                 result);
         assertEquals("Test4: ReplaceAll modified the list incorrectly",
                 (string1 = string1.replace('S', 'K')), getString(list));
 
         // test replace for the last element in the list
-        result = Collections.replaceAll(list, new Character('Z'),
-                new Character('N'));
+        result = Collections.replaceAll(list, Character.valueOf('Z'),
+                Character.valueOf('N'));
         assertTrue("Test5: Collections.replaceAll() returned wrong result",
                 result);
         assertEquals("Test6: ReplaceAll modified the list incorrectly",
                 (string1 = string1.replace('Z', 'N')), getString(list));
 
         // test replace for the first element in the list
-        result = Collections.replaceAll(list, new Character('A'),
-                new Character('B'));
+        result = Collections.replaceAll(list, Character.valueOf('A'),
+                Character.valueOf('B'));
         assertTrue("Test7: Collections.replaceAll() returned wrong result",
                 result);
         assertEquals("Test8: ReplaceAll modified the list incorrectly",
@@ -880,8 +880,8 @@ public class CollectionsTest extends junit.framework.TestCase {
         for (int i = 0; i < 10; i++) {
             smallList.add(objArray[i]);
         }
-        smallList.set(4, new Integer(5));
-        result = Collections.replaceAll(smallList, new Integer(5), null);
+        smallList.set(4, Integer.valueOf(5));
+        result = Collections.replaceAll(smallList, Integer.valueOf(5), null);
         assertTrue("Test9: Collections.replaceAll() returned wrong result",
                 result);
         for (int i = 0; i < smallList.size(); i++) {
@@ -891,22 +891,22 @@ public class CollectionsTest extends junit.framework.TestCase {
             else
                 assertEquals(
                         "Test9: ReplaceAll shouldn't have replaced element at "
-                                + i, new Integer(i), smallList.get(i));
+                                + i, Integer.valueOf(i), smallList.get(i));
         }
 
         // test replacing null elements with another value
-        result = Collections.replaceAll(smallList, null, new Integer(99));
+        result = Collections.replaceAll(smallList, null, Integer.valueOf(99));
         assertTrue("Test10: Collections.replaceAll() returned wrong result",
                 result);
 
         for (int i = 0; i < smallList.size(); i++) {
             if (i == 4 || i == 5)
                 assertEquals("Test10: ReplaceAll didn't replace element at "
-                        + i, new Integer(99), smallList.get(i));
+                        + i, Integer.valueOf(99), smallList.get(i));
             else
                 assertEquals(
                         "Test10: ReplaceAll shouldn't have replaced element at "
-                                + i, new Integer(i), smallList.get(i));
+                                + i, Integer.valueOf(i), smallList.get(i));
         }
 
         Mock_ArrayList mal = new Mock_ArrayList();
@@ -1062,20 +1062,20 @@ public class CollectionsTest extends junit.framework.TestCase {
 
     public void test_indexOfSubList2() {
         ArrayList sub = new ArrayList();
-        sub.add(new Integer(1));
-        sub.add(new Integer(2));
-        sub.add(new Integer(3));
+        sub.add(Integer.valueOf(1));
+        sub.add(Integer.valueOf(2));
+        sub.add(Integer.valueOf(3));
 
         ArrayList sub2 = new ArrayList();
-        sub2.add(new Integer(7));
-        sub2.add(new Integer(8));
+        sub2.add(Integer.valueOf(7));
+        sub2.add(Integer.valueOf(8));
 
         ArrayList src = new ArrayList();
         src.addAll(sub);
         src.addAll(sub);
         src.addAll(sub);
-        src.add(new Integer(5));
-        src.add(new Integer(6));
+        src.add(Integer.valueOf(5));
+        src.add(Integer.valueOf(6));
 
         // so src becomes a list like this:
         // [1, 2, 3, 1, 2, 3, 1, 2, 3, 5, 6]
@@ -1120,12 +1120,12 @@ public class CollectionsTest extends junit.framework.TestCase {
         char[] chars = string1.toCharArray();
         List list = new ArrayList();
         for (int i = 0; i < chars.length; i++) {
-            list.add(new Character(chars[i]));
+            list.add(Character.valueOf(chars[i]));
         }
         chars = string2.toCharArray();
         List sublist = new ArrayList();
         for (int i = 0; i < chars.length; i++) {
-            sublist.add(new Character(chars[i]));
+            sublist.add(Character.valueOf(chars[i]));
         }
 
         if (first)
@@ -1171,20 +1171,20 @@ public class CollectionsTest extends junit.framework.TestCase {
 
     public void test_lastIndexOfSubList2() {
         ArrayList sub = new ArrayList();
-        sub.add(new Integer(1));
-        sub.add(new Integer(2));
-        sub.add(new Integer(3));
+        sub.add(Integer.valueOf(1));
+        sub.add(Integer.valueOf(2));
+        sub.add(Integer.valueOf(3));
 
         ArrayList sub2 = new ArrayList();
-        sub2.add(new Integer(7));
-        sub2.add(new Integer(8));
+        sub2.add(Integer.valueOf(7));
+        sub2.add(Integer.valueOf(8));
 
         ArrayList src = new ArrayList();
         src.addAll(sub);
         src.addAll(sub);
         src.addAll(sub);
-        src.add(new Integer(5));
-        src.add(new Integer(6));
+        src.add(Integer.valueOf(5));
+        src.add(Integer.valueOf(6));
 
         // so src is a list like this:
         // [1, 2, 3, 1, 2, 3, 1, 2, 3, 5, 6]
@@ -1438,12 +1438,12 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
 
         // synchronized map does not have to permit null keys or values
-        synchMap.put(new Long(25), null);
-        synchMap.put(null, new Long(30));
+        synchMap.put(Long.valueOf(25), null);
+        synchMap.put(null, Long.valueOf(30));
         assertNull("Trying to use a null value in map failed", synchMap
-                .get(new Long(25)));
+                .get(Long.valueOf(25)));
         assertTrue("Trying to use a null key in map failed", synchMap.get(null)
-                .equals(new Long(30)));
+                .equals(Long.valueOf(30)));
 
         smallMap = new HashMap();
         for (int i = 0; i < 100; i++) {
@@ -1659,12 +1659,12 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
 
         Collection myCollection = new ArrayList();
-        myCollection.add(new Integer(20));
+        myCollection.add(Integer.valueOf(20));
         myCollection.add(null);
         c = Collections.unmodifiableCollection(myCollection);
         assertTrue("Collection should contain null", c.contains(null));
         assertTrue("Collection should contain Integer(20)", c
-                .contains(new Integer(20)));
+                .contains(Integer.valueOf(20)));
 
         myCollection = new ArrayList();
         for (int i = 0; i < 100; i++) {
@@ -1742,7 +1742,7 @@ public class CollectionsTest extends junit.framework.TestCase {
                 myList instanceof RandomAccess);
 
         assertTrue("get failed on unmodifiable list", myList.get(50).equals(
-                new Integer(50)));
+                Integer.valueOf(50)));
         ListIterator listIterator = myList.listIterator();
         for (int i = 0; listIterator.hasNext(); i++) {
             assertTrue("List has wrong elements", ((Integer) listIterator
@@ -1813,14 +1813,14 @@ public class CollectionsTest extends junit.framework.TestCase {
         assertTrue("Allowed modification of array entry2", exception);
 
         HashMap smallMap = new HashMap();
-        smallMap.put(null, new Long(30));
-        smallMap.put(new Long(25), null);
+        smallMap.put(null, Long.valueOf(30));
+        smallMap.put(Long.valueOf(25), null);
         Map unmodMap = Collections.unmodifiableMap(smallMap);
 
         assertNull("Trying to use a null value in map failed", unmodMap
-                .get(new Long(25)));
+                .get(Long.valueOf(25)));
         assertTrue("Trying to use a null key in map failed", unmodMap.get(null)
-                .equals(new Long(30)));
+                .equals(Long.valueOf(30)));
 
         smallMap = new HashMap();
         for (int i = 0; i < 100; i++) {
@@ -1997,7 +1997,7 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
 
         try {
-            single.put(new Double(1), "one wrong value");
+            single.put(Double.valueOf(1), "one wrong value");
             fail("UnsupportedOperationException expected");
         } catch (UnsupportedOperationException e) {
             //expected
@@ -2084,7 +2084,7 @@ public class CollectionsTest extends junit.framework.TestCase {
     public void test_newSetFromMap_LMap() throws Exception {
         Integer testInt[] = new Integer[100];
         for (int i = 0; i < testInt.length; i++) {
-            testInt[i] = new Integer(i);
+            testInt[i] = Integer.valueOf(i);
         }
         Map<Integer, Boolean> map = new HashMap<Integer, Boolean>();
         Set<Integer> set = Collections.newSetFromMap(map);
@@ -2107,8 +2107,8 @@ public class CollectionsTest extends junit.framework.TestCase {
         }
 
         // operator on set successed
-        Integer testInt101 = new Integer(101);
-        Integer testInt102 = new Integer(102);
+        Integer testInt101 = Integer.valueOf(101);
+        Integer testInt102 = Integer.valueOf(102);
         set.add(testInt101);
         assertTrue(set.contains(testInt101));
         assertTrue(map.get(testInt101));
@@ -2134,7 +2134,7 @@ public class CollectionsTest extends junit.framework.TestCase {
     public void testSerializationSelf_newSetFromMap() throws Exception {
         Integer testInt[] = new Integer[100];
         for (int i = 0; i < testInt.length; i++) {
-            testInt[i] = new Integer(i);
+            testInt[i] = Integer.valueOf(i);
         }
         Map<Integer, Boolean> map = new HashMap<Integer, Boolean>();
         Set<Integer> set = Collections.newSetFromMap(map);
@@ -2146,9 +2146,9 @@ public class CollectionsTest extends junit.framework.TestCase {
 
     public void test_asLifoQueue() throws Exception {
         Integer testInt[] = new Integer[100];
-        Integer test101 = new Integer(101);
+        Integer test101 = Integer.valueOf(101);
         for (int i = 0; i < testInt.length; i++) {
-            testInt[i] = new Integer(i);
+            testInt[i] = Integer.valueOf(i);
         }
         Deque deque = new ArrayDeque<Integer>();
         Queue<Integer> que = Collections.asLifoQueue(deque);
@@ -2185,7 +2185,7 @@ public class CollectionsTest extends junit.framework.TestCase {
     public void testSerializationSelf_asLifoQueue() throws Exception {
         Integer testInt[] = new Integer[100];
         for (int i = 0; i < testInt.length; i++) {
-            testInt[i] = new Integer(i);
+            testInt[i] = Integer.valueOf(i);
         }
         Deque deque = new ArrayDeque<Integer>();
         Queue<Integer> que = Collections.asLifoQueue(deque);

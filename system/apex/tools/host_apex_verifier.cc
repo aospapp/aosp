@@ -33,6 +33,7 @@
 #include <stdlib.h>
 
 #include <iostream>
+#include <string_view>
 
 using ::apex::proto::ApexManifest;
 
@@ -110,7 +111,7 @@ void CheckInitRc(const std::string& apex_dir, const ApexManifest& manifest,
   // in the APEX, possibly including different requirements depending
   // on the SDK version.
   for (const auto& c :
-       parser.FilterVersionedConfigs(init_configs, sdk_version)) {
+       init::FilterVersionedConfigs(init_configs, sdk_version)) {
     parser.ParseConfigFile(c);
   }
 
@@ -213,25 +214,27 @@ int main(int argc, char** argv) {
     }
 
     switch (arg) {
-      case 0:
-        if (long_options[option_index].name == "deapexer") {
+      case 0: {
+        std::string_view name(long_options[option_index].name);
+        if (name == "deapexer") {
           deapexer = optarg;
         }
-        if (long_options[option_index].name == "debugfs") {
+        if (name == "debugfs") {
           debugfs = optarg;
         }
-        if (long_options[option_index].name == "sdk_version") {
+        if (name == "sdk_version") {
           if (!base::ParseInt(optarg, &sdk_version)) {
             PrintUsage();
             return EXIT_FAILURE;
           }
         }
         for (const auto& p : partitions) {
-          if (long_options[option_index].name == "out_" + p) {
+          if (name == "out_" + p) {
             partition_map[p] = optarg;
           }
         }
         break;
+      }
       case 'h':
         PrintUsage();
         return EXIT_SUCCESS;

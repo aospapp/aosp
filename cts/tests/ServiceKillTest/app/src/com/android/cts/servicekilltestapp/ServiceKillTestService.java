@@ -116,9 +116,13 @@ public class ServiceKillTestService extends Service {
         @Override
         public void run() {
             logDebug("Main");
-            mCurrentBenchmark.addEvent(Benchmark.Measure.MAIN, SystemClock.elapsedRealtime());
+            if (mWakeLock.isHeld()) {
+                mCurrentBenchmark.addEvent(Benchmark.Measure.MAIN, SystemClock.elapsedRealtime());
+                saveBenchmarkIfRequired(mCurrentBenchmark);
+            } else {
+                Log.w(TAG, "Wake lock broken");
+            }
             mHandler.postDelayed(this, MAIN_REPEAT_MS);
-            saveBenchmarkIfRequired(mCurrentBenchmark);
         }
     };
 
@@ -269,8 +273,12 @@ public class ServiceKillTestService extends Service {
                 logDebug("Work");
                 long now = SystemClock.elapsedRealtime();
                 mHandler.post(() -> {
-                    mCurrentBenchmark.addEvent(Benchmark.Measure.WORK, now);
-                    saveBenchmarkIfRequired(mCurrentBenchmark);
+                    if (mWakeLock.isHeld()) {
+                        mCurrentBenchmark.addEvent(Benchmark.Measure.WORK, now);
+                        saveBenchmarkIfRequired(mCurrentBenchmark);
+                    } else {
+                        Log.w(TAG, "Wake lock broken");
+                    }
                 });
             } catch (Throwable t) {
                 Log.e(TAG, "Error in scheduled execution ", t);

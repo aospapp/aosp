@@ -43,7 +43,7 @@ ExynosDeviceModule::~ExynosDeviceModule() {
 
 int ExynosDeviceModule::initDisplayColor(
         const std::vector<displaycolor::DisplayInfo>& display_info) {
-    mDisplayColorInterface = mDisplayColorLoader.GetDisplayColorGS101(display_info);
+    mDisplayColorInterface = mDisplayColorLoader.GetDisplayColor(display_info);
     if (mDisplayColorInterface == nullptr) {
         ALOGW("%s failed to load displaycolor", __func__);
     }

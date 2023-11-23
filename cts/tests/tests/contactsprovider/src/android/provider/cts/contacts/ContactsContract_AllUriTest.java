@@ -55,6 +55,7 @@ public class ContactsContract_AllUriTest extends AndroidTestCase {
     // "t" : has x_times_used and x_last_time_used.
     private static final String[][] URIs = {
             {"content://com.android.contacts/contacts", "sud"},
+            {"content://com.android.contacts/contacts/enterprise", "s"},
             {"content://com.android.contacts/contacts/1", "sud"},
             {"content://com.android.contacts/contacts/1/data", "t"},
             {"content://com.android.contacts/contacts/1/entities", "t"},
@@ -105,7 +106,7 @@ public class ContactsContract_AllUriTest extends AndroidTestCase {
             {"content://com.android.contacts/data", "tud"},
             {"content://com.android.contacts/data/1", "tudr"},
             {"content://com.android.contacts/data/phones", "t"},
-            {"content://com.android.contacts/data_enterprise/phones", "!"},
+            {"content://com.android.contacts/data_enterprise/phones", "t"},
             {"content://com.android.contacts/data/phones/1", "tud"},
             {"content://com.android.contacts/data/phones/filter", "t"},
             {"content://com.android.contacts/data/phones/filter/XXX", "t"},

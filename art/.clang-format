@@ -1,3 +1,4 @@
+# Please keep in sync with .clang-format-java-2 where applicable.
 ---
 BasedOnStyle: Google
 ---
@@ -22,3 +23,24 @@ DerivePointerAlignment: false
 FixNamespaceComments: true
 PointerAlignment: Left
 TabWidth: 2
+
+---
+
+Language: Java
+
+ColumnLimit: 100
+CommentPragmas: (NOLINT|CHECK[^ ]*):.*
+ContinuationIndentWidth: 8
+IndentWidth: 4
+JavaImportGroups:
+- android
+- androidx
+- com.android
+- dalvik
+- libcore
+- com
+- junit
+- net
+- org
+- java
+- javax

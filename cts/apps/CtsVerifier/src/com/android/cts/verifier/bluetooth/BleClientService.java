@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -120,6 +122,12 @@ public class BleClientService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_READ_REMOTE_RSSI";
     public static final String BLE_PHY_READ =
             "com.android.cts.verifier.bluetooth.BLE_PHY_READ";
+    public static final String BLE_PHY_READ_SKIPPED =
+            "com.android.cts.verifier.bluetooth.BLE_PHY_READ_SKIPPED";
+    public static final String BLE_PHY_UPDATE =
+            "com.android.cts.verifier.bluetooth.BLE_PHY_UPDATE";
+    public static final String BLE_PHY_UPDATE_SKIPPED =
+            "com.android.cts.verifier.bluetooth.BLE_PHY_UPDATE_SKIPPED";
     public static final String BLE_ON_SERVICE_CHANGED =
             "com.android.cts.verifier.bluetooth.BLE_ON_SERVICE_CHANGED";
     public static final String BLE_CHARACTERISTIC_READ_NOPERMISSION =
@@ -180,6 +188,8 @@ public class BleClientService extends Service {
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_READ_RSSI";
     public static final String BLE_CLIENT_ACTION_READ_PHY =
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_READ_PHY";
+    public static final String BLE_CLIENT_ACTION_SET_PREFERRED_PHY =
+            "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_SET_PREFERRED_PHY";
     public static final String BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED =
             "com.android.cts.verifier.bluetooth.BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED";
     public static final String BLE_CLIENT_ACTION_CLIENT_DISCONNECT =
@@ -218,8 +228,10 @@ public class BleClientService extends Service {
     public static final String EXTRA_ERROR_MESSAGE =
             "com.android.cts.verifier.bluetooth.EXTRA_ERROR_MESSAGE";
 
-    public static final String WRITE_VALUE_512BYTES_FOR_MTU = createTestData(512);
-    public static final String WRITE_VALUE_507BYTES_FOR_RELIABLE_WRITE = createTestData(507);
+    public static final String WRITE_VALUE_512BYTES_FOR_MTU =
+            createTestData("REQUEST_MTU", 512);
+    public static final String WRITE_VALUE_507BYTES_FOR_RELIABLE_WRITE =
+            createTestData("RELIABLE_WRITE", 507);
 
     private static final UUID SERVICE_UUID =
             UUID.fromString("00009999-0000-1000-8000-00805f9b34fb");
@@ -316,6 +328,7 @@ public class BleClientService extends Service {
     private boolean mValidityService;
     private ReliableWriteState mExecReliableWrite;
     private byte[] mBuffer;
+    private boolean mWriteAfterMtuChangeDone = false;
 
     // Handler for communicating task with peer.
     private TestTaskQueue mTaskQueue;
@@ -344,8 +357,10 @@ public class BleClientService extends Service {
     public void onCreate() {
         super.onCreate();
 
-        registerReceiver(mBondStatusReceiver,
-                new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
+        registerReceiver(
+                mBondStatusReceiver,
+                new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED),
+                RECEIVER_EXPORTED);
 
         mBluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
         mBluetoothAdapter = mBluetoothManager.getAdapter();
@@ -393,7 +408,18 @@ public class BleClientService extends Service {
                     }
                     break;
                 case BLE_CLIENT_ACTION_REQUEST_MTU_23:
+                    /* Test the long write before changing MTU.
+                     * Starting from Android U, MTU is set to 517, no matter what
+                     * user request. To keep same test scope, send first 512 write
+                     * before MTU change, so it make use of default MTU = 23.
+                     * Later, requestMtu is called twice and test if MTU Exchange will
+                     * execute only once over the air.
+                     */
+                    writeCharacteristic(CHARACTERISTIC_UUID, WRITE_VALUE_512BYTES_FOR_MTU);
+                    break;
                 case BLE_CLIENT_ACTION_REQUEST_MTU_512: // fall through
+                    /* Call it twice to verify single MTU Exchange procedure over the link */
+                    requestMtu();
                     requestMtu();
                     break;
                 case BLE_CLIENT_ACTION_READ_CHARACTERISTIC:
@@ -509,6 +535,13 @@ public class BleClientService extends Service {
                 case BLE_CLIENT_ACTION_READ_PHY:
                     if (mBluetoothGatt != null) {
                         mBluetoothGatt.readPhy();
+                    }
+                    break;
+                case BLE_CLIENT_ACTION_SET_PREFERRED_PHY:
+                    if (mBluetoothGatt != null) {
+                        mBluetoothGatt.setPreferredPhy(BluetoothDevice.PHY_LE_1M_MASK,
+                                BluetoothDevice.PHY_LE_1M_MASK,
+                                BluetoothDevice.PHY_OPTION_NO_PREFERRED);
                     }
                     break;
                 case BLE_CLIENT_ACTION_TRIGGER_SERVICE_CHANGED:
@@ -900,10 +933,38 @@ public class BleClientService extends Service {
     }
 
     private void notifyPhyRead(int txPhy, int rxPhy) {
-        showMessage("Phy read: txPhy=" + txPhy + ", rxPhy=" + rxPhy);
-        Intent intent = new Intent(BLE_PHY_READ);
-        intent.putExtra(EXTRA_TX_PHY_VALUE, txPhy);
-        intent.putExtra(EXTRA_RX_PHY_VALUE, rxPhy);
+        if (BLE_CLIENT_ACTION_READ_PHY.equals(mCurrentAction)) {
+            showMessage("Phy read: txPhy=" + txPhy + ", rxPhy=" + rxPhy);
+            Intent intent = new Intent(BLE_PHY_READ);
+            intent.putExtra(EXTRA_TX_PHY_VALUE, txPhy);
+            intent.putExtra(EXTRA_RX_PHY_VALUE, rxPhy);
+            sendBroadcast(intent);
+        } else {
+            Log.d(TAG, "notifyPhyRead arrived without BLE_CLIENT_ACTION_READ_PHY");
+        }
+    }
+
+    private void notifyPhyReadSkipped() {
+        showMessage("Phy read not supported. Skipping the test.");
+        Intent intent = new Intent(BLE_PHY_READ_SKIPPED);
+        sendBroadcast(intent);
+    }
+
+    private void notifyPhyUpdate(int txPhy, int rxPhy) {
+        if (BLE_CLIENT_ACTION_SET_PREFERRED_PHY.equals(mCurrentAction)) {
+            showMessage("Phy update: txPhy=" + txPhy + ", rxPhy=" + rxPhy);
+            Intent intent = new Intent(BLE_PHY_UPDATE);
+            intent.putExtra(EXTRA_TX_PHY_VALUE, txPhy);
+            intent.putExtra(EXTRA_RX_PHY_VALUE, rxPhy);
+            sendBroadcast(intent);
+        } else {
+            Log.d(TAG, "notifyPhyUpdate arrived without BLE_CLIENT_ACTION_SET_PREFERRED_PHY");
+        }
+    }
+
+    private void notifyPhyUpdateSkipped() {
+        showMessage("Phy update not supported. Skipping the test.");
+        Intent intent = new Intent(BLE_PHY_UPDATE_SKIPPED);
         sendBroadcast(intent);
     }
 
@@ -1026,6 +1087,7 @@ public class BleClientService extends Service {
     }
 
     private int mBleState = BluetoothProfile.STATE_DISCONNECTED;
+
     private final BluetoothGattCallback mGattCallbacks = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -1076,12 +1138,16 @@ public class BleClientService extends Service {
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             super.onServicesDiscovered(gatt, status);
-            if (DEBUG) {
-                Log.d(TAG, "onServiceDiscovered");
-            }
-            if ((status == BluetoothGatt.GATT_SUCCESS) && (mBluetoothGatt.getService(SERVICE_UUID)
-                    != null)) {
-                notifyServicesDiscovered();
+            if (BLE_CLIENT_ACTION_BLE_DISCOVER_SERVICE.equals(mCurrentAction)) {
+                if (DEBUG) {
+                    Log.d(TAG, "onServiceDiscovered");
+                }
+                if ((status == BluetoothGatt.GATT_SUCCESS)
+                        && (mBluetoothGatt.getService(SERVICE_UUID) != null)) {
+                    notifyServicesDiscovered();
+                }
+            } else {
+                Log.d(TAG, "onServicesDiscovered without BLE_CLIENT_ACTION_BLE_DISCOVER_SERVICE");
             }
         }
 
@@ -1092,23 +1158,20 @@ public class BleClientService extends Service {
                 Log.d(TAG, "onMtuChanged");
             }
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                // verify MTU size
-                int requestedMtu;
-                if (BLE_CLIENT_ACTION_REQUEST_MTU_23.equals(mCurrentAction)) {
-                    requestedMtu = 23;
-                } else if (BLE_CLIENT_ACTION_REQUEST_MTU_512.equals(mCurrentAction)) {
-                    requestedMtu = 512;
-                } else {
-                    throw new IllegalStateException("unexpected action: " + mCurrentAction);
-                }
-                if (mtu != requestedMtu) {
+                // verify MTU size which now is always equal to max 517
+                int expectedNewMtu = 517;
+                if (mtu != expectedNewMtu) {
                     String msg = String.format(getString(R.string.ble_mtu_mismatch_message),
-                            requestedMtu, mtu);
+                            expectedNewMtu, mtu);
                     showMessage(msg);
                 }
 
-                // test writing characteristic
-                writeCharacteristic(CHARACTERISTIC_UUID, WRITE_VALUE_512BYTES_FOR_MTU);
+                if (BLE_CLIENT_ACTION_REQUEST_MTU_512.equals(mCurrentAction)
+                        && !mWriteAfterMtuChangeDone) {
+                    /* Verify write characteristic on bigger MTU */
+                    writeCharacteristic(CHARACTERISTIC_UUID, WRITE_VALUE_512BYTES_FOR_MTU);
+                    mWriteAfterMtuChangeDone = true;
+                }
             } else {
                 notifyError("Failed to request mtu: " + status);
             }
@@ -1429,10 +1492,12 @@ public class BleClientService extends Service {
         public void onPhyRead(BluetoothGatt gatt, int txPhy, int rxPhy, int status) {
             super.onPhyRead(gatt, txPhy, rxPhy, status);
             if (DEBUG) {
-                Log.d(TAG, "onPhyRead");
+                Log.d(TAG, "onPhyRead status=" + status);
             }
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 notifyPhyRead(txPhy, rxPhy);
+            } else if (status == BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED) {
+                notifyPhyReadSkipped();
             } else {
                 notifyError("Failed to read phy");
             }
@@ -1440,12 +1505,16 @@ public class BleClientService extends Service {
 
         @Override
         public void onPhyUpdate(BluetoothGatt gatt, int txPhy, int rxPhy, int status) {
-            // TODO: Currently this is not called when BluetoothGatt.setPreferredPhy() is called.
-            // It is because the path is not wired in native code. (acl_legacy_interface.cc)
-            // Add a proper implementation and related test.
             super.onPhyUpdate(gatt, txPhy, rxPhy, status);
             if (DEBUG) {
-                Log.d(TAG, "onPhyUpdate");
+                Log.d(TAG, "onPhyUpdate status=" + status);
+            }
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                notifyPhyUpdate(txPhy, rxPhy);
+            } else if (status == BluetoothGatt.GATT_REQUEST_NOT_SUPPORTED) {
+                notifyPhyUpdateSkipped();
+            } else {
+                notifyError("Failed to update phy");
             }
         }
 
@@ -1515,9 +1584,9 @@ public class BleClientService extends Service {
         }
     }
 
-    private static String createTestData(int length) {
+    private static String createTestData(String prefix, int length) {
         StringBuilder builder = new StringBuilder();
-        builder.append("REQUEST_MTU");
+        builder.append(prefix);
         int len = length - builder.length();
         for (int i = 0; i < len; ++i) {
             builder.append("" + (i % 10));

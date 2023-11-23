@@ -42,10 +42,15 @@ import android.app.Instrumentation;
 import android.content.Context;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PermissionInfo;
+import android.os.Build;
+import android.os.Process;
+import android.platform.test.annotations.AppModeFull;
 import android.provider.DeviceConfig;
-import android.support.test.uiautomator.UiDevice;
 
+import androidx.test.filters.SdkSuppress;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -54,6 +59,8 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
+@AppModeFull(reason = "Null permission info in instant mode")
 public class RevokeSelfPermissionTest {
     private static final String APP_PKG_NAME =
             "android.permission.cts.apptotestrevokeselfpermission";
@@ -295,6 +302,17 @@ public class RevokeSelfPermissionTest {
     private void revokePermissions(String[] permissions) {
         runShellCommand("am start-activity -W -n " + APP_PKG_NAME  + "/.RevokePermission"
                 + " --esa permissions " + String.join(",", permissions));
+        PackageManager pkgMgr = mContext.getPackageManager();
+        eventually(() -> runWithShellPermissionIdentity(() -> {
+            for (int i = 0; i < permissions.length; i++) {
+                if ((pkgMgr.getPermissionInfo(permissions[i], 0).getProtection()
+                        & PermissionInfo.PROTECTION_DANGEROUS) != 0) {
+                    int permissionFlags = pkgMgr.getPermissionFlags(permissions[i], APP_PKG_NAME,
+                                    Process.myUserHandle());
+                    Assert.assertTrue((permissionFlags & FLAG_PERMISSION_ONE_TIME) != 0);
+                }
+            }
+        }));
     }
 
     private void killApp() {

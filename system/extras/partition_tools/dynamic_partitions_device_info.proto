@@ -25,7 +25,7 @@ message DynamicPartitionsDeviceInfoProto {
     bool enabled = 1;
     bool retrofit = 2;
 
-    // Next: 7
+    // Next: 8
     message Partition {
         string name = 1;
         string group_name = 2 [json_name = "group_name"];
@@ -36,6 +36,8 @@ message DynamicPartitionsDeviceInfoProto {
         uint64 fs_size = 5 [json_name = "fs_size"];
         /** Used space of the filesystem. */
         uint64 fs_used = 6 [json_name = "fs_used"];
+        /**  Name of the filesystem. */
+        string fs_type = 7 [json_name = "fs_type"];
     }
     repeated Partition partitions = 3;
 

@@ -237,7 +237,7 @@ Return<void> VirtualISO::openLogicalChannel(const hidl_vec<uint8_t>& aid,
         LOG(INFO) << "seDeInit Failed";
       }
     }
-    /*If manageChanle is failed in any of above cases
+    /*If manageChannel is failed in any of above cases
     send the callback and return*/
     status = phNxpEse_ResetEndPoint_Cntxt(1);
     if (status != ESESTATUS_SUCCESS) {
@@ -257,12 +257,12 @@ Return<void> VirtualISO::openLogicalChannel(const hidl_vec<uint8_t>& aid,
 
   if ((resApduBuff.channelNumber > 0x03) &&
       (resApduBuff.channelNumber < 0x14)) {
-    /* update CLA byte accoridng to GP spec Table 11-12*/
+    /* update CLA byte according to GP spec Table 11-12*/
     cpdu.cla =
         0x40 + (resApduBuff.channelNumber - 4); /* Class of instruction */
   } else if ((resApduBuff.channelNumber > 0x00) &&
              (resApduBuff.channelNumber < 0x04)) {
-    /* update CLA byte accoridng to GP spec Table 11-11*/
+    /* update CLA byte according to GP spec Table 11-11*/
     cpdu.cla = resApduBuff.channelNumber; /* Class of instruction */
   } else {
     LOG(ERROR) << StringPrintf("%s: Invalid Channel no: %02x", __func__,
@@ -448,9 +448,9 @@ VirtualISO::internalCloseChannel(uint8_t channelNumber) {
     phNxpEse_memset(&cpdu, 0x00, sizeof(phNxpEse_7816_cpdu_t));
     phNxpEse_memset(&rpdu, 0x00, sizeof(phNxpEse_7816_rpdu_t));
     cpdu.cla = channelNumber; /* Class of instruction */
-    // For Suplementary Channel update CLA byte according to GP
+    // For Supplementary Channel update CLA byte according to GP
     if ((channelNumber > 0x03) && (channelNumber < 0x14)) {
-      /* update CLA byte accoridng to GP spec Table 11-12*/
+      /* update CLA byte according to GP spec Table 11-12*/
       cpdu.cla = 0x40 + (channelNumber - 4); /* Class of instruction */
     }
     cpdu.ins = 0x70;          /* Instruction code */
@@ -599,7 +599,6 @@ VirtualISO::seHalDeInit() {
   status = phNxpEse_close(deInitStatus);
   if (status == ESESTATUS_SUCCESS && mIsDeInitDone) {
     sestatus = SecureElementStatus::SUCCESS;
-    ;
   } else {
     LOG(ERROR) << "seHalDeInit: Failed";
   }

@@ -171,6 +171,60 @@ java_test_host {
 }
 
 java_test_host {
+    name: "VendorApexHostTestCases",
+    srcs: [
+        "src/**/VendorApexTests.java",
+        ":apex-info-list",
+    ],
+    libs: [
+        "compatibility-tradefed",
+        "tradefed",
+        "truth-prebuilt",
+        "hamcrest",
+        "hamcrest-library",
+    ],
+    static_libs: [
+        "cts-install-lib-host",
+        "frameworks-base-hostutils",
+        "testng",
+    ],
+    data: [
+        ":VendorApexTestsApp",
+        ":com.android.apex.vendor.foo",
+        ":com.android.apex.vendor.foo",
+        ":com.android.apex.vendor.foo.apex.all.ready",
+        ":com.android.apex.vendor.foo.v1_with_service"
+    ],
+    test_config: "vendor-apex-tests.xml",
+    test_suites: [
+        "general-tests",
+    ],
+}
+
+android_test_helper_app {
+    name: "VendorApexTestsApp",
+    srcs:  ["app/src/**/VendorApexTests.java"],
+    manifest : "app/VendorApexTests_AndroidManifest.xml",
+    static_libs: [
+        "androidx.test.runner",
+        "androidx.test.core",
+        "truth-prebuilt",
+        "cts-install-lib",
+        "testng",
+    ],
+    sdk_version: "test_current",
+    java_resources: [
+        ":com.android.apex.vendor.foo.v2",
+        ":com.android.apex.vendor.foo.v2_with_requireNativeLibs",
+        ":com.android.apex.vendor.foo.v2_with_service",
+        ":com.android.apex.vendor.foo.v2_with_wrong_vndk_version",
+    ],
+    test_suites: [
+        "general-tests",
+    ],
+}
+
+java_test_host {
     name: "sharedlibs_host_tests",
     srcs: [
         "src/**/SharedLibsApexTest.java"
@@ -300,6 +354,7 @@ android_test_helper_app {
     jni_libs: [
         "libApkInApex_jni",
     ],
+    compile_multilib: "both",
     static_libs: ["androidx.test.rules", "cts-install-lib", "cts-rollback-lib", "testng"],
     test_suites: ["general-tests"],
 }

@@ -24,6 +24,7 @@ android_library {
     ],
     static_libs: [
         "androidx.test.ext.junit",
+        "compatibility-device-util-axt",
     ],
     manifest: "AndroidManifest.xml",
 }

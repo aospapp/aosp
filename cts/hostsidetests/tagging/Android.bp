@@ -7,6 +7,7 @@ java_test_host {
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.java"],
     libs: [
+        "compatibility-host-util",
         "cts-tradefed",
         "tradefed",
     ],
@@ -39,5 +40,6 @@ java_defaults {
         "androidx.test.ext.junit",
     ],
     jni_libs: ["libtagging-common-devicesidelib-jni"],
-    sdk_version: "current",
+    min_sdk_version: "30",
+    target_sdk_version: "30",
 }

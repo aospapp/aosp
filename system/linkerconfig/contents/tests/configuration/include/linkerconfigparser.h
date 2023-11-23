@@ -22,8 +22,8 @@
 #include "modules.h"
 
 namespace {
-constexpr const char* kSectionNameRegex = "\\[\\s*(\\w+)\\s*\\]";
-constexpr const char* kDirRegex = "dir\\.(\\w+)\\s*=\\s*([\\w_\\-/]+)";
+constexpr const char* kSectionNameRegex = "\\[\\s*([\\w.]+)\\s*\\]";
+constexpr const char* kDirRegex = "dir\\.([\\w.]+)\\s*=\\s*([\\w_.\\-/]+)";
 constexpr const char* kNamespaceBaseRegex =
     "namespace\\.(\\w+)\\.([^\\s=]+)\\s*(=|\\+=)\\s*([^\\s]+)";
 constexpr const char* kAdditionalNamespacesRegex =
@@ -68,7 +68,9 @@ inline void ParseNamespacePath(const std::vector<std::string>& property_descs,
                                Namespace& current_namespace,
                                const std::string& line) {
   // namespace.test.(asan.)search|permitted.path =|+= /path/to/${LIB}/dir
-  ASSERT_EQ(property_descs[0] == "asan" ? 3u : 2u, property_descs.size());
+  ASSERT_EQ(
+      property_descs[0] == "asan" || property_descs[0] == "hwasan" ? 3u : 2u,
+      property_descs.size());
 
   std::vector<std::string>* target_path = nullptr;
   if (property_descs[0] == "search") {
@@ -79,6 +81,11 @@ inline void ParseNamespacePath(const std::vector<std::string>& property_descs,
     target_path = &current_namespace.asan_search_path;
   } else if (property_descs[0] == "asan" && property_descs[1] == "permitted") {
     target_path = &current_namespace.asan_permitted_path;
+  } else if (property_descs[0] == "hwasan" && property_descs[1] == "search") {
+    target_path = &current_namespace.hwasan_search_path;
+  } else if (property_descs[0] == "hwasan" &&
+             property_descs[1] == "permitted") {
+    target_path = &current_namespace.hwasan_permitted_path;
   }
 
   ASSERT_NE(nullptr, target_path) << line;

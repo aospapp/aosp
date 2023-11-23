@@ -30,7 +30,7 @@ java_binary_host {
         "metalava-tools-common-m2-deps",
         "metalava-gradle-plugin-deps",
     ],
-    manifest: "manifest.txt",
+    main_class: "com.android.tools.metalava.Driver",
     target: {
         host: {
             dist: {

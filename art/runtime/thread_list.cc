@@ -20,14 +20,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <map>
 #include <sstream>
+#include <tuple>
 #include <vector>
 
 #include "android-base/stringprintf.h"
-#include "backtrace/BacktraceMap.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "nativehelper/scoped_utf_chars.h"
+#include "unwindstack/AndroidUnwinder.h"
 
+#include "art_field-inl.h"
 #include "base/aborting.h"
 #include "base/histogram-inl.h"
 #include "base/mutex-inl.h"
@@ -42,8 +45,10 @@
 #include "gc_root.h"
 #include "jni/jni_internal.h"
 #include "lock_word.h"
+#include "mirror/string.h"
 #include "monitor.h"
 #include "native_stack_dump.h"
+#include "obj_ptr-inl.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
 #include "trace.h"
@@ -101,12 +106,11 @@ void ThreadList::ShutDown() {
     Runtime::Current()->DetachCurrentThread();
   }
   WaitForOtherNonDaemonThreadsToExit();
-  // Disable GC and wait for GC to complete in case there are still daemon threads doing
-  // allocations.
+  // The only caller of this function, ~Runtime, has already disabled GC and
+  // ensured that the last GC is finished.
   gc::Heap* const heap = Runtime::Current()->GetHeap();
-  heap->DisableGCForShutdown();
-  // In case a GC is in progress, wait for it to finish.
-  heap->WaitForGcToComplete(gc::kGcCauseBackground, Thread::Current());
+  CHECK(heap->IsGCDisabledForShutdown());
+
   // TODO: there's an unaddressed race here where a thread may attach during shutdown, see
   //       Thread::Init.
   SuspendAllDaemonThreadsForShutdown();
@@ -124,10 +128,10 @@ pid_t ThreadList::GetLockOwner() {
 
 void ThreadList::DumpNativeStacks(std::ostream& os) {
   MutexLock mu(Thread::Current(), *Locks::thread_list_lock_);
-  std::unique_ptr<BacktraceMap> map(BacktraceMap::Create(getpid()));
+  unwindstack::AndroidLocalUnwinder unwinder;
   for (const auto& thread : list_) {
     os << "DUMPING THREAD " << thread->GetTid() << "\n";
-    DumpNativeStack(os, thread->GetTid(), map.get(), "\t");
+    DumpNativeStack(os, unwinder, thread->GetTid(), "\t");
     os << "\n";
   }
 }
@@ -153,7 +157,7 @@ static void DumpUnattachedThread(std::ostream& os, pid_t tid, bool dump_native_s
   // refactor DumpState to avoid skipping analysis.
   Thread::DumpState(os, nullptr, tid);
   if (dump_native_stack) {
-    DumpNativeStack(os, tid, nullptr, "  native: ");
+    DumpNativeStack(os, tid, "  native: ");
   }
   os << std::endl;
 }
@@ -190,16 +194,14 @@ static constexpr uint32_t kDumpWaitTimeout = kIsTargetBuild ? 100000 : 20000;
 // A closure used by Thread::Dump.
 class DumpCheckpoint final : public Closure {
  public:
-  DumpCheckpoint(std::ostream* os, bool dump_native_stack)
-      : os_(os),
+  DumpCheckpoint(bool dump_native_stack)
+      : lock_("Dump checkpoint lock", kGenericBottomLock),
+        os_(),
         // Avoid verifying count in case a thread doesn't end up passing through the barrier.
         // This avoids a SIGABRT that would otherwise happen in the destructor.
         barrier_(0, /*verify_count_on_shutdown=*/false),
-        backtrace_map_(dump_native_stack ? BacktraceMap::Create(getpid()) : nullptr),
+        unwinder_(std::vector<std::string>{}, std::vector<std::string> {"oat", "odex"}),
         dump_native_stack_(dump_native_stack) {
-    if (backtrace_map_ != nullptr) {
-      backtrace_map_->SetSuffixesToIgnore(std::vector<std::string> { "oat", "odex" });
-    }
   }
 
   void Run(Thread* thread) override {
@@ -208,16 +210,26 @@ class DumpCheckpoint final : public Closure {
     Thread* self = Thread::Current();
     CHECK(self != nullptr);
     std::ostringstream local_os;
+    Thread::DumpOrder dump_order;
     {
       ScopedObjectAccess soa(self);
-      thread->Dump(local_os, dump_native_stack_, backtrace_map_.get());
+      dump_order = thread->Dump(local_os, unwinder_, dump_native_stack_);
     }
     {
-      // Use the logging lock to ensure serialization when writing to the common ostream.
-      MutexLock mu(self, *Locks::logging_lock_);
-      *os_ << local_os.str() << std::endl;
+      MutexLock mu(self, lock_);
+      // Sort, so that the most interesting threads for ANR are printed first (ANRs can be trimmed).
+      std::pair<Thread::DumpOrder, uint32_t> sort_key(dump_order, thread->GetThreadId());
+      os_.emplace(sort_key, std::move(local_os));
     }
     barrier_.Pass(self);
+  }
+
+  // Called at the end to print all the dumps in sequential prioritized order.
+  void Dump(Thread* self, std::ostream& os) {
+    MutexLock mu(self, lock_);
+    for (const auto& it : os_) {
+      os << it.second.str() << std::endl;
+    }
   }
 
   void WaitForThreadsToRunThroughCheckpoint(size_t threads_running_checkpoint) {
@@ -232,12 +244,14 @@ class DumpCheckpoint final : public Closure {
   }
 
  private:
-  // The common stream that will accumulate all the dumps.
-  std::ostream* const os_;
+  // Storage for the per-thread dumps (guarded by lock since they are generated in parallel).
+  // Map is used to obtain sorted order. The key is unique, but use multimap just in case.
+  Mutex lock_;
+  std::multimap<std::pair<Thread::DumpOrder, uint32_t>, std::ostringstream> os_ GUARDED_BY(lock_);
   // The barrier to be passed through and for the requestor to wait upon.
   Barrier barrier_;
   // A backtrace map, so that all threads use a shared info and don't reacquire/parse separately.
-  std::unique_ptr<BacktraceMap> backtrace_map_;
+  unwindstack::AndroidLocalUnwinder unwinder_;
   // Whether we should dump the native stack.
   const bool dump_native_stack_;
 };
@@ -249,7 +263,7 @@ void ThreadList::Dump(std::ostream& os, bool dump_native_stack) {
     os << "DALVIK THREADS (" << list_.size() << "):\n";
   }
   if (self != nullptr) {
-    DumpCheckpoint checkpoint(&os, dump_native_stack);
+    DumpCheckpoint checkpoint(dump_native_stack);
     size_t threads_running_checkpoint;
     {
       // Use SOA to prevent deadlocks if multiple threads are calling Dump() at the same time.
@@ -259,6 +273,7 @@ void ThreadList::Dump(std::ostream& os, bool dump_native_stack) {
     if (threads_running_checkpoint != 0) {
       checkpoint.WaitForThreadsToRunThroughCheckpoint(threads_running_checkpoint);
     }
+    checkpoint.Dump(self, os);
   } else {
     DumpUnattachedThreads(os, dump_native_stack);
   }
@@ -486,7 +501,6 @@ void ThreadList::RunEmptyCheckpoint() {
               // Assume it's stuck and safe to dump its stack.
               thread->Dump(LOG_STREAM(FATAL_WITHOUT_ABORT),
                            /*dump_native_stack=*/ true,
-                           /*backtrace_map=*/ nullptr,
                            /*force_dump_stack=*/ true);
             }
           }
@@ -515,11 +529,13 @@ size_t ThreadList::FlipThreadRoots(Closure* thread_flip_visitor,
   Locks::thread_list_lock_->AssertNotHeld(self);
   Locks::thread_suspend_count_lock_->AssertNotHeld(self);
   CHECK_NE(self->GetState(), ThreadState::kRunnable);
+  size_t runnable_thread_count = 0;
+  std::vector<Thread*> other_threads;
 
   collector->GetHeap()->ThreadFlipBegin(self);  // Sync with JNI critical calls.
 
-  // ThreadFlipBegin happens before we suspend all the threads, so it does not count towards the
-  // pause.
+  // ThreadFlipBegin happens before we suspend all the threads, so it does not
+  // count towards the pause.
   const uint64_t suspend_start_time = NanoTime();
   SuspendAllInternal(self, self, nullptr);
   if (pause_listener != nullptr) {
@@ -530,15 +546,20 @@ size_t ThreadList::FlipThreadRoots(Closure* thread_flip_visitor,
   Locks::mutator_lock_->ExclusiveLock(self);
   suspend_all_historam_.AdjustAndAddValue(NanoTime() - suspend_start_time);
   flip_callback->Run(self);
-  Locks::mutator_lock_->ExclusiveUnlock(self);
-  collector->RegisterPause(NanoTime() - suspend_start_time);
-  if (pause_listener != nullptr) {
-    pause_listener->EndPause();
-  }
+  // Releasing mutator-lock *before* setting up flip function in the threads
+  // leaves a gap for another thread trying to suspend all threads. That thread
+  // gets to run with mutator-lock, thereby accessing the heap, without running
+  // its flip function. It's not a problem with CC as the gc-thread hasn't
+  // started marking yet and the from-space is accessible. By delaying releasing
+  // mutator-lock until after the flip function are running on all threads we
+  // fix that without increasing pause time, except for any thread that might be
+  // trying to suspend all. Even though the change works irrespective of the GC,
+  // it has been limited to userfaultfd GC to keep the change behind the flag.
+  //
+  // TODO: It's a temporary change as aosp/2377951 is going to clean-up at a
+  // broad scale, including not allowing concurrent suspend-all.
 
   // Resume runnable threads.
-  size_t runnable_thread_count = 0;
-  std::vector<Thread*> other_threads;
   {
     TimingLogger::ScopedTiming split2("ResumeRunnableThreads", collector->GetTimings());
     MutexLock mu(self, *Locks::thread_list_lock_);
@@ -569,12 +590,15 @@ size_t ThreadList::FlipThreadRoots(Closure* thread_flip_visitor,
     Thread::resume_cond_->Broadcast(self);
   }
 
+  collector->RegisterPause(NanoTime() - suspend_start_time);
+  if (pause_listener != nullptr) {
+    pause_listener->EndPause();
+  }
   collector->GetHeap()->ThreadFlipEnd(self);
 
   // Try to run the closure on the other threads.
   {
     TimingLogger::ScopedTiming split3("FlipOtherThreads", collector->GetTimings());
-    ReaderMutexLock mu(self, *Locks::mutator_lock_);
     for (Thread* thread : other_threads) {
       thread->EnsureFlipFunctionStarted(self);
       DCHECK(!thread->ReadFlag(ThreadFlag::kPendingFlipFunction));
@@ -583,6 +607,8 @@ size_t ThreadList::FlipThreadRoots(Closure* thread_flip_visitor,
     self->EnsureFlipFunctionStarted(self);
     DCHECK(!self->ReadFlag(ThreadFlag::kPendingFlipFunction));
   }
+
+  Locks::mutator_lock_->ExclusiveUnlock(self);
 
   // Resume other threads.
   {
@@ -851,20 +877,16 @@ bool ThreadList::Resume(Thread* thread, SuspendReason reason) {
   return true;
 }
 
-static void ThreadSuspendByPeerWarning(Thread* self,
+static void ThreadSuspendByPeerWarning(ScopedObjectAccess& soa,
                                        LogSeverity severity,
                                        const char* message,
-                                       jobject peer) {
-  JNIEnvExt* env = self->GetJniEnv();
-  ScopedLocalRef<jstring>
-      scoped_name_string(env, static_cast<jstring>(env->GetObjectField(
-          peer, WellKnownClasses::java_lang_Thread_name)));
-  ScopedUtfChars scoped_name_chars(env, scoped_name_string.get());
-  if (scoped_name_chars.c_str() == nullptr) {
-      LOG(severity) << message << ": " << peer;
-      env->ExceptionClear();
+                                       jobject peer) REQUIRES_SHARED(Locks::mutator_lock_) {
+  ObjPtr<mirror::Object> name =
+      WellKnownClasses::java_lang_Thread_name->GetObject(soa.Decode<mirror::Object>(peer));
+  if (name == nullptr) {
+    LOG(severity) << message << ": " << peer;
   } else {
-      LOG(severity) << message << ": " << peer << ":" << scoped_name_chars.c_str();
+    LOG(severity) << message << ": " << peer << ":" << name->AsString()->ToModifiedUtf8();
   }
 }
 
@@ -902,7 +924,7 @@ Thread* ThreadList::SuspendThreadByPeer(jobject peer,
                                                               reason);
           DCHECK(updated);
         }
-        ThreadSuspendByPeerWarning(self,
+        ThreadSuspendByPeerWarning(soa,
                                    ::android::base::WARNING,
                                     "No such thread for suspend",
                                     peer);
@@ -955,7 +977,7 @@ Thread* ThreadList::SuspendThreadByPeer(jobject peer,
         const uint64_t total_delay = NanoTime() - start_time;
         if (total_delay >= thread_suspend_timeout_ns_) {
           if (suspended_thread == nullptr) {
-            ThreadSuspendByPeerWarning(self,
+            ThreadSuspendByPeerWarning(soa,
                                        ::android::base::FATAL,
                                        "Failed to issue suspend request",
                                        peer);
@@ -967,7 +989,7 @@ Thread* ThreadList::SuspendThreadByPeer(jobject peer,
             // Explicitly release thread_suspend_count_lock_; we haven't held it for long, so
             // seeing threads blocked on it is not informative.
             Locks::thread_suspend_count_lock_->Unlock(self);
-            ThreadSuspendByPeerWarning(self,
+            ThreadSuspendByPeerWarning(soa,
                                        ::android::base::FATAL,
                                        "Thread suspension timed out",
                                        peer);
@@ -1275,7 +1297,7 @@ void ThreadList::Register(Thread* self) {
   }
   CHECK(!Contains(self));
   list_.push_back(self);
-  if (kUseReadBarrier) {
+  if (gUseReadBarrier) {
     gc::collector::ConcurrentCopying* const cc =
         Runtime::Current()->GetHeap()->ConcurrentCopyingCollector();
     // Initialize according to the state of the CC collector.
@@ -1287,10 +1309,14 @@ void ThreadList::Register(Thread* self) {
   }
 }
 
-void ThreadList::Unregister(Thread* self) {
+void ThreadList::Unregister(Thread* self, bool should_run_callbacks) {
   DCHECK_EQ(self, Thread::Current());
   CHECK_NE(self->GetState(), ThreadState::kRunnable);
   Locks::mutator_lock_->AssertNotHeld(self);
+  if (self->tls32_.disable_thread_flip_count != 0) {
+    LOG(FATAL) << "Incomplete PrimitiveArrayCritical section at exit: " << *self << "count = "
+               << self->tls32_.disable_thread_flip_count;
+  }
 
   VLOG(threads) << "ThreadList::Unregister() " << *self;
 
@@ -1304,7 +1330,7 @@ void ThreadList::Unregister(Thread* self) {
   // causes the threads to join. It is important to do this after incrementing unregistering_count_
   // since we want the runtime to wait for the daemon threads to exit before deleting the thread
   // list.
-  self->Destroy();
+  self->Destroy(should_run_callbacks);
 
   // If tracing, remember thread id and name before thread exits.
   Trace::StoreExitingThreadInfo(self);
@@ -1320,7 +1346,7 @@ void ThreadList::Unregister(Thread* self) {
         std::string thread_name;
         self->GetThreadName(thread_name);
         std::ostringstream os;
-        DumpNativeStack(os, GetTid(), nullptr, "  native: ", nullptr);
+        DumpNativeStack(os, GetTid(), "  native: ", nullptr);
         LOG(ERROR) << "Request to unregister unattached thread " << thread_name << "\n" << os.str();
         break;
       } else {
@@ -1411,6 +1437,13 @@ void ThreadList::VisitReflectiveTargets(ReflectiveValueVisitor *visitor) const {
   MutexLock mu(Thread::Current(), *Locks::thread_list_lock_);
   for (const auto& thread : list_) {
     thread->VisitReflectiveTargets(visitor);
+  }
+}
+
+void ThreadList::SweepInterpreterCaches(IsMarkedVisitor* visitor) const {
+  MutexLock mu(Thread::Current(), *Locks::thread_list_lock_);
+  for (const auto& thread : list_) {
+    thread->SweepInterpreterCache(visitor);
   }
 }
 

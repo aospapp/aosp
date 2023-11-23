@@ -31,6 +31,7 @@ android_library {
         "CtsLegacyImeClientTestLib",
         "testng",
         "kotlin-test",
+        "statsdprotonano",
     ],
     srcs: [
         "src/**/*.java",

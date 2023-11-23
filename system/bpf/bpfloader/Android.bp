@@ -38,7 +38,7 @@ cc_binary {
         integer_overflow: true,
         memtag_heap: true,
     },
-    clang: true,
+
     header_libs: ["bpf_headers"],
     shared_libs: [
         "libcutils",
@@ -56,7 +56,14 @@ cc_binary {
 
     required: [
         "btfloader",
-        "time_in_state.o"
+        "timeInState.o"
     ],
 
+    product_variables: {
+        debuggable: {
+            required: [
+                "bpfRingbufProg.o",
+            ],
+        },
+    }
 }

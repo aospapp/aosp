@@ -50,6 +50,8 @@ certificate.
                       APK, if found. By default, it is set to false. It has no
                       effect if no source stamp signer config is provided.
 
+--align-file-size     Produces APK file sized as multiples of 4K bytes.
+
 --verity-enabled      Whether to enable the verity signature algorithm for the
                       v2 and v3 signature schemes.
 
@@ -136,6 +138,18 @@ options of different signers, use --next-signer.
 
 --stamp-signer        The signing information for the signer of the source stamp
                       to be included in the APK.
+
+--signer-for-min-sdk-version <SDK> Requires an int value indicating the minimum
+                      SDK version for which this signing config should be used
+                      to produce the APK's signature. The value should be >= 28
+                      (Android P), and any value <= 32 will apply to Android P
+                      through Sv2 (SDK versions 28 - 32); since the V3.0
+                      signature scheme does not support verified SDK version
+                      targeting, only a single signing config <= 32 can be
+                      specified.
+
+--signer-lineage      The lineage to be used for the current SDK targeted
+                      signing config.
 
         PER-SIGNER SIGNING KEY & CERTIFICATE OPTIONS
 There are two ways to provide the signer's private key and certificate: (1) Java

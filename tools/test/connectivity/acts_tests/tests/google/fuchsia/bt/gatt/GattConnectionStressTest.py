@@ -32,7 +32,6 @@ from acts.base_test import BaseTestClass
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.bt_test_utils import generate_id_by_size
 from acts_contrib.test_utils.fuchsia.bt_test_utils import le_scan_for_device_by_name
-import time
 
 
 class GattConnectionStressTest(BaseTestClass):
@@ -66,28 +65,28 @@ class GattConnectionStressTest(BaseTestClass):
         }
         scan_response = None
         connectable = True
-        self.fuchsia_server_dut.ble_lib.bleStartBleAdvertising(
+        self.fuchsia_server_dut.sl4f.ble_lib.bleStartBleAdvertising(
             adv_data, scan_response, self.ble_advertise_interval, connectable)
         device = le_scan_for_device_by_name(self.fuchsia_client_dut, self.log,
                                             adv_name,
                                             self.scan_timeout_seconds)
         if device is None:
             raise signals.TestFailure("Scanner unable to find advertisement.")
-        connect_result = self.fuchsia_client_dut.gattc_lib.bleConnectToPeripheral(
+        connect_result = self.fuchsia_client_dut.sl4f.gattc_lib.bleConnectToPeripheral(
             device["id"])
         if connect_result.get("error") is not None:
             raise signals.TestFailure(
                 self.gatt_connect_err_message.format(
                     connect_result.get("error")))
         self.log.info("Connection Successful...")
-        disconnect_result = self.fuchsia_client_dut.gattc_lib.bleDisconnectPeripheral(
+        disconnect_result = self.fuchsia_client_dut.sl4f.gattc_lib.bleDisconnectPeripheral(
             device["id"])
         if disconnect_result.get("error") is not None:
             raise signals.TestFailure(
                 self.gatt_disconnect_err_message.format(
                     connect_result.get("error")))
         self.log.info("Disconnection Successful...")
-        self.fuchsia_server_dut.ble_lib.bleStopBleAdvertising()
+        self.fuchsia_server_dut.sl4f.ble_lib.bleStopBleAdvertising()
 
     # TODO: add @test_tracker_info(uuid='')
     def test_connect_reconnect_n_iterations_over_le(self):

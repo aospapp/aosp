@@ -14,15 +14,30 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "libpixelusb"
+#define LOG_TAG "libpixelusb-MonitorFfs"
 
-#include "include/pixelusb/UsbGadgetCommon.h"
+#include "include/pixelusb/MonitorFfs.h"
+
+#include <android-base/file.h>
+#include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <sys/inotify.h>
+#include <utils/Log.h>
+
+#include <chrono>
+#include <memory>
+#include <mutex>
 
 namespace android {
 namespace hardware {
 namespace google {
 namespace pixel {
 namespace usb {
+
+using ::android::base::WriteStringToFile;
+using ::std::chrono::microseconds;
+using ::std::chrono::steady_clock;
+using ::std::literals::chrono_literals::operator""ms;
 
 static volatile bool gadgetPullup;
 
@@ -62,9 +77,9 @@ MonitorFfs::MonitorFfs(const char *const gadget)
     if (addEpollFd(epollFd, eventFd) == -1)
         abort();
 
-    mEpollFd = move(epollFd);
-    mInotifyFd = move(inotifyFd);
-    mEventFd = move(eventFd);
+    mEpollFd = std::move(epollFd);
+    mInotifyFd = std::move(inotifyFd);
+    mEventFd = std::move(eventFd);
     gadgetPullup = false;
 }
 
@@ -130,8 +145,8 @@ void *MonitorFfs::startMonitorFd(void *param) {
     // notify here if the endpoints are already present.
     if (descriptorWritten) {
         usleep(kPullUpDelay);
-        if (!!WriteStringToFile(monitorFfs->mGadgetName, PULLUP_PATH)) {
-            lock_guard<mutex> lock(monitorFfs->mLock);
+        if (WriteStringToFile(monitorFfs->mGadgetName, PULLUP_PATH)) {
+            std::lock_guard<std::mutex> lock(monitorFfs->mLock);
             monitorFfs->mCurrentUsbFunctionsApplied = true;
             monitorFfs->mCallback(monitorFfs->mCurrentUsbFunctionsApplied, monitorFfs->mPayload);
             gadgetPullup = true;
@@ -157,24 +172,27 @@ void *MonitorFfs::startMonitorFd(void *param) {
                 int numRead = read(monitorFfs->mInotifyFd, buf, kBufferSize);
                 for (char *p = buf; p < buf + numRead;) {
                     struct inotify_event *event = (struct inotify_event *)p;
-                    if (kDebug)
+                    if (kDebug) {
                         displayInotifyEvent(event);
+                    }
 
                     p += sizeof(struct inotify_event) + event->len;
 
                     bool descriptorPresent = true;
                     for (int j = 0; j < static_cast<int>(monitorFfs->mEndpointList.size()); j++) {
                         if (access(monitorFfs->mEndpointList.at(j).c_str(), R_OK)) {
-                            if (kDebug)
+                            if (kDebug) {
                                 ALOGI("%s absent", monitorFfs->mEndpointList.at(j).c_str());
+                            }
                             descriptorPresent = false;
                             break;
                         }
                     }
 
                     if (!descriptorPresent && !writeUdc) {
-                        if (kDebug)
+                        if (kDebug) {
                             ALOGI("endpoints not up");
+                        }
                         writeUdc = true;
                         disconnect = std::chrono::steady_clock::now();
                     } else if (descriptorPresent && writeUdc) {
@@ -184,8 +202,8 @@ void *MonitorFfs::startMonitorFd(void *param) {
                             kPullUpDelay)
                             usleep(kPullUpDelay);
 
-                        if (!!WriteStringToFile(monitorFfs->mGadgetName, PULLUP_PATH)) {
-                            lock_guard<mutex> lock(monitorFfs->mLock);
+                        if (WriteStringToFile(monitorFfs->mGadgetName, PULLUP_PATH)) {
+                            std::lock_guard<std::mutex> lock(monitorFfs->mLock);
                             monitorFfs->mCurrentUsbFunctionsApplied = true;
                             monitorFfs->mCallback(monitorFfs->mCurrentUsbFunctionsApplied,
                                                   monitorFfs->mPayload);
@@ -211,7 +229,7 @@ void *MonitorFfs::startMonitorFd(void *param) {
 }
 
 void MonitorFfs::reset() {
-    lock_guard<mutex> lock(mLockFd);
+    std::lock_guard<std::mutex> lock(mLockFd);
     uint64_t flag = 100;
     unsigned long ret;
 
@@ -237,7 +255,7 @@ void MonitorFfs::reset() {
 }
 
 bool MonitorFfs::startMonitor() {
-    mMonitor = unique_ptr<thread>(new thread(this->startMonitorFd, this));
+    mMonitor = std::make_unique<std::thread>(this->startMonitorFd, this);
     mMonitorRunning = true;
     return true;
 }
@@ -263,8 +281,8 @@ bool MonitorFfs::waitForPullUp(int timeout_ms) {
     }
 }
 
-bool MonitorFfs::addInotifyFd(string fd) {
-    lock_guard<mutex> lock(mLockFd);
+bool MonitorFfs::addInotifyFd(std::string fd) {
+    std::lock_guard<std::mutex> lock(mLockFd);
     int wfd;
 
     wfd = inotify_add_watch(mInotifyFd, fd.c_str(), IN_ALL_EVENTS);
@@ -276,8 +294,8 @@ bool MonitorFfs::addInotifyFd(string fd) {
     return true;
 }
 
-void MonitorFfs::addEndPoint(string ep) {
-    lock_guard<mutex> lock(mLockFd);
+void MonitorFfs::addEndPoint(std::string ep) {
+    std::lock_guard<std::mutex> lock(mLockFd);
 
     mEndpointList.push_back(ep);
 }

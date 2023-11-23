@@ -39,7 +39,7 @@ int NoiseAudioSource::pull(float* buffer, int numFrames, int numChans) {
 
 extern "C" {
 JNIEXPORT jlong JNICALL
-Java_com_android_smoke_megaplayer_sources_NoiseAudioSourceProvider_native_1getNativeSource(
+Java_org_hyphonate_megaaudio_player_sources_NoiseAudioSourceProvider_allocNativeSource(
         JNIEnv *env, jobject thiz) {
     return (jlong)new NoiseAudioSource;
 }

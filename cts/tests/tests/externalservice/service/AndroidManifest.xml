@@ -50,12 +50,18 @@
         <service android:name=".ExternalService"
                  android:isolatedProcess="true"
                  android:externalService="true"
-                 android:exported="true"/>
+                 android:exported="true"
+                 android:allowSharedIsolatedProcess="true"/>
         <service android:name=".ExternalServiceWithZygote"
                  android:isolatedProcess="true"
                  android:externalService="true"
                  android:exported="true"
-                 android:useAppZygote="true"/>
+                 android:useAppZygote="true"
+                 android:allowSharedIsolatedProcess="true"/>
+        <service android:name=".ExternalServiceSharedProcessNotAllowed"
+                 android:isolatedProcess="true"
+                 android:externalService="true"
+                 android:exported="true"
+                 android:allowSharedIsolatedProcess="false"/>
     </application>
-
 </manifest>

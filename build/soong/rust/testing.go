@@ -104,6 +104,7 @@ func GatherRequiredDepsForTest() string {
 			crate_name: "std",
 			srcs: ["foo.rs"],
 			no_stdlibs: true,
+			product_available: true,
 			host_supported: true,
 			vendor_available: true,
 			vendor_ramdisk_available: true,
@@ -126,7 +127,7 @@ func GatherRequiredDepsForTest() string {
 			min_sdk_version: "29",
 		}
 		rust_library {
-			name: "libprotobuf",
+			name: "libprotobuf_deprecated",
 			crate_name: "protobuf",
 			srcs: ["foo.rs"],
 			host_supported: true,
@@ -194,6 +195,7 @@ func registerRequiredBuildComponentsForTest(ctx android.RegistrationContext) {
 		ctx.BottomUp("rust_begin", BeginMutator).Parallel()
 	})
 	ctx.RegisterSingletonType("rust_project_generator", rustProjectGeneratorSingleton)
+	ctx.RegisterSingletonType("kythe_rust_extract", kytheExtractRustFactory)
 	ctx.PostDepsMutators(func(ctx android.RegisterMutatorsContext) {
 		ctx.BottomUp("rust_sanitizers", rustSanitizerRuntimeMutator).Parallel()
 	})

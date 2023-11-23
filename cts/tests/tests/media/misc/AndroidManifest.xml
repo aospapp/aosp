@@ -50,17 +50,6 @@
         <uses-library android:name="android.test.runner"/>
         <uses-library android:name="org.apache.http.legacy"
              android:required="false"/>
-
-        <activity android:name="android.media.misc.cts.MediaSessionTestActivity"
-             android:label="MediaSessionTestActivity"
-             android:screenOrientation="nosensor"
-             android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.FRAMEWORK_INSTRUMENTATION_TEST"/>
-            </intent-filter>
-        </activity>
         <activity android:name="android.media.misc.cts.FaceDetectorStub"
              android:label="FaceDetectorStub"/>
         <activity android:name="android.media.misc.cts.ResourceManagerStubActivity"
@@ -79,34 +68,15 @@
              android:label="ResourceManagerTestActivity2"
              android:process=":mediaCodecTestProcess2">
         </activity>
+        <activity android:name="android.media.misc.cts.ResourceManagerCodecActivity"
+             android:label="ResourceManagerCodecActivity"
+             android:process=":mediaCodecTestProcess3">
+        </activity>
+        <activity android:name="android.media.misc.cts.ResourceManagerRecorderActivity"
+             android:label="ResourceManagerRecorderActivity"
+             android:process=":mediaCodecTestProcess4">
+        </activity>
         <activity android:name="android.media.misc.cts.MockActivity"/>
-        <activity android:name="android.media.misc.cts.MediaRouter2TestActivity"/>
-        <service android:name="android.media.misc.cts.StubMediaBrowserService"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.media.browse.MediaBrowserService"/>
-            </intent-filter>
-        </service>
-        <service android:name="android.media.misc.cts.StubMediaSession2Service"
-             android:permission="android.media.misc.cts"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.media.MediaSession2Service"/>
-            </intent-filter>
-        </service>
-        <service android:name=".StubMediaRoute2ProviderService"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.media.MediaRoute2ProviderService"/>
-            </intent-filter>
-        </service>
-        <service android:name="android.media.misc.cts.MediaButtonReceiverService"
-             android:exported="true"/>
-        <service android:name=".MediaBrowserServiceTestService"
-             android:process=":mediaBrowserServiceTestService"/>
-        <service android:name=".MediaSessionTestService"
-             android:process=":mediaSessionTestService"/>
-        <receiver android:name="android.media.misc.cts.MediaButtonBroadcastReceiver"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

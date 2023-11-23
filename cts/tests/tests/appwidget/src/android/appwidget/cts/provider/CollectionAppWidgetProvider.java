@@ -105,9 +105,9 @@ public class CollectionAppWidgetProvider  extends AppWidgetProvider {
         // cannot setup their own pending intents, instead, the collection as a whole can
         // setup a pending intent template, and the individual items can set a fillInIntent
         // to create unique before on an item to item basis.
-        Intent viewIntent = new Intent(BROADCAST_ACTION);
+        Intent viewIntent = new Intent(BROADCAST_ACTION).setPackage(context.getPackageName());
         PendingIntent pendingIntent = PendingIntent.getBroadcast(context, 0, viewIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 
         widgetAdapterView.setPendingIntentTemplate(R.id.remoteViews_stack, pendingIntent);
 

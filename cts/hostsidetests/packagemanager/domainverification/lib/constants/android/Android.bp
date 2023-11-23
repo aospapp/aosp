@@ -20,6 +20,7 @@ android_library {
     name: "CtsDomainVerificationAndroidConstantsLibrary",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.kt"],
+    min_sdk_version: "31",
     static_libs: [
         "androidx.test.ext.junit",
         "androidx.test.rules",

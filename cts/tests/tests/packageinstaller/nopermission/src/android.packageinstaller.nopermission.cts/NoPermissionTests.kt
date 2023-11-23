@@ -20,33 +20,26 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.PackageManager;
 import android.content.pm.PackageInstaller
 import android.content.pm.PackageInstaller.EXTRA_STATUS
 import android.content.pm.PackageInstaller.STATUS_FAILURE_INVALID
 import android.os.Build
 import android.platform.test.annotations.AppModeFull
-import androidx.test.InstrumentationRegistry
-import androidx.test.filters.MediumTest
-import androidx.test.runner.AndroidJUnit4
 import android.support.test.uiautomator.By
 import android.support.test.uiautomator.UiDevice
 import android.support.test.uiautomator.Until
 import androidx.core.content.FileProvider
+import androidx.test.InstrumentationRegistry
+import androidx.test.filters.MediumTest
+import androidx.test.runner.AndroidJUnit4
+import java.io.File
+import java.lang.IllegalArgumentException
 import org.junit.After
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.junit.runners.model.Statement
-import org.junit.runner.Description
-import org.junit.Rule
-import org.junit.rules.TestRule
-import org.junit.AssumptionViolatedException
-
-import java.io.File
-import java.lang.IllegalArgumentException
 
 private const val TEST_APK_NAME = "CtsEmptyTestApp.apk"
 private const val TEST_APK_PACKAGE_NAME = "android.packageinstaller.emptytestapp.cts"
@@ -69,7 +62,6 @@ class NoPermissionTests {
     private var packageName = context.packageName
     private var apkFile = File(context.filesDir, TEST_APK_NAME)
     private var uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-    private var isWatch: Boolean = pm.hasSystemFeature(PackageManager.FEATURE_WATCH)
 
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -79,21 +71,6 @@ class NoPermissionTests {
                 val activityIntent = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                 activityIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(activityIntent)
-            }
-        }
-    }
-
-    @get:Rule
-    val testRule: TestRule = object :TestRule {
-        override fun apply(base: Statement, description: Description?)
-                = NewStatement(base)
-        inner class NewStatement(private val base: Statement) : Statement() {
-            @Throws(Throwable::class)
-            override fun evaluate() {
-                if (isWatch) {
-                    throw AssumptionViolatedException("Install/uninstall feature is not supported on WearOs");
-                }
-                base.evaluate()
             }
         }
     }
@@ -114,7 +91,7 @@ class NoPermissionTests {
     @Before
     fun registerInstallResultReceiver() {
         context.registerReceiver(receiver, IntentFilter(ACTION),
-                Context.RECEIVER_EXPORTED_UNAUDITED)
+                Context.RECEIVER_EXPORTED)
     }
 
     @Before
@@ -145,7 +122,9 @@ class NoPermissionTests {
         }
 
         // Commit session
-        val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(ACTION),
+        val pendingIntent = PendingIntent.getBroadcast(context, 0,
+                Intent(ACTION).setPackage(context.packageName)
+                        .addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
         session.commit(pendingIntent.intentSender)
     }

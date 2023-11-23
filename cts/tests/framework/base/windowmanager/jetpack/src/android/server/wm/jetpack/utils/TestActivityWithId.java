@@ -16,7 +16,7 @@
 
 package android.server.wm.jetpack.utils;
 
-import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.ACTIVITY_ID_LABEL;
+import static android.server.wm.jetpack.utils.TestActivityLauncher.KEY_ACTIVITY_ID;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -37,8 +37,8 @@ public class TestActivityWithId extends TestActivity {
 
         // Get ID
         Intent intent = getIntent();
-        if (intent != null && intent.hasExtra(ACTIVITY_ID_LABEL)) {
-            mId = intent.getStringExtra(ACTIVITY_ID_LABEL);
+        if (intent != null && intent.hasExtra(KEY_ACTIVITY_ID)) {
+            mId = intent.getStringExtra(KEY_ACTIVITY_ID);
         }
     }
 

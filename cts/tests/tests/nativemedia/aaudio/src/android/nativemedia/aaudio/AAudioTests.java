@@ -16,10 +16,34 @@
 
 package android.nativemedia.aaudio;
 
-import org.junit.runner.RunWith;
+import android.media.AudioDeviceInfo;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.os.IBinder;
+import android.os.ServiceManager;
+
 import com.android.gtestrunner.GtestRunner;
 import com.android.gtestrunner.TargetLibrary;
 
+import org.junit.runner.RunWith;
+
+import java.util.Arrays;
+
 @RunWith(GtestRunner.class)
 @TargetLibrary("nativeaaudiotest")
-public class AAudioTests {}
+public class AAudioTests {
+    static IBinder getAudioFlinger() {
+        return ServiceManager.getService("media.audio_flinger");
+    }
+
+    static boolean isIEC61937Supported() {
+        AudioDeviceInfo[] devices = AudioManager.getDevicesStatic(AudioManager.GET_DEVICES_OUTPUTS);
+        for (AudioDeviceInfo device : devices) {
+            if (Arrays.stream(device.getEncodings()).anyMatch(
+                    encoding -> encoding == AudioFormat.ENCODING_IEC61937)) {
+                return true;
+            }
+        }
+        return false;
+    }
+}

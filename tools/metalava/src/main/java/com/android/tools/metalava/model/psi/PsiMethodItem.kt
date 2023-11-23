@@ -110,7 +110,7 @@ open class PsiMethodItem(
 
     override fun isImplicitConstructor(): Boolean = false
 
-    override fun returnType(): TypeItem? = returnType
+    override fun returnType(): TypeItem = returnType
 
     override fun parameters(): List<PsiParameterItem> = parameters
 
@@ -316,7 +316,7 @@ open class PsiMethodItem(
         }
 
         val returnType = method.returnType()
-        sb.append(returnType?.convertTypeString(replacementMap))
+        sb.append(returnType.convertTypeString(replacementMap))
 
         sb.append(' ')
         sb.append(method.name())

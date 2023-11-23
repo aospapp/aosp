@@ -172,6 +172,18 @@ struct chreAsyncResult {
     const void *cookie;
 };
 
+/**
+ * A structure to store an event describing the end of batched events.
+ *
+ * @since v1.8
+ */
+struct chreBatchCompleteEvent {
+    //! Indicates the type of event (of type CHRE_EVENT_TYPE_*) that was batched.
+    uint16_t eventType;
+
+    //! Reserved for future use, set to 0
+    uint8_t reserved[2];
+};
 
 #ifdef __cplusplus
 }

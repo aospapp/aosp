@@ -16,6 +16,8 @@
 
 #define LOG_TAG "Checkpoint"
 #include "Checkpoint.h"
+#include "FsCrypt.h"
+#include "KeyStorage.h"
 #include "VoldUtil.h"
 #include "VolumeManager.h"
 
@@ -26,12 +28,12 @@
 #include <thread>
 #include <vector>
 
+#include <BootControlClient.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/parseint.h>
 #include <android-base/properties.h>
 #include <android-base/unique_fd.h>
-#include <android/hardware/boot/1.0/IBootControl.h>
 #include <cutils/android_reboot.h>
 #include <fcntl.h>
 #include <fs_mgr.h>
@@ -48,11 +50,7 @@ using android::base::SetProperty;
 using android::binder::Status;
 using android::fs_mgr::Fstab;
 using android::fs_mgr::ReadFstabFromFile;
-using android::hardware::hidl_string;
-using android::hardware::boot::V1_0::BoolResult;
-using android::hardware::boot::V1_0::CommandResult;
-using android::hardware::boot::V1_0::IBootControl;
-using android::hardware::boot::V1_0::Slot;
+using android::hal::BootControlClient;
 
 namespace android {
 namespace vold {
@@ -80,6 +78,18 @@ bool setBowState(std::string const& block_device, std::string const& state) {
     }
 
     return true;
+}
+
+// Do any work that was deferred until the userdata filesystem checkpoint was
+// committed.  This work involves the deletion of resources that aren't covered
+// by the userdata filesystem checkpoint, e.g. Keystore keys.
+void DoCheckpointCommittedWork() {
+    // Take the crypt lock to provide synchronization with the Binder calls that
+    // operate on key directories.
+    std::lock_guard<std::mutex> lock(VolumeManager::Instance()->getCryptLock());
+
+    DeferredCommitKeystoreKeys();
+    fscrypt_deferred_fixate_ce_keys();
 }
 
 }  // namespace
@@ -128,11 +138,10 @@ Status cp_startCheckpoint(int retry) {
     if (retry < -1) return error(EINVAL, "Retry count must be more than -1");
     std::string content = std::to_string(retry + 1);
     if (retry == -1) {
-        sp<IBootControl> module = IBootControl::getService();
+        auto module = BootControlClient::WaitForService();
         if (module) {
-            std::string suffix;
-            auto cb = [&suffix](hidl_string s) { suffix = s; };
-            if (module->getSuffix(module->getCurrentSlot(), cb).isOk()) content += " " + suffix;
+            std::string suffix = module->GetSuffix(module->GetCurrentSlot());
+            if (!suffix.empty()) content += " " + suffix;
         }
     }
     if (!android::base::WriteStringToFile(content, kMetadataCPFile))
@@ -143,6 +152,7 @@ Status cp_startCheckpoint(int retry) {
 namespace {
 
 volatile bool isCheckpointing = false;
+volatile bool isBow = true;
 
 volatile bool needsCheckpointWasCalled = false;
 
@@ -162,10 +172,9 @@ Status cp_commitChanges() {
             << "NOT COMMITTING CHECKPOINT BECAUSE persist.vold.dont_commit_checkpoint IS 1";
         return Status::ok();
     }
-    sp<IBootControl> module = IBootControl::getService();
+    auto module = BootControlClient::WaitForService();
     if (module) {
-        CommandResult cr;
-        module->markBootSuccessful([&cr](CommandResult result) { cr = result; });
+        auto cr = module->MarkBootSuccessful();
         if (!cr.success)
             return error(EINVAL, "Error marking booted successfully: " + std::string(cr.errMsg));
         LOG(INFO) << "Marked slot as booted successfully.";
@@ -173,6 +182,8 @@ Status cp_commitChanges() {
         if (!SetProperty("ota.warm_reset", "0")) {
             LOG(WARNING) << "Failed to reset the warm reset flag";
         }
+    } else {
+        LOG(ERROR) << "Failed to get BootControl HAL, not marking slot as successful.";
     }
     // Must take action for list of mounted checkpointed things here
     // To do this, we walk the list of mounted file systems.
@@ -198,7 +209,7 @@ Status cp_commitChanges() {
                     return error(EINVAL, "Failed to remount");
                 }
             }
-        } else if (fstab_rec->fs_mgr_flags.checkpoint_blk) {
+        } else if (fstab_rec->fs_mgr_flags.checkpoint_blk && isBow) {
             if (!setBowState(mount_rec.blk_device, "2"))
                 return error(EINVAL, "Failed to set bow state");
         }
@@ -209,6 +220,7 @@ Status cp_commitChanges() {
     if (!android::base::RemoveFileIfExists(kMetadataCPFile, &err_str))
         return error(err_str.c_str());
 
+    std::thread(DoCheckpointCommittedWork).detach();
     return Status::ok();
 }
 
@@ -254,12 +266,11 @@ bool cp_needsRollback() {
         if (content == "0") return true;
         if (content.substr(0, 3) == "-1 ") {
             std::string oldSuffix = content.substr(3);
-            sp<IBootControl> module = IBootControl::getService();
+            auto module = BootControlClient::WaitForService();
             std::string newSuffix;
 
             if (module) {
-                auto cb = [&newSuffix](hidl_string s) { newSuffix = s; };
-                module->getSuffix(module->getCurrentSlot(), cb);
+                newSuffix = module->GetSuffix(module->GetCurrentSlot());
                 if (oldSuffix == newSuffix) return true;
             }
         }
@@ -276,11 +287,11 @@ bool cp_needsCheckpoint() {
 
     bool ret;
     std::string content;
-    sp<IBootControl> module = IBootControl::getService();
+    auto module = BootControlClient::WaitForService();
 
     if (isCheckpointing) return isCheckpointing;
-
-    if (module && module->isSlotMarkedSuccessful(module->getCurrentSlot()) == BoolResult::FALSE) {
+    // In case of INVALID slot or other failures, we do not perform checkpoint.
+    if (module && !module->IsSlotMarkedSuccessful(module->GetCurrentSlot()).value_or(true)) {
         isCheckpointing = true;
         return true;
     }
@@ -386,7 +397,7 @@ Status cp_prepareCheckpoint() {
             LOG(INFO) << "Trimmed " << range.len << " bytes on " << mount_rec.mount_point << " in "
                       << nanoseconds_to_milliseconds(time) << "ms for checkpoint";
 
-            setBowState(mount_rec.blk_device, "1");
+            isBow &= setBowState(mount_rec.blk_device, "1");
         }
         if (fstab_rec->fs_mgr_flags.checkpoint_blk || fstab_rec->fs_mgr_flags.checkpoint_fs) {
             std::thread(cp_healthDaemon, std::string(mount_rec.mount_point),
@@ -586,21 +597,31 @@ void restoreSector(int device_fd, Used_Sectors& used_sectors, std::vector<char>&
 
 // Read from the device
 // If we are validating, the read occurs as though the relocations had happened
+// returns the amount asked for or an empty buffer on error. Partial reads are considered a failure
 std::vector<char> relocatedRead(int device_fd, Relocations const& relocations, bool validating,
                                 sector_t sector, uint32_t size, uint32_t block_size) {
     if (!validating) {
         std::vector<char> buffer(size);
-        lseek64(device_fd, sector * kSectorSize, SEEK_SET);
-        read(device_fd, &buffer[0], size);
+        off64_t offset = sector * kSectorSize;
+        if (lseek64(device_fd, offset, SEEK_SET) != offset) {
+            return std::vector<char>();
+        }
+        if (read(device_fd, &buffer[0], size) != static_cast<ssize_t>(size)) {
+            return std::vector<char>();
+        }
         return buffer;
     }
 
     std::vector<char> buffer(size);
     for (uint32_t i = 0; i < size; i += block_size, sector += block_size / kSectorSize) {
         auto relocation = --relocations.upper_bound(sector);
-        lseek64(device_fd, (sector + relocation->second - relocation->first) * kSectorSize,
-                SEEK_SET);
-        read(device_fd, &buffer[i], block_size);
+        off64_t offset = (sector + relocation->second - relocation->first) * kSectorSize;
+        if (lseek64(device_fd, offset, SEEK_SET) != offset) {
+            return std::vector<char>();
+        }
+        if (read(device_fd, &buffer[i], block_size) != static_cast<ssize_t>(block_size)) {
+            return std::vector<char>();
+        }
     }
 
     return buffer;
@@ -623,7 +644,10 @@ Status cp_restoreCheckpoint(const std::string& blockDevice, int restore_limit) {
         if (device_fd < 0) return error("Cannot open " + blockDevice);
 
         log_sector_v1_0 original_ls;
-        read(device_fd, reinterpret_cast<char*>(&original_ls), sizeof(original_ls));
+        if (read(device_fd, reinterpret_cast<char*>(&original_ls), sizeof(original_ls)) !=
+            sizeof(original_ls)) {
+            return error(EINVAL, "Cannot read sector");
+        }
         if (original_ls.magic == kPartialRestoreMagic) {
             validating = false;
             action = "Restoring";
@@ -631,11 +655,19 @@ Status cp_restoreCheckpoint(const std::string& blockDevice, int restore_limit) {
             return error(EINVAL, "No magic");
         }
 
+        if (original_ls.block_size < sizeof(log_sector_v1_0)) {
+            return error(EINVAL, "Block size is invalid");
+        }
+
         LOG(INFO) << action << " " << original_ls.sequence << " log sectors";
 
         for (int sequence = original_ls.sequence; sequence >= 0 && status.isOk(); sequence--) {
             auto ls_buffer = relocatedRead(device_fd, relocations, validating, 0,
                                            original_ls.block_size, original_ls.block_size);
+            if (ls_buffer.size() != original_ls.block_size) {
+                status = error(EINVAL, "Failed to read log sector");
+                break;
+            }
             log_sector_v1_0& ls = *reinterpret_cast<log_sector_v1_0*>(&ls_buffer[0]);
 
             Used_Sectors used_sectors;
@@ -657,6 +689,14 @@ Status cp_restoreCheckpoint(const std::string& blockDevice, int restore_limit) {
                 break;
             }
 
+            if (ls.header_size < sizeof(log_sector_v1_0) || ls.header_size > ls.block_size) {
+                status = error(EINVAL, "Log sector header size is invalid");
+                break;
+            }
+            if (ls.count < 1 || ls.count > (ls.block_size - ls.header_size) / sizeof(log_entry)) {
+                status = error(EINVAL, "Log sector count is invalid");
+                break;
+            }
             LOG(INFO) << action << " from log sector " << ls.sequence;
             for (log_entry* le =
                      reinterpret_cast<log_entry*>(&ls_buffer[ls.header_size]) + ls.count - 1;
@@ -666,8 +706,16 @@ Status cp_restoreCheckpoint(const std::string& blockDevice, int restore_limit) {
                              << " to " << le->source << " with checksum " << std::hex
                              << le->checksum;
 
+                if (ls.block_size > UINT_MAX - le->size || le->size < ls.block_size) {
+                    status = error(EINVAL, "log entry is invalid");
+                    break;
+                }
                 auto buffer = relocatedRead(device_fd, relocations, validating, le->dest, le->size,
                                             ls.block_size);
+                if (buffer.size() != le->size) {
+                    status = error(EINVAL, "Failed to read sector");
+                    break;
+                }
                 uint32_t checksum = le->source / (ls.block_size / kSectorSize);
                 for (size_t i = 0; i < le->size; i += ls.block_size) {
                     crc32(&buffer[i], ls.block_size, &checksum);
@@ -700,8 +748,17 @@ Status cp_restoreCheckpoint(const std::string& blockDevice, int restore_limit) {
             LOG(WARNING) << "Checkpoint validation failed - attempting to roll forward";
             auto buffer = relocatedRead(device_fd, relocations, false, original_ls.sector0,
                                         original_ls.block_size, original_ls.block_size);
-            lseek64(device_fd, 0, SEEK_SET);
-            write(device_fd, &buffer[0], original_ls.block_size);
+            if (buffer.size() != original_ls.block_size) {
+                return error(EINVAL, "Failed to read original sector");
+            }
+
+            if (lseek64(device_fd, 0, SEEK_SET) != 0) {
+                return error(EINVAL, "Failed to seek to sector 0");
+            }
+            if (write(device_fd, &buffer[0], original_ls.block_size) !=
+                static_cast<ssize_t>(original_ls.block_size)) {
+                return error(EINVAL, "Failed to write original sector");
+            }
             return Status::ok();
         }
 

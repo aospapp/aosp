@@ -34,8 +34,10 @@ import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
 import com.android.cts.verifier.CtsVerifierReportLog;
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.audiolib.AudioDeviceUtils;
 
-import org.hyphonate.megaaudio.player.AudioSourceProvider;
+import org.hyphonate.megaaudio.common.BuilderBase;
+import org.hyphonate.megaaudio.common.StreamBase;
 import org.hyphonate.megaaudio.player.JavaPlayer;
 import org.hyphonate.megaaudio.player.PlayerBuilder;
 import org.hyphonate.megaaudio.player.sources.SinAudioSourceProvider;
@@ -131,13 +133,8 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
             String msg = mContext.getResources().getString(
                     R.string.audio_routingnotification_trackRoutingMsg);
             AudioDeviceInfo routedDevice = audioTrack.getRoutedDevice();
-            CharSequence deviceName = routedDevice != null ? routedDevice.getProductName() : "none";
-            mConnectedPeripheralName = deviceName.toString();
-            int deviceType = routedDevice != null ? routedDevice.getType() : -1;
-            textView.setText(msg + " - " +
-                             deviceName + " [0x" + Integer.toHexString(deviceType) + "]" +
-                             " - " + mNumRoutingNotifications);
-
+            mConnectedPeripheralName = AudioDeviceUtils.formatDeviceName(routedDevice);
+            textView.setText(msg + ": " + mConnectedPeripheralName);
             mRoutingNotificationReceived = true;
             calculatePass();
         }
@@ -151,19 +148,28 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
 
     @Override
     protected void calculatePass() {
-        getPassButton().setEnabled(mRoutingNotificationReceived || !mSupportsWiredPeripheral);
-        if (mRoutingNotificationReceived) {
-            ((TextView) findViewById(R.id.audio_routingnotification_testresult)).setText(
-                    "Test PASSES - Routing notification received");
+        getPassButton().setEnabled(isReportLogOkToPass()
+                && mRoutingNotificationReceived || !mSupportsWiredPeripheral);
+        TextView tv = ((TextView) findViewById(R.id.audio_routingnotification_testresult));
+        if (!isReportLogOkToPass()) {
+            tv.setText(getResources().getString(R.string.audio_general_reportlogtest));
+        } else if (mRoutingNotificationReceived) {
+            tv.setText("Test PASSES - Routing notification received");
         } else if (!mSupportsWiredPeripheral) {
-            ((TextView) findViewById(
-                    R.id.audio_routingnotification_testresult)).setText(
-                    "Test PASSES - No peripheral support");
+            tv.setText("Test PASSES - No peripheral support");
+        } else {
+            tv.setText("");
         }
     }
 
-    protected void storeTestResults() {
-        super.storeTestResults();
+    @Override
+    public final String getReportSectionName() {
+        return setTestNameSuffix(sCurrentDisplayMode, SECTION_OUTPUT_ROUTING);
+    }
+
+    @Override
+    public void recordTestResults() {
+        super.recordTestResults();
 
         CtsVerifierReportLog reportLog = getReportLog();
         reportLog.addValue(
@@ -171,6 +177,8 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
                 mRoutingNotificationReceived ? 1 : 0,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
+
+        reportLog.submit();
     }
 
     @Override
@@ -185,25 +193,23 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
         stopBtn = (Button) findViewById(R.id.audio_routingnotification_playStopBtn);
         stopBtn.setOnClickListener(mBtnClickListener);
 
-        enableTestButtons(false);
-
         mInfoView = (TextView) findViewById(R.id.info_text);
+
+        enableTestButtons(false);
 
         // Setup Player
         //
         // Allocate the source provider for the sort of signal we want to play
         //
-        AudioSourceProvider sourceProvider = new SinAudioSourceProvider();
+        int numExchangeFrames = StreamBase.getNumBurstFrames(BuilderBase.TYPE_NONE);
         try {
             PlayerBuilder builder = new PlayerBuilder();
-            mAudioPlayer = (JavaPlayer)builder
-                    // choose one or the other of these for a Java or an Oboe player
-                    .setPlayerType(PlayerBuilder.TYPE_JAVA)
-                    // .setPlayerType(PlayerBuilder.PLAYER_OBOE)
-                    .setSourceProvider(sourceProvider)
-                    .build();
-            //TODO - explain the choice of 96 here.
-            mAudioPlayer.setupStream(NUM_CHANNELS, SAMPLE_RATE, 96);
+            builder.setSourceProvider(new SinAudioSourceProvider())
+                .setPlayerType(PlayerBuilder.TYPE_JAVA)
+                .setChannelCount(NUM_CHANNELS)
+                .setSampleRate(SAMPLE_RATE)
+                .setNumExchangeFrames(numExchangeFrames);
+            mAudioPlayer = (JavaPlayer) builder.build();
         } catch (PlayerBuilder.BadStateException ex) {
             Log.e(TAG, "Failed MegaPlayer build.");
         }
@@ -216,11 +222,6 @@ public class AudioOutputRoutingNotificationsActivity extends AudioWiredDeviceBas
                 R.string.audio_output_routingnotification_instructions, -1);
         setPassFailButtonClickListeners();
         getPassButton().setEnabled(false);
-    }
-
-    @Override
-    public final String getReportSectionName() {
-        return setTestNameSuffix(sCurrentDisplayMode, SECTION_OUTPUT_ROUTING);
     }
 
     @Override

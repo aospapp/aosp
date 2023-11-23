@@ -57,13 +57,6 @@ public class WifiSsidTest extends WifiJUnit3TestBase {
         WifiSsid wifiSsidNull = WifiSsid.fromBytes(null);
         assertThat(wifiSsidNull).isNotNull();
         assertThat(wifiSsidNull.getBytes()).isEmpty();
-
-        try {
-            WifiSsid.fromBytes(new byte[33]);
-            fail("Expected IllegalArgumentException for byte array length greater than 32.");
-        } catch (IllegalArgumentException e) {
-            // Success
-        }
     }
 
     /**

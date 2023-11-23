@@ -24,6 +24,7 @@ import static android.net.NetworkCapabilities.NET_CAPABILITY_NOT_RESTRICTED;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PAID;
 import static android.net.NetworkCapabilities.NET_CAPABILITY_OEM_PRIVATE;
 import static android.net.NetworkCapabilities.TRANSPORT_WIFI;
+import static android.net.wifi.WifiManager.STATUS_LOCAL_ONLY_CONNECTION_FAILURE_UNKNOWN;
 import static android.os.Process.myUid;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -64,13 +65,16 @@ import com.android.compatibility.common.util.PollingCheck;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class to hold helper methods that are repeated across wifi CTS tests.
@@ -88,6 +92,7 @@ public class TestHelper {
     private static final int DURATION_SCREEN_TOGGLE_MILLIS = 2000;
     private static final int DURATION_UI_INTERACTION_MILLIS = 25_000;
     private static final int SCAN_RETRY_CNT_TO_FIND_MATCHING_BSSID = 3;
+    private static List<ScanResult> sScanResults = null;
 
     public TestHelper(@NonNull Context context, @NonNull UiDevice uiDevice) {
         mContext = context;
@@ -136,16 +141,18 @@ public class TestHelper {
      * a) If there are more than 2 networks with the same SSID, but different credential type, then
      * this matching may pick the wrong one.
      *
-     * @param wifiManager WifiManager service
+     * @param wifiManager   WifiManager service
      * @param savedNetworks List of saved networks on the device.
      * @return List of WifiConfiguration with matching bssid.
      */
     public static List<WifiConfiguration> findMatchingSavedNetworksWithBssid(
-            @NonNull WifiManager wifiManager, @NonNull List<WifiConfiguration> savedNetworks) {
+            @NonNull WifiManager wifiManager, @NonNull List<WifiConfiguration> savedNetworks,
+            int numberOfApRequested) {
         if (savedNetworks.isEmpty()) return Collections.emptyList();
         List<WifiConfiguration> matchingNetworksWithBssids = new ArrayList<>();
         Map<Integer, List<WifiConfiguration>> networksMap =
-                findMatchingSavedNetworksWithBssidByBand(wifiManager, savedNetworks);
+                findMatchingSavedNetworksWithBssidByBand(wifiManager, savedNetworks,
+                        numberOfApRequested);
         for (List<WifiConfiguration> configs : networksMap.values()) {
             matchingNetworksWithBssids.addAll(configs);
         }
@@ -160,15 +167,18 @@ public class TestHelper {
      * a) If there are more than 2 networks with the same SSID, but different credential type, then
      * this matching may pick the wrong one.
      *
-     * @param wifiManager WifiManager service
+     * @param wifiManager   WifiManager service
      * @param savedNetworks List of saved networks on the device.
      * @return Map from band to the list of WifiConfiguration with matching bssid.
      */
     public static Map<Integer, List<WifiConfiguration>> findMatchingSavedNetworksWithBssidByBand(
-            @NonNull WifiManager wifiManager, @NonNull List<WifiConfiguration> savedNetworks) {
+            @NonNull WifiManager wifiManager, @NonNull List<WifiConfiguration> savedNetworks,
+            int numberOfApRequested) {
         if (savedNetworks.isEmpty()) return Collections.emptyMap();
+        Set<String> bssidSet = new HashSet<>();
         Map<Integer, List<WifiConfiguration>> matchingNetworksWithBssids = new ArrayMap<>();
         for (int i = 0; i < SCAN_RETRY_CNT_TO_FIND_MATCHING_BSSID; i++) {
+            int count = 0;
             // Trigger a scan to get fresh scan results.
             TestScanResultsCallback scanResultsCallback = new TestScanResultsCallback();
             try {
@@ -181,9 +191,12 @@ public class TestHelper {
             } finally {
                 wifiManager.unregisterScanResultsCallback(scanResultsCallback);
             }
-            List<ScanResult> scanResults = wifiManager.getScanResults();
-            if (scanResults == null || scanResults.isEmpty()) continue;
-            for (ScanResult scanResult : scanResults) {
+            sScanResults = wifiManager.getScanResults();
+            if (sScanResults == null || sScanResults.isEmpty()) continue;
+            for (ScanResult scanResult : sScanResults) {
+                if (bssidSet.contains(scanResult.BSSID)) {
+                    continue;
+                }
                 WifiConfiguration matchingNetwork = savedNetworks.stream()
                         .filter(network -> TextUtils.equals(
                                 scanResult.SSID, WifiInfo.sanitizeSsid(network.SSID)))
@@ -193,16 +206,15 @@ public class TestHelper {
                     // make a copy in case we have 2 bssid's for the same network.
                     WifiConfiguration matchingNetworkCopy = new WifiConfiguration(matchingNetwork);
                     matchingNetworkCopy.BSSID = scanResult.BSSID;
-                    List<WifiConfiguration> bandConfigs = matchingNetworksWithBssids.get(
-                            scanResult.getBand());
-                    if (bandConfigs == null) {
-                        bandConfigs = new ArrayList<>();
-                        matchingNetworksWithBssids.put(scanResult.getBand(), bandConfigs);
-                    }
+                    bssidSet.add(scanResult.BSSID);
+                    List<WifiConfiguration> bandConfigs =
+                            matchingNetworksWithBssids.computeIfAbsent(
+                                    scanResult.getBand(), k -> new ArrayList<>());
                     bandConfigs.add(matchingNetworkCopy);
                 }
             }
-            if (!matchingNetworksWithBssids.isEmpty()) break;
+            if (bssidSet.size() >= numberOfApRequested
+                    && !matchingNetworksWithBssids.isEmpty()) break;
         }
         return matchingNetworksWithBssids;
     }
@@ -238,7 +250,7 @@ public class TestHelper {
      * Convert the provided saved network to a corresponding specifier builder.
      */
     public static WifiNetworkSpecifier.Builder createSpecifierBuilderWithCredentialFromSavedNetwork(
-            @NonNull WifiConfiguration network) {
+            @NonNull WifiConfiguration network, boolean useChannel) {
         WifiNetworkSpecifier.Builder specifierBuilder = new WifiNetworkSpecifier.Builder()
                 .setSsid(WifiInfo.sanitizeSsid(network.SSID));
         if (network.preSharedKey != null) {
@@ -255,6 +267,16 @@ public class TestHelper {
             fail("Unsupported security type found in saved networks");
         }
         specifierBuilder.setIsHiddenSsid(network.hiddenSSID);
+        if (sScanResults != null && useChannel) {
+            Optional<ScanResult> matchedResult = sScanResults
+                    .stream()
+                    .filter(scanResult -> TextUtils.equals(scanResult.SSID,
+                            WifiInfo.sanitizeSsid(network.SSID))
+                            && TextUtils.equals(scanResult.BSSID, network.BSSID)).findAny();
+            matchedResult.ifPresent(
+                    scanResult -> specifierBuilder.setPreferredChannelsFrequenciesMhz(
+                            new int[]{scanResult.frequency}));
+        }
         return specifierBuilder;
     }
 
@@ -264,8 +286,31 @@ public class TestHelper {
     public static WifiNetworkSpecifier.Builder
             createSpecifierBuilderWithCredentialFromSavedNetworkWithBssid(
             @NonNull WifiConfiguration network) {
-        return createSpecifierBuilderWithCredentialFromSavedNetwork(network)
+        return createSpecifierBuilderWithCredentialFromSavedNetwork(network, false)
                 .setBssid(MacAddress.fromString(network.BSSID));
+    }
+
+    private static class TestLocalOnlyListener implements WifiManager
+            .LocalOnlyConnectionFailureListener {
+        private CountDownLatch mBlocker;
+        public boolean onFailureCalled = false;
+        public int failureReason = STATUS_LOCAL_ONLY_CONNECTION_FAILURE_UNKNOWN;
+        TestLocalOnlyListener() {
+            mBlocker = new CountDownLatch(1);
+        }
+
+        @Override
+        public void onConnectionFailed(
+                @androidx.annotation.NonNull WifiNetworkSpecifier wifiNetworkSpecifier,
+                int failureReason) {
+            mBlocker.countDown();
+            onFailureCalled = true;
+        }
+
+        public boolean await(long timeout) throws Exception {
+            return mBlocker.await(timeout, TimeUnit.MILLISECONDS);
+        }
+
     }
 
     public static class TestNetworkCallback extends ConnectivityManager.NetworkCallback {
@@ -745,16 +790,20 @@ public class TestHelper {
             throws Exception {
         // File the network request & wait for the callback.
         TestNetworkCallback testNetworkCallback = createTestNetworkCallback();
-
+        TestLocalOnlyListener localOnlyListener = new TestLocalOnlyListener();
+        mWifiManager.addLocalOnlyConnectionFailureListener(Executors.newSingleThreadExecutor(),
+                localOnlyListener);
+        AtomicBoolean uiVerified = new AtomicBoolean(false);
         // Fork a thread to handle the UI interactions.
         Thread uiThread = new Thread(() -> {
             try {
                 handleUiInteractions(network, shouldUserReject);
+                uiVerified.set(true);
             } catch (Throwable e /* catch assertions & exceptions */) {
                 try {
                     mConnectivityManager.unregisterNetworkCallback(testNetworkCallback);
                 } catch (IllegalArgumentException ie) { }
-                throw e;
+                Log.e(TAG, "handleUiInteractions failed: " + e);
             }
         });
 
@@ -771,7 +820,7 @@ public class TestHelper {
             // interactions.
             Thread.sleep(1_000);
             // Start the UI interactions.
-            uiThread.run();
+            uiThread.start();
             // now wait for callback
             assertThat(testNetworkCallback.waitForAnyCallback(DURATION_NETWORK_CONNECTION_MILLIS))
                     .isTrue();
@@ -786,10 +835,13 @@ public class TestHelper {
                     // be the primary connection.
                     if (mWifiManager.isStaConcurrencyForLocalOnlyConnectionsSupported()) {
                         assertThat(wifiInfo.isPrimary()).isFalse();
+                        assertConnectionEquals(network, mWifiManager.getConnectionInfo());
                     } else {
                         assertThat(wifiInfo.isPrimary()).isTrue();
                     }
                 }
+                assertThat(localOnlyListener.await(DURATION_NETWORK_CONNECTION_MILLIS)).isFalse();
+                assertThat(localOnlyListener.onFailureCalled).isFalse();
             }
         } catch (Throwable e /* catch assertions & exceptions */) {
             try {
@@ -806,6 +858,8 @@ public class TestHelper {
             } catch (IllegalArgumentException ie) { }
             fail("UI interaction interrupted");
         }
+        assertThat(uiVerified.get()).isTrue();
+        mWifiManager.removeLocalOnlyConnectionFailureListener(localOnlyListener);
         return testNetworkCallback;
     }
 

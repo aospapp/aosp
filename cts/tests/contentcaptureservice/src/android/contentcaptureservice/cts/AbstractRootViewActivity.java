@@ -57,7 +57,7 @@ abstract class AbstractRootViewActivity extends AbstractContentCaptureActivity {
         super.onCreate(savedInstanceState);
         setContentViewOnCreate(savedInstanceState);
 
-        mRootView = findViewById(R.id.root_view);
+        mRootView = findViewById(getTargetRootView());
 
         Log.d(TAG, "onCreate(): parents for " + getClass() + ": rootView=" + mRootView
                 + "\ngrandParent=" + getGrandParent()
@@ -111,6 +111,10 @@ abstract class AbstractRootViewActivity extends AbstractContentCaptureActivity {
     @NonNull
     public ViewGroup getGrandGrandParent() {
         return (ViewGroup) getGrandParent().getParent();
+    }
+
+    protected int getTargetRootView() {
+        return R.id.root_view;
     }
 
     /**

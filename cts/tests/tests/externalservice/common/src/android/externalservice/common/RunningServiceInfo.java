@@ -16,14 +16,24 @@
 
 package android.externalservice.common;
 
+import android.os.ConditionVariable;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
+import android.os.Messenger;
 import android.os.Parcel;
 import android.os.Parcelable;
+import android.os.RemoteException;
+import android.util.Log;
 
 /**
  * A class that encapsulates information about a running service process
  * and information about how it was created.
  */
 public class RunningServiceInfo implements Parcelable {
+    /** Timeout to wait for the condition variable to be opened when retrieving service info. */
+    public static final int CONDITION_TIMEOUT = 10 * 1000 /* 10 seconds */;
+
     /** The UNIX user ID of the running service process. */
     public int uid;
 
@@ -65,5 +75,50 @@ public class RunningServiceInfo implements Parcelable {
 
     public int describeContents() {
         return 0;
+    }
+
+    public static class IdentifyHandler extends Handler {
+        private final String mLoggingTag;
+        private final ConditionVariable mCondition;
+
+        IdentifyHandler(String loggingTag, ConditionVariable signalVariable) {
+            super(Looper.getMainLooper());
+            this.mLoggingTag = loggingTag;
+            mCondition = signalVariable;
+        }
+
+        RunningServiceInfo mInfo;
+
+        @Override
+        public void handleMessage(Message msg) {
+            Log.d(mLoggingTag, "Received message: " + msg);
+            switch (msg.what) {
+                case ServiceMessages.MSG_IDENTIFY_RESPONSE:
+                    msg.getData().setClassLoader(RunningServiceInfo.class.getClassLoader());
+                    mInfo = msg.getData().getParcelable(ServiceMessages.IDENTIFY_INFO);
+                    mCondition.open();
+                    break;
+            }
+            super.handleMessage(msg);
+        }
+    };
+
+    public static RunningServiceInfo identifyService(
+            Messenger service,
+            String loggingTag,
+            ConditionVariable signalVariable) throws RemoteException {
+        IdentifyHandler handler = new IdentifyHandler(loggingTag, signalVariable);
+        Messenger local = new Messenger(handler);
+
+        Message msg = Message.obtain(null, ServiceMessages.MSG_IDENTIFY);
+        msg.replyTo = local;
+
+        signalVariable.close();
+        service.send(msg);
+
+        if (!signalVariable.block(CONDITION_TIMEOUT)) {
+            return null;
+        }
+        return handler.mInfo;
     }
 }

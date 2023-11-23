@@ -22,15 +22,22 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.app.Activity;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 import com.android.queryable.info.ClassInfo;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class ClassQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class ClassQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
     private final Queryable mQuery = null;
 
     private static final Class<?> CLASS_1 = Activity.class;
@@ -115,5 +122,40 @@ public class ClassQueryHelperTest {
         classQueryHelper.simpleName().isEqualTo(CLASS_1_SIMPLE_NAME);
 
         assertParcelsCorrectly(ClassQueryHelper.class, classQueryHelper);
+    }
+
+    @Test
+    public void classQueryHelper_queries() {
+        assertThat(
+                ClassQuery.Class().where().simpleName().isEqualTo(CLASS_1_SIMPLE_NAME)
+                        .matches(CLASS_1_CLASS_INFO)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        ClassQueryHelper<Queryable> classQueryHelper =
+                new ClassQueryHelper<>(mQuery);
+
+        assertThat(classQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasClassNameQuery_returnsFalse() {
+        ClassQueryHelper<Queryable> classQueryHelper =
+                new ClassQueryHelper<>(mQuery);
+
+        classQueryHelper.className().isNotNull();
+
+        assertThat(classQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasSimpleNameQuery_returnsFalse() {
+        ClassQueryHelper<Queryable> classQueryHelper =
+                new ClassQueryHelper<>(mQuery);
+
+        classQueryHelper.simpleName().isNotNull();
+
+        assertThat(classQueryHelper.isEmptyQuery()).isFalse();
     }
 }

@@ -23,7 +23,6 @@
 
 #include <android-base/logging.h>
 
-#include "base/arena_containers.h"
 #include "base/bit_utils_iterator.h"
 #include "base/macros.h"
 #include "dwarf/register.h"
@@ -38,7 +37,7 @@
 #include "aarch64/macro-assembler-aarch64.h"
 #pragma GCC diagnostic pop
 
-namespace art {
+namespace art HIDDEN {
 
 class Arm64InstructionSetFeatures;
 

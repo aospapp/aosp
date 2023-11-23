@@ -11,10 +11,20 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package libcore.java.nio.file;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import dalvik.system.PathClassLoader;
+
+import libcore.io.Streams;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -35,15 +45,7 @@ import java.nio.file.ProviderNotFoundException;
 import java.util.HashMap;
 import java.util.Map;
 
-import libcore.io.Streams;
-
-import dalvik.system.PathClassLoader;
 import junitparams.JUnitParamsRunner;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.fail;
 
 @RunWith(JUnitParamsRunner.class)
 public class FileSystemsTest {
@@ -184,6 +186,7 @@ public class FileSystemsTest {
         try (InputStream in = getClass().getResource("/filesystemstest.jar").openStream();
              OutputStream out = new FileOutputStream(jarFile))
         {
+            assertTrue(jarFile.setReadOnly());
             Streams.copy(in, out);
         }
 

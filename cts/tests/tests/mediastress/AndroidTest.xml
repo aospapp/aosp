@@ -19,18 +19,30 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
+        <option name="force-skip-system-props" value="true" /> <!-- avoid restarting device -->
+        <option name="set-test-harness" value="false" />
+        <option name="screen-always-on" value="on" />
+        <option name="screen-adaptive-brightness" value="off" />
+        <option name="disable-audio" value="false"/>
+        <option name="screen-saver" value="off"/>
+    </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher">
         <option name="target" value="host" />
-        <option name="config-filename" value="cts" />
-        <option name="dynamic-config-name" value="cts-dynamic-config" />
-        <option name="version" value="9.0_r1"/>
+        <option name="config-filename" value="CtsMediaStressTestCases" />
+        <option name="version" value="1.0"/>
     </target_preparer>
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.DynamicConfigPusher">
         <option name="target" value="device" />
         <option name="config-filename" value="CtsMediaStressTestCases" />
-        <option name="version" value="9.0_r1"/>
+        <option name="version" value="1.0"/>
     </target_preparer>
-    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.MediaPreparer" />
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.MediaPreparer">
+        <option name="use-legacy-folder-structure" value="false" />
+        <option name="media-folder-name" value="CtsMediaStressTestCases-1.0" />
+        <option name="dynamic-config-module" value="CtsMediaStressTestCases" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsMediaStressTestCases.apk" />

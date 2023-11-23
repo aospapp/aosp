@@ -113,6 +113,10 @@ class WifiManagerTest(WifiBaseTest):
             acts.utils.force_airplane_mode(self.dut, False),
             "Can not turn airplane mode off: %s" % self.dut.serial)
 
+        if self.dut.model in self.user_params["google_pixel_watch_models"]:
+            if wutils.get_wear_wifimediator_disable_status(self.dut):
+                wutils.disable_wear_wifimediator(self.dut, False)
+
     def teardown_class(self):
         if "AccessPoint" in self.user_params:
             del self.user_params["reference_networks"]
@@ -634,6 +638,10 @@ class WifiManagerTest(WifiBaseTest):
     def test_scan_with_wifi_off_and_location_scan_off(self):
         """Turn off wifi and location scan"""
         self.turn_location_on_and_scan_toggle_off()
+
+        if self.dut.model in self.user_params["google_pixel_watch_models"]:
+            wutils.disable_wear_wifimediator(self.dut, True)
+
         wutils.wifi_toggle_state(self.dut, False)
 
         """Test wifi connection scan should fail."""

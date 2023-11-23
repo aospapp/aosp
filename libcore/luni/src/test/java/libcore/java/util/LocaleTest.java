@@ -1732,4 +1732,11 @@ public class LocaleTest extends junit.framework.TestCase {
             Locale.lookup(languageRanges, localesOf(tags)));
     }
 
+    public void testGetIsoCountries() {
+        assertTrue(Locale.getISOCountries(Locale.IsoCountryCode.PART1_ALPHA2).contains("US"));
+        assertTrue(Locale.getISOCountries(Locale.IsoCountryCode.PART1_ALPHA3).contains("USA"));
+        // See https://en.wikipedia.org/wiki/ISO_3166-3 for details.
+        assertTrue(Locale.getISOCountries(Locale.IsoCountryCode.PART3).contains("SUHH"));
+    }
+
 }

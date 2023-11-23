@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,34 @@
 
 #pragma once
 
-#include <android/hardware/thermal/2.0/IThermal.h>
+#include <aidl/android/hardware/thermal/CoolingType.h>
+#include <aidl/android/hardware/thermal/TemperatureType.h>
+#include <aidl/android/hardware/thermal/ThrottlingSeverity.h>
+#include <json/value.h>
 
+#include <chrono>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
+#include <variant>
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
-using ::android::hardware::hidl_enum_range;
-using CoolingType_2_0 = ::android::hardware::thermal::V2_0::CoolingType;
-using TemperatureType_2_0 = ::android::hardware::thermal::V2_0::TemperatureType;
-using ::android::hardware::thermal::V2_0::ThrottlingSeverity;
-constexpr size_t kThrottlingSeverityCount = std::distance(
-        hidl_enum_range<ThrottlingSeverity>().begin(), hidl_enum_range<ThrottlingSeverity>().end());
+constexpr size_t kThrottlingSeverityCount =
+        std::distance(::ndk::enum_range<ThrottlingSeverity>().begin(),
+                      ::ndk::enum_range<ThrottlingSeverity>().end());
 using ThrottlingArray = std::array<float, static_cast<size_t>(kThrottlingSeverityCount)>;
 using CdevArray = std::array<int, static_cast<size_t>(kThrottlingSeverityCount)>;
 constexpr std::chrono::milliseconds kMinPollIntervalMs = std::chrono::milliseconds(2000);
 constexpr std::chrono::milliseconds kUeventPollTimeoutMs = std::chrono::milliseconds(300000);
+// Max number of time_in_state buckets is 20 in atoms
+// VendorSensorCoolingDeviceStats, VendorTempResidencyStats
+constexpr int kMaxStatsResidencyCount = 20;
+constexpr int kMaxStatsThresholdCount = kMaxStatsResidencyCount - 1;
 
 enum FormulaOption : uint32_t {
     COUNT_THRESHOLD = 0,
@@ -45,11 +52,55 @@ enum FormulaOption : uint32_t {
     MINIMUM,
 };
 
+template <typename T>
+struct ThresholdList {
+    std::optional<std::string> logging_name;
+    std::vector<T> thresholds;
+    explicit ThresholdList(std::optional<std::string> logging_name, std::vector<T> thresholds)
+        : logging_name(logging_name), thresholds(thresholds) {}
+
+    ThresholdList() = default;
+    ThresholdList(const ThresholdList &) = default;
+    ThresholdList &operator=(const ThresholdList &) = default;
+    ThresholdList(ThresholdList &&) = default;
+    ThresholdList &operator=(ThresholdList &&) = default;
+    ~ThresholdList() = default;
+};
+
+template <typename T>
+struct StatsInfo {
+    // if bool, record all or none depending on flag
+    // if set, check name present in set
+    std::variant<bool, std::unordered_set<std::string> >
+            record_by_default_threshold_all_or_name_set_;
+    // map name to list of thresholds
+    std::unordered_map<std::string, std::vector<ThresholdList<T> > > record_by_threshold;
+    void clear() {
+        record_by_default_threshold_all_or_name_set_ = false;
+        record_by_threshold.clear();
+    }
+};
+
+struct StatsConfig {
+    StatsInfo<float> sensor_stats_info;
+    StatsInfo<int> cooling_device_request_info;
+    void clear() {
+        sensor_stats_info.clear();
+        cooling_device_request_info.clear();
+    }
+};
+
+enum SensorFusionType : uint32_t {
+    SENSOR = 0,
+    ODPM,
+};
+
 struct VirtualSensorInfo {
     std::vector<std::string> linked_sensors;
+    std::vector<SensorFusionType> linked_sensors_type;
     std::vector<float> coefficients;
     float offset;
-    std::string trigger_sensor;
+    std::vector<std::string> trigger_sensors;
     FormulaOption formula;
 };
 
@@ -102,7 +153,7 @@ struct ThrottlingInfo {
 };
 
 struct SensorInfo {
-    TemperatureType_2_0 type;
+    TemperatureType type;
     ThrottlingArray hot_thresholds;
     ThrottlingArray cold_thresholds;
     ThrottlingArray hot_hysteresis;
@@ -122,7 +173,7 @@ struct SensorInfo {
 };
 
 struct CdevInfo {
-    CoolingType_2_0 type;
+    CoolingType type;
     std::string read_path;
     std::string write_path;
     std::vector<float> state2power;
@@ -136,15 +187,19 @@ struct PowerRailInfo {
     std::unique_ptr<VirtualPowerRailInfo> virtual_power_rail_info;
 };
 
-bool ParseSensorInfo(std::string_view config_path,
+bool ParseThermalConfig(std::string_view config_path, Json::Value *config);
+bool ParseSensorInfo(const Json::Value &config,
                      std::unordered_map<std::string, SensorInfo> *sensors_parsed);
-bool ParseCoolingDevice(std::string_view config_path,
+bool ParseCoolingDevice(const Json::Value &config,
                         std::unordered_map<std::string, CdevInfo> *cooling_device_parsed);
-bool ParsePowerRailInfo(std::string_view config_path,
+bool ParsePowerRailInfo(const Json::Value &config,
                         std::unordered_map<std::string, PowerRailInfo> *power_rail_parsed);
-
+bool ParseStatsConfig(const Json::Value &config,
+                      const std::unordered_map<std::string, SensorInfo> &sensor_info_map_,
+                      const std::unordered_map<std::string, CdevInfo> &cooling_device_info_map_,
+                      StatsConfig *stats_config);
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

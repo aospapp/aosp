@@ -18,6 +18,7 @@
           package="com.android.cts.forcestophelper" >
 
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"
                      android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
@@ -26,7 +27,10 @@
         <activity android:name=".RecentTaskActivity"
                   android:exported="true" />
         <service android:name=".TaskRemovedListenerService"
-                 android:stopWithTask="false"/>
+                 android:foregroundServiceType="specialUse"
+                 android:stopWithTask="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
+        </service>
         <receiver android:name=".AlarmReceiver"
                   android:exported="true" />
     </application>

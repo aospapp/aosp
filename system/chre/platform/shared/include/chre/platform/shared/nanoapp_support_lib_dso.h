@@ -28,8 +28,9 @@
  * compiling external/dynamic nanoapps.
  */
 
-#include <chre.h>
 #include <stdint.h>
+
+#include "chre_api/chre.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,6 +42,10 @@ extern "C" {
 //! The minor version in the nanoapp info structure to determine which fields
 //! are available to support backwards compatibility.
 #define CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION UINT8_C(3)
+
+//! Explicit definition of nanoapp info structure minor version three (3),
+//! can be used to determine if a nanoapp supports app permissions declaration
+#define CHRE_NSL_NANOAPP_INFO_STRUCT_MINOR_VERSION_3 UINT8_C(3)
 
 //! The symbol name expected from the nanoapp's definition of its info struct
 #define CHRE_NSL_DSO_NANOAPP_INFO_SYMBOL_NAME "_chreNslDsoNanoappInfo"
@@ -128,6 +133,13 @@ struct chreNslNanoappInfo {
   //! @since minor version 3
   uint32_t appPermissions;
 };
+
+/**
+ * Get the Chre Nsl Nanoapp Info object
+ *
+ * @return struct chreNslNanoappInfo
+ */
+const struct chreNslNanoappInfo *getChreNslDsoNanoappInfo();
 
 /**
  * Defined as a placeholder to enable future functionality extension.

@@ -159,7 +159,12 @@ class RoleShellCommandTest {
     }
 
     private fun getRoleHolders(): List<String> =
-        callWithShellPermissionIdentity { roleManager.getRoleHolders(ROLE_NAME) }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runShellCommandOrThrow("cmd role get-role-holders --user $userId $ROLE_NAME")
+                .trim().let { if (it.isNotEmpty()) it.split(";") else emptyList() }
+        } else {
+            callWithShellPermissionIdentity { roleManager.getRoleHolders(ROLE_NAME) }
+        }
 
     private fun assertIsRoleHolder(shouldBeRoleHolder: Boolean) {
         val packageNames = getRoleHolders()

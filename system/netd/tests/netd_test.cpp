@@ -29,6 +29,7 @@
 
 #include <gtest/gtest.h>
 
+#include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 
 #define LOG_TAG "NetdTest"
@@ -68,6 +69,32 @@ TEST(NetdSELinuxTest, CheckProperMTULabels) {
     // NOLINTNEXTLINE(cert-env33-c)
     ASSERT_EQ(W_EXITCODE(1, 0), system("ls -Z /sys/class/net/*/mtu | egrep -q -v "
                                        "'^u:object_r:sysfs_net:s0 /sys/class/net/'"));
+}
+
+static void assertBpfContext(const char* const target, const char* const label) {
+    // Use 'ls' cli utility to print the selinux context of the target directory or file.
+    // egrep -q will return 0 if it matches, ie. if the selinux context is as expected
+    std::string cmd = android::base::StringPrintf("ls -dZ %s | egrep -q '^u:object_r:%s:s0 %s$'",
+                                                  target, label, target);
+
+    // NOLINTNEXTLINE(cert-env33-c)
+    ASSERT_EQ(W_EXITCODE(0, 0), system(cmd.c_str())) << cmd << " - did not return success(0)"
+        " - is kernel missing https://android-review.googlesource.com/c/kernel/common/+/1831252"
+        " 'UPSTREAM: security: selinux: allow per-file labeling for bpffs' ?";
+}
+
+// This test will fail if kernel is missing:
+//   https://android-review.googlesource.com/c/kernel/common/+/1831252
+//   UPSTREAM: security: selinux: allow per-file labeling for bpffs
+TEST(NetdSELinuxTest, CheckProperBpfLabels) {
+    assertBpfContext("/sys/fs/bpf", "fs_bpf");
+    assertBpfContext("/sys/fs/bpf/net_private", "fs_bpf_net_private");
+    assertBpfContext("/sys/fs/bpf/net_shared", "fs_bpf_net_shared");
+    assertBpfContext("/sys/fs/bpf/netd_readonly", "fs_bpf_netd_readonly");
+    assertBpfContext("/sys/fs/bpf/netd_shared", "fs_bpf_netd_shared");
+    assertBpfContext("/sys/fs/bpf/tethering", "fs_bpf_tethering");
+    assertBpfContext("/sys/fs/bpf/vendor", "fs_bpf_vendor");
+    assertBpfContext("/sys/fs/bpf/loader", "fs_bpf_loader");
 }
 
 // Trivial thread function that simply immediately terminates successfully.

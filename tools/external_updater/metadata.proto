@@ -41,13 +41,20 @@ enum LicenseType {
   UNENCUMBERED = 7;
 }
 
+enum DirectoryType {
+  PACKAGE = 1;
+  GOOGLE_INTERNAL = 4;
+}
+
 message ThirdPartyMetaData {
   repeated URL url = 1;
   optional string version = 2;
   optional LicenseType license_type = 4;
   optional string license_note = 5;
+  optional string local_modifications = 6;
   optional Security security = 7;
   optional Date last_upgrade_date = 10;
+  optional DirectoryType type = 11 [default = PACKAGE];
 }
 
 message URL {
@@ -56,6 +63,7 @@ message URL {
     HOMEPAGE = 1;
     ARCHIVE = 2;
     GIT = 3;
+    PIPER = 4;
     SVN = 7;
     HG = 8;
     DARCS = 9;

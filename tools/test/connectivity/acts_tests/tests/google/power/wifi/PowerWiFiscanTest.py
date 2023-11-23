@@ -18,10 +18,20 @@ import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.power import PowerWiFiBaseTest as PWBT
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
+from acts_contrib.test_utils.wifi.wifi_power_test_utils import CHRE_WIFI_SCAN_TYPE
+from acts_contrib.test_utils.wifi.wifi_power_test_utils import CHRE_WIFI_RADIO_CHAIN
+from acts_contrib.test_utils.wifi.wifi_power_test_utils import CHRE_WIFI_CHANNEL_SET
 
 UNLOCK_SCREEN = 'input keyevent 82'
 LOCATION_ON = 'settings put secure location_mode 3'
-
+ENABLE_WIFI_SCANNING = 'cmd wifi enable-scanning enabled'
+DISABLE_WIFI_SCANNING = 'cmd wifi enable-scanning disabled'
+CHRE_POWER_TEST_CLIENT = 'chre_power_test_client'
+UNLOAD_ALL_CHRE_PRODUCTION_APP = CHRE_POWER_TEST_CLIENT + ' unloadall'
+LOAD_CHRE_TEST_NANOAPP = CHRE_POWER_TEST_CLIENT + ' load'
+DISABLE_CHRE_WIFI_SCAN = CHRE_POWER_TEST_CLIENT + ' wifi disable'
+CHRE_SCAN_INTERVAL = 5
+NS = 1000000000
 
 class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
     def setup_class(self):
@@ -71,6 +81,25 @@ class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
                 atten_setting = self.test_configs.wifi_band + '_roaming'
                 self.set_attenuation(self.atten_level[atten_setting])
 
+    def chre_scan_setup(self):
+        self.dut.adb.shell("cmd wifi force-country-code enabled US")
+        time.sleep(1)
+        country_code = self.dut.adb.shell("cmd wifi get-country-code")
+        if "US" in country_code:
+            self.log.info("Country-Code is set to US")
+        else:
+            self.log.warning("Country Code is : " + str(country_code))
+        self.dut.adb.shell(DISABLE_WIFI_SCANNING)
+        self.dut.adb.shell(UNLOAD_ALL_CHRE_PRODUCTION_APP)
+        self.dut.adb.shell(LOAD_CHRE_TEST_NANOAPP)
+        chre_wifi_scan_trigger_cmd = CHRE_POWER_TEST_CLIENT + ' wifi enable ' + \
+                                     str(CHRE_SCAN_INTERVAL*NS) + \
+                                     " " + CHRE_WIFI_SCAN_TYPE[self.test_configs.wifi_scan_type] + " " + \
+                                     CHRE_WIFI_RADIO_CHAIN[self.test_configs.wifi_radio_chain] + " " + \
+                                     CHRE_WIFI_CHANNEL_SET[self.test_configs.wifi_channel_set]
+        self.dut.log.info(chre_wifi_scan_trigger_cmd)
+        self.dut.adb.shell(chre_wifi_scan_trigger_cmd)
+
     def wifi_scan_test_func(self):
 
         attrs = [
@@ -93,6 +122,22 @@ class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
         time.sleep(2)
         self.scan_setup()
         self.measure_power_and_validate()
+
+    def chre_wifi_scan_test_func(self):
+        attrs = [
+            'screen_status', 'wifi_scan_type', 'wifi_radio_chain', 'wifi_channel_set'
+        ]
+        indices = [2, 6, 7, 8]
+        self.decode_test_configs(attrs, indices)
+        wutils.wifi_toggle_state(self.dut, True)
+        if self.test_configs.screen_status == 'OFF':
+            self.dut.droid.goToSleepNow()
+            self.dut.log.info('Screen is OFF')
+        time.sleep(5)
+        self.chre_scan_setup()
+        self.measure_power_and_validate()
+        self.dut.adb.shell(DISABLE_CHRE_WIFI_SCAN)
+        self.dut.adb.shell(ENABLE_WIFI_SCANNING)
 
     # Test cases
     # Power.apk triggered singleshot scans
@@ -157,3 +202,52 @@ class PowerWiFiscanTest(PWBT.PowerWiFiBaseTest):
 
         """
         self.wifi_scan_test_func()
+
+    def test_screen_OFF_CHRE_wifi_scan_activePassiveDfs_highAccuracy_all(self):
+        """
+        Trigger CHRE based scan for the following parameters :
+        wifi_scan_type : activePassiveDfs
+        wifi_radio_chain : highAccuracy
+        wifi_channel_set : all
+        """
+        self.chre_wifi_scan_test_func()
+
+
+    def test_screen_OFF_CHRE_wifi_scan_activePassiveDfs_lowLatency_all(self):
+        """
+        Trigger CHRE based scan for the following parameters :
+        wifi_scan_type : activePassiveDfs
+        wifi_radio_chain : lowLatency
+        wifi_channel_set : all
+        """
+        self.chre_wifi_scan_test_func()
+
+
+    def test_screen_OFF_CHRE_wifi_scan_noPreference_lowPower_all(self):
+        """
+        Trigger CHRE based scan for the following parameters :
+        wifi_scan_type : noPreference
+        wifi_radio_chain : lowPower
+        wifi_channel_set : all
+        """
+        self.chre_wifi_scan_test_func()
+
+
+    def test_screen_OFF_CHRE_wifi_scan_passive_lowLatency_all(self):
+        """
+        Trigger CHRE based scan for the following parameters :
+        wifi_scan_type : passive
+        wifi_radio_chain : lowLatency
+        wifi_channel_set : all
+        """
+        self.chre_wifi_scan_test_func()
+
+
+    def test_screen_OFF_CHRE_wifi_scan_passive_highAccuracy_all(self):
+        """
+        Trigger CHRE based scan for the following parameters :
+        wifi_scan_type : passive
+        wifi_radio_chain : highAccuracy
+        wifi_channel_set : all
+        """
+        self.chre_wifi_scan_test_func()

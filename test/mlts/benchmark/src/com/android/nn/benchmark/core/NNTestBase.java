@@ -26,6 +26,8 @@ import android.util.Log;
 import android.util.Pair;
 import android.widget.TextView;
 import androidx.test.InstrumentationRegistry;
+import com.android.nn.benchmark.core.sl.ArmSupportLibraryDriverHandler;
+import com.android.nn.benchmark.core.sl.MediaTekSupportLibraryDriverHandler;
 import com.android.nn.benchmark.core.sl.QualcommSupportLibraryDriverHandler;
 import com.android.nn.benchmark.core.sl.SupportLibraryDriverHandler;
 import java.io.BufferedReader;
@@ -38,6 +40,8 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.function.Supplier;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Random;
@@ -150,9 +154,11 @@ public class NNTestBase implements AutoCloseable {
     // from the library.
     private boolean mUseNnApiSupportLibrary = false;
     private boolean mExtractNnApiSupportLibrary = false;
+    private String mNnApiSupportLibraryVendor = "";
 
     static final String USE_NNAPI_SL_PROPERTY = "useNnApiSupportLibrary";
     static final String EXTRACT_NNAPI_SL_PROPERTY = "extractNnApiSupportLibrary";
+    static final String NNAPI_SL_VENDOR = "nnApiSupportLibraryVendor";
 
     private static boolean getBooleanTestParameter(String key, boolean defaultValue) {
       // All instrumentation arguments are passed as String so I have to convert the value here.
@@ -166,6 +172,10 @@ public class NNTestBase implements AutoCloseable {
 
     public static boolean shouldExtractNnApiSupportLibrary() {
         return getBooleanTestParameter(EXTRACT_NNAPI_SL_PROPERTY, false);
+    }
+
+    public static String getNnApiSupportLibraryVendor() {
+        return InstrumentationRegistry.getArguments().getString(NNAPI_SL_VENDOR);
     }
 
     public NNTestBase(String modelName, String modelFile, int[] inputShape,
@@ -210,6 +220,7 @@ public class NNTestBase implements AutoCloseable {
 
     public  void setUseNnApiSupportLibrary(boolean value) {mUseNnApiSupportLibrary = value;}
     public  void setExtractNnApiSupportLibrary(boolean value) {mExtractNnApiSupportLibrary = value;}
+    public  void setNnApiSupportLibraryVendor(String value) {mNnApiSupportLibraryVendor = value;}
 
     public void setNNApiDeviceName(String value) {
         if (mTfLiteBackend != TfLiteBackend.NNAPI) {
@@ -226,9 +237,18 @@ public class NNTestBase implements AutoCloseable {
         mContext = ipcxt;
         long nnApiLibHandle = 0;
         if (mUseNnApiSupportLibrary) {
-          // TODO: support different drivers providers maybe with a flag
-          QualcommSupportLibraryDriverHandler qcSlhandler = new QualcommSupportLibraryDriverHandler();
-          nnApiLibHandle = qcSlhandler.getOrLoadNnApiSlHandle(mContext, mExtractNnApiSupportLibrary);
+          HashMap<String, Supplier<SupportLibraryDriverHandler>> vendors = new HashMap<>();
+          vendors.put("qc", () -> new QualcommSupportLibraryDriverHandler());
+          vendors.put("arm", () -> new ArmSupportLibraryDriverHandler());
+          vendors.put("mtk", () -> new MediaTekSupportLibraryDriverHandler());
+          Supplier<SupportLibraryDriverHandler> vendor = vendors.get(mNnApiSupportLibraryVendor);
+          if (vendor == null) {
+              throw new NnApiDelegationFailure(String
+                  .format("NNAPI SL vendor is invalid '%s', expected one of %s.",
+                      mNnApiSupportLibraryVendor, vendors.keySet().toString()));
+          }
+          SupportLibraryDriverHandler slHandler = vendor.get();
+          nnApiLibHandle = slHandler.getOrLoadNnApiSlHandle(mContext, mExtractNnApiSupportLibrary);
           if (nnApiLibHandle == 0) {
             Log.e(TAG, String
                 .format("Unable to find NNAPI SL entry point '%s' in embedded libraries path.",

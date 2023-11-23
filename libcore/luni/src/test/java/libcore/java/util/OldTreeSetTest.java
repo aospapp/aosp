@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package libcore.java.util;
@@ -42,8 +42,8 @@ public class OldTreeSetTest extends junit.framework.TestCase {
                     .contains(objArray[counter]));
 
         HashMap hm = new HashMap();
-        hm.put("First", new Integer(1));
-        hm.put(new Integer(2), "two");
+        hm.put("First", Integer.valueOf(1));
+        hm.put(Integer.valueOf(2), "two");
 
         try {
             new TreeSet(hm.values());
@@ -71,14 +71,14 @@ public class OldTreeSetTest extends junit.framework.TestCase {
 
     public void test_addLjava_lang_Object() {
         // Test for method boolean java.util.TreeSet.add(java.lang.Object)
-        ts.add(new Integer(-8));
-        assertTrue("Failed to add Object", ts.contains(new Integer(-8)));
+        ts.add(Integer.valueOf(-8));
+        assertTrue("Failed to add Object", ts.contains(Integer.valueOf(-8)));
         ts.add(objArray[0]);
         assertTrue("Added existing element", ts.size() == objArray.length + 1);
 
         HashMap hm = new HashMap();
-        hm.put("First", new Integer(1));
-        hm.put(new Integer(2), "two");
+        hm.put("First", Integer.valueOf(1));
+        hm.put(Integer.valueOf(2), "two");
 
         try {
             ts.add("Wrong element");
@@ -99,8 +99,8 @@ public class OldTreeSetTest extends junit.framework.TestCase {
             assertTrue("Returned incorrect set", s.contains(i.next()));
 
         HashMap hm = new HashMap();
-        hm.put("First", new Integer(1));
-        hm.put(new Integer(2), "two");
+        hm.put("First", Integer.valueOf(1));
+        hm.put(Integer.valueOf(2), "two");
 
         try {
             s.addAll(hm.values());
@@ -134,14 +134,14 @@ public class OldTreeSetTest extends junit.framework.TestCase {
     public void test_headSetLjava_lang_Object() {
         // Test for method java.util.SortedSet
         // java.util.TreeSet.headSet(java.lang.Object)
-        Set s = ts.headSet(new Integer(100));
+        Set s = ts.headSet(Integer.valueOf(100));
         assertEquals("Returned set of incorrect size", 100, s.size());
         for (int i = 0; i < 100; i++)
             assertTrue("Returned incorrect set", s.contains(objArray[i]));
 
-        SortedSet sort = ts.headSet(new Integer(100));
+        SortedSet sort = ts.headSet(Integer.valueOf(100));
         try {
-            sort.headSet(new Integer(101));
+            sort.headSet(Integer.valueOf(101));
             fail("IllegalArgumentException expected");
         } catch (IllegalArgumentException e) {
             //expected
@@ -220,15 +220,15 @@ public class OldTreeSetTest extends junit.framework.TestCase {
     public void test_tailSetLjava_lang_Object() {
         // Test for method java.util.SortedSet
         // java.util.TreeSet.tailSet(java.lang.Object)
-        Set s = ts.tailSet(new Integer(900));
+        Set s = ts.tailSet(Integer.valueOf(900));
         assertEquals("Returned set of incorrect size", 100, s.size());
         for (int i = 900; i < objArray.length; i++)
             assertTrue("Returned incorrect set", s.contains(objArray[i]));
 
-        SortedSet sort = ts.tailSet(new Integer(101));
+        SortedSet sort = ts.tailSet(Integer.valueOf(101));
 
         try {
-            sort.tailSet(new Integer(100));
+            sort.tailSet(Integer.valueOf(100));
             fail("IllegalArgumentException expected");
         } catch (IllegalArgumentException e) {
             //expected
@@ -256,7 +256,7 @@ public class OldTreeSetTest extends junit.framework.TestCase {
     protected void setUp() {
         ts = new TreeSet();
         for (int i = 0; i < objArray.length; i++) {
-            Object x = objArray[i] = new Integer(i);
+            Object x = objArray[i] = Integer.valueOf(i);
             ts.add(x);
         }
     }

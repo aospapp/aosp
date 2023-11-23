@@ -315,7 +315,9 @@ package android.system {
     field public static final int IFA_F_DADFAILED;
     field public static final int IFA_F_DEPRECATED;
     field public static final int IFA_F_HOMEADDRESS;
+    field public static final int IFA_F_MANAGETEMPADDR;
     field public static final int IFA_F_NODAD;
+    field public static final int IFA_F_NOPREFIXROUTE;
     field public static final int IFA_F_OPTIMISTIC;
     field public static final int IFA_F_PERMANENT;
     field public static final int IFA_F_SECONDARY;
@@ -752,6 +754,16 @@ package dalvik.annotation {
 
 }
 
+package dalvik.annotation.optimization {
+
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target(java.lang.annotation.ElementType.METHOD) public @interface CriticalNative {
+  }
+
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target(java.lang.annotation.ElementType.METHOD) public @interface FastNative {
+  }
+
+}
+
 package dalvik.bytecode {
 
   public final class OpcodeInfo {
@@ -1048,6 +1060,10 @@ package dalvik.bytecode {
 
 package dalvik.system {
 
+  public final class ApplicationRuntime {
+    method @NonNull public static dalvik.system.DexFile.OptimizationInfo getBaseApkOptimizationInfo();
+  }
+
   public class BaseDexClassLoader extends java.lang.ClassLoader {
     ctor public BaseDexClassLoader(String, java.io.File, String, ClassLoader);
     method public String findLibrary(String);
@@ -1064,7 +1080,7 @@ package dalvik.system {
     ctor public DexClassLoader(String, String, String, ClassLoader);
   }
 
-  @Deprecated public final class DexFile {
+  public final class DexFile {
     ctor @Deprecated public DexFile(java.io.File) throws java.io.IOException;
     ctor @Deprecated public DexFile(String) throws java.io.IOException;
     method @Deprecated public void close() throws java.io.IOException;
@@ -1073,6 +1089,12 @@ package dalvik.system {
     method @Deprecated public static boolean isDexOptNeeded(String) throws java.io.FileNotFoundException, java.io.IOException;
     method @Deprecated public Class loadClass(String, ClassLoader);
     method @Deprecated public static dalvik.system.DexFile loadDex(String, String, int) throws java.io.IOException;
+  }
+
+  public static final class DexFile.OptimizationInfo {
+    method public boolean isFullyCompiled();
+    method public boolean isOptimized();
+    method public boolean isVerified();
   }
 
   public final class InMemoryDexClassLoader extends dalvik.system.BaseDexClassLoader {
@@ -1084,6 +1106,15 @@ package dalvik.system {
   public class PathClassLoader extends dalvik.system.BaseDexClassLoader {
     ctor public PathClassLoader(String, ClassLoader);
     ctor public PathClassLoader(String, String, ClassLoader);
+  }
+
+  public final class ZipPathValidator {
+    method public static void clearCallback();
+    method public static void setCallback(@NonNull dalvik.system.ZipPathValidator.Callback);
+  }
+
+  public static interface ZipPathValidator.Callback {
+    method public default void onZipEntryAccess(@NonNull String) throws java.util.zip.ZipException;
   }
 
 }
@@ -1664,6 +1695,7 @@ package java.io {
     method public int readNBytes(byte[], int, int) throws java.io.IOException;
     method public void reset() throws java.io.IOException;
     method public long skip(long) throws java.io.IOException;
+    method public void skipNBytes(long) throws java.io.IOException;
     method public long transferTo(java.io.OutputStream) throws java.io.IOException;
   }
 
@@ -2002,6 +2034,7 @@ package java.io {
     method protected void setError();
     method public void write(int);
     method public void write(byte[], int, int);
+    method public void writeBytes(byte[]);
   }
 
   public class PrintWriter extends java.io.Writer {
@@ -2140,6 +2173,9 @@ package java.io {
     method public int read() throws java.io.IOException;
   }
 
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.FIELD}) public @interface Serial {
+  }
+
   public interface Serializable {
   }
 
@@ -2235,7 +2271,7 @@ package java.io {
 
   public class WriteAbortedException extends java.io.ObjectStreamException {
     ctor public WriteAbortedException(String, Exception);
-    field public Exception detail;
+    field @Deprecated public Exception detail;
   }
 
   public abstract class Writer implements java.lang.Appendable java.io.Closeable java.io.Flushable {
@@ -2358,13 +2394,14 @@ package java.lang {
     method public char charAt(int);
     method @NonNull public default java.util.stream.IntStream chars();
     method @NonNull public default java.util.stream.IntStream codePoints();
+    method public static int compare(@NonNull CharSequence, @NonNull CharSequence);
     method public int length();
     method @NonNull public CharSequence subSequence(int, int);
     method @NonNull public String toString();
   }
 
   public final class Character implements java.lang.Comparable<java.lang.Character> java.io.Serializable {
-    ctor public Character(char);
+    ctor @Deprecated public Character(char);
     method public static int charCount(int);
     method public char charValue();
     method public static int codePointAt(@NonNull CharSequence, int);
@@ -2461,16 +2498,20 @@ package java.lang {
     field public static final byte DIRECTIONALITY_EUROPEAN_NUMBER = 3; // 0x3
     field public static final byte DIRECTIONALITY_EUROPEAN_NUMBER_SEPARATOR = 4; // 0x4
     field public static final byte DIRECTIONALITY_EUROPEAN_NUMBER_TERMINATOR = 5; // 0x5
+    field public static final byte DIRECTIONALITY_FIRST_STRONG_ISOLATE = 21; // 0x15
     field public static final byte DIRECTIONALITY_LEFT_TO_RIGHT = 0; // 0x0
     field public static final byte DIRECTIONALITY_LEFT_TO_RIGHT_EMBEDDING = 14; // 0xe
+    field public static final byte DIRECTIONALITY_LEFT_TO_RIGHT_ISOLATE = 19; // 0x13
     field public static final byte DIRECTIONALITY_LEFT_TO_RIGHT_OVERRIDE = 15; // 0xf
     field public static final byte DIRECTIONALITY_NONSPACING_MARK = 8; // 0x8
     field public static final byte DIRECTIONALITY_OTHER_NEUTRALS = 13; // 0xd
     field public static final byte DIRECTIONALITY_PARAGRAPH_SEPARATOR = 10; // 0xa
     field public static final byte DIRECTIONALITY_POP_DIRECTIONAL_FORMAT = 18; // 0x12
+    field public static final byte DIRECTIONALITY_POP_DIRECTIONAL_ISOLATE = 22; // 0x16
     field public static final byte DIRECTIONALITY_RIGHT_TO_LEFT = 1; // 0x1
     field public static final byte DIRECTIONALITY_RIGHT_TO_LEFT_ARABIC = 2; // 0x2
     field public static final byte DIRECTIONALITY_RIGHT_TO_LEFT_EMBEDDING = 16; // 0x10
+    field public static final byte DIRECTIONALITY_RIGHT_TO_LEFT_ISOLATE = 20; // 0x14
     field public static final byte DIRECTIONALITY_RIGHT_TO_LEFT_OVERRIDE = 17; // 0x11
     field public static final byte DIRECTIONALITY_SEGMENT_SEPARATOR = 11; // 0xb
     field public static final byte DIRECTIONALITY_UNDEFINED = -1; // 0xffffffff
@@ -2527,9 +2568,12 @@ package java.lang {
     method @NonNull public static java.lang.Character.UnicodeBlock forName(@NonNull String);
     method @Nullable public static java.lang.Character.UnicodeBlock of(char);
     method @Nullable public static java.lang.Character.UnicodeBlock of(int);
+    field public static final java.lang.Character.UnicodeBlock ADLAM;
     field public static final java.lang.Character.UnicodeBlock AEGEAN_NUMBERS;
+    field public static final java.lang.Character.UnicodeBlock AHOM;
     field public static final java.lang.Character.UnicodeBlock ALCHEMICAL_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock ALPHABETIC_PRESENTATION_FORMS;
+    field public static final java.lang.Character.UnicodeBlock ANATOLIAN_HIEROGLYPHS;
     field public static final java.lang.Character.UnicodeBlock ANCIENT_GREEK_MUSICAL_NOTATION;
     field public static final java.lang.Character.UnicodeBlock ANCIENT_GREEK_NUMBERS;
     field public static final java.lang.Character.UnicodeBlock ANCIENT_SYMBOLS;
@@ -2546,8 +2590,10 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock BAMUM;
     field public static final java.lang.Character.UnicodeBlock BAMUM_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock BASIC_LATIN;
+    field public static final java.lang.Character.UnicodeBlock BASSA_VAH;
     field public static final java.lang.Character.UnicodeBlock BATAK;
     field public static final java.lang.Character.UnicodeBlock BENGALI;
+    field public static final java.lang.Character.UnicodeBlock BHAIKSUKI;
     field public static final java.lang.Character.UnicodeBlock BLOCK_ELEMENTS;
     field public static final java.lang.Character.UnicodeBlock BOPOMOFO;
     field public static final java.lang.Character.UnicodeBlock BOPOMOFO_EXTENDED;
@@ -2558,9 +2604,13 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock BUHID;
     field public static final java.lang.Character.UnicodeBlock BYZANTINE_MUSICAL_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock CARIAN;
+    field public static final java.lang.Character.UnicodeBlock CAUCASIAN_ALBANIAN;
     field public static final java.lang.Character.UnicodeBlock CHAKMA;
     field public static final java.lang.Character.UnicodeBlock CHAM;
     field public static final java.lang.Character.UnicodeBlock CHEROKEE;
+    field public static final java.lang.Character.UnicodeBlock CHEROKEE_SUPPLEMENT;
+    field public static final java.lang.Character.UnicodeBlock CHESS_SYMBOLS;
+    field public static final java.lang.Character.UnicodeBlock CHORASMIAN;
     field public static final java.lang.Character.UnicodeBlock CJK_COMPATIBILITY;
     field public static final java.lang.Character.UnicodeBlock CJK_COMPATIBILITY_FORMS;
     field public static final java.lang.Character.UnicodeBlock CJK_COMPATIBILITY_IDEOGRAPHS;
@@ -2573,13 +2623,18 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_B;
     field public static final java.lang.Character.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_C;
     field public static final java.lang.Character.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_D;
+    field public static final java.lang.Character.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_E;
+    field public static final java.lang.Character.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_F;
+    field public static final java.lang.Character.UnicodeBlock CJK_UNIFIED_IDEOGRAPHS_EXTENSION_G;
     field public static final java.lang.Character.UnicodeBlock COMBINING_DIACRITICAL_MARKS;
+    field public static final java.lang.Character.UnicodeBlock COMBINING_DIACRITICAL_MARKS_EXTENDED;
     field public static final java.lang.Character.UnicodeBlock COMBINING_DIACRITICAL_MARKS_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock COMBINING_HALF_MARKS;
     field public static final java.lang.Character.UnicodeBlock COMBINING_MARKS_FOR_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock COMMON_INDIC_NUMBER_FORMS;
     field public static final java.lang.Character.UnicodeBlock CONTROL_PICTURES;
     field public static final java.lang.Character.UnicodeBlock COPTIC;
+    field public static final java.lang.Character.UnicodeBlock COPTIC_EPACT_NUMBERS;
     field public static final java.lang.Character.UnicodeBlock COUNTING_ROD_NUMERALS;
     field public static final java.lang.Character.UnicodeBlock CUNEIFORM;
     field public static final java.lang.Character.UnicodeBlock CUNEIFORM_NUMBERS_AND_PUNCTUATION;
@@ -2588,13 +2643,21 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock CYRILLIC;
     field public static final java.lang.Character.UnicodeBlock CYRILLIC_EXTENDED_A;
     field public static final java.lang.Character.UnicodeBlock CYRILLIC_EXTENDED_B;
+    field public static final java.lang.Character.UnicodeBlock CYRILLIC_EXTENDED_C;
     field public static final java.lang.Character.UnicodeBlock CYRILLIC_SUPPLEMENTARY;
     field public static final java.lang.Character.UnicodeBlock DESERET;
     field public static final java.lang.Character.UnicodeBlock DEVANAGARI;
     field public static final java.lang.Character.UnicodeBlock DEVANAGARI_EXTENDED;
     field public static final java.lang.Character.UnicodeBlock DINGBATS;
+    field public static final java.lang.Character.UnicodeBlock DIVES_AKURU;
+    field public static final java.lang.Character.UnicodeBlock DOGRA;
     field public static final java.lang.Character.UnicodeBlock DOMINO_TILES;
+    field public static final java.lang.Character.UnicodeBlock DUPLOYAN;
+    field public static final java.lang.Character.UnicodeBlock EARLY_DYNASTIC_CUNEIFORM;
     field public static final java.lang.Character.UnicodeBlock EGYPTIAN_HIEROGLYPHS;
+    field public static final java.lang.Character.UnicodeBlock EGYPTIAN_HIEROGLYPH_FORMAT_CONTROLS;
+    field public static final java.lang.Character.UnicodeBlock ELBASAN;
+    field public static final java.lang.Character.UnicodeBlock ELYMAIC;
     field public static final java.lang.Character.UnicodeBlock EMOTICONS;
     field public static final java.lang.Character.UnicodeBlock ENCLOSED_ALPHANUMERICS;
     field public static final java.lang.Character.UnicodeBlock ENCLOSED_ALPHANUMERIC_SUPPLEMENT;
@@ -2606,13 +2669,18 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock ETHIOPIC_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock GENERAL_PUNCTUATION;
     field public static final java.lang.Character.UnicodeBlock GEOMETRIC_SHAPES;
+    field public static final java.lang.Character.UnicodeBlock GEOMETRIC_SHAPES_EXTENDED;
     field public static final java.lang.Character.UnicodeBlock GEORGIAN;
+    field public static final java.lang.Character.UnicodeBlock GEORGIAN_EXTENDED;
     field public static final java.lang.Character.UnicodeBlock GEORGIAN_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock GLAGOLITIC;
+    field public static final java.lang.Character.UnicodeBlock GLAGOLITIC_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock GOTHIC;
+    field public static final java.lang.Character.UnicodeBlock GRANTHA;
     field public static final java.lang.Character.UnicodeBlock GREEK;
     field public static final java.lang.Character.UnicodeBlock GREEK_EXTENDED;
     field public static final java.lang.Character.UnicodeBlock GUJARATI;
+    field public static final java.lang.Character.UnicodeBlock GUNJALA_GONDI;
     field public static final java.lang.Character.UnicodeBlock GURMUKHI;
     field public static final java.lang.Character.UnicodeBlock HALFWIDTH_AND_FULLWIDTH_FORMS;
     field public static final java.lang.Character.UnicodeBlock HANGUL_COMPATIBILITY_JAMO;
@@ -2620,18 +2688,23 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock HANGUL_JAMO_EXTENDED_A;
     field public static final java.lang.Character.UnicodeBlock HANGUL_JAMO_EXTENDED_B;
     field public static final java.lang.Character.UnicodeBlock HANGUL_SYLLABLES;
+    field public static final java.lang.Character.UnicodeBlock HANIFI_ROHINGYA;
     field public static final java.lang.Character.UnicodeBlock HANUNOO;
+    field public static final java.lang.Character.UnicodeBlock HATRAN;
     field public static final java.lang.Character.UnicodeBlock HEBREW;
     field public static final java.lang.Character.UnicodeBlock HIGH_PRIVATE_USE_SURROGATES;
     field public static final java.lang.Character.UnicodeBlock HIGH_SURROGATES;
     field public static final java.lang.Character.UnicodeBlock HIRAGANA;
     field public static final java.lang.Character.UnicodeBlock IDEOGRAPHIC_DESCRIPTION_CHARACTERS;
+    field public static final java.lang.Character.UnicodeBlock IDEOGRAPHIC_SYMBOLS_AND_PUNCTUATION;
     field public static final java.lang.Character.UnicodeBlock IMPERIAL_ARAMAIC;
+    field public static final java.lang.Character.UnicodeBlock INDIC_SIYAQ_NUMBERS;
     field public static final java.lang.Character.UnicodeBlock INSCRIPTIONAL_PAHLAVI;
     field public static final java.lang.Character.UnicodeBlock INSCRIPTIONAL_PARTHIAN;
     field public static final java.lang.Character.UnicodeBlock IPA_EXTENSIONS;
     field public static final java.lang.Character.UnicodeBlock JAVANESE;
     field public static final java.lang.Character.UnicodeBlock KAITHI;
+    field public static final java.lang.Character.UnicodeBlock KANA_EXTENDED_A;
     field public static final java.lang.Character.UnicodeBlock KANA_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock KANBUN;
     field public static final java.lang.Character.UnicodeBlock KANGXI_RADICALS;
@@ -2640,8 +2713,11 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock KATAKANA_PHONETIC_EXTENSIONS;
     field public static final java.lang.Character.UnicodeBlock KAYAH_LI;
     field public static final java.lang.Character.UnicodeBlock KHAROSHTHI;
+    field public static final java.lang.Character.UnicodeBlock KHITAN_SMALL_SCRIPT;
     field public static final java.lang.Character.UnicodeBlock KHMER;
     field public static final java.lang.Character.UnicodeBlock KHMER_SYMBOLS;
+    field public static final java.lang.Character.UnicodeBlock KHOJKI;
+    field public static final java.lang.Character.UnicodeBlock KHUDAWADI;
     field public static final java.lang.Character.UnicodeBlock LAO;
     field public static final java.lang.Character.UnicodeBlock LATIN_1_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock LATIN_EXTENDED_A;
@@ -2649,22 +2725,33 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock LATIN_EXTENDED_B;
     field public static final java.lang.Character.UnicodeBlock LATIN_EXTENDED_C;
     field public static final java.lang.Character.UnicodeBlock LATIN_EXTENDED_D;
+    field public static final java.lang.Character.UnicodeBlock LATIN_EXTENDED_E;
     field public static final java.lang.Character.UnicodeBlock LEPCHA;
     field public static final java.lang.Character.UnicodeBlock LETTERLIKE_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock LIMBU;
+    field public static final java.lang.Character.UnicodeBlock LINEAR_A;
     field public static final java.lang.Character.UnicodeBlock LINEAR_B_IDEOGRAMS;
     field public static final java.lang.Character.UnicodeBlock LINEAR_B_SYLLABARY;
     field public static final java.lang.Character.UnicodeBlock LISU;
+    field public static final java.lang.Character.UnicodeBlock LISU_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock LOW_SURROGATES;
     field public static final java.lang.Character.UnicodeBlock LYCIAN;
     field public static final java.lang.Character.UnicodeBlock LYDIAN;
+    field public static final java.lang.Character.UnicodeBlock MAHAJANI;
     field public static final java.lang.Character.UnicodeBlock MAHJONG_TILES;
+    field public static final java.lang.Character.UnicodeBlock MAKASAR;
     field public static final java.lang.Character.UnicodeBlock MALAYALAM;
     field public static final java.lang.Character.UnicodeBlock MANDAIC;
+    field public static final java.lang.Character.UnicodeBlock MANICHAEAN;
+    field public static final java.lang.Character.UnicodeBlock MARCHEN;
+    field public static final java.lang.Character.UnicodeBlock MASARAM_GONDI;
     field public static final java.lang.Character.UnicodeBlock MATHEMATICAL_ALPHANUMERIC_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock MATHEMATICAL_OPERATORS;
+    field public static final java.lang.Character.UnicodeBlock MAYAN_NUMERALS;
+    field public static final java.lang.Character.UnicodeBlock MEDEFAIDRIN;
     field public static final java.lang.Character.UnicodeBlock MEETEI_MAYEK;
     field public static final java.lang.Character.UnicodeBlock MEETEI_MAYEK_EXTENSIONS;
+    field public static final java.lang.Character.UnicodeBlock MENDE_KIKAKUI;
     field public static final java.lang.Character.UnicodeBlock MEROITIC_CURSIVE;
     field public static final java.lang.Character.UnicodeBlock MEROITIC_HIEROGLYPHS;
     field public static final java.lang.Character.UnicodeBlock MIAO;
@@ -2674,23 +2761,43 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock MISCELLANEOUS_SYMBOLS_AND_ARROWS;
     field public static final java.lang.Character.UnicodeBlock MISCELLANEOUS_SYMBOLS_AND_PICTOGRAPHS;
     field public static final java.lang.Character.UnicodeBlock MISCELLANEOUS_TECHNICAL;
+    field public static final java.lang.Character.UnicodeBlock MODI;
     field public static final java.lang.Character.UnicodeBlock MODIFIER_TONE_LETTERS;
     field public static final java.lang.Character.UnicodeBlock MONGOLIAN;
+    field public static final java.lang.Character.UnicodeBlock MONGOLIAN_SUPPLEMENT;
+    field public static final java.lang.Character.UnicodeBlock MRO;
+    field public static final java.lang.Character.UnicodeBlock MULTANI;
     field public static final java.lang.Character.UnicodeBlock MUSICAL_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock MYANMAR;
     field public static final java.lang.Character.UnicodeBlock MYANMAR_EXTENDED_A;
+    field public static final java.lang.Character.UnicodeBlock MYANMAR_EXTENDED_B;
+    field public static final java.lang.Character.UnicodeBlock NABATAEAN;
+    field public static final java.lang.Character.UnicodeBlock NANDINAGARI;
+    field public static final java.lang.Character.UnicodeBlock NEWA;
     field public static final java.lang.Character.UnicodeBlock NEW_TAI_LUE;
     field public static final java.lang.Character.UnicodeBlock NKO;
     field public static final java.lang.Character.UnicodeBlock NUMBER_FORMS;
+    field public static final java.lang.Character.UnicodeBlock NUSHU;
+    field public static final java.lang.Character.UnicodeBlock NYIAKENG_PUACHUE_HMONG;
     field public static final java.lang.Character.UnicodeBlock OGHAM;
+    field public static final java.lang.Character.UnicodeBlock OLD_HUNGARIAN;
     field public static final java.lang.Character.UnicodeBlock OLD_ITALIC;
+    field public static final java.lang.Character.UnicodeBlock OLD_NORTH_ARABIAN;
+    field public static final java.lang.Character.UnicodeBlock OLD_PERMIC;
     field public static final java.lang.Character.UnicodeBlock OLD_PERSIAN;
+    field public static final java.lang.Character.UnicodeBlock OLD_SOGDIAN;
     field public static final java.lang.Character.UnicodeBlock OLD_SOUTH_ARABIAN;
     field public static final java.lang.Character.UnicodeBlock OLD_TURKIC;
     field public static final java.lang.Character.UnicodeBlock OL_CHIKI;
     field public static final java.lang.Character.UnicodeBlock OPTICAL_CHARACTER_RECOGNITION;
     field public static final java.lang.Character.UnicodeBlock ORIYA;
+    field public static final java.lang.Character.UnicodeBlock ORNAMENTAL_DINGBATS;
+    field public static final java.lang.Character.UnicodeBlock OSAGE;
     field public static final java.lang.Character.UnicodeBlock OSMANYA;
+    field public static final java.lang.Character.UnicodeBlock OTTOMAN_SIYAQ_NUMBERS;
+    field public static final java.lang.Character.UnicodeBlock PAHAWH_HMONG;
+    field public static final java.lang.Character.UnicodeBlock PALMYRENE;
+    field public static final java.lang.Character.UnicodeBlock PAU_CIN_HAU;
     field public static final java.lang.Character.UnicodeBlock PHAGS_PA;
     field public static final java.lang.Character.UnicodeBlock PHAISTOS_DISC;
     field public static final java.lang.Character.UnicodeBlock PHOENICIAN;
@@ -2698,6 +2805,7 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock PHONETIC_EXTENSIONS_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock PLAYING_CARDS;
     field public static final java.lang.Character.UnicodeBlock PRIVATE_USE_AREA;
+    field public static final java.lang.Character.UnicodeBlock PSALTER_PAHLAVI;
     field public static final java.lang.Character.UnicodeBlock REJANG;
     field public static final java.lang.Character.UnicodeBlock RUMI_NUMERAL_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock RUNIC;
@@ -2705,9 +2813,15 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock SAURASHTRA;
     field public static final java.lang.Character.UnicodeBlock SHARADA;
     field public static final java.lang.Character.UnicodeBlock SHAVIAN;
+    field public static final java.lang.Character.UnicodeBlock SHORTHAND_FORMAT_CONTROLS;
+    field public static final java.lang.Character.UnicodeBlock SIDDHAM;
     field public static final java.lang.Character.UnicodeBlock SINHALA;
+    field public static final java.lang.Character.UnicodeBlock SINHALA_ARCHAIC_NUMBERS;
     field public static final java.lang.Character.UnicodeBlock SMALL_FORM_VARIANTS;
+    field public static final java.lang.Character.UnicodeBlock SMALL_KANA_EXTENSION;
+    field public static final java.lang.Character.UnicodeBlock SOGDIAN;
     field public static final java.lang.Character.UnicodeBlock SORA_SOMPENG;
+    field public static final java.lang.Character.UnicodeBlock SOYOMBO;
     field public static final java.lang.Character.UnicodeBlock SPACING_MODIFIER_LETTERS;
     field public static final java.lang.Character.UnicodeBlock SPECIALS;
     field public static final java.lang.Character.UnicodeBlock SUNDANESE;
@@ -2715,13 +2829,19 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock SUPERSCRIPTS_AND_SUBSCRIPTS;
     field public static final java.lang.Character.UnicodeBlock SUPPLEMENTAL_ARROWS_A;
     field public static final java.lang.Character.UnicodeBlock SUPPLEMENTAL_ARROWS_B;
+    field public static final java.lang.Character.UnicodeBlock SUPPLEMENTAL_ARROWS_C;
     field public static final java.lang.Character.UnicodeBlock SUPPLEMENTAL_MATHEMATICAL_OPERATORS;
     field public static final java.lang.Character.UnicodeBlock SUPPLEMENTAL_PUNCTUATION;
+    field public static final java.lang.Character.UnicodeBlock SUPPLEMENTAL_SYMBOLS_AND_PICTOGRAPHS;
     field public static final java.lang.Character.UnicodeBlock SUPPLEMENTARY_PRIVATE_USE_AREA_A;
     field public static final java.lang.Character.UnicodeBlock SUPPLEMENTARY_PRIVATE_USE_AREA_B;
     field @Deprecated public static final java.lang.Character.UnicodeBlock SURROGATES_AREA;
+    field public static final java.lang.Character.UnicodeBlock SUTTON_SIGNWRITING;
     field public static final java.lang.Character.UnicodeBlock SYLOTI_NAGRI;
+    field public static final java.lang.Character.UnicodeBlock SYMBOLS_AND_PICTOGRAPHS_EXTENDED_A;
+    field public static final java.lang.Character.UnicodeBlock SYMBOLS_FOR_LEGACY_COMPUTING;
     field public static final java.lang.Character.UnicodeBlock SYRIAC;
+    field public static final java.lang.Character.UnicodeBlock SYRIAC_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock TAGALOG;
     field public static final java.lang.Character.UnicodeBlock TAGBANWA;
     field public static final java.lang.Character.UnicodeBlock TAGS;
@@ -2731,11 +2851,16 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock TAI_XUAN_JING_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock TAKRI;
     field public static final java.lang.Character.UnicodeBlock TAMIL;
+    field public static final java.lang.Character.UnicodeBlock TAMIL_SUPPLEMENT;
+    field public static final java.lang.Character.UnicodeBlock TANGUT;
+    field public static final java.lang.Character.UnicodeBlock TANGUT_COMPONENTS;
+    field public static final java.lang.Character.UnicodeBlock TANGUT_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock TELUGU;
     field public static final java.lang.Character.UnicodeBlock THAANA;
     field public static final java.lang.Character.UnicodeBlock THAI;
     field public static final java.lang.Character.UnicodeBlock TIBETAN;
     field public static final java.lang.Character.UnicodeBlock TIFINAGH;
+    field public static final java.lang.Character.UnicodeBlock TIRHUTA;
     field public static final java.lang.Character.UnicodeBlock TRANSPORT_AND_MAP_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock UGARITIC;
     field public static final java.lang.Character.UnicodeBlock UNIFIED_CANADIAN_ABORIGINAL_SYLLABICS;
@@ -2745,21 +2870,30 @@ package java.lang {
     field public static final java.lang.Character.UnicodeBlock VARIATION_SELECTORS_SUPPLEMENT;
     field public static final java.lang.Character.UnicodeBlock VEDIC_EXTENSIONS;
     field public static final java.lang.Character.UnicodeBlock VERTICAL_FORMS;
+    field public static final java.lang.Character.UnicodeBlock WANCHO;
+    field public static final java.lang.Character.UnicodeBlock WARANG_CITI;
+    field public static final java.lang.Character.UnicodeBlock YEZIDI;
     field public static final java.lang.Character.UnicodeBlock YIJING_HEXAGRAM_SYMBOLS;
     field public static final java.lang.Character.UnicodeBlock YI_RADICALS;
     field public static final java.lang.Character.UnicodeBlock YI_SYLLABLES;
+    field public static final java.lang.Character.UnicodeBlock ZANABAZAR_SQUARE;
   }
 
   public enum Character.UnicodeScript {
     method @NonNull public static java.lang.Character.UnicodeScript forName(@NonNull String);
     method @NonNull public static java.lang.Character.UnicodeScript of(int);
+    enum_constant public static final java.lang.Character.UnicodeScript ADLAM;
+    enum_constant public static final java.lang.Character.UnicodeScript AHOM;
+    enum_constant public static final java.lang.Character.UnicodeScript ANATOLIAN_HIEROGLYPHS;
     enum_constant public static final java.lang.Character.UnicodeScript ARABIC;
     enum_constant public static final java.lang.Character.UnicodeScript ARMENIAN;
     enum_constant public static final java.lang.Character.UnicodeScript AVESTAN;
     enum_constant public static final java.lang.Character.UnicodeScript BALINESE;
     enum_constant public static final java.lang.Character.UnicodeScript BAMUM;
+    enum_constant public static final java.lang.Character.UnicodeScript BASSA_VAH;
     enum_constant public static final java.lang.Character.UnicodeScript BATAK;
     enum_constant public static final java.lang.Character.UnicodeScript BENGALI;
+    enum_constant public static final java.lang.Character.UnicodeScript BHAIKSUKI;
     enum_constant public static final java.lang.Character.UnicodeScript BOPOMOFO;
     enum_constant public static final java.lang.Character.UnicodeScript BRAHMI;
     enum_constant public static final java.lang.Character.UnicodeScript BRAILLE;
@@ -2767,9 +2901,11 @@ package java.lang {
     enum_constant public static final java.lang.Character.UnicodeScript BUHID;
     enum_constant public static final java.lang.Character.UnicodeScript CANADIAN_ABORIGINAL;
     enum_constant public static final java.lang.Character.UnicodeScript CARIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript CAUCASIAN_ALBANIAN;
     enum_constant public static final java.lang.Character.UnicodeScript CHAKMA;
     enum_constant public static final java.lang.Character.UnicodeScript CHAM;
     enum_constant public static final java.lang.Character.UnicodeScript CHEROKEE;
+    enum_constant public static final java.lang.Character.UnicodeScript CHORASMIAN;
     enum_constant public static final java.lang.Character.UnicodeScript COMMON;
     enum_constant public static final java.lang.Character.UnicodeScript COPTIC;
     enum_constant public static final java.lang.Character.UnicodeScript CUNEIFORM;
@@ -2777,17 +2913,26 @@ package java.lang {
     enum_constant public static final java.lang.Character.UnicodeScript CYRILLIC;
     enum_constant public static final java.lang.Character.UnicodeScript DESERET;
     enum_constant public static final java.lang.Character.UnicodeScript DEVANAGARI;
+    enum_constant public static final java.lang.Character.UnicodeScript DIVES_AKURU;
+    enum_constant public static final java.lang.Character.UnicodeScript DOGRA;
+    enum_constant public static final java.lang.Character.UnicodeScript DUPLOYAN;
     enum_constant public static final java.lang.Character.UnicodeScript EGYPTIAN_HIEROGLYPHS;
+    enum_constant public static final java.lang.Character.UnicodeScript ELBASAN;
+    enum_constant public static final java.lang.Character.UnicodeScript ELYMAIC;
     enum_constant public static final java.lang.Character.UnicodeScript ETHIOPIC;
     enum_constant public static final java.lang.Character.UnicodeScript GEORGIAN;
     enum_constant public static final java.lang.Character.UnicodeScript GLAGOLITIC;
     enum_constant public static final java.lang.Character.UnicodeScript GOTHIC;
+    enum_constant public static final java.lang.Character.UnicodeScript GRANTHA;
     enum_constant public static final java.lang.Character.UnicodeScript GREEK;
     enum_constant public static final java.lang.Character.UnicodeScript GUJARATI;
+    enum_constant public static final java.lang.Character.UnicodeScript GUNJALA_GONDI;
     enum_constant public static final java.lang.Character.UnicodeScript GURMUKHI;
     enum_constant public static final java.lang.Character.UnicodeScript HAN;
     enum_constant public static final java.lang.Character.UnicodeScript HANGUL;
+    enum_constant public static final java.lang.Character.UnicodeScript HANIFI_ROHINGYA;
     enum_constant public static final java.lang.Character.UnicodeScript HANUNOO;
+    enum_constant public static final java.lang.Character.UnicodeScript HATRAN;
     enum_constant public static final java.lang.Character.UnicodeScript HEBREW;
     enum_constant public static final java.lang.Character.UnicodeScript HIRAGANA;
     enum_constant public static final java.lang.Character.UnicodeScript IMPERIAL_ARAMAIC;
@@ -2800,43 +2945,75 @@ package java.lang {
     enum_constant public static final java.lang.Character.UnicodeScript KATAKANA;
     enum_constant public static final java.lang.Character.UnicodeScript KAYAH_LI;
     enum_constant public static final java.lang.Character.UnicodeScript KHAROSHTHI;
+    enum_constant public static final java.lang.Character.UnicodeScript KHITAN_SMALL_SCRIPT;
     enum_constant public static final java.lang.Character.UnicodeScript KHMER;
+    enum_constant public static final java.lang.Character.UnicodeScript KHOJKI;
+    enum_constant public static final java.lang.Character.UnicodeScript KHUDAWADI;
     enum_constant public static final java.lang.Character.UnicodeScript LAO;
     enum_constant public static final java.lang.Character.UnicodeScript LATIN;
     enum_constant public static final java.lang.Character.UnicodeScript LEPCHA;
     enum_constant public static final java.lang.Character.UnicodeScript LIMBU;
+    enum_constant public static final java.lang.Character.UnicodeScript LINEAR_A;
     enum_constant public static final java.lang.Character.UnicodeScript LINEAR_B;
     enum_constant public static final java.lang.Character.UnicodeScript LISU;
     enum_constant public static final java.lang.Character.UnicodeScript LYCIAN;
     enum_constant public static final java.lang.Character.UnicodeScript LYDIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript MAHAJANI;
+    enum_constant public static final java.lang.Character.UnicodeScript MAKASAR;
     enum_constant public static final java.lang.Character.UnicodeScript MALAYALAM;
     enum_constant public static final java.lang.Character.UnicodeScript MANDAIC;
+    enum_constant public static final java.lang.Character.UnicodeScript MANICHAEAN;
+    enum_constant public static final java.lang.Character.UnicodeScript MARCHEN;
+    enum_constant public static final java.lang.Character.UnicodeScript MASARAM_GONDI;
+    enum_constant public static final java.lang.Character.UnicodeScript MEDEFAIDRIN;
     enum_constant public static final java.lang.Character.UnicodeScript MEETEI_MAYEK;
+    enum_constant public static final java.lang.Character.UnicodeScript MENDE_KIKAKUI;
     enum_constant public static final java.lang.Character.UnicodeScript MEROITIC_CURSIVE;
     enum_constant public static final java.lang.Character.UnicodeScript MEROITIC_HIEROGLYPHS;
     enum_constant public static final java.lang.Character.UnicodeScript MIAO;
+    enum_constant public static final java.lang.Character.UnicodeScript MODI;
     enum_constant public static final java.lang.Character.UnicodeScript MONGOLIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript MRO;
+    enum_constant public static final java.lang.Character.UnicodeScript MULTANI;
     enum_constant public static final java.lang.Character.UnicodeScript MYANMAR;
+    enum_constant public static final java.lang.Character.UnicodeScript NABATAEAN;
+    enum_constant public static final java.lang.Character.UnicodeScript NANDINAGARI;
+    enum_constant public static final java.lang.Character.UnicodeScript NEWA;
     enum_constant public static final java.lang.Character.UnicodeScript NEW_TAI_LUE;
     enum_constant public static final java.lang.Character.UnicodeScript NKO;
+    enum_constant public static final java.lang.Character.UnicodeScript NUSHU;
+    enum_constant public static final java.lang.Character.UnicodeScript NYIAKENG_PUACHUE_HMONG;
     enum_constant public static final java.lang.Character.UnicodeScript OGHAM;
+    enum_constant public static final java.lang.Character.UnicodeScript OLD_HUNGARIAN;
     enum_constant public static final java.lang.Character.UnicodeScript OLD_ITALIC;
+    enum_constant public static final java.lang.Character.UnicodeScript OLD_NORTH_ARABIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript OLD_PERMIC;
     enum_constant public static final java.lang.Character.UnicodeScript OLD_PERSIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript OLD_SOGDIAN;
     enum_constant public static final java.lang.Character.UnicodeScript OLD_SOUTH_ARABIAN;
     enum_constant public static final java.lang.Character.UnicodeScript OLD_TURKIC;
     enum_constant public static final java.lang.Character.UnicodeScript OL_CHIKI;
     enum_constant public static final java.lang.Character.UnicodeScript ORIYA;
+    enum_constant public static final java.lang.Character.UnicodeScript OSAGE;
     enum_constant public static final java.lang.Character.UnicodeScript OSMANYA;
+    enum_constant public static final java.lang.Character.UnicodeScript PAHAWH_HMONG;
+    enum_constant public static final java.lang.Character.UnicodeScript PALMYRENE;
+    enum_constant public static final java.lang.Character.UnicodeScript PAU_CIN_HAU;
     enum_constant public static final java.lang.Character.UnicodeScript PHAGS_PA;
     enum_constant public static final java.lang.Character.UnicodeScript PHOENICIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript PSALTER_PAHLAVI;
     enum_constant public static final java.lang.Character.UnicodeScript REJANG;
     enum_constant public static final java.lang.Character.UnicodeScript RUNIC;
     enum_constant public static final java.lang.Character.UnicodeScript SAMARITAN;
     enum_constant public static final java.lang.Character.UnicodeScript SAURASHTRA;
     enum_constant public static final java.lang.Character.UnicodeScript SHARADA;
     enum_constant public static final java.lang.Character.UnicodeScript SHAVIAN;
+    enum_constant public static final java.lang.Character.UnicodeScript SIDDHAM;
+    enum_constant public static final java.lang.Character.UnicodeScript SIGNWRITING;
     enum_constant public static final java.lang.Character.UnicodeScript SINHALA;
+    enum_constant public static final java.lang.Character.UnicodeScript SOGDIAN;
     enum_constant public static final java.lang.Character.UnicodeScript SORA_SOMPENG;
+    enum_constant public static final java.lang.Character.UnicodeScript SOYOMBO;
     enum_constant public static final java.lang.Character.UnicodeScript SUNDANESE;
     enum_constant public static final java.lang.Character.UnicodeScript SYLOTI_NAGRI;
     enum_constant public static final java.lang.Character.UnicodeScript SYRIAC;
@@ -2847,20 +3024,29 @@ package java.lang {
     enum_constant public static final java.lang.Character.UnicodeScript TAI_VIET;
     enum_constant public static final java.lang.Character.UnicodeScript TAKRI;
     enum_constant public static final java.lang.Character.UnicodeScript TAMIL;
+    enum_constant public static final java.lang.Character.UnicodeScript TANGUT;
     enum_constant public static final java.lang.Character.UnicodeScript TELUGU;
     enum_constant public static final java.lang.Character.UnicodeScript THAANA;
     enum_constant public static final java.lang.Character.UnicodeScript THAI;
     enum_constant public static final java.lang.Character.UnicodeScript TIBETAN;
     enum_constant public static final java.lang.Character.UnicodeScript TIFINAGH;
+    enum_constant public static final java.lang.Character.UnicodeScript TIRHUTA;
     enum_constant public static final java.lang.Character.UnicodeScript UGARITIC;
     enum_constant public static final java.lang.Character.UnicodeScript UNKNOWN;
     enum_constant public static final java.lang.Character.UnicodeScript VAI;
+    enum_constant public static final java.lang.Character.UnicodeScript WANCHO;
+    enum_constant public static final java.lang.Character.UnicodeScript WARANG_CITI;
+    enum_constant public static final java.lang.Character.UnicodeScript YEZIDI;
     enum_constant public static final java.lang.Character.UnicodeScript YI;
+    enum_constant public static final java.lang.Character.UnicodeScript ZANABAZAR_SQUARE;
   }
 
-  public final class Class<T> implements java.lang.reflect.AnnotatedElement java.lang.reflect.GenericDeclaration java.io.Serializable java.lang.reflect.Type {
+  public final class Class<T> implements java.lang.reflect.AnnotatedElement java.lang.reflect.GenericDeclaration java.io.Serializable java.lang.reflect.Type java.lang.invoke.TypeDescriptor.OfField<java.lang.Class<?>> {
+    method @NonNull public Class<?> arrayType();
     method @NonNull public <U> Class<? extends U> asSubclass(@NonNull Class<U>);
     method @Nullable public T cast(@Nullable Object);
+    method @Nullable public Class<?> componentType();
+    method @NonNull public String descriptorString();
     method public boolean desiredAssertionStatus();
     method @NonNull public static Class<?> forName(@NonNull String) throws java.lang.ClassNotFoundException;
     method @NonNull public static Class<?> forName(@NonNull String, boolean, @Nullable ClassLoader) throws java.lang.ClassNotFoundException;
@@ -2875,6 +3061,7 @@ package java.lang {
     method @NonNull public java.lang.reflect.Constructor<?>[] getConstructors() throws java.lang.SecurityException;
     method @Nullable public <A extends java.lang.annotation.Annotation> A getDeclaredAnnotation(@NonNull Class<A>);
     method @NonNull public java.lang.annotation.Annotation[] getDeclaredAnnotations();
+    method @NonNull public <A extends java.lang.annotation.Annotation> A[] getDeclaredAnnotationsByType(@NonNull Class<A>);
     method @NonNull public Class<?>[] getDeclaredClasses();
     method @NonNull public java.lang.reflect.Constructor<T> getDeclaredConstructor(@Nullable Class<?>...) throws java.lang.NoSuchMethodException, java.lang.SecurityException;
     method @NonNull public java.lang.reflect.Constructor<?>[] getDeclaredConstructors() throws java.lang.SecurityException;
@@ -2896,9 +3083,13 @@ package java.lang {
     method @NonNull public java.lang.reflect.Method[] getMethods() throws java.lang.SecurityException;
     method public int getModifiers();
     method @NonNull public String getName();
+    method @NonNull public Class<?> getNestHost();
+    method @NonNull public Class<?>[] getNestMembers();
     method @Nullable public Package getPackage();
     method @NonNull public String getPackageName();
+    method @Nullable public Class<?>[] getPermittedSubclasses();
     method @Nullable public java.security.ProtectionDomain getProtectionDomain();
+    method @Nullable public java.lang.reflect.RecordComponent[] getRecordComponents();
     method @Nullable public java.net.URL getResource(@NonNull String);
     method @Nullable public java.io.InputStream getResourceAsStream(@NonNull String);
     method @Nullable public Object[] getSigners();
@@ -2914,9 +3105,12 @@ package java.lang {
     method public boolean isInterface();
     method public boolean isLocalClass();
     method public boolean isMemberClass();
+    method public boolean isNestmateOf(@NonNull Class<?>);
     method public boolean isPrimitive();
+    method public boolean isRecord();
+    method public boolean isSealed();
     method public boolean isSynthetic();
-    method @NonNull public T newInstance() throws java.lang.IllegalAccessException, java.lang.InstantiationException;
+    method @Deprecated @NonNull public T newInstance() throws java.lang.IllegalAccessException, java.lang.InstantiationException;
     method @NonNull public String toGenericString();
   }
 
@@ -2975,6 +3169,13 @@ package java.lang {
     ctor public ClassNotFoundException(String);
     ctor public ClassNotFoundException(String, Throwable);
     method public Throwable getException();
+  }
+
+  public abstract class ClassValue<T> {
+    ctor protected ClassValue();
+    method protected abstract T computeValue(Class<?>);
+    method public T get(Class<?>);
+    method public void remove(Class<?>);
   }
 
   public class CloneNotSupportedException extends java.lang.Exception {
@@ -3169,6 +3370,7 @@ package java.lang {
     ctor public IndexOutOfBoundsException();
     ctor public IndexOutOfBoundsException(String);
     ctor public IndexOutOfBoundsException(int);
+    ctor public IndexOutOfBoundsException(long);
   }
 
   public class InheritableThreadLocal<T> extends java.lang.ThreadLocal<T> {
@@ -3323,6 +3525,8 @@ package java.lang {
     method public static long abs(long);
     method public static float abs(float);
     method public static double abs(double);
+    method public static int absExact(int);
+    method public static long absExact(long);
     method public static double acos(double);
     method public static int addExact(int, int);
     method public static long addExact(long, long);
@@ -3555,6 +3759,13 @@ package java.lang {
     method public int read(java.nio.CharBuffer) throws java.io.IOException;
   }
 
+  public abstract class Record {
+    ctor protected Record();
+    method public abstract boolean equals(@Nullable Object);
+    method public abstract int hashCode();
+    method @NonNull public abstract String toString();
+  }
+
   public class ReflectiveOperationException extends java.lang.Exception {
     ctor public ReflectiveOperationException();
     ctor public ReflectiveOperationException(String);
@@ -3578,8 +3789,6 @@ package java.lang {
     method public void exit(int);
     method public long freeMemory();
     method public void gc();
-    method @Deprecated public java.io.InputStream getLocalizedInputStream(java.io.InputStream);
-    method @Deprecated public java.io.OutputStream getLocalizedOutputStream(java.io.OutputStream);
     method public static Runtime getRuntime();
     method public void halt(int);
     method public void load(String);
@@ -3589,8 +3798,8 @@ package java.lang {
     method public void runFinalization();
     method @Deprecated public static void runFinalizersOnExit(boolean);
     method public long totalMemory();
-    method public void traceInstructions(boolean);
-    method public void traceMethodCalls(boolean);
+    method @Deprecated public void traceInstructions(boolean);
+    method @Deprecated public void traceMethodCalls(boolean);
   }
 
   public class RuntimeException extends java.lang.Exception {
@@ -3704,12 +3913,43 @@ package java.lang {
     method public boolean isNativeMethod();
   }
 
+  public final class StackWalker {
+    method public void forEach(java.util.function.Consumer<? super java.lang.StackWalker.StackFrame>);
+    method public Class<?> getCallerClass();
+    method public static StackWalker getInstance();
+    method public static StackWalker getInstance(java.lang.StackWalker.Option);
+    method public static StackWalker getInstance(java.util.Set<java.lang.StackWalker.Option>);
+    method public static StackWalker getInstance(java.util.Set<java.lang.StackWalker.Option>, int);
+    method public <T> T walk(java.util.function.Function<? super java.util.stream.Stream<java.lang.StackWalker.StackFrame>,? extends T>);
+  }
+
+  public enum StackWalker.Option {
+    enum_constant public static final java.lang.StackWalker.Option RETAIN_CLASS_REFERENCE;
+    enum_constant public static final java.lang.StackWalker.Option SHOW_HIDDEN_FRAMES;
+    enum_constant public static final java.lang.StackWalker.Option SHOW_REFLECT_FRAMES;
+  }
+
+  public static interface StackWalker.StackFrame {
+    method public int getByteCodeIndex();
+    method public String getClassName();
+    method public Class<?> getDeclaringClass();
+    method public default String getDescriptor();
+    method public String getFileName();
+    method public int getLineNumber();
+    method public String getMethodName();
+    method public default java.lang.invoke.MethodType getMethodType();
+    method public boolean isNativeMethod();
+    method public StackTraceElement toStackTraceElement();
+  }
+
   public final class StrictMath {
     method public static double IEEEremainder(double, double);
     method public static int abs(int);
     method public static long abs(long);
     method public static float abs(float);
     method public static double abs(double);
+    method public static int absExact(int);
+    method public static long absExact(long);
     method public static double acos(double);
     method public static int addExact(int, int);
     method public static long addExact(long, long);
@@ -3722,6 +3962,8 @@ package java.lang {
     method public static float copySign(float, float);
     method public static double cos(double);
     method public static double cosh(double);
+    method public static int decrementExact(int);
+    method public static long decrementExact(long);
     method public static double exp(double);
     method public static double expm1(double);
     method public static double floor(double);
@@ -3736,6 +3978,8 @@ package java.lang {
     method public static int getExponent(float);
     method public static int getExponent(double);
     method public static double hypot(double, double);
+    method public static int incrementExact(int);
+    method public static long incrementExact(long);
     method public static double log(double);
     method public static double log10(double);
     method public static double log1p(double);
@@ -3752,6 +3996,8 @@ package java.lang {
     method public static long multiplyExact(long, long);
     method public static long multiplyFull(int, int);
     method public static long multiplyHigh(long, long);
+    method public static int negateExact(int);
+    method public static long negateExact(long);
     method public static double nextAfter(double, double);
     method public static float nextAfter(float, double);
     method public static double nextDown(double);
@@ -3815,11 +4061,13 @@ package java.lang {
     method public boolean equalsIgnoreCase(@Nullable String);
     method @NonNull public static String format(@NonNull String, @NonNull java.lang.Object...);
     method @NonNull public static String format(@NonNull java.util.Locale, @NonNull String, @NonNull java.lang.Object...);
+    method @NonNull public String formatted(@NonNull java.lang.Object...);
     method @Deprecated public void getBytes(int, int, byte[], int);
     method public byte[] getBytes(@NonNull String) throws java.io.UnsupportedEncodingException;
     method public byte[] getBytes(@NonNull java.nio.charset.Charset);
     method public byte[] getBytes();
     method public void getChars(int, int, char[], int);
+    method @NonNull public String indent(int);
     method public int indexOf(int);
     method public int indexOf(int, int);
     method public int indexOf(@NonNull String);
@@ -3849,6 +4097,7 @@ package java.lang {
     method public boolean startsWith(@NonNull String, int);
     method public boolean startsWith(@NonNull String);
     method @NonNull public String strip();
+    method @NonNull public String stripIndent();
     method @NonNull public String stripLeading();
     method @NonNull public String stripTrailing();
     method @NonNull public CharSequence subSequence(int, int);
@@ -3859,6 +4108,8 @@ package java.lang {
     method @NonNull public String toLowerCase();
     method @NonNull public String toUpperCase(@NonNull java.util.Locale);
     method @NonNull public String toUpperCase();
+    method public <R> R transform(@NonNull java.util.function.Function<? super java.lang.String,? extends R>);
+    method @NonNull public String translateEscapes();
     method @NonNull public String trim();
     method @NonNull public static String valueOf(@Nullable Object);
     method @NonNull public static String valueOf(char[]);
@@ -3872,7 +4123,7 @@ package java.lang {
     field public static final java.util.Comparator<java.lang.String> CASE_INSENSITIVE_ORDER;
   }
 
-  public final class StringBuffer implements java.lang.Appendable java.lang.CharSequence java.io.Serializable {
+  public final class StringBuffer implements java.lang.Appendable java.lang.CharSequence java.lang.Comparable<java.lang.StringBuffer> java.io.Serializable {
     ctor public StringBuffer();
     ctor public StringBuffer(int);
     ctor public StringBuffer(@NonNull String);
@@ -3896,6 +4147,7 @@ package java.lang {
     method public int codePointAt(int);
     method public int codePointBefore(int);
     method public int codePointCount(int, int);
+    method public int compareTo(@NonNull StringBuffer);
     method @NonNull public StringBuffer delete(int, int);
     method @NonNull public StringBuffer deleteCharAt(int);
     method public void ensureCapacity(int);
@@ -3928,7 +4180,7 @@ package java.lang {
     method public void trimToSize();
   }
 
-  public final class StringBuilder implements java.lang.Appendable java.lang.CharSequence java.io.Serializable {
+  public final class StringBuilder implements java.lang.Appendable java.lang.CharSequence java.lang.Comparable<java.lang.StringBuilder> java.io.Serializable {
     ctor public StringBuilder();
     ctor public StringBuilder(int);
     ctor public StringBuilder(@NonNull String);
@@ -3952,6 +4204,7 @@ package java.lang {
     method public int codePointAt(int);
     method public int codePointBefore(int);
     method public int codePointCount(int, int);
+    method public int compareTo(@NonNull StringBuilder);
     method @NonNull public StringBuilder delete(int, int);
     method @NonNull public StringBuilder deleteCharAt(int);
     method public void ensureCapacity(int);
@@ -4236,6 +4489,7 @@ package java.lang.annotation {
     enum_constant public static final java.lang.annotation.ElementType MODULE;
     enum_constant public static final java.lang.annotation.ElementType PACKAGE;
     enum_constant public static final java.lang.annotation.ElementType PARAMETER;
+    enum_constant public static final java.lang.annotation.ElementType RECORD_COMPONENT;
     enum_constant public static final java.lang.annotation.ElementType TYPE;
     enum_constant public static final java.lang.annotation.ElementType TYPE_PARAMETER;
     enum_constant public static final java.lang.annotation.ElementType TYPE_USE;
@@ -4357,6 +4611,7 @@ package java.lang.invoke {
     method public static java.lang.invoke.MethodHandle dropArguments(java.lang.invoke.MethodHandle, int, java.util.List<java.lang.Class<?>>);
     method public static java.lang.invoke.MethodHandle dropArguments(java.lang.invoke.MethodHandle, int, Class<?>...);
     method public static java.lang.invoke.MethodHandle dropArgumentsToMatch(java.lang.invoke.MethodHandle, int, java.util.List<java.lang.Class<?>>, int);
+    method public static java.lang.invoke.MethodHandle dropReturn(java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle empty(java.lang.invoke.MethodType);
     method public static java.lang.invoke.MethodHandle exactInvoker(java.lang.invoke.MethodType);
     method public static java.lang.invoke.MethodHandle explicitCastArguments(java.lang.invoke.MethodHandle, java.lang.invoke.MethodType);
@@ -4376,6 +4631,7 @@ package java.lang.invoke {
     method public static java.lang.invoke.MethodHandles.Lookup publicLookup();
     method public static <T extends java.lang.reflect.Member> T reflectAs(Class<T>, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle spreadInvoker(java.lang.invoke.MethodType, int);
+    method public static java.lang.invoke.MethodHandle tableSwitch(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle...);
     method public static java.lang.invoke.MethodHandle throwException(Class<?>, Class<? extends java.lang.Throwable>);
     method public static java.lang.invoke.MethodHandle tryFinally(java.lang.invoke.MethodHandle, java.lang.invoke.MethodHandle);
     method public static java.lang.invoke.MethodHandle varHandleExactInvoker(java.lang.invoke.VarHandle.AccessMode, java.lang.invoke.MethodType);
@@ -4412,11 +4668,12 @@ package java.lang.invoke {
     field public static final int PUBLIC = 1; // 0x1
   }
 
-  public final class MethodType implements java.io.Serializable {
+  public final class MethodType implements java.io.Serializable java.lang.invoke.TypeDescriptor.OfMethod<java.lang.Class<?>,java.lang.invoke.MethodType> {
     method public java.lang.invoke.MethodType appendParameterTypes(Class<?>...);
     method public java.lang.invoke.MethodType appendParameterTypes(java.util.List<java.lang.Class<?>>);
     method public java.lang.invoke.MethodType changeParameterType(int, Class<?>);
     method public java.lang.invoke.MethodType changeReturnType(Class<?>);
+    method @NonNull public String descriptorString();
     method public java.lang.invoke.MethodType dropParameterTypes(int, int);
     method public java.lang.invoke.MethodType erase();
     method public static java.lang.invoke.MethodType fromMethodDescriptorString(String, ClassLoader) throws java.lang.IllegalArgumentException, java.lang.TypeNotPresentException;
@@ -4450,6 +4707,29 @@ package java.lang.invoke {
     method public final java.lang.invoke.MethodHandle dynamicInvoker();
     method public final java.lang.invoke.MethodHandle getTarget();
     method public void setTarget(java.lang.invoke.MethodHandle);
+  }
+
+  public interface TypeDescriptor {
+    method public String descriptorString();
+  }
+
+  public static interface TypeDescriptor.OfField<F extends java.lang.invoke.TypeDescriptor.OfField<F>> extends java.lang.invoke.TypeDescriptor {
+    method public F arrayType();
+    method public F componentType();
+    method public boolean isArray();
+    method public boolean isPrimitive();
+  }
+
+  public static interface TypeDescriptor.OfMethod<F extends java.lang.invoke.TypeDescriptor.OfField<F>, M extends java.lang.invoke.TypeDescriptor.OfMethod<F, M>> extends java.lang.invoke.TypeDescriptor {
+    method public M changeParameterType(int, F);
+    method public M changeReturnType(F);
+    method public M dropParameterTypes(int, int);
+    method public M insertParameterTypes(int, F...);
+    method public F[] parameterArray();
+    method public int parameterCount();
+    method public java.util.List<F> parameterList();
+    method public F parameterType(int);
+    method public F returnType();
   }
 
   public abstract class VarHandle {
@@ -4817,6 +5097,18 @@ package java.lang.reflect {
     field protected java.lang.reflect.InvocationHandler h;
   }
 
+  public final class RecordComponent implements java.lang.reflect.AnnotatedElement {
+    method @NonNull public java.lang.reflect.Method getAccessor();
+    method @Nullable public <T extends java.lang.annotation.Annotation> T getAnnotation(@NonNull Class<T>);
+    method @NonNull public java.lang.annotation.Annotation[] getAnnotations();
+    method @NonNull public java.lang.annotation.Annotation[] getDeclaredAnnotations();
+    method @NonNull public Class<?> getDeclaringRecord();
+    method @Nullable public String getGenericSignature();
+    method @NonNull public java.lang.reflect.Type getGenericType();
+    method @NonNull public String getName();
+    method @NonNull public Class<?> getType();
+  }
+
   public final class ReflectPermission extends java.security.BasicPermission {
     ctor public ReflectPermission(String);
     ctor public ReflectPermission(String, String);
@@ -4841,6 +5133,14 @@ package java.lang.reflect {
   public interface WildcardType extends java.lang.reflect.Type {
     method @NonNull public java.lang.reflect.Type[] getLowerBounds();
     method @NonNull public java.lang.reflect.Type[] getUpperBounds();
+  }
+
+}
+
+package java.lang.runtime {
+
+  public class ObjectMethods {
+    method @NonNull public static Object bootstrap(@NonNull java.lang.invoke.MethodHandles.Lookup, @NonNull String, @NonNull java.lang.invoke.TypeDescriptor, @NonNull Class<?>, @Nullable String, @NonNull java.lang.invoke.MethodHandle...) throws java.lang.Throwable;
   }
 
 }
@@ -5673,6 +5973,7 @@ package java.net {
   public enum StandardProtocolFamily implements java.net.ProtocolFamily {
     enum_constant public static final java.net.StandardProtocolFamily INET;
     enum_constant public static final java.net.StandardProtocolFamily INET6;
+    enum_constant public static final java.net.StandardProtocolFamily UNIX;
   }
 
   public final class StandardSocketOptions {
@@ -5887,6 +6188,7 @@ package java.nio {
     method public abstract int arrayOffset();
     method public final int capacity();
     method public java.nio.Buffer clear();
+    method public abstract java.nio.Buffer duplicate();
     method public java.nio.Buffer flip();
     method public abstract boolean hasArray();
     method public final boolean hasRemaining();
@@ -5900,6 +6202,8 @@ package java.nio {
     method public final int remaining();
     method public java.nio.Buffer reset();
     method public java.nio.Buffer rewind();
+    method public abstract java.nio.Buffer slice();
+    method public abstract java.nio.Buffer slice(int, int);
   }
 
   public class BufferOverflowException extends java.lang.RuntimeException {
@@ -5944,6 +6248,7 @@ package java.nio {
     method public abstract short getShort();
     method public abstract short getShort(int);
     method public final boolean hasArray();
+    method public int mismatch(@NonNull java.nio.ByteBuffer);
     method @NonNull public final java.nio.ByteOrder order();
     method @NonNull public final java.nio.ByteBuffer order(@NonNull java.nio.ByteOrder);
     method @NonNull public abstract java.nio.ByteBuffer put(byte);
@@ -5964,6 +6269,7 @@ package java.nio {
     method @NonNull public abstract java.nio.ByteBuffer putShort(short);
     method @NonNull public abstract java.nio.ByteBuffer putShort(int, short);
     method @NonNull public abstract java.nio.ByteBuffer slice();
+    method @NonNull public abstract java.nio.ByteBuffer slice(int, int);
     method @NonNull public static java.nio.ByteBuffer wrap(@NonNull byte[], int, int);
     method @NonNull public static java.nio.ByteBuffer wrap(@NonNull byte[]);
   }
@@ -5991,7 +6297,9 @@ package java.nio {
     method public java.nio.CharBuffer get(char[], int, int);
     method public java.nio.CharBuffer get(char[]);
     method public final boolean hasArray();
+    method public final boolean isEmpty();
     method public final int length();
+    method public int mismatch(java.nio.CharBuffer);
     method public abstract java.nio.ByteOrder order();
     method public abstract java.nio.CharBuffer put(char);
     method public abstract java.nio.CharBuffer put(int, char);
@@ -6002,6 +6310,7 @@ package java.nio {
     method public final java.nio.CharBuffer put(String);
     method public int read(java.nio.CharBuffer) throws java.io.IOException;
     method public abstract java.nio.CharBuffer slice();
+    method public abstract java.nio.CharBuffer slice(int, int);
     method public abstract java.nio.CharBuffer subSequence(int, int);
     method public static java.nio.CharBuffer wrap(char[], int, int);
     method public static java.nio.CharBuffer wrap(char[]);
@@ -6022,6 +6331,7 @@ package java.nio {
     method public java.nio.DoubleBuffer get(double[], int, int);
     method public java.nio.DoubleBuffer get(double[]);
     method public final boolean hasArray();
+    method public int mismatch(java.nio.DoubleBuffer);
     method public abstract java.nio.ByteOrder order();
     method public abstract java.nio.DoubleBuffer put(double);
     method public abstract java.nio.DoubleBuffer put(int, double);
@@ -6029,6 +6339,7 @@ package java.nio {
     method public java.nio.DoubleBuffer put(double[], int, int);
     method public final java.nio.DoubleBuffer put(double[]);
     method public abstract java.nio.DoubleBuffer slice();
+    method public abstract java.nio.DoubleBuffer slice(int, int);
     method public static java.nio.DoubleBuffer wrap(double[], int, int);
     method public static java.nio.DoubleBuffer wrap(double[]);
   }
@@ -6046,6 +6357,7 @@ package java.nio {
     method public java.nio.FloatBuffer get(float[], int, int);
     method public java.nio.FloatBuffer get(float[]);
     method public final boolean hasArray();
+    method public int mismatch(java.nio.FloatBuffer);
     method public abstract java.nio.ByteOrder order();
     method public abstract java.nio.FloatBuffer put(float);
     method public abstract java.nio.FloatBuffer put(int, float);
@@ -6053,6 +6365,7 @@ package java.nio {
     method public java.nio.FloatBuffer put(float[], int, int);
     method public final java.nio.FloatBuffer put(float[]);
     method public abstract java.nio.FloatBuffer slice();
+    method public abstract java.nio.FloatBuffer slice(int, int);
     method public static java.nio.FloatBuffer wrap(float[], int, int);
     method public static java.nio.FloatBuffer wrap(float[]);
   }
@@ -6070,6 +6383,7 @@ package java.nio {
     method public java.nio.IntBuffer get(int[], int, int);
     method public java.nio.IntBuffer get(int[]);
     method public final boolean hasArray();
+    method public int mismatch(java.nio.IntBuffer);
     method public abstract java.nio.ByteOrder order();
     method public abstract java.nio.IntBuffer put(int);
     method public abstract java.nio.IntBuffer put(int, int);
@@ -6077,6 +6391,7 @@ package java.nio {
     method public java.nio.IntBuffer put(int[], int, int);
     method public final java.nio.IntBuffer put(int[]);
     method public abstract java.nio.IntBuffer slice();
+    method public abstract java.nio.IntBuffer slice(int, int);
     method public static java.nio.IntBuffer wrap(int[], int, int);
     method public static java.nio.IntBuffer wrap(int[]);
   }
@@ -6098,6 +6413,7 @@ package java.nio {
     method public java.nio.LongBuffer get(long[], int, int);
     method public java.nio.LongBuffer get(long[]);
     method public final boolean hasArray();
+    method public int mismatch(java.nio.LongBuffer);
     method public abstract java.nio.ByteOrder order();
     method public abstract java.nio.LongBuffer put(long);
     method public abstract java.nio.LongBuffer put(int, long);
@@ -6105,6 +6421,7 @@ package java.nio {
     method public java.nio.LongBuffer put(long[], int, int);
     method public final java.nio.LongBuffer put(long[]);
     method public abstract java.nio.LongBuffer slice();
+    method public abstract java.nio.LongBuffer slice(int, int);
     method public static java.nio.LongBuffer wrap(long[], int, int);
     method public static java.nio.LongBuffer wrap(long[]);
   }
@@ -6113,6 +6430,7 @@ package java.nio {
     method public final java.nio.MappedByteBuffer force();
     method public final boolean isLoaded();
     method public final java.nio.MappedByteBuffer load();
+    method public abstract java.nio.MappedByteBuffer slice(int, int);
   }
 
   public class ReadOnlyBufferException extends java.lang.UnsupportedOperationException {
@@ -6132,6 +6450,7 @@ package java.nio {
     method public java.nio.ShortBuffer get(short[], int, int);
     method public java.nio.ShortBuffer get(short[]);
     method public final boolean hasArray();
+    method public int mismatch(java.nio.ShortBuffer);
     method public abstract java.nio.ByteOrder order();
     method public abstract java.nio.ShortBuffer put(short);
     method public abstract java.nio.ShortBuffer put(int, short);
@@ -6139,6 +6458,7 @@ package java.nio {
     method public java.nio.ShortBuffer put(short[], int, int);
     method public final java.nio.ShortBuffer put(short[]);
     method public abstract java.nio.ShortBuffer slice();
+    method public abstract java.nio.ShortBuffer slice(int, int);
     method public static java.nio.ShortBuffer wrap(short[], int, int);
     method public static java.nio.ShortBuffer wrap(short[]);
   }
@@ -7024,6 +7344,8 @@ package java.nio.file {
     method public boolean isAbsolute();
     method public java.util.Iterator<java.nio.file.Path> iterator();
     method public java.nio.file.Path normalize();
+    method public static java.nio.file.Path of(String, java.lang.String...);
+    method public static java.nio.file.Path of(java.net.URI);
     method public java.nio.file.Path relativize(java.nio.file.Path);
     method public java.nio.file.Path resolve(java.nio.file.Path);
     method public java.nio.file.Path resolve(String);
@@ -7607,7 +7929,7 @@ package java.security {
     method public String getAlgorithm();
     method public byte[] getEncoded();
     method public String getFormat();
-    field public static final long serialVersionUID = 6603384152749567654L; // 0x5ba3eee69414eea6L
+    field @Deprecated @java.io.Serial public static final long serialVersionUID = 6603384152749567654L; // 0x5ba3eee69414eea6L
   }
 
   public class KeyException extends java.security.GeneralSecurityException {
@@ -7921,7 +8243,7 @@ package java.security {
   }
 
   public interface PrivateKey extends java.security.Key javax.security.auth.Destroyable {
-    field public static final long serialVersionUID = 6034044314589513430L; // 0x53bd3b559a12c6d6L
+    field @Deprecated @java.io.Serial public static final long serialVersionUID = 6034044314589513430L; // 0x53bd3b559a12c6d6L
   }
 
   public interface PrivilegedAction<T> {
@@ -7996,7 +8318,7 @@ package java.security {
   }
 
   public interface PublicKey extends java.security.Key {
-    field public static final long serialVersionUID = 7187392471159151072L; // 0x63bebf5f40c219e0L
+    field @Deprecated @java.io.Serial public static final long serialVersionUID = 7187392471159151072L; // 0x63bebf5f40c219e0L
   }
 
   public class SecureClassLoader extends java.lang.ClassLoader {
@@ -10346,7 +10668,7 @@ package java.text {
     method public final boolean equals(Object);
     method protected String getName();
     method public final int hashCode();
-    method protected Object readResolve() throws java.io.InvalidObjectException;
+    method @java.io.Serial protected Object readResolve() throws java.io.InvalidObjectException;
     field public static final java.text.AttributedCharacterIterator.Attribute INPUT_METHOD_SEGMENT;
     field public static final java.text.AttributedCharacterIterator.Attribute LANGUAGE;
     field public static final java.text.AttributedCharacterIterator.Attribute READING;
@@ -10645,6 +10967,7 @@ package java.text {
     method public String getInternationalCurrencySymbol();
     method public char getMinusSign();
     method public char getMonetaryDecimalSeparator();
+    method public char getMonetaryGroupingSeparator();
     method public String getNaN();
     method public char getPatternSeparator();
     method public char getPerMill();
@@ -10660,6 +10983,7 @@ package java.text {
     method public void setInternationalCurrencySymbol(String);
     method public void setMinusSign(char);
     method public void setMonetaryDecimalSeparator(char);
+    method public void setMonetaryGroupingSeparator(char);
     method public void setNaN(String);
     method public void setPatternSeparator(char);
     method public void setPerMill(char);
@@ -10847,17 +11171,16 @@ package java.text {
 
 package java.time {
 
-  public abstract class Clock {
+  public abstract class Clock implements java.time.InstantSource {
     ctor protected Clock();
     method public static java.time.Clock fixed(java.time.Instant, java.time.ZoneId);
     method public abstract java.time.ZoneId getZone();
-    method public abstract java.time.Instant instant();
-    method public long millis();
     method public static java.time.Clock offset(java.time.Clock, java.time.Duration);
     method public static java.time.Clock system(java.time.ZoneId);
     method public static java.time.Clock systemDefaultZone();
     method public static java.time.Clock systemUTC();
     method public static java.time.Clock tick(java.time.Clock, java.time.Duration);
+    method public static java.time.Clock tickMillis(java.time.ZoneId);
     method public static java.time.Clock tickMinutes(java.time.ZoneId);
     method public static java.time.Clock tickSeconds(java.time.ZoneId);
     method public abstract java.time.Clock withZone(java.time.ZoneId);
@@ -10986,6 +11309,16 @@ package java.time {
     field public static final java.time.Instant MIN;
   }
 
+  public interface InstantSource {
+    method public static java.time.InstantSource fixed(java.time.Instant);
+    method public java.time.Instant instant();
+    method public default long millis();
+    method public static java.time.InstantSource offset(java.time.InstantSource, java.time.Duration);
+    method public static java.time.InstantSource system();
+    method public static java.time.InstantSource tick(java.time.InstantSource, java.time.Duration);
+    method public default java.time.Clock withZone(java.time.ZoneId);
+  }
+
   public final class LocalDate implements java.time.chrono.ChronoLocalDate java.io.Serializable java.time.temporal.Temporal java.time.temporal.TemporalAdjuster {
     method public java.time.LocalDateTime atStartOfDay();
     method public java.time.ZonedDateTime atStartOfDay(java.time.ZoneId);
@@ -10994,6 +11327,8 @@ package java.time {
     method public java.time.LocalDateTime atTime(int, int, int);
     method public java.time.LocalDateTime atTime(int, int, int, int);
     method public java.time.OffsetDateTime atTime(java.time.OffsetTime);
+    method public java.util.stream.Stream<java.time.LocalDate> datesUntil(java.time.LocalDate);
+    method public java.util.stream.Stream<java.time.LocalDate> datesUntil(java.time.LocalDate, java.time.Period);
     method public static java.time.LocalDate from(java.time.temporal.TemporalAccessor);
     method public java.time.chrono.IsoChronology getChronology();
     method public int getDayOfMonth();
@@ -11016,6 +11351,7 @@ package java.time {
     method public static java.time.LocalDate of(int, java.time.Month, int);
     method public static java.time.LocalDate of(int, int, int);
     method public static java.time.LocalDate ofEpochDay(long);
+    method public static java.time.LocalDate ofInstant(java.time.Instant, java.time.ZoneId);
     method public static java.time.LocalDate ofYearDay(int, int);
     method public static java.time.LocalDate parse(CharSequence);
     method public static java.time.LocalDate parse(CharSequence, java.time.format.DateTimeFormatter);
@@ -11025,6 +11361,7 @@ package java.time {
     method public java.time.LocalDate plusMonths(long);
     method public java.time.LocalDate plusWeeks(long);
     method public java.time.LocalDate plusYears(long);
+    method public long toEpochSecond(java.time.LocalTime, java.time.ZoneOffset);
     method public long until(java.time.temporal.Temporal, java.time.temporal.TemporalUnit);
     method public java.time.Period until(java.time.chrono.ChronoLocalDate);
     method public java.time.LocalDate with(java.time.temporal.TemporalAdjuster);
@@ -11033,6 +11370,7 @@ package java.time {
     method public java.time.LocalDate withDayOfYear(int);
     method public java.time.LocalDate withMonth(int);
     method public java.time.LocalDate withYear(int);
+    field public static final java.time.LocalDate EPOCH;
     field public static final java.time.LocalDate MAX;
     field public static final java.time.LocalDate MIN;
   }
@@ -11332,6 +11670,7 @@ package java.time {
     method public java.time.OffsetTime plusMinutes(long);
     method public java.time.OffsetTime plusNanos(long);
     method public java.time.OffsetTime plusSeconds(long);
+    method public long toEpochSecond(java.time.LocalDate);
     method public java.time.LocalTime toLocalTime();
     method public java.time.OffsetTime truncatedTo(java.time.temporal.TemporalUnit);
     method public long until(java.time.temporal.Temporal, java.time.temporal.TemporalUnit);
@@ -11689,6 +12028,8 @@ package java.time.chrono {
     method public default java.time.chrono.ChronoLocalDate dateNow(java.time.Clock);
     method public default java.time.chrono.ChronoLocalDate dateYearDay(java.time.chrono.Era, int, int);
     method public java.time.chrono.ChronoLocalDate dateYearDay(int, int);
+    method public default long epochSecond(int, int, int, int, int, int, java.time.ZoneOffset);
+    method public default long epochSecond(java.time.chrono.Era, int, int, int, int, int, int, java.time.ZoneOffset);
     method public boolean equals(Object);
     method public java.time.chrono.Era eraOf(int);
     method public java.util.List<java.time.chrono.Era> eras();
@@ -11978,6 +12319,7 @@ package java.time.format {
     method public java.util.Set<java.time.temporal.TemporalField> getResolverFields();
     method public java.time.format.ResolverStyle getResolverStyle();
     method public java.time.ZoneId getZone();
+    method public java.time.format.DateTimeFormatter localizedBy(java.util.Locale);
     method public static java.time.format.DateTimeFormatter ofLocalizedDate(java.time.format.FormatStyle);
     method public static java.time.format.DateTimeFormatter ofLocalizedDateTime(java.time.format.FormatStyle);
     method public static java.time.format.DateTimeFormatter ofLocalizedDateTime(java.time.format.FormatStyle, java.time.format.FormatStyle);
@@ -12023,6 +12365,8 @@ package java.time.format {
     method public java.time.format.DateTimeFormatterBuilder appendChronologyId();
     method public java.time.format.DateTimeFormatterBuilder appendChronologyText(java.time.format.TextStyle);
     method public java.time.format.DateTimeFormatterBuilder appendFraction(java.time.temporal.TemporalField, int, int, boolean);
+    method public java.time.format.DateTimeFormatterBuilder appendGenericZoneText(java.time.format.TextStyle);
+    method public java.time.format.DateTimeFormatterBuilder appendGenericZoneText(java.time.format.TextStyle, java.util.Set<java.time.ZoneId>);
     method public java.time.format.DateTimeFormatterBuilder appendInstant();
     method public java.time.format.DateTimeFormatterBuilder appendInstant(int);
     method public java.time.format.DateTimeFormatterBuilder appendLiteral(char);
@@ -12479,6 +12823,7 @@ package java.util {
     method @NonNull public java.util.ArrayDeque<E> clone();
     method @NonNull public java.util.Iterator<E> descendingIterator();
     method public E element();
+    method public void forEach(@NonNull java.util.function.Consumer<? super E>);
     method public E getFirst();
     method public E getLast();
     method @NonNull public java.util.Iterator<E> iterator();
@@ -13055,6 +13400,7 @@ package java.util {
     method public static java.util.Currency getInstance(String);
     method public static java.util.Currency getInstance(java.util.Locale);
     method public int getNumericCode();
+    method public String getNumericCodeAsString();
     method public String getSymbol();
     method public String getSymbol(java.util.Locale);
   }
@@ -13127,6 +13473,7 @@ package java.util {
 
   public class DoubleSummaryStatistics implements java.util.function.DoubleConsumer {
     ctor public DoubleSummaryStatistics();
+    ctor public DoubleSummaryStatistics(long, double, double, double) throws java.lang.IllegalArgumentException;
     method public void accept(double);
     method public void combine(java.util.DoubleSummaryStatistics);
     method public final double getAverage();
@@ -13213,13 +13560,16 @@ package java.util {
     ctor public Formatter(String) throws java.io.FileNotFoundException;
     ctor public Formatter(String, String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
     ctor public Formatter(String, String, java.util.Locale) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
+    ctor public Formatter(String, java.nio.charset.Charset, java.util.Locale) throws java.io.IOException;
     ctor public Formatter(java.io.File) throws java.io.FileNotFoundException;
     ctor public Formatter(java.io.File, String) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
     ctor public Formatter(java.io.File, String, java.util.Locale) throws java.io.FileNotFoundException, java.io.UnsupportedEncodingException;
+    ctor public Formatter(java.io.File, java.nio.charset.Charset, java.util.Locale) throws java.io.IOException;
     ctor public Formatter(java.io.PrintStream);
     ctor public Formatter(java.io.OutputStream);
     ctor public Formatter(java.io.OutputStream, String) throws java.io.UnsupportedEncodingException;
     ctor public Formatter(java.io.OutputStream, String, java.util.Locale) throws java.io.UnsupportedEncodingException;
+    ctor public Formatter(java.io.OutputStream, java.nio.charset.Charset, java.util.Locale);
     method public void close();
     method public void flush();
     method public java.util.Formatter format(String, java.lang.Object...);
@@ -13305,6 +13655,42 @@ package java.util {
     method public V remove(Object);
     method public int size();
     method public java.util.Collection<V> values();
+  }
+
+  public final class HexFormat {
+    method public String delimiter();
+    method public String formatHex(byte[]);
+    method public String formatHex(byte[], int, int);
+    method public <A extends java.lang.Appendable> A formatHex(A, byte[]);
+    method public <A extends java.lang.Appendable> A formatHex(A, byte[], int, int);
+    method public static int fromHexDigit(int);
+    method public static int fromHexDigits(CharSequence);
+    method public static int fromHexDigits(CharSequence, int, int);
+    method public static long fromHexDigitsToLong(CharSequence);
+    method public static long fromHexDigitsToLong(CharSequence, int, int);
+    method public static boolean isHexDigit(int);
+    method public boolean isUpperCase();
+    method public static java.util.HexFormat of();
+    method public static java.util.HexFormat ofDelimiter(String);
+    method public byte[] parseHex(CharSequence);
+    method public byte[] parseHex(CharSequence, int, int);
+    method public byte[] parseHex(char[], int, int);
+    method public String prefix();
+    method public String suffix();
+    method public <A extends java.lang.Appendable> A toHexDigits(A, byte);
+    method public String toHexDigits(byte);
+    method public String toHexDigits(char);
+    method public String toHexDigits(short);
+    method public String toHexDigits(int);
+    method public String toHexDigits(long);
+    method public String toHexDigits(long, int);
+    method public char toHighHexDigit(int);
+    method public char toLowHexDigit(int);
+    method public java.util.HexFormat withDelimiter(String);
+    method public java.util.HexFormat withLowerCase();
+    method public java.util.HexFormat withPrefix(String);
+    method public java.util.HexFormat withSuffix(String);
+    method public java.util.HexFormat withUpperCase();
   }
 
   public class IdentityHashMap<K, V> extends java.util.AbstractMap<K,V> implements java.lang.Cloneable java.util.Map<K,V> java.io.Serializable {
@@ -13499,6 +13885,7 @@ package java.util {
     method @NonNull public String getISO3Country() throws java.util.MissingResourceException;
     method @NonNull public String getISO3Language() throws java.util.MissingResourceException;
     method @NonNull public static String[] getISOCountries();
+    method @NonNull public static java.util.Set<java.lang.String> getISOCountries(@NonNull java.util.Locale.IsoCountryCode);
     method @NonNull public static String[] getISOLanguages();
     method @NonNull public String getLanguage();
     method @NonNull public String getScript();
@@ -13567,6 +13954,12 @@ package java.util {
     enum_constant public static final java.util.Locale.FilteringMode IGNORE_EXTENDED_RANGES;
     enum_constant public static final java.util.Locale.FilteringMode MAP_EXTENDED_RANGES;
     enum_constant public static final java.util.Locale.FilteringMode REJECT_EXTENDED_RANGES;
+  }
+
+  public enum Locale.IsoCountryCode {
+    enum_constant public static final java.util.Locale.IsoCountryCode PART1_ALPHA2;
+    enum_constant public static final java.util.Locale.IsoCountryCode PART1_ALPHA3;
+    enum_constant public static final java.util.Locale.IsoCountryCode PART3;
   }
 
   public static final class Locale.LanguageRange {
@@ -13701,13 +14094,18 @@ package java.util {
 
   public class NoSuchElementException extends java.lang.RuntimeException {
     ctor public NoSuchElementException();
+    ctor public NoSuchElementException(String, Throwable);
+    ctor public NoSuchElementException(Throwable);
     ctor public NoSuchElementException(String);
   }
 
   public final class Objects {
     method public static int checkFromIndexSize(int, int, int);
+    method public static long checkFromIndexSize(long, long, long);
     method public static int checkFromToIndex(int, int, int);
+    method public static long checkFromToIndex(long, long, long);
     method public static int checkIndex(int, int);
+    method public static long checkIndex(long, long);
     method public static <T> int compare(T, T, @NonNull java.util.Comparator<? super T>);
     method public static boolean deepEquals(@Nullable Object, @Nullable Object);
     method public static boolean equals(@Nullable Object, @Nullable Object);
@@ -13840,6 +14238,7 @@ package java.util {
     ctor public PriorityQueue(java.util.PriorityQueue<? extends E>);
     ctor public PriorityQueue(java.util.SortedSet<? extends E>);
     method public java.util.Comparator<? super E> comparator();
+    method public void forEach(java.util.function.Consumer<? super E>);
     method public java.util.Iterator<E> iterator();
     method public boolean offer(E);
     method public E peek();
@@ -13965,15 +14364,21 @@ package java.util {
     ctor public Scanner(Readable);
     ctor public Scanner(java.io.InputStream);
     ctor public Scanner(java.io.InputStream, String);
+    ctor public Scanner(java.io.InputStream, java.nio.charset.Charset);
     ctor public Scanner(java.io.File) throws java.io.FileNotFoundException;
     ctor public Scanner(java.io.File, String) throws java.io.FileNotFoundException;
+    ctor public Scanner(java.io.File, java.nio.charset.Charset) throws java.io.IOException;
     ctor public Scanner(java.nio.file.Path) throws java.io.IOException;
     ctor public Scanner(java.nio.file.Path, String) throws java.io.IOException;
+    ctor public Scanner(java.nio.file.Path, java.nio.charset.Charset) throws java.io.IOException;
     ctor public Scanner(String);
     ctor public Scanner(java.nio.channels.ReadableByteChannel);
     ctor public Scanner(java.nio.channels.ReadableByteChannel, String);
+    ctor public Scanner(java.nio.channels.ReadableByteChannel, java.nio.charset.Charset);
     method public void close();
     method public java.util.regex.Pattern delimiter();
+    method public java.util.stream.Stream<java.util.regex.MatchResult> findAll(java.util.regex.Pattern);
+    method public java.util.stream.Stream<java.util.regex.MatchResult> findAll(String);
     method public String findInLine(String);
     method public String findInLine(java.util.regex.Pattern);
     method public String findWithinHorizon(String, int);
@@ -14021,6 +14426,7 @@ package java.util {
     method public java.util.Scanner reset();
     method public java.util.Scanner skip(java.util.regex.Pattern);
     method public java.util.Scanner skip(String);
+    method public java.util.stream.Stream<java.lang.String> tokens();
     method public java.util.Scanner useDelimiter(java.util.regex.Pattern);
     method public java.util.Scanner useDelimiter(String);
     method public java.util.Scanner useLocale(java.util.Locale);
@@ -14033,6 +14439,7 @@ package java.util {
   }
 
   public final class ServiceLoader<S> implements java.lang.Iterable<S> {
+    method public java.util.Optional<S> findFirst();
     method public java.util.Iterator<S> iterator();
     method public static <S> java.util.ServiceLoader<S> load(Class<S>, ClassLoader);
     method public static <S> java.util.ServiceLoader<S> load(Class<S>);
@@ -14534,6 +14941,11 @@ package java.util.concurrent {
     method public static java.util.concurrent.Executor delayedExecutor(long, java.util.concurrent.TimeUnit, java.util.concurrent.Executor);
     method public static java.util.concurrent.Executor delayedExecutor(long, java.util.concurrent.TimeUnit);
     method public java.util.concurrent.CompletableFuture<T> exceptionally(java.util.function.Function<java.lang.Throwable,? extends T>);
+    method public java.util.concurrent.CompletableFuture<T> exceptionallyAsync(java.util.function.Function<java.lang.Throwable,? extends T>);
+    method public java.util.concurrent.CompletableFuture<T> exceptionallyAsync(java.util.function.Function<java.lang.Throwable,? extends T>, java.util.concurrent.Executor);
+    method public java.util.concurrent.CompletableFuture<T> exceptionallyCompose(java.util.function.Function<java.lang.Throwable,? extends java.util.concurrent.CompletionStage<T>>);
+    method public java.util.concurrent.CompletableFuture<T> exceptionallyComposeAsync(java.util.function.Function<java.lang.Throwable,? extends java.util.concurrent.CompletionStage<T>>);
+    method public java.util.concurrent.CompletableFuture<T> exceptionallyComposeAsync(java.util.function.Function<java.lang.Throwable,? extends java.util.concurrent.CompletionStage<T>>, java.util.concurrent.Executor);
     method public static <U> java.util.concurrent.CompletableFuture<U> failedFuture(Throwable);
     method public static <U> java.util.concurrent.CompletionStage<U> failedStage(Throwable);
     method public T get() throws java.util.concurrent.ExecutionException, java.lang.InterruptedException;
@@ -14612,6 +15024,11 @@ package java.util.concurrent {
     method public <U> java.util.concurrent.CompletionStage<U> applyToEitherAsync(java.util.concurrent.CompletionStage<? extends T>, java.util.function.Function<? super T,U>);
     method public <U> java.util.concurrent.CompletionStage<U> applyToEitherAsync(java.util.concurrent.CompletionStage<? extends T>, java.util.function.Function<? super T,U>, java.util.concurrent.Executor);
     method public java.util.concurrent.CompletionStage<T> exceptionally(java.util.function.Function<java.lang.Throwable,? extends T>);
+    method public default java.util.concurrent.CompletionStage<T> exceptionallyAsync(java.util.function.Function<java.lang.Throwable,? extends T>);
+    method public default java.util.concurrent.CompletionStage<T> exceptionallyAsync(java.util.function.Function<java.lang.Throwable,? extends T>, java.util.concurrent.Executor);
+    method public default java.util.concurrent.CompletionStage<T> exceptionallyCompose(java.util.function.Function<java.lang.Throwable,? extends java.util.concurrent.CompletionStage<T>>);
+    method public default java.util.concurrent.CompletionStage<T> exceptionallyComposeAsync(java.util.function.Function<java.lang.Throwable,? extends java.util.concurrent.CompletionStage<T>>);
+    method public default java.util.concurrent.CompletionStage<T> exceptionallyComposeAsync(java.util.function.Function<java.lang.Throwable,? extends java.util.concurrent.CompletionStage<T>>, java.util.concurrent.Executor);
     method public <U> java.util.concurrent.CompletionStage<U> handle(java.util.function.BiFunction<? super T,java.lang.Throwable,? extends U>);
     method public <U> java.util.concurrent.CompletionStage<U> handleAsync(java.util.function.BiFunction<? super T,java.lang.Throwable,? extends U>);
     method public <U> java.util.concurrent.CompletionStage<U> handleAsync(java.util.function.BiFunction<? super T,java.lang.Throwable,? extends U>, java.util.concurrent.Executor);
@@ -15002,9 +15419,9 @@ package java.util.concurrent {
     method public static java.util.concurrent.ScheduledExecutorService newSingleThreadScheduledExecutor(java.util.concurrent.ThreadFactory);
     method public static java.util.concurrent.ExecutorService newWorkStealingPool(int);
     method public static java.util.concurrent.ExecutorService newWorkStealingPool();
-    method public static <T> java.util.concurrent.Callable<T> privilegedCallable(java.util.concurrent.Callable<T>);
-    method public static <T> java.util.concurrent.Callable<T> privilegedCallableUsingCurrentClassLoader(java.util.concurrent.Callable<T>);
-    method public static java.util.concurrent.ThreadFactory privilegedThreadFactory();
+    method @Deprecated public static <T> java.util.concurrent.Callable<T> privilegedCallable(java.util.concurrent.Callable<T>);
+    method @Deprecated public static <T> java.util.concurrent.Callable<T> privilegedCallableUsingCurrentClassLoader(java.util.concurrent.Callable<T>);
+    method @Deprecated public static java.util.concurrent.ThreadFactory privilegedThreadFactory();
     method public static java.util.concurrent.ExecutorService unconfigurableExecutorService(java.util.concurrent.ExecutorService);
     method public static java.util.concurrent.ScheduledExecutorService unconfigurableScheduledExecutorService(java.util.concurrent.ScheduledExecutorService);
   }
@@ -16011,6 +16428,7 @@ package java.util.concurrent.locks {
     method public static void parkNanos(long);
     method public static void parkUntil(Object, long);
     method public static void parkUntil(long);
+    method public static void setCurrentBlocker(Object);
     method public static void unpark(Thread);
   }
 
@@ -17028,7 +17446,9 @@ package java.util.regex {
 
   public final class Matcher implements java.util.regex.MatchResult {
     method @NonNull public java.util.regex.Matcher appendReplacement(@NonNull StringBuffer, @NonNull String);
+    method @NonNull public java.util.regex.Matcher appendReplacement(@NonNull StringBuilder, @NonNull String);
     method @NonNull public StringBuffer appendTail(@NonNull StringBuffer);
+    method @NonNull public StringBuilder appendTail(@NonNull StringBuilder);
     method public int end();
     method public int end(int);
     method public int end(@NonNull String);
@@ -17049,10 +17469,13 @@ package java.util.regex {
     method public int regionEnd();
     method public int regionStart();
     method @NonNull public String replaceAll(@NonNull String);
+    method @NonNull public String replaceAll(@NonNull java.util.function.Function<java.util.regex.MatchResult,java.lang.String>);
     method @NonNull public String replaceFirst(@NonNull String);
+    method @NonNull public String replaceFirst(@NonNull java.util.function.Function<java.util.regex.MatchResult,java.lang.String>);
     method public boolean requireEnd();
     method @NonNull public java.util.regex.Matcher reset();
     method @NonNull public java.util.regex.Matcher reset(@NonNull CharSequence);
+    method @NonNull public java.util.stream.Stream<java.util.regex.MatchResult> results();
     method public int start();
     method public int start(int);
     method public int start(@NonNull String);
@@ -17063,6 +17486,7 @@ package java.util.regex {
   }
 
   public final class Pattern implements java.io.Serializable {
+    method @NonNull public java.util.function.Predicate<java.lang.String> asMatchPredicate();
     method @NonNull public java.util.function.Predicate<java.lang.String> asPredicate();
     method @NonNull public static java.util.regex.Pattern compile(@NonNull String);
     method @NonNull public static java.util.regex.Pattern compile(@NonNull String, int);
@@ -17329,6 +17753,7 @@ package java.util.stream {
     method public static <T> java.util.stream.Stream<T> concat(java.util.stream.Stream<? extends T>, java.util.stream.Stream<? extends T>);
     method public long count();
     method public java.util.stream.Stream<T> distinct();
+    method public default java.util.stream.Stream<T> dropWhile(java.util.function.Predicate<? super T>);
     method public static <T> java.util.stream.Stream<T> empty();
     method public java.util.stream.Stream<T> filter(java.util.function.Predicate<? super T>);
     method public java.util.Optional<T> findAny();
@@ -17339,10 +17764,15 @@ package java.util.stream {
     method public java.util.stream.LongStream flatMapToLong(java.util.function.Function<? super T,? extends java.util.stream.LongStream>);
     method public void forEach(java.util.function.Consumer<? super T>);
     method public void forEachOrdered(java.util.function.Consumer<? super T>);
-    method public static <T> java.util.stream.Stream<T> generate(java.util.function.Supplier<T>);
+    method public static <T> java.util.stream.Stream<T> generate(java.util.function.Supplier<? extends T>);
     method public static <T> java.util.stream.Stream<T> iterate(T, java.util.function.UnaryOperator<T>);
+    method public static <T> java.util.stream.Stream<T> iterate(T, java.util.function.Predicate<? super T>, java.util.function.UnaryOperator<T>);
     method public java.util.stream.Stream<T> limit(long);
     method public <R> java.util.stream.Stream<R> map(java.util.function.Function<? super T,? extends R>);
+    method public default <R> java.util.stream.Stream<R> mapMulti(java.util.function.BiConsumer<? super T,? super java.util.function.Consumer<R>>);
+    method public default java.util.stream.DoubleStream mapMultiToDouble(java.util.function.BiConsumer<? super T,? super java.util.function.DoubleConsumer>);
+    method public default java.util.stream.IntStream mapMultiToInt(java.util.function.BiConsumer<? super T,? super java.util.function.IntConsumer>);
+    method public default java.util.stream.LongStream mapMultiToLong(java.util.function.BiConsumer<? super T,? super java.util.function.LongConsumer>);
     method public java.util.stream.DoubleStream mapToDouble(java.util.function.ToDoubleFunction<? super T>);
     method public java.util.stream.IntStream mapToInt(java.util.function.ToIntFunction<? super T>);
     method public java.util.stream.LongStream mapToLong(java.util.function.ToLongFunction<? super T>);
@@ -17351,6 +17781,7 @@ package java.util.stream {
     method public boolean noneMatch(java.util.function.Predicate<? super T>);
     method public static <T> java.util.stream.Stream<T> of(T);
     method @java.lang.SafeVarargs public static <T> java.util.stream.Stream<T> of(T...);
+    method public static <T> java.util.stream.Stream<T> ofNullable(T);
     method public java.util.stream.Stream<T> peek(java.util.function.Consumer<? super T>);
     method public T reduce(T, java.util.function.BinaryOperator<T>);
     method public java.util.Optional<T> reduce(java.util.function.BinaryOperator<T>);
@@ -17358,8 +17789,10 @@ package java.util.stream {
     method public java.util.stream.Stream<T> skip(long);
     method public java.util.stream.Stream<T> sorted();
     method public java.util.stream.Stream<T> sorted(java.util.Comparator<? super T>);
+    method public default java.util.stream.Stream<T> takeWhile(java.util.function.Predicate<? super T>);
     method public Object[] toArray();
     method public <A> A[] toArray(java.util.function.IntFunction<A[]>);
+    method public default java.util.List<T> toList();
   }
 
   public static interface Stream.Builder<T> extends java.util.function.Consumer<T> {
@@ -17388,8 +17821,6 @@ package java.util.zip {
     method public void reset();
     method public void update(int);
     method public void update(byte[], int, int);
-    method public void update(byte[]);
-    method public void update(java.nio.ByteBuffer);
   }
 
   public class CRC32 implements java.util.zip.Checksum {
@@ -17398,8 +17829,14 @@ package java.util.zip {
     method public void reset();
     method public void update(int);
     method public void update(byte[], int, int);
-    method public void update(byte[]);
-    method public void update(java.nio.ByteBuffer);
+  }
+
+  public final class CRC32C implements java.util.zip.Checksum {
+    ctor public CRC32C();
+    method public long getValue();
+    method public void reset();
+    method public void update(int);
+    method public void update(byte[], int, int);
   }
 
   public class CheckedInputStream extends java.io.FilterInputStream {
@@ -17416,7 +17853,9 @@ package java.util.zip {
     method public long getValue();
     method public void reset();
     method public void update(int);
+    method public default void update(byte[]);
     method public void update(byte[], int, int);
+    method public default void update(java.nio.ByteBuffer);
   }
 
   public class DataFormatException extends java.lang.Exception {
@@ -17778,6 +18217,16 @@ package java.util.zip {
     field public static final int LOCTIM = 10; // 0xa
     field public static final int LOCVER = 4; // 0x4
     field public static final int STORED = 0; // 0x0
+  }
+
+}
+
+package javax.annotation.processing {
+
+  @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.PACKAGE, java.lang.annotation.ElementType.TYPE, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.CONSTRUCTOR, java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.LOCAL_VARIABLE, java.lang.annotation.ElementType.PARAMETER}) public @interface Generated {
+    method public abstract String comments() default "";
+    method public abstract String date() default "";
+    method public abstract String[] value();
   }
 
 }

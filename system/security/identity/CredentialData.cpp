@@ -117,6 +117,7 @@ bool CredentialData::saveToDisk() const {
     map.add("entryData", std::move(encryptedBlobsMap));
     map.add("authKeyCount", keyCount_);
     map.add("maxUsesPerAuthKey", maxUsesPerKey_);
+    map.add("minValidTimeMillis", minValidTimeMillis_);
 
     cppbor::Array authKeyDatasArray;
     for (const AuthKeyData& data : authKeyDatas_) {
@@ -253,6 +254,7 @@ bool CredentialData::loadFromDisk() {
     authKeyDatas_.clear();
     keyCount_ = 0;
     maxUsesPerKey_ = 1;
+    minValidTimeMillis_ = 0;
 
     optional<vector<uint8_t>> data = fileGetContents(fileName_);
     if (!data) {
@@ -398,6 +400,14 @@ bool CredentialData::loadFromDisk() {
                 return false;
             }
             maxUsesPerKey_ = number->value();
+
+        } else if (key == "minValidTimeMillis") {
+            const cppbor::Int* number = valueItem->asInt();
+            if (number == nullptr) {
+                LOG(ERROR) << "Value for minValidTimeMillis is not a number";
+                return false;
+            }
+            minValidTimeMillis_ = number->value();
         }
     }
 
@@ -479,9 +489,11 @@ optional<bool> CredentialData::credentialExists(const string& dataPath, uid_t ow
 
 // ---
 
-void CredentialData::setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey) {
+void CredentialData::setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey,
+                                                    int64_t minValidTimeMillis) {
     keyCount_ = keyCount;
     maxUsesPerKey_ = maxUsesPerKey;
+    minValidTimeMillis_ = minValidTimeMillis;
 
     // If growing the number of auth keys (prevKeyCount < keyCount_ case) we'll add
     // new AuthKeyData structs to |authKeyDatas_| and each struct will have empty |certificate|
@@ -499,8 +511,9 @@ const vector<AuthKeyData>& CredentialData::getAuthKeyDatas() const {
     return authKeyDatas_;
 }
 
-pair<int /* keyCount */, int /*maxUsersPerKey */> CredentialData::getAvailableAuthenticationKeys() {
-    return std::make_pair(keyCount_, maxUsesPerKey_);
+tuple<int /* keyCount */, int /*maxUsersPerKey */, int64_t /* minValidTimeMillis */>
+CredentialData::getAvailableAuthenticationKeys() const {
+    return std::make_tuple(keyCount_, maxUsesPerKey_, minValidTimeMillis_);
 }
 
 AuthKeyData* CredentialData::findAuthKey_(bool allowUsingExhaustedKeys,
@@ -568,14 +581,19 @@ CredentialData::getAuthKeysNeedingCertification(const sp<IIdentityCredential>& h
 
     vector<vector<uint8_t>> keysNeedingCert;
 
-    int64_t nowMilliSeconds =
-        std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()) * 1000;
+    time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+    int64_t nowMilliseconds;
+    if (__builtin_mul_overflow(int64_t(now), int64_t(1000), &nowMilliseconds)) {
+        LOG(ERROR) << "Overflow converting " << now << " to milliseconds";
+        return {};
+    }
 
     for (AuthKeyData& data : authKeyDatas_) {
         bool keyExceedUseCount = (data.useCount >= maxUsesPerKey_);
-        bool keyBeyondExpirationDate = (nowMilliSeconds > data.expirationDateMillisSinceEpoch);
+        int64_t expirationDateAdjusted = data.expirationDateMillisSinceEpoch - minValidTimeMillis_;
+        bool keyBeyondAdjustedExpirationDate = (nowMilliseconds > expirationDateAdjusted);
         bool newKeyNeeded =
-            (data.certificate.size() == 0) || keyExceedUseCount || keyBeyondExpirationDate;
+            (data.certificate.size() == 0) || keyExceedUseCount || keyBeyondAdjustedExpirationDate;
         bool certificationPending = (data.pendingCertificate.size() > 0);
         if (newKeyNeeded && !certificationPending) {
             vector<uint8_t> signingKeyBlob;

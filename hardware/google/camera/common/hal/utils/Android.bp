@@ -36,6 +36,7 @@ cc_library_shared {
         "internal_stream_manager.cc",
         "multicam_realtime_process_block.cc",
         "pipeline_request_id_manager.cc",
+        "realtime_process_block.cc",
         "result_dispatcher.cc",
         "stream_buffer_cache_manager.cc",
         "utils.cc",

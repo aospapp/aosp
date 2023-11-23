@@ -139,11 +139,12 @@ public class MotionEventTest {
 
         // Find the position inside the main activity and outside of the overlays.
         FutureTask<Point> clickLocationTask = new FutureTask<>(() -> {
-            final int[] viewLocation = new int[2];
+            final int[] contentViewLocation = new int[2];
             final View decorView = mActivity.getWindow().getDecorView();
-            decorView.getLocationOnScreen(viewLocation);
+            final View contentView = decorView.findViewById(android.R.id.content);
+            contentView.getLocationOnScreen(contentViewLocation);
             // Set y position to the center of the view, to make sure it is away from the status bar
-            return new Point(viewLocation[0], viewLocation[1] + decorView.getHeight() / 2);
+            return new Point(contentViewLocation[0], contentViewLocation[1] + contentView.getHeight() / 2);
         });
         mActivity.runOnUiThread(clickLocationTask);
         Point viewLocation = clickLocationTask.get(5, TimeUnit.SECONDS);
@@ -151,14 +152,9 @@ public class MotionEventTest {
 
         List<MotionEvent> outsideEvents = listener.getOutsideEvents();
 
-        if (isRunningInVR()) {
-            // In VR mode we should be prevented from seeing any events.
-            assertEquals(0, outsideEvents.size());
-        } else {
-            assertEquals(2, outsideEvents.size());
-            for (MotionEvent e : outsideEvents) {
-                assertEquals(0, e.getFlags() & MotionEvent.FLAG_WINDOW_IS_OBSCURED);
-            }
+        assertEquals(2, outsideEvents.size());
+        for (MotionEvent e : outsideEvents) {
+            assertEquals(0, e.getFlags() & MotionEvent.FLAG_WINDOW_IS_OBSCURED);
         }
     }
 

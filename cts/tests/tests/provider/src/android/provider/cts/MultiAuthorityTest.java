@@ -16,25 +16,22 @@
 
 package android.provider.cts;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import com.android.compatibility.common.util.SystemUtil;
-
 import android.app.ActivityManager;
-import android.app.Instrumentation;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
-import android.content.Context;
-import android.provider.SearchIndexableResource;
 
-import androidx.test.filters.SmallTest;
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import org.junit.After;
+import com.android.compatibility.common.util.SystemUtil;
+
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -46,26 +43,24 @@ public class MultiAuthorityTest {
     private static final String PROVIDER2 = "android.provider.apps.cts.multi2";
     private static final String PROVIDER_NONEXISTENT = "android.provider.apps.cts.multi3";
 
-    private Context mContext;
-    private ActivityManager mAm;
     private ContentResolver mContentResolver;
 
     @Before
     public void setUp() {
-        mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        mContentResolver = mContext.getContentResolver();
-        mAm = mContext.getSystemService(ActivityManager.class);
+        mContentResolver = InstrumentationRegistry.getInstrumentation()
+                            .getTargetContext().getContentResolver();
     }
 
-    @After
-    public void shutDown() {
+    @AfterClass
+    public static void shutDown() {
         killProviderProcess();
     }
 
-    private void killProviderProcess() {
-        SystemUtil.runWithShellPermissionIdentity(() -> {
-            mAm.forceStopPackage("android.provider.apps.cts.multiauthority");
-        });
+    private static void killProviderProcess() {
+        final ActivityManager am = InstrumentationRegistry.getInstrumentation()
+                                    .getTargetContext().getSystemService(ActivityManager.class);
+        SystemUtil.runWithShellPermissionIdentity(() ->
+                am.forceStopPackage("android.provider.apps.cts.multiauthority"));
     }
 
     @Test

@@ -65,11 +65,11 @@ public interface BundleKeyQuery<E extends Queryable> extends Queryable, Serializ
      * The string list value of the key/
      */
     @CheckResult
-    ListQuery<E, String, StringQuery<E>> stringListValue();
+    ListQuery<E, String> stringListValue();
 
     /**
      * The integer list value of the key/
      */
     @CheckResult
-    ListQuery<E, Integer, IntegerQuery<E>> integerListValue();
+    ListQuery<E, Integer> integerListValue();
 }

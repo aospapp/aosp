@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.apphibernation;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -47,7 +48,7 @@ public class AppHibernationStatsTest extends DeviceTestCase implements IBuildRec
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
         getDevice().executeShellCommand(CMD_ENABLE_APP_HIBERNATION);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -111,7 +112,7 @@ public class AppHibernationStatsTest extends DeviceTestCase implements IBuildRec
                         /* isGlobal */ false, /* isHibernating */ true));
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         final List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
         final int userId = getDevice().getCurrentUser();
@@ -133,7 +134,7 @@ public class AppHibernationStatsTest extends DeviceTestCase implements IBuildRec
                         /* isGlobal */ true, /* isHibernating */ true));
 
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         final List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
         assertThat(atoms.size()).isEqualTo(1);

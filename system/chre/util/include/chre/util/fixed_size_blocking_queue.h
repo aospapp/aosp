@@ -23,24 +23,40 @@
 #include "chre/platform/mutex.h"
 #include "chre/util/array_queue.h"
 #include "chre/util/non_copyable.h"
+#include "chre/util/segmented_queue.h"
 
 namespace chre {
 
+namespace blocking_queue_internal {
+
 /**
- * Implements a thread-safe blocking queue that blocks when popping an element
- * if necessary.
+ * The wrapper around queue storage (ArraryQueue or SegmentedQueue) that
+ * provide thread safety.
+ *
+ * The queue storage must provide the following APIs:
+ *    empty(), size(), push(), front(), pop(), remove(), operator[].
  */
-template <typename ElementType, size_t kSize>
-class FixedSizeBlockingQueue : public NonCopyable {
+template <typename ElementType, class QueueStorageType>
+class BlockingQueueCore : public QueueStorageType {
  public:
-  typedef ElementType value_type;
+  // Inherit constructors from QueueStorageType
+  using QueueStorageType::QueueStorageType;
+
+  /**
+   * Determines whether or not the BlockingQueue is empty.
+   */
+  bool empty();
+
+  /**
+   * Determines the current size of the BlockingQueue.
+   */
+  size_t size();
 
   /**
    * Pushes an element into the queue and notifies any waiting threads that an
    * element is available.
    *
    * @param The element to be pushed.
-   *
    * @return true if the element is pushed successfully.
    */
   bool push(const ElementType &element);
@@ -55,16 +71,6 @@ class FixedSizeBlockingQueue : public NonCopyable {
   ElementType pop();
 
   /**
-   * Determines whether or not the BlockingQueue is empty.
-   */
-  bool empty();
-
-  /**
-   * Determines the current size of the BlockingQueue.
-   */
-  size_t size();
-
-  /**
    * Removes an element from the array queue given an index. It returns false if
    * the index is out of bounds of the underlying array queue.
    *
@@ -75,36 +81,41 @@ class FixedSizeBlockingQueue : public NonCopyable {
 
   /**
    * Obtains an element of the array queue given an index. It is illegal to
-   * index this array queue out of bounds and the user of the API must check the
-   * size() function prior to indexing this array queue to ensure that they will
-   * not read out of bounds.
+   * index this array queue out of bounds and the user of the API must check
+   * the size() function prior to indexing this array queue to ensure that they
+   * will not read out of bounds.
    *
    * @param index Requested index in range [0,size()-1]
    * @return The element.
    */
   ElementType &operator[](size_t index);
-
-  /**
-   * Obtains a const element of the queue given an index. It is illegal to index
-   * this queue out of bounds and the user of the API must check the size()
-   * function prior to indexing this queue to ensure that they will not read out
-   * of bounds.
-   *
-   * @param index Requested index in the rante [0,size()-1]
-   * @return The element.
-   */
   const ElementType &operator[](size_t index) const;
 
- private:
-  //! The mutex used to ensure thread-safety. Mutable to allow const operator[].
+ protected:
+  //! The mutex used to ensure thread-safety. Mutable to allow const
+  //! operator[].
   mutable Mutex mMutex;
 
+ private:
   //! The condition variable used to implement the blocking behavior of the
   //! queue.
   ConditionVariable mConditionVariable;
+};
+}  // namespace blocking_queue_internal
 
-  //! The underlying fixed size container backing the queue.
-  ArrayQueue<ElementType, kSize> mQueue;
+/**
+ * Wrapper for the blocking queue implementation that uses chre::ArrayQueue as
+ * the data container.
+ *
+ * @tparam ElementType type of the item that will be stored in the queue.
+ * @tparam kSize maximum item count that this queue can hold
+ */
+template <typename ElementType, size_t kSize>
+class FixedSizeBlockingQueue
+    : public blocking_queue_internal::BlockingQueueCore<
+          ElementType, ArrayQueue<ElementType, kSize>> {
+ public:
+  typedef ElementType value_type;
 };
 
 }  // namespace chre

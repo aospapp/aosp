@@ -10,3 +10,6 @@ package {
 hidl_package_root {
     name: "vendor.nxp.nxpnfc",
 }
+subdirs = [
+    "aidl",
+]

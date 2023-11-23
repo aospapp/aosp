@@ -28,7 +28,13 @@ android_test {
         "ub-uiautomator",
         "hamcrest-library",
         "platform-test-options",
+        "automotive-facet-bar-helper",
+        "automotive-app-grid-helper",
     ],
     srcs: ["src/**/*.java"],
-    test_suites: ["catbox","general-tests"],
+    test_suites: [
+        "catbox",
+        "general-tests",
+        "automotive-tests",
+    ],
 }

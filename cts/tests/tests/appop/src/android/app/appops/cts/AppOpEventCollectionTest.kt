@@ -38,12 +38,12 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.ActivityTestRule
 import androidx.test.uiautomator.UiDevice
 import com.google.common.truth.Truth.assertThat
+import java.lang.Thread.sleep
+import java.util.concurrent.atomic.AtomicLong
 import org.junit.Assume.assumeNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
-import java.lang.Thread.sleep
-import java.util.concurrent.atomic.AtomicLong
 
 private const val BACKGROUND_PACKAGE = "android.app.appops.cts.appinbackground"
 private const val SHELL_PACKAGE_NAME = "com.android.shell"
@@ -364,7 +364,9 @@ class AppOpEventCollectionTest {
                 .getLastProxyInfo(OP_FLAGS_ALL)).isNull()
         }
 
-        firstAttrManager.finishProxyOp(OPSTR_WIFI_SCAN, otherUid, otherPkg, null)
+        runWithShellPermissionIdentity {
+            firstAttrManager.finishProxyOp(OPSTR_WIFI_SCAN, otherUid, otherPkg, null)
+        }
         sleep(1)
         val afterTrusted = System.currentTimeMillis()
 
@@ -443,10 +445,9 @@ class AppOpEventCollectionTest {
             val start = firstAttrManager.startProxyOpNoThrow(OPSTR_WIFI_SCAN, otherUid, otherPkg,
                     null, null)
             sleep(1)
+            firstAttrManager.finishProxyOp(OPSTR_WIFI_SCAN, otherUid, otherPkg, null)
+            sleep(1)
         }
-
-        firstAttrManager.finishProxyOp(OPSTR_WIFI_SCAN, otherUid, otherPkg, null)
-        sleep(1)
 
         // Untrusted proxy op
         val secondAttrManager = context.createAttributionContext(secondTag)!!

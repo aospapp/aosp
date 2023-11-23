@@ -15,6 +15,7 @@
 package cc
 
 import (
+	"fmt"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -62,6 +63,12 @@ func (tidy *tidyFeature) props() []interface{} {
 	return []interface{}{&tidy.Properties}
 }
 
+// Set this const to true when all -warnings-as-errors in tidy_flags
+// are replaced with tidy_checks_as_errors.
+// Then, that old style usage will be obsolete and an error.
+const NoWarningsAsErrorsInTidyFlags = true
+
+// keep this up to date with https://cs.android.com/android/platform/superproject/+/master:build/bazel/rules/cc/clang_tidy.bzl
 func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 	CheckBadTidyFlags(ctx, "tidy_flags", tidy.Properties.Tidy_flags)
 	CheckBadTidyChecks(ctx, "tidy_checks", tidy.Properties.Tidy_checks)
@@ -70,15 +77,24 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 	if tidy.Properties.Tidy != nil && !*tidy.Properties.Tidy {
 		return flags
 	}
-
+	// Some projects like external/* and vendor/* have clang-tidy disabled by default,
+	// unless they are enabled explicitly with the "tidy:true" property or
+	// when TIDY_EXTERNAL_VENDOR is set to true.
+	if !proptools.Bool(tidy.Properties.Tidy) &&
+		config.NoClangTidyForDir(
+			ctx.Config().IsEnvTrue("TIDY_EXTERNAL_VENDOR"),
+			ctx.ModuleDir()) {
+		return flags
+	}
 	// If not explicitly disabled, set flags.Tidy to generate .tidy rules.
 	// Note that libraries and binaries will depend on .tidy files ONLY if
 	// the global WITH_TIDY or module 'tidy' property is true.
 	flags.Tidy = true
 
-	// If explicitly enabled, by global default or local tidy property,
+	// If explicitly enabled, by global WITH_TIDY or local tidy:true property,
 	// set flags.NeedTidyFiles to make this module depend on .tidy files.
-	if ctx.Config().ClangTidy() || Bool(tidy.Properties.Tidy) {
+	// Note that locally set tidy:true is ignored if ALLOW_LOCAL_TIDY_TRUE is not set to true.
+	if ctx.Config().IsEnvTrue("WITH_TIDY") || (ctx.Config().IsEnvTrue("ALLOW_LOCAL_TIDY_TRUE") && Bool(tidy.Properties.Tidy)) {
 		flags.NeedTidyFiles = true
 	}
 
@@ -95,10 +111,15 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 	if !android.SubstringInList(flags.TidyFlags, "-header-filter=") {
 		defaultDirs := ctx.Config().Getenv("DEFAULT_TIDY_HEADER_DIRS")
 		headerFilter := "-header-filter="
+		// Default header filter should include only the module directory,
+		// not the out/soong/.../ModuleDir/...
+		// Otherwise, there will be too many warnings from generated files in out/...
+		// If a module wants to see warnings in the generated source files,
+		// it should specify its own -header-filter flag.
 		if defaultDirs == "" {
-			headerFilter += ctx.ModuleDir() + "/"
+			headerFilter += "^" + ctx.ModuleDir() + "/"
 		} else {
-			headerFilter += "\"(" + ctx.ModuleDir() + "/|" + defaultDirs + ")\""
+			headerFilter += "\"(^" + ctx.ModuleDir() + "/|" + defaultDirs + ")\""
 		}
 		flags.TidyFlags = append(flags.TidyFlags, headerFilter)
 	}
@@ -115,19 +136,7 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 		flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before=-fno-caret-diagnostics")
 	}
 
-	extraArgFlags := []string{
-		// We might be using the static analyzer through clang tidy.
-		// https://bugs.llvm.org/show_bug.cgi?id=32914
-		"-D__clang_analyzer__",
-
-		// A recent change in clang-tidy (r328258) enabled destructor inlining, which
-		// appears to cause a number of false positives. Until that's resolved, this turns
-		// off the effects of r328258.
-		// https://bugs.llvm.org/show_bug.cgi?id=37459
-		"-Xclang", "-analyzer-config", "-Xclang", "c++-temp-dtor-inlining=false",
-	}
-
-	for _, f := range extraArgFlags {
+	for _, f := range config.TidyExtraArgFlags() {
 		flags.TidyFlags = append(flags.TidyFlags, "-extra-arg-before="+f)
 	}
 
@@ -138,61 +147,54 @@ func (tidy *tidyFeature) flags(ctx ModuleContext, flags Flags) Flags {
 		tidyChecks += config.TidyChecksForDir(ctx.ModuleDir())
 	}
 	if len(tidy.Properties.Tidy_checks) > 0 {
-		tidyChecks = tidyChecks + "," + strings.Join(esc(ctx, "tidy_checks",
-			config.ClangRewriteTidyChecks(tidy.Properties.Tidy_checks)), ",")
+		// If Tidy_checks contains "-*", ignore all checks before "-*".
+		localChecks := tidy.Properties.Tidy_checks
+		ignoreGlobalChecks := false
+		for n, check := range tidy.Properties.Tidy_checks {
+			if check == "-*" {
+				ignoreGlobalChecks = true
+				localChecks = tidy.Properties.Tidy_checks[n:]
+			}
+		}
+		if ignoreGlobalChecks {
+			tidyChecks = "-checks=" + strings.Join(esc(ctx, "tidy_checks",
+				config.ClangRewriteTidyChecks(localChecks)), ",")
+		} else {
+			tidyChecks = tidyChecks + "," + strings.Join(esc(ctx, "tidy_checks",
+				config.ClangRewriteTidyChecks(localChecks)), ",")
+		}
 	}
+	tidyChecks = tidyChecks + config.TidyGlobalNoChecks()
 	if ctx.Windows() {
 		// https://b.corp.google.com/issues/120614316
 		// mingw32 has cert-dcl16-c warning in NO_ERROR,
 		// which is used in many Android files.
-		tidyChecks = tidyChecks + ",-cert-dcl16-c"
+		tidyChecks += ",-cert-dcl16-c"
 	}
-	// https://b.corp.google.com/issues/153464409
-	// many local projects enable cert-* checks, which
-	// trigger bugprone-reserved-identifier.
-	tidyChecks = tidyChecks + ",-bugprone-reserved-identifier*,-cert-dcl51-cpp,-cert-dcl37-c"
-	// http://b/153757728
-	tidyChecks = tidyChecks + ",-readability-qualified-auto"
-	// http://b/155034563
-	tidyChecks = tidyChecks + ",-bugprone-signed-char-misuse"
-	// http://b/155034972
-	tidyChecks = tidyChecks + ",-bugprone-branch-clone"
-	// http://b/193716442
-	tidyChecks = tidyChecks + ",-bugprone-implicit-widening-of-multiplication-result"
-	// Too many existing functions trigger this rule, and fixing it requires large code
-	// refactoring. The cost of maintaining this tidy rule outweighs the benefit it brings.
-	tidyChecks = tidyChecks + ",-bugprone-easily-swappable-parameters"
-	// http://b/216364337 - TODO: Follow-up after compiler update to
-	// disable or fix individual instances.
-	tidyChecks = tidyChecks + ",-cert-err33-c"
+
 	flags.TidyFlags = append(flags.TidyFlags, tidyChecks)
 
-	if ctx.Config().IsEnvTrue("WITH_TIDY") {
-		// WITH_TIDY=1 enables clang-tidy globally. There could be many unexpected
-		// warnings from new checks and many local tidy_checks_as_errors and
-		// -warnings-as-errors can break a global build.
-		// So allow all clang-tidy warnings.
-		inserted := false
-		for i, s := range flags.TidyFlags {
-			if strings.Contains(s, "-warnings-as-errors=") {
-				// clang-tidy accepts only one -warnings-as-errors
-				// replace the old one
-				re := regexp.MustCompile(`'?-?-warnings-as-errors=[^ ]* *`)
-				newFlag := re.ReplaceAllString(s, "")
-				if newFlag == "" {
-					flags.TidyFlags[i] = "-warnings-as-errors=-*"
-				} else {
-					flags.TidyFlags[i] = newFlag + " -warnings-as-errors=-*"
-				}
-				inserted = true
-				break
+	// Embedding -warnings-as-errors in tidy_flags is error-prone.
+	// It should be replaced with the tidy_checks_as_errors list.
+	for i, s := range flags.TidyFlags {
+		if strings.Contains(s, "-warnings-as-errors=") {
+			if NoWarningsAsErrorsInTidyFlags {
+				ctx.PropertyErrorf("tidy_flags", "should not contain "+s+"; use tidy_checks_as_errors instead.")
+			} else {
+				fmt.Printf("%s: warning: module %s's tidy_flags should not contain %s, which is replaced with -warnings-as-errors=-*; use tidy_checks_as_errors for your own as-error warnings instead.\n",
+					ctx.BlueprintsFile(), ctx.ModuleName(), s)
+				flags.TidyFlags[i] = "-warnings-as-errors=-*"
 			}
+			break // there is at most one -warnings-as-errors
 		}
-		if !inserted {
-			flags.TidyFlags = append(flags.TidyFlags, "-warnings-as-errors=-*")
-		}
-	} else if len(tidy.Properties.Tidy_checks_as_errors) > 0 {
-		tidyChecksAsErrors := "-warnings-as-errors=" + strings.Join(esc(ctx, "tidy_checks_as_errors", tidy.Properties.Tidy_checks_as_errors), ",")
+	}
+	// Default clang-tidy flags does not contain -warning-as-errors.
+	// If a module has tidy_checks_as_errors, add the list to -warnings-as-errors
+	// and then append the TidyGlobalNoErrorChecks.
+	if len(tidy.Properties.Tidy_checks_as_errors) > 0 {
+		tidyChecksAsErrors := "-warnings-as-errors=" +
+			strings.Join(esc(ctx, "tidy_checks_as_errors", tidy.Properties.Tidy_checks_as_errors), ",") +
+			config.TidyGlobalNoErrorChecks()
 		flags.TidyFlags = append(flags.TidyFlags, tidyChecksAsErrors)
 	}
 	return flags

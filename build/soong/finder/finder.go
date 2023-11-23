@@ -94,6 +94,10 @@ type CacheParams struct {
 	// RootDirs are the root directories used to initiate the search
 	RootDirs []string
 
+	// Whether symlinks are followed. If set, symlinks back to their own parent
+	// directory don't work.
+	FollowSymlinks bool
+
 	// ExcludeDirs are directory names that if encountered are removed from the search
 	ExcludeDirs []string
 
@@ -732,15 +736,15 @@ func (f *Finder) parseCacheEntry(bytes []byte) ([]dirFullInfo, error) {
 // because we know this separator won't appear in the json that we're parsing.
 //
 // The newline byte can only appear in a UTF-8 stream if the newline character appears, because:
-// - The newline character is encoded as "0000 1010" in binary ("0a" in hex)
-// - UTF-8 dictates that bytes beginning with a "0" bit are never emitted as part of a multibyte
-//   character.
+//   - The newline character is encoded as "0000 1010" in binary ("0a" in hex)
+//   - UTF-8 dictates that bytes beginning with a "0" bit are never emitted as part of a multibyte
+//     character.
 //
 // We know that the newline character will never appear in our json string, because:
-// - If a newline character appears as part of a data string, then json encoding will
-//   emit two characters instead: '\' and 'n'.
-// - The json encoder that we use doesn't emit the optional newlines between any of its
-//   other outputs.
+//   - If a newline character appears as part of a data string, then json encoding will
+//     emit two characters instead: '\' and 'n'.
+//   - The json encoder that we use doesn't emit the optional newlines between any of its
+//     other outputs.
 const lineSeparator = byte('\n')
 
 func (f *Finder) readLine(reader *bufio.Reader) ([]byte, error) {
@@ -1415,9 +1419,14 @@ func (f *Finder) listDirSync(dir *pathMap) {
 				// If stat fails this is probably a broken or dangling symlink, treat it as a file.
 				subfiles = append(subfiles, child.Name())
 			} else if childStat.IsDir() {
-				// Skip symlink dirs.
-				// We don't have to support symlink dirs because
-				// that would cause duplicates.
+				// Skip symlink dirs if not requested otherwise. Android has a number
+				// of symlinks creating infinite source trees which would otherwise get
+				// us in an infinite loop.
+				// TODO(b/197349722): Revisit this once symlink loops are banned in the
+				// source tree.
+				if f.cacheMetadata.Config.FollowSymlinks {
+					subdirs = append(subdirs, child.Name())
+				}
 			} else {
 				// We do have to support symlink files because the link name might be
 				// different than the target name

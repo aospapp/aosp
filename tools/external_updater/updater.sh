@@ -17,7 +17,5 @@
 set -e
 
 cd $(dirname "$0")/../..
-source build/envsetup.sh
-lunch aosp_arm-eng
-mmma tools/external_updater
+.//build/soong/soong_ui.bash --make-mode external_updater
 out/host/linux-x86/bin/external_updater $@

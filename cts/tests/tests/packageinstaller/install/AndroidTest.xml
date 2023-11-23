@@ -20,7 +20,10 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user_on_secondary_display" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
+    <option name="config-descriptor:metadata" key="parameter" value="multiuser" />
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/packageinstaller" />
@@ -35,6 +38,10 @@
     <target_preparer class="com.android.compatibility.common.tradefed.targetprep.FilePusher">
         <option name="cleanup" value="true" />
         <option name="push" value="CtsEmptyTestApp.apk->/data/local/tmp/cts/packageinstaller/CtsEmptyTestApp.apk" />
+        <option name="push" value="CtsEmptyTestAppV2.apk->/data/local/tmp/cts/packageinstaller/CtsEmptyTestAppV2.apk" />
+        <option name="push" value="CtsEmptyTestApp_pl.apk->/data/local/tmp/cts/packageinstaller/CtsEmptyTestApp_pl.apk" />
+        <option name="push" value="CtsEmptyInstallerApp.apk->/data/local/tmp/cts/packageinstaller/CtsEmptyInstallerApp.apk" />
+        <option name="push" value="CtsEmptyTestApp_FullScreenIntent.apk->/data/local/tmp/cts/packageinstaller/CtsEmptyTestApp_FullScreenIntent.apk" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
@@ -43,11 +50,44 @@
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
-        <option name="run-command" value="appops set android.packageinstaller.install.cts REQUEST_INSTALL_PACKAGES allow" />
+        <option name="test-user-token" value="%TEST_USER%"/>
+        <option name="run-command" value="appops set --user %TEST_USER% android.packageinstaller.install.cts REQUEST_INSTALL_PACKAGES allow" />
+    </target_preparer>
+
+    <target_preparer class="com.android.compatibility.common.tradefed.targetprep.SettingsPreparer">
+        <option name="device-setting" value="hide_error_dialogs"/>
+        <option name="setting-type" value="global"/>
+        <option name="set-value" value="1"/>
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
+        <option name="run-command" value="pm uninstall com.android.cts.install.lib.testapp.B" />
+        <option name="run-command" value="pm uninstall com.android.cts.install.lib.testapp.S" />
+        <option name="run-command" value="pm uninstall com.test.sdk.user" />
+        <option name="run-command" value="pm uninstall com.test.sdk1_1" />
+        <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
+        <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.B" />
+        <option name="teardown-command" value="pm uninstall com.android.cts.install.lib.testapp.S" />
+        <option name="teardown-command" value="pm uninstall com.test.sdk.user" />
+        <option name="teardown-command" value="pm uninstall com.test.sdk1_1" />
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
+        <!-- Collapse notifications -->
+        <option name="run-command" value="cmd statusbar collapse" />
+        <!-- dismiss all system dialogs before launch test -->
+        <option name="run-command" value="am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS" />
+    </target_preparer>
+
+    <!-- Required for UserRestrictionInstallTest (b/277987631) -->
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
+        <option name="force-root" value="false" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.packageinstaller.install.cts" />
         <option name="runtime-hint" value="1m" />
+        <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile" />
+        <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnSecondaryUser" />
     </test>
 </configuration>

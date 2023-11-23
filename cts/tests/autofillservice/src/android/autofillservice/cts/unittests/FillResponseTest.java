@@ -27,6 +27,7 @@ import static org.testng.Assert.assertThrows;
 import android.content.IntentSender;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
+import android.service.assist.classification.FieldClassification;
 import android.service.autofill.Dataset;
 import android.service.autofill.FillResponse;
 import android.service.autofill.SaveInfo;
@@ -39,6 +40,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
+
+import java.util.Set;
 
 @RunWith(MockitoJUnitRunner.class)
 @AppModeFull(reason = "Unit test")
@@ -58,6 +61,11 @@ public class FillResponseTest {
     @Mock private RemoteViews mFooter;
     @Mock private IntentSender mIntentSender;
     private final UserData mUserData = new UserData.Builder("id", "value", "cat").build();
+
+    private final Set<String> mHints = Set.of("postalCode", "addressRegion");
+    private final Set<String> mGroups = Set.of("postalAddress");
+    private final Set<FieldClassification> mDetectedFields =
+                Set.of(new FieldClassification(mAutofillId, mHints, mGroups));
 
     @Test
     public void testBuilder_setAuthentication_invalid() {
@@ -211,6 +219,34 @@ public class FillResponseTest {
     }
 
     @Test
+    public void testBuilder_setDetectedFieldClassifications_groups() {
+        mBuilder.addDataset(mDataset);
+        mBuilder.setDetectedFieldClassifications(mDetectedFields);
+        assertThat(mBuilder.build().getDetectedFieldClassifications().size())
+                .isEqualTo(1);
+    }
+
+    @Test
+    public void testBuilder_setDetectedFieldClassifications() {
+        Set<String> mHints1 = Set.of("hello");
+        Set<String> mHints2 = Set.of("world");
+
+        AutofillId mAutofillId1 = new AutofillId(42);
+        AutofillId mAutofillId2 = new AutofillId(30);
+
+
+        Set<FieldClassification> mDetectedFields1 =
+                Set.of(new FieldClassification(mAutofillId1, mHints1),
+                        new FieldClassification(mAutofillId2, mHints2));
+
+        mBuilder.addDataset(mDataset);
+        mBuilder.setDetectedFieldClassifications(mDetectedFields1);
+        assertThat(mBuilder.build().getDetectedFieldClassifications().size())
+                .isEqualTo(2);
+    }
+
+
+    @Test
     public void testBuild_invalid() {
         assertThrows(IllegalStateException.class, () -> mBuilder.build());
     }
@@ -262,5 +298,7 @@ public class FillResponseTest {
         assertThrows(IllegalStateException.class, () -> mBuilder.setFooter(mFooter));
         assertThrows(IllegalStateException.class, () -> mBuilder.setUserData(mUserData));
         assertThrows(IllegalStateException.class, () -> mBuilder.setPresentationCancelIds(null));
+        assertThrows(IllegalStateException.class,
+                () -> mBuilder.setDetectedFieldClassifications(mDetectedFields));
     }
 }

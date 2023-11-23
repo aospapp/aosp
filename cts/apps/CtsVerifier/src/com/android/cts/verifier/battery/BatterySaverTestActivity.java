@@ -96,6 +96,7 @@ public class BatterySaverTestActivity extends OrderedTestActivity {
                     new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
             int plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1);
             return plugged == BatteryManager.BATTERY_PLUGGED_AC
+                    || plugged == BatteryManager.BATTERY_PLUGGED_DOCK
                     || plugged == BatteryManager.BATTERY_PLUGGED_USB
                     || plugged == BatteryManager.BATTERY_PLUGGED_WIRELESS;
         }

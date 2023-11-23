@@ -21,6 +21,7 @@ import static android.contentcaptureservice.cts.Helper.componentNameFor;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.assist.ActivityId;
 import android.content.ComponentName;
 import android.os.Parcel;
 import android.os.ParcelFileDescriptor;
@@ -711,34 +712,37 @@ public class CtsContentCaptureService extends ContentCaptureService {
         }
 
         @NonNull
-        public EventsAssertor activityResumed(@NonNull ComponentName expectedActivity) {
-            assertNextEvent((event) -> assertActivityEvent(event, expectedActivity,
+        public EventsAssertor activityResumed(@NonNull ComponentName expectedActivity, int taskId) {
+            assertNextEvent((event) -> assertActivityEvent(event, expectedActivity, taskId,
                     ActivityEvent.TYPE_ACTIVITY_RESUMED), "no ACTIVITY_RESUMED event for %s",
                     expectedActivity);
             return this;
         }
 
         @NonNull
-        public EventsAssertor activityPaused(@NonNull ComponentName expectedActivity) {
-            assertNextEvent((event) -> assertActivityEvent(event, expectedActivity,
-                    ActivityEvent.TYPE_ACTIVITY_PAUSED), "no ACTIVITY_PAUSED event for %s",
-                    expectedActivity);
+        public EventsAssertor activityPaused(@NonNull ComponentName expectedComponentName,
+                int expectedTaskId) {
+            assertNextEvent((event) -> assertActivityEvent(event, expectedComponentName,
+                            expectedTaskId, ActivityEvent.TYPE_ACTIVITY_PAUSED),
+                    "no ACTIVITY_PAUSED event for %s", expectedComponentName);
             return this;
         }
 
         @NonNull
-        public EventsAssertor activityStopped(@NonNull ComponentName expectedActivity) {
-            assertNextEvent((event) -> assertActivityEvent(event, expectedActivity,
-                    ActivityEvent.TYPE_ACTIVITY_STOPPED), "no ACTIVITY_STOPPED event for %s",
-                    expectedActivity);
+        public EventsAssertor activityStopped(@NonNull ComponentName expectedComponentName,
+                int expectedTaskId) {
+            assertNextEvent((event) -> assertActivityEvent(event, expectedComponentName,
+                            expectedTaskId, ActivityEvent.TYPE_ACTIVITY_STOPPED),
+                    "no ACTIVITY_STOPPED event for %s", expectedComponentName);
             return this;
         }
 
         @NonNull
-        public EventsAssertor activityDestroyed(@NonNull ComponentName expectedActivity) {
-            assertNextEvent((event) -> assertActivityEvent(event, expectedActivity,
-                    ActivityEvent.TYPE_ACTIVITY_DESTROYED), "no ACTIVITY_DESTROYED event for %s",
-                    expectedActivity);
+        public EventsAssertor activityDestroyed(@NonNull ComponentName expectedComponentName,
+                int expectedTaskId) {
+            assertNextEvent((event) -> assertActivityEvent(event, expectedComponentName,
+                            expectedTaskId, ActivityEvent.TYPE_ACTIVITY_DESTROYED),
+                    "no ACTIVITY_DESTROYED event for %s", expectedComponentName);
             return this;
         }
 
@@ -764,7 +768,7 @@ public class CtsContentCaptureService extends ContentCaptureService {
 
     @Nullable
     public static String assertActivityEvent(@NonNull MyActivityEvent myEvent,
-            @NonNull ComponentName expectedActivity, int expectedType) {
+            @NonNull ComponentName expectedComponentName, int expectedTaskId, int expectedType) {
         if (myEvent == null) {
             return "myEvent is null";
         }
@@ -777,10 +781,15 @@ public class CtsContentCaptureService extends ContentCaptureService {
             return String.format("wrong event type for %s: expected %s, got %s", event,
                     expectedType, actualType);
         }
-        final ComponentName actualActivity = event.getComponentName();
-        if (!expectedActivity.equals(actualActivity)) {
-            return String.format("wrong activity for %s: expected %s, got %s", event,
-                    expectedActivity, actualActivity);
+        final ComponentName actualComponentName = event.getComponentName();
+        if (!expectedComponentName.equals(actualComponentName)) {
+            return String.format("wrong componentName for %s: expected %s, got %s", event,
+                    expectedComponentName, actualComponentName);
+        }
+        ActivityId activityId = event.getActivityId();
+        if (expectedTaskId != activityId.getTaskId()) {
+            return String.format("wrong task id for %s: expected %s, got %s", event,
+                    expectedTaskId, activityId.getTaskId());
         }
         return null;
     }

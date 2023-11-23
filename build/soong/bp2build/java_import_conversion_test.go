@@ -21,45 +21,50 @@ import (
 	"testing"
 )
 
-func runJavaImportTestCase(t *testing.T, tc bp2buildTestCase) {
+func runJavaImportTestCase(t *testing.T, tc Bp2buildTestCase) {
 	t.Helper()
-	runBp2BuildTestCase(t, registerJavaImportModuleTypes, tc)
+	RunBp2BuildTestCase(t, registerJavaImportModuleTypes, tc)
 }
 
 func registerJavaImportModuleTypes(ctx android.RegistrationContext) {
 }
 
 func TestJavaImportMinimal(t *testing.T) {
-	runJavaImportTestCase(t, bp2buildTestCase{
-		description:                "Java import - simple example",
-		moduleTypeUnderTest:        "java_import",
-		moduleTypeUnderTestFactory: java.ImportFactory,
-		filesystem: map[string]string{
+	runJavaImportTestCase(t, Bp2buildTestCase{
+		Description:                "Java import - simple example",
+		ModuleTypeUnderTest:        "java_import",
+		ModuleTypeUnderTestFactory: java.ImportFactory,
+		Filesystem: map[string]string{
 			"import.jar": "",
 		},
-		blueprint: `
+		Blueprint: `
 java_import {
         name: "example_import",
         jars: ["import.jar"],
         bazel_module: { bp2build_available: true },
 }
 `,
-		expectedBazelTargets: []string{
-			makeBazelTarget("java_import", "example_import", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("java_import", "example_import", AttrNameToString{
 				"jars": `["import.jar"]`,
+			}),
+			MakeBazelTarget("java_library", "example_import-neverlink", AttrNameToString{
+				"exports":     `[":example_import"]`,
+				"neverlink":   `True`,
+				"sdk_version": `"none"`,
 			}),
 		}})
 }
 
 func TestJavaImportArchVariant(t *testing.T) {
-	runJavaImportTestCase(t, bp2buildTestCase{
-		description:                "Java import - simple example",
-		moduleTypeUnderTest:        "java_import",
-		moduleTypeUnderTestFactory: java.ImportFactory,
-		filesystem: map[string]string{
+	runJavaImportTestCase(t, Bp2buildTestCase{
+		Description:                "Java import - simple example",
+		ModuleTypeUnderTest:        "java_import",
+		ModuleTypeUnderTestFactory: java.ImportFactory,
+		Filesystem: map[string]string{
 			"import.jar": "",
 		},
-		blueprint: `
+		Blueprint: `
 java_import {
         name: "example_import",
 		target: {
@@ -73,13 +78,45 @@ java_import {
         bazel_module: { bp2build_available: true },
 }
 `,
-		expectedBazelTargets: []string{
-			makeBazelTarget("java_import", "example_import", attrNameToString{
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("java_import", "example_import", AttrNameToString{
 				"jars": `select({
         "//build/bazel/platforms/os:android": ["android.jar"],
-        "//build/bazel/platforms/os:linux": ["linux.jar"],
+        "//build/bazel/platforms/os:linux_glibc": ["linux.jar"],
         "//conditions:default": [],
     })`,
+			}),
+			MakeBazelTarget("java_library", "example_import-neverlink", AttrNameToString{
+				"exports":     `[":example_import"]`,
+				"neverlink":   `True`,
+				"sdk_version": `"none"`,
+			}),
+		}})
+}
+
+func TestJavaImportHost(t *testing.T) {
+	runJavaImportTestCase(t, Bp2buildTestCase{
+		Description:                "Java import host- simple example",
+		ModuleTypeUnderTest:        "java_import_host",
+		ModuleTypeUnderTestFactory: java.ImportFactory,
+		Filesystem: map[string]string{
+			"import.jar": "",
+		},
+		Blueprint: `
+java_import_host {
+        name: "example_import",
+        jars: ["import.jar"],
+        bazel_module: { bp2build_available: true },
+}
+`,
+		ExpectedBazelTargets: []string{
+			MakeBazelTarget("java_import", "example_import", AttrNameToString{
+				"jars": `["import.jar"]`,
+			}),
+			MakeBazelTarget("java_library", "example_import-neverlink", AttrNameToString{
+				"exports":     `[":example_import"]`,
+				"neverlink":   `True`,
+				"sdk_version": `"none"`,
 			}),
 		}})
 }

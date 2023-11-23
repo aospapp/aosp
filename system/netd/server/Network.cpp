@@ -83,6 +83,13 @@ std::string Network::uidRangesToString() const {
     return result.str();
 }
 
+std::string Network::allowedUidsToString() const {
+    if (!mAllowedUids) {
+        return "unrestricted";
+    }
+    return mAllowedUids->toString();
+}
+
 // Check if the user has been added to this network. If yes, the highest priority of matching
 // setting is returned by subPriority. Thus caller can make choice among several matching
 // networks.
@@ -117,18 +124,24 @@ void Network::removeFromUidRangeMap(const UidRanges& uidRanges, int32_t subPrior
     }
 }
 
-bool Network::canAddUidRanges(const UidRanges& uidRanges, int32_t subPriority) const {
+void Network::clearAllowedUids() {
+    mAllowedUids.reset();
+}
+
+void Network::setAllowedUids(const UidRanges& uidRanges) {
+    mAllowedUids = uidRanges;
+}
+
+bool Network::isUidAllowed(uid_t uid) {
+    return !mAllowedUids || mAllowedUids->hasUid(uid);
+}
+
+bool Network::canAddUidRanges(const UidRanges& uidRanges) const {
     if (uidRanges.overlapsSelf()) {
         ALOGE("uid range %s overlaps self", uidRanges.toString().c_str());
         return false;
     }
 
-    auto iter = mUidRangeMap.find(subPriority);
-    if (iter != mUidRangeMap.end() && uidRanges.overlaps(iter->second)) {
-        ALOGE("uid range %s overlaps priority %d %s", uidRanges.toString().c_str(), subPriority,
-              iter->second.toString().c_str());
-        return false;
-    }
     return true;
 }
 

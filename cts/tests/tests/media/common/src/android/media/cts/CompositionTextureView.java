@@ -16,15 +16,15 @@
 
 package android.media.cts;
 
-import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
-
 import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.Surface;
 import android.view.TextureView;
+
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 public class CompositionTextureView extends TextureView
     implements TextureView.SurfaceTextureListener {

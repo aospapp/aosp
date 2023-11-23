@@ -13,6 +13,7 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+import os
 
 import acts_contrib.test_utils.power.cellular.cellular_power_base_test as base_test
 
@@ -21,6 +22,7 @@ class PowerTelPDCCHTest(base_test.PowerCellularLabBaseTest):
     """ PDCCH only power test.
 
     In this test the UE is only listening and decoding the PDCCH channel. """
+
     def power_pdcch_test(self):
         """ Measures power during PDCCH only.
 

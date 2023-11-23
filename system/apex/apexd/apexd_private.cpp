@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "apexd"
-
 #include "apexd_private.h"
 
 #include <sys/mount.h>

@@ -17,7 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.cts.tagging.support">
 
-    <uses-sdk android:targetSdkVersion="30" />
+    <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="30" />
 
     <application android:debuggable="true"
                  android:allowNativeHeapPointerTagging="true">

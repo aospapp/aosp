@@ -24,6 +24,12 @@
 
   <eat-comment/>
 
+  <queries>
+    <package android:name="android.localemanager.cts.app" />
+    <package android:name="android.localemanager.cts.installer" />
+    <package android:name="android.localemanager.cts.ime" />
+  </queries>
+
   <application android:debuggable="true">
     <uses-library android:name="android.test.runner"/>
   </application>

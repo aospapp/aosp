@@ -37,12 +37,14 @@ public class ExpandableListTester {
     private final ExpandableListAdapter mAdapter;
     private final ListUtil mListUtil;
     private final Instrumentation mInstrumentation;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
 
     public ExpandableListTester(ActivityTestRule<?> activityTestRule,
             ExpandableListView expandableListView) {
         mActivityTestRule = activityTestRule;
         mExpandableListView = expandableListView;
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mListUtil = new ListUtil(mExpandableListView, mInstrumentation);
         mAdapter = mExpandableListView.getExpandableListAdapter();
     }
@@ -56,7 +58,7 @@ public class ExpandableListTester {
         // the main thread, which is why we're passing null as the last parameter to the draw sync
         mListUtil.arrowScrollToSelectedPosition(flatPosition);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView, null);
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
                 KeyEvent.KEYCODE_DPAD_CENTER);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityTestRule, mExpandableListView, null);
 

@@ -55,10 +55,11 @@
 #include "select_generator.h"
 #include "sharpening.h"
 #include "side_effects_analysis.h"
+#include "write_barrier_elimination.h"
 
 // Decide between default or alternative pass name.
 
-namespace art {
+namespace art HIDDEN {
 
 const char* OptimizationPassName(OptimizationPass pass) {
   switch (pass) {
@@ -76,6 +77,7 @@ const char* OptimizationPassName(OptimizationPass pass) {
       return BoundsCheckElimination::kBoundsCheckEliminationPassName;
     case OptimizationPass::kLoadStoreElimination:
       return LoadStoreElimination::kLoadStoreEliminationPassName;
+    case OptimizationPass::kAggressiveConstantFolding:
     case OptimizationPass::kConstantFolding:
       return HConstantFolding::kConstantFoldingPassName;
     case OptimizationPass::kDeadCodeElimination:
@@ -95,6 +97,8 @@ const char* OptimizationPassName(OptimizationPass pass) {
       return ConstructorFenceRedundancyElimination::kCFREPassName;
     case OptimizationPass::kScheduling:
       return HInstructionScheduling::kInstructionSchedulingPassName;
+    case OptimizationPass::kWriteBarrierElimination:
+      return WriteBarrierElimination::kWBEPassName;
 #ifdef ART_ENABLE_CODEGEN_arm
     case OptimizationPass::kInstructionSimplifierArm:
       return arm::InstructionSimplifierArm::kInstructionSimplifierArmPassName;
@@ -194,7 +198,8 @@ ArenaVector<HOptimization*> ConstructOptimizations(
         opt = most_recent_side_effects = new (allocator) SideEffectsAnalysis(graph, pass_name);
         break;
       case OptimizationPass::kInductionVarAnalysis:
-        opt = most_recent_induction = new (allocator) HInductionVarAnalysis(graph, pass_name);
+        opt = most_recent_induction =
+            new (allocator) HInductionVarAnalysis(graph, stats, pass_name);
         break;
       //
       // Passes that need prior analysis.
@@ -221,7 +226,11 @@ ArenaVector<HOptimization*> ConstructOptimizations(
       // Regular passes.
       //
       case OptimizationPass::kConstantFolding:
-        opt = new (allocator) HConstantFolding(graph, pass_name);
+        opt = new (allocator) HConstantFolding(graph, stats, pass_name);
+        break;
+      case OptimizationPass::kAggressiveConstantFolding:
+        opt = new (allocator)
+            HConstantFolding(graph, stats, pass_name, /* use_all_optimizations_ = */ true);
         break;
       case OptimizationPass::kDeadCodeElimination:
         opt = new (allocator) HDeadCodeElimination(graph, stats, pass_name);
@@ -239,6 +248,7 @@ ArenaVector<HOptimization*> ConstructOptimizations(
                                        /* total_number_of_instructions= */ 0,
                                        /* parent= */ nullptr,
                                        /* depth= */ 0,
+                                       /* try_catch_inlining_allowed= */ true,
                                        pass_name);
         break;
       }
@@ -266,6 +276,9 @@ ArenaVector<HOptimization*> ConstructOptimizations(
         break;
       case OptimizationPass::kLoadStoreElimination:
         opt = new (allocator) LoadStoreElimination(graph, stats, pass_name);
+        break;
+      case OptimizationPass::kWriteBarrierElimination:
+        opt = new (allocator) WriteBarrierElimination(graph, stats, pass_name);
         break;
       case OptimizationPass::kScheduling:
         opt = new (allocator) HInstructionScheduling(

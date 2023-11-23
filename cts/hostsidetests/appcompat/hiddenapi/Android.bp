@@ -24,7 +24,6 @@ java_test_host {
         "cts-tradefed",
         "tradefed",
         "host-libprotobuf-java-full",
-        "platformprotos",
     ],
     static_libs: [
         "cts-statsd-atom-host-test-utils",

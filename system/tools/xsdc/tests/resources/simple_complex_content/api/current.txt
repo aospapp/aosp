@@ -24,14 +24,17 @@ package simple.complex.content {
     method public String getName();
     method public simple.complex.content.SubAddress getSubAddress();
     method public simple.complex.content.USAddressP getUSAddressP();
+    method public simple.complex.content.KRAddress getValue();
     method public boolean hasKRAddress();
     method public boolean hasName();
     method public boolean hasSubAddress();
     method public boolean hasUSAddressP();
+    method public boolean hasValue();
     method public void setKRAddress(simple.complex.content.KRAddress);
     method public void setName(String);
     method public void setSubAddress(simple.complex.content.SubAddress);
     method public void setUSAddressP(simple.complex.content.USAddressP);
+    method public void setValue(simple.complex.content.KRAddress);
   }
 
   public class Person2 {
@@ -40,14 +43,17 @@ package simple.complex.content {
     method public String getName();
     method @NonNull public simple.complex.content.SubAddress getSubAddress();
     method public simple.complex.content.USAddressP getUSAddressP();
+    method public String getValue();
     method public boolean hasKRAddress();
     method public boolean hasName();
     method public boolean hasSubAddress();
     method public boolean hasUSAddressP();
+    method public boolean hasValue();
     method public void setKRAddress(simple.complex.content.KRAddress);
     method public void setName(String);
     method public void setSubAddress(@NonNull simple.complex.content.SubAddress);
     method public void setUSAddressP(simple.complex.content.USAddressP);
+    method public void setValue(String);
   }
 
   public class SubAddress {

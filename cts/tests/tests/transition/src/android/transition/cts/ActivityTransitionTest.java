@@ -368,6 +368,8 @@ public class ActivityTransitionTest extends BaseTransitionTest {
         // B -> C
         mActivityRule.runOnUiThread(() -> {
             targetActivity.getWindow().setExitTransition(new Fade());
+            ((ViewGroup) targetActivity.findViewById(R.id.container))
+                    .setTransitionGroup(true);
             Intent intent = new Intent(targetActivity, TargetActivity.class);
             intent.putExtra(TargetActivity.EXTRA_USE_ANIMATOR, true);
             ActivityOptions activityOptions =

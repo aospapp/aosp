@@ -18,11 +18,11 @@ Cache Finder class.
 
 import logging
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
-from test_finders import test_finder_base
-from test_finders import test_info
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_info
 
 class CacheFinder(test_finder_base.TestFinderBase):
     """Cache Finder class."""
@@ -105,7 +105,8 @@ class CacheFinder(test_finder_base.TestFinderBase):
         current_test_paths = self.module_info.get_paths(t_info.test_name)
         if not current_test_paths:
             return False
-        if sorted(cached_test_paths) != sorted(current_test_paths):
+        formatted_paths = [p.replace('/', '-') for p in current_test_paths]
+        if sorted(cached_test_paths) != sorted(formatted_paths):
             logging.debug('Not a valid test path.')
             return False
         return True

@@ -181,7 +181,11 @@ MQDescriptor<T, flavor>::~MQDescriptor() {
 
 template<typename T, MQFlavor flavor>
 size_t MQDescriptor<T, flavor>::getSize() const {
-    return static_cast<size_t>(mGrantors[details::DATAPTRPOS].extent);
+    if (mGrantors.size() > details::DATAPTRPOS) {
+        return static_cast<size_t>(mGrantors[details::DATAPTRPOS].extent);
+    } else {
+        return 0;
+    }
 }
 
 template<typename T, MQFlavor flavor>

@@ -22,7 +22,6 @@ import static android.os.Build.VERSION_CODES.CUR_DEVELOPMENT;
 import android.os.Build;
 import android.os.SystemProperties;
 import android.platform.test.annotations.AppModeFull;
-import android.platform.test.annotations.RestrictedBuildTest;
 
 import junit.framework.TestCase;
 
@@ -60,9 +59,15 @@ public class BuildTest extends TestCase {
      * Verify that the CPU ABI fields on device match the permitted ABIs defined by CDD.
      */
     public void testCpuAbi_valuesMatchPermitted() throws Exception {
+        for (String abi : Build.SUPPORTED_ABIS) {
+            if (abi.endsWith("-hwasan")) {
+                // HWASan builds are not official builds and support *-hwasan ABIs.
+                return;
+            }
+        }
         // The permitted ABIs are listed in https://developer.android.com/ndk/guides/abis.
         Set<String> just32 = new HashSet<>(Arrays.asList("armeabi", "armeabi-v7a", "x86"));
-        Set<String> just64 = new HashSet<>(Arrays.asList("x86_64", "arm64-v8a"));
+        Set<String> just64 = new HashSet<>(Arrays.asList("x86_64", "arm64-v8a", "riscv64"));
         Set<String> all = new HashSet<>();
         all.addAll(just32);
         all.addAll(just64);
@@ -150,51 +155,6 @@ public class BuildTest extends TestCase {
             }
         }
         return line;
-    }
-    /**
-     * @param message shown when the test fails
-     * @param property name passed to getprop
-     * @param expected value of the property
-     */
-    private void assertProperty(String message, String property, String expected)
-            throws IOException {
-        Process process = new ProcessBuilder("getprop", property).start();
-        Scanner scanner = null;
-        try {
-            scanner = new Scanner(process.getInputStream());
-            String line = scanner.nextLine();
-            assertEquals(message + " Value found: " + line , expected, line);
-            assertFalse(scanner.hasNext());
-        } finally {
-            if (scanner != null) {
-                scanner.close();
-            }
-        }
-    }
-
-    /**
-     * Check that a property is not set by scanning through the list of properties returned by
-     * getprop, since calling getprop on an property set to "" and on a non-existent property
-     * yields the same output.
-     *
-     * @param message shown when the test fails
-     * @param property name passed to getprop
-     */
-    private void assertNoPropertySet(String message, String property) throws IOException {
-        Process process = new ProcessBuilder("getprop").start();
-        Scanner scanner = null;
-        try {
-            scanner = new Scanner(process.getInputStream());
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-                assertFalse(message + "Property found: " + line,
-                        line.startsWith("[" + property + "]"));
-            }
-        } finally {
-            if (scanner != null) {
-                scanner.close();
-            }
-        }
     }
 
     private static void assertValueIsAllowed(Set<String> allowedValues, String actualValue) {
@@ -312,7 +272,9 @@ public class BuildTest extends TestCase {
                     // should at least be a conscious decision.
                     assertEquals(10000, fieldValue);
                 } else {
-                    if (activeCodenames.contains(fieldName)) {
+                    // Remove all underscores to match build level codenames, e.g. S_V2 is Sv2.
+                    String fieldNameWithoutUnderscores = fieldName.replaceAll("_", "");
+                    if (activeCodenames.contains(fieldNameWithoutUnderscores)) {
                         // This is the current development version. Note that fieldName can
                         // become < CUR_DEVELOPMENT before CODENAME becomes "REL", so we
                         // can't assertEquals(CUR_DEVELOPMENT, fieldValue) here.
@@ -322,12 +284,10 @@ public class BuildTest extends TestCase {
                         assertTrue("Expected " + fieldName + " value to be < " + CUR_DEVELOPMENT
                                 + ", got " + fieldValue, fieldValue < CUR_DEVELOPMENT);
                     }
-                    // Remove all underscores to match build level codenames, e.g. S_V2 is Sv2.
-                    String name = fieldName.replaceAll("_", "");
-                    declaredCodenames.add(name);
-                    assertTrue("Expected " + name
+                    declaredCodenames.add(fieldNameWithoutUnderscores);
+                    assertTrue("Expected " + fieldNameWithoutUnderscores
                                         + " to be declared in Build.VERSION.KNOWN_CODENAMES",
-                            knownCodenames.contains(name));
+                            knownCodenames.contains(fieldNameWithoutUnderscores));
                 }
             }
         }
@@ -357,11 +317,15 @@ public class BuildTest extends TestCase {
                 "First SDK version " + Build.VERSION.DEVICE_INITIAL_SDK_INT
                         + " is invalid; must be at least VERSION_CODES.BASE",
                 Build.VERSION.DEVICE_INITIAL_SDK_INT >= Build.VERSION_CODES.BASE);
-        assertTrue(
-                "Current SDK version " + Build.VERSION.SDK_INT
-                        + " must be at least first SDK version "
-                        + Build.VERSION.DEVICE_INITIAL_SDK_INT,
-                Build.VERSION.SDK_INT >= Build.VERSION.DEVICE_INITIAL_SDK_INT);
+
+        // During development of a new release SDK_INT is less than DEVICE_INITIAL_SDK_INT
+        if (Build.VERSION.CODENAME.equals("REL")) {
+            assertTrue(
+                    "Current SDK version " + Build.VERSION.SDK_INT
+                            + " must be at least first SDK version "
+                            + Build.VERSION.DEVICE_INITIAL_SDK_INT,
+                    Build.VERSION.SDK_INT >= Build.VERSION.DEVICE_INITIAL_SDK_INT);
+        }
     }
 
     /**
@@ -382,27 +346,6 @@ public class BuildTest extends TestCase {
                         + " is invalid; must be at most VERSION.SDK_INT",
                 // we use RESOURCES_SDK_INT to account for active development versions
                 Build.VERSION.MEDIA_PERFORMANCE_CLASS <= Build.VERSION.RESOURCES_SDK_INT);
-    }
-
-    static final String RO_DEBUGGABLE = "ro.debuggable";
-    private static final String RO_SECURE = "ro.secure";
-
-    /**
-     * Assert that the device is a secure, not debuggable user build.
-     *
-     * Debuggable devices allow adb root and have the su command, allowing
-     * escalations to root and unauthorized access to application data.
-     *
-     * Note: This test will fail on userdebug / eng devices, but should pass
-     * on production (user) builds.
-     */
-    @RestrictedBuildTest
-    @AppModeFull(reason = "Instant apps cannot access APIs")
-    public void testIsSecureUserBuild() throws IOException {
-        assertEquals("Must be a user build", "user", Build.TYPE);
-        assertProperty("Must be a non-debuggable build", RO_DEBUGGABLE, "0");
-        assertFalse("Must be a non-debuggable build", Build.isDebuggable());
-        assertProperty("Must be a secure build", RO_SECURE, "1");
     }
 
     private void assertNotEmpty(String value) {

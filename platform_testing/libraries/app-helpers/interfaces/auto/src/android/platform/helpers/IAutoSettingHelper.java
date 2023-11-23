@@ -16,7 +16,7 @@
 
 package android.platform.helpers;
 
-import android.support.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.UiObject2;
 
 /** Helper class for functional tests of Settings facet */
 public interface IAutoSettingHelper extends IAppHelper, Scrollable {
@@ -72,13 +72,6 @@ public interface IAutoSettingHelper extends IAppHelper, Scrollable {
     void openFullSettings();
 
     /**
-     * Setup expectations: The app is open
-     *
-     * <p>Open quick settings page
-     */
-    void openQuickSettings();
-
-    /**
      * Setup expectations: The app is open and wifi setting options is selected
      *
      * @param option to turn on/off wifi
@@ -98,6 +91,13 @@ public interface IAutoSettingHelper extends IAppHelper, Scrollable {
      * @param turnOn to turn on/off Hotspot
      */
     void turnOnOffHotspot(boolean turnOn);
+
+    /**
+     * Setup expectations: The app is open.
+     *
+     * <p>Toggle on/off hotspot.
+     */
+    void toggleHotspot();
 
     /**
      * Setup expectations: The app is open.
@@ -159,31 +159,6 @@ public interface IAutoSettingHelper extends IAppHelper, Scrollable {
     void setValue(String setting, int value);
 
     /**
-     * Setup expectations: settings app is open and a seekbar is visible on the screen
-     *
-     * changes setting level of seekbar for the given index.
-     * @param index of seekbar. should be passed as 0 if only one seekbar is present on screen.
-     * @param changeType determines to increase or decrease the value of setting.
-     */
-    void changeSeekbarLevel(int index, ChangeType changeType);
-
-    /**
-     * Setup expectations: quick settings facet is open.
-     *
-     * <p>set day/night mode.
-     *
-     * @param mode determines to set day mode or night mode.
-     */
-    void setDayNightMode(DayNightMode mode);
-
-    /**
-     * Setup expectations: quick settings facet is open.
-     *
-     * <p>get day/night mode status.
-     */
-    DayNightMode getDayNightModeStatus();
-
-    /**
      * Setup expectations: full settings facet is open.
      *
      * <p>search in settings app and select the first search result.
@@ -230,9 +205,24 @@ public interface IAutoSettingHelper extends IAppHelper, Scrollable {
     /**
      * Setup expectations: Setting is open.
      *
+     * <p>check whether a setting menu in Settings is displayed or not.
+     */
+    boolean checkMenuExists(String setting);
+
+    /**
+     * Setup expectations: Setting is open.
+     *
      * <p>Find the setting menu and perform a click action.
      *
      * @param name of the setting menu.
      */
     void findSettingMenuAndClick(String setting);
+
+    /**
+     * Set the brightness and report the resulting brightness value
+     *
+     * @param targetPercentage Where on the brightness seekbar to tap
+     * @return The brightness value as reported by the service
+     */
+    int setBrightness(float targetPercentage);
 }

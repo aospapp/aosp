@@ -26,8 +26,13 @@ import android.platform.test.longevity.proto.Configuration;
 import android.platform.test.longevity.proto.Configuration.Scenario;
 import android.platform.test.longevity.proto.Configuration.Schedule;
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
+
+import org.junit.runner.Description;
+import org.junit.runner.Runner;
+import org.junit.runner.notification.RunListener;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,10 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.function.Function;
-
-import org.junit.runner.Description;
-import org.junit.runner.Runner;
-import org.junit.runner.notification.RunListener;
 
 /** A profile composer for device-side testing. */
 public class Profile extends RunListener {
@@ -114,7 +115,8 @@ public class Profile extends RunListener {
         }
         if (mConfiguration.getSchedule().equals(Schedule.TIMESTAMPED)) {
             if (mConfiguration.getRepetitions() != 1) {
-                throw new IllegalArgumentException("Repetitions param not supported for TIMESTAMPED scheduler");
+                throw new IllegalArgumentException(
+                        "Repetitions param not supported for TIMESTAMPED scheduler");
             }
 
             Collections.sort(orderedScenarios, new ScenarioTimestampComparator());

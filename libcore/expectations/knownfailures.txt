@@ -1809,7 +1809,6 @@
     "test.java.util.concurrent.tck.ForkJoinPoolTest#testSubmitFailedPrivilegedExceptionAction",
     "test.java.util.concurrent.tck.ForkJoinPoolTest#testSubmitPrivilegedAction",
     "test.java.util.concurrent.tck.ForkJoinPoolTest#testSubmitPrivilegedExceptionAction",
-    "test.java.util.concurrent.tck.PriorityQueueTest#testOfferNonComparable",
     "test.java.util.concurrent.tck.StampedLockTest#testDeeplyNestedReadLocks",
     "test.java.util.concurrent.tck.StampedLockTest#testReadLock_lockUnlock",
     "test.java.util.concurrent.tck.StampedLockTest#testTryConvertToOptimisticRead",

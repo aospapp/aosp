@@ -51,6 +51,7 @@
 #include <ui/GraphicBufferAllocator.h>
 #include <utils/Timers.h>
 
+#include <chrono>
 #include <deque>
 #include <thread>
 #include <unordered_set>
@@ -231,8 +232,7 @@ class EvsAidlTest : public ::testing::TestWithParam<std::string> {
             // Stream configurations are found in metadata
             RawStreamConfig* ptr = reinterpret_cast<RawStreamConfig*>(streamCfgs.data.i32);
             for (unsigned offset = 0; offset < streamCfgs.count; offset += kStreamCfgSz) {
-                if (ptr->direction == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
-                    ptr->format == HAL_PIXEL_FORMAT_RGBA_8888) {
+                if (ptr->direction == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT) {
                     targetCfg.width = ptr->width;
                     targetCfg.height = ptr->height;
                     targetCfg.format = static_cast<PixelFormat>(ptr->format);
@@ -601,25 +601,26 @@ TEST_P(EvsAidlTest, CameraToDisplayRoundTrip) {
     EXPECT_GT(displayIds.size(), 0);
     targetDisplayId = displayIds[0];
 
-    // Request exclusive access to the first EVS display
-    std::shared_ptr<IEvsDisplay> pDisplay;
-    ASSERT_TRUE(mEnumerator->openDisplay(targetDisplayId, &pDisplay).isOk());
-    EXPECT_NE(pDisplay, nullptr);
-    LOG(INFO) << "Display " << static_cast<int>(targetDisplayId) << " is in use.";
-
-    // Get the display descriptor
-    DisplayDesc displayDesc;
-    ASSERT_TRUE(pDisplay->getDisplayInfo(&displayDesc).isOk());
-    LOG(INFO) << "    Resolution: " << displayDesc.width << "x" << displayDesc.height;
-    ASSERT_GT(displayDesc.width, 0);
-    ASSERT_GT(displayDesc.height, 0);
-
     // Test each reported camera
     for (auto&& cam : mCameraInfo) {
+        // Request exclusive access to the first EVS display
+        std::shared_ptr<IEvsDisplay> pDisplay;
+        ASSERT_TRUE(mEnumerator->openDisplay(targetDisplayId, &pDisplay).isOk());
+        EXPECT_NE(pDisplay, nullptr);
+        LOG(INFO) << "Display " << static_cast<int>(targetDisplayId) << " is in use.";
+
+        // Get the display descriptor
+        DisplayDesc displayDesc;
+        ASSERT_TRUE(pDisplay->getDisplayInfo(&displayDesc).isOk());
+        LOG(INFO) << "    Resolution: " << displayDesc.width << "x" << displayDesc.height;
+        ASSERT_GT(displayDesc.width, 0);
+        ASSERT_GT(displayDesc.height, 0);
+
         bool isLogicalCam = false;
         getPhysicalCameraIds(cam.id, isLogicalCam);
         if (mIsHwModule && isLogicalCam) {
             LOG(INFO) << "Skip a logical device " << cam.id << " for HW target.";
+            ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
             continue;
         }
 
@@ -669,10 +670,10 @@ TEST_P(EvsAidlTest, CameraToDisplayRoundTrip) {
         // Explicitly release the camera
         ASSERT_TRUE(mEnumerator->closeCamera(pCam).isOk());
         mActiveCameras.clear();
-    }
 
-    // Explicitly release the display
-    ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+        // Explicitly release the display
+        ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+    }
 }
 
 /*
@@ -1396,20 +1397,20 @@ TEST_P(EvsAidlTest, HighPriorityCameraClient) {
     // Get the camera list
     loadCameraList();
 
-    // Request available display IDs
-    uint8_t targetDisplayId = 0;
-    std::vector<uint8_t> displayIds;
-    ASSERT_TRUE(mEnumerator->getDisplayIdList(&displayIds).isOk());
-    EXPECT_GT(displayIds.size(), 0);
-    targetDisplayId = displayIds[0];
-
-    // Request exclusive access to the EVS display
-    std::shared_ptr<IEvsDisplay> pDisplay;
-    ASSERT_TRUE(mEnumerator->openDisplay(targetDisplayId, &pDisplay).isOk());
-    EXPECT_NE(pDisplay, nullptr);
-
     // Test each reported camera
     for (auto&& cam : mCameraInfo) {
+        // Request available display IDs
+        uint8_t targetDisplayId = 0;
+        std::vector<uint8_t> displayIds;
+        ASSERT_TRUE(mEnumerator->getDisplayIdList(&displayIds).isOk());
+        EXPECT_GT(displayIds.size(), 0);
+        targetDisplayId = displayIds[0];
+
+        // Request exclusive access to the EVS display
+        std::shared_ptr<IEvsDisplay> pDisplay;
+        ASSERT_TRUE(mEnumerator->openDisplay(targetDisplayId, &pDisplay).isOk());
+        EXPECT_NE(pDisplay, nullptr);
+
         // Read a target resolution from the metadata
         Stream targetCfg = getFirstStreamConfiguration(
                 reinterpret_cast<camera_metadata_t*>(cam.metadata.data()));
@@ -1438,7 +1439,8 @@ TEST_P(EvsAidlTest, HighPriorityCameraClient) {
         ASSERT_TRUE(pCam1->getParameterList(&cam1Cmds).isOk());
         if (cam0Cmds.size() < 1 || cam1Cmds.size() < 1) {
             // Cannot execute this test.
-            return;
+            ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+            continue;
         }
 
         // Set up a frame receiver object which will fire up its own thread.
@@ -1688,10 +1690,10 @@ TEST_P(EvsAidlTest, HighPriorityCameraClient) {
         ASSERT_TRUE(mEnumerator->closeCamera(pCam0).isOk());
         ASSERT_TRUE(mEnumerator->closeCamera(pCam1).isOk());
         mActiveCameras.clear();
-    }
 
-    // Explicitly release the display
-    ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+        // Explicitly release the display
+        ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+    }
 }
 
 /*
@@ -1713,13 +1715,13 @@ TEST_P(EvsAidlTest, CameraUseStreamConfigToDisplay) {
     EXPECT_GT(displayIds.size(), 0);
     targetDisplayId = displayIds[0];
 
-    // Request exclusive access to the EVS display
-    std::shared_ptr<IEvsDisplay> pDisplay;
-    ASSERT_TRUE(mEnumerator->openDisplay(targetDisplayId, &pDisplay).isOk());
-    EXPECT_NE(pDisplay, nullptr);
-
     // Test each reported camera
     for (auto&& cam : mCameraInfo) {
+        // Request exclusive access to the EVS display
+        std::shared_ptr<IEvsDisplay> pDisplay;
+        ASSERT_TRUE(mEnumerator->openDisplay(targetDisplayId, &pDisplay).isOk());
+        EXPECT_NE(pDisplay, nullptr);
+
         // choose a configuration that has a frame rate faster than minReqFps.
         Stream targetCfg = {};
         const int32_t minReqFps = 15;
@@ -1732,11 +1734,11 @@ TEST_P(EvsAidlTest, CameraUseStreamConfigToDisplay) {
             // Stream configurations are found in metadata
             RawStreamConfig* ptr = reinterpret_cast<RawStreamConfig*>(streamCfgs.data.i32);
             for (unsigned offset = 0; offset < streamCfgs.count; offset += kStreamCfgSz) {
-                if (ptr->direction == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
-                    ptr->format == HAL_PIXEL_FORMAT_RGBA_8888) {
+                if (ptr->direction == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT) {
                     if (ptr->width * ptr->height > maxArea && ptr->framerate >= minReqFps) {
                         targetCfg.width = ptr->width;
                         targetCfg.height = ptr->height;
+                        targetCfg.format = static_cast<PixelFormat>(ptr->format);
 
                         maxArea = ptr->width * ptr->height;
                         foundCfg = true;
@@ -1745,7 +1747,6 @@ TEST_P(EvsAidlTest, CameraUseStreamConfigToDisplay) {
                 ++ptr;
             }
         }
-        targetCfg.format = static_cast<PixelFormat>(HAL_PIXEL_FORMAT_RGBA_8888);
 
         if (!foundCfg) {
             // Current EVS camera does not provide stream configurations in the
@@ -1793,10 +1794,10 @@ TEST_P(EvsAidlTest, CameraUseStreamConfigToDisplay) {
         // Explicitly release the camera
         ASSERT_TRUE(mEnumerator->closeCamera(pCam).isOk());
         mActiveCameras.clear();
-    }
 
-    // Explicitly release the display
-    ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+        // Explicitly release the display
+        ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+    }
 }
 
 /*
@@ -1829,11 +1830,11 @@ TEST_P(EvsAidlTest, MultiCameraStreamUseConfig) {
             // Stream configurations are found in metadata
             RawStreamConfig* ptr = reinterpret_cast<RawStreamConfig*>(streamCfgs.data.i32);
             for (unsigned offset = 0; offset < streamCfgs.count; offset += kStreamCfgSz) {
-                if (ptr->direction == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT &&
-                    ptr->format == HAL_PIXEL_FORMAT_RGBA_8888) {
+                if (ptr->direction == ANDROID_SCALER_AVAILABLE_STREAM_CONFIGURATIONS_OUTPUT) {
                     if (ptr->width * ptr->height > maxArea && ptr->framerate >= minReqFps) {
                         targetCfg.width = ptr->width;
                         targetCfg.height = ptr->height;
+                        targetCfg.format = static_cast<PixelFormat>(ptr->format);
 
                         maxArea = ptr->width * ptr->height;
                         foundCfg = true;
@@ -1842,7 +1843,6 @@ TEST_P(EvsAidlTest, MultiCameraStreamUseConfig) {
                 ++ptr;
             }
         }
-        targetCfg.format = static_cast<PixelFormat>(HAL_PIXEL_FORMAT_RGBA_8888);
 
         if (!foundCfg) {
             LOG(INFO) << "Device " << cam.id
@@ -2195,6 +2195,207 @@ TEST_P(EvsAidlTest, UltrasonicsSetFramesInFlight) {
 
         // Explicitly close the ultrasonics array so resources are released right away
         ASSERT_TRUE(mEnumerator->closeUltrasonicsArray(pUltrasonicsArray).isOk());
+    }
+}
+
+/*
+ * DisplayOpen:
+ * Test both clean shut down and "aggressive open" device stealing behavior.
+ */
+TEST_P(EvsAidlTest, DisplayOpen) {
+    LOG(INFO) << "Starting DisplayOpen test";
+
+    // Request available display IDs.
+    std::vector<uint8_t> displayIds;
+    ASSERT_TRUE(mEnumerator->getDisplayIdList(&displayIds).isOk());
+    EXPECT_GT(displayIds.size(), 0);
+
+    for (const auto displayId : displayIds) {
+        std::shared_ptr<IEvsDisplay> pDisplay;
+
+        // Request exclusive access to each EVS display, then let it go.
+        ASSERT_TRUE(mEnumerator->openDisplay(displayId, &pDisplay).isOk());
+        ASSERT_NE(pDisplay, nullptr);
+
+        {
+            // Ask the display what its name is.
+            DisplayDesc desc;
+            ASSERT_TRUE(pDisplay->getDisplayInfo(&desc).isOk());
+            LOG(DEBUG) << "Found display " << desc.id;
+        }
+
+        ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+
+        // Ensure we can reopen the display after it has been closed.
+        ASSERT_TRUE(mEnumerator->openDisplay(displayId, &pDisplay).isOk());
+        ASSERT_NE(pDisplay, nullptr);
+
+        // Open the display while its already open -- ownership should be transferred.
+        std::shared_ptr<IEvsDisplay> pDisplay2;
+        ASSERT_TRUE(mEnumerator->openDisplay(displayId, &pDisplay2).isOk());
+        ASSERT_NE(pDisplay2, nullptr);
+
+        {
+            // Ensure the old display properly reports its assassination.
+            DisplayState badState;
+            EXPECT_TRUE(pDisplay->getDisplayState(&badState).isOk());
+            EXPECT_EQ(badState, DisplayState::DEAD);
+        }
+
+        // Close only the newest display instance -- the other should already be a zombie.
+        ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay2).isOk());
+
+        // Finally, validate that we can open the display after the provoked failure above.
+        ASSERT_TRUE(mEnumerator->openDisplay(displayId, &pDisplay).isOk());
+        ASSERT_NE(pDisplay, nullptr);
+        ASSERT_TRUE(mEnumerator->closeDisplay(pDisplay).isOk());
+    }
+}
+
+/*
+ * DisplayStates:
+ * Validate that display states transition as expected and can be queried from either the display
+ * object itself or the owning enumerator.
+ */
+TEST_P(EvsAidlTest, DisplayStates) {
+    using std::literals::chrono_literals::operator""ms;
+
+    LOG(INFO) << "Starting DisplayStates test";
+
+    // Request available display IDs.
+    std::vector<uint8_t> displayIds;
+    ASSERT_TRUE(mEnumerator->getDisplayIdList(&displayIds).isOk());
+    EXPECT_GT(displayIds.size(), 0);
+
+    for (const auto displayId : displayIds) {
+        // Ensure the display starts in the expected state.
+        {
+            DisplayState state;
+            EXPECT_FALSE(mEnumerator->getDisplayState(&state).isOk());
+        }
+        for (const auto displayIdToQuery : displayIds) {
+            DisplayState state;
+            EXPECT_FALSE(mEnumerator->getDisplayStateById(displayIdToQuery, &state).isOk());
+        }
+
+        // Scope to limit the lifetime of the pDisplay pointer, and thus the IEvsDisplay object.
+        {
+            // Request exclusive access to the EVS display.
+            std::shared_ptr<IEvsDisplay> pDisplay;
+            ASSERT_TRUE(mEnumerator->openDisplay(displayId, &pDisplay).isOk());
+            ASSERT_NE(pDisplay, nullptr);
+            {
+                DisplayState state;
+                EXPECT_TRUE(mEnumerator->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::NOT_VISIBLE);
+            }
+            for (const auto displayIdToQuery : displayIds) {
+                DisplayState state;
+                bool get_state_ok =
+                        mEnumerator->getDisplayStateById(displayIdToQuery, &state).isOk();
+                if (displayIdToQuery != displayId) {
+                    EXPECT_FALSE(get_state_ok);
+                } else if (get_state_ok) {
+                    EXPECT_EQ(state, DisplayState::NOT_VISIBLE);
+                }
+            }
+
+            // Activate the display.
+            EXPECT_TRUE(pDisplay->setDisplayState(DisplayState::VISIBLE_ON_NEXT_FRAME).isOk());
+            {
+                DisplayState state;
+                EXPECT_TRUE(mEnumerator->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::VISIBLE_ON_NEXT_FRAME);
+            }
+            {
+                DisplayState state;
+                EXPECT_TRUE(pDisplay->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::VISIBLE_ON_NEXT_FRAME);
+            }
+            for (const auto displayIdToQuery : displayIds) {
+                DisplayState state;
+                bool get_state_ok =
+                        mEnumerator->getDisplayStateById(displayIdToQuery, &state).isOk();
+                if (displayIdToQuery != displayId) {
+                    EXPECT_FALSE(get_state_ok);
+                } else if (get_state_ok) {
+                    EXPECT_EQ(state, DisplayState::VISIBLE_ON_NEXT_FRAME);
+                }
+            }
+
+            // Get the output buffer we'd use to display the imagery.
+            BufferDesc tgtBuffer;
+            ASSERT_TRUE(pDisplay->getTargetBuffer(&tgtBuffer).isOk());
+
+            // Send the target buffer back for display (we didn't actually fill anything).
+            EXPECT_TRUE(pDisplay->returnTargetBufferForDisplay(tgtBuffer).isOk());
+
+            // Sleep for a tenth of a second to ensure the driver has time to get the image
+            // displayed.
+            std::this_thread::sleep_for(100ms);
+            {
+                DisplayState state;
+                EXPECT_TRUE(mEnumerator->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::VISIBLE);
+            }
+            {
+                DisplayState state;
+                EXPECT_TRUE(pDisplay->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::VISIBLE);
+            }
+            for (const auto displayIdToQuery : displayIds) {
+                DisplayState state;
+                bool get_state_ok =
+                        mEnumerator->getDisplayStateById(displayIdToQuery, &state).isOk();
+                if (displayIdToQuery != displayId) {
+                    EXPECT_FALSE(get_state_ok);
+                } else if (get_state_ok) {
+                    EXPECT_EQ(state, DisplayState::VISIBLE);
+                }
+            }
+
+            // Turn off the display.
+            EXPECT_TRUE(pDisplay->setDisplayState(DisplayState::NOT_VISIBLE).isOk());
+            std::this_thread::sleep_for(100ms);
+            {
+                DisplayState state;
+                EXPECT_TRUE(mEnumerator->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::NOT_VISIBLE);
+            }
+            {
+                DisplayState state;
+                EXPECT_TRUE(pDisplay->getDisplayState(&state).isOk());
+                EXPECT_EQ(state, DisplayState::NOT_VISIBLE);
+            }
+            for (const auto displayIdToQuery : displayIds) {
+                DisplayState state;
+                bool get_state_ok =
+                        mEnumerator->getDisplayStateById(displayIdToQuery, &state).isOk();
+                if (displayIdToQuery != displayId) {
+                    EXPECT_FALSE(get_state_ok);
+                } else if (get_state_ok) {
+                    EXPECT_EQ(state, DisplayState::NOT_VISIBLE);
+                }
+            }
+
+            // Close the display.
+            mEnumerator->closeDisplay(pDisplay);
+        }
+
+        // Now that the display pointer has gone out of scope, causing the IEvsDisplay interface
+        // object to be destroyed, we should be back to the "not open" state.
+        // NOTE:  If we want this to pass without the sleep above, we'd have to add the
+        //        (now recommended) closeDisplay() call instead of relying on the smarter pointer
+        //        going out of scope.  I've not done that because I want to verify that the deletion
+        //        of the object does actually clean up (eventually).
+        {
+            DisplayState state;
+            EXPECT_FALSE(mEnumerator->getDisplayState(&state).isOk());
+        }
+        for (const auto displayIdToQuery : displayIds) {
+            DisplayState state;
+            EXPECT_FALSE(mEnumerator->getDisplayStateById(displayIdToQuery, &state).isOk());
+        }
     }
 }
 

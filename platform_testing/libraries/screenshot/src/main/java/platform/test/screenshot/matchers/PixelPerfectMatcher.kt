@@ -19,6 +19,7 @@ package platform.test.screenshot.matchers
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Rect
+import kotlin.collections.List
 import platform.test.screenshot.proto.ScreenshotResultProto
 
 /**
@@ -31,7 +32,7 @@ class PixelPerfectMatcher : BitmapMatcher() {
         given: IntArray,
         width: Int,
         height: Int,
-        regions: Array<Rect>?
+        regions: List<Rect>
     ): MatchResult {
         check(expected.size == given.size)
 

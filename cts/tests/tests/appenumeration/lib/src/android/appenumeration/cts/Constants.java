@@ -19,6 +19,15 @@ package android.appenumeration.cts;
 public class Constants {
     public static final String PKG_BASE = "android.appenumeration.";
     public static final String TEST_PKG = "android.appenumeration.cts";
+    public static final String MOCK_SPELL_CHECKER_PKG = "com.android.cts.mockspellchecker";
+    public static final String MOCK_IME_PKG = "android.inputmethodservice.cts.ime1";
+    /** A package that has two split apks. */
+    public static final String SPLIT_PKG = "com.android.cts.norestart";
+
+    /** The shared library for getting dependent packages */
+    public static final String TEST_SHARED_LIB_NAME = "android.test.runner";
+    public static final String TEST_NONEXISTENT_PACKAGE_NAME_1 = "com.android.cts.nonexistent1";
+    public static final String TEST_NONEXISTENT_PACKAGE_NAME_2 = "com.android.cts.nonexistent2";
 
     /** A package that queries for {@link #TARGET_NO_API} package */
     public static final String QUERIES_PACKAGE = PKG_BASE + "queries.pkg";
@@ -102,6 +111,7 @@ public class Constants {
     public static final String TARGET_NO_API = PKG_BASE + "noapi";
     /** A package with no published API and just for installing/uninstalling during test */
     public static final String TARGET_STUB = PKG_BASE + "stub";
+    public static final String TARGET_STUB_SHARED_USER = PKG_BASE + "stub.shareduid";
     /** A package that offers an activity used for opening / editing file types */
     public static final String TARGET_EDITOR = PKG_BASE + "editor.activity";
     /** A package that offers an activity used viewing a contact / profile */
@@ -131,17 +141,34 @@ public class Constants {
     /** A package that offers an activity which handles preferred activity test intent for the
      *  tests of preferred activity. */
     public static final String TARGET_PREFERRED_ACTIVITY = PKG_BASE + "preferred.activity";
+    /** An authority that offers a syncadapter. */
+    public static final String TARGET_SYNCADAPTER_AUTHORITY = TARGET_SYNCADAPTER + ".authority";
 
+    public static final String AUTHORITY_SUFFIX = ".authority";
     private static final String BASE_PATH = "/data/local/tmp/cts/appenumeration/";
     public static final String TARGET_NO_API_APK = BASE_PATH + "CtsAppEnumerationNoApi.apk";
     public static final String TARGET_STUB_APK = BASE_PATH + "CtsAppEnumerationStub.apk";
+    public static final String TARGET_STUB_SHARED_USER_APK =
+            BASE_PATH + "CtsAppEnumerationStubSharedUser.apk";
     public static final String TARGET_FILTERS_APK = BASE_PATH + "CtsAppEnumerationFilters.apk";
-    public static final String QUERIES_NOTHING_SEES_INSTALLER_APK =
-            BASE_PATH + "CtsAppEnumerationQueriesNothingSeesInstaller.apk";
+    public static final String QUERIES_NOTHING_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothing.apk";
+    public static final String QUERIES_NOTHING_PROVIDER_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothingHasProvider.apk";
     public static final String QUERIES_NOTHING_RECEIVES_PERSISTABLE_URI_APK =
             BASE_PATH + "CtsAppEnumerationQueriesNothingReceivesPersistableUri.apk";
     public static final String QUERIES_NOTHING_RECEIVES_NON_PERSISTABLE_URI_APK =
             BASE_PATH + "CtsAppEnumerationQueriesNothingReceivesNonPersistableUri.apk";
+    public static final String QUERIES_NOTHING_RECEIVES_PERM_URI_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothingReceivesPermissionProtectedUri.apk";
+    public static final String QUERIES_NOTHING_RECEIVES_URI_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothingReceivesUri.apk";
+    public static final String QUERIES_NOTHING_SEES_INSTALLER_APK =
+            BASE_PATH + "CtsAppEnumerationQueriesNothingSeesInstaller.apk";
+    public static final String CTS_MOCK_SPELL_CHECKER_APK = BASE_PATH + "CtsMockSpellChecker.apk";
+    public static final String CTS_MOCK_IME_APK = BASE_PATH + "CtsInputMethod1.apk";
+    public static final String SPLIT_BASE_APK = BASE_PATH + "CtsNoRestartBase.apk";
+    public static final String SPLIT_FEATURE_APK = BASE_PATH + "CtsNoRestartFeature.apk";
 
     public static final String[] ALL_QUERIES_TARGETING_R_PACKAGES = {
             QUERIES_NOTHING,
@@ -164,8 +191,21 @@ public class Constants {
 
     public static final String ACTIVITY_CLASS_TEST = PKG_BASE + "cts.TestActivity";
     public static final String ACTIVITY_CLASS_DUMMY_ACTIVITY = PKG_BASE + "testapp.DummyActivity";
+    public static final String ACTIVITY_CLASS_NOT_EXPORTED =
+            PKG_BASE + "testapp.DummyActivityNotExported";
+    public static final String ACTIVITY_CLASS_PERMISSION_PROTECTED =
+            PKG_BASE + "testapp.ActivityPermissionProtected";
+
+    public static final String SERVICE_CLASS_DUMMY_SERVICE = PKG_BASE + "testapp.DummyService";
+    public static final String SERVICE_CLASS_SYNC_ADAPTER =
+            PKG_BASE + "testapp.MockSyncAdapterService";
+
+    public static final String SERVICE_CLASS_SELF_VISIBILITY_SERVICE =
+            PKG_BASE + "cts.TestPmComponentDiscoveryService";
 
     public static final String ACTION_MANIFEST_ACTIVITY = PKG_BASE + "action.ACTIVITY";
+    public static final String ACTION_MANIFEST_UNEXPORTED_ACTIVITY =
+            PKG_BASE + "action.ACTIVITY_UNEXPORTED";
     public static final String ACTION_MANIFEST_SERVICE = PKG_BASE + "action.SERVICE";
     public static final String ACTION_MANIFEST_PROVIDER = PKG_BASE + "action.PROVIDER";
     public static final String ACTION_SEND_RESULT = PKG_BASE + "cts.action.SEND_RESULT";
@@ -207,10 +247,22 @@ public class Constants {
             PKG_BASE + "cts.action.GET_SYNCADAPTER_TYPES";
     public static final String ACTION_GET_SYNCADAPTER_PACKAGES_FOR_AUTHORITY =
             PKG_BASE + "cts.action.GET_SYNCADAPTER_PACKAGES_FOR_AUTHORITY";
+    public static final String ACTION_GET_SYNCADAPTER_CONTROL_PANEL =
+            PKG_BASE + "cts.action.GET_SYNCADAPTER_CONTROL_PANEL";
     public static final String ACTION_GET_INSTALLED_APPWIDGET_PROVIDERS =
             PKG_BASE + "cts.action.GET_INSTALLED_APPWIDGET_PROVIDERS";
     public static final String ACTION_REQUEST_SYNC_AND_AWAIT_STATUS =
             PKG_BASE + "cts.action.REQUEST_SYNC_AND_AWAIT_STATUS";
+    public static final String ACTION_REQUEST_PERIODIC_SYNC =
+            PKG_BASE + "cts.action.REQUEST_PERIODIC_SYNC";
+    public static final String ACTION_SET_SYNC_AUTOMATICALLY =
+            PKG_BASE + "cts.action.SET_SYNC_AUTOMATICALLY";
+    public static final String ACTION_GET_SYNC_AUTOMATICALLY =
+            PKG_BASE + "cts.action.GET_SYNC_AUTOMATICALLY";
+    public static final String ACTION_GET_IS_SYNCABLE =
+            PKG_BASE + "cts.action.GET_IS_SYNCABLE";
+    public static final String ACTION_GET_PERIODIC_SYNCS =
+            PKG_BASE + "cts.action.GET_PERIODIC_SYNCS";
     public static final String ACTION_AWAIT_PACKAGES_SUSPENDED =
             PKG_BASE + "cts.action.AWAIT_PACKAGES_SUSPENDED";
     public static final String ACTION_LAUNCHER_APPS_IS_ACTIVITY_ENABLED =
@@ -235,6 +287,8 @@ public class Constants {
             PKG_BASE + "cts.action.TAKE_PERSISTABLE_URI_PERMISSION";
     public static final String ACTION_CAN_PACKAGE_QUERY =
             PKG_BASE + "cts.action.CAN_PACKAGE_QUERY";
+    public static final String ACTION_CAN_PACKAGE_QUERIES =
+            PKG_BASE + "cts.action.CAN_PACKAGE_QUERIES";
     public static final String ACTION_GET_ALL_PACKAGE_INSTALLER_SESSIONS =
             PKG_BASE + "cts.action.GET_ALL_PACKAGE_INSTALLER_SESSIONS";
     public static final String ACTION_AWAIT_LAUNCHER_APPS_SESSION_CALLBACK =
@@ -255,6 +309,29 @@ public class Constants {
             PKG_BASE + "cts.action.GRANT_URI_PERMISSION";
     public static final String ACTION_REVOKE_URI_PERMISSION =
             PKG_BASE + "cts.action.REVOKE_URI_PERMISSION";
+    public static final String ACTION_AWAIT_PACKAGE_RESTARTED =
+            PKG_BASE + "cts.action.AWAIT_PACKAGE_RESTARTED";
+    public static final String ACTION_GET_CONTENT_PROVIDER_MIME_TYPE =
+            PKG_BASE + "cts.action.GET_CONTENT_PROVIDER_MIME_TYPE";
+    public static final String ACTION_APP_ENUMERATION_PREFERRED_ACTIVITY =
+            PKG_BASE + "cts.action.APP_ENUMERATION_PREFERRED_ACTIVITY";
+    public static final String ACTION_GET_ENABLED_SPELL_CHECKER_INFOS =
+            PKG_BASE + "cts.action.GET_ENABLED_SPELL_CHECKER_INFOS";
+    public static final String ACTION_GET_INPUT_METHOD_LIST =
+            PKG_BASE + "cts.action.GET_INPUT_METHOD_LIST";
+    public static final String ACTION_GET_ENABLED_INPUT_METHOD_LIST =
+            PKG_BASE + "cts.action.GET_ENABLED_INPUT_METHOD_LIST";
+    public static final String ACTION_GET_ENABLED_INPUT_METHOD_SUBTYPE_LIST =
+            PKG_BASE + "cts.action.GET_ENABLED_INPUT_METHOD_SUBTYPE_LIST";
+    public static final String ACTION_ACCOUNT_MANAGER_GET_AUTHENTICATOR_TYPES =
+            PKG_BASE + "cts.action.ACCOUNT_MANAGER_GET_AUTHENTICATOR_TYPES";
+    public static final String ACTION_MEDIA_SESSION_MANAGER_IS_TRUSTED_FOR_MEDIA_CONTROL =
+            PKG_BASE + "cts.action.MEDIA_SESSION_MANAGER_IS_TRUSTED_FOR_MEDIA_CONTROL";
+
+    public static final String ACCOUNT_NAME = "CtsAppEnumerationTests";
+    public static final String ACCOUNT_TYPE = "android.appenumeration.account.type";
+    public static final String ACCOUNT_TYPE_SHARED_USER =
+            "android.appenumeration.shareduid.account.type";
 
     public static final String EXTRA_REMOTE_CALLBACK = "remoteCallback";
     public static final String EXTRA_REMOTE_READY_CALLBACK = "remoteReadyCallback";
@@ -266,6 +343,7 @@ public class Constants {
     public static final String EXTRA_ACCOUNT = "account";
     public static final String EXTRA_ID = "id";
     public static final String EXTRA_PENDING_INTENT = "pendingIntent";
+    public static final String EXTRA_INPUT_METHOD_INFO = "inputmethodinfo";
 
     public static final int CALLBACK_EVENT_INVALID = -1;
     public static final int CALLBACK_EVENT_PACKAGE_ADDED = 0;

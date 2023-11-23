@@ -18,13 +18,18 @@ package android.telephony.cts;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
+import static com.android.internal.telephony.SmsConstants.ENCODING_8BIT;
+
 import static junit.framework.Assert.assertNotNull;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeNoException;
 import static org.junit.Assume.assumeTrue;
 
+import android.Manifest;
 import android.app.Instrumentation;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
@@ -46,6 +51,7 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
 import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
+import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.VisualVoicemailSms;
 import android.telephony.VisualVoicemailSmsFilterSettings;
@@ -107,11 +113,29 @@ public class VisualVoicemailServiceTest {
         mPhoneAccountHandle = telecomManager
                 .getDefaultOutgoingPhoneAccount(PhoneAccount.SCHEME_TEL);
         assertNotNull(mPhoneAccountHandle);
-        mPhoneNumber = telecomManager.getLine1Number(mPhoneAccountHandle);
-        assertNotNull(mPhoneNumber, "Tests require a line1 number for the active SIM.");
 
         mTelephonyManager = mContext.getSystemService(TelephonyManager.class)
                 .createForPhoneAccountHandle(mPhoneAccountHandle);
+        try {
+            mTelephonyManager.getHalVersion(TelephonyManager.HAL_SERVICE_RADIO);
+        } catch (IllegalStateException e) {
+            assumeNoException("Skipping tests because Telephony service is null", e);
+        }
+
+        getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity(Manifest.permission.READ_PRIVILEGED_PHONE_STATE);
+        try {
+            int subId = mTelephonyManager.getSubscriptionId(mPhoneAccountHandle);
+            SubscriptionManager subscriptionManager = mContext
+                    .getSystemService(SubscriptionManager.class);
+            mPhoneNumber = subscriptionManager.getPhoneNumber(subId);
+            assertNotNull(mPhoneNumber, "Tests require a line1 number for the active SIM.");
+            assertFalse("[RERUN] SIM card does not provide phone number. Use a suitable SIM Card.",
+                    TextUtils.isEmpty(mPhoneNumber));
+            Log.d(TAG, "mPhoneNumber:" + mPhoneNumber);
+        } finally {
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+        }
 
         PackageManager packageManager = mContext.getPackageManager();
         packageManager.setComponentEnabledSetting(
@@ -425,7 +449,7 @@ public class VisualVoicemailServiceTest {
     /**
      * Setup the SMS filter with only the {@code clientPrefix}, and sends {@code text} to the
      * device. The SMS sent should not be written to the SMS provider. <p> If {@code expectVvmSms}
-     * is {@code true}, the SMS should be be caught by the SMS filter. The user should not receive
+     * is {@code true}, the SMS should be caught by the SMS filter. The user should not receive
      * the text, and the parsed result will be returned.* <p> If {@code expectVvmSms} is {@code
      * false}, the SMS should pass through the SMS filter. The user should receive the text, and
      * {@code null} be returned.
@@ -434,6 +458,10 @@ public class VisualVoicemailServiceTest {
     private VisualVoicemailSms getSmsFromText(VisualVoicemailSmsFilterSettings settings,
             String text,
             boolean expectVvmSms) {
+        int carrierId = mTelephonyManager.getSimCarrierId();
+        assertFalse("[RERUN] Carrier [carrier-id: " + carrierId + "] does not support "
+                        + "loop back messages. Use another carrier.",
+                CarrierCapability.UNSUPPORT_LOOP_BACK_MESSAGES.contains(carrierId));
 
         mTelephonyManager.setVisualVoicemailSmsFilterSettings(settings);
 
@@ -461,7 +489,7 @@ public class VisualVoicemailServiceTest {
                     future.get(EVENT_NOT_RECEIVED_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
                     throw new RuntimeException("Unexpected visual voicemail SMS received");
                 } catch (TimeoutException e) {
-                    // expected
+                    Log.i(TAG, "Expected TimeoutException" + e);
                     return null;
                 } catch (ExecutionException | InterruptedException e) {
                     throw new RuntimeException(e);
@@ -473,7 +501,6 @@ public class VisualVoicemailServiceTest {
     @Nullable
     private VisualVoicemailSms getSmsFromData(VisualVoicemailSmsFilterSettings settings, short port,
             String text, boolean expectVvmSms) {
-
         mTelephonyManager.setVisualVoicemailSmsFilterSettings(settings);
 
         CompletableFuture<VisualVoicemailSms> future = new CompletableFuture<>();
@@ -497,7 +524,7 @@ public class VisualVoicemailServiceTest {
                 future.get(EVENT_NOT_RECEIVED_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
                 throw new RuntimeException("Unexpected visual voicemail SMS received");
             } catch (TimeoutException e) {
-                // expected
+                Log.i(TAG, "Expected TimeoutException!" + e);
                 return null;
             } catch (ExecutionException | InterruptedException e) {
                 throw new RuntimeException(e);
@@ -529,15 +556,27 @@ public class VisualVoicemailServiceTest {
             StringBuilder messageBody = new StringBuilder();
             CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder();
             for (SmsMessage message : messages) {
-                if (message.getMessageBody() != null) {
-                    messageBody.append(message.getMessageBody());
-                } else if (message.getUserData() != null) {
+                String body = message.getMessageBody();
+
+                if ((body == null || (message.is3gpp()
+                        && message.getReceivedEncodingType() == ENCODING_8BIT))
+                        && message.getUserData() != null) {
+                    Log.d(TAG, "onReceive decode using UTF-8");
+                    // Attempt to interpret the user data as UTF-8. UTF-8 string over data SMS using
+                    // 8BIT data coding scheme is our recommended way to send VVM SMS and is used in
+                    // CTS Tests. The OMTP visual voicemail specification does not specify the SMS
+                    // type and encoding.
                     ByteBuffer byteBuffer = ByteBuffer.wrap(message.getUserData());
                     try {
-                        messageBody.append(decoder.decode(byteBuffer).toString());
+                        body = decoder.decode(byteBuffer).toString();
                     } catch (CharacterCodingException e) {
+                        Log.e(TAG, "onReceive: got CharacterCodingException"
+                                + " when decoding with UTF-8, e = " + e);
                         return;
                     }
+                }
+                if (body != null) {
+                    messageBody.append(body);
                 }
             }
             if (!TextUtils.equals(mText, messageBody.toString())) {

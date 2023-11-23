@@ -28,16 +28,17 @@ from aidegen.lib import common_util
 from aidegen.idea import xml_gen
 
 
-# pylint: disable=protected-access
 class XMLGenUnittests(unittest.TestCase):
     """Unit tests for XMLGenerator class."""
 
     _TEST_DIR = None
     _XML_NAME = 'test.xml'
-    _DEFAULT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+    _DEFAULT_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4"></project>
 """
-    _IGNORE_GIT_XML = """<?xml version="1.0" encoding="UTF-8"?>
+    _IGNORE_GIT_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="VcsManagerConfiguration">
     <ignored-roots><path value="/b" /></ignored-roots>

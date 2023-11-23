@@ -185,6 +185,8 @@ public class ChildlessActivityTest
         // Launch 1st activity
         final ChildlessActivity activity1 = launchActivity();
         watcher1.waitFor(RESUMED);
+        // The task id will be -1 if the Activity is finished
+        final int taskId1 = activity1.getTaskId();
 
         // Launch and finish 2nd activity
         final ActivityLauncher<LoginActivity> anotherActivityLauncher = new ActivityLauncher<>(
@@ -193,6 +195,7 @@ public class ChildlessActivityTest
         final LoginActivity activity2 = anotherActivityLauncher.launchActivity();
 
         watcher2.waitFor(RESUMED);
+        final int taskId2 = activity2.getTaskId();
         activity2.finish();
         watcher2.waitFor(DESTROYED);
 
@@ -204,12 +207,12 @@ public class ChildlessActivityTest
         final ComponentName name1 = activity1.getComponentName();
         final ComponentName name2 = activity2.getComponentName();
         service.assertThat()
-            .activityResumed(name1)
-            .activityPaused(name1)
-            .activityResumed(name2)
-            .activityPaused(name2)
-            .activityResumed(name1)
-            .activityPaused(name1);
+            .activityResumed(name1, taskId1)
+            .activityPaused(name1, taskId1)
+            .activityResumed(name2, taskId2)
+            .activityPaused(name2, taskId2)
+            .activityResumed(name1, taskId1)
+            .activityPaused(name1, taskId1);
 
         // Assert the sessions
         final List<ContentCaptureSessionId> sessionIds = service.getAllSessionIds();
@@ -355,14 +358,19 @@ public class ChildlessActivityTest
         Log.v(TAG, "events(" + events.size() + "): " + events);
 
         final View grandpa = activity.getGrandParent();
+        final View grandpa2 = (View) grandpa.getParent();
+        final View decor = activity.getDecorView();
 
         // Assert just the relevant events
         new EventsAssertor(events)
-                .isAtLeast(6)
+                .isAtLeast(9)
                 .assertSessionResumed()
                 .assertViewTreeStarted()
-                .assertViewAppeared(sessionId, child, rootView.getAutofillId())
+                .assertDecorViewAppeared(decor)
+                .assertViewAppeared(sessionId, grandpa2, decor.getAutofillId())
+                .assertViewAppeared(sessionId, grandpa, grandpa2.getAutofillId())
                 .assertViewAppeared(sessionId, rootView, grandpa.getAutofillId())
+                .assertViewAppeared(sessionId, child, rootView.getAutofillId())
                 .assertViewTreeFinished()
                 .assertSessionPaused();
     }
@@ -377,6 +385,8 @@ public class ChildlessActivityTest
 
         final LinearLayout rootView = activity.getRootView();
         final View grandpa = activity.getGrandParent();
+        final View grandpa2 = (View) grandpa.getParent();
+        final View decor = activity.getDecorView();
 
         final ContentCaptureSession mainSession = rootView.getContentCaptureSession();
         final ContentCaptureSessionId mainSessionId = mainSession.getContentCaptureSessionId();
@@ -407,9 +417,12 @@ public class ChildlessActivityTest
         Log.v(TAG, "mainEvents(" + mainEvents.size() + "): " + mainEvents);
 
         new EventsAssertor(mainEvents)
-                .isAtLeast(5)
+                .isAtLeast(8)
                 .assertSessionResumed()
                 .assertViewTreeStarted()
+                .assertDecorViewAppeared(decor)
+                .assertViewAppeared(mainSessionId, grandpa2, decor.getAutofillId())
+                .assertViewAppeared(mainSessionId, grandpa, grandpa2.getAutofillId())
                 .assertViewAppeared(mainSessionId, rootView, grandpa.getAutofillId())
                 .assertViewTreeFinished()
                 .assertSessionPaused();
@@ -418,7 +431,7 @@ public class ChildlessActivityTest
         assertChildSessionContext(childTestSession, "child");
         final List<ContentCaptureEvent> childEvents = childTestSession.getEvents();
         Log.v(TAG, "childEvents(" + childEvents.size() + "): " + childEvents);
-        final int minEvents = 3;
+
         new EventsAssertor(childEvents)
                 .isAtLeast(3)
                 .assertViewTreeStarted()
@@ -726,17 +739,18 @@ public class ChildlessActivityTest
 
         final AutofillId rootId = rootView.getAutofillId();
         final View grandpa = activity.getGrandParent();
+        final View grandpa2 = (View) grandpa.getParent();
+        final View decor = activity.getDecorView();
 
         new EventsAssertor(mainEvents)
-                .isAtLeast(8)
                 .assertSessionResumed()
                 .assertViewTreeStarted()
+                .assertDecorViewAppeared(decor)
+                .assertViewAppeared(grandpa2, decor.getAutofillId())
+                .assertViewAppeared(grandpa, grandpa2.getAutofillId())
                 .assertViewAppeared(rootView, grandpa.getAutofillId())
                 .assertViewTreeFinished()
-                .assertSessionPaused()
-                .assertViewTreeStarted()
-                .assertViewDisappeared(rootId)
-                .assertViewTreeFinished();
+                .assertSessionPaused();
 
         new EventsAssertor(events1)
                 .isAtLeast(3)

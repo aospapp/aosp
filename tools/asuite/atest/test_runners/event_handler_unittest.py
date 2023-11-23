@@ -23,9 +23,9 @@ import unittest
 from importlib import reload
 from unittest import mock
 
-from test_runners import atest_tf_test_runner as atf_tr
-from test_runners import event_handler as e_h
-from test_runners import test_runner_base
+from atest.test_runners import atest_tf_test_runner as atf_tr
+from atest.test_runners import event_handler as e_h
+from atest.test_runners import test_runner_base
 
 
 EVENTS_NORMAL = [

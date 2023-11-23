@@ -18,6 +18,7 @@
 #include <algorithm>
 
 #include "linkerconfig/common.h"
+#include "linkerconfig/environment.h"
 #include "linkerconfig/log.h"
 #include "linkerconfig/namespace.h"
 #include "linkerconfig/namespacebuilder.h"
@@ -27,6 +28,7 @@ namespace android {
 namespace linkerconfig {
 namespace contents {
 
+using modules::LibProvider;
 using modules::LibProviders;
 using modules::Namespace;
 using modules::Section;
@@ -56,13 +58,33 @@ Section BuildSection(const Context& ctx, const std::string& name,
 
   // resolve provide/require constraints
   Section section(std::move(name), std::move(namespaces));
-  if (auto res = section.Resolve(ctx, providers); !res.ok()) {
-    LOG(ERROR) << res.error();
-  }
+  section.Resolve(ctx, providers);
 
   AddStandardSystemLinks(ctx, &section);
   return section;
 }
+
+std::vector<LibProvider> GetVndkProvider(const Context& ctx,
+                                         VndkUserPartition partition) {
+  std::vector<LibProvider> provider;
+  std::string partition_suffix =
+      partition == VndkUserPartition::Vendor ? "VENDOR" : "PRODUCT";
+  provider.push_back(LibProvider{
+      "vndk",
+      std::bind(BuildVndkNamespace, ctx, partition),
+      {Var("VNDK_SAMEPROCESS_LIBRARIES_" + partition_suffix),
+       Var("VNDK_CORE_LIBRARIES_" + partition_suffix)},
+  });
+  if (modules::IsVndkInSystemNamespace()) {
+    provider.push_back(LibProvider{
+        "vndk_in_system",
+        std::bind(BuildVndkInSystemNamespace, ctx),
+        {Var("VNDK_USING_CORE_VARIANT_LIBRARIES")},
+    });
+  }
+  return provider;
+}
+
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

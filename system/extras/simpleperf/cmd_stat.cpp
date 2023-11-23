@@ -141,8 +141,8 @@ void CounterSummaries::ShowCSV(FILE* fp, bool show_thread, bool show_cpu) {
     if (show_cpu) {
       fprintf(fp, "%d,", s.cpu);
     }
-    fprintf(fp, "%s,%s,%s,(%.0f%%)%s\n", s.readable_count.c_str(), s.Name().c_str(),
-            s.comment.c_str(), 1.0 / s.scale * 100, (s.auto_generated ? " (generated)," : ","));
+    fprintf(fp, "%s,%s,%s,%s\n", s.readable_count.c_str(), s.Name().c_str(), s.comment.c_str(),
+            (s.auto_generated ? "(generated)," : ""));
   }
 }
 
@@ -157,7 +157,7 @@ void CounterSummaries::ShowText(FILE* fp, bool show_thread, bool show_cpu) {
   }
   titles.emplace_back("count");
   titles.emplace_back("event_name");
-  titles.emplace_back(" # count / runtime,  runtime / enabled_time");
+  titles.emplace_back(" # count / runtime");
 
   std::vector<size_t> width(titles.size(), 0);
 
@@ -206,10 +206,9 @@ void CounterSummaries::ShowText(FILE* fp, bool show_thread, bool show_cpu) {
     if (show_cpu) {
       fprintf(fp, "  %-*d", static_cast<int>(width[i++]), s.cpu);
     }
-    fprintf(fp, "  %*s  %-*s   # %-*s  (%.0f%%)%s\n", static_cast<int>(width[i]),
-            s.readable_count.c_str(), static_cast<int>(width[i + 1]), s.Name().c_str(),
-            static_cast<int>(width[i + 2]), s.comment.c_str(), 1.0 / s.scale * 100,
-            (s.auto_generated ? " (generated)" : ""));
+    fprintf(fp, "  %*s  %-*s   # %-*s%s\n", static_cast<int>(width[i]), s.readable_count.c_str(),
+            static_cast<int>(width[i + 1]), s.Name().c_str(), static_cast<int>(width[i + 2]),
+            s.comment.c_str(), (s.auto_generated ? " (generated)" : ""));
   }
 }
 
@@ -381,8 +380,10 @@ class StatCommand : public Command {
 "-o output_filename  Write report to output_filename instead of standard output.\n"
 "--per-core       Print counters for each cpu core.\n"
 "--per-thread     Print counters for each thread.\n"
-"-p pid1,pid2,... Stat events on existing processes. Mutually exclusive with -a.\n"
-"-t tid1,tid2,... Stat events on existing threads. Mutually exclusive with -a.\n"
+"-p pid_or_process_name_regex1,pid_or_process_name_regex2,...\n"
+"                      Stat events on existing processes. Processes are searched either by pid\n"
+"                      or process name regex. Mutually exclusive with -a.\n"
+"-t tid1,tid2,...      Stat events on existing threads. Mutually exclusive with -a.\n"
 "--print-hw-counter    Test and print CPU PMU hardware counters available on the device.\n"
 "--sort key1,key2,...  Select keys used to sort the report, used when --per-thread\n"
 "                      or --per-core appears. The appearance order of keys decides\n"
@@ -434,12 +435,14 @@ class StatCommand : public Command {
  private:
   bool ParseOptions(const std::vector<std::string>& args,
                     std::vector<std::string>* non_option_args);
-  bool PrintHardwareCounters();
+  void PrintHardwareCounters();
   bool AddDefaultMeasuredEventTypes();
   void SetEventSelectionFlags();
   void MonitorEachThread();
   void AdjustToIntervalOnlyValues(std::vector<CountersInfo>& counters);
   bool ShowCounters(const std::vector<CountersInfo>& counters, double duration_in_sec, FILE* fp);
+  void CheckHardwareCounterMultiplexing();
+  void PrintWarningForInaccurateEvents();
 
   bool verbose_mode_;
   bool system_wide_collection_;
@@ -480,7 +483,8 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
     return false;
   }
   if (print_hw_counter_) {
-    return PrintHardwareCounters();
+    PrintHardwareCounters();
+    return true;
   }
   if (!app_package_name_.empty() && !in_app_context_) {
     if (!IsRoot()) {
@@ -536,9 +540,6 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
   }
 
   // 3. Open perf_event_files and output file if defined.
-  if (cpus_.empty() && !report_per_core_ && (report_per_thread_ || !system_wide_collection_)) {
-    cpus_.push_back(-1);  // Get event count for each thread on all cpus.
-  }
   if (!event_selection_set_.OpenEventFiles(cpus_)) {
     return false;
   }
@@ -617,8 +618,16 @@ bool StatCommand::Run(const std::vector<std::string>& args) {
 
   // 6. Read and print counters.
   if (interval_in_ms_ == 0) {
-    return print_counters();
+    if (!print_counters()) {
+      return false;
+    }
   }
+
+  // 7. Print warnings when needed.
+  event_selection_set_.CloseEventFiles();
+  CheckHardwareCounterMultiplexing();
+  PrintWarningForInaccurateEvents();
+
   return true;
 }
 
@@ -683,8 +692,8 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
   report_per_core_ = options.PullBoolValue("--per-core");
   report_per_thread_ = options.PullBoolValue("--per-thread");
 
-  for (const OptionValue& value : options.PullValues("-p")) {
-    if (auto pids = GetTidsFromString(*value.str_value, true); pids) {
+  if (auto strs = options.PullStringValues("-p"); !strs.empty()) {
+    if (auto pids = GetPidsFromStrings(strs, true, true); pids) {
       event_selection_set_.AddMonitoredProcesses(pids.value());
     } else {
       return false;
@@ -739,52 +748,67 @@ bool StatCommand::ParseOptions(const std::vector<std::string>& args,
   return true;
 }
 
-bool StatCommand::PrintHardwareCounters() {
-  size_t available_counters = 0;
+std::optional<bool> CheckHardwareCountersOnCpu(int cpu, size_t counters) {
   const EventType* event = FindEventTypeByName("cpu-cycles", true);
   if (event == nullptr) {
-    return false;
+    return std::nullopt;
   }
   perf_event_attr attr = CreateDefaultPerfEventAttr(*event);
+  auto workload = Workload::CreateWorkload({"sleep", "0.1"});
+  if (!workload || !workload->SetCpuAffinity(cpu)) {
+    return std::nullopt;
+  }
+  std::vector<std::unique_ptr<EventFd>> event_fds;
+  for (size_t i = 0; i < counters; i++) {
+    EventFd* group_event_fd = event_fds.empty() ? nullptr : event_fds[0].get();
+    auto event_fd =
+        EventFd::OpenEventFile(attr, workload->GetPid(), cpu, group_event_fd, "cpu-cycles", false);
+    if (!event_fd) {
+      return false;
+    }
+    event_fds.emplace_back(std::move(event_fd));
+  }
+  if (!workload->Start() || !workload->WaitChildProcess(true, nullptr)) {
+    return std::nullopt;
+  }
+  for (auto& event_fd : event_fds) {
+    PerfCounter counter;
+    if (!event_fd->ReadCounter(&counter)) {
+      return std::nullopt;
+    }
+    if (counter.time_enabled == 0 || counter.time_enabled > counter.time_running) {
+      return false;
+    }
+  }
+  return true;
+}
+
+std::optional<size_t> GetHardwareCountersOnCpu(int cpu) {
+  size_t available_counters = 0;
   while (true) {
-    auto workload = Workload::CreateWorkload({"sleep", "0.1"});
-    if (!workload) {
-      return false;
+    std::optional<bool> result = CheckHardwareCountersOnCpu(cpu, available_counters + 1);
+    if (!result.has_value()) {
+      return std::nullopt;
     }
-    std::vector<std::unique_ptr<EventFd>> event_fds;
-    for (size_t i = 0; i <= available_counters; i++) {
-      EventFd* group_event_fd = event_fds.empty() ? nullptr : event_fds[0].get();
-      auto event_fd =
-          EventFd::OpenEventFile(attr, workload->GetPid(), -1, group_event_fd, "cpu-cycles", false);
-      if (!event_fd) {
-        break;
-      }
-      event_fds.emplace_back(std::move(event_fd));
-    }
-    if (event_fds.size() != available_counters + 1) {
-      break;
-    }
-    if (!workload->Start() || !workload->WaitChildProcess(true, nullptr)) {
-      return false;
-    }
-    bool always_running = true;
-    for (auto& event_fd : event_fds) {
-      PerfCounter counter;
-      if (!event_fd->ReadCounter(&counter)) {
-        return false;
-      }
-      if (counter.time_enabled == 0 || counter.time_enabled > counter.time_running) {
-        always_running = false;
-        break;
-      }
-    }
-    if (!always_running) {
+    if (!result.value()) {
       break;
     }
     available_counters++;
   }
-  printf("There are %zu CPU PMU hardware counters available on this device.\n", available_counters);
-  return true;
+  return available_counters;
+}
+
+void StatCommand::PrintHardwareCounters() {
+  for (int cpu : GetOnlineCpus()) {
+    std::optional<size_t> counters = GetHardwareCountersOnCpu(cpu);
+    if (!counters) {
+      // When built as a 32-bit program, we can't set sched_affinity to a 64-bit only CPU. So we
+      // may not be able to get hardware counters on that CPU.
+      LOG(WARNING) << "Failed to get CPU PMU hardware counters on cpu " << cpu;
+      continue;
+    }
+    printf("There are %zu CPU PMU hardware counters available on cpu %d.\n", counters.value(), cpu);
+  }
 }
 
 bool StatCommand::AddDefaultMeasuredEventTypes() {
@@ -896,42 +920,53 @@ bool StatCommand::ShowCounters(const std::vector<CountersInfo>& counters, double
   summaries.GenerateComments(duration_in_sec);
   summaries.Show(fp);
 
-  if (csv_)
+  if (csv_) {
     fprintf(fp, "Total test time,%lf,seconds,\n", duration_in_sec);
-  else
-    fprintf(fp, "\nTotal test time: %lf seconds.\n", duration_in_sec);
-
-  const char* COUNTER_MULTIPLEX_INFO =
-      "probably caused by hardware counter multiplexing (less counters than events).\n"
-      "Try --use-devfreq-counters if on a rooted device.";
-
-  if (cpus_ == std::vector<int>(1, -1) ||
-      event_selection_set_.GetMonitoredThreads() == std::set<pid_t>({-1})) {
-    // We either monitor a thread on all cpus, or monitor all threads on a cpu. In both cases,
-    // if percentages < 100%, probably it is caused by hardware counter multiplexing.
-    bool counters_always_available = true;
-    for (const auto& summary : summaries.Summaries()) {
-      if (!summary.IsMonitoredAllTheTime()) {
-        counters_always_available = false;
-        break;
-      }
-    }
-    if (!counters_always_available) {
-      LOG(WARNING) << "Percentages < 100% means some events only run a subset of enabled time,\n"
-                   << COUNTER_MULTIPLEX_INFO;
-    }
-  } else if (report_per_thread_) {
-    // We monitor each thread on each cpu.
-    LOG(INFO) << "A percentage represents runtime_on_a_cpu / runtime_on_all_cpus for each thread.\n"
-              << "If percentage sum of a thread < 99%, or report for a running thread is missing,\n"
-              << COUNTER_MULTIPLEX_INFO;
   } else {
-    // We monitor some threads on each cpu.
-    LOG(INFO) << "A percentage represents runtime_on_a_cpu / runtime_on_all_cpus for monitored\n"
-              << "threads. If percentage sum < 99%, or report for an event is missing,\n"
-              << COUNTER_MULTIPLEX_INFO;
+    fprintf(fp, "\nTotal test time: %lf seconds.\n", duration_in_sec);
   }
   return true;
+}
+
+void StatCommand::CheckHardwareCounterMultiplexing() {
+  size_t hardware_events = 0;
+  for (const EventType* event : event_selection_set_.GetEvents()) {
+    if (event->IsHardwareEvent()) {
+      hardware_events++;
+    }
+  }
+  if (hardware_events == 0) {
+    return;
+  }
+  std::vector<int> cpus = cpus_;
+  if (cpus.empty()) {
+    cpus = GetOnlineCpus();
+  }
+  for (int cpu : cpus) {
+    std::optional<bool> result = CheckHardwareCountersOnCpu(cpu, hardware_events);
+    if (result.has_value() && !result.value()) {
+      LOG(WARNING) << "It seems the number of hardware events are more than the number of\n"
+                   << "available CPU PMU hardware counters. That will trigger hardware counter\n"
+                   << "multiplexing. As a result, events are not counted all the time processes\n"
+                   << "running, and event counts are smaller than what really happen.\n"
+                   << "Use --print-hw-counter to show available hardware counters.\n"
+#if defined(__ANDROID__)
+                   << "If on a rooted device, try --use-devfreq-counters to get more counters.\n"
+#endif
+          ;
+      break;
+    }
+  }
+}
+
+void StatCommand::PrintWarningForInaccurateEvents() {
+  for (const EventType* event : event_selection_set_.GetEvents()) {
+    if (event->name == "raw-l3d-cache-lmiss-rd") {
+      LOG(WARNING) << "PMU event L3D_CACHE_LMISS_RD might undercount on A510. Please use "
+                      "L3D_CACHE_REFILL_RD instead.";
+      break;
+    }
+  }
 }
 
 }  // namespace

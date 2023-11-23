@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
+#include <ExynosJpegEncoderForCamera.h>
+#include <hardware/exynos/ion.h>
+#include <linux/videodev2.h>
 #include <sys/mman.h>
 #include <sys/types.h>
-
-#include <linux/videodev2.h>
-
-#include <hardware/exynos/ion.h>
 #include <system/graphics.h>
 
-#include <ExynosJpegEncoderForCamera.h>
-
-#include "hwjpeg-internal.h"
 #include "AppMarkerWriter.h"
 #include "ThumbnailScaler.h"
-#include "IFDWriter.h"
+#include "hwjpeg-internal.h"
 
 // Data length written by H/W without the scan data.
-#define NECESSARY_JPEG_LENGTH   (0x24B + 2 * JPEG_MARKER_SIZE)
+#define NECESSARY_JPEG_LENGTH (0x24B + 2 * JPEG_MARKER_SIZE)
 
-static size_t GetImageLength(unsigned int width, unsigned int height, int v4l2Format)
-{
+static size_t GetImageLength(unsigned int width, unsigned int height, int v4l2Format) {
     size_t size = width * height;
 
-    switch(v4l2Format) {
+    switch (v4l2Format) {
         case V4L2_PIX_FMT_YUYV:
         case V4L2_PIX_FMT_YVYU:
         case V4L2_PIX_FMT_UYVY:
@@ -57,22 +52,29 @@ static size_t GetImageLength(unsigned int width, unsigned int height, int v4l2Fo
     return 0;
 }
 
-static int GetThumbnailFormat(int v4l2Format)
-{
-        if (v4l2Format == V4L2_PIX_FMT_NV12M)
-            return V4L2_PIX_FMT_NV12;
-        else if (v4l2Format == V4L2_PIX_FMT_NV21M)
-            return V4L2_PIX_FMT_NV21;
-        else
-            return v4l2Format;
+static int GetThumbnailFormat(int v4l2Format) {
+    if (v4l2Format == V4L2_PIX_FMT_NV12M)
+        return V4L2_PIX_FMT_NV12;
+    else if (v4l2Format == V4L2_PIX_FMT_NV21M)
+        return V4L2_PIX_FMT_NV21;
+    else
+        return v4l2Format;
 }
 
 ExynosJpegEncoderForCamera::ExynosJpegEncoderForCamera(bool bBTBComp)
-        : m_phwjpeg4thumb(NULL), m_fdIONClient(-1), m_fdIONThumbImgBuffer(-1), m_pIONThumbImgBuffer(NULL),
-          m_szIONThumbImgBuffer(0), m_pIONThumbJpegBuffer(NULL), m_fdIONThumbJpegBuffer(-1), m_szIONThumbJpegBuffer(0),
-          m_nThumbWidth(0), m_nThumbHeight(0), m_nThumbQuality(0),
-          m_pStreamBase(NULL), m_fThumbBufferType(0)
-{
+      : m_phwjpeg4thumb(NULL),
+        m_fdIONClient(-1),
+        m_fdIONThumbImgBuffer(-1),
+        m_pIONThumbImgBuffer(NULL),
+        m_szIONThumbImgBuffer(0),
+        m_pIONThumbJpegBuffer(NULL),
+        m_fdIONThumbJpegBuffer(-1),
+        m_szIONThumbJpegBuffer(0),
+        m_nThumbWidth(0),
+        m_nThumbHeight(0),
+        m_nThumbQuality(0),
+        m_pStreamBase(NULL),
+        m_fThumbBufferType(0) {
     m_pAppWriter = new CAppMarkerWriter();
     if (!m_pAppWriter) {
         ALOGE("Failed to allocated an instance of CAppMarkerWriter");
@@ -94,52 +96,41 @@ ExynosJpegEncoderForCamera::ExynosJpegEncoderForCamera(bool bBTBComp)
         ALOGERR("Failed to create ION client for thumbnail conversion");
     }
 
-    if (!bBTBComp)
-        SetState(STATE_NO_BTBCOMP);
+    if (!bBTBComp) SetState(STATE_NO_BTBCOMP);
 
     // STATE_THUMBSIZE_CHANGED is to know if thumbnail image size need to be
     // configured to HWJPEG. If HWJPEG does not support for back-to-back
     // compression, it should not be configured.
-    if (IsBTBCompressionSupported())
-        SetState(STATE_THUMBSIZE_CHANGED);
+    if (IsBTBCompressionSupported()) SetState(STATE_THUMBSIZE_CHANGED);
 
     m_extraInfo.appInfo = m_appInfo;
 
     mThumbnailScaler.reset(ThumbnailScaler::createInstance());
-    if (!mThumbnailScaler->available())
-        ALOGW("Thumbnail scaler is not available.");
+    if (!mThumbnailScaler->available()) ALOGW("Thumbnail scaler is not available.");
 
     ALOGD("ExynosJpegEncoderForCamera Created: %p, ION %d", this, m_fdIONClient);
 }
 
-ExynosJpegEncoderForCamera::~ExynosJpegEncoderForCamera()
-{
+ExynosJpegEncoderForCamera::~ExynosJpegEncoderForCamera() {
     delete m_pAppWriter;
     delete m_phwjpeg4thumb;
 
-    if (m_pIONThumbImgBuffer != NULL)
-        munmap(m_pIONThumbImgBuffer, m_szIONThumbImgBuffer);
+    if (m_pIONThumbImgBuffer != NULL) munmap(m_pIONThumbImgBuffer, m_szIONThumbImgBuffer);
 
-    if (m_fdIONThumbImgBuffer >= 0)
-        close(m_fdIONThumbImgBuffer);
+    if (m_fdIONThumbImgBuffer >= 0) close(m_fdIONThumbImgBuffer);
 
-    if (m_pIONThumbJpegBuffer)
-        munmap(m_pIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
+    if (m_pIONThumbJpegBuffer) munmap(m_pIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
 
-    if (m_fdIONThumbJpegBuffer >= 0)
-        close(m_fdIONThumbJpegBuffer);
+    if (m_fdIONThumbJpegBuffer >= 0) close(m_fdIONThumbJpegBuffer);
 
-    if (m_fdIONClient >= 0)
-        exynos_ion_close(m_fdIONClient);
+    if (m_fdIONClient >= 0) exynos_ion_close(m_fdIONClient);
 
-    ALOGD("ExynosJpegEncoderForCamera Destroyed: %p, ION %d, ThumIMG %d",
-            this, m_fdIONClient, m_fdIONThumbImgBuffer);
+    ALOGD("ExynosJpegEncoderForCamera Destroyed: %p, ION %d, ThumIMG %d", this, m_fdIONClient,
+          m_fdIONThumbImgBuffer);
 }
 
-int ExynosJpegEncoderForCamera::setThumbnailSize(int w, int h)
-{
-    if ((m_nThumbWidth == w) && (m_nThumbHeight == h))
-        return 0;
+int ExynosJpegEncoderForCamera::setThumbnailSize(int w, int h) {
+    if ((m_nThumbWidth == w) && (m_nThumbHeight == h)) return 0;
 
     // w == 0 and h == 0 resets thumbnail configuration
     if (((w | h) != 0) && ((w < 16) || (h < 16))) {
@@ -150,16 +141,13 @@ int ExynosJpegEncoderForCamera::setThumbnailSize(int w, int h)
     m_nThumbWidth = w;
     m_nThumbHeight = h;
 
-    if (IsBTBCompressionSupported())
-        SetState(STATE_THUMBSIZE_CHANGED);
+    if (IsBTBCompressionSupported()) SetState(STATE_THUMBSIZE_CHANGED);
 
     return 0;
 }
 
-int ExynosJpegEncoderForCamera::setThumbnailQuality(int quality)
-{
-    if (m_nThumbQuality == quality)
-        return 0;
+int ExynosJpegEncoderForCamera::setThumbnailQuality(int quality) {
+    if (m_nThumbQuality == quality) return 0;
 
     if ((quality > 100) || (quality < 1)) {
         ALOGE("Invalid quality factor %d for thumbnail image", quality);
@@ -169,6 +157,11 @@ int ExynosJpegEncoderForCamera::setThumbnailQuality(int quality)
     m_nThumbQuality = quality;
 
     return GetCompressor().SetQuality(0, m_nThumbQuality) ? 0 : -1;
+}
+
+int ExynosJpegEncoderForCamera::setThumbnailPadding(unsigned char *padding,
+                                                    unsigned int num_planes) {
+    return GetCompressor().SetPadding2(padding, num_planes) ? 0 : -1;
 }
 
 bool ExynosJpegEncoderForCamera::EnsureFormatIsApplied() {
@@ -184,8 +177,8 @@ bool ExynosJpegEncoderForCamera::EnsureFormatIsApplied() {
         }
 
         getSize(&width, &height);
-        if (!GetCompressor().SetImageFormat(
-                    getColorFormat(), width, height, thumb_width, thumb_height))
+        if (!GetCompressor().SetImageFormat(getColorFormat(), width, height, thumb_width,
+                                            thumb_height))
             return false;
 
         ClearState(STATE_PIXFMT_CHANGED | STATE_SIZE_CHANGED | STATE_THUMBSIZE_CHANGED);
@@ -194,8 +187,7 @@ bool ExynosJpegEncoderForCamera::EnsureFormatIsApplied() {
     return true;
 }
 
-size_t ExynosJpegEncoderForCamera::RemoveTrailingDummies(char *base, size_t len)
-{
+size_t ExynosJpegEncoderForCamera::RemoveTrailingDummies(char *base, size_t len) {
     ALOG_ASSERT(len > 4);
     ALOG_ASSERT((base[0] == 0xFF) && (base[1] == 0xD8)); // SOI marker
 
@@ -215,18 +207,15 @@ size_t ExynosJpegEncoderForCamera::RemoveTrailingDummies(char *base, size_t len)
     return 0;
 }
 
-void *ExynosJpegEncoderForCamera::tCompressThumbnail(void *p)
-{
+void *ExynosJpegEncoderForCamera::tCompressThumbnail(void *p) {
     ExynosJpegEncoderForCamera *encoder = reinterpret_cast<ExynosJpegEncoderForCamera *>(p);
 
     size_t thumblen = encoder->CompressThumbnail();
     return reinterpret_cast<void *>(thumblen);
 }
 
-bool ExynosJpegEncoderForCamera::ProcessExif(char *base, size_t limit,
-                                             exif_attribute_t *exifInfo,
-                                             extra_appinfo_t *extra)
-{
+bool ExynosJpegEncoderForCamera::ProcessExif(char *base, size_t limit, exif_attribute_t *exifInfo,
+                                             extra_appinfo_t *extra) {
     // PREREQUISITES: The main and the thumbnail image size should be configured before.
 
     // Sanity chck
@@ -237,16 +226,16 @@ bool ExynosJpegEncoderForCamera::ProcessExif(char *base, size_t limit,
 
     if (exifInfo) {
         if ((exifInfo->width != width) || (exifInfo->height != height)) {
-            ALOGE("Inconsistant image dimension: Exif %dx%d, Thumb %dx%d",
-                    exifInfo->width, exifInfo->height, width, height);
+            ALOGE("Inconsistent image dimension: Exif %dx%d, Thumb %dx%d", exifInfo->width,
+                  exifInfo->height, width, height);
             return false;
         }
 
         if (exifInfo->enableThumb) {
             if ((exifInfo->widthThumb != static_cast<uint32_t>(m_nThumbWidth)) ||
-                    (exifInfo->heightThumb != static_cast<uint32_t>(m_nThumbHeight))) {
-                ALOGE("Inconsistant thumbnail information: Exif %dx%d, Thumb %dx%d",
-                        exifInfo->widthThumb, exifInfo->heightThumb, m_nThumbWidth, m_nThumbHeight);
+                (exifInfo->heightThumb != static_cast<uint32_t>(m_nThumbHeight))) {
+                ALOGE("Inconsistent thumbnail information: Exif %dx%d, Thumb %dx%d",
+                      exifInfo->widthThumb, exifInfo->heightThumb, m_nThumbWidth, m_nThumbHeight);
                 return false;
             }
         }
@@ -255,8 +244,7 @@ bool ExynosJpegEncoderForCamera::ProcessExif(char *base, size_t limit,
     // Giving appwriter the address beyond SOS marker
     // because it is handled by this class
     size_t align = 16;
-    if (!!(GetDeviceCapabilities() & V4L2_CAP_EXYNOS_JPEG_NO_STREAMBASE_ALIGN))
-        align = 1;
+    if (!!(GetDeviceCapabilities() & V4L2_CAP_EXYNOS_JPEG_NO_STREAMBASE_ALIGN)) align = 1;
 
     m_pAppWriter->PrepareAppWriter(base + JPEG_MARKER_SIZE, exifInfo, extra);
 
@@ -280,24 +268,21 @@ bool ExynosJpegEncoderForCamera::ProcessExif(char *base, size_t limit,
     if (!exifInfo || !exifInfo->enableThumb || (limit < (JPEG_MAX_SEGMENT_SIZE * 10)))
         reserve_thumbspace = false;
 
-    m_pAppWriter->Write(reserve_thumbspace, JPEG_MARKER_SIZE, align,
-                        TestState(STATE_HWFC_ENABLED));
+    m_pAppWriter->Write(reserve_thumbspace, JPEG_MARKER_SIZE, align, TestState(STATE_HWFC_ENABLED));
 
     ALOGD("Image compression starts from offset %zu (APPx size %zu, HWFC? %d, NBTB? %d)",
-            PTR_DIFF(base, m_pAppWriter->GetMainStreamBase()), m_pAppWriter->CalculateAPPSize(),
-            TestState(STATE_HWFC_ENABLED),TestState(STATE_NO_BTBCOMP));
+          PTR_DIFF(base, m_pAppWriter->GetMainStreamBase()), m_pAppWriter->CalculateAPPSize(),
+          TestState(STATE_HWFC_ENABLED), TestState(STATE_NO_BTBCOMP));
 
     return true;
 }
 
-bool ExynosJpegEncoderForCamera::PrepareCompression(bool thumbnail)
-{
-    if (!thumbnail)
-        return true;
+bool ExynosJpegEncoderForCamera::PrepareCompression(bool thumbnail) {
+    if (!thumbnail) return true;
 
     if (IsThumbGenerationNeeded()) {
-        if (pthread_create(&m_threadWorker, NULL,
-                tCompressThumbnail, reinterpret_cast<void *>(this)) != 0) {
+        if (pthread_create(&m_threadWorker, NULL, tCompressThumbnail,
+                           reinterpret_cast<void *>(this)) != 0) {
             ALOGERR("Failed to create thumbnail generation thread");
             return false;
         }
@@ -312,14 +297,14 @@ bool ExynosJpegEncoderForCamera::PrepareCompression(bool thumbnail)
     if (!TestState(STATE_NO_BTBCOMP) && IsBTBCompressionSupported()) {
         if (checkOutBufType() == JPEG_BUF_TYPE_USER_PTR) {
             if (!GetCompressor().SetJpegBuffer2(m_pIONThumbJpegBuffer, m_szIONThumbJpegBuffer)) {
-                ALOGE("Failed to configure thumbnail buffer @ %p(size %zu)",
-                    m_pIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
+                ALOGE("Failed to configure thumbnail buffer @ %p(size %zu)", m_pIONThumbJpegBuffer,
+                      m_szIONThumbJpegBuffer);
                 return false;
             }
         } else {
             if (!GetCompressor().SetJpegBuffer2(m_fdIONThumbJpegBuffer, m_szIONThumbJpegBuffer)) {
-                ALOGE("Failed to configure thumbnail buffer @ %d(size %zu)",
-                    m_fdIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
+                ALOGE("Failed to configure thumbnail buffer @ %d(size %zu)", m_fdIONThumbJpegBuffer,
+                      m_szIONThumbJpegBuffer);
                 return false;
             }
         }
@@ -328,16 +313,13 @@ bool ExynosJpegEncoderForCamera::PrepareCompression(bool thumbnail)
     return true;
 }
 
-int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
-                                       char** pcJpegBuffer, debug_attribute_t *debugInfo)
-{
+int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo, char **pcJpegBuffer,
+                                       debug_attribute_t *debugInfo) {
     return encode(size, exifInfo, -1, pcJpegBuffer, debugInfo);
 }
 
-int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
-                                       int fdJpegBuffer, char** pcJpegBuffer,
-                                       debug_attribute_t *debugInfo)
-{
+int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo, int fdJpegBuffer,
+                                       char **pcJpegBuffer, debug_attribute_t *debugInfo) {
     if ((!debugInfo) || (debugInfo->num_of_appmarker == 0)) {
         extra_appinfo_t *extra = NULL;
         return encode(size, exifInfo, fdJpegBuffer, pcJpegBuffer, extra);
@@ -351,10 +333,8 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
     return encode(size, exifInfo, fdJpegBuffer, pcJpegBuffer, &m_extraInfo);
 }
 
-int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
-                                       int fdJpegBuffer, char** pcJpegBuffer,
-                                       extra_appinfo_t *appInfo)
-{
+int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo, int fdJpegBuffer,
+                                       char **pcJpegBuffer, extra_appinfo_t *appInfo) {
     if (!(*pcJpegBuffer)) {
         ALOGE("Target stream buffer is not specified");
         return -1;
@@ -371,27 +351,26 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
     char *jpeg_base = m_pStreamBase;
 
     ALOGI_IF(!exifInfo, "Exif is not specified. Skipping writing APP1 marker");
-    ALOGI_IF(!appInfo,
-            "Debugging information is not specified. Skipping writing APP4 marker");
+    ALOGI_IF(!appInfo, "Debugging information is not specified. Skipping writing APP4 marker");
     ALOGD("Given stream buffer size: %d bytes", *size);
 
     CStopWatch stopwatch(true);
 
-    if (!ProcessExif(jpeg_base, m_nStreamSize, exifInfo, appInfo))
-        return -1;
+    if (!ProcessExif(jpeg_base, m_nStreamSize, exifInfo, appInfo)) return -1;
 
     int offset = PTR_DIFF(m_pStreamBase, m_pAppWriter->GetMainStreamBase());
     int buffsize = static_cast<int>(m_nStreamSize - offset);
-    if ((fdJpegBuffer < 0) || !(GetDeviceCapabilities() & V4L2_CAP_EXYNOS_JPEG_DMABUF_OFFSET)) { // JPEG_BUF_TYPE_USER_PTR
+    if ((fdJpegBuffer < 0) ||
+        !(GetDeviceCapabilities() & V4L2_CAP_EXYNOS_JPEG_DMABUF_OFFSET)) { // JPEG_BUF_TYPE_USER_PTR
         if (setOutBuf(m_pAppWriter->GetMainStreamBase(), buffsize) < 0) {
-            ALOGE("Failed to configure stream buffer : fd %d, addr %p, streamSize %d",
-                    fdJpegBuffer, m_pAppWriter->GetMainStreamBase(), buffsize);
+            ALOGE("Failed to configure stream buffer : fd %d, addr %p, streamSize %d", fdJpegBuffer,
+                  m_pAppWriter->GetMainStreamBase(), buffsize);
             return -1;
         }
     } else { // JPEG_BUF_TYPE_DMA_BUF
         if (setOutBuf(fdJpegBuffer, buffsize, offset) < 0) {
-            ALOGE("Failed to configure stream buffer : fd %d, addr %p, streamSize %d",
-                    fdJpegBuffer, m_pAppWriter->GetMainStreamBase(), buffsize);
+            ALOGE("Failed to configure stream buffer : fd %d, addr %p, streamSize %d", fdJpegBuffer,
+                  m_pAppWriter->GetMainStreamBase(), buffsize);
             return -1;
         }
     }
@@ -412,10 +391,10 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
     // CASE1 = thumbenc && IsThumbGenerationNeeded() && block_mode
     // CASE2 = thumbenc && IsThumbGenerationNeeded() && !block_mode
     // CASE3 = thumbenc && !IsThumbGenerationNeeded() && !IsBTBCompressionSupported() && !block_mode
-    // CASE4 = thumbenc && !IsThumbGenerationNeeded() && !STATE_NO_BTBCOMP && IsBTBCompressionSupported() && !block_mode
-    // CASE5 = thumbenc && !IsThumbGenerationNeeded() && !STATE_NO_BTBCOMP && IsBTBCompressionSupported() && block_mode
-    // CASE6 = !thumbenc
-    // CASE7 = thumbenc && !IsThumbGenerationNeeded() && STATE_NO_BTBCOMP && block_mode
+    // CASE4 = thumbenc && !IsThumbGenerationNeeded() && !STATE_NO_BTBCOMP &&
+    // IsBTBCompressionSupported() && !block_mode CASE5 = thumbenc && !IsThumbGenerationNeeded() &&
+    // !STATE_NO_BTBCOMP && IsBTBCompressionSupported() && block_mode CASE6 = !thumbenc CASE7 =
+    // thumbenc && !IsThumbGenerationNeeded() && STATE_NO_BTBCOMP && block_mode
 
     if (!thumbenc) {
         // Confirm that no thumbnail information is transferred to HWJPEG
@@ -423,7 +402,7 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
     } else if (!IsThumbGenerationNeeded() && IsBTBCompressionSupported() &&
                (m_fThumbBufferType != checkInBufType())) {
         ALOGE("Buffer types of thumbnail(%d) and main(%d) images should be the same",
-                m_fThumbBufferType, checkInBufType());
+              m_fThumbBufferType, checkInBufType());
         return -1;
     } else if (!IsThumbGenerationNeeded() && (m_fThumbBufferType == 0)) {
         // Thumbnail buffer configuration failed but the client forces to compress with thumbnail
@@ -453,17 +432,14 @@ int ExynosJpegEncoderForCamera::encode(int *size, exif_attribute_t *exifInfo,
     }
 
     *size = static_cast<int>(FinishCompression(mainlen, thumblen));
-    if (*size < 0)
-        return -1;
+    if (*size < 0) return -1;
 
-    ALOGD("....compression delay(usec.): HW %u, Total %lu)",
-          GetHWDelay(), stopwatch.GetElapsed());
+    ALOGD("....compression delay(usec.): HW %u, Total %lu)", GetHWDelay(), stopwatch.GetElapsed());
 
     return 0;
 }
 
-ssize_t ExynosJpegEncoderForCamera::FinishCompression(size_t mainlen, size_t thumblen)
-{
+ssize_t ExynosJpegEncoderForCamera::FinishCompression(size_t mainlen, size_t thumblen) {
     bool btb = false;
     size_t max_streamsize = m_nStreamSize;
     char *mainbase = m_pAppWriter->GetMainStreamBase();
@@ -491,33 +467,37 @@ ssize_t ExynosJpegEncoderForCamera::FinishCompression(size_t mainlen, size_t thu
 
             thumblen = reinterpret_cast<size_t>(len);
         } else if (TestState(STATE_NO_BTBCOMP) || !IsBTBCompressionSupported()) {
-            thumblen = CompressThumbnailOnly(m_pAppWriter->GetMaxThumbnailSize(), m_nThumbQuality, getColorFormat(), checkInBufType());
+            thumblen = CompressThumbnailOnly(m_pAppWriter->GetMaxThumbnailSize(), m_nThumbQuality,
+                                             getColorFormat(), checkInBufType());
         } else {
             btb = true;
         }
 
-        size_t max_thumb = min(m_pAppWriter->GetMaxThumbnailSize(), max_streamsize - m_pAppWriter->CalculateAPPSize(0) - mainlen);
+        size_t max_thumb = min(m_pAppWriter->GetMaxThumbnailSize(),
+                               max_streamsize - m_pAppWriter->CalculateAPPSize(0) - mainlen);
 
         if (thumblen > max_thumb) {
             ALOGI("Too large thumbnail (%dx%d) stream size %zu (max: %zu, quality factor %d)",
                   m_nThumbWidth, m_nThumbHeight, thumblen, max_thumb, m_nThumbQuality);
             ALOGI("Retrying thumbnail compression with quality factor 50");
             thumblen = CompressThumbnailOnly(max_thumb, 50, getColorFormat(), checkInBufType());
-            if (thumblen == 0)
-                return -1;
+            if (thumblen == 0) return -1;
         }
 
         if (!m_pAppWriter->IsThumbSpaceReserved()) {
             if (PTR_TO_ULONG(m_pStreamBase + max_streamsize) <
-                        PTR_TO_ULONG(mainbase + mainlen + thumblen - JPEG_MARKER_SIZE)) {
+                PTR_TO_ULONG(mainbase + mainlen + thumblen - JPEG_MARKER_SIZE)) {
                 ALOGE("Too small JPEG buffer length %zu (APP %zu, Main %zu, Thumb %zu)",
                       max_streamsize, m_pAppWriter->CalculateAPPSize(thumblen), mainlen, thumblen);
                 return -1;
             }
 
-            // the SOI of the stream of the main image is stored after the APP4 or APP11 segment if they exist.
+            // the SOI of the stream of the main image is stored after the APP4 or APP11 segment if
+            // they exist.
             memmove(m_pAppWriter->GetApp1End() + thumblen, m_pAppWriter->GetApp1End(),
-                    mainlen + PTR_DIFF(m_pAppWriter->GetApp1End(), m_pAppWriter->GetMainStreamBase()));
+                    mainlen +
+                            PTR_DIFF(m_pAppWriter->GetApp1End(),
+                                     m_pAppWriter->GetMainStreamBase()));
             m_pAppWriter->UpdateApp1Size(thumblen);
 
             // m_nAppLength has the value of appwriter.GetExactAPPSize()
@@ -532,7 +512,8 @@ ssize_t ExynosJpegEncoderForCamera::FinishCompression(size_t mainlen, size_t thu
         if (m_pAppWriter->IsThumbSpaceReserved()) {
             // clear the possible stale data in the dummy area after the thumbnail stream
             memset(m_pAppWriter->GetThumbStreamBase() + thumblen, 0,
-                   m_pAppWriter->GetMaxThumbnailSize() - thumblen + m_pAppWriter->GetAPP1ResrevedSize());
+                   m_pAppWriter->GetMaxThumbnailSize() - thumblen +
+                           m_pAppWriter->GetAPP1ResrevedSize());
         }
     } else {
         thumblen = 0;
@@ -546,8 +527,8 @@ ssize_t ExynosJpegEncoderForCamera::FinishCompression(size_t mainlen, size_t thu
      * Note that 2 byte(size of SOI marker) is included in APP1 segment size.
      * Thus the size of SOI marker in front of the stream is not added.
      */
-    ALOGD("Completed image compression (%zd(thumb %zu) bytes, HWFC? %d, BTB? %d)",
-            mainlen, thumblen, TestState(STATE_HWFC_ENABLED), btb);
+    ALOGD("Completed image compression (%zd(thumb %zu) bytes, HWFC? %d, BTB? %d)", mainlen,
+          thumblen, TestState(STATE_HWFC_ENABLED), btb);
 
     m_pStreamBase[0] = 0xFF;
     m_pStreamBase[1] = 0xD8;
@@ -556,21 +537,17 @@ ssize_t ExynosJpegEncoderForCamera::FinishCompression(size_t mainlen, size_t thu
 }
 
 /* The logic in WaitForHWFC() is the same with encode() */
-ssize_t ExynosJpegEncoderForCamera::WaitForCompression()
-{
-    if (!TestState(STATE_HWFC_ENABLED))
-        return m_nStreamSize;
+ssize_t ExynosJpegEncoderForCamera::WaitForCompression() {
+    if (!TestState(STATE_HWFC_ENABLED)) return m_nStreamSize;
 
     size_t thumblen = 0;
     ssize_t streamlen = GetCompressor().WaitForCompression(&thumblen);
-    if (streamlen < 0)
-        return streamlen;
+    if (streamlen < 0) return streamlen;
 
     return FinishCompression(streamlen, thumblen);
 }
 
-bool ExynosJpegEncoderForCamera::GenerateThumbnailImage()
-{
+bool ExynosJpegEncoderForCamera::GenerateThumbnailImage() {
     int main_width, main_height;
     if (getSize(&main_width, &main_height) < 0) {
         ALOGE("Failed to get main image size");
@@ -579,11 +556,10 @@ bool ExynosJpegEncoderForCamera::GenerateThumbnailImage()
 
     int v4l2Format = getColorFormat();
 
-    if (!AllocThumbBuffer(v4l2Format))
-        return false;
+    if (!AllocThumbBuffer(v4l2Format)) return false;
 
-    ALOGD("Generating thumbnail image: %dx%d -> %dx%d",
-          main_width, main_height, m_nThumbWidth, m_nThumbHeight);
+    ALOGD("Generating thumbnail image: %dx%d -> %dx%d", main_width, main_height, m_nThumbWidth,
+          m_nThumbHeight);
 
     if (!mThumbnailScaler) {
         ALOGE("Thumbnail scaler is not prepared");
@@ -595,8 +571,8 @@ bool ExynosJpegEncoderForCamera::GenerateThumbnailImage()
         return false;
     }
 
-
-    if (!mThumbnailScaler->SetDstImage(m_nThumbWidth, m_nThumbHeight, GetThumbnailFormat(v4l2Format))) {
+    if (!mThumbnailScaler->SetDstImage(m_nThumbWidth, m_nThumbHeight,
+                                       GetThumbnailFormat(v4l2Format))) {
         ALOGE("Failed to configure the target image to the thumbnail scaler");
         return false;
     }
@@ -612,7 +588,8 @@ bool ExynosJpegEncoderForCamera::GenerateThumbnailImage()
             return false;
         }
 
-        okay = mThumbnailScaler->RunStream(bufs, len_srcbufs, m_fdIONThumbImgBuffer, m_szIONThumbImgBuffer);
+        okay = mThumbnailScaler->RunStream(bufs, len_srcbufs, m_fdIONThumbImgBuffer,
+                                           m_szIONThumbImgBuffer);
     } else { // mainbuftype == JPEG_BUF_TYPE_DMA_BUF
         int bufs[ThumbnailScaler::SCALER_MAX_PLANES];
         int len_srcbufs[ThumbnailScaler::SCALER_MAX_PLANES];
@@ -621,7 +598,8 @@ bool ExynosJpegEncoderForCamera::GenerateThumbnailImage()
             ALOGE("Failed to retrieve the main image buffers");
             return false;
         }
-        okay = mThumbnailScaler->RunStream(bufs, len_srcbufs, m_fdIONThumbImgBuffer, m_szIONThumbImgBuffer);
+        okay = mThumbnailScaler->RunStream(bufs, len_srcbufs, m_fdIONThumbImgBuffer,
+                                           m_szIONThumbImgBuffer);
     }
 
     if (!okay) {
@@ -632,14 +610,12 @@ bool ExynosJpegEncoderForCamera::GenerateThumbnailImage()
     return true;
 }
 
-size_t ExynosJpegEncoderForCamera::CompressThumbnail()
-{
+size_t ExynosJpegEncoderForCamera::CompressThumbnail() {
     unsigned int v4l2Format = getColorFormat();
     int buftype = checkInBufType();
 
     if (IsThumbGenerationNeeded()) {
-        if (!GenerateThumbnailImage())
-            return 0;
+        if (!GenerateThumbnailImage()) return 0;
 
         // libcsc output configured by this class is always NV21.
         v4l2Format = GetThumbnailFormat(getColorFormat());
@@ -650,11 +626,11 @@ size_t ExynosJpegEncoderForCamera::CompressThumbnail()
         m_szThumbnailImageLen[0] = m_szIONThumbImgBuffer;
     }
 
-    return CompressThumbnailOnly(m_pAppWriter->GetMaxThumbnailSize(), m_nThumbQuality, v4l2Format, buftype);
+    return CompressThumbnailOnly(m_pAppWriter->GetMaxThumbnailSize(), m_nThumbQuality, v4l2Format,
+                                 buftype);
 }
 
-bool ExynosJpegEncoderForCamera::AllocThumbBuffer(int v4l2Format)
-{
+bool ExynosJpegEncoderForCamera::AllocThumbBuffer(int v4l2Format) {
     if (m_fdIONClient < 0) {
         ALOGE("ION client is not created");
         return false;
@@ -667,11 +643,9 @@ bool ExynosJpegEncoderForCamera::AllocThumbBuffer(int v4l2Format)
     }
 
     if (m_fdIONThumbImgBuffer >= 0) {
-        if (m_szIONThumbImgBuffer >= thumbbufsize)
-            return true;
+        if (m_szIONThumbImgBuffer >= thumbbufsize) return true;
 
-        if (m_pIONThumbImgBuffer != NULL)
-            munmap(m_pIONThumbImgBuffer, m_szIONThumbImgBuffer);
+        if (m_pIONThumbImgBuffer != NULL) munmap(m_pIONThumbImgBuffer, m_szIONThumbImgBuffer);
 
         close(m_fdIONThumbImgBuffer);
 
@@ -680,9 +654,11 @@ bool ExynosJpegEncoderForCamera::AllocThumbBuffer(int v4l2Format)
         m_szIONThumbImgBuffer = 0;
     }
 
-    m_fdIONThumbImgBuffer = exynos_ion_alloc(m_fdIONClient, thumbbufsize, EXYNOS_ION_HEAP_SYSTEM_MASK, 0);
+    m_fdIONThumbImgBuffer =
+            exynos_ion_alloc(m_fdIONClient, thumbbufsize, EXYNOS_ION_HEAP_SYSTEM_MASK, 0);
     if (m_fdIONThumbImgBuffer < 0) {
-        ALOGERR("Failed to allocate %zu bytes for NV12 %ux%u", thumbbufsize, m_nThumbHeight, m_nThumbWidth);
+        ALOGERR("Failed to allocate %zu bytes for NV12 %ux%u", thumbbufsize, m_nThumbHeight,
+                m_nThumbWidth);
         m_fdIONThumbImgBuffer = -1;
         return false;
     }
@@ -692,8 +668,7 @@ bool ExynosJpegEncoderForCamera::AllocThumbBuffer(int v4l2Format)
     return AllocThumbJpegBuffer();
 }
 
-bool ExynosJpegEncoderForCamera::AllocThumbJpegBuffer()
-{
+bool ExynosJpegEncoderForCamera::AllocThumbJpegBuffer() {
     if (m_fdIONClient < 0) {
         ALOGE("ION client is not created");
         return false;
@@ -702,8 +677,7 @@ bool ExynosJpegEncoderForCamera::AllocThumbJpegBuffer()
     size_t thumbbufsize = m_nThumbHeight * m_nThumbWidth * 3;
 
     if (m_pIONThumbJpegBuffer) {
-        if (m_szIONThumbJpegBuffer >= thumbbufsize)
-            return true;
+        if (m_szIONThumbJpegBuffer >= thumbbufsize) return true;
 
         munmap(m_pIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
         close(m_fdIONThumbJpegBuffer);
@@ -713,16 +687,18 @@ bool ExynosJpegEncoderForCamera::AllocThumbJpegBuffer()
         m_fdIONThumbJpegBuffer = -1;
     }
 
-    m_fdIONThumbJpegBuffer = exynos_ion_alloc(m_fdIONClient, thumbbufsize, EXYNOS_ION_HEAP_SYSTEM_MASK,
-                              ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC);
+    m_fdIONThumbJpegBuffer =
+            exynos_ion_alloc(m_fdIONClient, thumbbufsize, EXYNOS_ION_HEAP_SYSTEM_MASK,
+                             ION_FLAG_CACHED | ION_FLAG_CACHED_NEEDS_SYNC);
     if (m_fdIONThumbJpegBuffer < 0) {
-        ALOGERR("Failed to allocate %zu bytes for thumbnail stream buffer of %ux%u",
-                thumbbufsize, m_nThumbHeight, m_nThumbWidth);
+        ALOGERR("Failed to allocate %zu bytes for thumbnail stream buffer of %ux%u", thumbbufsize,
+                m_nThumbHeight, m_nThumbWidth);
         return false;
     }
 
-    m_pIONThumbJpegBuffer = reinterpret_cast<char *>(
-                        mmap(NULL, thumbbufsize, PROT_READ | PROT_WRITE, MAP_SHARED, m_fdIONThumbJpegBuffer, 0));
+    m_pIONThumbJpegBuffer =
+            reinterpret_cast<char *>(mmap(NULL, thumbbufsize, PROT_READ | PROT_WRITE, MAP_SHARED,
+                                          m_fdIONThumbJpegBuffer, 0));
     if (m_pIONThumbJpegBuffer == MAP_FAILED) {
         ALOGERR("Failed to map thumbnail stream buffer (%zu bytes)", thumbbufsize);
 
@@ -735,11 +711,10 @@ bool ExynosJpegEncoderForCamera::AllocThumbJpegBuffer()
 }
 
 size_t ExynosJpegEncoderForCamera::CompressThumbnailOnly(size_t limit, int quality,
-                                                         unsigned int v4l2Format, int src_buftype)
-{
+                                                         unsigned int v4l2Format, int src_buftype) {
     if (!m_phwjpeg4thumb->SetImageFormat(v4l2Format, m_nThumbWidth, m_nThumbHeight)) {
-        ALOGE("Failed to configure thumbnail source image format to %#010x, %ux%u",
-              v4l2Format, m_nThumbWidth, m_nThumbHeight);
+        ALOGE("Failed to configure thumbnail source image format to %#010x, %ux%u", v4l2Format,
+              m_nThumbWidth, m_nThumbHeight);
         return 0;
     }
 
@@ -754,18 +729,18 @@ size_t ExynosJpegEncoderForCamera::CompressThumbnailOnly(size_t limit, int quali
             [[fallthrough]];
         case V4L2_PIX_FMT_NV21M:
             num_buffers++;
-	    break;
+            break;
     }
 
     if (src_buftype == JPEG_BUF_TYPE_USER_PTR) {
-        if (!m_phwjpeg4thumb->SetImageBuffer(m_pThumbnailImageBuffer,
-                                    m_szThumbnailImageLen, num_buffers)) {
+        if (!m_phwjpeg4thumb->SetImageBuffer(m_pThumbnailImageBuffer, m_szThumbnailImageLen,
+                                             num_buffers)) {
             ALOGE("Failed to configure thumbnail buffers(userptr) for thumbnail");
             return 0;
         }
     } else { // JPEG_BUF_TYPE_DMA_BUF
-        if (!m_phwjpeg4thumb->SetImageBuffer(m_fdThumbnailImageBuffer,
-                                    m_szThumbnailImageLen, num_buffers)) {
+        if (!m_phwjpeg4thumb->SetImageBuffer(m_fdThumbnailImageBuffer, m_szThumbnailImageLen,
+                                             num_buffers)) {
             ALOGE("Failed to configure thumbnail buffers(dmabuf) for thumbnail");
             return 0;
         }
@@ -773,7 +748,7 @@ size_t ExynosJpegEncoderForCamera::CompressThumbnailOnly(size_t limit, int quali
 
     if (!m_phwjpeg4thumb->SetJpegBuffer(m_fdIONThumbJpegBuffer, m_szIONThumbJpegBuffer)) {
         ALOGE("Failed to configure thumbnail stream buffer (fd %d, size %zu)",
-                m_fdIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
+              m_fdIONThumbJpegBuffer, m_szIONThumbJpegBuffer);
         return 0;
     }
 
@@ -811,12 +786,10 @@ size_t ExynosJpegEncoderForCamera::CompressThumbnailOnly(size_t limit, int quali
     return 0;
 }
 
-int ExynosJpegEncoderForCamera::setInBuf2(int *piBuf, int *iSize)
-{
+int ExynosJpegEncoderForCamera::setInBuf2(int *piBuf, int *iSize) {
     NoThumbGenerationNeeded();
 
-    if (!EnsureFormatIsApplied())
-        return -1;
+    if (!EnsureFormatIsApplied()) return -1;
 
     CHWJpegCompressor &hwjpeg = GetCompressor();
     unsigned int num_buffers = 3;
@@ -831,7 +804,7 @@ int ExynosJpegEncoderForCamera::setInBuf2(int *piBuf, int *iSize)
     }
 
     if (IsBTBCompressionSupported() &&
-            !hwjpeg.SetImageBuffer2(m_fdThumbnailImageBuffer, m_szThumbnailImageLen, num_buffers)) {
+        !hwjpeg.SetImageBuffer2(m_fdThumbnailImageBuffer, m_szThumbnailImageLen, num_buffers)) {
         ALOGE("Failed to configure thumbnail buffers");
         return -1;
     }
@@ -841,12 +814,10 @@ int ExynosJpegEncoderForCamera::setInBuf2(int *piBuf, int *iSize)
     return 0;
 }
 
-int ExynosJpegEncoderForCamera::setInBuf2(char **pcBuf, int *iSize)
-{
+int ExynosJpegEncoderForCamera::setInBuf2(char **pcBuf, int *iSize) {
     NoThumbGenerationNeeded();
 
-    if (!EnsureFormatIsApplied())
-        return -1;
+    if (!EnsureFormatIsApplied()) return -1;
 
     CHWJpegCompressor &hwjpeg = GetCompressor();
     unsigned int num_buffers = 3;
@@ -861,7 +832,7 @@ int ExynosJpegEncoderForCamera::setInBuf2(char **pcBuf, int *iSize)
     }
 
     if (IsBTBCompressionSupported() &&
-            !hwjpeg.SetImageBuffer2(m_pThumbnailImageBuffer, m_szThumbnailImageLen, num_buffers)) {
+        !hwjpeg.SetImageBuffer2(m_pThumbnailImageBuffer, m_szThumbnailImageLen, num_buffers)) {
         ALOGE("Failed to configure thumbnail buffers");
         return -1;
     }
@@ -871,8 +842,7 @@ int ExynosJpegEncoderForCamera::setInBuf2(char **pcBuf, int *iSize)
     return 0;
 }
 
-size_t ExynosJpegEncoderForCamera::GetThumbnailImage(char *buffer, size_t buflen)
-{
+size_t ExynosJpegEncoderForCamera::GetThumbnailImage(char *buffer, size_t buflen) {
     if (m_fdIONThumbImgBuffer < 0) {
         ALOGE("No internal thumbnail buffer is allocated");
         return 0;
@@ -888,8 +858,8 @@ size_t ExynosJpegEncoderForCamera::GetThumbnailImage(char *buffer, size_t buflen
                 "m_szIONThumbImgBuffer(%zu) is smaller than the thumbnail (%zu)",
                 m_szIONThumbImgBuffer, thumbbufsize);
     if (m_pIONThumbImgBuffer == NULL) {
-        m_pIONThumbImgBuffer = reinterpret_cast<char *>(mmap(
-                    NULL, m_szIONThumbImgBuffer, PROT_READ, MAP_SHARED, m_fdIONThumbImgBuffer, 0));
+        m_pIONThumbImgBuffer = reinterpret_cast<char *>(
+                mmap(NULL, m_szIONThumbImgBuffer, PROT_READ, MAP_SHARED, m_fdIONThumbImgBuffer, 0));
         if (m_pIONThumbImgBuffer == MAP_FAILED) {
             m_pIONThumbImgBuffer = NULL;
             ALOGERR("Failed to map thumbnail image buffer (%zu bytes)", m_szIONThumbImgBuffer);
@@ -904,8 +874,7 @@ size_t ExynosJpegEncoderForCamera::GetThumbnailImage(char *buffer, size_t buflen
     return m_szIONThumbImgBuffer;
 }
 
-int ExynosJpegEncoderForCamera::destroy()
-{
+int ExynosJpegEncoderForCamera::destroy() {
     GetCompressor().Release();
     return 0;
 }

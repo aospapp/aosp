@@ -16,8 +16,6 @@
 
 package android.mediapc.cts;
 
-import static org.junit.Assert.assertTrue;
-
 import android.media.MediaCodecInfo;
 import android.mediapc.cts.common.PerformanceClassEvaluator;
 import android.mediapc.cts.common.Utils;
@@ -53,16 +51,13 @@ public class AdaptivePlaybackFrameDropTest extends FrameDropTestBase {
     // Returns the list of parameters with mimeTypes and their hardware decoders supporting the
     // AdaptivePlayback feature combining with sync and async modes.
     // Parameters {0}_{1}_{2} -- Mime_DecoderName_isAsync
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{2})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{2}")
     public static Collection<Object[]> inputParams() {
         return prepareArgumentsList(new String[]{
                 MediaCodecInfo.CodecCapabilities.FEATURE_AdaptivePlayback});
     }
 
-    private int testAdaptivePlaybackFrameDrop(int frameRate) throws Exception {
-        String[] testFiles = frameRate == 30 ?
-                new String[]{m1080p30FpsTestFiles.get(mMime), m540p30FpsTestFiles.get(mMime)} :
-                new String[]{m1080p60FpsTestFiles.get(mMime), m540p60FpsTestFiles.get(mMime)};
+    private int testAdaptivePlaybackFrameDrop(int frameRate, String[] testFiles) throws Exception {
         PlaybackFrameDrop playbackFrameDrop = new PlaybackFrameDrop(mMime, mDecoderName, testFiles,
                 mSurface, frameRate, mIsAsync);
 
@@ -87,10 +82,13 @@ public class AdaptivePlaybackFrameDropTest extends FrameDropTestBase {
         PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
         PerformanceClassEvaluator.FrameDropRequirement r5_3__H_1_2_R = pce.addR5_3__H_1_2_R();
 
-        int framesDropped = testAdaptivePlaybackFrameDrop(frameRate);
+        String[] testFiles =
+                new String[]{m1080p30FpsTestFiles.get(mMime), m540p30FpsTestFiles.get(mMime)};
+        int framesDropped = testAdaptivePlaybackFrameDrop(frameRate, testFiles);
 
         r5_3__H_1_2_R.setFramesDropped(framesDropped);
         r5_3__H_1_2_R.setFrameRate(frameRate);
+        r5_3__H_1_2_R.setTestResolution(1080);
         pce.submitAndCheck();
     }
 
@@ -112,10 +110,41 @@ public class AdaptivePlaybackFrameDropTest extends FrameDropTestBase {
         PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
         PerformanceClassEvaluator.FrameDropRequirement r5_3__H_1_2_ST = pce.addR5_3__H_1_2_ST();
 
-        int framesDropped = testAdaptivePlaybackFrameDrop(frameRate);
+        String[] testFiles =
+                new String[]{m1080p60FpsTestFiles.get(mMime), m540p60FpsTestFiles.get(mMime)};
+        int framesDropped = testAdaptivePlaybackFrameDrop(frameRate, testFiles);
 
         r5_3__H_1_2_ST.setFramesDropped(framesDropped);
         r5_3__H_1_2_ST.setFrameRate(frameRate);
+        r5_3__H_1_2_ST.setTestResolution(1080);
+        pce.submitAndCheck();
+    }
+
+    /**
+     * This test validates that the Adaptive Playback of 3840x2160 and 1920x1080 resolution
+     * assets of 3 seconds duration each at 60 fps for U perf class,
+     * playing alternatively, for at least 30 seconds worth of frames or for 31 seconds of elapsed
+     * time, must not drop more than 3 frames for U perf class .
+     */
+    @LargeTest
+    @Test(timeout = CodecTestBase.PER_TEST_TIMEOUT_LARGE_TEST_MS)
+    @CddTest(requirement = "2.2.7.1/5.3/H-1-2")
+    public void test4k() throws Exception {
+        Assume.assumeTrue("Test is limited to U performance class devices or devices that do not " +
+                        "advertise performance class",
+            Utils.isUPerfClass() || !Utils.isPerfClass());
+        int frameRate = 60;
+
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.FrameDropRequirement r5_3__H_1_2_U = pce.addR5_3__H_1_2_U();
+
+        String[] testFiles =
+                new String[]{m2160p60FpsTestFiles.get(mMime), m1080p60FpsTestFiles.get(mMime)};
+        int framesDropped = testAdaptivePlaybackFrameDrop(frameRate, testFiles);
+
+        r5_3__H_1_2_U.setFramesDropped(framesDropped);
+        r5_3__H_1_2_U.setFrameRate(frameRate);
+        r5_3__H_1_2_U.setTestResolution(2160);
         pce.submitAndCheck();
     }
 }

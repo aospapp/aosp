@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010-2021 NXP
+ *  Copyright 2010-2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -248,15 +248,15 @@ NFCSTATUS phDnldNfc_CheckIntegrity(uint8_t bChipVer, pphDnldNfc_Buff_t pCRCData,
     } else {
       if ((PHDNLDNFC_HWVER_MRA2_1 == bChipVer) ||
           (PHDNLDNFC_HWVER_MRA2_2 == bChipVer) ||
-          ((nfcFL.chipType == pn551) &&
+          (IS_CHIP_TYPE_EQ(pn551) &&
            ((PHDNLDNFC_HWVER_PN551_MRA1_0 == bChipVer))) ||
-          (((nfcFL.chipType == pn553) || (nfcFL.chipType == pn557)) &&
+          ((IS_CHIP_TYPE_EQ(pn553) || IS_CHIP_TYPE_EQ(pn557)) &&
            ((PHDNLDNFC_HWVER_PN553_MRA1_0 == bChipVer) ||
             (PHDNLDNFC_HWVER_PN553_MRA1_0_UPDATED & bChipVer) ||
             ((PHDNLDNFC_HWVER_PN557_MRA1_0 == bChipVer)))) ||
-          ((nfcFL.chipType == sn100u) &&
+          (IS_CHIP_TYPE_EQ(sn100u) &&
            (PHDNLDNFC_HWVER_VENUS_MRA1_0 & bChipVer)) ||
-          ((nfcFL.chipType == sn220u) &&
+          ((IS_CHIP_TYPE_EQ(sn220u) || IS_CHIP_TYPE_EQ(pn560)) &&
            (PHDNLDNFC_HWVER_VULCAN_MRA1_0 & bChipVer))) {
         (gpphDnldContext->FrameInp.Type) = phDnldNfc_ChkIntg;
       } else {
@@ -395,7 +395,7 @@ NFCSTATUS phDnldNfc_Write(bool_t bRecoverSeq, pphDnldNfc_Buff_t pData,
           wLen = gpphDnldContext->nxp_nfc_fw_len;
 
         } else {
-          if (nfcFL.chipType >= sn100u) {
+          if (IS_CHIP_TYPE_GE(sn100u)) {
             if (PH_DL_STATUS_PLL_ERROR == (gpphDnldContext->tLastStatus)) {
               wStatus = phDnldNfc_LoadRecInfo();
             } else if (PH_DL_STATUS_SIGNATURE_ERROR ==
@@ -570,6 +570,10 @@ NFCSTATUS phDnldNfc_Force(pphDnldNfc_Buff_t pInputs, pphDnldNfc_RspCb_t pNotify,
             bClkFreq = phDnldNfc_ClkFreq_38_4Mhz;
           } else if (CLK_FREQ_52MHZ == (pInputs->pBuff[1])) {
             bClkFreq = phDnldNfc_ClkFreq_52Mhz;
+          } else if (CLK_FREQ_32MHZ == (pInputs->pBuff[1])) {
+            bClkFreq = phDnldNfc_ClkFreq_32Mhz;
+          } else if (CLK_FREQ_48MHZ == (pInputs->pBuff[1])) {
+            bClkFreq = phDnldNfc_ClkFreq_48Mhz;
           } else {
             NXPLOG_FWDNLD_E(
                 "Invalid Clk Frequency !! Using default value of 19.2Mhz..");
@@ -814,7 +818,7 @@ NFCSTATUS phDnldNfc_InitImgInfo(bool bMinimalFw) {
     if ((NULL != gpphDnldContext->nxp_nfc_fw) &&
         (0 != gpphDnldContext->nxp_nfc_fw_len)) {
       uint16_t offsetFwMajorNum, offsetFwMinorNum;
-      if (nfcFL.chipType == sn220u) {
+      if (IS_CHIP_TYPE_EQ(sn220u) || IS_CHIP_TYPE_EQ(pn560)) {
         offsetFwMajorNum = ((uint16_t)(gpphDnldContext->nxp_nfc_fw[795]) << 8U);
         offsetFwMinorNum = ((uint16_t)(gpphDnldContext->nxp_nfc_fw[794]));
       } else {
@@ -838,7 +842,7 @@ NFCSTATUS phDnldNfc_InitImgInfo(bool bMinimalFw) {
   /* gpphDnldContext reset by phDnldNfc_SetHwDevHandle()
      so reassign the Fragment Length based on chip version */
   if (NFCSTATUS_SUCCESS == wStatus) {
-    if (nfcFL.chipType >= sn100u) {
+    if (IS_CHIP_TYPE_GE(sn100u)) {
       phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_SNXXX);
     } else {
       phDnldNfc_SetI2CFragmentLength(PHDNLDNFC_CMDRESP_MAX_BUFF_SIZE_PN557);
@@ -1058,7 +1062,7 @@ NFCSTATUS phDnldNfc_LoadFW(const char* pathName, uint8_t** pImgInfo,
     return NFCSTATUS_FAILED;
   }
 
-  if (nfcFL.chipType >= sn100u) {
+  if (IS_CHIP_TYPE_GE(sn100u)) {
     (*pImgInfoLen) = (uint32_t)(*((uint32_t*)pImageInfoLen));
     NXPLOG_FWDNLD_D("FW image loded for chipType sn100u (%x)", nfcFL.chipType)
   } else {

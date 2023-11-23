@@ -79,7 +79,7 @@ def Print(args):
 
 def main():
   parser = argparse.ArgumentParser()
-  subparsers = parser.add_subparsers()
+  subparsers = parser.add_subparsers(required=True)
 
   parser_strip = subparsers.add_parser('strip', help='remove unknown keys from APEX manifest (JSON)')
   parser_strip.add_argument('input', type=str, help='APEX manifest file (JSON)')
@@ -91,15 +91,15 @@ def main():
   parser_proto.add_argument('-o', '--out', required=True, type=str, help='Directory to extract content of APEX to')
   parser_proto.set_defaults(func=Proto)
 
-  parser_proto = subparsers.add_parser('setprop', help='change proprety value')
-  parser_proto.add_argument('property', type=str, help='name of property')
-  parser_proto.add_argument('value', type=str, help='new value of property')
-  parser_proto.add_argument('input', type=str, help='APEX manifest file (PB)')
-  parser_proto.set_defaults(func=SetProp)
+  parser_setprop = subparsers.add_parser('setprop', help='change property value')
+  parser_setprop.add_argument('property', type=str, help='name of property')
+  parser_setprop.add_argument('value', type=str, help='new value of property')
+  parser_setprop.add_argument('input', type=str, help='APEX manifest file (PB)')
+  parser_setprop.set_defaults(func=SetProp)
 
-  parser_proto = subparsers.add_parser('print', help='print APEX manifest')
-  parser_proto.add_argument('input', type=str, help='APEX manifest file (PB)')
-  parser_proto.set_defaults(func=Print)
+  parser_print = subparsers.add_parser('print', help='print APEX manifest')
+  parser_print.add_argument('input', type=str, help='APEX manifest file (PB)')
+  parser_print.set_defaults(func=Print)
 
   args = parser.parse_args()
   args.func(args)

@@ -29,7 +29,12 @@ java_library {
     static_libs: [
         "androidx.test.rules",
         "chre-test-utils",
+        "chre_pigweed_utils",
+        "truth-prebuilt",
+        "guava",
+        "chre_api_test_proto_java_lite",
+        "pw_rpc_java_client",
     ],
 
-    sdk_version: "system_current",
+    sdk_version: "test_current",
 }

@@ -58,7 +58,7 @@ void chrePlatformLogToBuffer(enum chreLogLevel chreLogLevel, const char *format,
 #define LOGD(fmt, ...) CHRE_BUFFER_LOG(CHRE_LOG_DEBUG, fmt, ##__VA_ARGS__)
 #define LOGV(fmt, ...) CHRE_BUFFER_LOG(CHRE_LOG_VERBOSE, fmt, ##__VA_ARGS__)
 
-#elif defined(CHRE_USE_TOKENIZED_LOGGING)
+#elif defined(CHRE_TOKENIZED_LOGGING_ENABLED)
 #include "pw_tokenizer/tokenize.h"
 #define CHRE_SEND_TOKENIZED_LOG(level, fmt, ...)                   \
   do {                                                             \

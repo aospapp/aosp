@@ -43,12 +43,10 @@ aidl_interface {
     },
 }
 
-cc_binary {
-    name: "rkp_factory_extraction_tool",
-    vendor: true,
-    srcs: ["rkp_factory_extraction_tool.cpp"],
+cc_defaults {
+    name: "rkp_factory_extraction_defaults",
     defaults: [
-        "keymint_use_latest_hal_aidl_ndk_shared",
+        "keymint_use_latest_hal_aidl_ndk_static",
     ],
     shared_libs: [
         "libbinder",
@@ -57,11 +55,46 @@ cc_binary {
         "liblog",
     ],
     static_libs: [
+        "android.hardware.security.rkp-V3-ndk",
         "libbase",
         "libcppbor_external",
         "libcppcose_rkp",
-        "libgflags",
         "libjsoncpp",
         "libkeymint_remote_prov_support",
+    ],
+}
+
+cc_library_static {
+    name: "librkp_factory_extraction",
+    defaults: [
+        "rkp_factory_extraction_defaults",
+    ],
+    srcs: ["rkp_factory_extraction_lib.cpp"],
+    vendor_available: true,
+}
+
+cc_test {
+    name: "librkp_factory_extraction_test",
+    defaults: [
+        "rkp_factory_extraction_defaults",
+    ],
+    srcs: ["rkp_factory_extraction_lib_test.cpp"],
+    test_suites: ["device-tests"],
+    static_libs: [
+        "libgmock",
+        "librkp_factory_extraction",
+    ],
+}
+
+cc_binary {
+    name: "rkp_factory_extraction_tool",
+    vendor: true,
+    srcs: ["rkp_factory_extraction_tool.cpp"],
+    defaults: [
+        "rkp_factory_extraction_defaults",
+    ],
+    static_libs: [
+        "libgflags",
+        "librkp_factory_extraction",
     ],
 }

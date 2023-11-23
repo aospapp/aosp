@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <unordered_set>
@@ -224,7 +225,22 @@ int BufferAllocator::DmabufAlloc(const std::string& heap_name, size_t len) {
         return ret;
     }
 
+    if (heap_data.fd >= 0) {
+        if (DmabufSetName(heap_data.fd, heap_name))
+            PLOG(WARNING) << "Unable to name DMA buffer for: " << heap_name;
+    }
+
     return heap_data.fd;
+}
+
+int BufferAllocator::DmabufSetName(unsigned int dmabuf_fd, const std::string& name) {
+    /* dma_buf_set_name truncates instead of returning an error */
+    if (name.length() > DMA_BUF_NAME_LEN) {
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+
+    return TEMP_FAILURE_RETRY(ioctl(dmabuf_fd, DMA_BUF_SET_NAME_B, name.c_str()));
 }
 
 int BufferAllocator::IonAlloc(const std::string& heap_name, size_t len,
@@ -324,7 +340,7 @@ int BufferAllocator::DoSync(unsigned int dmabuf_fd, bool start, SyncType sync_ty
 int BufferAllocator::CpuSyncStart(unsigned int dmabuf_fd, SyncType sync_type,
                                   const CustomCpuSyncLegacyIon& legacy_ion_cpu_sync_custom,
                                   void *legacy_ion_custom_data) {
-    int ret = DoSync(dmabuf_fd, true /* start */, sync_type, legacy_ion_cpu_sync_custom,
+    int ret = DoSync(dmabuf_fd, true, sync_type, legacy_ion_cpu_sync_custom,
                      legacy_ion_custom_data);
 
     if (ret) PLOG(ERROR) << "CpuSyncStart() failure";
@@ -334,7 +350,7 @@ int BufferAllocator::CpuSyncStart(unsigned int dmabuf_fd, SyncType sync_type,
 int BufferAllocator::CpuSyncEnd(unsigned int dmabuf_fd, SyncType sync_type,
                                 const CustomCpuSyncLegacyIon& legacy_ion_cpu_sync_custom,
                                 void* legacy_ion_custom_data) {
-    int ret = DoSync(dmabuf_fd, false /* start */, sync_type, legacy_ion_cpu_sync_custom,
+    int ret = DoSync(dmabuf_fd, false, sync_type, legacy_ion_cpu_sync_custom,
                      legacy_ion_custom_data);
     if (ret) PLOG(ERROR) << "CpuSyncEnd() failure";
 

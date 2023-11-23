@@ -18,6 +18,7 @@ package android.accessibilityservice.cts;
 
 import static android.accessibilityservice.cts.utils.AsyncUtils.DEFAULT_TIMEOUT_MS;
 import static android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES;
+
 import static org.junit.Assert.fail;
 
 import android.accessibility.cts.common.AccessibilityDumpOnFailureRule;
@@ -33,11 +34,14 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.drawable.Icon;
 import android.platform.test.annotations.AppModeFull;
+import android.platform.test.annotations.Presubmit;
 import android.view.accessibility.AccessibilityManager;
 import android.view.accessibility.AccessibilityNodeInfo.AccessibilityAction;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -52,6 +56,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilitySystemActionTest {
     // intent actions to trigger system action callbacks
     private final static String INTENT_ACTION_SYSTEM_ACTION_CALLBACK_OVERRIDE_BACK = "android.accessibility.cts.end2endtests.action.system_action_callback_override_back";
@@ -192,7 +198,8 @@ public class AccessibilitySystemActionTest {
         BroadcastReceiver receiver = new SystemActionBroadcastReceiver(
                 receiverLatch,
                 pendingIntent);
-        mContext.registerReceiver(receiver, new IntentFilter(pendingIntent));
+        mContext.registerReceiver(receiver, new IntentFilter(pendingIntent),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         try {
             mService.performGlobalAction(actionId);
             if (!receiverLatch.await(DEFAULT_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
@@ -207,7 +214,7 @@ public class AccessibilitySystemActionTest {
     }
 
     private RemoteAction getRemoteAction(String pendingIntent) {
-        Intent i = new Intent(pendingIntent);
+        Intent i = new Intent(pendingIntent).setPackage(mContext.getPackageName());
         PendingIntent p = PendingIntent.getBroadcast(mContext, 0, i, PendingIntent.FLAG_MUTABLE_UNAUDITED);
         return new RemoteAction(Icon.createWithContentUri("content://test"), "test1", "test1", p);
     }

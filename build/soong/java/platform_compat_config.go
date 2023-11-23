@@ -15,23 +15,24 @@
 package java
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"android/soong/android"
 	"github.com/google/blueprint"
-
-	"fmt"
 )
 
 func init() {
 	registerPlatformCompatConfigBuildComponents(android.InitRegistrationContext)
 
-	android.RegisterSdkMemberType(&compatConfigMemberType{
-		SdkMemberTypeBase: android.SdkMemberTypeBase{
-			PropertyName: "compat_configs",
-			SupportsSdk:  true,
-		},
-	})
+	android.RegisterSdkMemberType(CompatConfigSdkMemberType)
+}
+
+var CompatConfigSdkMemberType = &compatConfigMemberType{
+	SdkMemberTypeBase: android.SdkMemberTypeBase{
+		PropertyName: "compat_configs",
+		SupportsSdk:  true,
+	},
 }
 
 func registerPlatformCompatConfigBuildComponents(ctx android.RegistrationContext) {
@@ -53,7 +54,6 @@ type platformCompatConfigProperties struct {
 
 type platformCompatConfig struct {
 	android.ModuleBase
-	android.SdkBase
 
 	properties     platformCompatConfigProperties
 	installDirPath android.InstallPath
@@ -125,7 +125,6 @@ func (p *platformCompatConfig) AndroidMkEntries() []android.AndroidMkEntries {
 func PlatformCompatConfigFactory() android.Module {
 	module := &platformCompatConfig{}
 	module.AddProperties(&module.properties)
-	android.InitSdkAwareModule(module)
 	android.InitAndroidArchModule(module, android.DeviceSupported, android.MultilibCommon)
 	return module
 }
@@ -176,7 +175,6 @@ var _ android.SdkMemberType = (*compatConfigMemberType)(nil)
 // A prebuilt version of the platform compat config module.
 type prebuiltCompatConfigModule struct {
 	android.ModuleBase
-	android.SdkBase
 	prebuilt android.Prebuilt
 
 	properties prebuiltCompatConfigProperties
@@ -211,7 +209,6 @@ func prebuiltCompatConfigFactory() android.Module {
 	m := &prebuiltCompatConfigModule{}
 	m.AddProperties(&m.properties)
 	android.InitSingleSourcePrebuiltModule(m, &m.properties, "Metadata")
-	android.InitSdkAwareModule(m)
 	android.InitAndroidArchModule(m, android.DeviceSupported, android.MultilibCommon)
 	return m
 }
@@ -219,18 +216,6 @@ func prebuiltCompatConfigFactory() android.Module {
 // compat singleton rules
 type platformCompatConfigSingleton struct {
 	metadata android.Path
-}
-
-// isModulePreferredByCompatConfig checks to see whether the module is preferred for use by
-// platform compat config.
-func isModulePreferredByCompatConfig(module android.Module) bool {
-	// A versioned prebuilt_platform_compat_config, i.e. foo-platform-compat-config@current should be
-	// ignored.
-	if android.IsModuleInVersionedSdk(module) {
-		return false
-	}
-
-	return android.IsModulePreferred(module)
 }
 
 func (p *platformCompatConfigSingleton) GenerateBuildActions(ctx android.SingletonContext) {
@@ -242,7 +227,7 @@ func (p *platformCompatConfigSingleton) GenerateBuildActions(ctx android.Singlet
 			return
 		}
 		if c, ok := module.(platformCompatConfigMetadataProvider); ok {
-			if !isModulePreferredByCompatConfig(module) {
+			if !android.IsModulePreferred(module) {
 				return
 			}
 			metadata := c.compatConfigMetadata()
@@ -278,7 +263,7 @@ func platformCompatConfigSingletonFactory() android.Singleton {
 	return &platformCompatConfigSingleton{}
 }
 
-//============== merged_compat_config =================
+// ============== merged_compat_config =================
 type globalCompatConfigProperties struct {
 	// name of the file into which the metadata will be copied.
 	Filename *string

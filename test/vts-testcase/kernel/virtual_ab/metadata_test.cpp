@@ -23,16 +23,20 @@
 
 static constexpr const char kMetadata[] = "/metadata";
 
-TEST(Metadata, IsExt4) {
+TEST(Metadata, Filesystem) {
   struct statfs buf;
   ASSERT_EQ(0, statfs(kMetadata, &buf))
       << "Cannot statfs " << kMetadata << ": " << strerror(errno);
 
   int vsr_level = android::base::GetIntProperty("ro.vendor.api_level", -1);
+
+  bool is_ext4 = (buf.f_type == EXT4_SUPER_MAGIC);
+  bool is_f2fs = (buf.f_type == F2FS_SUPER_MAGIC);
   if (vsr_level < __ANDROID_API_T__) {
-    ASSERT_EQ(EXT4_SUPER_MAGIC, buf.f_type);
+    ASSERT_TRUE(is_ext4) << "Filesystem magic: " << std::to_string(buf.f_type);
   } else {
-    ASSERT_EQ(F2FS_SUPER_MAGIC, buf.f_type);
+    ASSERT_TRUE(is_ext4 || is_f2fs)
+        << "Filesystem magic: " << std::to_string(buf.f_type);
   }
 }
 

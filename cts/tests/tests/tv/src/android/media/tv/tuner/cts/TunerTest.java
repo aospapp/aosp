@@ -29,7 +29,9 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.content.pm.PackageManager;
+import android.media.AudioPresentation;
 import android.media.tv.tuner.DemuxCapabilities;
+import android.media.tv.tuner.DemuxInfo;
 import android.media.tv.tuner.Descrambler;
 import android.media.tv.tuner.Lnb;
 import android.media.tv.tuner.LnbCallback;
@@ -91,6 +93,8 @@ import android.media.tv.tuner.frontend.FrontendSettings;
 import android.media.tv.tuner.frontend.FrontendStatus;
 import android.media.tv.tuner.frontend.FrontendStatus.Atsc3PlpTuningInfo;
 import android.media.tv.tuner.frontend.FrontendStatusReadiness;
+import android.media.tv.tuner.frontend.IptvFrontendCapabilities;
+import android.media.tv.tuner.frontend.IptvFrontendSettings;
 import android.media.tv.tuner.frontend.Isdbs3FrontendCapabilities;
 import android.media.tv.tuner.frontend.Isdbs3FrontendSettings;
 import android.media.tv.tuner.frontend.IsdbsFrontendCapabilities;
@@ -107,6 +111,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
+import android.util.SparseIntArray;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.SmallTest;
@@ -122,6 +127,7 @@ import org.junit.runner.RunWith;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
@@ -149,6 +155,176 @@ public class TunerTest {
     private TunerResourceManager mTunerResourceManager = null;
     private TestServiceConnection mConnection;
     private ISharedFilterTestServer mSharedFilterTestServer;
+
+    private int mDummyResourceCount = 0;
+    private DemuxFilterTypeProcessor mDFMTProcessor = new DemuxFilterTypeProcessor();
+
+    private final Object mResourceLostCountLock = new Object();
+    private int mResourceLostCount = 0;
+
+    private int getFilterSubTypeForTest(int filterType) {
+        int subType = Filter.TYPE_UNDEFINED;
+        switch (filterType) {
+            case (Filter.TYPE_TS):
+                subType = Filter.SUBTYPE_SECTION;
+                break;
+            case (Filter.TYPE_MMTP):
+                subType = Filter.SUBTYPE_PES;
+                break;
+            case (Filter.TYPE_IP):
+                subType = Filter.SUBTYPE_IP;
+                break;
+            case (Filter.TYPE_TLV):
+                subType = Filter.SUBTYPE_TLV;
+                break;
+            case (Filter.TYPE_ALP):
+                subType = Filter.SUBTYPE_SECTION;
+                break;
+            default:
+                break;
+        }
+        return subType;
+    }
+
+    private class DemuxFilterTypeProcessor {
+        // number of the emuxes on the system
+        int mNumOfDemuxes;
+
+        // the bitwise OR of all the DemuxFilterTypes on the system
+        int mCombinedCaps;
+
+        // the cap (singular) that are supported by the least # of demuxes on the system
+        int mLeastFrequentCap;
+        int mRunningMinCount;
+
+        // the cap with the least # of bits that are not singular
+        // e.g. if there are 4 demuxes with b111, b1011, b1000, b1010 --> b1010
+        int mSmallestMultiBitsCap;
+        int mRunningSmallestNumOfBits;
+
+        // for storing # of demux resources supporting each cap
+        SparseIntArray mCapCounts = new SparseIntArray();
+
+        public int getNumOfDemuxes() {
+            return mNumOfDemuxes;
+        }
+
+        public int getSmallestMultiBitsCap() {
+            return mSmallestMultiBitsCap;
+        }
+
+        public int getCapCount(int cap) {
+            if (cap >= Integer.SIZE) {
+                return 0;
+            }
+            return mCapCounts.get(cap, -1);
+        }
+
+        public int getLeastFrequentCap() {
+            return mLeastFrequentCap;
+        }
+
+        // e.g. getPartialCap(b101) --> b1
+        public int getPartialCap(int baseCap) {
+            int cap = 1;
+            for (int i = 0; i < Integer.SIZE; i++) {
+                if ((cap & baseCap) == cap) {
+                    return cap;
+                }
+                cap = cap << 1;
+            }
+            return baseCap;
+        }
+
+        // e.g. getFirstSupportedCap(b0) -> b1, when mCombinedCaps is b10101
+        //      getFirstSupportedCap(b1) -> b100, when mCombinedCaps is b10101
+        public int getFirstSupportedCap(int excludeCaps) {
+            int cap = 1;
+            for (int i = 0; i < Integer.SIZE; i++) {
+                if ((excludeCaps & cap) == 0
+                        && (mCombinedCaps & cap) == cap) {
+                    return cap;
+                }
+                cap = cap << 1;
+            }
+            return 0;
+        }
+
+        // e.g. getFirstNonSupportedCap() -> b01, when mCombinedCaps is b10101
+        public int getFirstNonSupportedCap() {
+            int cap = 1;
+            for (int i = 0; i < Integer.SIZE; i++) {
+                if ((cap & mCombinedCaps) != cap) {
+                    return cap;
+                }
+                cap = cap << 1;
+            }
+            return 0;
+        }
+
+        public void reset() {
+            mNumOfDemuxes = 0;
+            mSmallestMultiBitsCap = 0;
+            mRunningSmallestNumOfBits = Integer.SIZE;
+            mCombinedCaps = 0;
+            mCapCounts.clear();
+            mLeastFrequentCap = 0;
+            mRunningMinCount = Integer.MAX_VALUE;
+        }
+
+        DemuxFilterTypeProcessor() {
+            reset();
+        }
+
+        private void updateCapCounts(int caps) {
+            int mask = 1;
+            for (int i = 0; i < Integer.SIZE - 1; i++) {
+                if (mask > caps) {
+                    break;
+                }
+                if ((caps & mask) == mask) {
+                    int newCount = mCapCounts.get(mask, 0) + 1;
+                    mCapCounts.put(mask, newCount);
+                    if (newCount < mRunningMinCount) {
+                        mRunningMinCount = newCount;
+                        mLeastFrequentCap = mask;
+                    }
+                }
+                mask = mask << 1;
+            }
+        }
+
+        public void processEntry(DemuxFilterTypeInfo entry) {
+            int caps = entry.getCaps();
+            int numOfCaps = entry.getNumOfCaps();
+
+            // update mSmallestMultiBitsCap
+            if (numOfCaps > 1 && numOfCaps < mRunningSmallestNumOfBits) {
+                mRunningSmallestNumOfBits = numOfCaps;
+                mSmallestMultiBitsCap = caps;
+            }
+            mCombinedCaps = mCombinedCaps | caps;
+            updateCapCounts(caps);
+            mNumOfDemuxes++;
+        }
+    }
+
+    private class DemuxFilterTypeInfo {
+        int mFilterTypes;
+        int mNumOfCaps;
+
+        DemuxFilterTypeInfo(int filterTypes) {
+            mFilterTypes = filterTypes;
+            mNumOfCaps = Integer.bitCount(filterTypes);
+        }
+        public int getCaps() {
+            return mFilterTypes;
+        }
+        public int getNumOfCaps() {
+            return mNumOfCaps;
+        }
+    }
+
 
     private class TestServiceConnection implements ServiceConnection {
         private BlockingQueue<IBinder> mBlockingQueue = new LinkedBlockingQueue<>();
@@ -290,7 +466,7 @@ public class TunerTest {
         assertNotNull(mTuner);
         int version = TunerVersionChecker.getTunerVersion();
         assertTrue(version >= TunerVersionChecker.TUNER_VERSION_1_0);
-        assertTrue(version <= TunerVersionChecker.TUNER_VERSION_2_0);
+        assertTrue(version <= TunerVersionChecker.TUNER_VERSION_3_0);
     }
 
     @Test
@@ -334,10 +510,35 @@ public class TunerTest {
         FrontendInfo info = mTuner.getFrontendInfoById(ids.get(0));
         int res = mTuner.tune(createFrontendSettings(info));
         assertEquals(Tuner.RESULT_SUCCESS, res);
-        res = mTuner.setLnaEnabled(false);
-        assertTrue((res == Tuner.RESULT_SUCCESS) || (res == Tuner.RESULT_UNAVAILABLE));
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_3_0)) {
+            if (mTuner.isLnaSupported()) {
+                res = mTuner.setLnaEnabled(false);
+                assertEquals(Tuner.RESULT_SUCCESS, res);
+            } else {
+                res = mTuner.setLnaEnabled(false);
+                assertEquals(Tuner.RESULT_UNAVAILABLE, res);
+            }
+        } else {
+            res = mTuner.setLnaEnabled(false);
+            assertTrue((res == Tuner.RESULT_SUCCESS) || (res == Tuner.RESULT_UNAVAILABLE));
+        }
         res = mTuner.cancelTuning();
         assertEquals(Tuner.RESULT_SUCCESS, res);
+    }
+
+    @Test
+    public void testIsLnaSupported() throws Exception {
+        if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_3_0)) {
+            mTuner.isLnaSupported();
+            // no exception thrown
+        } else {
+            try {
+                mTuner.isLnaSupported();
+                fail("Is LNA Supported should throw UnsupportedOperationException.");
+            } catch (UnsupportedOperationException uoe) {
+                // pass
+            }
+        }
     }
 
     @Test
@@ -365,6 +566,31 @@ public class TunerTest {
                 assertEquals(Tuner.RESULT_INVALID_STATE, res);
             }
         }
+    }
+
+    @Test
+    public void testRequestFrontendThenTune() throws Exception {
+        List<FrontendInfo> frontendInfos = mTuner.getAvailableFrontendInfos();
+        if (frontendInfos == null) return;
+        assertFalse(frontendInfos.isEmpty());
+
+        FrontendInfo frontendInfo = frontendInfos.get(0);
+        int result = mTuner.applyFrontend(frontendInfo);
+        assertEquals(Tuner.RESULT_SUCCESS, result);
+
+        result = mTuner.tune(createFrontendSettings(frontendInfo));
+        assertEquals(Tuner.RESULT_SUCCESS, result);
+
+        for (FrontendInfo info2: frontendInfos) {
+            if (info2.getType() != frontendInfo.getType()) {
+                result = mTuner.tune(createFrontendSettings(info2));
+                assertEquals(Tuner.RESULT_INVALID_STATE, result);
+            }
+        }
+
+        // After tune(), the frontend assigned by applyFrontend should still be used.
+        FrontendInfo currentFrontendInfo = mTuner.getFrontendInfo();
+        assertEquals(frontendInfo.getId(), currentFrontendInfo.getId());
     }
 
     @Test
@@ -432,7 +658,8 @@ public class TunerTest {
                         status.getInnerFec();
                         break;
                     case FrontendStatus.FRONTEND_STATUS_TYPE_MODULATION:
-                        status.getModulation();
+                        if (info.getType() != FrontendSettings.TYPE_DVBT)
+                            status.getModulation();
                         break;
                     case FrontendStatus.FRONTEND_STATUS_TYPE_SPECTRAL:
                         status.getSpectralInversion();
@@ -548,6 +775,22 @@ public class TunerTest {
                         List<Atsc3PlpInfo> plps = status.getAllAtsc3PlpInfo();
                         assertFalse(plps.isEmpty());
                         break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IPTV_CONTENT_URL:
+                        String iptvContentUrl = status.getIptvContentUrl();
+                        assertNotNull(iptvContentUrl);
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IPTV_PACKETS_LOST:
+                        status.getIptvPacketsLost();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IPTV_PACKETS_RECEIVED:
+                        status.getIptvPacketsReceived();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IPTV_WORST_JITTER_MS:
+                        status.getIptvWorstJitterMillis();
+                        break;
+                    case FrontendStatus.FRONTEND_STATUS_TYPE_IPTV_AVERAGE_JITTER_MS:
+                        status.getIptvAverageJitterMillis();
+                        break;
                 }
             }
             tuner.close();
@@ -605,6 +848,185 @@ public class TunerTest {
             tuner.cancelTuning();
             tuner.close();
             tuner = null;
+        }
+    }
+
+    @Test
+    public void testConfigureDemux() throws Exception {
+        DemuxCapabilities dc = mTuner.getDemuxCapabilities();
+        if (dc == null || dc.getFilterTypeCapabilityList().length <= 0) {
+            return;
+        }
+
+        // Test configureDemux with all the valid capabilities and set up the demux info processor
+        mDFMTProcessor.reset();
+        DemuxInfo di = new DemuxInfo(Filter.TYPE_UNDEFINED);
+
+        for (int caps : dc.getFilterTypeCapabilityList()) {
+            di.setFilterTypes(caps);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(caps, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            mDFMTProcessor.processEntry(new DemuxFilterTypeInfo(caps));
+        }
+
+        // Test configureDemux with TYPE_UNDEFINED
+        di.setFilterTypes(Filter.TYPE_UNDEFINED);
+        assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+        assertEquals(Filter.TYPE_UNDEFINED, mTuner.getDesiredDemuxInfo().getFilterTypes());
+
+        // Validate getCurrentDemuxInfo() returns null
+        assertNull(mTuner.getCurrentDemuxInfo());
+
+        // Test configureDemux with unsupported cap
+        int nonSupportedCap = mDFMTProcessor.getFirstNonSupportedCap();
+        di.setFilterTypes(nonSupportedCap);
+        assertEquals(Tuner.RESULT_UNAVAILABLE, mTuner.configureDemux(di));
+
+        // Now confirm the demux release related behavior
+        // first get any demux resource
+        assertNotNull(mTuner.openDescrambler());
+        assertNotNull(mTuner.getCurrentDemuxInfo());
+        // configureDemux with TYPE_UNDEFINED and expect no release
+        di.setFilterTypes(Filter.TYPE_UNDEFINED);
+        assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+        assertEquals(Filter.TYPE_UNDEFINED, mTuner.getDesiredDemuxInfo().getFilterTypes());
+        assertNotNull(mTuner.getCurrentDemuxInfo());
+        // configureDemux with null to invoke demux release
+        assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(null));
+        assertEquals(Filter.TYPE_UNDEFINED, mTuner.getDesiredDemuxInfo().getFilterTypes());
+        assertNull(mTuner.getCurrentDemuxInfo());
+
+
+        // now through openFilter
+        int cap = mDFMTProcessor.getFirstSupportedCap(0);
+        assertNotEquals(0, cap);
+        Filter f = mTuner.openFilter(
+                cap, getFilterSubTypeForTest(cap), 1000, getExecutor(), getFilterCallback());
+        assertEquals(cap, mTuner.getDesiredDemuxInfo().getFilterTypes());
+        assertNotNull(f);
+        assertEquals(cap, mTuner.getCurrentDemuxInfo().getFilterTypes() & cap);
+
+        // configureDemux with TYPE_UNDEFINED and expect no release
+        assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+        assertEquals(Filter.TYPE_UNDEFINED, mTuner.getDesiredDemuxInfo().getFilterTypes());
+        assertNotNull(mTuner.getCurrentDemuxInfo());
+
+        // now configureDemux with null to invoke demux release
+        assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(null));
+        assertEquals(Filter.TYPE_UNDEFINED, mTuner.getDesiredDemuxInfo().getFilterTypes());
+        assertNull(mTuner.getCurrentDemuxInfo());
+
+        // do additional test if multi bits caps is available
+        int caps = mDFMTProcessor.getSmallestMultiBitsCap();
+        if (caps != 0) {
+            // configureDemux with multi bits caps and allocate demux
+            di.setFilterTypes(caps);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(caps, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            assertNotNull(mTuner.openDescrambler());
+            assertEquals(caps, mTuner.getCurrentDemuxInfo().getFilterTypes());
+
+            // configure with the same caps - everything should stay the same
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(caps, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            assertEquals(caps, mTuner.getCurrentDemuxInfo().getFilterTypes());
+
+            // configure with the subset - everything except for the desired cap should stay the
+            // same
+            int partialCap = mDFMTProcessor.getPartialCap(caps);
+            di.setFilterTypes(partialCap);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(partialCap, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            assertEquals(caps, mTuner.getCurrentDemuxInfo().getFilterTypes());
+
+            // configure with another subset - everything except for the desired cap should stay the
+            // same
+            partialCap = partialCap ^ caps;
+            di.setFilterTypes(partialCap);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(partialCap, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            assertEquals(caps, mTuner.getCurrentDemuxInfo().getFilterTypes());
+
+            // configure with different cap - should trigger demux relesase
+            int exclusiveCap = mDFMTProcessor.getFirstSupportedCap(caps);
+            di.setFilterTypes(exclusiveCap);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(exclusiveCap, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            assertNull(mTuner.getCurrentDemuxInfo());
+
+            // now confirm that the openFilter() won't change the desired filter types when it's
+            // called with a type that is a subset of previously set desired filter types.
+            di.setFilterTypes(caps);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(caps, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            f = mTuner.openFilter(
+                    partialCap, getFilterSubTypeForTest(partialCap), 1000, getExecutor(),
+                        getFilterCallback());
+            assertEquals(caps, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            assertEquals(caps, mTuner.getCurrentDemuxInfo().getFilterTypes());
+            assertNotNull(f);
+        }
+    }
+
+    @Test
+    public void testDemuxReclaim() throws Exception {
+        DemuxCapabilities dc = mTuner.getDemuxCapabilities();
+        if (dc == null || dc.getFilterTypeCapabilityList().length <= 0) {
+            return;
+        }
+
+        // Test configureDemux with all the valid capabilities and set up the demux info processor
+        mDFMTProcessor.reset();
+        DemuxInfo di = new DemuxInfo(Filter.TYPE_UNDEFINED);
+        for (int caps : dc.getFilterTypeCapabilityList()) {
+            di.setFilterTypes(caps);
+            assertEquals(Tuner.RESULT_SUCCESS, mTuner.configureDemux(di));
+            assertEquals(caps, mTuner.getDesiredDemuxInfo().getFilterTypes());
+            mDFMTProcessor.processEntry(new DemuxFilterTypeInfo(caps));
+        }
+
+        // get the cap that is supported by least number of Demux
+        int cap = mDFMTProcessor.getLeastFrequentCap();
+        int subType = getFilterSubTypeForTest(cap);
+        assertNotEquals(0, cap);
+
+        List<Tuner> lowerPrioTuners = new ArrayList<Tuner>();
+        List<Filter> filters = new ArrayList<Filter>();
+        int numOfCompatibleDemuxes = mDFMTProcessor.getCapCount(cap);
+        mResourceLostCount = 0;
+        Filter filter;
+        for (int i = 0; i < numOfCompatibleDemuxes; i++) {
+            Tuner tuner = new Tuner(mContext, null, 100);
+            tuner.setResourceLostListener(getExecutor(), new Tuner.OnResourceLostListener() {
+                @Override
+                public void onResourceLost(Tuner tuner) {
+                    synchronized (mResourceLostCountLock) {
+                        mResourceLostCount++;
+                    }
+                }
+            });
+            filter = tuner.openFilter(
+                    cap, subType, 1000, getExecutor(), getFilterCallback());
+            assertNotNull(filter);
+            assertEquals(cap, tuner.getCurrentDemuxInfo().getFilterTypes() & cap);
+
+            filters.add(filter);
+            lowerPrioTuners.add(tuner);
+        }
+
+        // now claim another demux with higher priority
+        Tuner highPrioTuner = new Tuner(mContext, null, 200);
+        filter = highPrioTuner.openFilter(
+                cap, subType, 1000, getExecutor(), getFilterCallback());
+        assertNotNull(filter);
+        assertEquals(cap, highPrioTuner.getCurrentDemuxInfo().getFilterTypes() & cap);
+        Thread.sleep(1);
+        assertEquals(1, mResourceLostCount);
+        highPrioTuner.close();
+
+        // clean up the resource
+        for (Tuner t : lowerPrioTuners) {
+            t.close();
         }
     }
 
@@ -701,17 +1123,10 @@ public class TunerTest {
 
         if (TunerVersionChecker.isHigherOrEqualVersionTo(TunerVersionChecker.TUNER_VERSION_1_1)) {
             // TODO: get real CiCam id from MediaCas
+            // only tuner hal1.1 support CiCam
             res = mTuner.connectFrontendToCiCam(0);
-        } else {
-            assertEquals(Tuner.INVALID_LTS_ID, mTuner.connectFrontendToCiCam(0));
-        }
-
-        if (res != Tuner.INVALID_LTS_ID) {
-            assertEquals(mTuner.disconnectFrontendToCiCam(0), Tuner.RESULT_SUCCESS);
-        } else {
-            // Make sure the connectFrontendToCiCam only fails because the current device
-            // does not support connecting frontend to cicam
-            assertEquals(mTuner.disconnectFrontendToCiCam(0), Tuner.RESULT_UNAVAILABLE);
+            if (res != Tuner.INVALID_LTS_ID)
+                assertEquals(mTuner.disconnectFrontendToCiCam(0), Tuner.RESULT_SUCCESS);
         }
     }
 
@@ -1142,6 +1557,7 @@ public class TunerTest {
         d.getFilterCapabilities();
         d.getLinkCapabilities();
         d.isTimeFilterSupported();
+        d.getFilterTypeCapabilityList();
     }
 
     @Test
@@ -1313,6 +1729,24 @@ public class TunerTest {
 
         // unbind
         mContext.unbindService(connection);
+    }
+
+    @Test
+    public void testApplyFrontend() throws Exception {
+        List<FrontendInfo> frontendInfos = mTuner.getAvailableFrontendInfos();
+        if (frontendInfos == null) return;
+        assertFalse(frontendInfos.isEmpty());
+
+        FrontendInfo frontendInfo = frontendInfos.get(0);
+        int result = mTuner.applyFrontend(frontendInfo);
+        assertEquals(Tuner.RESULT_SUCCESS, result);
+
+        // Request a frontend again cases
+        FrontendInfo secondFrontend = null;
+        for (FrontendInfo info: frontendInfos) {
+            result = mTuner.applyFrontend(info);
+            assertEquals(Tuner.RESULT_INVALID_STATE, result);
+        }
     }
 
     @Test
@@ -1627,6 +2061,10 @@ public class TunerTest {
         other.close();
 
         // make sure pre-existing tuner is still functional
+        res = mTuner.applyFrontend(info);
+        assertEquals(Tuner.RESULT_SUCCESS, res);
+        assertNotNull(mTuner.getFrontendInfo());
+        mTuner.closeFrontend();
         res = mTuner.tune(feSettings);
         assertEquals(Tuner.RESULT_SUCCESS, res);
         assertNotNull(mTuner.getFrontendInfo());
@@ -1640,11 +2078,8 @@ public class TunerTest {
         mTuner.close();
         mTuner = null;
 
-        // check the sharee is also closed
-        // tune() would have failed even before close() but still..
-        // TODO: fix this once callback sharing is implemented
-        res = sharee.tune(feSettings);
-        assertEquals(Tuner.RESULT_UNAVAILABLE, res);
+        // check the frontend of sharee is also released
+        assertNull(sharee.getFrontendInfo());
 
         sharee.close();
 
@@ -1666,7 +2101,6 @@ public class TunerTest {
         assertNotNull(statusCapabilities);
         FrontendStatus status = mTuner.getFrontendStatus(statusCapabilities);
         assertNotNull(status);
-
     }
 
     @Test
@@ -2616,6 +3050,17 @@ public class TunerTest {
             ad.getAdGainFront();
             ad.getAdGainSurround();
         }
+        List<AudioPresentation> aps = e.getAudioPresentations();
+        for (AudioPresentation ap : aps) {
+            ap.getPresentationId();
+            ap.getProgramId();
+            ap.getLabels();
+            ap.getLocale();
+            ap.getMasteringIndication();
+            ap.hasAudioDescription();
+            ap.hasDialogueEnhancement();
+            ap.hasSpokenSubtitles();
+        }
         e.release();
     }
 
@@ -2890,6 +3335,16 @@ public class TunerTest {
                                     .setTimeInterleaveMode(timeInterleaveMode)
                                     .build();
                     settings.setEndFrequencyLong(maxFreq);
+                    return settings;
+                }
+                case FrontendSettings.TYPE_IPTV: {
+                    IptvFrontendCapabilities iptvCaps = (IptvFrontendCapabilities) caps;
+                    int protocol = getFirstCapable(iptvCaps.getProtocolCapability());
+                    IptvFrontendSettings settings =
+                            new IptvFrontendSettings
+                                    .Builder()
+                                    .setProtocol(protocol)
+                                    .build();
                     return settings;
                 }
                 default:

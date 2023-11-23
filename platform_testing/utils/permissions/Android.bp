@@ -31,4 +31,6 @@ android_test {
     platform_apis: true,
     srcs: ["src/**/*.java"],
     certificate: "platform",
+    min_sdk_version: "23",
+    target_sdk_version: "31",
 }

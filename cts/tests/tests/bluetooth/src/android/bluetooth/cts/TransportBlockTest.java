@@ -16,14 +16,23 @@
 
 package android.bluetooth.cts;
 
+import static org.junit.Assert.assertEquals;
+
 import android.bluetooth.le.TransportBlock;
+import android.content.Context;
 import android.os.Parcel;
-import android.os.ParcelUuid;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
 
-import java.util.ArrayList;
-import java.util.List;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 
 /**
  * Unit test cases for {@link TransportBlock}.
@@ -31,9 +40,21 @@ import java.util.List;
  * To run the test, use adb shell am instrument -e class 'android.bluetooth.le.TransportBlockTest' -w
  * 'com.android.bluetooth.tests/android.bluetooth.BluetoothTestRunner'
  */
-public class TransportBlockTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class TransportBlockTest {
 
+    private Context mContext;
+
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+    }
+
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testInit() {
         Parcel parcel = Parcel.obtain();
         TransportBlock data = new TransportBlock(1, 0, 2, new byte[] {
@@ -45,7 +66,9 @@ public class TransportBlockTest extends AndroidTestCase {
         assertEquals(data, dataFromParcel);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testInitEmpty() {
         Parcel parcel = Parcel.obtain();
         TransportBlock data = new TransportBlock(1, 0, 0, null);
@@ -56,7 +79,9 @@ public class TransportBlockTest extends AndroidTestCase {
         assertEquals(data, dataFromParcel);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testTotalBytes() {
         Parcel parcel = Parcel.obtain();
         TransportBlock data = new TransportBlock(1, 0, 2, new byte[] {
@@ -70,7 +95,9 @@ public class TransportBlockTest extends AndroidTestCase {
         assertEquals(data, dataFromParcel);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testGetValues() {
         Parcel parcel = Parcel.obtain();
         TransportBlock data = new TransportBlock(1, 3, 2, new byte[] {
@@ -89,7 +116,9 @@ public class TransportBlockTest extends AndroidTestCase {
         assertEquals(data, dataFromParcel);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testToByteArray() {
         Parcel parcel = Parcel.obtain();
         TransportBlock data = new TransportBlock(1, 0, 2, new byte[] {

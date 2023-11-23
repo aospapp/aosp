@@ -272,137 +272,143 @@ void Logcat::SetupOutputAndSchedulingPolicy(bool blocking) {
 
 // clang-format off
 static void show_help() {
-    const char* cmd = getprogname();
+    printf(R"logcat(
+  Usage: logcat [OPTION]... [FILTERSPEC]...
 
-    fprintf(stderr, "Usage: %s [options] [filterspecs]\n", cmd);
+  General options:
 
-    fprintf(stderr, R"init(
-General options:
-  -b, --buffer=<buffer>       Request alternate ring buffer(s):
-                                main system radio events crash default all
-                              Additionally, 'kernel' for userdebug and eng builds, and
-                              'security' for Device Owner installations.
-                              Multiple -b parameters or comma separated list of buffers are
-                              allowed. Buffers are interleaved.
-                              Default -b main,system,crash,kernel.
-  -L, --last                  Dump logs from prior to last reboot from pstore.
-  -c, --clear                 Clear (flush) the entire log and exit.
-                              if -f is specified, clear the specified file and its related rotated
-                              log files instead.
-                              if -L is specified, clear pstore log instead.
-  -d                          Dump the log and then exit (don't block).
-  --pid=<pid>                 Only print logs from the given pid.
-  --wrap                      Sleep for 2 hours or when buffer about to wrap whichever
-                              comes first. Improves efficiency of polling by providing
-                              an about-to-wrap wakeup.
+  -b BUFFER, --buffer=BUFFER
+      Request alternate ring buffer(s). Options are:
+          main system radio events crash default all
+      Additionally, 'kernel' for userdebug and eng builds, and 'security' for
+      Device Owner installations.
+      Multiple -b parameters or comma separated list of buffers are
+      allowed. Buffers are interleaved.
+      Default is "main,system,crash,kernel".
+  -c, --clear
+      Clear (flush) the entire log and exit. With -f, clear the specified file
+      and its related rotated log files instead. With -L, clear pstore instead.
+  -d            Dump the log and then exit (don't block).
+  -L, --last    Dump logs from prior to last reboot from pstore.
+  --pid=PID     Only print logs from the given pid.
+  --wrap
+      Sleep for 2 hours or until buffer about to wrap (whichever comes first).
+      Improves efficiency of polling by providing an about-to-wrap wakeup.
 
-Formatting:
-  -v, --format=<format>       Sets log print format verb and adverbs, where <format> is one of:
-                                brief help long process raw tag thread threadtime time
-                              Modifying adverbs can be added:
-                                color descriptive epoch monotonic printable uid usec UTC year zone
-                              Multiple -v parameters or comma separated list of format and format
-                              modifiers are allowed.
+  Formatting:
+
+  -v, --format=FORMAT         Sets log print format. See FORMAT below.
   -D, --dividers              Print dividers between each log buffer.
   -B, --binary                Output the log in binary.
 
-Outfile files:
-  -f, --file=<file>           Log to file instead of stdout.
-  -r, --rotate-kbytes=<n>     Rotate log every <n> kbytes. Requires -f option.
-  -n, --rotate-count=<count>  Sets max number of rotated logs to <count>, default 4.
-  --id=<id>                   If the signature <id> for logging to file changes, then clear the
-                              associated files and continue.
+  Output files:
 
-Logd control:
- These options send a control message to the logd daemon on device, print its return message if
- applicable, then exit. They are incompatible with -L, as these attributes do not apply to pstore.
-  -g, --buffer-size           Get the size of the ring buffers within logd.
-  -G, --buffer-size=<size>    Set size of a ring buffer in logd. May suffix with K or M.
-                              This can individually control each buffer's size with -b.
-  -S, --statistics            Output statistics.
-                              --pid can be used to provide pid specific stats.
-  -p, --prune                 Print prune rules. Each rule is specified as UID, UID/PID or /PID. A
-                              '~' prefix indicates that elements matching the rule should be pruned
-                              with higher priority otherwise they're pruned with lower priority. All
-                              other pruning activity is oldest first. Special case ~! represents an
-                              automatic pruning for the noisiest UID as determined by the current
-                              statistics.  Special case ~1000/! represents pruning of the worst PID
-                              within AID_SYSTEM when AID_SYSTEM is the noisiest UID.
-  -P, --prune='<list> ...'    Set prune rules, using same format as listed above. Must be quoted.
+  -f, --file=FILE             Log to FILE instead of stdout.
+  -r, --rotate-kbytes=N       Rotate log every N KiB. Requires -f.
+  -n, --rotate-count=N        Sets max number of rotated logs, default 4.
+  --id=<id>
+      Clears the associated files if the signature <id> for logging to file
+      changes.
 
-Filtering:
-  -s                          Set default filter to silent. Equivalent to filterspec '*:S'
-  -e, --regex=<expr>          Only print lines where the log message matches <expr> where <expr> is
-                              an ECMAScript regular expression.
-  -m, --max-count=<count>     Quit after printing <count> lines. This is meant to be paired with
-                              --regex, but will work on its own.
-  --print                     This option is only applicable when --regex is set and only useful if
-                              --max-count is also provided.
-                              With --print, logcat will print all messages even if they do not
-                              match the regex. Logcat will quit after printing the max-count number
-                              of lines that match the regex.
-  -t <count>                  Print only the most recent <count> lines (implies -d).
-  -t '<time>'                 Print the lines since specified time (implies -d).
-  -T <count>                  Print only the most recent <count> lines (does not imply -d).
-  -T '<time>'                 Print the lines since specified time (not imply -d).
-                              count is pure numerical, time is 'MM-DD hh:mm:ss.mmm...'
-                              'YYYY-MM-DD hh:mm:ss.mmm...' or 'sssss.mmm...' format.
-  --uid=<uids>                Only display log messages from UIDs present in the comma separate list
-                              <uids>. No name look-up is performed, so UIDs must be provided as
-                              numeric values. This option is only useful for the 'root', 'log', and
-                              'system' users since only those users can view logs from other users.
-)init");
+  Logd control:
 
-    fprintf(stderr, "\nfilterspecs are a series of \n"
-                   "  <tag>[:priority]\n\n"
-                   "where <tag> is a log component tag (or * for all) and priority is:\n"
-                   "  V    Verbose (default for <tag>)\n"
-                   "  D    Debug (default for '*')\n"
-                   "  I    Info\n"
-                   "  W    Warn\n"
-                   "  E    Error\n"
-                   "  F    Fatal\n"
-                   "  S    Silent (suppress all output)\n"
-                   "\n'*' by itself means '*:D' and <tag> by itself means <tag>:V.\n"
-                   "If no '*' filterspec or -s on command line, all filter defaults to '*:V'.\n"
-                   "eg: '*:S <tag>' prints only <tag>, '<tag>:S' suppresses all <tag> log messages.\n"
-                   "\nIf not specified on the command line, filterspec is set from ANDROID_LOG_TAGS.\n"
-                   "\nIf not specified with -v on command line, format is set from ANDROID_PRINTF_LOG\n"
-                   "or defaults to \"threadtime\"\n\n");
-}
+  These options send a control message to the logd daemon on device, print its
+  return message if applicable, then exit. They are incompatible with -L
+  because these attributes do not apply to pstore.
 
-static void show_format_help() {
-    fprintf(stderr,
-        "-v <format>, --format=<format> options:\n"
-        "  Sets log print format verb and adverbs, where <format> is:\n"
-        "    brief long process raw tag thread threadtime time\n"
-        "  and individually flagged modifying adverbs can be added:\n"
-        "    color descriptive epoch monotonic printable uid usec UTC year zone\n"
-        "\nSingle format verbs:\n"
-        "  brief      — Display priority/tag and PID of the process issuing the message.\n"
-        "  long       — Display all metadata fields, separate messages with blank lines.\n"
-        "  process    — Display PID only.\n"
-        "  raw        — Display the raw log message, with no other metadata fields.\n"
-        "  tag        — Display the priority/tag only.\n"
-        "  thread     — Display priority, PID and TID of process issuing the message.\n"
-        "  threadtime — Display the date, invocation time, priority, tag, and the PID\n"
-        "               and TID of the thread issuing the message. (the default format).\n"
-        "  time       — Display the date, invocation time, priority/tag, and PID of the\n"
-        "             process issuing the message.\n"
-        "\nAdverb modifiers can be used in combination:\n"
-        "  color       — Display in highlighted color to match priority. i.e. \x1B[39mVERBOSE\n"
-        "                \x1B[34mDEBUG \x1B[32mINFO \x1B[33mWARNING \x1B[31mERROR FATAL\x1B[0m\n"
-        "  descriptive — events logs only, descriptions from event-log-tags database.\n"
-        "  epoch       — Display time as seconds since Jan 1 1970.\n"
-        "  monotonic   — Display time as cpu seconds since last boot.\n"
-        "  printable   — Ensure that any binary logging content is escaped.\n"
-        "  uid         — If permitted, display the UID or Android ID of logged process.\n"
-        "  usec        — Display time down the microsecond precision.\n"
-        "  UTC         — Display time as UTC.\n"
-        "  year        — Add the year to the displayed time.\n"
-        "  zone        — Add the local timezone to the displayed time.\n"
-        "  \"<zone>\"    — Print using this public named timezone (experimental).\n\n"
-    );
+  -g, --buffer-size
+      Get size of the ring buffers within logd.
+  -G, --buffer-size=SIZE
+      Set size of a ring buffer in logd. May suffix with K or M.
+      This can individually control each buffer's size with -b.
+  -p, --prune
+      Get prune rules. Each rule is specified as UID, UID/PID or /PID. A
+      '~' prefix indicates that elements matching the rule should be pruned
+      with higher priority otherwise they're pruned with lower priority. All
+      other pruning activity is oldest first. Special case ~! represents an
+      automatic pruning for the noisiest UID as determined by the current
+      statistics. Special case ~1000/! represents pruning of the worst PID
+      within AID_SYSTEM when AID_SYSTEM is the noisiest UID.
+  -P, --prune='LIST ...'
+      Set prune rules, using same format as listed above. Must be quoted.
+  -S, --statistics
+      Output statistics. With --pid provides pid-specific stats.
+
+  Filtering:
+
+  -s                   Set default filter to silent (like filterspec '*:S').
+  -e, --regex=EXPR     Only print lines matching ECMAScript regex.
+  -m, --max-count=N    Exit after printing <count> lines.
+  --print              With --regex and --max-count, prints all messages
+                       even if they do not match the regex, but exits after
+                       printing max-count matching lines.
+  -t N                 Print most recent <count> lines (implies -d).
+  -T N                 Print most recent <count> lines (does not imply -d).
+  -t TIME              Print lines since specified time (implies -d).
+  -T TIME              Print lines since specified time (not imply -d).
+                       Time format is 'MM-DD hh:mm:ss.mmm...',
+                       'YYYY-MM-DD hh:mm:ss.mmm...', or 'sssss.mmm...'.
+  --uid=UIDS
+      Only display log messages from UIDs in the comma-separated list UIDS.
+      UIDs must be numeric because no name lookup is performed.
+      Note that only root/log/system users can view logs from other users.
+
+  FILTERSPEC:
+
+  Filter specifications are a series of
+
+    <tag>[:priority]
+
+  where <tag> is a log component tag (or * for all) and priority is:
+
+    V    Verbose (default for <tag>)
+    D    Debug (default for '*')
+    I    Info
+    W    Warn
+    E    Error
+    F    Fatal
+    S    Silent (suppress all output)
+
+  '*' by itself means '*:D' and <tag> by itself means <tag>:V.
+  If no '*' filterspec or -s on command line, all filter defaults to '*:V'.
+  '*:S <tag>' prints only <tag>, '<tag>:S' suppresses all <tag> log messages.
+
+  If not specified on the command line, FILTERSPEC is $ANDROID_LOG_TAGS.
+
+  FORMAT:
+
+  Formats are a comma-separated sequence of verbs and adverbs.
+
+  Single format verbs:
+
+    brief      Show priority, tag, and PID of the process issuing the message.
+    long       Show all metadata fields and separate messages with blank lines.
+    process    Show PID only.
+    raw        Show the raw log message with no other metadata fields.
+    tag        Show the priority and tag only.
+    thread     Show priority, PID, and TID of the thread issuing the message.
+    threadtime Show the date, invocation time, priority, tag, PID, and TID of
+               the thread issuing the message. (This is the default.)
+    time       Show the date, invocation time, priority, tag, and PID of the
+               process issuing the message.
+
+  Adverb modifiers can be used in combination:
+
+    color       Show each priority with a different color.
+    descriptive Show event descriptions from event-log-tags database.
+    epoch       Show time as seconds since 1970-01-01 (Unix epoch).
+    monotonic   Show time as CPU seconds since boot.
+    printable   Ensure that any binary logging content is escaped.
+    uid         Show UID or Android ID of logged process (if permitted).
+    usec        Show time with microsecond precision.
+    UTC         Show time as UTC.
+    year        Add the year to the displayed time.
+    zone        Add the local timezone to the displayed time.
+    \"<ZONE>\"  Print using this named timezone (experimental).
+
+  If not specified with -v on command line, FORMAT is $ANDROID_PRINTF_LOG or
+  defaults to "threadtime".
+)logcat");
 }
 // clang-format on
 
@@ -765,10 +771,6 @@ int Logcat::Run(int argc, char** argv) {
                 break;
 
             case 'v':
-                if (!strcmp(optarg, "help") || !strcmp(optarg, "--help")) {
-                    show_format_help();
-                    return EXIT_SUCCESS;
-                }
                 for (const auto& arg : Split(optarg, delimiters)) {
                     int err = SetLogFormat(arg.c_str());
                     if (err < 0) {
@@ -788,11 +790,10 @@ int Logcat::Run(int argc, char** argv) {
 
             case 'h':
                 show_help();
-                show_format_help();
                 return EXIT_SUCCESS;
 
             case '?':
-                error(EXIT_FAILURE, 0, "Unknown option '%s'.", argv[optind - 1]);
+                error(EXIT_FAILURE, 0, "Unknown option '%s'.", argv[optind]);
                 break;
 
             default:
@@ -1098,8 +1099,8 @@ If you have enabled significant logging, look into using the -G option to increa
             WriteFully(&log_msg, log_msg.len());
         } else {
             ProcessBuffer(&log_msg);
-            if (blocking && output_file_ == stdout) fflush(stdout);
         }
+        if (blocking && output_file_ == stdout) fflush(stdout);
     }
     return EXIT_SUCCESS;
 }

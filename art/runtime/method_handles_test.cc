@@ -71,7 +71,12 @@ namespace {
   }
 }  // namespace
 
-class MethodHandlesTest : public CommonRuntimeTest {};
+class MethodHandlesTest : public CommonRuntimeTest {
+ protected:
+  MethodHandlesTest() {
+    use_boot_image_ = true;  // Make the Runtime creation cheaper.
+  }
+};
 
 //
 // Primitive -> Primitive Conversions
@@ -342,7 +347,7 @@ TEST_F(MethodHandlesTest, UnsupportedNotBoxReferenceToPrimitiveConversion) {
   value.SetL(cl->FindPrimitiveClass('V'));
   ASSERT_FALSE(TryConversion(soa.Self(), from, to, &value));
   ASSERT_TRUE(soa.Self()->IsExceptionPending());
-  ASSERT_TRUE(IsWrongMethodTypeException(soa.Self()->GetException()));
+  ASSERT_TRUE(IsClassCastException(soa.Self()->GetException()));
   soa.Self()->ClearException();
 }
 

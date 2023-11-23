@@ -23,6 +23,8 @@ java_library {
     host_supported: true,
     srcs: ["src/**/*.java"],
     sdk_version: "current",
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }
 
 // Compatibility version of host library

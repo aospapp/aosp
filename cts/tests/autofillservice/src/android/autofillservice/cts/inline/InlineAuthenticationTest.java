@@ -23,7 +23,6 @@ import static android.autofillservice.cts.testcore.CannedFillResponse.NO_RESPONS
 import static android.autofillservice.cts.testcore.Helper.ID_PASSWORD;
 import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
 import static android.autofillservice.cts.testcore.Helper.UNUSED_AUTOFILL_VALUE;
-import static android.autofillservice.cts.testcore.Helper.getContext;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 
@@ -66,7 +65,7 @@ public class InlineAuthenticationTest extends AbstractLoginActivityTestCase {
 
     @Override
     protected void enableService() {
-        Helper.enableAutofillService(getContext(), SERVICE_NAME);
+        Helper.enableAutofillService(SERVICE_NAME);
     }
 
     @Override

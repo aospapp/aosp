@@ -42,6 +42,9 @@ public class NotificationListener extends NotificationListenerService {
             throw new RuntimeException("NotificationListener not connected.", e);
         }
 
+        if (instance == null) {
+            throw new IllegalStateException("Error waiting for NotificationListener to connect");
+        }
         return instance;
     }
 

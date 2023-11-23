@@ -24,7 +24,6 @@ import android.telephony.cts.embmstestapp.CtsGroupCallService;
 import android.telephony.mbms.GroupCallCallback;
 import android.telephony.mbms.MbmsErrors;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -73,10 +72,9 @@ public class MbmsGroupCallSessionTest extends MbmsGroupCallTestBase {
     @Test
     public void testCallbacks() throws Exception {
         List<Integer> expectCurrentSais = Arrays.asList(10, 14, 17);
-        List<List<Integer>> expectAvailableSais = new ArrayList<List<Integer>>() {{
-            add(expectCurrentSais);
-            add(Arrays.asList(11, 15, 17));
-        }};
+        List<List<Integer>> expectAvailableSais = List.of(
+                expectCurrentSais,
+                List.of(11, 15, 17));
         mMiddlewareControl.fireAvailableSaisUpdated(expectCurrentSais, expectAvailableSais);
         SomeArgs callbackResult = mCallback.waitOnAvailableSaisUpdatedCalls();
         assertEquals(callbackResult.arg1, expectCurrentSais);

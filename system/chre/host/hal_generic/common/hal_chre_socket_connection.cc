@@ -24,7 +24,7 @@
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
 #include <aidl/android/frameworks/stats/IStats.h>
 #include <android/binder_manager.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
+#include <chre_atoms_log.h>
 #include <utils/SystemClock.h>
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
@@ -43,7 +43,6 @@ using flatbuffers::FlatBufferBuilder;
 using ::aidl::android::frameworks::stats::IStats;
 using ::aidl::android::frameworks::stats::VendorAtom;
 using ::aidl::android::frameworks::stats::VendorAtomValue;
-namespace PixelAtoms = ::android::hardware::google::pixel::PixelAtoms;
 #endif  // CHRE_HAL_SOCKET_METRICS_ENABLED
 
 HalChreSocketConnection::HalChreSocketConnection(
@@ -95,7 +94,13 @@ bool HalChreSocketConnection::getContextHubs(
   return mHubInfoValid;
 }
 
-bool HalChreSocketConnection::sendMessageToHub(long nanoappId,
+bool HalChreSocketConnection::sendDebugConfiguration() {
+  FlatBufferBuilder builder;
+  HostProtocolHost::encodeDebugConfiguration(builder);
+  return mClient.sendMessage(builder.GetBufferPointer(), builder.GetSize());
+}
+
+bool HalChreSocketConnection::sendMessageToHub(uint64_t nanoappId,
                                                uint32_t messageType,
                                                uint16_t hostEndpointId,
                                                const unsigned char *payload,
@@ -168,6 +173,11 @@ bool HalChreSocketConnection::onHostEndpointDisconnected(
   return mClient.sendMessage(builder.GetBufferPointer(), builder.GetSize());
 }
 
+bool HalChreSocketConnection::isLoadTransactionPending() {
+  std::lock_guard<std::mutex> lock(mPendingLoadTransactionMutex);
+  return mPendingLoadTransaction.has_value();
+}
+
 HalChreSocketConnection::SocketCallbacks::SocketCallbacks(
     HalChreSocketConnection &parent, IChreSocketCallback *callback)
     : mParent(parent), mCallback(callback) {
@@ -189,6 +199,7 @@ void HalChreSocketConnection::SocketCallbacks::onConnected() {
     ALOGI("Reconnected to CHRE daemon");
     mCallback->onContextHubRestarted();
   }
+  mParent.sendDebugConfiguration();
   mHaveConnected = true;
 }
 
@@ -220,8 +231,7 @@ void HalChreSocketConnection::SocketCallbacks::handleNanoappMessage(
       values[0].set<VendorAtomValue::longValue>(nanoappId);
 
       const VendorAtom atom{
-          .reverseDomainName = "",
-          .atomId = PixelAtoms::Atom::kChreApWakeUpOccurred,
+          .atomId = chre::Atoms::CHRE_AP_WAKE_UP_OCCURRED,
           .values{std::move(values)},
       };
 
@@ -341,13 +351,12 @@ bool HalChreSocketConnection::sendFragmentedLoadNanoAppRequest(
     std::vector<VendorAtomValue> values(3);
     values[0].set<VendorAtomValue::longValue>(request.appId);
     values[1].set<VendorAtomValue::intValue>(
-        PixelAtoms::ChreHalNanoappLoadFailed::TYPE_DYNAMIC);
+        chre::Atoms::ChreHalNanoappLoadFailed::TYPE_DYNAMIC);
     values[2].set<VendorAtomValue::intValue>(
-        PixelAtoms::ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
+        chre::Atoms::ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
 
     const VendorAtom atom{
-        .reverseDomainName = "",
-        .atomId = PixelAtoms::Atom::kChreHalNanoappLoadFailed,
+        .atomId = chre::Atoms::CHRE_HAL_NANOAPP_LOAD_FAILED,
         .values{std::move(values)},
     };
     reportMetric(atom);
@@ -363,7 +372,6 @@ bool HalChreSocketConnection::sendFragmentedLoadNanoAppRequest(
 
 #ifdef CHRE_HAL_SOCKET_METRICS_ENABLED
 void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
-  // check service availability
   const std::string statsServiceName =
       std::string(IStats::descriptor).append("/default");
   if (!AServiceManager_isDeclared(statsServiceName.c_str())) {
@@ -371,9 +379,12 @@ void HalChreSocketConnection::reportMetric(const VendorAtom atom) {
     return;
   }
 
-  // obtain the service
   std::shared_ptr<IStats> stats_client = IStats::fromBinder(ndk::SpAIBinder(
       AServiceManager_waitForService(statsServiceName.c_str())));
+  if (stats_client == nullptr) {
+    ALOGE("Failed to get IStats service");
+    return;
+  }
 
   const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(atom);
   if (!ret.isOk()) {

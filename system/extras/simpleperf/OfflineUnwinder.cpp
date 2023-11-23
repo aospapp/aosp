@@ -27,16 +27,19 @@
 #include <unwindstack/MachineArm64.h>
 #include <unwindstack/MachineX86.h>
 #include <unwindstack/MachineX86_64.h>
+#include <unwindstack/MachineRiscv64.h>
 #include <unwindstack/Maps.h>
 #include <unwindstack/RegsArm.h>
 #include <unwindstack/RegsArm64.h>
 #include <unwindstack/RegsX86.h>
 #include <unwindstack/RegsX86_64.h>
+#include <unwindstack/RegsRiscv64.h>
 #include <unwindstack/Unwinder.h>
 #include <unwindstack/UserArm.h>
 #include <unwindstack/UserArm64.h>
 #include <unwindstack/UserX86.h>
 #include <unwindstack/UserX86_64.h>
+#include <unwindstack/UserRiscv64.h>
 
 #include "JITDebugReader.h"
 #include "OfflineUnwinder_impl.h"
@@ -139,6 +142,43 @@ unwindstack::Regs* OfflineUnwinderImpl::GetBacktraceRegs(const RegSet& regs) {
       x86_64_user_regs.rsp = regs.data[PERF_REG_X86_SP];
       x86_64_user_regs.rip = regs.data[PERF_REG_X86_IP];
       return unwindstack::RegsX86_64::Read(&x86_64_user_regs);
+    }
+    case ARCH_RISCV64: {
+      unwindstack::riscv64_user_regs riscv64_user_regs;
+      memset(&riscv64_user_regs, 0, sizeof(riscv64_user_regs));
+      riscv64_user_regs.regs[PERF_REG_RISCV_PC] = regs.data[PERF_REG_RISCV_PC];
+      riscv64_user_regs.regs[PERF_REG_RISCV_RA] = regs.data[PERF_REG_RISCV_RA];
+      riscv64_user_regs.regs[PERF_REG_RISCV_SP] = regs.data[PERF_REG_RISCV_SP];
+      riscv64_user_regs.regs[PERF_REG_RISCV_GP] = regs.data[PERF_REG_RISCV_GP];
+      riscv64_user_regs.regs[PERF_REG_RISCV_TP] = regs.data[PERF_REG_RISCV_TP];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T0] = regs.data[PERF_REG_RISCV_T0];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T1] = regs.data[PERF_REG_RISCV_T1];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T2] = regs.data[PERF_REG_RISCV_T2];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S0] = regs.data[PERF_REG_RISCV_S0];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S1] = regs.data[PERF_REG_RISCV_S1];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A0] = regs.data[PERF_REG_RISCV_A0];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A1] = regs.data[PERF_REG_RISCV_A1];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A2] = regs.data[PERF_REG_RISCV_A2];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A3] = regs.data[PERF_REG_RISCV_A3];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A4] = regs.data[PERF_REG_RISCV_A4];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A5] = regs.data[PERF_REG_RISCV_A5];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A6] = regs.data[PERF_REG_RISCV_A6];
+      riscv64_user_regs.regs[PERF_REG_RISCV_A7] = regs.data[PERF_REG_RISCV_A7];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S2] = regs.data[PERF_REG_RISCV_S2];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S3] = regs.data[PERF_REG_RISCV_S3];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S4] = regs.data[PERF_REG_RISCV_S4];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S5] = regs.data[PERF_REG_RISCV_S5];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S6] = regs.data[PERF_REG_RISCV_S6];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S7] = regs.data[PERF_REG_RISCV_S7];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S8] = regs.data[PERF_REG_RISCV_S8];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S9] = regs.data[PERF_REG_RISCV_S9];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S10] = regs.data[PERF_REG_RISCV_S10];
+      riscv64_user_regs.regs[PERF_REG_RISCV_S11] = regs.data[PERF_REG_RISCV_S11];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T3] = regs.data[PERF_REG_RISCV_T3];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T4] = regs.data[PERF_REG_RISCV_T4];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T5] = regs.data[PERF_REG_RISCV_T5];
+      riscv64_user_regs.regs[PERF_REG_RISCV_T6] = regs.data[PERF_REG_RISCV_T6];
+      return unwindstack::RegsRiscv64::Read(&riscv64_user_regs);
     }
     default:
       return nullptr;

@@ -70,8 +70,8 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
-import java.util.List;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -186,50 +186,55 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     private static WifiConfiguration sTestNetwork;
     private static boolean sShouldRunTest = false;
 
-    private Context mContext;
-    private WifiManager mWifiManager;
-    private ConnectivityManager mConnectivityManager;
-    private UiDevice mUiDevice;
+    private static Context sContext;
+    private static WifiManager sWifiManager;
+    private static ConnectivityManager sConnectivityManager;
     private ConnectivityManager.NetworkCallback mNrNetworkCallback;
-    private TestHelper mTestHelper;
+    private static TestHelper sTestHelper;
 
     private static final int DURATION = 10_000;
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
+        sContext = InstrumentationRegistry.getInstrumentation().getContext();
+        UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        sTestHelper = new TestHelper(sContext, uiDevice);
         // skip the test if WiFi is not supported
-        if (!WifiFeature.isWifiSupported(context)) return;
+        if (!WifiFeature.isWifiSupported(sContext)) return;
         sShouldRunTest = true;
 
-        WifiManager wifiManager = context.getSystemService(WifiManager.class);
-        assertThat(wifiManager).isNotNull();
+        sWifiManager = sContext.getSystemService(WifiManager.class);
+        assertThat(sWifiManager).isNotNull();
+        sConnectivityManager = sContext.getSystemService(ConnectivityManager.class);
+
+        // turn screen on
+        sTestHelper.turnScreenOn();
 
         // turn on verbose logging for tests
         sWasVerboseLoggingEnabled = ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.isVerboseLoggingEnabled());
+                () -> sWifiManager.isVerboseLoggingEnabled());
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.setVerboseLoggingEnabled(true));
+                () -> sWifiManager.setVerboseLoggingEnabled(true));
         // Disable scan throttling for tests.
         sWasScanThrottleEnabled = ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.isScanThrottleEnabled());
+                () -> sWifiManager.isScanThrottleEnabled());
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.setScanThrottleEnabled(false));
+                () -> sWifiManager.setScanThrottleEnabled(false));
 
         // enable Wifi
-        if (!wifiManager.isWifiEnabled()) {
-            ShellIdentityUtils.invokeWithShellPermissions(() -> wifiManager.setWifiEnabled(true));
+        if (!sWifiManager.isWifiEnabled()) {
+            ShellIdentityUtils.invokeWithShellPermissions(() -> sWifiManager.setWifiEnabled(true));
         }
-        PollingCheck.check("Wifi not enabled", DURATION, () -> wifiManager.isWifiEnabled());
+        PollingCheck.check("Wifi not enabled", DURATION, () -> sWifiManager.isWifiEnabled());
 
         // check we have >= 1 saved network
         List<WifiConfiguration> savedNetworks = ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.getPrivilegedConfiguredNetworks());
+                () -> sWifiManager.getPrivilegedConfiguredNetworks());
         assertWithMessage("Need at least one saved network")
                 .that(savedNetworks.isEmpty()).isFalse();
 
         // Pick any network in range.
-        sTestNetwork = TestHelper.findMatchingSavedNetworksWithBssid(wifiManager, savedNetworks)
+        sTestNetwork = TestHelper.findMatchingSavedNetworksWithBssid(sWifiManager, savedNetworks, 2)
                 .get(0);
     }
 
@@ -254,57 +259,47 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     @AfterClass
     public static void tearDownClass() throws Exception {
         if (!sShouldRunTest) return;
+        assertThat(sWifiManager).isNotNull();
 
-        Context context = InstrumentationRegistry.getInstrumentation().getContext();
-        WifiManager wifiManager = context.getSystemService(WifiManager.class);
-        assertThat(wifiManager).isNotNull();
-
-        if (!wifiManager.isWifiEnabled()) {
-            ShellIdentityUtils.invokeWithShellPermissions(() -> wifiManager.setWifiEnabled(true));
+        if (!sWifiManager.isWifiEnabled()) {
+            ShellIdentityUtils.invokeWithShellPermissions(() -> sWifiManager.setWifiEnabled(true));
         }
 
         // Re-enable networks.
-        enableAllSavedNetworks(wifiManager);
+        enableAllSavedNetworks(sWifiManager);
 
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.setScanThrottleEnabled(sWasScanThrottleEnabled));
+                () -> sWifiManager.setScanThrottleEnabled(sWasScanThrottleEnabled));
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> wifiManager.setVerboseLoggingEnabled(sWasVerboseLoggingEnabled));
+                () -> sWifiManager.setVerboseLoggingEnabled(sWasVerboseLoggingEnabled));
+        sTestHelper.turnScreenOff();
     }
 
     @Before
     public void setUp() throws Exception {
         assumeTrue(sShouldRunTest);
-        mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        mWifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
-        mConnectivityManager = mContext.getSystemService(ConnectivityManager.class);
-        mUiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        mTestHelper = new TestHelper(mContext, mUiDevice);
 
-        assumeTrue(WifiFeature.isWifiSupported(mContext));
-
-        // turn screen on
-        mTestHelper.turnScreenOn();
+        assumeTrue(WifiFeature.isWifiSupported(sContext));
 
         // Clear any existing app state before each test.
-        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(sContext)) {
             ShellIdentityUtils.invokeWithShellPermissions(
-                    () -> mWifiManager.removeAppState(myUid(), mContext.getPackageName()));
+                    () -> sWifiManager.removeAppState(myUid(), sContext.getPackageName()));
         }
 
         // Disconnect & disable auto-join on the saved network to prevent auto-connect from
         // interfering with the test.
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> mWifiManager.allowAutojoinGlobal(false));
-        disableAllSavedNetworks(mWifiManager);
+                () -> sWifiManager.allowAutojoinGlobal(false));
+        disableAllSavedNetworks(sWifiManager);
         ShellIdentityUtils.invokeWithShellPermissions(
-                () -> mWifiManager.allowAutojoinGlobal(true));
+                () -> sWifiManager.allowAutojoinGlobal(true));
 
         // Wait for Wifi to be disconnected.
         PollingCheck.check(
                 "Wifi not disconnected",
                 20000,
-                () -> mWifiManager.getConnectionInfo().getNetworkId() == -1);
+                () -> sWifiManager.getConnectionInfo().getNetworkId() == -1);
     }
 
     @After
@@ -312,25 +307,24 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
         if (!sShouldRunTest) return;
         // If there is failure, ensure we unregister the previous request.
         if (mNrNetworkCallback != null) {
-            mConnectivityManager.unregisterNetworkCallback(mNrNetworkCallback);
+            sConnectivityManager.unregisterNetworkCallback(mNrNetworkCallback);
         }
         // Clear any existing app state after each test.
-        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+        if (WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(sContext)) {
             ShellIdentityUtils.invokeWithShellPermissions(
-                    () -> mWifiManager.removeAppState(myUid(), mContext.getPackageName()));
+                    () -> sWifiManager.removeAppState(myUid(), sContext.getPackageName()));
         }
-        mTestHelper.turnScreenOff();
     }
 
     private void testSuccessfulConnectionWithSpecifier(WifiNetworkSpecifier specifier)
             throws Exception {
-        mNrNetworkCallback = mTestHelper.testConnectionFlowWithSpecifier(
+        mNrNetworkCallback = sTestHelper.testConnectionFlowWithSpecifier(
                 sTestNetwork, specifier, false);
     }
 
     private void testUserRejectionWithSpecifier(WifiNetworkSpecifier specifier)
             throws Exception {
-        mNrNetworkCallback = mTestHelper.testConnectionFlowWithSpecifier(
+        mNrNetworkCallback = sTestHelper.testConnectionFlowWithSpecifier(
                 sTestNetwork, specifier, true);
     }
 
@@ -341,8 +335,11 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     public void testConnectionWithSpecificSsid() throws Exception {
         WifiNetworkSpecifier specifier =
                 TestHelper.createSpecifierBuilderWithCredentialFromSavedNetwork(
-                        sTestNetwork)
+                        sTestNetwork, true)
                 .build();
+        assertThat(specifier.getPreferredChannelFrequenciesMhz().length != 0).isTrue();
+        assertThat(ScanResult.convertFrequencyMhzToChannelIfSupported(specifier
+                .getPreferredChannelFrequenciesMhz()[0]) != ScanResult.UNSPECIFIED).isTrue();
         testSuccessfulConnectionWithSpecifier(specifier);
     }
 
@@ -360,9 +357,12 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
         // But, we will still ensure that the UI interactions in the test still selects the
         // saved network for connection.
         WifiNetworkSpecifier specifier =
-                TestHelper.createSpecifierBuilderWithCredentialFromSavedNetwork(sTestNetwork)
+                TestHelper.createSpecifierBuilderWithCredentialFromSavedNetwork(sTestNetwork, true)
                 .setSsidPattern(new PatternMatcher(ssidPrefix, PatternMatcher.PATTERN_PREFIX))
                 .build();
+        assertThat(specifier.getPreferredChannelFrequenciesMhz().length != 0).isTrue();
+        assertThat(ScanResult.convertFrequencyMhzToChannelIfSupported(specifier
+                .getPreferredChannelFrequenciesMhz()[0]) != ScanResult.UNSPECIFIED).isTrue();
         testSuccessfulConnectionWithSpecifier(specifier);
     }
 
@@ -402,8 +402,11 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     public void testUserRejectionWithSpecificSsid() throws Exception {
         WifiNetworkSpecifier specifier =
                 TestHelper.createSpecifierBuilderWithCredentialFromSavedNetwork(
-                        sTestNetwork)
+                        sTestNetwork, true)
                         .build();
+        assertThat(specifier.getPreferredChannelFrequenciesMhz().length != 0).isTrue();
+        assertThat(ScanResult.convertFrequencyMhzToChannelIfSupported(specifier
+                .getPreferredChannelFrequenciesMhz()[0]) != ScanResult.UNSPECIFIED).isTrue();
         testUserRejectionWithSpecifier(specifier);
     }
 
@@ -415,8 +418,8 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     public void testWifiBandInNetworkCallback() throws Exception {
         // Enable all networks and wait for Internet connectivity to be restored.
         // The callbacks in this test will match the existing network as soon as they are filed.
-        enableAllSavedNetworks(mWifiManager);
-        mTestHelper.assertWifiInternetConnectionAvailable();
+        enableAllSavedNetworks(sWifiManager);
+        sTestHelper.assertWifiInternetConnectionAvailable();
 
         final LinkedBlockingQueue<Pair<Integer, Integer>> results = new LinkedBlockingQueue<>();
         final int[] bands = { ScanResult.WIFI_BAND_24_GHZ, ScanResult.WIFI_BAND_5_GHZ,
@@ -440,7 +443,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
                 .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
                 .setNetworkSpecifier(specifier)
                 .build();
-            mConnectivityManager.registerNetworkCallback(request, callback);
+            sConnectivityManager.registerNetworkCallback(request, callback);
             registeredCallbacks.add(callback);
         }
 
@@ -457,7 +460,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
             }
         } finally {
             for (final NetworkCallback cb : registeredCallbacks) {
-                mConnectivityManager.unregisterNetworkCallback(cb);
+                sConnectivityManager.unregisterNetworkCallback(cb);
             }
         }
     }
@@ -471,26 +474,29 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
     public void testEnsureAutoConnectToInternetConnectionOnRelease() throws Exception {
         WifiNetworkSpecifier specifier =
                 TestHelper.createSpecifierBuilderWithCredentialFromSavedNetwork(
-                        sTestNetwork)
+                        sTestNetwork, true)
                         .build();
+        assertThat(specifier.getPreferredChannelFrequenciesMhz().length != 0).isTrue();
+        assertThat(ScanResult.convertFrequencyMhzToChannelIfSupported(specifier
+                .getPreferredChannelFrequenciesMhz()[0]) != ScanResult.UNSPECIFIED).isTrue();
         testSuccessfulConnectionWithSpecifier(specifier);
 
         // Now release the network request.
-        mConnectivityManager.unregisterNetworkCallback(mNrNetworkCallback);
+        sConnectivityManager.unregisterNetworkCallback(mNrNetworkCallback);
         mNrNetworkCallback = null;
 
         // Enable all saved networks on the device
-        enableAllSavedNetworks(mWifiManager);
+        enableAllSavedNetworks(sWifiManager);
         try {
             // Wait for the device to auto-connect back to some saved or suggested network (which
             // can provide internet connectivity.
             // Note: On devices with concurrency support, this may return true immediately (since
             // the internet connection may be present concurrently).
-            mTestHelper.assertWifiInternetConnectionAvailable();
+            sTestHelper.assertWifiInternetConnectionAvailable();
         } finally {
             // need to always disable saved networks again since the other tests in this class
             // assume it
-            disableAllSavedNetworks(mWifiManager);
+            disableAllSavedNetworks(sWifiManager);
         }
     }
 
@@ -534,7 +540,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
      */
     @Test
     public void testBuilderForWpa3EnterpriseWithStandardApi() {
-        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(sContext)) {
             // Skip the test if wifi module version is older than S.
             return;
         }
@@ -555,7 +561,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
      */
     @Test
     public void testBuilderForWpa3Enterprise192bit() {
-        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(sContext)) {
             // Skip the test if wifi module version is older than S.
             return;
         }
@@ -582,7 +588,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
      */
     @Test
     public void testRedact() {
-        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(mContext)) {
+        if (!WifiBuildCompat.isPlatformOrWifiModuleAtLeastS(sContext)) {
             // Skip the test if wifi module version is older than S.
             return;
         }
@@ -592,6 +598,7 @@ public class WifiNetworkSpecifierTest extends WifiJUnit4TestBase {
                         MacAddress.fromString("ff:ff:ff:00:00:00"))
                 .setBand(ScanResult.WIFI_BAND_5_GHZ)
                 .build();
+        assertThat(specifier.getPreferredChannelFrequenciesMhz().length == 0).isTrue();
 
         final NetworkSpecifier redacted = specifier.redact();
         if (ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S)) {

@@ -17,61 +17,74 @@
 package android.platform.helpers;
 
 import android.app.Instrumentation;
-import android.app.UiModeManager;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Context;
 import android.net.wifi.WifiManager;
-import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
+import android.platform.helpers.exceptions.UnknownUiException;
+import android.util.Log;
+
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 
-public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements IAutoSettingHelper {
-
+/** Setting Helper class for Android Auto platform functional tests */
+public class SettingHelperImpl extends AbstractStandardAppHelper implements IAutoSettingHelper {
     private static final String LOG_TAG = SettingHelperImpl.class.getSimpleName();
 
-    // Wait Time
-    private static final int UI_RESPONSE_WAIT_MS = 5000;
+    private static final String SCREEN_BRIGHTNESS = "screen_brightness";
 
-    private UiModeManager mUiModeManager;
+    private final ScrollUtility mScrollUtility;
+    private final SeekUtility mSeekUtility;
     private Context mContext;
+    private boolean mUseCommandToOpenSettings = true;
 
     public SettingHelperImpl(Instrumentation instr) {
         super(instr);
-        mUiModeManager =
-                InstrumentationRegistry.getInstrumentation()
-                        .getContext()
-                        .getSystemService(UiModeManager.class);
         mContext = InstrumentationRegistry.getContext();
+        mUseCommandToOpenSettings =
+                Boolean.parseBoolean(
+                        InstrumentationRegistry.getArguments()
+                                .getString("use_command_to_open_settings", "true"));
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mSeekUtility = SeekUtility.getInstance(getSpectatioUiUtil());
     }
 
     /** {@inheritDoc} */
     @Override
     public void open() {
-        openFullSettings();
+        if (mUseCommandToOpenSettings) {
+            Log.i(LOG_TAG, "Using Command to open Settings.");
+            openFullSettings();
+        } else {
+            Log.i(LOG_TAG, "Using Intent to open Settings.");
+            super.open();
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.SETTINGS_PACKAGE);
+    }
+
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
     }
 
     /** {@inheritDoc} */
     @Override
     public void stopSettingsApplication() {
-        String cmd =
-                String.format(
-                        "am force-stop %s",
-                        getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE));
-        executeShellCommand(cmd);
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(AutomotiveConfigConstants.STOP_SETTING_APP_COMMAND));
     }
 
     /** {@inheritDoc} */
@@ -82,43 +95,15 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
 
     /** {@inheritDoc} */
     @Override
-    public void openSetting(String setting) {
-        openFullSettings();
-        findSettingMenuAndClick(setting);
-        verifyAvailableOptions(setting);
+    public void exit() {
+        getSpectatioUiUtil().pressHome();
+        getSpectatioUiUtil().wait1Second();
     }
 
     /** {@inheritDoc} */
     @Override
-    public UiObject2 findSettingMenu(String setting) {
-        UiObject2 menuObject = null;
-        String[] menuOptions = getSettingPath(setting);
-        int currentIndex = 0;
-        int lastIndex = menuOptions.length - 1;
-        for (String menu : menuOptions) {
-            int scrollableScreenIndex = 0;
-            if (hasSplitScreenSettingsUI() && currentIndex > 0) {
-                scrollableScreenIndex = 1;
-            }
-            menuObject = getMenu(menu, scrollableScreenIndex);
-            if (currentIndex == lastIndex) {
-                return menuObject;
-            }
-            clickAndWaitForIdleScreen(menuObject);
-            waitForIdle();
-            currentIndex++;
-        }
-        return menuObject;
-    }
-
-    @Override
-    public void findSettingMenuAndClick(String setting) {
-        UiObject2 settingMenu = findSettingMenu(setting);
-        if (settingMenu != null) {
-            clickAndWaitForIdleScreen(settingMenu);
-        } else {
-            throw new RuntimeException("Unable to find setting menu: " + setting);
-        }
+    public void openSetting(String setting) {
+        executeWorkflow(setting);
     }
 
     @Override
@@ -130,59 +115,23 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
     /** {@inheritDoc} */
     @Override
     public void openFullSettings() {
-        executeShellCommand(getApplicationConfig(AutoConfigConstants.OPEN_SETTINGS_COMMAND));
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(AutomotiveConfigConstants.OPEN_SETTINGS_COMMAND));
     }
 
     /** {@inheritDoc} */
-    @Override
-    public void openQuickSettings() {
-        pressHome();
-        executeShellCommand(getApplicationConfig(AutoConfigConstants.OPEN_QUICK_SETTINGS_COMMAND));
-        UiObject2 settingObject =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.QUICK_SETTINGS,
-                                AutoConfigConstants.OPEN_MORE_SETTINGS));
-        if (settingObject == null) {
-            throw new RuntimeException("Failed to open quick settings.");
-        }
-    }
-
-    private void verifyAvailableOptions(String setting) {
-        String[] expectedOptions = getSettingOptions(setting);
-        if (expectedOptions == null) {
-            return;
-        }
-        for (String option : expectedOptions) {
-            if (mDevice.hasObject(By.clickable(false).textContains(option))) {
-                continue;
-            }
-            Pattern menuPattern = Pattern.compile(option, Pattern.CASE_INSENSITIVE);
-            BySelector selector = By.text(menuPattern);
-            int scrollScreenIndex = 0;
-            if (hasSplitScreenSettingsUI()) {
-                scrollScreenIndex = 1;
-            }
-            if (scrollAndFindUiObject(selector, scrollScreenIndex) == null) {
-                throw new RuntimeException("Cannot find settings option: " + option);
-            }
-        }
-    }
 
     /** {@inheritDoc} */
     @Override
     public void turnOnOffWifi(boolean onOff) {
         boolean isOn = isWifiOn();
         if (isOn != onOff) {
-            UiObject2 enableOption =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.NETWORK_AND_INTERNET_SETTINGS,
-                                    AutoConfigConstants.TOGGLE_WIFI));
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), enableOption);
+            BySelector enableOptionSelector =
+                    getUiElementFromConfig(AutomotiveConfigConstants.TOGGLE_WIFI);
+            UiObject2 enableOption = getSpectatioUiUtil().findUiObject(enableOptionSelector);
+            validateUiObject(enableOption, AutomotiveConfigConstants.TOGGLE_WIFI);
+            getSpectatioUiUtil().clickAndWait(enableOption);
         } else {
             throw new RuntimeException("Wi-Fi enabled state is already " + (onOff ? "on" : "off"));
         }
@@ -200,14 +149,11 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
     public void turnOnOffHotspot(boolean onOff) {
         boolean isOn = isHotspotOn();
         if (isOn != onOff) {
-            UiObject2 enableOption =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.NETWORK_AND_INTERNET_SETTINGS,
-                                    AutoConfigConstants.TOGGLE_HOTSPOT));
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), enableOption);
+            BySelector enableOptionSelector =
+                    getUiElementFromConfig(AutomotiveConfigConstants.TOGGLE_HOTSPOT);
+            UiObject2 enableOption = getSpectatioUiUtil().findUiObject(enableOptionSelector);
+            validateUiObject(enableOption, AutomotiveConfigConstants.TOGGLE_HOTSPOT);
+            getSpectatioUiUtil().clickAndWait(enableOption);
         } else {
             throw new RuntimeException(
                     "Hotspot enabled state is already " + (onOff ? "on" : "off"));
@@ -216,13 +162,21 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
 
     /** {@inheritDoc} */
     @Override
+    public void toggleHotspot() {
+        BySelector enableOptionSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.TOGGLE_HOTSPOT);
+        UiObject2 enableOption = getSpectatioUiUtil().findUiObject(enableOptionSelector);
+        validateUiObject(enableOption, AutomotiveConfigConstants.TOGGLE_HOTSPOT);
+        getSpectatioUiUtil().clickAndWait(enableOption);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public boolean isHotspotOn() {
-        UiObject2 enableOption =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.NETWORK_AND_INTERNET_SETTINGS,
-                                AutoConfigConstants.TOGGLE_HOTSPOT));
+        BySelector enableOptionSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.TOGGLE_HOTSPOT);
+        UiObject2 enableOption = getSpectatioUiUtil().findUiObject(enableOptionSelector);
+        validateUiObject(enableOption, AutomotiveConfigConstants.TOGGLE_HOTSPOT);
         return enableOption.isChecked();
     }
 
@@ -231,14 +185,11 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
     public void turnOnOffBluetooth(boolean onOff) {
         boolean isOn = isBluetoothOn();
         if (isOn != onOff) {
-            UiObject2 enableOption =
-                    findUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.BLUETOOTH_SETTINGS,
-                                    AutoConfigConstants.TOGGLE_BLUETOOTH));
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), enableOption);
+            BySelector enableOptionSelector =
+                    getUiElementFromConfig(AutomotiveConfigConstants.TOGGLE_BLUETOOTH);
+            UiObject2 enableOption = getSpectatioUiUtil().findUiObject(enableOptionSelector);
+            validateUiObject(enableOption, AutomotiveConfigConstants.TOGGLE_BLUETOOTH);
+            getSpectatioUiUtil().clickAndWait(enableOption);
         } else {
             throw new RuntimeException(
                     "Bluetooth enabled state is already " + (onOff ? "on" : "off"));
@@ -261,42 +212,40 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
     /** {@inheritDoc} */
     @Override
     public void searchAndSelect(String item, int selectedIndex) {
-        UiObject2 search_button =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.FULL_SETTINGS,
-                                AutoConfigConstants.SEARCH));
-        clickAndWaitForIdleScreen(search_button);
-        UiObject2 search_box =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.FULL_SETTINGS,
-                                AutoConfigConstants.SEARCH_BOX));
-        search_box.setText(item);
-        SystemClock.sleep(UI_RESPONSE_WAIT_MS);
-        // close the keyboard to reveal all search results.
-        mDevice.pressBack();
+        BySelector searchButtonSelector = getUiElementFromConfig(AutomotiveConfigConstants.SEARCH);
+        UiObject2 searchButton = getSpectatioUiUtil().findUiObject(searchButtonSelector);
+        validateUiObject(searchButton, AutomotiveConfigConstants.SEARCH);
+        getSpectatioUiUtil().clickAndWait(searchButton);
+        getSpectatioUiUtil().waitForIdle();
 
-        UiObject2 searchResults =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.FULL_SETTINGS,
-                                AutoConfigConstants.SEARCH_RESULTS));
+        BySelector searchBoxSelector = getUiElementFromConfig(AutomotiveConfigConstants.SEARCH_BOX);
+        UiObject2 searchBox = getSpectatioUiUtil().findUiObject(searchBoxSelector);
+        validateUiObject(searchBox, AutomotiveConfigConstants.SEARCH_BOX);
+        searchBox.setText(item);
+        getSpectatioUiUtil().wait5Seconds();
+
+        // close the keyboard to reveal all search results.
+        getSpectatioUiUtil().pressBack();
+
+        BySelector searchResultsSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.SEARCH_RESULTS);
+        UiObject2 searchResults = getSpectatioUiUtil().findUiObject(searchResultsSelector);
+
+
+        validateUiObject(searchResults, AutomotiveConfigConstants.SEARCH_RESULTS);
         int numberOfResults = searchResults.getChildren().get(0).getChildren().size();
         if (numberOfResults == 0) {
             throw new RuntimeException("No results found");
         }
-        clickAndWaitForIdleScreen(
-                searchResults.getChildren().get(0).getChildren().get(selectedIndex));
-        SystemClock.sleep(UI_RESPONSE_WAIT_MS);
+        getSpectatioUiUtil()
+                .clickAndWait(searchResults.getChildren().get(0).getChildren().get(selectedIndex));
+        getSpectatioUiUtil().waitForIdle();
+        getSpectatioUiUtil().wait5Seconds();
 
-        UiObject2 object = findUiObject(By.textContains(item));
-        if (object == null) {
-            throw new RuntimeException("Opened page does not contain searched item");
-        }
+        BySelector objectSelector = By.textContains(item);
+        UiObject2 object = getSpectatioUiUtil().findUiObject(objectSelector);
+        validateUiObject(object, AutomotiveConfigConstants.SEARCH_RESULTS);
+        validateUiObject(object, String.format("Opened page does not contain searched item"));
     }
 
     /** {@inheritDoc} */
@@ -307,19 +256,16 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
     }
 
     private UiObject2 getPageTitle() {
+        getSpectatioUiUtil().wait5Seconds();
         BySelector[] selectors =
                 new BySelector[] {
-                    getResourceFromConfig(
-                            AutoConfigConstants.SETTINGS,
-                            AutoConfigConstants.FULL_SETTINGS,
-                            AutoConfigConstants.PAGE_TITLE),
-                    getResourceFromConfig(
-                            AutoConfigConstants.SETTINGS,
-                            AutoConfigConstants.APPS_SETTINGS,
-                            AutoConfigConstants.PERMISSIONS_PAGE_TITLE)
+                    getUiElementFromConfig(AutomotiveConfigConstants.PAGE_TITLE),
+                    getUiElementFromConfig(AutomotiveConfigConstants.PERMISSIONS_PAGE_TITLE)
                 };
+
         for (BySelector selector : selectors) {
-            List<UiObject2> pageTitles = findUiObjects(selector);
+            List<UiObject2> pageTitles = getSpectatioUiUtil().findUiObjects(selector);
+            validateUiObject(pageTitles, String.format("Page title"));
             if (pageTitles != null && pageTitles.size() > 0) {
                 return pageTitles.get(pageTitles.size() - 1);
             }
@@ -333,15 +279,13 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
         // count is used to avoid infinite loop in case someone invokes
         // after exiting settings application
         int count = 5;
+        BySelector titleText =
+                getUiElementFromConfig(AutomotiveConfigConstants.SETTINGS_TITLE_TEXT);
         while (count > 0
                 && isAppInForeground()
-                && findUiObject(
-                                By.text(
-                                        getApplicationConfig(
-                                                AutoConfigConstants.SETTINGS_TITLE_TEXT)))
-                        == null) {
-            pressBack();
-            SystemClock.sleep(UI_RESPONSE_WAIT_MS); // to avoid stale object error
+                && getSpectatioUiUtil().findUiObjects(titleText) == null) {
+            getSpectatioUiUtil().pressBack();
+            getSpectatioUiUtil().wait5Seconds(); // to avoid stale object error
             count--;
         }
     }
@@ -352,14 +296,104 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
         // Scroll and Find Subsettings
         for (String menu : menuOptions) {
             Pattern menuPattern = Pattern.compile(menu, Pattern.CASE_INSENSITIVE);
-            UiObject2 menuButton =
-                    scrollAndFindUiObject(By.text(menuPattern), getScrollScreenIndex());
-            if (menuButton == null) {
-                throw new RuntimeException("Unable to find menu item: " + menu);
-            }
-            clickAndWaitForIdleScreen(menuButton);
-            waitForIdle();
+            BySelector selector = By.text(menuPattern);
+
+            ScrollActions scrollAction =
+                    ScrollActions.valueOf(
+                            getActionFromConfig(
+                                    AutomotiveConfigConstants.SETTINGS_SUB_SETTING_SCROLL_ACTION));
+
+            BySelector forwardButtonSelector =
+                    getUiElementFromConfig(
+                            AutomotiveConfigConstants.SETTINGS_SUB_SETTING_SCROLL_FORWARD_BUTTON);
+            BySelector backwardButtonSelector =
+                    getUiElementFromConfig(
+                            AutomotiveConfigConstants.SETTINGS_SUB_SETTING_SCROLL_BACKWARD_BUTTON);
+
+            BySelector scrollableElementSelector =
+                    getUiElementFromConfig(
+                            AutomotiveConfigConstants.SETTINGS_SUB_SETTING_SCROLL_ELEMENT);
+            ScrollDirection scrollDirection =
+                    ScrollDirection.valueOf(
+                            getActionFromConfig(
+                                    AutomotiveConfigConstants
+                                            .SETTINGS_SUB_SETTING_SCROLL_DIRECTION));
+
+            UiObject2 object =
+                    mScrollUtility.scrollAndFindUiObject(
+                            scrollAction,
+                            scrollDirection,
+                            forwardButtonSelector,
+                            backwardButtonSelector,
+                            scrollableElementSelector,
+                            selector,
+                            String.format("Scroll on setting to find subssetting %s", selector));
+
+            validateUiObject(
+                    object, String.format("Unable to find UI Element %s.", selector.toString()));
+            getSpectatioUiUtil().clickAndWait(object);
+            getSpectatioUiUtil().waitForIdle();
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int getValue(String setting) {
+        String cmd = String.format("settings get system %s", setting);
+        String value = getSpectatioUiUtil().executeShellCommand(cmd);
+        return Integer.parseInt(value.replaceAll("\\s", ""));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void setValue(String setting, int value) {
+        String cmd = String.format(Locale.US, "settings put system %s %d", setting, value);
+        getSpectatioUiUtil().executeShellCommand(cmd);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean checkMenuExists(String setting) {
+        return getSpectatioUiUtil().hasUiElement(setting);
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
+    }
+
+    private void validateUiObject(List<UiObject2> uiObjects, String action) {
+        if (uiObjects == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
+    }
+
+    /**
+     * TODO - Keeping the below empty functions for now, to avoid the compilation error in Vendor it
+     * will be removed after vendor clean up (b/266450258)
+     */
+
+    /** {@inheritDoc} */
+    @Override
+    public UiObject2 findSettingMenu(String setting) {
+        UiObject2 menuObject = null;
+        return menuObject;
+    }
+
+    @Override
+    public void findSettingMenuAndClick(String setting) {}
+
+    @Override
+    public int setBrightness(float targetPercentage) {
+        mSeekUtility.registerSeekBar(
+                SCREEN_BRIGHTNESS,
+                AutomotiveConfigConstants.BRIGHTNESS_SEEKBAR,
+                SeekUtility.SeekLayout.HORIZONTAL,
+                () -> getValue(SCREEN_BRIGHTNESS));
+        return mSeekUtility.seek(SCREEN_BRIGHTNESS, targetPercentage);
     }
 
     /**
@@ -369,119 +403,13 @@ public class SettingHelperImpl extends AbstractAutoStandardAppHelper implements 
     @Override
     public boolean isSettingMenuEnabled(String menu) {
         boolean isSettingMenuEnabled = false;
-        String[] menuOptions = getSettingPath(menu);
-        int currentIndex = 0;
-        int lastIndex = menuOptions.length - 1;
-        for (String menuOption : menuOptions) {
-            int scrollableScreenIndex = 0;
-            if (hasSplitScreenSettingsUI() && currentIndex > 0) {
-                scrollableScreenIndex = 1;
-            }
-            UiObject2 menuObject = getMenu(menuOption, scrollableScreenIndex);
-            if (currentIndex == lastIndex) {
-                return menuObject.isEnabled();
-            }
-            if (!menuObject.isEnabled()) {
-                return isSettingMenuEnabled;
-            }
-            clickAndWaitForIdleScreen(menuObject);
-            waitForIdle();
-            currentIndex++;
-        }
         return isSettingMenuEnabled;
     }
 
     private UiObject2 getMenu(String menu, int index) {
-        Pattern menuPattern = Pattern.compile(menu, Pattern.CASE_INSENSITIVE);
-        UiObject2 menuButton = scrollAndFindUiObject(By.text(menuPattern), index);
-        if (menuButton == null) {
-            throw new RuntimeException("Unable to find menu item: " + menu);
-        }
+        UiObject2 menuButton = null;
         return menuButton;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public int getValue(String setting) {
-        String cmd = String.format("settings get system %s", setting);
-        String value = executeShellCommand(cmd);
-        return Integer.parseInt(value.replaceAll("\\s", ""));
-    }
 
-    /** {@inheritDoc} */
-    @Override
-    public void setValue(String setting, int value) {
-        String cmd = String.format("settings put system %s %d", setting, value);
-        executeShellCommand(cmd);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void changeSeekbarLevel(int index, ChangeType changeType) {
-        try {
-            String seekBar =
-                    String.format(
-                            "%s:id/%s",
-                            getResourcePackage(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.DISPLAY_SETTINGS,
-                                    AutoConfigConstants.BRIGHTNESS_LEVEL),
-                            getResourceValue(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.DISPLAY_SETTINGS,
-                                    AutoConfigConstants.BRIGHTNESS_LEVEL));
-            UiScrollable seekbar =
-                    new UiScrollable(new UiSelector().resourceId(seekBar).instance(index));
-            if (changeType == ChangeType.INCREASE) {
-                seekbar.scrollForward(1);
-            } else {
-                seekbar.scrollBackward(1);
-            }
-            waitForWindowUpdate(getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE));
-        } catch (UiObjectNotFoundException exception) {
-            throw new RuntimeException("Unable to find seekbar");
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void setDayNightMode(DayNightMode mode) {
-        if (mode == DayNightMode.DAY_MODE
-                        && getDayNightModeStatus().getValue() == mUiModeManager.MODE_NIGHT_YES
-                || mode == DayNightMode.NIGHT_MODE
-                        && getDayNightModeStatus().getValue() != mUiModeManager.MODE_NIGHT_YES) {
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE),
-                    getNightModeButton());
-        }
-    }
-
-    private UiObject2 getNightModeButton() {
-        UiObject2 nightModeButton =
-                scrollAndFindUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.SETTINGS,
-                                AutoConfigConstants.QUICK_SETTINGS,
-                                AutoConfigConstants.NIGHT_MODE));
-        if (nightModeButton == null) {
-            throw new RuntimeException("Unable to find night mode button");
-        }
-        return nightModeButton.getParent();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public DayNightMode getDayNightModeStatus() {
-        return mUiModeManager.getNightMode() == mUiModeManager.MODE_NIGHT_YES
-                ? DayNightMode.NIGHT_MODE
-                : DayNightMode.DAY_MODE;
-    }
-
-    private int getScrollScreenIndex() {
-        int scrollScreenIndex = 0;
-        if (hasSplitScreenSettingsUI()) {
-            scrollScreenIndex = 1;
-        }
-        return scrollScreenIndex;
-    }
 }

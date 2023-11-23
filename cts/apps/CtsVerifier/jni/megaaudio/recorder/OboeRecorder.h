@@ -29,19 +29,22 @@ public:
     virtual ~OboeRecorder() {}
 
     // Inherited from oboe::AudioStreamCallback
-    virtual oboe::DataCallbackResult onAudioReady(oboe::AudioStream *audioStream, void *audioData, int numFrames) override;
+    virtual oboe::DataCallbackResult
+        onAudioReady(oboe::AudioStream *audioStream,void *audioData, int numFrames) override;
 //    virtual void onErrorAfterClose(oboe::AudioStream *oboeStream, oboe::Result error) override {}
 //    virtual void onErrorBeforeClose(oboe::AudioStream * oboeStream, oboe::Result error) override {}
 
-    // Inherited from Recorder
     //
     // State
     //
     virtual bool isRecording() override { return mStreamStarted; }
 
-    virtual Result setupStream(int32_t channelCount, int32_t sampleRate, int32_t routeDeviceId) override;
+    Result setupStream(int32_t channelCount, int32_t sampleRate, int32_t performanceMode,
+                        int32_t sharingMode, int32_t routeDeviceId, int32_t inputPreset);
 
     virtual Result startStream() override;
+
+    int getStreamState();
 
     static const int DEFAULT_INPUT_NONE = -1;  // from Recorder.java
     void setInputPreset(int inputPreset) { mInputPreset = inputPreset; }

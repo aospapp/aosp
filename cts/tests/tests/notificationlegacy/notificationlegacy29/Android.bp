@@ -26,6 +26,7 @@ android_test {
         "junit",
         "permission-test-util-lib",
         "compatibility-device-util-axt",
+        "CtsAppTestStubsShared",
     ],
     libs: [
         "android.test.runner",

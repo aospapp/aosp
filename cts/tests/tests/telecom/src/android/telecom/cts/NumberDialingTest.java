@@ -35,7 +35,7 @@ public class NumberDialingTest extends BaseTelecomTestWithMockServices {
     private static final int CS_WAIT_MILLIS = 2000;
 
     public void testEndInPound() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 

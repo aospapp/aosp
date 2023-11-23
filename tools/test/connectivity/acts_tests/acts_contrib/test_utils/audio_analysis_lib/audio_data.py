@@ -15,11 +15,7 @@
 #   limitations under the License.
 """This module provides abstraction of audio data."""
 
-import contextlib
-import copy
 import numpy
-import struct
-from io import StringIO
 """The dict containing information on how to parse sample from raw data.
 
 Keys: The sample format as in aplay command.
@@ -31,14 +27,12 @@ Values: A dict containing:
     size_bytes: Number of bytes for one sample.
 """
 SAMPLE_FORMATS = dict(
-    S32_LE=dict(
-        message='Signed 32-bit integer, little-endian',
-        dtype_str='<i',
-        size_bytes=4),
-    S16_LE=dict(
-        message='Signed 16-bit integer, little-endian',
-        dtype_str='<i',
-        size_bytes=2))
+    S32_LE=dict(message='Signed 32-bit integer, little-endian',
+                dtype_str='<i',
+                size_bytes=4),
+    S16_LE=dict(message='Signed 16-bit integer, little-endian',
+                dtype_str='<i',
+                size_bytes=2))
 
 
 def get_maximum_value_from_sample_format(sample_format):
@@ -56,7 +50,6 @@ def get_maximum_value_from_sample_format(sample_format):
 
 class AudioRawDataError(Exception):
     """Error in AudioRawData."""
-    pass
 
 
 class AudioRawData(object):

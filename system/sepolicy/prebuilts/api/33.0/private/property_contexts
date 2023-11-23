@@ -218,6 +218,9 @@ ro.lowpan.              u:object_r:lowpan_prop:s0
 # heapprofd properties
 heapprofd.              u:object_r:heapprofd_prop:s0
 
+# traced properties
+traced.oome_heap_session.count u:object_r:traced_oome_heap_session_count_prop:s0 exact uint
+
 # hwservicemanager properties
 hwservicemanager.       u:object_r:hwservicemanager_prop:s0
 
@@ -257,6 +260,7 @@ persist.device_config.storage_native_boot.          u:object_r:device_config_sto
 persist.device_config.surface_flinger_native_boot.  u:object_r:device_config_surface_flinger_native_boot_prop:s0
 persist.device_config.swcodec_native.               u:object_r:device_config_swcodec_native_prop:s0
 persist.device_config.vendor_system_native.         u:object_r:device_config_vendor_system_native_prop:s0
+persist.device_config.vendor_system_native_boot.    u:object_r:device_config_vendor_system_native_boot_prop:s0
 persist.device_config.virtualization_framework_native. u:object_r:device_config_virtualization_framework_native_prop:s0
 persist.device_config.window_manager_native_boot.   u:object_r:device_config_window_manager_native_boot_prop:s0
 
@@ -346,9 +350,20 @@ audio.deep_buffer.media         u:object_r:audio_config_prop:s0 exact bool
 audio.offload.video             u:object_r:audio_config_prop:s0 exact bool
 audio.offload.min.duration.secs u:object_r:audio_config_prop:s0 exact int
 
+# spatializer tuning
+audio.spatializer.priority               u:object_r:audio_config_prop:s0 exact int
+audio.spatializer.effect.affinity        u:object_r:audio_config_prop:s0 exact int
+audio.spatializer.effect.util_clamp_min  u:object_r:audio_config_prop:s0 exact int
+audio.spatializer.pose_predictor_type    u:object_r:audio_config_prop:s0 exact enum 0 1 2 3
+audio.spatializer.prediction_duration_ms u:object_r:audio_config_prop:s0 exact int
+
 ro.audio.ignore_effects   u:object_r:audio_config_prop:s0 exact bool
 ro.audio.monitorRotation  u:object_r:audio_config_prop:s0 exact bool
 ro.audio.offload_wakelock u:object_r:audio_config_prop:s0 exact bool
+
+# Configure whether new device has spatialization default enabled.
+ro.audio.spatializer_binaural_enabled_default u:object_r:audio_config_prop:s0 exact bool
+ro.audio.spatializer_transaural_enabled_default u:object_r:audio_config_prop:s0 exact bool
 # Boolean property used in AudioService to configure whether
 # spatializer functionality should be initialized
 ro.audio.spatializer_enabled u:object_r:audio_config_prop:s0 exact bool
@@ -360,6 +375,7 @@ config.disable_cameraservice u:object_r:camera_config_prop:s0 exact bool
 camera.disable_preview_scheduler u:object_r:camera_config_prop:s0 exact bool
 camera.disable_zsl_mode       u:object_r:camera_config_prop:s0 exact bool
 camera.fifo.disable           u:object_r:camera_config_prop:s0 exact bool
+camera.enable_landscape_to_portrait u:object_r:camera_config_prop:s0 exact bool
 ro.camera.notify_nfc          u:object_r:camera_config_prop:s0 exact bool
 ro.camera.enableLazyHal       u:object_r:camera_config_prop:s0 exact bool
 ro.camera.enableCamera1MaxZsl u:object_r:camera_config_prop:s0 exact bool
@@ -728,7 +744,8 @@ libc.debug.hooks.enable   u:object_r:libc_debug_prop:s0 exact string
 
 # GWP-ASan props. Separate from other libc.debug.* props, because we want users
 # to be able to set them from `adb shell` even on release devices.
-libc.debug.gwp_asan.  u:object_r:gwp_asan_prop:s0 prefix string
+libc.debug.gwp_asan.          u:object_r:gwp_asan_prop:s0 prefix string
+persist.libc.debug.gwp_asan.  u:object_r:gwp_asan_prop:s0 prefix string
 
 # shell-only props for ARM memory tagging (MTE).
 arm64.memtag. u:object_r:arm64_memtag_prop:s0 prefix string
@@ -1339,3 +1356,6 @@ ro.gms.dck.eligible_wcc u:object_r:dck_prop:s0 exact int
 
 # virtualization service properties
 virtualizationservice.state.last_cid u:object_r:virtualizationservice_prop:s0 exact uint
+
+# Adaptive haptics settings property
+vibrator.adaptive_haptics.enabled u:object_r:adaptive_haptics_prop:s0 exact string

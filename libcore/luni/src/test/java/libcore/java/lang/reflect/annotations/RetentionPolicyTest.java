@@ -15,15 +15,15 @@
  */
 package libcore.java.lang.reflect.annotations;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
 import dalvik.system.PathClassLoader;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.annotation.Annotation;
+
 import libcore.io.Streams;
 import libcore.junit.util.SwitchTargetSdkVersionRule;
+
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.ClassRule;
@@ -34,8 +34,12 @@ import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.annotation.Annotation;
 
 /**
  * Runs tests against classes loaded from the annotations-test.jar.
@@ -70,6 +74,7 @@ public class RetentionPolicyTest {
              OutputStream out = new FileOutputStream(jarFile)) {
             Streams.copy(in, out);
         }
+        assertTrue(jarFile.setReadOnly());
 
         classLoader = new PathClassLoader(jarFile.getAbsolutePath(), myClassLoader);
     }

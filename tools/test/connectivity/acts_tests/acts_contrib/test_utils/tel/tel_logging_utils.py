@@ -31,18 +31,18 @@ from acts.utils import start_standing_subprocess
 
 _LS_MASK_NAME = "Lassen default + TCP"
 
-_LS_ENABLE_LOG_SHELL = f"""\
+_LS_ENABLE_LOG_SHELL = f'\
 am broadcast -n com.android.pixellogger/.receiver.AlwaysOnLoggingReceiver \
-    -a com.android.pixellogger.service.logging.LoggingService.ACTION_CONFIGURE_ALWAYS_ON_LOGGING \
-    -e intent_key_enable "true" -e intent_key_config "{_LS_MASK_NAME}" \
-    --ei intent_key_max_log_size_mb 100 --ei intent_key_max_number_of_files 100
-"""
-_LS_DISABLE_LOG_SHELL = """\
+-a com.android.pixellogger.service.logging.LoggingService.ACTION_CONFIGURE_ALWAYS_ON_LOGGING \
+-e intent_key_enable "true" -e intent_key_config "{_LS_MASK_NAME}" \
+--ei intent_key_max_log_size_mb 100 --ei intent_key_max_number_of_files 100'
+_LS_DISABLE_LOG_SHELL = '\
 am broadcast -n com.android.pixellogger/.receiver.AlwaysOnLoggingReceiver \
-    -a com.android.pixellogger.service.logging.LoggingService.ACTION_CONFIGURE_ALWAYS_ON_LOGGING \
-    -e intent_key_enable "false"
-"""
-
+-a com.android.pixellogger.service.logging.LoggingService.ACTION_CONFIGURE_ALWAYS_ON_LOGGING \
+-e intent_key_enable "false"'
+_LS_GET_LOG_STATUS_SHELL = 'getprop vendor.sys.modem.logging.status'
+_LS_START_LS_TIMEOUT_SECS = 30
+_LS_STOP_LS_TIMEOUT_SECS = 30
 
 def check_if_tensor_platform(ad):
     """Check if current platform belongs to the Tensor platform
@@ -86,30 +86,32 @@ def start_pixellogger_always_on_logging(ad):
         return True
 
 
-def start_dsp_logger_p21(ad, retry=3):
-    """Start DSP logging for P21 devices.
+def start_dsp_logger(ad, p21 = False, retry = 3):
+    """Start DSP logging for P21/P22 devices.
 
     Args:
         ad: Android object.
+        p21: True if p21 device, False otherwise.
         retry: times of retry to enable DSP logger.
 
     Returns:
         True if DSP logger is enabled correctly. Otherwise False.
     """
-    if not getattr(ad, "dsp_log_p21", False): return
+    registry_name = "!LTEL1.HAL.DSP\\ clkgating\\ Enb/Dis" if p21 else "NASU.LCPU.LOG.SWITCH"
+    nv_value = "00" if p21 else "02"
 
     def _is_dsp_enabled(ad):
-        return "00" in ad.adb.shell('am instrument -w -e request '
-            'at+googgetnv=\\"\\!LTEL1\\.HAL\\.DSP\\ clkgating\\ Enb\\/Dis\\" '
-            '-e response wait "com.google.mdstest/com.google.mdstest.'
-            'instrument.ModemATCommandInstrumentation"')
+        return nv_value in ad.adb.shell('am instrument -w -e request '
+            f'at+googgetnv=\\"{registry_name}\\" -e response wait '
+            'com.google.mdstest/com.google.mdstest.instrument.'
+            'ModemATCommandInstrumentation')
 
     for _ in range(retry):
         if not _is_dsp_enabled(ad):
             ad.adb.shell('am instrument -w -e request at+googsetnv=\\"'
-                '\\!LTEL1\\.HAL\\.DSP\\ clkgating\\ Enb\\/Dis\\"\\,0\\,\\"'
-                '00\\" -e response wait "com.google.mdstest/com.google.mdstest.'
-                'instrument.ModemATCommandInstrumentation"')
+                f'{registry_name}\\",0,\\"{nv_value}\\" -e response wait '
+                'com.google.mdstest/com.google.mdstest.instrument.'
+                'ModemATCommandInstrumentation')
             time.sleep(3)
         else:
             ad.log.info("DSP logger is enabled, reboot to start.")
@@ -117,6 +119,15 @@ def start_dsp_logger_p21(ad, retry=3):
             return True
     ad.log.warning("DSP logger enable failed")
     return False
+
+
+def is_sdm_logger_running(ad):
+    """Queries the status of SDM logger.
+
+    Returns:
+      True if the SDM logger is runninng.
+    """
+    return "true" in ad.adb.shell(_LS_GET_LOG_STATUS_SHELL, ignore_status=True)
 
 
 def start_sdm_logger(ad):
@@ -134,39 +145,36 @@ def start_sdm_logger(ad):
             f"find {ad.sdm_log_path} -type f -iname sbuff_[0-9]*.sdm* "
             f"-not -mtime -{seconds}s -delete")
 
-    # Disable modem logging already running
-    stop_sdm_logger(ad)
-
-    # start logging
-    ad.log.debug("start sdm logging")
-    while int(
-        ad.adb.shell(f"find {ad.sdm_log_path} -type f "
-                     "-iname sbuff_profile.sdm | wc -l") == 0 or
-        int(
-            ad.adb.shell(f"find {ad.sdm_log_path} -type f "
-                         "-iname sbuff_[0-9]*.sdm* | wc -l")) == 0):
+    if not is_sdm_logger_running(ad):
+        ad.log.debug("starting sdm logger...")
         ad.adb.shell(_LS_ENABLE_LOG_SHELL, ignore_status=True)
-        time.sleep(5)
+
+        timeout = time.monotonic() + _LS_START_LS_TIMEOUT_SECS
+        while time.monotonic() < timeout:
+            time.sleep(1)
+            if is_sdm_logger_running(ad):
+                ad.log.info('SDM logger has started')
+                break
+        else:
+            raise RuntimeError(
+                'Timed out while waiting for SDM logger to start.')
 
 
 def stop_sdm_logger(ad):
     """Stop SDM logger."""
-    ad.sdm_log_path = DEFAULT_SDM_LOG_PATH
-    cycle = 1
-
-    ad.log.debug("stop sdm logging")
-    while int(
-        ad.adb.shell(
-            f"find {ad.sdm_log_path} -type f -iname sbuff_profile.sdm -o "
-            "-iname sbuff_[0-9]*.sdm* | wc -l")) != 0:
-        if cycle == 1 and int(
-            ad.adb.shell(f"find {ad.sdm_log_path} -type f "
-                         "-iname sbuff_profile.sdm | wc -l")) == 0:
-            ad.adb.shell(_LS_ENABLE_LOG_SHELL, ignore_status=True)
-            time.sleep(5)
+    if is_sdm_logger_running(ad):
+        ad.log.info("Stopping SDM logger...")
         ad.adb.shell(_LS_DISABLE_LOG_SHELL, ignore_status=True)
-        cycle += 1
-        time.sleep(15)
+
+        timeout = time.monotonic() + _LS_STOP_LS_TIMEOUT_SECS
+        while time.monotonic() < timeout:
+            time.sleep(1)
+            if not is_sdm_logger_running(ad):
+                ad.log.info('SDM logger has stoped')
+                break
+        else:
+            raise RuntimeError(
+                'Timed out while waiting for SDM logger to stop.')
 
 
 def start_sdm_loggers(log, ads):
@@ -382,9 +390,7 @@ def start_nexuslogger(ad):
             ad.log.info("Kill %s" % qxdm_logger_apk)
             ad.force_stop_apk(qxdm_logger_apk)
             time.sleep(5)
-    for perm in ("READ",):
-        ad.adb.shell("pm grant %s android.permission.%s_EXTERNAL_STORAGE" %
-                     (qxdm_logger_apk, perm))
+    ad.adb.shell("pm grant %s android.permission.READ_EXTERNAL_STORAGE" % (qxdm_logger_apk))
     time.sleep(2)
     for i in range(3):
         ad.unlock_screen()

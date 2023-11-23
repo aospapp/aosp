@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <option name="hidden-api-checks" value="false" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -28,15 +29,18 @@
         <option name="test-file-name" value="ThirdPtyInCallServiceTestApp.apk" />
         <option name="test-file-name" value="Api29InCallServiceTestApp.apk" />
         <option name="test-file-name" value="CallScreeningServiceTestApp.apk" />
+        <option name="test-file-name" value="SelfManagedCSTestAppOne.apk" />
         <option name="test-file-name" value="CarModeTestApp.apk" />
         <option name="test-file-name" value="CarModeTestAppTwo.apk" />
         <option name="test-file-name" value="CarModeTestAppSelfManaged.apk" />
+        <option name="test-file-name" value="CallStreamingServiceTestApp.apk" />
         <option name="test-file-name" value="ThirdPtyDialerTestApp.apk" />
         <option name="test-file-name" value="ThirdPtyDialerTestAppTwo.apk" />
     </target_preparer>
 
     <!-- Enabling change id ALLOW_TEST_API_ACCESS allows that package to access @TestApi methods -->
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="rm -rf /data/system/dropbox/ecall*" />
         <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.telecom.cts" />
         <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.telecom.cts.api29incallservice" />
         <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.telecom.cts" />

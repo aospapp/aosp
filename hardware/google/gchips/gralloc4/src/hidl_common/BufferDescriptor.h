@@ -104,6 +104,7 @@ static uint64_t pop_descriptor_uint64(const hidl_vec<vecT> &vec, size_t *pos)
 	return val;
 }
 
+// There can only be one string at the end of the descriptor
 static void push_descriptor_string(hidl_vec<uint8_t> *vec, size_t *pos, const std::string &str)
 {
 	strcpy(reinterpret_cast<char *>(vec->data() + *pos), str.c_str());
@@ -155,9 +156,15 @@ static bool grallocDecodeBufferDescriptor(const hidl_vec<vecT> &androidDescripto
 	size_t pos = 0;
 
 	if (((DESCRIPTOR_32BIT_FIELDS * sizeof(uint32_t) / sizeof(vecT)) +
-	     (DESCRIPTOR_64BIT_FIELDS * sizeof(uint64_t) / sizeof(vecT))) > androidDescriptor.size())
+	     (DESCRIPTOR_64BIT_FIELDS * sizeof(uint64_t) / sizeof(vecT))) +
+	     sizeof('\0') > androidDescriptor.size())
 	{
 		MALI_GRALLOC_LOGE("Descriptor is too small");
+		return false;
+	}
+
+	if (static_cast<char>(androidDescriptor[androidDescriptor.size() - 1]) != '\0') {
+		MALI_GRALLOC_LOGE("Descriptor does not contain an ending null character");
 		return false;
 	}
 

@@ -22,26 +22,12 @@ package {
 }
 
 vintf_compatibility_matrix {
-    name: "framework_compatibility_matrix.3.xml",
-    stem: "compatibility_matrix.3.xml",
-    srcs: [
-        "compatibility_matrix.3.xml",
-    ],
-    kernel_configs: [
-        "kernel_config_p_4.4",
-        "kernel_config_p_4.9",
-        "kernel_config_p_4.14",
-    ],
-}
-
-vintf_compatibility_matrix {
     name: "framework_compatibility_matrix.4.xml",
     stem: "compatibility_matrix.4.xml",
     srcs: [
         "compatibility_matrix.4.xml",
     ],
     kernel_configs: [
-        "kernel_config_q_4.9",
         "kernel_config_q_4.14",
         "kernel_config_q_4.19",
     ],
@@ -86,14 +72,13 @@ vintf_compatibility_matrix {
 }
 
 vintf_compatibility_matrix {
-    name: "framework_compatibility_matrix.current.xml",
-    enabled: false,
-    stem: "compatibility_matrix.current.xml",
+    name: "framework_compatibility_matrix.8.xml",
+    stem: "compatibility_matrix.8.xml",
     srcs: [
-        "compatibility_matrix.current.xml",
+        "compatibility_matrix.8.xml",
     ],
     kernel_configs: [
-        "kernel_config_current_5.10",
-        "kernel_config_current_5.15",
+        "kernel_config_u_5.15",
+        "kernel_config_u_6.1",
     ],
 }

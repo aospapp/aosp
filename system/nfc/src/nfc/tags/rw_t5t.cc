@@ -23,17 +23,15 @@
  *
  ******************************************************************************/
 
-#include <log/log.h>
-#include <string.h>
-
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
-
-#include "nfc_target.h"
+#include <log/log.h>
+#include <string.h>
 
 #include "bt_types.h"
 #include "nfc_api.h"
 #include "nfc_int.h"
+#include "nfc_target.h"
 #include "rw_api.h"
 #include "rw_int.h"
 
@@ -841,6 +839,11 @@ void rw_t5t_sm_set_read_only(NFC_HDR* p_resp) {
       /* 2nd block to be locked can be the last 4 bytes of CC in case CC
        * is 8byte long, then T5T_Area starts */
       if (p_i93->rw_offset <= p_i93->t5t_area_last_offset) {
+        if (p_i93->block_size == 0) {
+          LOG(ERROR) << StringPrintf("%s - zero block_size error", __func__);
+          rw_i93_handle_error(NFC_STATUS_FAILED);
+          break;
+        }
         /* get the next block of NDEF TLV */
         block_number = (uint16_t)(p_i93->rw_offset / p_i93->block_size);
 

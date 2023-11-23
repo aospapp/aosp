@@ -97,13 +97,14 @@ public class AppSearchDeviceTest {
     @Test
     public void testPutDocuments() throws Exception {
         // Schema registration
-        mDb.setSchema(new SetSchemaRequest.Builder().addSchemas(SCHEMA)
+        mDb.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(SCHEMA)
                 .setSchemaTypeVisibilityForPackage(SCHEMA.getSchemaType(), /*visible=*/ true,
                         new PackageIdentifier(PKG_B, PKG_B_CERT_SHA256)).build()).get();
 
         // Index a document
         AppSearchBatchResult<String, Void> result = checkIsBatchResultSuccess(
-                mDb.put(new PutDocumentsRequest.Builder().addGenericDocuments(DOCUMENT).build()));
+                mDb.putAsync(
+                        new PutDocumentsRequest.Builder().addGenericDocuments(DOCUMENT).build()));
         assertThat(result.getSuccesses()).containsExactly(ID, /*v0=*/null);
         assertThat(result.getFailures()).isEmpty();
     }
@@ -121,13 +122,13 @@ public class AppSearchDeviceTest {
                     userId).get();
 
             // Schema registration
-            db.setSchema(new SetSchemaRequest.Builder().addSchemas(SCHEMA)
+            db.setSchemaAsync(new SetSchemaRequest.Builder().addSchemas(SCHEMA)
                     .setSchemaTypeVisibilityForPackage(SCHEMA.getSchemaType(), /*visible=*/ true,
                             new PackageIdentifier(PKG_B, PKG_B_CERT_SHA256)).build()).get();
 
             // Index a document
             AppSearchBatchResult<String, Void> result = checkIsBatchResultSuccess(
-                    db.put(new PutDocumentsRequest.Builder().addGenericDocuments(DOCUMENT)
+                    db.putAsync(new PutDocumentsRequest.Builder().addGenericDocuments(DOCUMENT)
                             .build()));
             assertThat(result.getSuccesses()).containsExactly(ID, /*v0=*/null);
             assertThat(result.getFailures()).isEmpty();
@@ -170,7 +171,7 @@ public class AppSearchDeviceTest {
 
     @Test
     public void testGetDocuments_nonexist() throws Exception {
-        AppSearchBatchResult<String, GenericDocument> getResult = mDb.getByDocumentId(
+        AppSearchBatchResult<String, GenericDocument> getResult = mDb.getByDocumentIdAsync(
                 new GetByDocumentIdRequest.Builder(NAMESPACE).addIds(ID).build()).get();
         assertThat(getResult.getFailures().get(ID).getResultCode())
                 .isEqualTo(AppSearchResult.RESULT_NOT_FOUND);
@@ -184,7 +185,7 @@ public class AppSearchDeviceTest {
      */
     @Test
     public void clearTestData() throws Exception {
-        mDb.setSchema(new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
+        mDb.setSchemaAsync(new SetSchemaRequest.Builder().setForceOverride(true).build()).get();
     }
 
     @Test

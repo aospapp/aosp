@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.fail;
 
 import com.android.server.wm.KeyguardServiceDelegateProto;
@@ -54,10 +55,7 @@ class LockScreenInspector {
         do {
             if (retry) {
                 CLog.w("***Retrying dump****");
-                try {
-                    Thread.sleep(500);
-                } catch (InterruptedException ignored) {
-                }
+                RunUtil.getDefault().sleep(500);
             }
             try {
                 WindowManagerServiceDumpProto dumpProto = getDump(

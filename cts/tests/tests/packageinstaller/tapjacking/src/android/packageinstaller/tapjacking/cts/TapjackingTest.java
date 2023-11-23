@@ -15,16 +15,14 @@
  */
 package android.packageinstaller.tapjacking.cts;
 
-import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK;
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.BySelector;
@@ -34,6 +32,7 @@ import android.support.test.uiautomator.Until;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -41,13 +40,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.AssumptionViolatedException;
-import org.junit.Rule;
-import org.junit.rules.TestRule;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
-
-import java.io.IOException;
 
 @RunWith(AndroidJUnit4.class)
 @MediumTest
@@ -55,7 +47,7 @@ import java.io.IOException;
 public class TapjackingTest {
 
     private static final String LOG_TAG = TapjackingTest.class.getSimpleName();
-    private static final String SYSTEM_PACKAGE_NAME = "android";
+    private static final String PACKAGE_INSTALLER_PACKAGE_NAME = "com.android.packageinstaller";
     private static final String INSTALL_BUTTON_ID = "button1";
     private static final String OVERLAY_ACTIVITY_TEXT_VIEW_ID = "overlay_description";
     private static final String WM_DISMISS_KEYGUARD_COMMAND = "wm dismiss-keyguard";
@@ -66,10 +58,8 @@ public class TapjackingTest {
     private Context mContext = InstrumentationRegistry.getTargetContext();
     private String mPackageName;
     private UiDevice mUiDevice;
-    boolean isWatch = mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
 
-    @Rule
-    public final RequiredRule mRequiredRule = new RequiredRule(isWatch);
+    ActivityScenario<TestActivity> mScenario;
 
     @Before
     public void setUp() throws Exception {
@@ -82,10 +72,13 @@ public class TapjackingTest {
     }
 
     private void launchPackageInstaller() {
-        Intent intent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
-        intent.setData(Uri.parse("package:" + TEST_APP_PACKAGE_NAME));
-        intent.addFlags(FLAG_ACTIVITY_CLEAR_TASK | FLAG_ACTIVITY_NEW_TASK);
-        mContext.startActivity(intent);
+        Intent appInstallIntent = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+        appInstallIntent.setData(Uri.parse("package:" + TEST_APP_PACKAGE_NAME));
+
+        Intent intent = new Intent(mContext, TestActivity.class);
+        intent.putExtra(Intent.EXTRA_INTENT, appInstallIntent);
+        intent.putExtra("requestCode", 1);
+        mScenario = ActivityScenario.launch(intent);
     }
 
     private void launchOverlayingActivity() {
@@ -103,18 +96,18 @@ public class TapjackingTest {
     public void testTapsDroppedWhenObscured() throws Exception {
         Log.i(LOG_TAG, "launchPackageInstaller");
         launchPackageInstaller();
-        UiObject2 installButton = waitForView(SYSTEM_PACKAGE_NAME, INSTALL_BUTTON_ID);
+        UiObject2 installButton = waitForView(PACKAGE_INSTALLER_PACKAGE_NAME, INSTALL_BUTTON_ID);
         assertNotNull("Install button not shown", installButton);
         Log.i(LOG_TAG, "launchOverlayingActivity");
         launchOverlayingActivity();
         assertNotNull("Overlaying activity not started",
                 waitForView(mPackageName, OVERLAY_ACTIVITY_TEXT_VIEW_ID));
-        installButton = waitForView(SYSTEM_PACKAGE_NAME, INSTALL_BUTTON_ID);
+        installButton = waitForView(PACKAGE_INSTALLER_PACKAGE_NAME, INSTALL_BUTTON_ID);
         assertNotNull("Cannot find install button below overlay activity", installButton);
         Log.i(LOG_TAG, "installButton.click");
         installButton.click();
         assertFalse("Tap on install button succeeded", mUiDevice.wait(
-                Until.gone(By.res(SYSTEM_PACKAGE_NAME, INSTALL_BUTTON_ID)),
+                Until.gone(By.res(PACKAGE_INSTALLER_PACKAGE_NAME, INSTALL_BUTTON_ID)),
                 WAIT_FOR_UI_TIMEOUT));
         mUiDevice.pressBack();
     }
@@ -124,23 +117,14 @@ public class TapjackingTest {
         mUiDevice.pressHome();
     }
 
-    private static final class RequiredRule implements TestRule {
-        boolean mIsWatch;
-        RequiredRule(boolean isWatch) {
-            mIsWatch = isWatch;
-        }
-        @Override
-        public Statement apply(Statement base, Description description) {
-            return new Statement() {
+    public static final class TestActivity extends Activity {
 
-                @Override
-                public void evaluate() throws Throwable {
-                    if (mIsWatch) {
-                        throw new AssumptionViolatedException("Install/uninstall feature is not supported on WearOs");
-                    }
-                    base.evaluate();
-                }
-            };
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            Intent appInstallIntent = getIntent().getParcelableExtra(Intent.EXTRA_INTENT);
+            int requestCode = getIntent().getIntExtra("requestCode", Integer.MIN_VALUE);
+            startActivityForResult(appInstallIntent, requestCode);
         }
     }
 }

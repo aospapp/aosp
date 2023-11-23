@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from itertools import product
+from time import sleep
+
 import pipes
 import re
 import subprocess
@@ -192,6 +194,36 @@ class JavaVersionTestServer:
                              ' /data/framework android.aidl.sdkversion.service.AidlJavaVersionTestService',
                              background=True)
 
+class JavaPermissionClient:
+    def __init__(self, host, bitness):
+        self.name = "java_client_permission_%s" % pretty_bitness(bitness)
+        self.host = host
+        self.bitness = bitness
+    def cleanup(self):
+        self.host.run('killall ' + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness),
+                      ignore_status=True)
+    def run(self):
+        result = self.host.run('CLASSPATH=/data/framework/aidl_test_java_client_permission.jar '
+                               + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness) +
+                               ' /data/framework android.aidl.permission.tests.PermissionTests')
+        print(result.printable_string())
+        if re.search(INSTRUMENTATION_SUCCESS_PATTERN, result.stdout) is None:
+            raise TestFail(result.stdout)
+
+class JavaPermissionServer:
+    def __init__(self, host, bitness):
+        self.name = "java_server_permission_%s" % pretty_bitness(bitness)
+        self.host = host
+        self.bitness = bitness
+    def cleanup(self):
+        self.host.run('killall ' + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness),
+                      ignore_status=True)
+    def run(self):
+        return self.host.run('CLASSPATH=/data/framework/aidl_test_java_service_permission.jar '
+                             + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness) +
+                             ' /data/framework android.aidl.permission.service.PermissionTestService',
+                             background=True)
+
 def getprop(host, prop):
     return host.run('getprop "%s"' % prop).stdout.strip()
 
@@ -243,8 +275,14 @@ class TestAidl(unittest.TestCase):
 def make_test(client, server):
     def test(self):
         try:
-            client.cleanup()
+            # Server is unregistered first so that we give more time
+            # for servicemanager to clear the old notification.
+            # Otherwise, it may race that the client gets ahold
+            # of the service.
             server.cleanup()
+            client.cleanup()
+            sleep(0.2)
+
             server.run()
             client.run()
         finally:
@@ -291,6 +329,12 @@ if __name__ == '__main__':
         client = JavaVersionTestClient(host, c_bitness, c_version)
         server = JavaVersionTestServer(host, s_bitness, s_version)
         add_test(client, server)
+
+    # TODO(b/218914259): Interfaces with permission are only supported for the
+    # Java backend. Once C++ and/or Rust are supported, move the test back into
+    # JavaClient and JavaServer.
+    for bitness in bitnesses:
+        add_test(JavaPermissionClient(host, bitness), JavaPermissionServer(host, bitness))
 
     suite = unittest.TestLoader().loadTestsFromTestCase(TestAidl)
     sys.exit(not unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful())

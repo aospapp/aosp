@@ -16,13 +16,10 @@
 
 package android.media.misc.cts;
 
-import android.app.Activity;
 import android.os.Bundle;
 import android.util.Log;
 
 public class ResourceManagerTestActivity1 extends ResourceManagerTestActivityBase {
-    private static final int MAX_INSTANCES = 32;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         TAG = "ResourceManagerTestActivity1";

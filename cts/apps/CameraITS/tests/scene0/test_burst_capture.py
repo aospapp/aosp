@@ -25,8 +25,8 @@ import capture_request_utils
 import image_processing_utils
 import its_session_utils
 
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-NUM_TEST_FRAMES = 15
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_NUM_TEST_FRAMES = 15
 
 
 class BurstCaptureTest(its_base_test.ItsBaseTest):
@@ -46,12 +46,12 @@ class BurstCaptureTest(its_base_test.ItsBaseTest):
       camera_properties_utils.skip_unless(
           camera_properties_utils.backward_compatible(props))
       req = capture_request_utils.auto_capture_request()
-      caps = cam.do_capture([req] * NUM_TEST_FRAMES)
+      caps = cam.do_capture([req] * _NUM_TEST_FRAMES)
       cap = caps[0]
       img = image_processing_utils.convert_capture_to_rgb_image(
           cap, props=props)
-      name = os.path.join(self.log_path, NAME)
-      img_name = '%s.jpg' % (name)
+      name_with_log_path = os.path.join(self.log_path, _NAME)
+      img_name = f'{name_with_log_path}.jpg'
       logging.debug('Image Name: %s', img_name)
       image_processing_utils.write_image(img, img_name)
 

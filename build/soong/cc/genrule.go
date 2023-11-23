@@ -41,13 +41,15 @@ type GenruleExtraProperties struct {
 // variations.  The following environment variables will be set when the command
 // execute:
 //
-//   CC_ARCH           the name of the architecture the command is being executed for
+//	CC_ARCH           the name of the architecture the command is being executed for
 //
-//   CC_MULTILIB       "lib32" if the architecture the command is being executed for is 32-bit,
-//                     "lib64" if it is 64-bit.
+//	CC_MULTILIB       "lib32" if the architecture the command is being executed for is 32-bit,
+//	                  "lib64" if it is 64-bit.
 //
-//   CC_NATIVE_BRIDGE  the name of the subdirectory that native bridge libraries are stored in if
-//                     the architecture has native bridge enabled, empty if it is disabled.
+//	CC_NATIVE_BRIDGE  the name of the subdirectory that native bridge libraries are stored in if
+//	                  the architecture has native bridge enabled, empty if it is disabled.
+//
+//	CC_OS             the name of the OS the command is being executed for.
 func GenRuleFactory() android.Module {
 	module := genrule.NewGenRule()
 
@@ -68,8 +70,9 @@ func GenRuleFactory() android.Module {
 func genruleCmdModifier(ctx android.ModuleContext, cmd string) string {
 	target := ctx.Target()
 	arch := target.Arch.ArchType
-	return fmt.Sprintf("CC_ARCH=%s CC_NATIVE_BRIDGE=%s CC_MULTILIB=%s && %s",
-		arch.Name, target.NativeBridgeRelativePath, arch.Multilib, cmd)
+	osName := target.Os.Name
+	return fmt.Sprintf("CC_ARCH=%s CC_NATIVE_BRIDGE=%s CC_MULTILIB=%s CC_OS=%s && %s",
+		arch.Name, target.NativeBridgeRelativePath, arch.Multilib, osName, cmd)
 }
 
 var _ android.ImageInterface = (*GenruleExtraProperties)(nil)

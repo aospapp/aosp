@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import com.android.tradefed.util.RunUtil;
 import android.platform.test.annotations.AppModeFull;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
@@ -110,7 +111,7 @@ public class OsHostTests extends DeviceTestCase implements IBuildReceiver, IAbiR
 
         mDevice.clearLogcat();
         mDevice.executeShellCommand(START_FG_SERVICE_COMMAND);
-        Thread.sleep(2500);
+        RunUtil.getDefault().sleep(2500);
 
         String pid = null;
         try (InputStreamSource logSource = mDevice.getLogcat()) {

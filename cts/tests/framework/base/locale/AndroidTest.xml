@@ -22,12 +22,14 @@
   <!--  While running with atest use 'user-type secondary_user'-->
   <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
   <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+  <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
   <option name="not-shardable" value="true" />
   <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
     <option name="cleanup-apks" value="true" />
     <option name="test-file-name" value="CtsLocaleManagerTestCases.apk" />
     <option name="test-file-name" value="CtsLocaleTestApp.apk" />
     <option name="test-file-name" value="CtsLocaleInstallerApp.apk" />
+    <option name="test-file-name" value="CtsLocaleImeApp.apk" />
   </target_preparer>
   <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
     <option name="package" value="android.localemanager.cts" />

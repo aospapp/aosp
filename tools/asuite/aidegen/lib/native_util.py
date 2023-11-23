@@ -118,7 +118,7 @@ def _filter_out_modules(targets, filter_func):
 def _get_merged_native_target(cc_module_info, targets):
     """Gets merged native parent target from original native targets.
 
-    If a target is a module, we put it directly into the new list. If a traget
+    If a target is a module, we put it directly into the new list. If a target
     is a path we put all the native modules under the path into the new list.
 
     Args:
@@ -205,7 +205,7 @@ def _check_native_project_exists(path_to_module_info, rel_path):
     Args:
         path_to_module_info: A dictionary contains data of relative path as key
                              and module info dictionary as value.
-        rel_path: A string of relative path of a directory to be check.
+        rel_path: A string of relative path of a directory to be checked.
 
     Returns:
         True if any C/C++ project exists otherwise False.
@@ -296,7 +296,7 @@ def _is_target_relative_module(path, target):
 
     Args:
         path: A string of a module's path to be checked.
-        targets: A string of a target's path  without os.sep in the end.
+        target: A string of a target's path  without os.sep in the end.
 
     Returns:
         A boolean of True if path contains the path of target otherwise False.

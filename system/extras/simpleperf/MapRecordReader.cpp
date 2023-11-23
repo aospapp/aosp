@@ -164,7 +164,10 @@ bool MapRecordThread::ReadMapRecords(const std::function<bool(Record*)>& callbac
       PLOG(ERROR) << "fread() failed";
       return false;
     }
-    RecordHeader header(buffer.data());
+    RecordHeader header;
+    if (!header.Parse(buffer.data())) {
+      return false;
+    }
     if (buffer.size() < header.size) {
       buffer.resize(header.size);
     }

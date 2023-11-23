@@ -19,6 +19,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <memory>
 #include <stdlib.h>
 #include <string.h>
 #include <audio_utils/fifo.h>
@@ -96,8 +97,8 @@ usage:
         return EXIT_FAILURE;
     }
     size_t frameSize = sizeof(int16_t) * sfinfoin.channels;
-    int16_t *inputBuffer = new int16_t[sfinfoin.frames * sfinfoin.channels];
-    sf_count_t actualRead = sf_readf_short(sfin, inputBuffer, sfinfoin.frames);
+    std::unique_ptr<int16_t[]> inputBuffer(new int16_t[sfinfoin.frames * sfinfoin.channels]);
+    sf_count_t actualRead = sf_readf_short(sfin, inputBuffer.get(), sfinfoin.frames);
     if (actualRead != sfinfoin.frames) {
         fprintf(stderr, "%s: unexpected EOF or error\n", inputFile);
         sf_close(sfin);
@@ -105,11 +106,11 @@ usage:
     }
     sf_close(sfin);
 
-    int16_t *outputBuffer = new int16_t[sfinfoin.frames * sfinfoin.channels];
+    std::unique_ptr<int16_t[]> outputBuffer(new int16_t[sfinfoin.frames * sfinfoin.channels]);
     size_t framesWritten = 0;
     size_t framesRead = 0;
-    int16_t *fifoBuffer = new int16_t[frameCount * sfinfoin.channels];
-    audio_utils_fifo fifo(frameCount, frameSize, fifoBuffer, readerThrottlesWriter);
+    std::unique_ptr<int16_t[]> fifoBuffer(new int16_t[frameCount * sfinfoin.channels]);
+    audio_utils_fifo fifo(frameCount, frameSize, fifoBuffer.get(), readerThrottlesWriter);
     audio_utils_fifo_writer fifoWriter(fifo);
     audio_utils_fifo_reader fifoReader(fifo, readerThrottlesWriter);
     int fifoWriteCount = 0, fifoReadCount = 0;
@@ -210,10 +211,6 @@ usage:
             }
         }
     }
-    delete[] inputBuffer;
-    inputBuffer = NULL;
-    delete[] fifoBuffer;
-    fifoBuffer = NULL;
 
     printf("FIFO non-empty writes: %d, non-empty reads: %d\n", fifoWriteCount, fifoReadCount);
     printf("fill=%d, min=%d, max=%d\n", fifoFillLevel, minFillLevel, maxFillLevel);
@@ -229,9 +226,7 @@ usage:
         perror(outputFile);
         return EXIT_FAILURE;
     }
-    sf_count_t actualWritten = sf_writef_short(sfout, outputBuffer, framesRead);
-    delete[] outputBuffer;
-    outputBuffer = NULL;
+    sf_count_t actualWritten = sf_writef_short(sfout, outputBuffer.get(), framesRead);
 
     if (actualWritten != (sf_count_t) framesRead) {
         fprintf(stderr, "%s: unexpected error\n", outputFile);

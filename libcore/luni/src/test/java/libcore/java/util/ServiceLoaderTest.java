@@ -38,6 +38,22 @@ public class ServiceLoaderTest extends junit.framework.TestCase {
     assertFalse(it.hasNext());
   }
 
+  public void test_findFirst_nonEmptyLoader() {
+    ServiceLoader<ServiceLoaderTestInterface> loader
+            = ServiceLoader.load(ServiceLoaderTestInterface.class);
+
+    var first = loader.findFirst();
+
+    assertTrue(first.isPresent());
+    assertTrue(first.get() instanceof Impl1);
+  }
+
+  public void test_findFirst_emptyLoader() {
+    var serviceLoader = ServiceLoader.load(UnimplementedInterface.class);
+
+    assertFalse(serviceLoader.findFirst().isPresent());
+  }
+
   public void testLoadInstalled() {
     // We need to register a service in the System or Boot class loader in order to test this
     // properly. We only test the negative case here.

@@ -20,8 +20,8 @@ import static android.searchuiservice.cts.SearchUiUtils.QUERY_TIMESTAMP;
 import static android.searchuiservice.cts.SearchUiUtils.RESULT_CORPUS1;
 import static android.searchuiservice.cts.SearchUiUtils.RESULT_CORPUS2;
 import static android.searchuiservice.cts.SearchUiUtils.RESULT_CORPUS3;
-import static android.searchuiservice.cts.SearchUiUtils.generateSearchTargetList;
 import static android.searchuiservice.cts.SearchUiUtils.generateQuery;
+import static android.searchuiservice.cts.SearchUiUtils.generateSearchTargetList;
 
 import static androidx.test.InstrumentationRegistry.getContext;
 
@@ -141,30 +141,32 @@ public class SearchUiManagerTest {
     }
 
     public boolean equalBundles(Bundle one, Bundle two) {
-        if(one.size() != two.size())
+        if (one.size() != two.size()) {
             return false;
+        }
 
         Set<String> setOne = new HashSet<>(one.keySet());
         setOne.addAll(two.keySet());
         Object valueOne;
         Object valueTwo;
 
-        for(String key : setOne) {
-            if (!one.containsKey(key) || !two.containsKey(key))
+        for (String key : setOne) {
+            if (!one.containsKey(key) || !two.containsKey(key)) {
                 return false;
+            }
 
             valueOne = one.get(key);
             valueTwo = two.get(key);
-            if(valueOne instanceof Bundle && valueTwo instanceof Bundle &&
-                    !equalBundles((Bundle) valueOne, (Bundle) valueTwo)) {
+            if (valueOne instanceof Bundle && valueTwo instanceof Bundle
+                    && !equalBundles((Bundle) valueOne, (Bundle) valueTwo)) {
                 return false;
-            }
-            else if(valueOne == null) {
-                if(valueTwo != null)
+            } else if (valueOne == null) {
+                if (valueTwo != null) {
                     return false;
-            }
-            else if(!valueOne.equals(valueTwo))
+                }
+            } else if (!valueOne.equals(valueTwo)) {
                 return false;
+            }
         }
         return true;
     }
@@ -220,6 +222,24 @@ public class SearchUiManagerTest {
     }
 
     @Test
+    public void testRegisterPredictionUpdatesLifeCycle_realCallback() {
+        List<SearchTarget> targets = SearchUiUtils.generateSearchTargetList(3);
+        mWatcher.setTargets(targets /* actual */);
+
+        final EmptyQueryResultCallbackVerifier callbackVerifier =
+                new EmptyQueryResultCallbackVerifier(targets /* expected */);
+
+        mClient.registerEmptyQueryResultUpdateCallback(Executors.newSingleThreadExecutor(),
+                callbackVerifier);
+        await(mWatcher.startedUpdateEmptyQueryResult,
+                "Waiting for startedUpdateEmptyQueryResult");
+
+        mClient.unregisterEmptyQueryResultUpdateCallback(callbackVerifier);
+        await(mWatcher.stoppedUpdateEmptyQueryResult,
+                "Waiting for stoppedUpdateEmptyQueryResult");
+    }
+
+    @Test
     public void testQuery_params() {
         List<SearchTarget> targets = generateSearchTargetList(2, true, false, false, false);
         Bundle extras = new Bundle();
@@ -239,9 +259,6 @@ public class SearchUiManagerTest {
         assertTrue(expectedQuery.getInput().equals(QUERY_INPUT));
         assertEquals(expectedQuery.getTimestampMillis(), QUERY_TIMESTAMP);
         assertTrue(equalBundles(expectedQuery.getExtras(), extras));
-
-        Consumer<List<SearchTarget>> expectedCallback = callbackArg.getValue();
-        expectedCallback.andThen(callbackVerifier);
     }
 
     private void setService(String service) {
@@ -291,6 +308,27 @@ public class SearchUiManagerTest {
                         0).getPackageName());
             }
             Assert.assertArrayEquals(actualTargets.toArray(), mExpectedTargets.toArray());
+        }
+    }
+
+    public static class EmptyQueryResultCallbackVerifier implements
+            SearchSession.Callback {
+
+        private static List<SearchTarget> sExpectedTargets;
+
+        public EmptyQueryResultCallbackVerifier(List<SearchTarget> targets) {
+            sExpectedTargets = targets;
+        }
+
+        @Override
+        public void onTargetsAvailable(List<SearchTarget> actualTargets) {
+            if (DEBUG) {
+                Log.d(TAG, "ZeroStateCallbackVerifier.onTargetsAvailable targets.size= "
+                        + actualTargets.size());
+                Log.d(TAG, "ZeroStateCallbackVerifier.onTargetsAvailable target(1).packageName="
+                        + actualTargets.get(0).getPackageName());
+            }
+            Assert.assertArrayEquals(actualTargets.toArray(), sExpectedTargets.toArray());
         }
     }
 }

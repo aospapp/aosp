@@ -39,14 +39,6 @@ python_library_host {
         "care_map.proto",
     ],
     proto: {type: "lite", canonical_path_from_root: false},
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     visibility: [
         "//build/make/tools/releasetools:__subpackages__",
     ],
@@ -73,8 +65,13 @@ cc_library_static {
         "libvold_binder",
     ],
 
+    whole_static_libs: [
+        "libsnapshot_snapuserd",
+    ],
+
     shared_libs: [
         "android.hardware.boot@1.0",
+        "libboot_control_client",
         "libbase",
         "libcutils",
         "libbinder",
@@ -114,6 +111,7 @@ cc_binary {
         "libprotobuf-cpp-lite",
         "libbinder",
         "libutils",
+        "libboot_control_client",
     ],
 
     init_rc: [
@@ -139,12 +137,7 @@ python_binary_host {
     },
 
     version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
         py3: {
-            enabled: true,
             embedded_launcher: true,
         },
     },

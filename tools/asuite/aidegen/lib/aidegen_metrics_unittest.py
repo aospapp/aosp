@@ -21,12 +21,11 @@ from unittest import mock
 
 from aidegen import constant
 from aidegen.lib import aidegen_metrics
-from atest import atest_utils
 
 
 try:
-    from asuite.metrics import metrics
-    from asuite.metrics import metrics_utils
+    from atest.metrics import metrics
+    from atest.metrics import metrics_utils
 except ImportError:
     metrics = None
     metrics_utils = None
@@ -35,7 +34,7 @@ except ImportError:
 class AidegenMetricsUnittests(unittest.TestCase):
     """Unit tests for aidegen_metrics.py."""
 
-    @mock.patch.object(atest_utils, 'print_data_collection_notice')
+    @mock.patch.object(metrics_utils, 'print_data_collection_notice')
     def test_starts_asuite_metrics(self, mock_print_data):
         """Test starts_asuite_metrics."""
         references = ['nothing']
@@ -64,6 +63,7 @@ class AidegenMetricsUnittests(unittest.TestCase):
         mock_ends_metrics.return_value = True
         aidegen_metrics.send_exception_metrics(1, '', '', 'err_test')
         self.assertTrue(mock_ends_metrics.called)
+
 
 if __name__ == '__main__':
     unittest.main()

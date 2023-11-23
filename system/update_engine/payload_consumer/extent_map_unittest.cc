@@ -20,7 +20,6 @@
 
 #include "update_engine/payload_consumer/extent_map.h"
 #include "update_engine/payload_generator/extent_ranges.h"
-#include "update_engine/payload_generator/extent_utils.h"
 
 namespace chromeos_update_engine {
 
@@ -41,6 +40,17 @@ TEST_F(ExtentMapTest, QuerySubset) {
   ASSERT_TRUE(map_.AddExtent(ExtentForRange(0, 5), 7));
   ASSERT_TRUE(map_.AddExtent(ExtentForRange(10, 5), 1));
   auto ret = map_.Get(ExtentForRange(1, 2));
+  ASSERT_EQ(ret, 7);
+}
+
+TEST_F(ExtentMapTest, QueryNoMerge) {
+  ASSERT_TRUE(map_.AddExtent(ExtentForRange(0, 5), 7));
+  ASSERT_TRUE(map_.AddExtent(ExtentForRange(5, 5), 1));
+  auto ret = map_.Get(ExtentForRange(1, 2));
+  ASSERT_EQ(ret, 7);
+  ret = map_.Get(ExtentForRange(0, 10));
+  ASSERT_EQ(ret, std::nullopt);
+  ret = map_.Get(ExtentForRange(4, 3));
   ASSERT_EQ(ret, std::nullopt);
 }
 
@@ -48,9 +58,9 @@ TEST_F(ExtentMapTest, QueryTouching) {
   ASSERT_TRUE(map_.AddExtent(ExtentForRange(0, 5), 7));
   ASSERT_TRUE(map_.AddExtent(ExtentForRange(10, 5), 1));
   auto ret = map_.Get(ExtentForRange(3, 2));
-  ASSERT_EQ(ret, std::nullopt);
+  ASSERT_EQ(ret, 7);
   ret = map_.Get(ExtentForRange(4, 1));
-  ASSERT_EQ(ret, std::nullopt);
+  ASSERT_EQ(ret, 7);
   ret = map_.Get(ExtentForRange(5, 5));
   ASSERT_EQ(ret, std::nullopt);
   ret = map_.Get(ExtentForRange(5, 6));

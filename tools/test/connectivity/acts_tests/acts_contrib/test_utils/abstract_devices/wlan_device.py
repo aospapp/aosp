@@ -16,15 +16,17 @@
 
 import inspect
 import logging
+import time
 
 import acts_contrib.test_utils.wifi.wifi_test_utils as awutils
-from acts.utils import get_interface_ip_addresses
 from acts.utils import adb_shell_ping
 
 from acts import asserts
 from acts.controllers import iperf_client
 from acts.controllers.fuchsia_device import FuchsiaDevice
 from acts.controllers.android_device import AndroidDevice
+
+FUCHSIA_VALID_SECURITY_TYPES = {"none", "wep", "wpa", "wpa2", "wpa3"}
 
 
 def create_wlan_device(hardware_device):
@@ -41,9 +43,6 @@ def create_wlan_device(hardware_device):
     else:
         raise ValueError('Unable to create WlanDevice for type %s' %
                          type(hardware_device))
-
-
-FUCHSIA_VALID_SECURITY_TYPES = {"none", "wep", "wpa", "wpa2", "wpa3"}
 
 
 class WlanDevice(object):
@@ -134,10 +133,6 @@ class WlanDevice(object):
             inspect.currentframe().f_code.co_name))
 
     def send_command(self, command):
-        raise NotImplementedError("{} must be defined.".format(
-            inspect.currentframe().f_code.co_name))
-
-    def get_interface_ip_addresses(self, interface):
         raise NotImplementedError("{} must be defined.".format(
             inspect.currentframe().f_code.co_name))
 
@@ -261,9 +256,6 @@ class AndroidWlanDevice(WlanDevice):
     def send_command(self, command):
         return self.device.adb.shell(str(command))
 
-    def get_interface_ip_addresses(self, interface):
-        return get_interface_ip_addresses(self.device, interface)
-
     def is_connected(self, ssid=None):
         wifi_info = self.device.droid.wifiGetConnectionInfo()
         if ssid:
@@ -329,11 +321,9 @@ class FuchsiaWlanDevice(WlanDevice):
 
     def wifi_toggle_state(self, state):
         """Stub for Fuchsia implementation."""
-        pass
 
     def reset_wifi(self):
         """Stub for Fuchsia implementation."""
-        pass
 
     def take_bug_report(self, test_name=None, begin_time=None):
         """Stub for Fuchsia implementation."""
@@ -341,11 +331,9 @@ class FuchsiaWlanDevice(WlanDevice):
 
     def get_log(self, test_name, begin_time):
         """Stub for Fuchsia implementation."""
-        pass
 
     def turn_location_off_and_scan_toggle_off(self):
         """Stub for Fuchsia implementation."""
-        pass
 
     def associate(self,
                   target_ssid,
@@ -368,7 +356,7 @@ class FuchsiaWlanDevice(WlanDevice):
             True if successfully connected to WLAN, False if not.
         """
         if self.device.association_mechanism == 'drivers':
-            bss_scan_response = self.device.wlan_lib.wlanScanForBSSInfo()
+            bss_scan_response = self.device.sl4f.wlan_lib.wlanScanForBSSInfo()
             if bss_scan_response.get('error'):
                 self.log.error('Scan for BSS info failed. Err: %s' %
                                bss_scan_response['error'])
@@ -382,7 +370,7 @@ class FuchsiaWlanDevice(WlanDevice):
                     % target_ssid)
                 return False
 
-            connection_response = self.device.wlan_lib.wlanConnectToNetwork(
+            connection_response = self.device.sl4f.wlan_lib.wlanConnectToNetwork(
                 target_ssid, bss_descs_for_ssid[0], target_pwd=target_pwd)
             return self.device.check_connect_response(connection_response)
         else:
@@ -394,14 +382,14 @@ class FuchsiaWlanDevice(WlanDevice):
            Asserts if disconnect was not successful.
         """
         if self.device.association_mechanism == 'drivers':
-            disconnect_response = self.device.wlan_lib.wlanDisconnect()
+            disconnect_response = self.device.sl4f.wlan_lib.wlanDisconnect()
             return self.device.check_disconnect_response(disconnect_response)
         else:
             return self.device.wlan_policy_controller.remove_all_networks_and_wait_for_no_connections(
             )
 
     def status(self):
-        return self.device.wlan_lib.wlanStatus()
+        return self.device.sl4f.wlan_lib.wlanStatus()
 
     def can_ping(self,
                  dest_ip,
@@ -438,7 +426,7 @@ class FuchsiaWlanDevice(WlanDevice):
         Returns:
             A list of wlan interface IDs.
         """
-        return self.device.wlan_lib.wlanGetIfaceIdList().get('result')
+        return self.device.sl4f.wlan_lib.wlanGetIfaceIdList().get('result')
 
     def get_default_wlan_test_interface(self):
         """Returns name of the WLAN client interface"""
@@ -455,7 +443,7 @@ class FuchsiaWlanDevice(WlanDevice):
         Returns:
             True if successfully destroyed wlan interface, False if not.
         """
-        result = self.device.wlan_lib.wlanDestroyIface(iface_id)
+        result = self.device.sl4f.wlan_lib.wlanDestroyIface(iface_id)
         if result.get('error') is None:
             return True
         else:
@@ -464,10 +452,7 @@ class FuchsiaWlanDevice(WlanDevice):
             return False
 
     def send_command(self, command):
-        return self.device.send_command_ssh(str(command)).stdout
-
-    def get_interface_ip_addresses(self, interface):
-        return get_interface_ip_addresses(self.device, interface)
+        return self.device.ssh.run(str(command)).stdout
 
     def is_connected(self, ssid=None):
         """ Determines if wlan_device is connected to wlan network.
@@ -541,11 +526,16 @@ class FuchsiaWlanDevice(WlanDevice):
         """
         if not test_interface:
             test_interface = self.get_default_wlan_test_interface()
+
+        # A package server is necessary to acquire the iperf3 client for
+        # some builds.
+        self.device.start_package_server()
+
         return iperf_client.IPerfClientOverSsh(
             {
                 'user': 'fuchsia',
                 'host': self.device.ip,
                 'ssh_config': self.device.ssh_config
             },
-            use_paramiko=True,
+            ssh_provider=self.device.ssh,
             test_interface=test_interface)

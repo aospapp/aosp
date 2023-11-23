@@ -19,11 +19,12 @@ import android.app.Activity;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
 import android.media.MediaPlayer;
-import android.media.cts.Preconditions;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
+import com.android.compatibility.common.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;

@@ -51,6 +51,7 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
+
 /**
  * Handles conversion of results to/from files.
  *
@@ -597,7 +598,7 @@ public class ResultHandler {
         switch (retryStatus) {
             case NotRetry: case RetryWithChecksum:
                 // Do not disrupt the process if there is a problem generating checksum.
-                ChecksumReporter.tryCreateChecksum(resultDir, invocationResult);
+                boolean unused = ChecksumReporter.tryCreateChecksum(resultDir, invocationResult);
                 break;
             case RetryWithoutChecksum:
                 // If the previous run has an invalid checksum file,

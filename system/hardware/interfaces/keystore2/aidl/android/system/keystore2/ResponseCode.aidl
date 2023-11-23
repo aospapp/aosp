@@ -83,8 +83,50 @@ enum ResponseCode {
     TOO_MUCH_DATA = 21,
 
     /**
-     * Indicates that the attestation key pool does not have any signed attestation keys
-     * available. This can be thrown during attempts to generate a key.
+     * Deprecated in API 34.
+     * Previous to API 34, all failures to generate a key due to the exhaustion of the
+     * remotely provisioned key pool were reflected as OUT_OF_KEYS. The client simply had
+     * to retry. Starting with API 34, more detailed errors have been included so that
+     * applications can take appropriate action.
+     * @deprecated replaced by other OUT_OF_KEYS_* errors below
      */
     OUT_OF_KEYS = 22,
+
+    /**
+     * This device needs a software update as it may contain potentially vulnerable software.
+     * This error is returned only on devices that rely solely on remotely-provisioned keys (see
+     * <a href=
+     * "https://android-developers.googleblog.com/2022/03/upgrading-android-attestation-remote.html"
+     * >Remote Key Provisioning</a>).
+     */
+    OUT_OF_KEYS_REQUIRES_SYSTEM_UPGRADE = 23,
+
+    /**
+     * Indicates that the attestation key pool has been exhausted, and the remote key
+     * provisioning server cannot currently be reached. Clients should wait for the
+     * device to have connectivity, then retry.
+     */
+    OUT_OF_KEYS_PENDING_INTERNET_CONNECTIVITY = 24,
+
+    /**
+     * Indicates that the attestation key pool temporarily does not have any signed
+     * attestation keys available. This can be thrown during attempts to generate a key.
+     * This error indicates key generation may be retried with exponential back-off, as
+     * future attempts to fetch attestation keys are expected to succeed.
+     *
+     * NOTE: This error is generally the last resort of the underlying provisioner. Future
+     * OS updates should strongly consider adding new error codes if/when appropriate rather
+     * than relying on this status code as a fallback.
+     */
+    OUT_OF_KEYS_TRANSIENT_ERROR = 25,
+
+    /**
+     * Indicates that this device will never be able to provision attestation keys using
+     * the remote provsisioning server. This may be due to multiple causes, such as the
+     * device is not registered with the remote provisioning backend or the device has
+     * been permanently revoked. Clients who receive this error should not attempt to
+     * retry key creation.
+     */
+    OUT_OF_KEYS_PERMANENT_ERROR = 26,
+
 }

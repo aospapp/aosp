@@ -28,13 +28,11 @@ namespace general_test {
  *
  * Fundamentally, there are two phases to this test:
  *   1) Verify that time does increase at some point
- *   2) Verify that AP time is "close" to what nanoapp can get
- *
- * Protocol:
- * host to app: ESITMATED_HOST_TIME, no data
- * app to host: CONTINUE
- * host to app: CONTINUE, 64-bit time
- * app to host: SUCCESS
+ *   2) Help verify that AP time is "close" to what nanoapp can get.
+ *      Timestamps are sent to the host when a message is received by
+ *      the test. The host then passes or fails the test depending on
+ *      how close the timestamps are after accounting for the round
+ *      trip time.
  */
 class EstimatedHostTimeTest : public Test {
  public:

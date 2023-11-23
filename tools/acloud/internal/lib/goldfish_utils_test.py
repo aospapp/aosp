@@ -30,6 +30,16 @@ from acloud.internal.lib import goldfish_utils
 class GoldfishUtilsTest(unittest.TestCase):
     """Test functions in goldfish_utils."""
 
+    # Remote host instance name.
+    _IP_ADDRESS = "192.0.2.1"
+    _CONSOLE_PORT = 5554
+    _BUILD_INFO = {"build_id": "123456",
+                   "build_target": "sdk_phone_x86_64-userdebug"}
+    _INSTANCE_NAME = ("host-goldfish-192.0.2.1-5554-"
+                      "123456-sdk_phone_x86_64-userdebug")
+    _INSTANCE_NAME_WITHOUT_INFO = "host-goldfish-192.0.2.1-5554-userbuild"
+    _INVALID_NAME = "host-192.0.2.1-123456-aosp_cf_x86_phone-userdebug"
+
     @staticmethod
     def _CreateEmptyFile(path):
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -145,6 +155,26 @@ class GoldfishUtilsTest(unittest.TestCase):
         self._CreateEmptyFile(super_image_path)
         self.assertEqual(vbmeta_image_path, get_image("vbmeta"))
         self.assertEqual(super_image_path, get_image("super"))
+
+    def testParseRemoteHostConsoleAddress(self):
+        """Test ParseRemoteHostConsoleAddress."""
+        console_addr = goldfish_utils.ParseRemoteHostConsoleAddress(
+            self._INSTANCE_NAME)
+        self.assertEqual((self._IP_ADDRESS, self._CONSOLE_PORT), console_addr)
+
+        console_addr = goldfish_utils.ParseRemoteHostConsoleAddress(
+            self._INVALID_NAME)
+        self.assertIsNone(console_addr)
+
+    def testFormatInstanceName(self):
+        """Test FormatRemoteHostInstanceName."""
+        instance_name = goldfish_utils.FormatRemoteHostInstanceName(
+            self._IP_ADDRESS, self._CONSOLE_PORT, self._BUILD_INFO)
+        self.assertEqual(self._INSTANCE_NAME, instance_name)
+
+        instance_name = goldfish_utils.FormatRemoteHostInstanceName(
+            self._IP_ADDRESS, self._CONSOLE_PORT, {})
+        self.assertEqual(self._INSTANCE_NAME_WITHOUT_INFO, instance_name)
 
     def testConvertAvdSpecToArgs(self):
         """Test ConvertAvdSpecToArgs."""

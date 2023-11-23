@@ -20,6 +20,7 @@ import android.app.UiAutomation;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 
+import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
 
 import com.android.server.am.nano.MemInfoDumpProto;
@@ -30,7 +31,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -59,14 +62,8 @@ public class DumpsysMeminfoHelper implements ICollectorHelper<Long> {
     private static final String TOTAL_HEAP = "total";
 
     private String[] mProcessNames = {};
+    private Map<String, List<String>> mProcessObjNamesMap = new HashMap<>();
     private UiAutomation mUiAutomation;
-
-    public void setUp(String... processNames) {
-        if (processNames == null) {
-            return;
-        }
-        mProcessNames = processNames;
-    }
 
     @Override
     public boolean startCollecting() {
@@ -77,6 +74,7 @@ public class DumpsysMeminfoHelper implements ICollectorHelper<Long> {
     @Override
     public Map<String, Long> getMetrics() {
         Map<String, Long> metrics = new HashMap<>();
+
         for (String processName : mProcessNames) {
             byte[] rawOutput = getRawDumpsysMeminfo(processName);
             if (rawOutput == null) {
@@ -84,7 +82,27 @@ public class DumpsysMeminfoHelper implements ICollectorHelper<Long> {
                 continue;
             }
             metrics.putAll(parseMetrics(processName, rawOutput));
+            // Use the same dumpsys output to parse the object count.
+            if (mProcessObjNamesMap.keySet().contains(processName)) {
+                metrics.putAll(parseObjectCountMetrics(processName, rawOutput));
+            }
         }
+
+        // Parse object count metrics.
+        List processNameList = Arrays.asList(mProcessNames);
+        for (String processName : mProcessObjNamesMap.keySet()) {
+            // Skip collecting the object count since it is already collected for this process.
+            if (processNameList.contains(processName)) {
+                continue;
+            }
+            byte[] rawOutput = getRawDumpsysMeminfo(processName);
+            if (rawOutput == null) {
+                Log.e(TAG, "Missing meminfo output for process " + processName);
+                continue;
+            }
+            metrics.putAll(parseObjectCountMetrics(processName, rawOutput));
+        }
+
         return metrics;
     }
 
@@ -128,6 +146,70 @@ public class DumpsysMeminfoHelper implements ICollectorHelper<Long> {
         return metrics;
     }
 
+    private Map<String, Long> parseObjectCountMetrics(String processName, byte[] rawOutput) {
+        Map<String, Long> metrics = new HashMap<>();
+        try {
+            MemInfoDumpProto memInfo = MemInfoDumpProto.parseFrom(rawOutput);
+            MemInfoDumpProto.AppData.ObjectStats objStats = getObjectStats(memInfo, processName);
+            if (objStats == null) {
+                return metrics;
+            }
+            metrics = filterObjectStats(objStats, processName);
+        } catch (InvalidProtocolBufferNanoException ex) {
+            Log.e(TAG, "Invalid protobuf obtained from `dumpsys meminfo --proto`", ex);
+        }
+        return metrics;
+    }
+
+    private Map<String, Long> filterObjectStats(
+            MemInfoDumpProto.AppData.ObjectStats objStats, String processName) {
+        Map<String, Long> objValues = new HashMap<>();
+        for (String objName : mProcessObjNamesMap.get(processName)) {
+            long value = -1;
+            switch (objName) {
+                case "View":
+                    value = objStats.viewInstanceCount;
+                    break;
+                case "ViewRootImpl":
+                    ;
+                    value = objStats.viewRootInstanceCount;
+                    break;
+                case "AppContexts":
+                    value = objStats.appContextInstanceCount;
+                    break;
+                case "Activities":
+                    value = objStats.activityInstanceCount;
+                    break;
+                case "Assets":
+                    value = objStats.globalAssetCount;
+                    break;
+                case "AssetManagers":
+                    value = objStats.globalAssetManagerCount;
+                    break;
+                case "Local Binders":
+                    value = objStats.localBinderObjectCount;
+                    break;
+                case "Proxy Binders":
+                    value = objStats.proxyBinderObjectCount;
+                    break;
+                case "Parcel memory":
+                    value = objStats.parcelMemoryKb;
+                    break;
+                case "Parcel count":
+                    value = objStats.parcelCount;
+                    break;
+                case "Death Recipients":
+                    value = objStats.binderObjectDeathCount;
+                    break;
+                case "WebViews":
+                    value = objStats.webviewInstanceCount;
+                    break;
+            }
+            objValues.put(processName + "_" + objName, value);
+        }
+        return objValues;
+    }
+
     /** Find ProcessMemory by name. Looks in app and native process. Returns null on failure. */
     private static MemInfoDumpProto.ProcessMemory findProcessMemory(
             MemInfoDumpProto memInfo, String processName) {
@@ -144,6 +226,19 @@ public class DumpsysMeminfoHelper implements ICollectorHelper<Long> {
         for (MemInfoDumpProto.ProcessMemory procMem : memInfo.nativeProcesses) {
             if (processName.equals(procMem.processName)) {
                 return procMem;
+            }
+        }
+        return null;
+    }
+
+    private static MemInfoDumpProto.AppData.ObjectStats getObjectStats(
+            MemInfoDumpProto memInfo, String processName) {
+        for (MemInfoDumpProto.AppData appData : memInfo.appProcesses) {
+            if (appData.objects == null) {
+                continue;
+            }
+            if (processName.equals(appData.processMemory.processName)) {
+                return appData.objects;
             }
         }
         return null;
@@ -191,5 +286,28 @@ public class DumpsysMeminfoHelper implements ICollectorHelper<Long> {
             throw new RuntimeException(e);
         }
         return os.toByteArray();
+    }
+
+    public void setProcessNames(String... processNames) {
+        if (processNames != null) {
+            mProcessNames = processNames;
+        }
+    }
+
+    @VisibleForTesting
+    public String[] getProcessNames() {
+        return mProcessNames;
+    }
+
+    public void setProcessObjectNamesMap(Map<String, List<String>> processObjNamesMap) {
+        mProcessObjNamesMap.clear();
+        if (processObjNamesMap != null) {
+            mProcessObjNamesMap.putAll(processObjNamesMap);
+        }
+    }
+
+    @VisibleForTesting
+    public Map<String, List<String>> getProcessObjectNamesMap() {
+        return mProcessObjNamesMap;
     }
 }

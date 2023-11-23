@@ -5,7 +5,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -311,7 +311,7 @@ public class FormatterTest extends TestCase {
         }
 
         try {
-            f = new Formatter(notExist.getPath(), null, Locale.KOREA);
+            f = new Formatter(notExist.getPath(), (String) null, Locale.KOREA);
             fail("should throw NullPointerException");
         } catch (NullPointerException e2) {
             // expected
@@ -452,7 +452,7 @@ public class FormatterTest extends TestCase {
         }
 
         try {
-            f = new Formatter(notExist, null, Locale.KOREA);
+            f = new Formatter(notExist, (String) null, Locale.KOREA);
             fail("should throw NullPointerException");
         } catch (NullPointerException e2) {
             // expected
@@ -584,7 +584,7 @@ public class FormatterTest extends TestCase {
         OutputStream os = null;
         try {
             os = new FileOutputStream(notExist);
-            f = new Formatter(os, null, Locale.getDefault());
+            f = new Formatter(os, (String) null, Locale.getDefault());
             fail("should throw NullPointerException");
         } catch (NullPointerException e2) {
             // expected
@@ -1138,24 +1138,24 @@ public class FormatterTest extends TestCase {
                 { Boolean.TRUE, "%3.2b", " tr", },
                 { Boolean.TRUE, "%-4.6b", "true", },
                 { Boolean.TRUE, "%.2b", "tr", },
-                { new Character('c'), "%3.2b", " tr", },
-                { new Character('c'), "%-4.6b", "true", },
-                { new Character('c'), "%.2b", "tr", },
-                { new Byte((byte) 0x01), "%3.2b", " tr", },
-                { new Byte((byte) 0x01), "%-4.6b", "true", },
-                { new Byte((byte) 0x01), "%.2b", "tr", },
-                { new Short((short) 0x0001), "%3.2b", " tr", },
-                { new Short((short) 0x0001), "%-4.6b", "true", },
-                { new Short((short) 0x0001), "%.2b", "tr", },
-                { new Integer(1), "%3.2b", " tr", },
-                { new Integer(1), "%-4.6b", "true", },
-                { new Integer(1), "%.2b", "tr", },
-                { new Float(1.1f), "%3.2b", " tr", },
-                { new Float(1.1f), "%-4.6b", "true", },
-                { new Float(1.1f), "%.2b", "tr", },
-                { new Double(1.1d), "%3.2b", " tr", },
-                { new Double(1.1d), "%-4.6b", "true", },
-                { new Double(1.1d), "%.2b", "tr", },
+                { Character.valueOf('c'), "%3.2b", " tr", },
+                { Character.valueOf('c'), "%-4.6b", "true", },
+                { Character.valueOf('c'), "%.2b", "tr", },
+                { Byte.valueOf((byte) 0x01), "%3.2b", " tr", },
+                { Byte.valueOf((byte) 0x01), "%-4.6b", "true", },
+                { Byte.valueOf((byte) 0x01), "%.2b", "tr", },
+                { Short.valueOf((short) 0x0001), "%3.2b", " tr", },
+                { Short.valueOf((short) 0x0001), "%-4.6b", "true", },
+                { Short.valueOf((short) 0x0001), "%.2b", "tr", },
+                { Integer.valueOf(1), "%3.2b", " tr", },
+                { Integer.valueOf(1), "%-4.6b", "true", },
+                { Integer.valueOf(1), "%.2b", "tr", },
+                { Float.valueOf(1.1f), "%3.2b", " tr", },
+                { Float.valueOf(1.1f), "%-4.6b", "true", },
+                { Float.valueOf(1.1f), "%.2b", "tr", },
+                { Double.valueOf(1.1d), "%3.2b", " tr", },
+                { Double.valueOf(1.1d), "%-4.6b", "true", },
+                { Double.valueOf(1.1d), "%.2b", "tr", },
                 { "", "%3.2b", " tr", },
                 { "", "%-4.6b", "true", },
                 { "", "%.2b", "tr", },
@@ -1202,24 +1202,24 @@ public class FormatterTest extends TestCase {
                 { Boolean.TRUE, "%2.3s", "tru", },
                 { Boolean.TRUE, "%-6.4s", "true  ", },
                 { Boolean.TRUE, "%.5s", "true", },
-                { new Character('c'), "%2.3s", " c", },
-                { new Character('c'), "%-6.4s", "c     ", },
-                { new Character('c'), "%.5s", "c", },
-                { new Byte((byte) 0x01), "%2.3s", " 1", },
-                { new Byte((byte) 0x01), "%-6.4s", "1     ", },
-                { new Byte((byte) 0x01), "%.5s", "1", },
-                { new Short((short) 0x0001), "%2.3s", " 1", },
-                { new Short((short) 0x0001), "%-6.4s", "1     ", },
-                { new Short((short) 0x0001), "%.5s", "1", },
-                { new Integer(1), "%2.3s", " 1", },
-                { new Integer(1), "%-6.4s", "1     ", },
-                { new Integer(1), "%.5s", "1", },
-                { new Float(1.1f), "%2.3s", "1.1", },
-                { new Float(1.1f), "%-6.4s", "1.1   ", },
-                { new Float(1.1f), "%.5s", "1.1", },
-                { new Double(1.1d), "%2.3s", "1.1", },
-                { new Double(1.1d), "%-6.4s", "1.1   ", },
-                { new Double(1.1d), "%.5s", "1.1", },
+                { Character.valueOf('c'), "%2.3s", " c", },
+                { Character.valueOf('c'), "%-6.4s", "c     ", },
+                { Character.valueOf('c'), "%.5s", "c", },
+                { Byte.valueOf((byte) 0x01), "%2.3s", " 1", },
+                { Byte.valueOf((byte) 0x01), "%-6.4s", "1     ", },
+                { Byte.valueOf((byte) 0x01), "%.5s", "1", },
+                { Short.valueOf((short) 0x0001), "%2.3s", " 1", },
+                { Short.valueOf((short) 0x0001), "%-6.4s", "1     ", },
+                { Short.valueOf((short) 0x0001), "%.5s", "1", },
+                { Integer.valueOf(1), "%2.3s", " 1", },
+                { Integer.valueOf(1), "%-6.4s", "1     ", },
+                { Integer.valueOf(1), "%.5s", "1", },
+                { Float.valueOf(1.1f), "%2.3s", "1.1", },
+                { Float.valueOf(1.1f), "%-6.4s", "1.1   ", },
+                { Float.valueOf(1.1f), "%.5s", "1.1", },
+                { Double.valueOf(1.1d), "%2.3s", "1.1", },
+                { Double.valueOf(1.1d), "%-6.4s", "1.1   ", },
+                { Double.valueOf(1.1d), "%.5s", "1.1", },
                 { "", "%2.3s", "  ", },
                 { "", "%-6.4s", "      ", },
                 { "", "%.5s", "", },
@@ -1262,12 +1262,12 @@ public class FormatterTest extends TestCase {
         final Object[] input = {
                 Boolean.FALSE,
                 Boolean.TRUE,
-                new Character('c'),
-                new Byte((byte) 0x01),
-                new Short((short) 0x0001),
-                new Integer(1),
-                new Float(1.1f),
-                new Double(1.1d),
+                Character.valueOf('c'),
+                Byte.valueOf((byte) 0x01),
+                Short.valueOf((short) 0x0001),
+                Integer.valueOf(1),
+                Float.valueOf(1.1f),
+                Double.valueOf(1.1d),
                 "",
                 "string content",
                 new MockFormattable(),
@@ -1305,12 +1305,12 @@ public class FormatterTest extends TestCase {
         final Object[] input = {
                 Boolean.FALSE,
                 Boolean.TRUE,
-                new Character('c'),
-                new Byte((byte) 0x01),
-                new Short((short) 0x0001),
-                new Integer(1),
-                new Float(1.1f),
-                new Double(1.1d),
+                Character.valueOf('c'),
+                Byte.valueOf((byte) 0x01),
+                Short.valueOf((short) 0x0001),
+                Integer.valueOf(1),
+                Float.valueOf(1.1f),
+                Double.valueOf(1.1d),
                 "",
                 "string content",
                 new MockFormattable(),
@@ -1404,8 +1404,8 @@ public class FormatterTest extends TestCase {
      */
     public void test_formatLjava_lang_String$Ljava_lang_Object_CharacterConversion() {
         Formatter f = new Formatter(Locale.US);
-        final Object[] illArgs = { Boolean.TRUE, new Float(1.1f),
-                new Double(1.1d), "string content", new Float(1.1f), new Date() };
+        final Object[] illArgs = { Boolean.TRUE, Float.valueOf(1.1f),
+                Double.valueOf(1.1d), "string content", Float.valueOf(1.1f), new Date() };
         for (int i = 0; i < illArgs.length; i++) {
             try {
                 f.format("%c", illArgs[i]);
@@ -3838,7 +3838,7 @@ public class FormatterTest extends TestCase {
 
         final char[] conversions = { 'e', 'E', 'g', 'G', 'f', 'a', 'A' };
         final Object[] illArgs = { false, (byte) 1, (short) 2, 3, (long) 4,
-                new BigInteger("5"), new Character('c'), new Object(),
+                new BigInteger("5"), Character.valueOf('c'), new Object(),
                 new Date() };
         for (int i = 0; i < illArgs.length; i++) {
             for (int j = 0; j < conversions.length; j++) {

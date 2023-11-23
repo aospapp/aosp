@@ -23,6 +23,14 @@
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
+    <!-- Disable package verification since we're using an older target sdk. -->
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
+        <option name="set-global-setting" key="verifier_verify_adb_installs" value="0" />
+        <option name="restore-settings" value="true" />
+        <!-- Avoid restarting after changing the setting. -->
+        <option name="force-skip-system-props" value="true" />
+    </target_preparer>
+
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/nopermission" />
         <option name="teardown-command" value="rm -rf /data/local/tmp/cts"/>

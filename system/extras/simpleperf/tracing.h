@@ -98,7 +98,7 @@ class TracingFile;
 
 class Tracing {
  public:
-  explicit Tracing(const std::vector<char>& data);
+  static std::unique_ptr<Tracing> Create(const std::vector<char>& data);
   ~Tracing();
   void Dump(size_t indent);
   TracingFormat GetTracingFormatHavingId(uint64_t trace_event_id);
@@ -107,7 +107,9 @@ class Tracing {
   uint32_t GetPageSize() const;
 
  private:
-  TracingFile* tracing_file_;
+  Tracing();
+
+  std::unique_ptr<TracingFile> tracing_file_;
   std::vector<TracingFormat> tracing_formats_;
 };
 

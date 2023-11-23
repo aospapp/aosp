@@ -16,9 +16,7 @@
 """This scrip tests various BLE apis for Fuchsia devices.
 """
 
-import pprint
 import random
-import time
 
 from acts.base_test import BaseTestClass
 from acts_contrib.test_utils.fuchsia.bt_test_utils import le_scan_for_device_by_name
@@ -40,15 +38,14 @@ class BleFuchsiaTest(BaseTestClass):
         self.fuchsia_scan = self.fuchsia_devices[1]
 
     def test_fuchsia_publish_service(self):
-        service_id = 0
         service_primary = True
         # Random uuid
         service_type = "0000180f-0000-1000-8000-00805fffffff"
 
         # Generate a random key for sl4f storage of proxy key
         service_proxy_key = "SProxy" + str(random.randint(0, 1000000))
-        res = self.fuchsia_adv.ble_lib.blePublishService(
-            service_id, service_primary, service_type, service_proxy_key)
+        res = self.fuchsia_adv.sl4f.ble_lib.blePublishService(
+            service_primary, service_type, service_proxy_key)
         self.log.info("Publish result: {}".format(res))
 
         return True
@@ -71,7 +68,7 @@ class BleFuchsiaTest(BaseTestClass):
         res = True
 
         # Start advertising
-        self.fuchsia_adv.ble_lib.bleStartBleAdvertising(
+        self.fuchsia_adv.sl4f.ble_lib.bleStartBleAdvertising(
             adv_data, scan_response, interval, connectable)
         self.log.info("Fuchsia advertising name: {}".format(fuchsia_name))
 
@@ -83,21 +80,20 @@ class BleFuchsiaTest(BaseTestClass):
             res = False
 
         # Stop advertising
-        self.fuchsia_adv.ble_lib.bleStopBleAdvertising()
+        self.fuchsia_adv.sl4f.ble_lib.bleStopBleAdvertising()
 
         return res
 
     def test_fuchsia_gatt_fuchsia_periph(self):
-        # Create random service with id, primary, and uuid
-        service_id = 3
+        # Create random service with primary, and uuid
         service_primary = True
         # Random uuid
         service_type = "0000180f-0000-1000-8000-00805fffffff"
 
         # Generate a random key for sl4f storage of proxy key
         service_proxy_key = "SProxy" + str(random.randint(0, 1000000))
-        res = self.fuchsia_adv.ble_lib.blePublishService(
-            service_id, service_primary, service_type, service_proxy_key)
+        res = self.fuchsia_adv.sl4f.ble_lib.blePublishService(
+            service_primary, service_type, service_proxy_key)
         self.log.info("Publish result: {}".format(res))
 
         # Initialize advertising on fuchsia dveice with name and interval
@@ -116,7 +112,7 @@ class BleFuchsiaTest(BaseTestClass):
         interval = 1000
 
         # Start advertising
-        self.fuchsia_adv.ble_lib.bleStartBleAdvertising(
+        self.fuchsia_adv.sl4f.ble_lib.bleStartBleAdvertising(
             adv_data, scan_response, interval, connectable)
         self.log.info("Fuchsia advertising name: {}".format(fuchsia_name))
 
@@ -125,22 +121,23 @@ class BleFuchsiaTest(BaseTestClass):
                                                  fuchsia_name,
                                                  self.default_timeout)
         if not scan_result:
-            self.fuchsia_adv.ble_lib.bleStopBleAdvertising()
+            self.fuchsia_adv.sl4f.ble_lib.bleStopBleAdvertising()
             return False
 
         name, did, connectable = scan_result["name"], scan_result[
             "id"], scan_result["connectable"]
 
-        connect = self.fuchsia_scan.gattc_lib.bleConnectToPeripheral(did)
+        connect = self.fuchsia_scan.sl4f.gattc_lib.bleConnectToPeripheral(did)
         self.log.info("Connecting returned status: {}".format(connect))
 
-        services = self.fuchsia_scan.gattc_lib.listServices(did)
+        services = self.fuchsia_scan.sl4f.gattc_lib.listServices(did)
         self.log.info("Listing services returned: {}".format(services))
 
-        dconnect = self.fuchsia_scan.gattc_lib.bleDisconnectPeripheral(did)
+        dconnect = self.fuchsia_scan.sl4f.gattc_lib.bleDisconnectPeripheral(
+            did)
         self.log.info("Disconnect status: {}".format(dconnect))
 
         # Stop fuchsia advertising
-        self.fuchsia_adv.ble_lib.bleStopBleAdvertising()
+        self.fuchsia_adv.sl4f.ble_lib.bleStopBleAdvertising()
 
         return True

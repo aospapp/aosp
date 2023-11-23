@@ -17,7 +17,7 @@ from acts.controllers.ap_lib import hostapd_constants
 import acts.signals as signals
 import acts_contrib.test_utils.wifi.wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from WifiStaApConcurrencyTest import WifiStaApConcurrencyTest
+from ..WifiStaApConcurrencyTest import WifiStaApConcurrencyTest
 
 
 class WifiStaApConcurrency11axTest(WifiStaApConcurrencyTest):

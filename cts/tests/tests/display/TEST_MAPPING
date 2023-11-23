@@ -1,0 +1,25 @@
+{
+  "kernel-presubmit": [
+    {
+      "name": "CtsDisplayTestCases",
+      "options": [
+        {
+          // TODO(b/247135992)
+          "exclude-filter": "android.display.cts.DisplayManagerTest#testCreateVirtualDisplayFromShell"
+        },
+        {
+          // TODO(b/184685560)
+          "exclude-filter": "android.display.cts.DisplayTest#testRefreshRateSwitchOnSecondaryDisplay"
+        },
+        {
+          // TODO(b/270222666)
+          "exclude-filter": "android.display.cts.VirtualDisplayTest#testVirtualDisplayWithRequestedRefreshRate"
+        },
+        {
+          // TODO(b/248273657)
+          "exclude-filter": "android.graphics.cts.SetFrameRateTest"
+        }
+      ]
+    }
+  ]
+}

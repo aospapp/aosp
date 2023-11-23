@@ -28,14 +28,14 @@ LOCAL_PROPRIETARY_MODULE := true
 
 LOCAL_CFLAGS += \
 	-DSOC_VERSION=$(soc_ver) \
-	-DLOG_TAG=\"hwc3\"
+	-DLOG_TAG=\"hwc-3\"
 
 # hwc3 re-uses hwc2.2 ComposerResource and libexynosdisplay
-LOCAL_SHARED_LIBRARIES := android.hardware.graphics.composer3-V1-ndk \
+LOCAL_SHARED_LIBRARIES := android.hardware.graphics.composer3-V2-ndk \
 	android.hardware.graphics.composer@2.1-resources \
         android.hardware.graphics.composer@2.2-resources \
 	android.hardware.graphics.composer@2.4 \
-	com.google.hardware.pixel.display-V6-ndk \
+	com.google.hardware.pixel.display-V8-ndk \
 	libbase \
 	libbinder \
 	libbinder_ndk \
@@ -66,6 +66,7 @@ LOCAL_C_INCLUDES := \
 	$(TOP)/hardware/google/graphics/common/libhwc2.1/libresource \
 	$(TOP)/hardware/google/graphics/$(soc_ver)/include \
 	$(TOP)/hardware/google/graphics/$(soc_ver)/libhwc2.1 \
+	$(TOP)/hardware/google/graphics/$(soc_ver)/libhwc2.1/libcolormanager \
 	$(TOP)/hardware/google/graphics/$(soc_ver)/libhwc2.1/libdevice \
 	$(TOP)/hardware/google/graphics/$(soc_ver)/libhwc2.1/libmaindisplay \
 	$(TOP)/hardware/google/graphics/$(soc_ver)/libhwc2.1/libresource

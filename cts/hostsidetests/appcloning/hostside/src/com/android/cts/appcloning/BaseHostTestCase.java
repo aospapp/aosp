@@ -24,59 +24,66 @@ import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.RunUtil;
 
+import com.google.common.collect.Iterables;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.BooleanSupplier;
 
 
 abstract class BaseHostTestCase extends BaseHostJUnit4Test {
     private int mCurrentUserId = NativeDevice.INVALID_USER_ID;
     private static final String ERROR_MESSAGE_TAG = "[ERROR]";
-    protected ITestDevice mDevice = null;
+    protected static ITestDevice sDevice = null;
 
-    protected void setDevice() {
-        mDevice = getDevice();
+    protected static void setDevice(ITestDevice device) {
+        sDevice = device;
     }
 
     protected String executeShellCommand(String cmd, Object... args) throws Exception {
-        return mDevice.executeShellCommand(String.format(cmd, args));
+        return sDevice.executeShellCommand(String.format(cmd, args));
     }
 
     protected CommandResult executeShellV2Command(String cmd, Object... args) throws Exception {
-        return mDevice.executeShellV2Command(String.format(cmd, args));
+        return sDevice.executeShellV2Command(String.format(cmd, args));
     }
 
     protected boolean isPackageInstalled(String packageName, String userId) throws Exception {
-        return mDevice.isPackageInstalled(packageName, userId);
+        return sDevice.isPackageInstalled(packageName, userId);
     }
 
     // TODO (b/174775905) remove after exposing the check from ITestDevice.
-    protected boolean isHeadlessSystemUserMode() throws DeviceNotAvailableException {
-        String result = mDevice
+    protected static boolean isHeadlessSystemUserMode() throws DeviceNotAvailableException {
+        String result = sDevice
                 .executeShellCommand("getprop ro.fw.mu.headless_system_user").trim();
         return "true".equalsIgnoreCase(result);
     }
 
-    protected boolean supportsMultipleUsers() throws DeviceNotAvailableException {
-        return mDevice.getMaxNumberOfUsersSupported() > 1;
+    protected static boolean supportsMultipleUsers() throws DeviceNotAvailableException {
+        return sDevice.getMaxNumberOfUsersSupported() > 1;
     }
 
-    protected boolean isAtLeastS() throws DeviceNotAvailableException {
-        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(mDevice);
+    protected static boolean isAtLeastS() throws DeviceNotAvailableException {
+        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(sDevice);
         return deviceSdkLevel.isDeviceAtLeastS();
     }
 
     protected boolean isAtLeastT() throws DeviceNotAvailableException {
-        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(mDevice);
+        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(sDevice);
         return deviceSdkLevel.isDeviceAtLeastT();
+    }
+
+    protected static boolean isAtLeastU(ITestDevice device) throws DeviceNotAvailableException {
+        DeviceSdkLevel deviceSdkLevel = new DeviceSdkLevel(device);
+        return deviceSdkLevel.isDeviceAtLeastU();
     }
 
     protected static void throwExceptionIfTimeout(long start, long timeoutMillis, Throwable e) {
         if (System.currentTimeMillis() - start < timeoutMillis) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ignored) {
-                throw new RuntimeException(e);
-            }
+            RunUtil.getDefault().sleep(100);
         } else {
             throw new RuntimeException(e);
         }
@@ -118,7 +125,7 @@ abstract class BaseHostTestCase extends BaseHostJUnit4Test {
         return mCurrentUserId;
     }
 
-    protected boolean isSuccessful(CommandResult result) {
+    protected static boolean isSuccessful(CommandResult result) {
         if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
             return false;
         }
@@ -133,7 +140,7 @@ abstract class BaseHostTestCase extends BaseHostJUnit4Test {
     private void setCurrentUserId() throws Exception {
         if (mCurrentUserId != NativeDevice.INVALID_USER_ID) return;
 
-        mCurrentUserId = mDevice.getCurrentUser();
+        mCurrentUserId = sDevice.getCurrentUser();
         CLog.i("Current user: %d");
     }
 
@@ -149,5 +156,47 @@ abstract class BaseHostTestCase extends BaseHostJUnit4Test {
          * Similar to {@link BooleanSupplier#getAsBoolean} but has {@code throws Exception}.
          */
         boolean getAsBoolean() throws Exception;
+    }
+
+    protected static String getPublicVolumeExcluding(String excludingVolume) throws Exception {
+        List<String> volList = splitMultiLineOutput(sDevice.executeShellCommand("sm list-volumes"));
+
+        // list volumes will result in something like
+        // private mounted null
+        // public:7,281 mounted 3080-17E8
+        // emulated;0 mounted null
+        // and we are interested in 3080-17E8
+        for (String volume: volList) {
+            if (volume.contains("public")
+                    && (excludingVolume == null || !volume.contains(excludingVolume))) {
+                //public:7,281 mounted 3080-17E8
+                String[] splits = volume.split(" ");
+                //Return the last snippet, that is 3080-17E8
+                return splits[splits.length - 1];
+            }
+        }
+        return null;
+    }
+
+    protected static boolean partitionDisks() {
+        try {
+            List<String> diskNames = splitMultiLineOutput(sDevice
+                    .executeShellCommand("sm list-disks"));
+            if (!diskNames.isEmpty() && !Iterables.getLast(diskNames).isEmpty()) {
+                sDevice.executeShellCommand("sm partition "
+                        + Iterables.getLast(diskNames) + " public");
+                return true;
+            }
+        } catch (Exception ignored) {
+            //ignored
+        }
+        return false;
+    }
+
+    private static List<String> splitMultiLineOutput(String input) throws Exception {
+        if (input == null) {
+            return new ArrayList<>();
+        }
+        return Arrays.asList(input.split("\\r?\\n"));
     }
 }

@@ -35,6 +35,11 @@ public class Constants {
     public static final int VERSION_APK_SIGNATURE_SCHEME_V31 = 31;
     public static final int VERSION_APK_SIGNATURE_SCHEME_V4 = 4;
 
+    /**
+     * The maximum number of signers supported by the v1 and v2 APK Signature Schemes.
+     */
+    public static final int MAX_APK_SIGNERS = 10;
+
     public static final String MANIFEST_ENTRY_NAME = V1SchemeConstants.MANIFEST_ENTRY_NAME;
 
     public static final int APK_SIGNATURE_SCHEME_V2_BLOCK_ID =

@@ -20,6 +20,7 @@ android_test_helper_app {
     name: "CtsMultiUserStorageApp",
     defaults: ["cts_support_defaults"],
     sdk_version: "current",
+    min_sdk_version: "29",
     target_sdk_version: "29",
     static_libs: [
         "androidx.test.rules",

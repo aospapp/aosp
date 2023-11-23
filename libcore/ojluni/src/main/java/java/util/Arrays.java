@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1997, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1997, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,9 +26,10 @@
 
 package java.util;
 
-import jdk.internal.HotSpotIntrinsicCandidate;
 import jdk.internal.util.ArraysSupport;
+import jdk.internal.vm.annotation.IntrinsicCandidate;
 
+import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.BinaryOperator;
@@ -74,18 +75,657 @@ import java.util.stream.StreamSupport;
  */
 public class Arrays {
 
-    /**
-     * The minimum array length below which a parallel sorting
-     * algorithm will not further partition the sorting task. Using
-     * smaller sizes typically results in memory contention across
-     * tasks that makes parallel speedups unlikely.
-     * @hide
-     */
-    // Android-changed: Make MIN_ARRAY_SORT_GRAN public and @hide (used by harmony ArraysTest).
-    public static final int MIN_ARRAY_SORT_GRAN = 1 << 13;
-
     // Suppresses default constructor, ensuring non-instantiability.
     private Arrays() {}
+
+    /*
+     * Sorting methods. Note that all public "sort" methods take the
+     * same form: performing argument checks if necessary, and then
+     * expanding arguments into those required for the internal
+     * implementation methods residing in other package-private
+     * classes (except for legacyMergeSort, included in this class).
+     */
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(int[] a) {
+        DualPivotQuicksort.sort(a, 0, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(int[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, 0, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(long[] a) {
+        DualPivotQuicksort.sort(a, 0, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(long[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, 0, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(short[] a) {
+        DualPivotQuicksort.sort(a, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(short[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(char[] a) {
+        DualPivotQuicksort.sort(a, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(char[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(byte[] a) {
+        DualPivotQuicksort.sort(a, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(byte[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * <p>The {@code <} relation does not provide a total order on all float
+     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
+     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
+     * other value and all {@code Float.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(float[] a) {
+        DualPivotQuicksort.sort(a, 0, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * <p>The {@code <} relation does not provide a total order on all float
+     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
+     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
+     * other value and all {@code Float.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(float[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, 0, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * <p>The {@code <} relation does not provide a total order on all double
+     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
+     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
+     * other value and all {@code Double.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     */
+    public static void sort(double[] a) {
+        DualPivotQuicksort.sort(a, 0, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending order. The range
+     * to be sorted extends from the index {@code fromIndex}, inclusive, to
+     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
+     * the range to be sorted is empty.
+     *
+     * <p>The {@code <} relation does not provide a total order on all double
+     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
+     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
+     * other value and all {@code Double.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort
+     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     */
+    public static void sort(double[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, 0, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(byte[] a) {
+        DualPivotQuicksort.sort(a, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(byte[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(char[] a) {
+        DualPivotQuicksort.sort(a, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(char[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(short[] a) {
+        DualPivotQuicksort.sort(a, 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(short[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(int[] a) {
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(int[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(long[] a) {
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(long[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * <p>The {@code <} relation does not provide a total order on all float
+     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
+     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
+     * other value and all {@code Float.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(float[] a) {
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * <p>The {@code <} relation does not provide a total order on all float
+     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
+     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
+     * other value and all {@code Float.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(float[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), fromIndex, toIndex);
+    }
+
+    /**
+     * Sorts the specified array into ascending numerical order.
+     *
+     * <p>The {@code <} relation does not provide a total order on all double
+     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
+     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
+     * other value and all {@code Double.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(double[] a) {
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), 0, a.length);
+    }
+
+    /**
+     * Sorts the specified range of the array into ascending numerical order.
+     * The range to be sorted extends from the index {@code fromIndex},
+     * inclusive, to the index {@code toIndex}, exclusive. If
+     * {@code fromIndex == toIndex}, the range to be sorted is empty.
+     *
+     * <p>The {@code <} relation does not provide a total order on all double
+     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
+     * value compares neither less than, greater than, nor equal to any value,
+     * even itself. This method uses the total order imposed by the method
+     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
+     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
+     * other value and all {@code Double.NaN} values are considered equal.
+     *
+     * @implNote The sorting algorithm is a Dual-Pivot Quicksort by
+     * Vladimir Yaroslavskiy, Jon Bentley and Josh Bloch. This algorithm
+     * offers O(n log(n)) performance on all data sets, and is typically
+     * faster than traditional (one-pivot) Quicksort implementations.
+     *
+     * @param a the array to be sorted
+     * @param fromIndex the index of the first element, inclusive, to be sorted
+     * @param toIndex the index of the last element, exclusive, to be sorted
+     *
+     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
+     * @throws ArrayIndexOutOfBoundsException
+     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
+     *
+     * @since 1.8
+     */
+    public static void parallelSort(double[] a, int fromIndex, int toIndex) {
+        rangeCheck(a.length, fromIndex, toIndex);
+        DualPivotQuicksort.sort(a, ForkJoinPool.getCommonPoolParallelism(), fromIndex, toIndex);
+    }
+
+    /**
+     * Checks that {@code fromIndex} and {@code toIndex} are in
+     * the range and throws an exception if they aren't.
+     */
+    static void rangeCheck(int arrayLength, int fromIndex, int toIndex) {
+        if (fromIndex > toIndex) {
+            throw new IllegalArgumentException(
+                "fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
+        }
+        if (fromIndex < 0) {
+            throw new ArrayIndexOutOfBoundsException(fromIndex);
+        }
+        if (toIndex > arrayLength) {
+            throw new ArrayIndexOutOfBoundsException(toIndex);
+        }
+    }
 
     /**
      * A comparator that implements the natural ordering of a group of
@@ -111,863 +751,16 @@ public class Arrays {
     }
 
     /**
-     * Checks that {@code fromIndex} and {@code toIndex} are in
-     * the range and throws an exception if they aren't.
+     * The minimum array length below which a parallel sorting
+     * algorithm will not further partition the sorting task. Using
+     * smaller sizes typically results in memory contention across
+     * tasks that makes parallel speedups unlikely.
+     *
+     * @hide
      */
-    static void rangeCheck(int arrayLength, int fromIndex, int toIndex) {
-        if (fromIndex > toIndex) {
-            throw new IllegalArgumentException(
-                    "fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
-        }
-        if (fromIndex < 0) {
-            throw new ArrayIndexOutOfBoundsException(fromIndex);
-        }
-        if (toIndex > arrayLength) {
-            throw new ArrayIndexOutOfBoundsException(toIndex);
-        }
-    }
-
-    /*
-     * Sorting methods. Note that all public "sort" methods take the
-     * same form: Performing argument checks if necessary, and then
-     * expanding arguments into those required for the internal
-     * implementation methods residing in other package-private
-     * classes (except for legacyMergeSort, included in this class).
-     */
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(int[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(int[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(long[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(long[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(short[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(short[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(char[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(char[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(byte[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(byte[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>The {@code <} relation does not provide a total order on all float
-     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
-     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
-     * other value and all {@code Float.NaN} values are considered equal.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(float[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>The {@code <} relation does not provide a total order on all float
-     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
-     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
-     * other value and all {@code Float.NaN} values are considered equal.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(float[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>The {@code <} relation does not provide a total order on all double
-     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
-     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
-     * other value and all {@code Double.NaN} values are considered equal.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     */
-    public static void sort(double[] a) {
-        DualPivotQuicksort.sort(a, 0, a.length - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending order. The range
-     * to be sorted extends from the index {@code fromIndex}, inclusive, to
-     * the index {@code toIndex}, exclusive. If {@code fromIndex == toIndex},
-     * the range to be sorted is empty.
-     *
-     * <p>The {@code <} relation does not provide a total order on all double
-     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
-     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
-     * other value and all {@code Double.NaN} values are considered equal.
-     *
-     * <p>Implementation note: The sorting algorithm is a Dual-Pivot Quicksort
-     * by Vladimir Yaroslavskiy, Jon Bentley, and Joshua Bloch. This algorithm
-     * offers O(n log(n)) performance on many data sets that cause other
-     * quicksorts to degrade to quadratic performance, and is typically
-     * faster than traditional (one-pivot) Quicksort implementations.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     */
-    public static void sort(double[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(byte[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(byte[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(byte[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1);
-        else
-            new ArraysParallelSortHelpers.FJByte.Sorter
-                (null, a, new byte[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(byte[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(byte[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(byte[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1);
-        else
-            new ArraysParallelSortHelpers.FJByte.Sorter
-                (null, a, new byte[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(char[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(char[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(char[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJChar.Sorter
-                (null, a, new char[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-      @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(char[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(char[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(char[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJChar.Sorter
-                (null, a, new char[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(short[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(short[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(short[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJShort.Sorter
-                (null, a, new short[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(short[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(short[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(short[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJShort.Sorter
-                (null, a, new short[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(int[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(int[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(int[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJInt.Sorter
-                (null, a, new int[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(int[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(int[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(int[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJInt.Sorter
-                (null, a, new int[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(long[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(long[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(long[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJLong.Sorter
-                (null, a, new long[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(long[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(long[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(long[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJLong.Sorter
-                (null, a, new long[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>The {@code <} relation does not provide a total order on all float
-     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
-     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
-     * other value and all {@code Float.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(float[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(float[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(float[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJFloat.Sorter
-                (null, a, new float[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * <p>The {@code <} relation does not provide a total order on all float
-     * values: {@code -0.0f == 0.0f} is {@code true} and a {@code Float.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Float#compareTo}: {@code -0.0f} is treated as less than value
-     * {@code 0.0f} and {@code Float.NaN} is considered greater than any
-     * other value and all {@code Float.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(float[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(float[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(float[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJFloat.Sorter
-                (null, a, new float[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified array into ascending numerical order.
-     *
-     * <p>The {@code <} relation does not provide a total order on all double
-     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
-     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
-     * other value and all {@code Double.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(double[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(double[]) Arrays.sort} method. The algorithm requires a
-     * working space no greater than the size of the original array. The
-     * {@link ForkJoinPool#commonPool() ForkJoin common pool} is used to
-     * execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(double[] a) {
-        int n = a.length, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, 0, n - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJDouble.Sorter
-                (null, a, new double[n], 0, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
-
-    /**
-     * Sorts the specified range of the array into ascending numerical order.
-     * The range to be sorted extends from the index {@code fromIndex},
-     * inclusive, to the index {@code toIndex}, exclusive. If
-     * {@code fromIndex == toIndex}, the range to be sorted is empty.
-     *
-     * <p>The {@code <} relation does not provide a total order on all double
-     * values: {@code -0.0d == 0.0d} is {@code true} and a {@code Double.NaN}
-     * value compares neither less than, greater than, nor equal to any value,
-     * even itself. This method uses the total order imposed by the method
-     * {@link Double#compareTo}: {@code -0.0d} is treated as less than value
-     * {@code 0.0d} and {@code Double.NaN} is considered greater than any
-     * other value and all {@code Double.NaN} values are considered equal.
-     *
-     * @implNote The sorting algorithm is a parallel sort-merge that breaks the
-     * array into sub-arrays that are themselves sorted and then merged. When
-     * the sub-array length reaches a minimum granularity, the sub-array is
-     * sorted using the appropriate {@link Arrays#sort(double[]) Arrays.sort}
-     * method. If the length of the specified array is less than the minimum
-     * granularity, then it is sorted using the appropriate {@link
-     * Arrays#sort(double[]) Arrays.sort} method. The algorithm requires a working
-     * space no greater than the size of the specified range of the original
-     * array. The {@link ForkJoinPool#commonPool() ForkJoin common pool} is
-     * used to execute any parallel tasks.
-     *
-     * @param a the array to be sorted
-     * @param fromIndex the index of the first element, inclusive, to be sorted
-     * @param toIndex the index of the last element, exclusive, to be sorted
-     *
-     * @throws IllegalArgumentException if {@code fromIndex > toIndex}
-     * @throws ArrayIndexOutOfBoundsException
-     *     if {@code fromIndex < 0} or {@code toIndex > a.length}
-     *
-     * @since 1.8
-     */
-    public static void parallelSort(double[] a, int fromIndex, int toIndex) {
-        rangeCheck(a.length, fromIndex, toIndex);
-        int n = toIndex - fromIndex, p, g;
-        if (n <= MIN_ARRAY_SORT_GRAN ||
-            (p = ForkJoinPool.getCommonPoolParallelism()) == 1)
-            DualPivotQuicksort.sort(a, fromIndex, toIndex - 1, null, 0, 0);
-        else
-            new ArraysParallelSortHelpers.FJDouble.Sorter
-                (null, a, new double[n], fromIndex, n, 0,
-                 ((g = n / (p << 2)) <= MIN_ARRAY_SORT_GRAN) ?
-                 MIN_ARRAY_SORT_GRAN : g).invoke();
-    }
+    // Android-changed: Make MIN_ARRAY_SORT_GRAN public and @hide (used by harmony
+    // ArraysTest).
+    public static final int MIN_ARRAY_SORT_GRAN = 1 << 13;
 
     /**
      * Sorts the specified array of objects into ascending order, according
@@ -1190,7 +983,23 @@ public class Arrays {
      * Sorting of complex type arrays.
      */
 
-    // Android-removed: LegacyMergeSort class (unused on Android).
+    // BEGIN Android-removed: LegacyMergeSort class (unused on Android).
+    /*
+    /**
+     * Old merge sort implementation can be selected (for
+     * compatibility with broken comparators) using a system property.
+     * Cannot be a static boolean in the enclosing class due to
+     * circular dependencies. To be removed in a future release.
+     * 
+    static final class LegacyMergeSort {
+        @SuppressWarnings("removal")
+        private static final boolean userRequested =
+            java.security.AccessController.doPrivileged(
+                new sun.security.action.GetBooleanAction(
+                    "java.util.Arrays.useLegacyMergeSort")).booleanValue();
+    }
+    */
+    // END Android-removed: LegacyMergeSort class (unused on Android).
 
     /**
      * Sorts the specified array of objects into ascending order, according
@@ -1235,14 +1044,25 @@ public class Arrays {
      *         {@link Comparable} contract
      */
     public static void sort(Object[] a) {
-        // Android-removed: LegacyMergeSort support.
-        // if (LegacyMergeSort.userRequested)
-        //     legacyMergeSort(a);
-        // else
+        // BEGIN Android-removed: LegacyMergeSort support.
+        /*
+        if (LegacyMergeSort.userRequested)
+            legacyMergeSort(a);
+        else
+        */
+        // END Android-removed: LegacyMergeSort support.
             ComparableTimSort.sort(a, 0, a.length, null, 0, 0);
     }
 
-    // Android-removed: legacyMergeSort() (unused on Android).
+    // BEGIN Android-removed: legacyMergeSort() (unused on Android).
+    /*
+    /** To be removed in a future release.
+    private static void legacyMergeSort(Object[] a) {
+        Object[] aux = a.clone();
+        mergeSort(aux, a, 0, a.length, 0);
+    }
+    */
+    // END Android-removed: legacyMergeSort() (unused on Android).
 
     /**
      * Sorts the specified range of the specified array of objects into
@@ -1298,14 +1118,27 @@ public class Arrays {
      */
     public static void sort(Object[] a, int fromIndex, int toIndex) {
         rangeCheck(a.length, fromIndex, toIndex);
-        // Android-removed: LegacyMergeSort support.
-        // if (LegacyMergeSort.userRequested)
-        //     legacyMergeSort(a, fromIndex, toIndex);
-        // else
+        // BEGIN Android-removed: LegacyMergeSort support.
+        /*
+        if (LegacyMergeSort.userRequested)
+            legacyMergeSort(a, fromIndex, toIndex);
+        else
+        */
+        // END Android-removed: LegacyMergeSort support.
             ComparableTimSort.sort(a, fromIndex, toIndex, null, 0, 0);
     }
 
-    // Android-removed: legacyMergeSort() (unused on Android).
+    // BEGIN Android-removed: legacyMergeSort() (unused on Android).
+    /*
+    /** To be removed in a future release. *
+    private static void legacyMergeSort(Object[] a,
+                                        int fromIndex, int toIndex) {
+        Object[] aux = copyOfRange(a, fromIndex, toIndex);
+        mergeSort(aux, a, fromIndex, toIndex, -fromIndex);
+    }
+    */
+    // END Android-removed: legacyMergeSort() (unused on Android).
+
 
     /**
      * Tuning parameter: list size at or below which insertion sort will be
@@ -1420,15 +1253,28 @@ public class Arrays {
         if (c == null) {
             sort(a);
         } else {
-        // Android-removed: LegacyMergeSort support.
-            // if (LegacyMergeSort.userRequested)
-            //     legacyMergeSort(a, c);
-            // else
+            // BEGIN Android-removed: LegacyMergeSort support.
+            /*
+            if (LegacyMergeSort.userRequested)
+                legacyMergeSort(a, c);
+            else
+            */
+            // END Android-removed: LegacyMergeSort support.
                 TimSort.sort(a, 0, a.length, c, null, 0, 0);
         }
     }
 
-    // Android-removed: legacyMergeSort() (unused on Android).
+    // BEGIN Android-removed: legacyMergeSort() (unused on Android).
+    /** To be removed in a future release. *
+    private static <T> void legacyMergeSort(T[] a, Comparator<? super T> c) {
+        T[] aux = a.clone();
+        if (c==null)
+            mergeSort(aux, a, 0, a.length, 0);
+        else
+            mergeSort(aux, a, 0, a.length, 0, c);
+    }
+    */
+    // END Android-removed: legacyMergeSort() (unused on Android).
 
     /**
      * Sorts the specified range of the specified array of objects according
@@ -1488,16 +1334,78 @@ public class Arrays {
             sort(a, fromIndex, toIndex);
         } else {
             rangeCheck(a.length, fromIndex, toIndex);
-            // Android-removed: LegacyMergeSort support.
-            // if (LegacyMergeSort.userRequested)
-            //     legacyMergeSort(a, fromIndex, toIndex, c);
-            // else
+            // BEGIN Android-removed: LegacyMergeSort support.
+            /*
+            if (LegacyMergeSort.userRequested)
+                legacyMergeSort(a, fromIndex, toIndex, c);
+            else
+            */
+            // END Android-removed: LegacyMergeSort support.
                 TimSort.sort(a, fromIndex, toIndex, c, null, 0, 0);
         }
     }
 
-    // Android-removed: legacyMergeSort() (unused on Android).
-    // Android-removed: mergeSort() (unused on Android).
+    // BEGIN Android-removed: legacyMergeSort() and mergeSort() (unused on Android).
+    /*
+    /** To be removed in a future release. *
+    private static <T> void legacyMergeSort(T[] a, int fromIndex, int toIndex,
+                                            Comparator<? super T> c) {
+        T[] aux = copyOfRange(a, fromIndex, toIndex);
+        if (c==null)
+            mergeSort(aux, a, fromIndex, toIndex, -fromIndex);
+        else
+            mergeSort(aux, a, fromIndex, toIndex, -fromIndex, c);
+    }
+
+    /**
+     * Src is the source array that starts at index 0
+     * Dest is the (possibly larger) array destination with a possible offset
+     * low is the index in dest to start sorting
+     * high is the end index in dest to end sorting
+     * off is the offset into src corresponding to low in dest
+     * To be removed in a future release.
+     *
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void mergeSort(Object[] src,
+                                  Object[] dest,
+                                  int low, int high, int off,
+                                  Comparator c) {
+        int length = high - low;
+
+        // Insertion sort on smallest arrays
+        if (length < INSERTIONSORT_THRESHOLD) {
+            for (int i=low; i<high; i++)
+                for (int j=i; j>low && c.compare(dest[j-1], dest[j])>0; j--)
+                    swap(dest, j, j-1);
+            return;
+        }
+
+        // Recursively sort halves of dest into src
+        int destLow  = low;
+        int destHigh = high;
+        low  += off;
+        high += off;
+        int mid = (low + high) >>> 1;
+        mergeSort(dest, src, low, mid, -off, c);
+        mergeSort(dest, src, mid, high, -off, c);
+
+        // If list is already sorted, just copy from src to dest.  This is an
+        // optimization that results in faster sorts for nearly ordered lists.
+        if (c.compare(src[mid-1], src[mid]) <= 0) {
+           System.arraycopy(src, low, dest, destLow, length);
+           return;
+        }
+
+        // Merge sorted halves (now in src) into dest
+        for(int i = destLow, p = low, q = mid; i < destHigh; i++) {
+            if (q >= high || p < mid && c.compare(src[p], src[q]) <= 0)
+                dest[i] = src[p++];
+            else
+                dest[i] = src[q++];
+        }
+    }
+    */
+    // END Android-removed: legacyMergeSort() and mergeSort() (unused on Android).
 
     // Parallel prefix
 
@@ -2523,7 +2431,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -2595,7 +2503,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -2667,7 +2575,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -2711,7 +2619,7 @@ public class Arrays {
      * @param a2 the other array to be tested for equality
      * @return {@code true} if the two arrays are equal
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static boolean equals(char[] a, char[] a2) {
         if (a==a2)
             return true;
@@ -2740,7 +2648,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -2784,7 +2692,7 @@ public class Arrays {
      * @param a2 the other array to be tested for equality
      * @return {@code true} if the two arrays are equal
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static boolean equals(byte[] a, byte[] a2) {
         if (a==a2)
             return true;
@@ -2813,7 +2721,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -2885,7 +2793,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -2928,7 +2836,7 @@ public class Arrays {
      * Two doubles {@code d1} and {@code d2} are considered equal if:
      * <pre>    {@code new Double(d1).equals(new Double(d2))}</pre>
      * (Unlike the {@code ==} operator, this method considers
-     * {@code NaN} equals to itself, and 0.0d unequal to -0.0d.)
+     * {@code NaN} equal to itself, and 0.0d unequal to -0.0d.)
      *
      * @param a one array to be tested for equality
      * @param a2 the other array to be tested for equality
@@ -2961,14 +2869,14 @@ public class Arrays {
      * <p>Two doubles {@code d1} and {@code d2} are considered equal if:
      * <pre>    {@code new Double(d1).equals(new Double(d2))}</pre>
      * (Unlike the {@code ==} operator, this method considers
-     * {@code NaN} equals to itself, and 0.0d unequal to -0.0d.)
+     * {@code NaN} equal to itself, and 0.0d unequal to -0.0d.)
      *
      * @param a the first array to be tested for equality
      * @param aFromIndex the index (inclusive) of the first element in the
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -3011,7 +2919,7 @@ public class Arrays {
      * Two floats {@code f1} and {@code f2} are considered equal if:
      * <pre>    {@code new Float(f1).equals(new Float(f2))}</pre>
      * (Unlike the {@code ==} operator, this method considers
-     * {@code NaN} equals to itself, and 0.0f unequal to -0.0f.)
+     * {@code NaN} equal to itself, and 0.0f unequal to -0.0f.)
      *
      * @param a one array to be tested for equality
      * @param a2 the other array to be tested for equality
@@ -3044,14 +2952,14 @@ public class Arrays {
      * <p>Two floats {@code f1} and {@code f2} are considered equal if:
      * <pre>    {@code new Float(f1).equals(new Float(f2))}</pre>
      * (Unlike the {@code ==} operator, this method considers
-     * {@code NaN} equals to itself, and 0.0f unequal to -0.0f.)
+     * {@code NaN} equal to itself, and 0.0f unequal to -0.0f.)
      *
      * @param a the first array to be tested for equality
      * @param aFromIndex the index (inclusive) of the first element in the
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -3134,7 +3042,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -3227,7 +3135,7 @@ public class Arrays {
      *                   first array to be tested
      * @param aToIndex the index (exclusive) of the last element in the
      *                 first array to be tested
-     * @param b the second array to be tested fro equality
+     * @param b the second array to be tested for equality
      * @param bFromIndex the index (inclusive) of the first element in the
      *                   second array to be tested
      * @param bToIndex the index (exclusive) of the last element in the
@@ -3638,7 +3546,7 @@ public class Arrays {
      *     an array of class {@code newType}
      * @since 1.6
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static <T,U> T[] copyOf(U[] original, int newLength, Class<? extends T[]> newType) {
         @SuppressWarnings("unchecked")
         T[] copy = ((Object)newType == (Object)Object[].class)
@@ -3750,7 +3658,7 @@ public class Arrays {
      * so the copy has the specified length.  For all indices that are valid
      * in both the original array and the copy, the two arrays will contain
      * identical values.  For any indices that are valid in the copy but not
-     * the original, the copy will contain {@code '\\u000'}.  Such indices
+     * the original, the copy will contain {@code '\u005cu0000'}.  Such indices
      * will exist if and only if the specified length is greater than that of
      * the original array.
      *
@@ -3908,7 +3816,7 @@ public class Arrays {
      *     an array of class {@code newType}.
      * @since 1.6
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static <T,U> T[] copyOfRange(U[] original, int from, int to, Class<? extends T[]> newType) {
         int newLength = to - from;
         if (newLength < 0)
@@ -4076,7 +3984,7 @@ public class Arrays {
      * subsequent elements in the copy.  The final index of the range
      * ({@code to}), which must be greater than or equal to {@code from},
      * may be greater than {@code original.length}, in which case
-     * {@code '\\u000'} is placed in all elements of the copy whose index is
+     * {@code '\u005cu0000'} is placed in all elements of the copy whose index is
      * greater than or equal to {@code original.length - from}.  The length
      * of the returned array will be {@code to - from}.
      *
@@ -4213,21 +4121,41 @@ public class Arrays {
     // Misc
 
     /**
-     * Returns a fixed-size list backed by the specified array.  (Changes to
-     * the returned list "write through" to the array.)  This method acts
-     * as bridge between array-based and collection-based APIs, in
-     * combination with {@link Collection#toArray}.  The returned list is
-     * serializable and implements {@link RandomAccess}.
+     * Returns a fixed-size list backed by the specified array. Changes made to
+     * the array will be visible in the returned list, and changes made to the
+     * list will be visible in the array. The returned list is
+     * {@link Serializable} and implements {@link RandomAccess}.
+     *
+     * <p>The returned list implements the optional {@code Collection} methods, except
+     * those that would change the size of the returned list. Those methods leave
+     * the list unchanged and throw {@link UnsupportedOperationException}.
+     *
+     * @apiNote
+     * This method acts as bridge between array-based and collection-based
+     * APIs, in combination with {@link Collection#toArray}.
+     *
+     * <p>This method provides a way to wrap an existing array:
+     * <pre>{@code
+     *     Integer[] numbers = ...
+     *     ...
+     *     List<Integer> values = Arrays.asList(numbers);
+     * }</pre>
      *
      * <p>This method also provides a convenient way to create a fixed-size
      * list initialized to contain several elements:
-     * <pre>
-     *     List&lt;String&gt; stooges = Arrays.asList("Larry", "Moe", "Curly");
-     * </pre>
+     * <pre>{@code
+     *     List<String> stooges = Arrays.asList("Larry", "Moe", "Curly");
+     * }</pre>
+     *
+     * <p><em>The list returned by this method is modifiable.</em>
+     * To create an unmodifiable list, use
+     * {@link Collections#unmodifiableList Collections.unmodifiableList}
+     * or <a href="List.html#unmodifiable">Unmodifiable Lists</a>.
      *
      * @param <T> the class of the objects in the array
      * @param a the array by which the list will be backed
      * @return a list view of the specified array
+     * @throws NullPointerException if the specified array is {@code null}
      */
     @SafeVarargs
     @SuppressWarnings("varargs")
@@ -4241,6 +4169,7 @@ public class Arrays {
     private static class ArrayList<E> extends AbstractList<E>
         implements RandomAccess, java.io.Serializable
     {
+        @java.io.Serial
         private static final long serialVersionUID = -2764017481108945198L;
         private final E[] a;
 
@@ -7234,10 +7163,10 @@ public class Arrays {
      * and proper prefix.)
      *
      * <p>A {@code null} array reference is considered lexicographically less
-     * than a non-{@code null} array reference.  Two {@code null} array
+     * than a non-{@code null} array reference. Two {@code null} array
      * references are considered equal.
-     * A {@code null} array element is considered lexicographically than a
-     * non-{@code null} array element.  Two {@code null} array elements are
+     * A {@code null} array element is considered lexicographically less than a
+     * non-{@code null} array element. Two {@code null} array elements are
      * considered equal.
      *
      * <p>The comparison is consistent with {@link #equals(Object[], Object[]) equals},
@@ -7610,7 +7539,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -7737,7 +7666,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -7864,7 +7793,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -7991,7 +7920,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -8118,7 +8047,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -8245,7 +8174,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -8372,7 +8301,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -8499,7 +8428,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -8630,7 +8559,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),
@@ -8776,7 +8705,7 @@ public class Arrays {
      * <p>Two non-{@code null} arrays, {@code a} and {@code b} with specified
      * ranges [{@code aFromIndex}, {@code atoIndex}) and
      * [{@code bFromIndex}, {@code btoIndex}) respectively, share a proper
-     * if the following expression is true:
+     * prefix if the following expression is true:
      * <pre>{@code
      *     (aToIndex - aFromIndex) != (bToIndex - bFromIndex) &&
      *     Arrays.equals(a, 0, Math.min(aToIndex - aFromIndex, bToIndex - bFromIndex),

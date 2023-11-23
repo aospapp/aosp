@@ -20,11 +20,11 @@ from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib.hostapd_utils import generate_random_password
 from acts.controllers.ap_lib.hostapd_security import Security
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 
-class WlanMiscScenarioTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanMiscScenarioTest(WifiBaseTest):
     """Random scenario tests, usually to reproduce certain bugs, that do not
     fit into a specific test category, but should still be run in CI to catch
     regressions.

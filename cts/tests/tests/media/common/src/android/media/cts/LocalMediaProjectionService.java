@@ -15,42 +15,45 @@
  */
 package android.media.cts;
 
+import static android.media.cts.ForegroundServiceUtil.EXTRA_MESSENGER;
+import static android.media.cts.ForegroundServiceUtil.MSG_SERVICE_DESTROYED;
+import static android.media.cts.ForegroundServiceUtil.MSG_START_FOREGROUND_DONE;
+
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.drawable.Icon;
-import android.os.Binder;
 import android.os.IBinder;
+import android.os.Message;
+import android.os.Messenger;
+import android.os.RemoteException;
 
 public class LocalMediaProjectionService extends Service {
+    private static final String TAG = "LocalMediaProjectionService";
 
-    private final IBinder mBinder = new LocalBinder();
     private Bitmap mTestBitmap;
 
     private static final String NOTIFICATION_CHANNEL_ID = "AudioPlaybackCaptureTest";
     private static final String CHANNEL_NAME = "ProjectionService";
+    private static final int NOTIFICATION_ID = 1;
 
-    public class LocalBinder extends Binder {
-        LocalMediaProjectionService getService() {
-            return LocalMediaProjectionService.this;
-        }
-    }
+    Messenger mMessenger;
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        mMessenger = intent.getParcelableExtra(EXTRA_MESSENGER);
         startForeground();
         return super.onStartCommand(intent, flags, startId);
     }
 
     @Override
     public IBinder onBind(Intent intent) {
-        return mBinder;
+        return null;
     }
 
     @Override
@@ -59,6 +62,7 @@ public class LocalMediaProjectionService extends Service {
             mTestBitmap.recycle();
             mTestBitmap = null;
         }
+        sendMessage(MSG_SERVICE_DESTROYED);
         super.onDestroy();
     }
 
@@ -70,8 +74,8 @@ public class LocalMediaProjectionService extends Service {
     }
 
     private void startForeground() {
-        final NotificationChannel channel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
-                CHANNEL_NAME, NotificationManager.IMPORTANCE_NONE);
+        final NotificationChannel channel = new NotificationChannel(getNotificationChannelId(),
+                getNotificationChannelName(), NotificationManager.IMPORTANCE_NONE);
         channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
 
         final NotificationManager notificationManager =
@@ -79,7 +83,7 @@ public class LocalMediaProjectionService extends Service {
         notificationManager.createNotificationChannel(channel);
 
         final Notification.Builder notificationBuilder =
-                new Notification.Builder(this, NOTIFICATION_CHANNEL_ID);
+                new Notification.Builder(this, getNotificationChannelId());
 
         final Notification notification = notificationBuilder.setOngoing(true)
                 .setContentTitle("App is running")
@@ -88,6 +92,29 @@ public class LocalMediaProjectionService extends Service {
                 .setContentText("Context")
                 .build();
 
-        startForeground(2 /* id */, notification);
+        startForeground(getNotificationId(), notification);
+
+        sendMessage(MSG_START_FOREGROUND_DONE);
+    }
+
+    void sendMessage(int what) {
+        final Message msg = Message.obtain();
+        msg.what = what;
+        try {
+            mMessenger.send(msg);
+        } catch (RemoteException e) {
+        }
+    }
+
+    int getNotificationId() {
+        return NOTIFICATION_ID;
+    }
+
+    String getNotificationChannelId() {
+        return NOTIFICATION_CHANNEL_ID;
+    }
+
+    String getNotificationChannelName() {
+        return CHANNEL_NAME;
     }
 }

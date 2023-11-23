@@ -23,7 +23,6 @@ import static android.autofillservice.cts.testcore.Helper.assertFillEventForData
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForDatasetShown;
 import static android.autofillservice.cts.testcore.Helper.assertFillEventForSaveShown;
 import static android.autofillservice.cts.testcore.Helper.assertNoDeprecatedClientState;
-import static android.autofillservice.cts.testcore.Helper.getContext;
 import static android.autofillservice.cts.testcore.InstrumentedAutoFillServiceInlineEnabled.SERVICE_NAME;
 import static android.service.autofill.FillEventHistory.Event.UI_TYPE_INLINE;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_GENERIC;
@@ -39,7 +38,8 @@ import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.service.autofill.FillEventHistory;
 import android.service.autofill.FillEventHistory.Event;
-import android.support.test.uiautomator.UiObject2;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 import org.junit.rules.TestRule;
@@ -64,7 +64,7 @@ public class InlineFillEventHistoryTest extends FillEventHistoryCommonTestCase {
 
     @Override
     protected void enableService() {
-        Helper.enableAutofillService(getContext(), SERVICE_NAME);
+        Helper.enableAutofillService(SERVICE_NAME);
     }
 
     @Override
@@ -123,7 +123,7 @@ public class InlineFillEventHistoryTest extends FillEventHistoryCommonTestCase {
         final List<Event> events = selection.getEvents();
         assertFillEventForDatasetShown(events.get(0), UI_TYPE_INLINE);
         assertFillEventForDatasetSelected(events.get(1), NULL_DATASET_ID, UI_TYPE_INLINE);
-        assertFillEventForDatasetShown(events.get(0), UI_TYPE_INLINE);
-        assertFillEventForSaveShown(events.get(3), NULL_DATASET_ID);
+        assertFillEventForSaveShown(events.get(2), NULL_DATASET_ID);
+        assertFillEventForDatasetShown(events.get(3), UI_TYPE_INLINE);
     }
 }

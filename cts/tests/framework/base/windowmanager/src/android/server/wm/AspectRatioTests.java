@@ -16,6 +16,7 @@
 
 package android.server.wm;
 
+import static android.app.WindowConfiguration.WINDOWING_MODE_FULLSCREEN;
 import static android.server.wm.app.Components.MAX_ASPECT_RATIO_ACTIVITY;
 import static android.server.wm.app.Components.MAX_ASPECT_RATIO_RESIZABLE_ACTIVITY;
 import static android.server.wm.app.Components.MAX_ASPECT_RATIO_UNSET_ACTIVITY;
@@ -52,7 +53,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     @Test
     public void testMaxAspectRatio() {
         // Activity has a maxAspectRatio, assert that the actual ratio is less than that.
-        runAspectRatioTest(MAX_ASPECT_RATIO_ACTIVITY,
+        runAspectRatioTest(MAX_ASPECT_RATIO_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             assertThat(actual, lessThanOrEqualTo(MAX_ASPECT_RATIO));
         });
@@ -61,7 +62,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     @Test
     public void testMetaDataMaxAspectRatio() {
         // Activity has a maxAspectRatio, assert that the actual ratio is less than that.
-        runAspectRatioTest(META_DATA_MAX_ASPECT_RATIO_ACTIVITY,
+        runAspectRatioTest(META_DATA_MAX_ASPECT_RATIO_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             assertThat(actual, lessThanOrEqualTo(MAX_ASPECT_RATIO));
         });
@@ -70,7 +71,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     @Test
     public void testMaxAspectRatioResizeableActivity() {
         // Since this activity is resizeable, its max aspect ratio should be ignored.
-        runAspectRatioTest(MAX_ASPECT_RATIO_RESIZABLE_ACTIVITY,
+        runAspectRatioTest(MAX_ASPECT_RATIO_RESIZABLE_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             // TODO(b/69982434): Add ability to get native aspect ratio non-default display.
             assumeThat(displayId, is(Display.DEFAULT_DISPLAY));
@@ -85,7 +86,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     public void testMaxAspectRatioUnsetActivity() {
         // Since this activity didn't set an explicit maxAspectRatio, there should be no such
         // ratio enforced.
-        runAspectRatioTest(MAX_ASPECT_RATIO_UNSET_ACTIVITY,
+        runAspectRatioTest(MAX_ASPECT_RATIO_UNSET_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             // TODO(b/69982434): Add ability to get native aspect ratio non-default display.
             assumeThat(displayId, is(Display.DEFAULT_DISPLAY));
@@ -98,7 +99,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     @Test
     public void testMinAspectRatio() {
         // Activity has a minAspectRatio, assert the ratio is at least that.
-        runAspectRatioTest(MIN_ASPECT_RATIO_ACTIVITY,
+        runAspectRatioTest(MIN_ASPECT_RATIO_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             assertThat(actual, greaterThanOrEqualToInexact(MIN_ASPECT_RATIO));
         });
@@ -108,7 +109,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     public void testMinAspectRatioUnsetActivity() {
         // Since this activity didn't set an explicit minAspectRatio, there should be no such
         // ratio enforced.
-        runAspectRatioTest(MIN_ASPECT_RATIO_UNSET_ACTIVITY,
+        runAspectRatioTest(MIN_ASPECT_RATIO_UNSET_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             // TODO(b/69982434): Add ability to get native aspect ratio non-default display.
             assumeThat(displayId, is(Display.DEFAULT_DISPLAY));
@@ -121,7 +122,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
     @Test
     public void testMinAspectLandscapeActivity() {
         // Activity has requested a fixed orientation, assert the orientation is that.
-        runAspectRatioTest(MIN_ASPECT_RATIO_LANDSCAPE_ACTIVITY,
+        runAspectRatioTest(MIN_ASPECT_RATIO_LANDSCAPE_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             assertThat(activitySize.x, greaterThan(activitySize.y));
             // Since activities must fit within the bounds of the display and they should respect
@@ -140,7 +141,7 @@ public class AspectRatioTests extends AspectRatioTestsBase {
 
     @Test
     public void testMinAspectPortraitActivity() {
-        runAspectRatioTest(MIN_ASPECT_RATIO_PORTRAIT_ACTIVITY,
+        runAspectRatioTest(MIN_ASPECT_RATIO_PORTRAIT_ACTIVITY, WINDOWING_MODE_FULLSCREEN,
                 (actual, displayId, activitySize, displaySize) -> {
             assertThat(activitySize.y, greaterThan(activitySize.x));
             // Since activities must fit within the bounds of the display and they should respect

@@ -36,6 +36,13 @@ public class ConferenceHelper {
         }
     }
 
+    // delete the call session used for merge to connect the conference call.
+    public void removeSession(TestImsCallSessionImpl session) {
+        synchronized (mSessions) {
+            mSessions.remove(session.getCallId(), session);
+        }
+    }
+
     public TestImsCallSessionImpl getActiveSession(String callId) {
         synchronized (mSessions) {
             if (mSessions.isEmpty()) {
@@ -61,8 +68,9 @@ public class ConferenceHelper {
             for (Map.Entry<String, TestImsCallSessionImpl> entry : mSessions.entrySet()) {
                 TestImsCallSessionImpl callSession = entry.getValue();
                 boolean isOnHold = callSession.isSessionOnHold();
+                String foreGroundSessionCallId = mForeGroundSession.getCallId();
 
-                if (isOnHold) {
+                if (isOnHold && !callSession.getCallId().equals(foreGroundSessionCallId)) {
                     return callSession;
                 }
             }

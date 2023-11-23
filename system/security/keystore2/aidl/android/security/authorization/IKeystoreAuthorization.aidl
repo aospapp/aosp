@@ -41,8 +41,26 @@ interface IKeystoreAuthorization {
 
     /**
      * Unlocks the keystore for the given user id.
+     *
      * Callers require 'Unlock' permission.
-     * If a password was set, a password must be given on unlock or the operation fails.
+     *
+     * Super-Encryption Key:
+     * When the device is unlocked (and password is non-null), Keystore stores in memory
+     * a super-encryption key derived from the password that protects UNLOCKED_DEVICE_REQUIRED
+     * keys; this key is wiped from memory when the device is locked.
+     *
+     * If unlockingSids is non-empty on lock, then before the super-encryption key is wiped from
+     * memory, a copy of it is stored in memory encrypted with a fresh AES key. This key is then
+     * imported into KM, tagged such that it can be used given a valid, recent auth token for any
+     * of the unlockingSids.
+     *
+     * Options for unlock:
+     *  - If the password is non-null, the super-encryption key is re-derived as above.
+     *  - If the password is null, then if a suitable auth token to access the encrypted
+     *    Super-encryption key stored in KM has been sent to keystore (via addAuthToken), the
+     *    encrypted super-encryption key is recovered so that UNLOCKED_DEVICE_REQUIRED keys can
+     *    be used once again.
+     *  - If neither of these are met, then the operation fails.
      *
      * ## Error conditions:
      * `ResponseCode::PERMISSION_DENIED` - if the callers do not have the 'Unlock' permission.
@@ -50,33 +68,10 @@ interface IKeystoreAuthorization {
      * `ResponseCode::VALUE_CORRUPTED` - if the super key can not be decrypted.
      * `ResponseCode::KEY_NOT_FOUND` - if the super key is not found.
      *
-     * @lockScreenEvent - Indicates what happened.
-     *                    * LockScreenEvent.UNLOCK if the screen was unlocked.
-     *                    * LockScreenEvent.LOCK if the screen was locked.
-     *
-     * @param userId - Android user id
-     *
-     * @param password - synthetic password derived by the user denoted by the user id
-     *
-     * @param unlockingSids - list of biometric SIDs for this user. This will be null when
-     *                        lockScreenEvent is UNLOCK, but may be non-null when
-     *                        lockScreenEvent is LOCK.
-     *
-     *                        When the device is unlocked, Keystore stores in memory
-     *                        a super-encryption key that protects UNLOCKED_DEVICE_REQUIRED
-     *                        keys; this key is wiped from memory when the device is locked.
-     *
-     *                        If unlockingSids is non-empty on lock, then before the
-     *                        super-encryption key is wiped from memory, a copy of it
-     *                        is stored in memory encrypted with a fresh AES key.
-     *                        This key is then imported into KM, tagged such that it can be
-     *                        used given a valid, recent auth token for any of the
-     *                        unlockingSids.
-     *
-     *                        Then, when the device is unlocked again, if a suitable auth token
-     *                        has been sent to keystore, it is used to recover the
-     *                        super-encryption key, so that UNLOCKED_DEVICE_REQUIRED keys can
-     *                        be used once again.
+     * @param lockScreenEvent whether the lock screen locked or unlocked
+     * @param userId android user id
+     * @param password synthetic password derived from the user's LSKF, must be null on lock
+     * @param unlockingSids list of biometric SIDs for this user, ignored on unlock
      */
     void onLockScreenEvent(in LockScreenEvent lockScreenEvent, in int userId,
                            in @nullable byte[] password, in @nullable long[] unlockingSids);

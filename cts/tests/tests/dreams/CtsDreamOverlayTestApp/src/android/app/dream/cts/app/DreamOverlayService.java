@@ -32,31 +32,64 @@ import android.widget.FrameLayout;
 public class DreamOverlayService extends android.service.dreams.DreamOverlayService {
     public static final String ACTION_DREAM_OVERLAY_SHOWN =
             "android.app.dream.cts.app.action.overlay_shown";
+    public static final String ACTION_DREAM_OVERLAY_REMOVED =
+            "android.app.dream.cts.app.action.overlay_removed";
     public static final String TEST_PACKAGE = "android.dreams.cts";
+
+    private FrameLayout mLayout;
+
+    private boolean mDreamStarted;
+    private boolean mDreamEnded;
 
     @Override
     public void onStartDream(@NonNull WindowManager.LayoutParams layoutParams) {
+        if (mDreamStarted) {
+            throw new IllegalStateException("onStartDream already called");
+        }
+
+        mDreamStarted = true;
         addWindowOverlay(layoutParams);
     }
 
+    @Override
+    public void onEndDream() {
+        if (mDreamEnded) {
+            throw new IllegalStateException("onEndDream already called");
+        }
+
+        mDreamEnded = true;
+        final WindowManager wm = getSystemService(WindowManager.class);
+        wm.removeView(mLayout);
+        stopSelf();
+    }
+
     private void addWindowOverlay(WindowManager.LayoutParams layoutParams) {
-        FrameLayout layout = new FrameLayout(this);
-        layout.setBackgroundColor(Color.YELLOW);
-        layout.setLayoutParams(new ViewGroup.LayoutParams(
+        mLayout = new FrameLayout(this);
+        mLayout.setBackgroundColor(Color.YELLOW);
+        mLayout.setLayoutParams(new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // Add a listener for when the root layout becomes visible. We use this event to signal the
-        // dream overlay has been shown.
-        layout.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
-            if (layout.getVisibility() == View.VISIBLE) {
-                final Intent intent = new Intent();
-                intent.setPackage(TEST_PACKAGE);
-                intent.setAction(ACTION_DREAM_OVERLAY_SHOWN);
-                sendBroadcast(intent);
-            }
-        });
+        mLayout.addOnAttachStateChangeListener(
+                new View.OnAttachStateChangeListener() {
+                    @Override
+                    public void onViewAttachedToWindow(View v) {
+                        final Intent intent = new Intent();
+                        intent.setPackage(TEST_PACKAGE);
+                        intent.setAction(ACTION_DREAM_OVERLAY_SHOWN);
+                        sendBroadcast(intent);
+                    }
+
+                    @Override
+                    public void onViewDetachedFromWindow(View v) {
+                        final Intent intent = new Intent();
+                        intent.setPackage(TEST_PACKAGE);
+                        intent.setAction(ACTION_DREAM_OVERLAY_REMOVED);
+                        sendBroadcast(intent);
+                    }
+                }
+        );
 
         final WindowManager wm = getSystemService(WindowManager.class);
-        wm.addView(layout, layoutParams);
+        wm.addView(mLayout, layoutParams);
     }
 }

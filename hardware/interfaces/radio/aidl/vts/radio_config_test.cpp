@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <android-base/logging.h>
 #include <android/binder_manager.h>
 
 #include "radio_config_utils.h"
@@ -22,6 +21,7 @@
 #define ASSERT_OK(ret) ASSERT_TRUE(ret.isOk())
 
 void RadioConfigTest::SetUp() {
+    RadioServiceTest::SetUp();
     std::string serviceName = GetParam();
 
     radio_config = IRadioConfig::fromBinder(
@@ -30,8 +30,6 @@ void RadioConfigTest::SetUp() {
 
     radioRsp_config = ndk::SharedRefBase::make<RadioConfigResponse>(*this);
     ASSERT_NE(nullptr, radioRsp_config.get());
-
-    count_ = 0;
 
     radioInd_config = ndk::SharedRefBase::make<RadioConfigIndication>(*this);
     ASSERT_NE(nullptr, radioInd_config.get());
@@ -176,7 +174,7 @@ TEST_P(RadioConfigTest, setSimSlotsMapping) {
         slotPortMapping.physicalSlotId = -1;
         slotPortMapping.portId = -1;
         std::vector<SlotPortMapping> slotPortMappingList = {slotPortMapping};
-        if (isDsDsEnabled()) {
+        if (isDsDsEnabled() || isDsDaEnabled()) {
             slotPortMappingList.push_back(slotPortMapping);
         } else if (isTsTsEnabled()) {
             slotPortMappingList.push_back(slotPortMapping);
@@ -252,7 +250,7 @@ TEST_P(RadioConfigTest, checkPortInfoExistsAndPortActive) {
         }
         if (isSsSsEnabled()) {
             EXPECT_EQ(1, simCount);
-        } else if (isDsDsEnabled()) {
+        } else if (isDsDsEnabled() || isDsDaEnabled()) {
             EXPECT_EQ(2, simCount);
         } else if (isTsTsEnabled()) {
             EXPECT_EQ(3, simCount);

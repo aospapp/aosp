@@ -19,6 +19,7 @@ package android.hdmicec.cts.common;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.hdmicec.cts.BaseHdmiCecCtsTest.CecRules;
 import android.hdmicec.cts.HdmiCecConstants;
@@ -38,7 +39,6 @@ import org.junit.runner.RunWith;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Scanner;
 
 /** Tests to see that a valid HDMI CEC device type is declared by the device. */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -84,21 +84,25 @@ public final class HdmiCecDeviceTypeTest extends BaseHostJUnit4Test {
      */
     @Test
     public void checkHdmiCecDeviceType() throws Exception {
-        int deviceTypes = getAllDeviceTypes(getDevice());
+        int deviceTypes = getAllDeviceTypes(getDevice(), true);
+
+        if (deviceTypes == 0) {
+            // If enums are not populated, try to get the device types from the int property
+            deviceTypes = getAllDeviceTypes(getDevice(), false);
+        }
 
         assertWithMessage("Incorrect device combination")
                 .that(deviceTypes)
                 .isIn(allowedDeviceCombos);
     }
 
-    private int getAllDeviceTypes(ITestDevice device) {
+    private int getAllDeviceTypes(ITestDevice device, boolean fromEnum) {
         int deviceTypes = 0;
         String deviceType = "";
-        boolean usingStringDeviceTypes = true;
         try {
-            deviceType = device.executeShellCommand("getprop ro.hdmi.cec_device_types").trim();
-            if (deviceType.isEmpty()) {
-                usingStringDeviceTypes = false;
+            if (fromEnum) {
+                deviceType = device.executeShellCommand("getprop ro.hdmi.cec_device_types").trim();
+            } else {
                 deviceType = device.executeShellCommand("getprop ro.hdmi.device_type").trim();
             }
         } catch (DeviceNotAvailableException dnae) {
@@ -108,7 +112,7 @@ public final class HdmiCecDeviceTypeTest extends BaseHostJUnit4Test {
         String[] cecDevices = deviceType.split(",");
         for (String cecDevice : cecDevices) {
             if (!cecDevice.equals("")) {
-                if (usingStringDeviceTypes) {
+                if (fromEnum) {
                     deviceTypes |= setBit(stringToIntDeviceType(cecDevice));
                 } else {
                     deviceTypes |= setBit(Integer.parseInt(cecDevice));
@@ -145,5 +149,19 @@ public final class HdmiCecDeviceTypeTest extends BaseHostJUnit4Test {
                 fail("Unrecognized device type: " + value);
                 return 0; // Prevent compiler error
         }
+    }
+
+    /** Tests that the cec_device_types enum, if set, is equivalent to the int device_type. */
+    @Test
+    public void cecDeviceTypesSameAsDeviceType() throws Exception {
+        ITestDevice device = getDevice();
+        int deviceType = getAllDeviceTypes(device, false);
+        int cecDeviceTypes = getAllDeviceTypes(device, true);
+        assumeTrue(
+                "Looks like ro.hdmi.device_type property is not set/DUT is not an HDMI device.",
+                deviceType != 0);
+        assertWithMessage("Enum and integer device types mismatch")
+                .that(deviceType)
+                .isEqualTo(cecDeviceTypes);
     }
 }

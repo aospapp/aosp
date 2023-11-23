@@ -59,6 +59,16 @@ struct TestCase {
 
 constexpr const char keystore2_service_name[] = "android.system.keystore2.IKeystoreService/default";
 
+std::string string_replace_all(std::string str, const std::string& from,
+                                      const std::string& to) {
+    size_t start = 0;
+    while ((start = str.find(from, start)) != std::string::npos) {
+        str.replace(start, from.length(), to);
+        start += to.length();
+    }
+    return str;
+}
+
 int unwrapError(const ndk::ScopedAStatus& status) {
     if (status.isOk()) return 0;
     if (status.getExceptionCode() == EX_SERVICE_SPECIFIC) {
@@ -1028,7 +1038,8 @@ int Confirmation(const std::string& promptText, const std::string& extraDataHex,
     auto listener = ndk::SharedRefBase::make<ConfirmationListener>();
 
     auto future = listener->get_future();
-    auto rc = apcService->presentPrompt(listener, promptText, extraData, locale, uiOptionsAsFlags);
+    auto rc = apcService->presentPrompt(listener, string_replace_all(promptText, "\\n", "\n"),
+                                        extraData, locale, uiOptionsAsFlags);
 
     if (!rc.isOk()) {
         std::cerr << "Presenting confirmation prompt failed: " << rc.getDescription() << std::endl;

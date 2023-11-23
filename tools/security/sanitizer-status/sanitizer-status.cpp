@@ -49,12 +49,12 @@ void test_crash_malloc_uaf() {
   printf("Heap UAF Test Failed\n");
 }
 
-// crashes if built with -fsanitize=address
+// crashes if built with -fsanitize={address,hwaddress,memtag-stack}
 void test_crash_stack() {
   volatile char stack[32];
   volatile char* p_stack = stack;
   p_stack[32] = p_stack[32];
-  printf("(HW)ASAN: Stack Test Failed\n");
+  printf("(HW)ASAN / Stack MTE: Stack Test Failed\n");
 }
 
 void test_crash_pthread_mutex_unlock() {
@@ -300,6 +300,23 @@ int main(int argc, const char** argv) {
       printf("MTE: OK\n");
 
     failures += mte_failures;
+  }
+
+  if (test_everything || have_option("stack_mte", argv, argc)) {
+    int stack_mte_failures = 0;
+
+    if (!(mte_supported() && !__has_feature(address_sanitizer) &&
+          !__has_feature(hwaddress_sanitizer))) {
+      stack_mte_failures += 1;
+      printf("MTE: Not supported\n");
+    }
+
+    stack_mte_failures += test(test_crash_stack);
+
+    if (!stack_mte_failures)
+      printf("Stack MTE: OK\n");
+
+    failures += stack_mte_failures;
   }
 
   return failures > 0 ? EXIT_FAILURE : EXIT_SUCCESS;

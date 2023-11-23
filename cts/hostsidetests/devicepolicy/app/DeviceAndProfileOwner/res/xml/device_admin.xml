@@ -13,15 +13,16 @@
      limitations under the License.
 -->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android" android:visible="false">
-    <uses-policies>
-         <watch-login />
-         <reset-password />
-         <limit-password />
-         <expire-password />
-         <disable-keyguard-features />
-         <disable-camera />
-         <encrypted-storage />
-         <force-lock />
-         <wipe-data />
-    </uses-policies>
+     <headless-system-user device-owner-mode="affiliated" />
+     <uses-policies>
+          <watch-login />
+          <reset-password />
+          <limit-password />
+          <expire-password />
+          <disable-keyguard-features />
+          <disable-camera />
+          <encrypted-storage />
+          <force-lock />
+          <wipe-data />
+     </uses-policies>
 </device-admin>

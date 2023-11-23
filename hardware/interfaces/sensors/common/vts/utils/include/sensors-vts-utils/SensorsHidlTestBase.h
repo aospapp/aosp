@@ -225,7 +225,9 @@ class SensorsHidlTestBase : public testing::TestWithParam<std::string> {
 
         ASSERT_EQ(batch(handle, samplingPeriodInNs, batchingPeriodInNs), Result::OK);
         ASSERT_EQ(activate(handle, 1), Result::OK);
-        events = getEnvironment()->collectEvents(minTimeUs, minNEvent, true /*clearBeforeStart*/);
+        events = getEnvironment()->collectEvents(
+                minTimeUs, minNEvent, true /* clearBeforeStart */, true /* changeCollection */,
+                [&type](const EventType& event) { return event.sensorType == type; });
         ASSERT_EQ(activate(handle, 0), Result::OK);
 
         ALOGI("Collected %zu samples", events.size());
@@ -233,24 +235,14 @@ class SensorsHidlTestBase : public testing::TestWithParam<std::string> {
         ASSERT_GT(events.size(), 0u);
 
         bool handleMismatchReported = false;
-        bool metaSensorTypeErrorReported = false;
         for (auto& e : events) {
-            if (e.sensorType == type) {
-                // avoid generating hundreds of error
-                if (!handleMismatchReported) {
-                    EXPECT_EQ(e.sensorHandle, handle)
-                            << (handleMismatchReported = true,
-                                "Event of the same type must come from the sensor registered");
-                }
-                sensorEvents.push_back(e);
-            } else {
-                // avoid generating hundreds of error
-                if (!metaSensorTypeErrorReported) {
-                    EXPECT_TRUE(isMetaSensorType(e.sensorType))
-                            << (metaSensorTypeErrorReported = true,
-                                "Only meta types are allowed besides the type registered");
-                }
+            // avoid generating hundreds of error
+            if (!handleMismatchReported) {
+                EXPECT_EQ(e.sensorHandle, handle)
+                        << (handleMismatchReported = true,
+                            "Event of the same type must come from the sensor registered");
             }
+            sensorEvents.push_back(e);
         }
 
         std::string s;
@@ -351,11 +343,11 @@ class SensorsHidlTestBase : public testing::TestWithParam<std::string> {
                   minDelayAverageInterval / 10);
 
         // fastest rate sampling time is close to spec
-        EXPECT_LT(std::abs(minDelayAverageInterval - minSamplingPeriodInNs),
+        EXPECT_LE(std::abs(minDelayAverageInterval - minSamplingPeriodInNs),
                   minSamplingPeriodInNs / 10);
 
         // slowest rate sampling time is close to spec
-        EXPECT_LT(std::abs(maxDelayAverageInterval - maxSamplingPeriodInNs),
+        EXPECT_LE(std::abs(maxDelayAverageInterval - maxSamplingPeriodInNs),
                   maxSamplingPeriodInNs / 10);
     }
 

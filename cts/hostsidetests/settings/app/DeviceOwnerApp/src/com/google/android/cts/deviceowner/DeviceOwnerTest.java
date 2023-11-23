@@ -29,16 +29,16 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.provider.Settings;
 import android.server.wm.WindowManagerStateHelper;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
-import android.support.test.uiautomator.Until;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.UiScrollable;
+import androidx.test.uiautomator.UiSelector;
+import androidx.test.uiautomator.Until;
 
 import com.android.bedstead.dpmwrapper.DeviceOwnerHelper;
 import com.android.bedstead.dpmwrapper.TestAppSystemServiceFactory;
@@ -147,10 +147,15 @@ public final class DeviceOwnerTest extends InstrumentationTestCase {
         boolean found = null != mDevice.wait(Until.findObject(By.text(mWorkPolicyInfoText)),
                 TIMEOUT_MS);
 
-        // For automotive UI, try to scroll the privacy list to find the item
-        if (!found && mIsAutomotive) {
-            UiScrollable scroller = new UiScrollable(new UiSelector()
-                    .resourceIdMatches(CAR_SETTING_FRAG_RESOURCE_ID_REGEX));
+        // For automotive and Safety Center UI, try to scroll the privacy list to find the item
+        if (!found) {
+            UiScrollable scroller;
+            if (mIsAutomotive) {
+                scroller = new UiScrollable(new UiSelector()
+                        .resourceIdMatches(CAR_SETTING_FRAG_RESOURCE_ID_REGEX));
+            } else {
+                scroller = new UiScrollable(new UiSelector().scrollable(true));
+            }
             try {
                 // Swipe far away from the edges to avoid triggering navigation gestures
                 scroller.setSwipeDeadZonePercentage(DEADZONE_PCT);

@@ -23,6 +23,7 @@
 
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <keymaster/android_keymaster_utils.h>
@@ -69,6 +70,10 @@ enum AndroidKeymasterCommand : uint32_t {
     CONFIGURE_BOOT_PATCHLEVEL = 33,
     CONFIGURE_VERIFIED_BOOT_INFO = 34,
     GET_ROOT_OF_TRUST = 35,
+    GET_HW_INFO = 36,
+    GENERATE_CSR_V2 = 37,
+    SET_ATTESTATION_IDS = 38,
+    SET_ATTESTATION_IDS_KM3 = 39,
 };
 
 /**
@@ -131,6 +136,7 @@ inline int32_t MessageVersion(KmVersion version, uint32_t /* km_date */ = 0) {
         return 3;
     case KmVersion::KEYMINT_1:
     case KmVersion::KEYMINT_2:
+    case KmVersion::KEYMINT_3:
         return 4;
     }
     return kInvalidMessageVersion;
@@ -425,6 +431,33 @@ struct GenerateCsrResponse : public KeymasterResponse {
     KeymasterBlob keys_to_sign_mac;
     KeymasterBlob device_info_blob;
     KeymasterBlob protected_data_blob;
+};
+
+struct GenerateCsrV2Request : public KeymasterMessage {
+    explicit GenerateCsrV2Request(int32_t ver) : KeymasterMessage(ver) {}
+
+    ~GenerateCsrV2Request() override { delete[] keys_to_sign_array; }
+
+    size_t SerializedSize() const override;
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+    bool InitKeysToSign(uint32_t count);
+    void SetKeyToSign(uint32_t index, const void* data, size_t length);
+    void SetChallenge(const void* data, size_t length);
+
+    uint32_t num_keys = 0;
+    KeymasterBlob* keys_to_sign_array = nullptr;
+    KeymasterBlob challenge;
+};
+
+struct GenerateCsrV2Response : public KeymasterResponse {
+    explicit GenerateCsrV2Response(int32_t ver) : KeymasterResponse(ver) {}
+
+    size_t NonErrorSerializedSize() const override;
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override;
+    bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override;
+
+    KeymasterBlob csr;
 };
 
 struct GetKeyCharacteristicsRequest : public KeymasterMessage {
@@ -768,11 +801,11 @@ using ConfigureResponse = EmptyKeymasterResponse;
 struct HmacSharingParameters : public Serializable {
     HmacSharingParameters() : seed({}) { memset(nonce, 0, sizeof(nonce)); }
     HmacSharingParameters(HmacSharingParameters&& other) {
-        seed = move(other.seed);
+        seed = std::move(other.seed);
         memcpy(nonce, other.nonce, sizeof(nonce));
     }
 
-    void SetSeed(KeymasterBlob&& value) { seed = move(value); }
+    void SetSeed(KeymasterBlob&& value) { seed = std::move(value); }
 
     size_t SerializedSize() const override;
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override;
@@ -808,9 +841,9 @@ struct GetHmacSharingParametersRequest : public EmptyKeymasterRequest {
 struct GetHmacSharingParametersResponse : public KeymasterResponse {
     explicit GetHmacSharingParametersResponse(int32_t ver) : KeymasterResponse(ver) {}
     GetHmacSharingParametersResponse(GetHmacSharingParametersResponse&& other)
-        : KeymasterResponse(other.message_version), params(move(other.params)) {}
+        : KeymasterResponse(other.message_version), params(std::move(other.params)) {}
 
-    void SetSeed(KeymasterBlob&& seed_data) { params.SetSeed(move(seed_data)); }
+    void SetSeed(KeymasterBlob&& seed_data) { params.SetSeed(std::move(seed_data)); }
 
     size_t NonErrorSerializedSize() const override { return params.SerializedSize(); }
     uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override {
@@ -841,7 +874,7 @@ struct ComputeSharedHmacResponse : public KeymasterResponse {
     explicit ComputeSharedHmacResponse(int32_t ver) : KeymasterResponse(ver) {}
     ComputeSharedHmacResponse(ComputeSharedHmacResponse&& other)
         : KeymasterResponse(other.message_version) {
-        sharing_check = move(other.sharing_check);
+        sharing_check = std::move(other.sharing_check);
     }
 
     size_t NonErrorSerializedSize() const override;
@@ -901,7 +934,7 @@ struct HardwareAuthToken : public Serializable {
         authenticator_id = other.authenticator_id;
         authenticator_type = other.authenticator_type;
         timestamp = other.timestamp;
-        mac = move(other.mac);
+        mac = std::move(other.mac);
     }
 
     size_t SerializedSize() const override;
@@ -921,9 +954,9 @@ struct VerificationToken : public Serializable {
     VerificationToken(VerificationToken&& other) {
         challenge = other.challenge;
         timestamp = other.timestamp;
-        parameters_verified = move(other.parameters_verified);
+        parameters_verified = std::move(other.parameters_verified);
         security_level = other.security_level;
-        mac = move(other.mac);
+        mac = std::move(other.mac);
     }
 
     size_t SerializedSize() const override;
@@ -996,7 +1029,7 @@ struct EarlyBootEndedResponse : public KeymasterResponse {
 struct DeviceLockedRequest : public KeymasterMessage {
     explicit DeviceLockedRequest(int32_t ver) : KeymasterMessage(ver) {}
     explicit DeviceLockedRequest(int32_t ver, bool passwordOnly_, VerificationToken&& token_)
-        : KeymasterMessage(ver), passwordOnly(passwordOnly_), token(move(token_)) {}
+        : KeymasterMessage(ver), passwordOnly(passwordOnly_), token(std::move(token_)) {}
 
     size_t SerializedSize() const override { return 1; }
     uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
@@ -1059,7 +1092,7 @@ struct TimestampToken : public Serializable {
         challenge = other.challenge;
         timestamp = other.timestamp;
         security_level = other.security_level;
-        mac = move(other.mac);
+        mac = std::move(other.mac);
     }
     size_t SerializedSize() const override {
         return sizeof(challenge) + sizeof(timestamp) + sizeof(security_level) +
@@ -1152,6 +1185,29 @@ struct SetAttestationIdsRequest : public KeymasterMessage {
 };
 
 using SetAttestationIdsResponse = EmptyKeymasterResponse;
+
+struct SetAttestationIdsKM3Request : public KeymasterMessage {
+    explicit SetAttestationIdsKM3Request(int32_t ver) : KeymasterMessage(ver), base(ver) {}
+    size_t SerializedSize() const override {
+        return base.SerializedSize()  //
+               + second_imei.SerializedSize();
+    }
+
+    uint8_t* Serialize(uint8_t* buf, const uint8_t* end) const override {
+        buf = base.Serialize(buf, end);
+        return second_imei.Serialize(buf, end);
+    }
+
+    bool Deserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return base.Deserialize(buf_ptr, end)             //
+               && second_imei.Deserialize(buf_ptr, end);  //
+    }
+
+    SetAttestationIdsRequest base;
+    Buffer second_imei;
+};
+
+using SetAttestationIdsKM3Response = EmptyKeymasterResponse;
 
 struct ConfigureVendorPatchlevelRequest : public KeymasterMessage {
     explicit ConfigureVendorPatchlevelRequest(int32_t ver) : KeymasterMessage(ver) {}
@@ -1247,6 +1303,40 @@ struct GetRootOfTrustResponse : public KeymasterResponse {
     }
 
     std::vector<uint8_t> rootOfTrust;
+};
+
+struct GetHwInfoRequest : public EmptyKeymasterRequest {
+    explicit GetHwInfoRequest(int32_t ver) : EmptyKeymasterRequest(ver) {}
+};
+
+struct GetHwInfoResponse : public KeymasterResponse {
+    explicit GetHwInfoResponse(int32_t ver) : KeymasterResponse(ver) {}
+
+    size_t NonErrorSerializedSize() const override {
+        return sizeof(version) + sizeof(uint32_t) + rpcAuthorName.size() +
+               sizeof(supportedEekCurve) + sizeof(uint32_t) + uniqueId.size() +
+               sizeof(supportedNumKeysInCsr);
+    }
+    uint8_t* NonErrorSerialize(uint8_t* buf, const uint8_t* end) const override {
+        buf = append_uint32_to_buf(buf, end, version);
+        buf = append_collection_to_buf(buf, end, rpcAuthorName);
+        buf = append_uint32_to_buf(buf, end, supportedEekCurve);
+        buf = append_collection_to_buf(buf, end, uniqueId);
+        return append_uint32_to_buf(buf, end, supportedNumKeysInCsr);
+    }
+    bool NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) override {
+        return copy_uint32_from_buf(buf_ptr, end, &version) &&
+               copy_collection_from_buf(buf_ptr, end, &rpcAuthorName) &&
+               copy_uint32_from_buf(buf_ptr, end, &supportedEekCurve) &&
+               copy_collection_from_buf(buf_ptr, end, &uniqueId) &&
+               copy_uint32_from_buf(buf_ptr, end, &supportedNumKeysInCsr);
+    }
+
+    uint32_t version;
+    std::string rpcAuthorName;
+    uint32_t supportedEekCurve;
+    std::string uniqueId;
+    uint32_t supportedNumKeysInCsr;
 };
 
 }  // namespace keymaster

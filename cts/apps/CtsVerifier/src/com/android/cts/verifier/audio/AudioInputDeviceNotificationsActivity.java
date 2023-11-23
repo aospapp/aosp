@@ -25,6 +25,7 @@ import android.view.View;
 import android.widget.TextView;
 
 import com.android.cts.verifier.R;
+import com.android.cts.verifier.audio.audiolib.AudioDeviceUtils;
 
 /**
  * Tests Audio Device Connection events for output by prompting the user to insert/remove a
@@ -49,8 +50,11 @@ public class AudioInputDeviceNotificationsActivity extends AudioWiredDeviceBaseA
                 return;
             }
             if (addedDevices.length != 0) {
+                AudioDeviceInfo devInfo = addedDevices[addedDevices.length - 1];
                 mConnectView.setText(
-                    mContext.getResources().getString(R.string.audio_dev_notification_connectMsg));
+                        mContext.getResources().getString(
+                                R.string.audio_dev_notification_connectMsg,
+                                AudioDeviceUtils.formatDeviceName(devInfo)));
                 mConnectReceived = true;
                 getPassButton().setEnabled(mConnectReceived && mDisconnectReceived);
             }
@@ -58,9 +62,11 @@ public class AudioInputDeviceNotificationsActivity extends AudioWiredDeviceBaseA
 
         public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
             if (removedDevices.length != 0) {
+                AudioDeviceInfo devInfo = removedDevices[removedDevices.length - 1];
                 mDisconnectView.setText(
-                    mContext.getResources().getString(
-                        R.string.audio_dev_notification_disconnectMsg));
+                        mContext.getResources().getString(
+                                R.string.audio_dev_notification_disconnectMsg,
+                                AudioDeviceUtils.formatDeviceName(devInfo)));
                 mDisconnectReceived = true;
                 getPassButton().setEnabled(mConnectReceived && mDisconnectReceived);
             }

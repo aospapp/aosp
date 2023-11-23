@@ -99,7 +99,7 @@ public class VibratorManagerTest {
             mStateListeners.put(vibratorId, listener);
             // Adding a listener to the Vibrator should trigger the callback once with the current
             // vibrator state, so reset mocks to clear it for tests.
-            assertVibratorState(false);
+            assertVibratorState(vibratorId, false);
             clearInvocations(listener);
         }
     }

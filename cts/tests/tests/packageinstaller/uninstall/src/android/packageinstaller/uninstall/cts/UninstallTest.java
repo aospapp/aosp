@@ -22,15 +22,22 @@ import static android.graphics.PixelFormat.TRANSLUCENT;
 import static android.view.ViewGroup.LayoutParams.MATCH_PARENT;
 import static android.view.WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
 
+import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageInstaller;
 import android.content.pm.PackageManager;
+import android.content.pm.VersionedPackage;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -54,7 +61,9 @@ import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AppOpsUtils;
+import com.android.compatibility.common.util.SystemUtil;
 
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -62,6 +71,7 @@ import org.junit.runner.RunWith;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
@@ -69,13 +79,19 @@ import java.util.concurrent.TimeUnit;
 public class UninstallTest {
     private static final String LOG_TAG = UninstallTest.class.getSimpleName();
 
+    private static final String APK =
+            "/data/local/tmp/cts/uninstall/CtsEmptyTestApp.apk";
     private static final String TEST_APK_PACKAGE_NAME = "android.packageinstaller.emptytestapp.cts";
+    private static final String RECEIVER_ACTION =
+            "android.packageinstaller.emptytestapp.cts.action";
 
     private static final long TIMEOUT_MS = 30000;
     private static final String APP_OP_STR = "REQUEST_DELETE_PACKAGES";
 
     private Context mContext;
     private UiDevice mUiDevice;
+    private CountDownLatch mLatch;
+    private UninstallStatusReceiver mReceiver;
 
     @Before
     public void setup() throws Exception {
@@ -88,6 +104,20 @@ public class UninstallTest {
         }
         mUiDevice.executeShellCommand("wm dismiss-keyguard");
         AppOpsUtils.reset(mContext.getPackageName());
+
+        // Register uninstall event receiver
+        mLatch = new CountDownLatch(1);
+        mReceiver = new UninstallStatusReceiver(mLatch);
+        mContext.registerReceiver(mReceiver, new IntentFilter(RECEIVER_ACTION),
+                Context.RECEIVER_EXPORTED);
+
+        // Make sure CtsEmptyTestApp is installed before each test
+        runShellCommand("pm install " + APK);
+    }
+
+    @After
+    public void tearDown() {
+        mContext.unregisterReceiver(mReceiver);
     }
 
     private void dumpWindowHierarchy() throws InterruptedException, IOException {
@@ -117,6 +147,8 @@ public class UninstallTest {
         mUiDevice.pressBack();
         // return to home/launcher to prevent from being obscured by systemui or other alert window
         mUiDevice.pressHome();
+        // Wait for device idle
+        mUiDevice.waitForIdle();
 
         mContext.startActivity(intent);
 
@@ -164,22 +196,24 @@ public class UninstallTest {
         }
     }
 
-    private void waitFor(SearchCondition<UiObject2> condition)
+    private UiObject2 waitFor(SearchCondition<UiObject2> condition)
             throws IOException, InterruptedException {
         final long OneSecond = TimeUnit.SECONDS.toMillis(1);
         final long start = System.currentTimeMillis();
         while (System.currentTimeMillis() - start < TIMEOUT_MS) {
             try {
-                if (mUiDevice.wait(condition, OneSecond) == null) {
+                var result = mUiDevice.wait(condition, OneSecond);
+                if (result == null) {
                     continue;
                 }
-                return;
+                return result;
             } catch (Throwable e) {
                 Thread.sleep(OneSecond);
             }
         }
         dumpWindowHierarchy();
         fail("Unable to wait for the uninstaller activity");
+        return null;
     }
 
     @Test
@@ -188,11 +222,8 @@ public class UninstallTest {
 
         startUninstall();
 
-        waitFor(Until.findObject(By.text("Do you want to uninstall this app?")));
-
         assertNotNull("Uninstall prompt not shown",
-                mUiDevice.wait(Until.findObject(By.text("Do you want to uninstall this app?")),
-                        TIMEOUT_MS));
+                waitFor(Until.findObject(By.textContains("Do you want to uninstall this app?"))));
         // The app's name should be shown to the user.
         assertNotNull(mUiDevice.findObject(By.text("Empty Test App")));
 
@@ -230,6 +261,27 @@ public class UninstallTest {
         assertTrue(AppOpsUtils.allowedOperationLogged(mContext.getPackageName(), APP_OP_STR));
     }
 
+    @Test
+    public void testUninstallApi() throws InterruptedException {
+        assertTrue("Package is not installed", isInstalled());
+
+        PackageInstaller pi = mContext.getPackageManager().getPackageInstaller();
+        VersionedPackage pkg = new VersionedPackage(TEST_APK_PACKAGE_NAME,
+                PackageManager.VERSION_CODE_HIGHEST);
+
+        Intent broadcastIntent = new Intent(RECEIVER_ACTION).setPackage(mContext.getPackageName());
+        PendingIntent pendingIntent =
+                PendingIntent.getBroadcast(mContext, 1, broadcastIntent,
+                        PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            pi.uninstall(pkg, 0, pendingIntent.getIntentSender());
+        });
+
+        mLatch.await(10, TimeUnit.SECONDS);
+        assertFalse("Package is not uninstalled", isInstalled());
+    }
+
     private boolean isInstalled() {
         Log.d(LOG_TAG, "Testing if package " + TEST_APK_PACKAGE_NAME + " is installed for user "
                 + mContext.getUser());
@@ -240,6 +292,23 @@ public class UninstallTest {
             Log.v(LOG_TAG, "Package " + TEST_APK_PACKAGE_NAME + " not installed for user "
                     + mContext.getUser() + ": " + e);
             return false;
+        }
+    }
+
+    public static class UninstallStatusReceiver extends BroadcastReceiver {
+
+        private final CountDownLatch mLatch;
+
+        public UninstallStatusReceiver(CountDownLatch latch) {
+            mLatch = latch;
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -100)
+                    == PackageInstaller.STATUS_SUCCESS) {
+                mLatch.countDown();
+            }
         }
     }
 }

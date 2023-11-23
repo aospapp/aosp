@@ -22,8 +22,12 @@ import static com.google.common.truth.Truth.assertThat;
 
 import android.os.Bundle;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,8 +36,11 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 
-@RunWith(JUnit4.class)
-public class BundleKeyQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class BundleKeyQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private static final String KEY = "Key";
     private static final String KEY2 = "Key2";
@@ -297,5 +304,93 @@ public class BundleKeyQueryHelperTest {
         bundleKeyQueryHelper.stringValue().isEqualTo("");
 
         assertParcelsCorrectly(BundleKeyQueryHelper.class, bundleKeyQueryHelper);
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasStringQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.stringValue().isNotNull();
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasSerializableQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.serializableValue().isEqualTo(new Serializable() {});
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasBundleQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.bundleValue().key("").stringValue().isNotNull();
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIntegerQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.integerValue().isEqualTo(0);
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasLongQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.longValue().isEqualTo(0);
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasBooleanQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.booleanValue().isTrue();
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasStringListQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.stringListValue().size().isEqualTo(0);
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasIntegerListQuery_returnsFalse() {
+        BundleKeyQueryHelper<Queryable> bundleKeyQueryHelper =
+                new BundleKeyQueryHelper<>(mQuery);
+
+        bundleKeyQueryHelper.integerListValue().size().isEqualTo(0);
+
+        assertThat(bundleKeyQueryHelper.isEmptyQuery()).isFalse();
     }
 }

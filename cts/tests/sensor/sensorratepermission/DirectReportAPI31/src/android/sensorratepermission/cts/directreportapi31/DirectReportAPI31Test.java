@@ -71,6 +71,8 @@ public class DirectReportAPI31Test {
                 mDirectReportTestHelper != null);
 
         mSensorPrivacyManager = context.getSystemService(SensorPrivacyManager.class);
+        Assume.assumeTrue(mSensorPrivacyManager
+                .supportsSensorToggle(SensorPrivacyManager.Sensors.MICROPHONE));
         mUserID = UserHandle.myUserId();
     }
 

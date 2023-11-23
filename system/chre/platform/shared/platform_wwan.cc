@@ -31,14 +31,14 @@ const chrePalWwanCallbacks PlatformWwanBase::sWwanCallbacks = {
 PlatformWwan::~PlatformWwan() {
   if (mWwanApi != nullptr) {
     LOGD("Platform WWAN closing");
-    prePalApiCall();
+    prePalApiCall(PalType::WWAN);
     mWwanApi->close();
     LOGD("Platform WWAN closed");
   }
 }
 
 void PlatformWwan::init() {
-  prePalApiCall();
+  prePalApiCall(PalType::WWAN);
   mWwanApi = chrePalWwanGetApi(CHRE_PAL_WWAN_API_CURRENT_VERSION);
   if (mWwanApi != nullptr) {
     if (!mWwanApi->open(&gChrePalSystemApi, &sWwanCallbacks)) {
@@ -61,7 +61,7 @@ void PlatformWwan::init() {
 
 uint32_t PlatformWwan::getCapabilities() {
   if (mWwanApi != nullptr) {
-    prePalApiCall();
+    prePalApiCall(PalType::WWAN);
     return mWwanApi->getCapabilities();
   } else {
     return CHRE_WWAN_CAPABILITIES_NONE;
@@ -70,7 +70,7 @@ uint32_t PlatformWwan::getCapabilities() {
 
 bool PlatformWwan::requestCellInfo() {
   if (mWwanApi != nullptr) {
-    prePalApiCall();
+    prePalApiCall(PalType::WWAN);
     return mWwanApi->requestCellInfo();
   } else {
     return false;
@@ -79,7 +79,7 @@ bool PlatformWwan::requestCellInfo() {
 
 void PlatformWwan::releaseCellInfoResult(chreWwanCellInfoResult *result) {
   if (mWwanApi != nullptr) {
-    prePalApiCall();
+    prePalApiCall(PalType::WWAN);
     mWwanApi->releaseCellInfoResult(result);
   }
 }

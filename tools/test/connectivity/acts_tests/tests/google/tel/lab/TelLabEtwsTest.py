@@ -16,7 +16,6 @@
 """
 Sanity tests for voice tests in telephony
 """
-import time
 
 from acts.controllers.anritsu_lib._anritsu_utils import AnritsuError
 from acts.controllers.anritsu_lib.md8475a import MD8475A
@@ -124,12 +123,11 @@ class TelLabEtwsTest(TelephonyBaseTest):
                 self.log.error("No valid RAT provided for ETWS test.")
                 return False
 
-            if not ensure_network_rat(
-                    self.log,
-                    self.ad,
-                    preferred_network_setting,
-                    rat_family,
-                    toggle_apm_after_setting=True):
+            if not ensure_network_rat(self.log,
+                                      self.ad,
+                                      preferred_network_setting,
+                                      rat_family,
+                                      toggle_apm_after_setting=True):
                 self.log.error(
                     "Failed to set rat family {}, preferred network:{}".format(
                         rat_family, preferred_network_setting))
@@ -140,8 +138,9 @@ class TelLabEtwsTest(TelephonyBaseTest):
                     self.log, self.ad, self.anritsu,
                     next(TelLabEtwsTest.SERIAL_NO), message_id,
                     warning_message):
-                self.log.error("Phone {} Failed to receive ETWS message"
-                               .format(self.ad.serial))
+                self.log.error(
+                    "Phone {} Failed to receive ETWS message".format(
+                        self.ad.serial))
                 return False
         except AnritsuError as e:
             self.log.error("Error in connection with Anritsu Simulator: " +
@@ -237,9 +236,10 @@ class TelLabEtwsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self._send_receive_etws_message(
-            set_system_model_wcdma, RAT_WCDMA, ETWS_WARNING_EARTHQUAKETSUNAMI,
-            "WCDMA Earthquake and Tsunami")
+        return self._send_receive_etws_message(set_system_model_wcdma,
+                                               RAT_WCDMA,
+                                               ETWS_WARNING_EARTHQUAKETSUNAMI,
+                                               "WCDMA Earthquake and Tsunami")
 
     @test_tracker_info(uuid="71dc9650-d00a-4533-99f5-5cc301c21334")
     @TelephonyBaseTest.tel_test_wrap
@@ -260,9 +260,10 @@ class TelLabEtwsTest(TelephonyBaseTest):
         Returns:
             True if pass; False if fail
         """
-        return self._send_receive_etws_message(
-            set_system_model_wcdma, RAT_WCDMA, ETWS_WARNING_OTHER_EMERGENCY,
-            "WCDMA ETWS Other Emergency")
+        return self._send_receive_etws_message(set_system_model_wcdma,
+                                               RAT_WCDMA,
+                                               ETWS_WARNING_OTHER_EMERGENCY,
+                                               "WCDMA ETWS Other Emergency")
 
     @test_tracker_info(uuid="a9fd9c0e-21bf-41d1-81d2-c34679052fe0")
     @TelephonyBaseTest.tel_test_wrap

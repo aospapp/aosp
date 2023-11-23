@@ -52,6 +52,7 @@ bool ShouldCheckMissingHalsInFcm(const std::string& package) {
             "android.hardware.radio.config@1.2",
             // AIDL
             "android.hardware.audio.common",
+            "android.hardware.audio.core.sounddose",
             "android.hardware.biometrics.common",
             "android.hardware.camera.metadata",
             "android.hardware.camera.device",
@@ -61,13 +62,17 @@ bool ShouldCheckMissingHalsInFcm(const std::string& package) {
             "android.hardware.graphics.common",
             "android.hardware.input.common",
             "android.hardware.keymaster",
+            "android.hardware.media.bufferpool2",
             "android.hardware.radio",
+            "android.hardware.threadnetwork",
             "android.hardware.uwb.fira_android",
 
             // Fastboot HAL is only used by recovery. Recovery is owned by OEM. Framework
             // does not depend on this HAL, hence it is not declared in any manifests or matrices.
             "android.hardware.fastboot@1.0",
             "android.hardware.fastboot@1.1",
+            // Fastboot AIDL
+            "android.hardware.fastboot",
 
             // Deprecated HALs.
             // HIDL
@@ -80,6 +85,28 @@ bool ShouldCheckMissingHalsInFcm(const std::string& package) {
             "android.hardware.nfc@1.0",
             // TODO(b/171260715) Remove when HAL definition is removed
             "android.hardware.radio.deprecated@1.0",
+
+            // TODO(b/205175891): File individual bugs for these HALs deprecated in P
+            "android.hardware.audio.effect@4.0",
+            "android.hardware.audio@4.0",
+            "android.hardware.bluetooth.a2dp@1.0",
+            "android.hardware.cas@1.0",
+            "android.hardware.configstore@1.0",
+            "android.hardware.gnss@1.0",
+            "android.hardware.gnss@1.1",
+            "android.hardware.graphics.mapper@2.0",
+            "android.hardware.nfc@1.1",
+            "android.hardware.radio.config@1.0",
+            "android.hardware.radio@1.0",
+            "android.hardware.radio@1.1",
+            "android.hardware.radio@1.3",
+            "android.hardware.thermal@1.0",
+            "android.hardware.thermal@1.1",
+            "android.hardware.wifi.offload@1.0",
+
+            // Under hardware/interfaces/staging, still in development
+            // AIDL
+            "android.hardware.media.c2",
     };
 
     auto package_has_prefix = [&](const std::string& prefix) {

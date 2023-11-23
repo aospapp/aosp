@@ -111,3 +111,15 @@ android_test_helper_app {
     // using 29 (< 30) to allow install an app without application tag
     target_sdk_version: "29",
 }
+
+android_test_helper_app {
+    name: "CtsContentLongUsesPermissionNameTestApp",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    manifest: "AndroidManifestLongUsesPermissionName.xml",
+    // tag this module as a cts test artifact
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}

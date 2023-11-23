@@ -36,11 +36,11 @@ import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
 import android.test.AndroidTestCase;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.PollingCheck;
-
-import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -87,7 +87,8 @@ public class ScanningSettingsTest extends AndroidTestCase {
 
     @CddTest(requirement = "7.4.2/C-2-1")
     public void testWifiScanningSettings() throws Exception {
-        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive() || FeatureUtil.isWatch()) {
+        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive()
+                || FeatureUtil.isWatch() || FeatureUtil.isArc()) {
             return;
         }
         launchLocationServicesSettings();
@@ -120,7 +121,8 @@ public class ScanningSettingsTest extends AndroidTestCase {
 
     @CddTest(requirement = "7.4.3/C-4-1")
     public void testBleScanningSettings() throws PackageManager.NameNotFoundException {
-        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive() || FeatureUtil.isWatch()) {
+        if (FeatureUtil.isTV() || FeatureUtil.isAutomotive()
+                || FeatureUtil.isWatch() || FeatureUtil.isArc()) {
             return;
         }
         launchLocationServicesSettings();

@@ -30,11 +30,11 @@ func TestLibraryVariants(t *testing.T) {
 			srcs: ["foo.rs"],
 			crate_name: "foo",
 		}
-                rust_ffi_host {
-                        name: "libfoo.ffi",
-                        srcs: ["foo.rs"],
-                        crate_name: "foo"
-                }`)
+		rust_ffi_host {
+			name: "libfoo.ffi",
+			srcs: ["foo.rs"],
+			crate_name: "foo"
+		}`)
 
 	// Test all variants are being built.
 	libfooRlib := ctx.ModuleForTests("libfoo", "linux_glibc_x86_64_rlib_rlib-std").Rule("rustc")
@@ -45,7 +45,7 @@ func TestLibraryVariants(t *testing.T) {
 	rlibCrateType := "rlib"
 	dylibCrateType := "dylib"
 	sharedCrateType := "cdylib"
-	staticCrateType := "static"
+	staticCrateType := "staticlib"
 
 	// Test crate type for rlib is correct.
 	if !strings.Contains(libfooRlib.Args["rustcFlags"], "crate-type="+rlibCrateType) {
@@ -148,7 +148,7 @@ func TestSharedLibrary(t *testing.T) {
 
 	libfoo := ctx.ModuleForTests("libfoo", "android_arm64_armv8-a_shared")
 
-	libfooOutput := libfoo.Rule("rustc")
+	libfooOutput := libfoo.Rule("rustLink")
 	if !strings.Contains(libfooOutput.Args["linkFlags"], "-Wl,-soname=libfoo.so") {
 		t.Errorf("missing expected -Wl,-soname linker flag for libfoo shared lib, linkFlags: %#v",
 			libfooOutput.Args["linkFlags"])

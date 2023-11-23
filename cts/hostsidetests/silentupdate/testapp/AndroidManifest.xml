@@ -16,7 +16,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.tests.silentupdate" >
-    <uses-sdk android:targetSdkVersion="30" />
+    <uses-sdk android:targetSdkVersion="31" />
 
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />

@@ -58,6 +58,7 @@ class BluetoothDevice(object):
     Attributes:
         device: A generic Bluetooth device.
     """
+
     def __init__(self, device):
         self.device = device
         self.log = logging
@@ -364,6 +365,7 @@ class AndroidBluetoothDevice(BluetoothDevice):
     Attributes:
         android_device: An Android Bluetooth device.
     """
+
     def __init__(self, android_device):
         super().__init__(android_device)
         self.gatt_timeout = 10
@@ -424,7 +426,6 @@ class AndroidBluetoothDevice(BluetoothDevice):
         """ Just pass for Android as there is no concept of initializing
         a Bluetooth controller.
         """
-        pass
 
     def start_pairing_helper(self):
         """ Starts the Android pairing helper.
@@ -759,7 +760,6 @@ class AndroidBluetoothDevice(BluetoothDevice):
             profile_id: The profile ID to set.
         """
         # Android devices currently have no hooks to modify the SDP record.
-        pass
 
     def sdp_add_service(self, sdp_record):
         """Adds an SDP service record.
@@ -770,18 +770,16 @@ class AndroidBluetoothDevice(BluetoothDevice):
                 None if failed.
         """
         # Android devices currently have no hooks to modify the SDP record.
-        pass
 
     def sdp_clean_up(self):
         """Cleans up all objects related to SDP.
         """
-        self.device.sdp_lib.cleanUp()
+        self.device.sl4f.sdp_lib.cleanUp()
 
     def sdp_init(self):
         """Initializes SDP on the device.
         """
         # Android devices currently have no hooks to modify the SDP record.
-        pass
 
     def sdp_remove_service(self, service_id):
         """Removes a service based on an input id.
@@ -789,7 +787,6 @@ class AndroidBluetoothDevice(BluetoothDevice):
             service_id: The service ID to remove.
         """
         # Android devices currently have no hooks to modify the SDP record.
-        pass
 
     def unbond_all_known_devices(self):
         """ Unbond all known remote devices.
@@ -833,6 +830,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
     Attributes:
         fuchsia_device: A Fuchsia Bluetooth device.
     """
+
     def __init__(self, fuchsia_device):
         super().__init__(fuchsia_device)
 
@@ -843,19 +841,18 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
     def start_profile_a2dp_sink(self):
         """ Starts the A2DP sink profile.
         """
-        self.device.control_daemon("bt-a2dp-sink.cmx", "start")
+        self.device.start_v1_component("bt-a2dp-sink")
 
     def stop_profile_a2dp_sink(self):
         """ Stops the A2DP sink profile.
         """
-        self.device.control_daemon("bt-a2dp-sink.cmx", "stop")
+        self.device.stop_v1_component("bt-a2dp-sink")
 
     def start_pairing_helper(self):
-        self.device.bts_lib.acceptPairing()
+        self.device.sl4f.bts_lib.acceptPairing()
 
     def bluetooth_toggle_state(self, state):
         """Stub for Fuchsia implementation."""
-        pass
 
     def set_discoverable(self, is_discoverable):
         """ Sets the device's discoverability.
@@ -863,12 +860,12 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         Args:
             is_discoverable: True if discoverable, false if not discoverable
         """
-        self.device.bts_lib.setDiscoverable(is_discoverable)
+        self.device.sl4f.bts_lib.setDiscoverable(is_discoverable)
 
     def get_pairing_pin(self):
         """ Get the pairing pin from the active pairing delegate.
         """
-        return self.device.bts_lib.getPairingPin()['result']
+        return self.device.sl4f.bts_lib.getPairingPin()['result']
 
     def input_pairing_pin(self, pin):
         """ Input pairing pin to active pairing delegate.
@@ -876,24 +873,24 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         Args:
             pin: The pin to input.
         """
-        self.device.bts_lib.inputPairingPin(pin)
+        self.device.sl4f.bts_lib.inputPairingPin(pin)
 
     def initialize_bluetooth_controller(self):
         """ Initialize Bluetooth controller for first time use.
         """
-        self.device.bts_lib.initBluetoothSys()
+        self.device.sl4f.bts_lib.initBluetoothSys()
 
     def get_local_bluetooth_address(self):
         """ Returns the Bluetooth local address.
         """
-        return self.device.bts_lib.getActiveAdapterAddress().get("result")
+        return self.device.sl4f.bts_lib.getActiveAdapterAddress().get("result")
 
     def set_bluetooth_local_name(self, name):
         """ Sets the Bluetooth controller's local name
         Args:
             name: The name to set.
         """
-        self.device.bts_lib.setName(name)
+        self.device.sl4f.bts_lib.setName(name)
 
     def gatt_client_write_characteristic_without_response_by_handle(
             self, peer_identifier, handle, value):
@@ -911,7 +908,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.writeCharByIdWithoutResponse(
+        result = self.device.sl4f.gattc_lib.writeCharByIdWithoutResponse(
             handle, value)
         if result.get("error") is not None:
             self.log.error(
@@ -937,7 +934,8 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.writeCharById(handle, offset, value)
+        result = self.device.sl4f.gattc_lib.writeCharById(
+            handle, offset, value)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to write characteristic handle {} with err: {}".format(
@@ -964,7 +962,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
             self.log.error(
                 "Unable to find handle {} in GATT server db.".format(handle))
             return False
-        result = self.device.gattc_lib.writeLongCharById(
+        result = self.device.sl4f.gattc_lib.writeLongCharById(
             handle, offset, value, reliable_mode)
         if result.get("error") is not None:
             self.log.error(
@@ -991,7 +989,8 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
             self.log.error(
                 "Unable to find handle {} in GATT server db.".format(handle))
             return False
-        result = self.device.gattc_lib.writeLongDescById(handle, offset, value)
+        result = self.device.sl4f.gattc_lib.writeLongDescById(
+            handle, offset, value)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to write long descriptor handle {} with err: {}".
@@ -1014,7 +1013,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.readCharacteristicById(handle)
+        result = self.device.sl4f.gattc_lib.readCharacteristicById(handle)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to read characteristic handle {} with err: {}".format(
@@ -1036,7 +1035,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, uuid, uuid=True)):
             self.log.warn(
                 "Unable to find uuid {} in GATT server db.".format(uuid))
-        result = self.device.gattc_lib.readCharacteristicByType(uuid)
+        result = self.device.sl4f.gattc_lib.readCharacteristicByType(uuid)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to read characteristic uuid {} with err: {}".format(
@@ -1062,7 +1061,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.readLongCharacteristicById(
+        result = self.device.sl4f.gattc_lib.readLongCharacteristicById(
             handle, offset, max_bytes)
         if result.get("error") is not None:
             self.log.error(
@@ -1086,7 +1085,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.enableNotifyCharacteristic(handle)
+        result = self.device.sl4f.gattc_lib.enableNotifyCharacteristic(handle)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to enable characteristic notifications for handle {} "
@@ -1109,7 +1108,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.disableNotifyCharacteristic(handle)
+        result = self.device.sl4f.gattc_lib.disableNotifyCharacteristic(handle)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to disable characteristic notifications for handle {} "
@@ -1131,7 +1130,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.readDescriptorById(handle)
+        result = self.device.sl4f.gattc_lib.readDescriptorById(handle)
         if result.get("error") is not None:
             self.log.error(
                 "Failed to read descriptor for handle {} with err: {}".format(
@@ -1156,7 +1155,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                 peer_identifier, handle)):
             self.log.warn(
                 "Unable to find handle {} in GATT server db.".format(handle))
-        result = self.device.gattc_lib.writeDescriptorById(
+        result = self.device.sl4f.gattc_lib.writeDescriptorById(
             handle, offset, value)
         if result.get("error") is not None:
             self.log.error(
@@ -1175,7 +1174,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         Returns:
             True if success, False if failure.
         """
-        connection_result = self.device.gattc_lib.bleConnectToPeripheral(
+        connection_result = self.device.sl4f.gattc_lib.bleConnectToPeripheral(
             peer_identifier)
         if connection_result.get("error") is not None:
             self.log.error("Failed to connect to peer id {}: {}".format(
@@ -1218,7 +1217,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         Returns:
             True if success, False if failure.
         """
-        disconnect_result = self.device.gattc_lib.bleDisconnectPeripheral(
+        disconnect_result = self.device.sl4f.gattc_lib.bleDisconnectPeripheral(
             peer_identifier)
         if disconnect_result.get("error") is not None:
             self.log.error("Failed to disconnect from peer id {}: {}".format(
@@ -1228,7 +1227,6 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
 
     def reset_bluetooth(self):
         """Stub for Fuchsia implementation."""
-        pass
 
     def sdp_add_search(self, attribute_list, profile_id):
         """Adds an SDP search record.
@@ -1236,31 +1234,31 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
             attribute_list: The list of attributes to set
             profile_id: The profile ID to set.
         """
-        return self.device.sdp_lib.addSearch(attribute_list, profile_id)
+        return self.device.sl4f.sdp_lib.addSearch(attribute_list, profile_id)
 
     def sdp_add_service(self, sdp_record):
         """Adds an SDP service record.
         Args:
             sdp_record: The dictionary representing the search record to add.
         """
-        return self.device.sdp_lib.addService(sdp_record)
+        return self.device.sl4f.sdp_lib.addService(sdp_record)
 
     def sdp_clean_up(self):
         """Cleans up all objects related to SDP.
         """
-        return self.device.sdp_lib.cleanUp()
+        return self.device.sl4f.sdp_lib.cleanUp()
 
     def sdp_init(self):
         """Initializes SDP on the device.
         """
-        return self.device.sdp_lib.init()
+        return self.device.sl4f.sdp_lib.init()
 
     def sdp_remove_service(self, service_id):
         """Removes a service based on an input id.
         Args:
             service_id: The service ID to remove.
         """
-        return self.device.sdp_lib.init()
+        return self.device.sl4f.sdp_lib.init()
 
     def start_le_advertisement(self, adv_data, scan_response, adv_interval,
                                connectable):
@@ -1270,13 +1268,13 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
             adv_data: Advertisement data.
             adv_interval: Advertisement interval.
         """
-        self.device.ble_lib.bleStartBleAdvertising(adv_data, scan_response,
-                                                   adv_interval, connectable)
+        self.device.sl4f.ble_lib.bleStartBleAdvertising(
+            adv_data, scan_response, adv_interval, connectable)
 
     def stop_le_advertisement(self):
         """ Stop active LE advertisement.
         """
-        self.device.ble_lib.bleStopBleAdvertising()
+        self.device.sl4f.ble_lib.bleStopBleAdvertising()
 
     def setup_gatt_server(self, database):
         """ Sets up an input GATT server.
@@ -1284,12 +1282,12 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         Args:
             database: A dictionary representing the GATT database to setup.
         """
-        self.device.gatts_lib.publishServer(database)
+        self.device.sl4f.gatts_lib.publishServer(database)
 
     def close_gatt_server(self):
         """ Closes an existing GATT server.
         """
-        self.device.gatts_lib.closeServer()
+        self.device.sl4f.gatts_lib.closeServer()
 
     def le_scan_with_name_filter(self, name, timeout):
         """ Scan over LE for a specific device name.
@@ -1310,18 +1308,18 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         Args:
             log: The informative log.
         """
-        self.device.logging_lib.logI(log)
-        pass
+        self.device.sl4f.logging_lib.logI(log)
 
     def unbond_all_known_devices(self):
         """ Unbond all known remote devices.
         """
         try:
-            device_list = self.device.bts_lib.getKnownRemoteDevices()['result']
+            device_list = self.device.sl4f.bts_lib.getKnownRemoteDevices(
+            )['result']
             for device_info in device_list:
                 device = device_list[device_info]
                 if device['bonded']:
-                    self.device.bts_lib.forgetDevice(device['id'])
+                    self.device.sl4f.bts_lib.forgetDevice(device['id'])
         except Exception as err:
             self.log.err("Unable to unbond all devices: {}".format(err))
 
@@ -1332,7 +1330,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
             peer_identifier: The peer identifier for the peer to unbond.
 
         """
-        self.device.bts_lib.forgetDevice(peer_identifier)
+        self.device.sl4f.bts_lib.forgetDevice(peer_identifier)
 
     def _find_service_id_and_connect_to_service_for_handle(
             self, peer_identifier, handle, uuid=False):
@@ -1340,12 +1338,12 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
         if uuid:
             handle = handle.lower()
         try:
-            services = self.device.gattc_lib.listServices(peer_identifier)
+            services = self.device.sl4f.gattc_lib.listServices(peer_identifier)
             for service in services['result']:
                 service_id = service['id']
-                self.device.gattc_lib.connectToService(peer_identifier,
-                                                       service_id)
-                chars = self.device.gattc_lib.discoverCharacteristics()
+                self.device.sl4f.gattc_lib.connectToService(
+                    peer_identifier, service_id)
+                chars = self.device.sl4f.gattc_lib.discoverCharacteristics()
 
                 for char in chars['result']:
                     char_id = char['id']
@@ -1367,13 +1365,13 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
     def _read_all_characteristics(self, peer_identifier, uuid=None):
         fail_err = "Failed to read all characteristics with: {}"
         try:
-            services = self.device.gattc_lib.listServices(peer_identifier)
+            services = self.device.sl4f.gattc_lib.listServices(peer_identifier)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.device.gattc_lib.connectToService(peer_identifier,
-                                                       service_id)
-                chars = self.device.gattc_lib.discoverCharacteristics()
+                self.device.sl4f.gattc_lib.connectToService(
+                    peer_identifier, service_id)
+                chars = self.device.sl4f.gattc_lib.discoverCharacteristics()
                 self.log.info(
                     "Reading chars in service uuid: {}".format(service_uuid))
 
@@ -1384,7 +1382,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                         continue
                     try:
                         read_val =  \
-                            self.device.gattc_lib.readCharacteristicById(
+                            self.device.sl4f.gattc_lib.readCharacteristicById(
                                 char_id)
                         self.log.info(
                             "\tCharacteristic uuid / Value: {} / {}".format(
@@ -1395,20 +1393,19 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                         self.log.info("\t\tstr val: {}".format(str_value))
                     except Exception as err:
                         self.log.error(err)
-                        pass
         except Exception as err:
             self.log.error(fail_err.forma(err))
 
     def _perform_read_all_descriptors(self, peer_identifier):
         fail_err = "Failed to read all characteristics with: {}"
         try:
-            services = self.device.gattc_lib.listServices(peer_identifier)
+            services = self.device.sl4f.gattc_lib.listServices(peer_identifier)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.device.gattc_lib.connectToService(peer_identifier,
-                                                       service_id)
-                chars = self.device.gattc_lib.discoverCharacteristics()
+                self.device.sl4f.gattc_lib.connectToService(
+                    peer_identifier, service_id)
+                chars = self.device.sl4f.gattc_lib.discoverCharacteristics()
                 self.log.info(
                     "Reading descs in service uuid: {}".format(service_uuid))
 
@@ -1422,7 +1419,7 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
                         desc_id = desc["id"]
                         desc_uuid = desc["uuid_type"]
                     try:
-                        read_val = self.device.gattc_lib.readDescriptorById(
+                        read_val = self.device.sl4f.gattc_lib.readDescriptorById(
                             desc_id)
                         self.log.info(
                             "\t\tDescriptor uuid / Value: {} / {}".format(
@@ -1462,8 +1459,8 @@ class FuchsiaBluetoothDevice(BluetoothDevice):
             True if successful, False if failed.
         """
         try:
-            self.device.bts_lib.pair(peer_identifier, security_level,
-                                     non_bondable, transport)
+            self.device.sl4f.bts_lib.pair(peer_identifier, security_level,
+                                          non_bondable, transport)
             return True
         except Exception as err:
             fail_err = "Failed to pair to peer_identifier {} with: {}".format(

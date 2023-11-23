@@ -32,6 +32,7 @@ import android.app.DownloadManager;
 import android.app.DownloadManager.Query;
 import android.app.DownloadManager.Request;
 import android.app.stubs.GetResultActivity;
+import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ApplicationInfo;
@@ -46,15 +47,15 @@ import android.os.FileUtils;
 import android.os.ParcelFileDescriptor;
 import android.provider.DocumentsContract;
 import android.provider.MediaStore;
-import android.support.test.uiautomator.UiObject;
-import android.support.test.uiautomator.UiObjectNotFoundException;
-import android.support.test.uiautomator.UiSelector;
 import android.util.Log;
 import android.util.LongSparseArray;
 import android.util.Pair;
 
 import androidx.test.filters.FlakyTest;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.UiObject;
+import androidx.test.uiautomator.UiObjectNotFoundException;
+import androidx.test.uiautomator.UiSelector;
 
 import com.android.compatibility.common.util.CddTest;
 
@@ -79,7 +80,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             long goodId = mDownloadManager.enqueue(new Request(getGoodUrl()));
             long badId = mDownloadManager.enqueue(new Request(getBadUrl()));
@@ -108,7 +109,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             long id = mDownloadManager.enqueue(new Request(getGoodUrl()));
 
@@ -141,7 +142,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             long id = mDownloadManager.enqueue(new Request(Uri.parse("http://www.example.com")));
 
@@ -175,7 +176,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             long id = mDownloadManager.enqueue(new Request(Uri.parse("https://www.example.com")));
 
@@ -199,7 +200,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             long id = mDownloadManager.enqueue(new Request(getMinimumDownloadUrl()));
             receiver.waitForDownloadComplete(LONG_TIMEOUT, id);
@@ -251,7 +252,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             Request requestUri = new Request(getGoodUrl());
             requestUri.setDestinationUri(Uri.fromFile(uriLocation));
@@ -299,7 +300,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             Request requestNoExt = new Request(getAssetUrl(noExt));
             requestNoExt.setDestinationUri(Uri.fromFile(noExtLocation));
@@ -334,7 +335,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             DownloadManager.Request requestPublic = new DownloadManager.Request(getGoodUrl());
             requestPublic.setDestinationUri(Uri.fromFile(path));
@@ -398,7 +399,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
             try {
                 IntentFilter intentFilter = new IntentFilter(
                         DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-                mContext.registerReceiver(receiver, intentFilter);
+                mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
                 DownloadManager.Request request = new DownloadManager.Request(getGoodUrl());
                 request.setDestinationUri(Uri.fromFile(downloadsFile));
@@ -435,7 +436,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
             final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
             try {
                 IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-                mContext.registerReceiver(receiver, intentFilter);
+                mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
                 DownloadManager.Request requestPublic = new DownloadManager.Request(getGoodUrl());
                 requestPublic.setDestinationInExternalPublicDir(destination, subPath);
@@ -525,7 +526,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             final Request request = new Request(getGoodUrl());
             request.setDestinationUri(Uri.fromFile(uriLocation))
@@ -685,7 +686,7 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
             try {
                 IntentFilter intentFilter = new IntentFilter(
                         DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-                mContext.registerReceiver(receiver, intentFilter);
+                mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
                 DownloadManager.Request requestPublic = new DownloadManager.Request(
                         getAssetUrl(subPath));
@@ -723,8 +724,8 @@ public class DownloadManagerTest extends DownloadManagerTestBase {
 
     @Test
     public void testDownload_onMediaStoreDownloadsDeleted() throws Exception {
-        assumeFalse(mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK));
-
+        assumeFalse(mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_LEANBACK)
+                || mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH));
         // prepare file
         File file = new File(Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_DOWNLOADS), "cts" + System.nanoTime() + ".mp3");

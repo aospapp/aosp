@@ -30,11 +30,17 @@ namespace android {
 namespace aidl {
 namespace ndk {
 
-static const AidlTypeSpecifier kIntType{AIDL_LOCATION_HERE, "int", /*array=*/std::nullopt, nullptr,
-                                        Comments{}};
-
 std::string NdkHeaderFile(const AidlDefinedType& defined_type, cpp::ClassNames name,
                           bool use_os_sep) {
+  // Unstructured parcelable should set its ndk_header. use it.
+  if (auto unstructured = AidlCast<AidlParcelable>(defined_type); unstructured) {
+    AIDL_FATAL_IF(name != cpp::ClassNames::RAW, "unstructured parcelable should only use raw name");
+    const std::string ndk_header = unstructured->GetNdkHeader();
+    AIDL_FATAL_IF(ndk_header.empty(), unstructured)
+        << "Parcelable " << unstructured->GetCanonicalName() << " has no ndk_header defined.";
+    return ndk_header;
+  }
+
   char seperator = (use_os_sep) ? OS_PATH_SEPARATOR : '/';
   return std::string("aidl") + seperator + cpp::HeaderFile(defined_type, name, use_os_sep);
 }
@@ -123,10 +129,9 @@ static TypeInfo WrapArrayType(TypeInfo info, const ArrayType* array) {
   if (std::get_if<DynamicArray>(array)) {
     info.cpp_name = "std::vector<" + info.cpp_name + ">";
   } else {
-    const auto& dimensions = std::get<FixedSizeArray>(*array).dimensions;
+    auto dimensions = std::get<FixedSizeArray>(*array).GetDimensionInts();
     for (auto it = rbegin(dimensions), end = rend(dimensions); it != end; it++) {
-      info.cpp_name = "std::array<" + info.cpp_name + ", " +
-                      (*it)->ValueString(kIntType, ConstantValueDecorator) + ">";
+      info.cpp_name = "std::array<" + info.cpp_name + ", " + std::to_string(*it) + ">";
     }
   }
   info.value_is_cheap = false;

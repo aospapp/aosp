@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2021 NXP
+ *  Copyright 2018-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,24 +23,25 @@
 #endif
 #include <android-base/logging.h>
 #include <android-base/stringprintf.h>
+#include <hidl/HidlTransportSupport.h>
 
 #include "hal_nxpese.h"
 #include "phNxpEse_Apdu_Api.h"
 #include "phNxpEse_Api.h"
 /* Mutex to synchronize multiple transceive */
-
+#include <memunreachable/memunreachable.h>
 namespace android {
 namespace hardware {
 namespace secure_element {
 namespace V1_2 {
 namespace implementation {
 
-#define LOG_TAG "nxpese@1.2-service"
 #define DEFAULT_BASIC_CHANNEL 0x00
 #define INVALID_LEN_SW1 0x64
 #define INVALID_LEN_SW2 0xFF
 #define SW1_BYTES_REMAINING 0x61
-
+#define NUM_OF_CH4 0x04
+#define NUM_OF_CH5 0x05
 typedef struct gsTransceiveBuffer {
   phNxpEse_data cmdData;
   phNxpEse_data rspData;
@@ -53,7 +54,6 @@ getResponseInternal(uint8_t cla, phNxpEse_7816_rpdu_t& rpdu,
 static sTransceiveBuffer_t gsTxRxBuffer;
 static hidl_vec<uint8_t> gsRspDataBuff(256);
 sp<V1_0::ISecureElementHalCallback> SecureElement::mCallbackV1_0 = nullptr;
-sp<V1_1::ISecureElementHalCallback> SecureElement::mCallbackV1_1 = nullptr;
 std::vector<bool> SecureElement::mOpenedChannels;
 using vendor::nxp::nxpese::V1_0::implementation::NxpEse;
 SecureElement::SecureElement()
@@ -104,24 +104,35 @@ Return<void> SecureElement::init(
   phNxpEse_setWtxCountLimit(OsuHalExtn::getInstance().getOSUMaxWtxCount());
   status = phNxpEse_open(initParams);
   if (status == ESESTATUS_SUCCESS || ESESTATUS_BUSY == status) {
+    ESESTATUS initStatus = ESESTATUS_SUCCESS;
     ESESTATUS deInitStatus = ESESTATUS_SUCCESS;
-    if (ESESTATUS_SUCCESS == phNxpEse_SetEndPoint_Cntxt(0) &&
-        ESESTATUS_SUCCESS == phNxpEse_init(initParams)) {
-      /*update OS mode during first init*/
-      IS_OSU_MODE(OsuHalExtn::getInstance().INIT, 0);
+    if (ESESTATUS_SUCCESS == phNxpEse_SetEndPoint_Cntxt(0)) {
+      initStatus = phNxpEse_init(initParams);
+      if (ESESTATUS_SUCCESS == initStatus) {
+        /*update OS mode during first init*/
+        IS_OSU_MODE(OsuHalExtn::getInstance().INIT, 0);
 
-      if (ESESTATUS_SUCCESS == phNxpEse_ResetEndPoint_Cntxt(0)) {
-        LOG(INFO) << "ESE SPI init complete!!!";
-        mIsInitDone = true;
+        if (ESESTATUS_SUCCESS == phNxpEse_ResetEndPoint_Cntxt(0)) {
+          LOG(INFO) << "ESE SPI init complete!!!";
+          mIsInitDone = true;
+        }
+        deInitStatus = phNxpEse_deInit();
+        if (ESESTATUS_SUCCESS != deInitStatus) mIsInitDone = false;
       }
-      deInitStatus = phNxpEse_deInit();
-      if (ESESTATUS_SUCCESS != deInitStatus) mIsInitDone = false;
     }
     status = phNxpEse_close(deInitStatus);
+    /*Enable terminal post recovery(i.e. close success) from transmit failure */
+    if (status == ESESTATUS_SUCCESS &&
+        (initStatus == ESESTATUS_TRANSCEIVE_FAILED ||
+         initStatus == ESESTATUS_FAILED)) {
+      IS_OSU_MODE(OsuHalExtn::getInstance().INIT, 0);
+      mIsInitDone = true;
+    }
   }
   phNxpEse_setWtxCountLimit(RESET_APP_WTX_COUNT);
   if (status == ESESTATUS_SUCCESS && mIsInitDone) {
-    mMaxChannelCount = (GET_CHIP_OS_VERSION() >= OS_VERSION_6_2) ? 0x0C : 0x04;
+    mHasPriorityAccess = phNxpEse_isPriorityAccessEnabled();
+    mMaxChannelCount = getMaxChannelCnt();
     mOpenedChannels.resize(mMaxChannelCount, false);
     clientCallback->onStateChange(true);
     mCallbackV1_0 = clientCallback;
@@ -131,7 +142,45 @@ Return<void> SecureElement::init(
   }
   return Void();
 }
+void SecureElement::registerCallback(
+    const sp<V1_1::ISecureElementHalCallback>& callback) {
+  if (callback == nullptr) {
+    return;
+  }
+  mCallbacks.push_back(callback);
 
+  LOG(INFO) << __func__ << " New client " << callback.get()
+            << " registered . total clients = " << mCallbacks.size();
+
+  auto linkRet = callback->linkToDeath(this, 0u /* cookie */);
+  if (!linkRet.withDefault(false)) {
+    LOG(WARNING) << __func__ << " Cannot link to death: "
+                 << (linkRet.isOk() ? "linkToDeath returns false"
+                                    : linkRet.description());
+  }
+}
+
+void SecureElement::unregisterCallback(const sp<IBase>& callback) {
+  if (callback == nullptr) return;
+  bool removed = false;
+
+  for (auto it = mCallbacks.begin(); it != mCallbacks.end();) {
+    if (interfacesEqual(*it, callback)) {
+      it = mCallbacks.erase(it);
+      removed = true;
+    } else {
+      ++it;
+    }
+  }
+  callback->unlinkToDeath(this).isOk();  // ignore errors
+
+  if (removed)
+    LOG(INFO) << __func__ << " client " << callback.get()
+              << " removed. Total clients = " << mCallbacks.size();
+  else
+    LOG(WARNING) << __func__ << " Failed to remove client. total clients = "
+                 << mCallbacks.size();
+}
 Return<void> SecureElement::init_1_1(
     const sp<
         ::android::hardware::secure_element::V1_1::ISecureElementHalCallback>&
@@ -144,22 +193,19 @@ Return<void> SecureElement::init_1_1(
   initParams.initMode = ESE_MODE_NORMAL;
   initParams.mediaType = ESE_PROTOCOL_MEDIA_SPI_APDU_GATE;
   initParams.fPtr_WtxNtf = SecureElement::NotifySeWaitExtension;
-  if (clientCallback == nullptr) {
-    return Void();
-  } else {
-    clientCallback->linkToDeath(this, 0 /*cookie*/);
-  }
+
+  if (clientCallback == nullptr) return Void();
+
   LOG(INFO) << "SecureElement::init called here";
 #ifdef NXP_BOOTTIME_UPDATE
   if (ese_update != ESE_UPDATE_COMPLETED) {
-    mCallbackV1_1 = clientCallback;
     clientCallback->onStateChange_1_1(false, "NXP SE update going on");
     LOG(INFO) << "ESE JCOP Download in progress";
     NxpEse::setSeCallBack_1_1(clientCallback);
     return Void();
-    // Register
   }
 #endif
+  registerCallback(clientCallback);
   if (mIsEseInitialized) {
     clientCallback->onStateChange_1_1(true, "NXP SE HAL init ok");
     return Void();
@@ -168,30 +214,43 @@ Return<void> SecureElement::init_1_1(
   phNxpEse_setWtxCountLimit(OsuHalExtn::getInstance().getOSUMaxWtxCount());
   status = phNxpEse_open(initParams);
   if (status == ESESTATUS_SUCCESS || ESESTATUS_BUSY == status) {
+    ESESTATUS initStatus = ESESTATUS_SUCCESS;
     ESESTATUS deInitStatus = ESESTATUS_SUCCESS;
-    if (ESESTATUS_SUCCESS == phNxpEse_SetEndPoint_Cntxt(0) &&
-        ESESTATUS_SUCCESS == phNxpEse_init(initParams)) {
-      /*update OS mode during first init*/
-      IS_OSU_MODE(OsuHalExtn::getInstance().INIT, 0);
+    if (ESESTATUS_SUCCESS == phNxpEse_SetEndPoint_Cntxt(0)) {
+      initStatus = phNxpEse_init(initParams);
+      if (initStatus == ESESTATUS_SUCCESS) {
+        /*update OS mode during first init*/
+        IS_OSU_MODE(OsuHalExtn::getInstance().INIT, 0);
 
-      if (ESESTATUS_SUCCESS == phNxpEse_ResetEndPoint_Cntxt(0)) {
-        LOG(INFO) << "ESE SPI init complete!!!";
-        mIsInitDone = true;
+        if (ESESTATUS_SUCCESS == phNxpEse_ResetEndPoint_Cntxt(0)) {
+          LOG(INFO) << "ESE SPI init complete!!!";
+          mIsInitDone = true;
+        }
+        deInitStatus = phNxpEse_deInit();
+        if (ESESTATUS_SUCCESS != deInitStatus) mIsInitDone = false;
       }
-      deInitStatus = phNxpEse_deInit();
-      if (ESESTATUS_SUCCESS != deInitStatus) mIsInitDone = false;
     }
     status = phNxpEse_close(deInitStatus);
+    /*Enable terminal post recovery(i.e. close success) from transmit failure */
+    if (status == ESESTATUS_SUCCESS &&
+        (initStatus == ESESTATUS_TRANSCEIVE_FAILED ||
+         initStatus == ESESTATUS_FAILED)) {
+      IS_OSU_MODE(OsuHalExtn::getInstance().INIT, 0);
+      mIsInitDone = true;
+    }
   }
   phNxpEse_setWtxCountLimit(RESET_APP_WTX_COUNT);
   if (status == ESESTATUS_SUCCESS && mIsInitDone) {
-    mMaxChannelCount = (GET_CHIP_OS_VERSION() >= OS_VERSION_6_2) ? 0x0C : 0x04;
+    mHasPriorityAccess = phNxpEse_isPriorityAccessEnabled();
+    mMaxChannelCount = getMaxChannelCnt();
     mOpenedChannels.resize(mMaxChannelCount, false);
     clientCallback->onStateChange_1_1(true, "NXP SE HAL init ok");
-    mCallbackV1_1 = clientCallback;
   } else {
     LOG(ERROR) << "eSE-Hal Init failed";
     clientCallback->onStateChange_1_1(false, "NXP SE HAL init failed");
+    // remove it from the list of registered callbacks
+    // Client anyway has to call the init again
+    unregisterCallback(clientCallback);
   }
   return Void();
 }
@@ -340,6 +399,23 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
   resApduBuff.channelNumber = 0xff;
   memset(&resApduBuff, 0x00, sizeof(resApduBuff));
 
+  /*
+   * Basic channel & reserved channel if any is removed
+   * from count
+   */
+  uint8_t maxLogicalChannelSupported =
+      mMaxChannelCount - getReserveChannelCnt(aid) - 1;
+
+  uint8_t openedLogicalChannelCount = mOpenedchannelCount;
+  if (mOpenedChannels[0]) openedLogicalChannelCount--;
+
+  if (openedLogicalChannelCount >= maxLogicalChannelSupported) {
+    LOG(ERROR) << StringPrintf("%s: Reached Max supported(%d) Logical Channel",
+                               __func__, openedLogicalChannelCount);
+    _hidl_cb(resApduBuff, SecureElementStatus::CHANNEL_NOT_AVAILABLE);
+    return Void();
+  }
+
   LOG(INFO) << "Acquired the lock from SPI openLogicalChannel";
 
   // In dedicated mode openLogical not allowed
@@ -358,7 +434,7 @@ Return<void> SecureElement::openLogicalChannel(const hidl_vec<uint8_t>& aid,
   }
 
   if (mOpenedChannels.size() == 0x00) {
-    mMaxChannelCount = (GET_CHIP_OS_VERSION() >= OS_VERSION_6_2) ? 0x0C : 0x04;
+    mMaxChannelCount = getMaxChannelCnt();
     mOpenedChannels.resize(mMaxChannelCount, false);
   }
 
@@ -565,10 +641,6 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
       _hidl_cb(result, SecureElementStatus::SUCCESS);
     }
     return Void();
-  } else if (mode == OsuHalExtn::OSU_BLOCKED_MODE) {
-    _hidl_cb(result, SecureElementStatus::IOERROR);
-    return Void();
-  } else {
   }
 
   if (!mIsEseInitialized) {
@@ -580,8 +652,26 @@ Return<void> SecureElement::openBasicChannel(const hidl_vec<uint8_t>& aid,
     }
   }
 
+  phNxpEse_data atrData;
+  if (phNxpEse_getAtr(&atrData) != ESESTATUS_SUCCESS) {
+    LOG(ERROR) << "phNxpEse_getAtr failed";
+  }
+  if (atrData.p_data != NULL) {
+    phNxpEse_free(atrData.p_data);
+  }
+
+  if (phNxpEse_GetOsMode() == OSU_MODE) {
+    if (mOpenedchannelCount == 0) {
+      if (seHalDeInit() != SecureElementStatus::SUCCESS) {
+        LOG(INFO) << "seDeInit Failed";
+      }
+    }
+    _hidl_cb(result, SecureElementStatus::IOERROR);
+    return Void();
+  }
+
   if (mOpenedChannels.size() == 0x00) {
-    mMaxChannelCount = (GET_CHIP_OS_VERSION() >= OS_VERSION_6_2) ? 0x0C : 0x04;
+    mMaxChannelCount = getMaxChannelCnt();
     mOpenedChannels.resize(mMaxChannelCount, false);
   }
   phNxpEse_memset(&cpdu, 0x00, sizeof(phNxpEse_7816_cpdu_t));
@@ -744,11 +834,18 @@ Return<SecureElementStatus> SecureElement::closeChannel(uint8_t channelNumber) {
   }
 }
 
-void SecureElement::serviceDied(uint64_t /*cookie*/, const wp<IBase>& /*who*/) {
-  LOG(ERROR) << " SecureElement serviceDied!!!";
-  mIsEseInitialized = false;
-  if (seHalDeInit() != SecureElementStatus::SUCCESS) {
-    LOG(ERROR) << "SE Deinit not successful";
+void SecureElement::serviceDied(uint64_t /*cookie*/, const wp<IBase>& who) {
+  LOG(ERROR) << "Remote client Died!!!";
+  unregisterCallback(who.promote());
+  if (mCallbacks.empty()) {
+    LOG(ERROR) << "No alive registered client, resetting the state";
+    mIsEseInitialized = false;
+    if (seHalDeInit() != SecureElementStatus::SUCCESS) {
+      LOG(ERROR) << "SE Deinit not successful";
+    }
+  } else {
+    LOG(INFO) << "There are " << mCallbacks.size()
+              << " alive registered clients left";
   }
 }
 ESESTATUS SecureElement::seHalInit() {
@@ -803,7 +900,6 @@ Return<SecureElementStatus> SecureElement::seHalDeInit() {
   status = phNxpEse_close(deInitStatus);
   if (status == ESESTATUS_SUCCESS && mIsDeInitDone) {
     sestatus = SecureElementStatus::SUCCESS;
-    ;
   } else {
     LOG(ERROR) << "seHalDeInit: Failed";
   }
@@ -815,37 +911,50 @@ Return<SecureElementStatus> SecureElement::seHalDeInit() {
 
   return sestatus;
 }
+void SecureElement::notifyClients(bool connected, std::string reason) {
+  LOG(INFO) << "Notifying current state to all " << mCallbacks.size()
+            << " clients";
+
+  for (auto it = mCallbacks.begin(); it != mCallbacks.end();) {
+    auto ret = (*it)->onStateChange_1_1(connected, reason);
+    if (!ret.isOk() && ret.isDeadObject()) {
+      LOG(WARNING) << "client  is dead";
+      it = mCallbacks.erase(it);
+    } else {
+      ++it;
+    }
+  }
+}
 Return<::android::hardware::secure_element::V1_0::SecureElementStatus>
 SecureElement::reset() {
   ESESTATUS status = ESESTATUS_SUCCESS;
   SecureElementStatus sestatus = SecureElementStatus::FAILED;
-  LOG(ERROR) << "%s: Enter" << __func__;
+  LOG(INFO) << __func__ << " Enter";
   if (!mIsEseInitialized) {
     ESESTATUS status = seHalInit();
     if (status != ESESTATUS_SUCCESS) {
-      LOG(ERROR) << "%s: seHalInit Failed!!!" << __func__;
+      LOG(ERROR) << __func__ << " seHalInit Failed!!!";
     }
   }
   if (status == ESESTATUS_SUCCESS) {
-    mCallbackV1_1->onStateChange_1_1(false, "reset the SE");
+    notifyClients(false, "reset the SE");
     status = phNxpEse_reset();
     if (status != ESESTATUS_SUCCESS) {
-      LOG(ERROR) << "%s: SecureElement reset failed!!" << __func__;
+      LOG(ERROR) << __func__ << " SecureElement reset failed!!";
     } else {
       sestatus = SecureElementStatus::SUCCESS;
       if (mOpenedChannels.size() == 0x00) {
-        mMaxChannelCount =
-            (GET_CHIP_OS_VERSION() >= OS_VERSION_6_2) ? 0x0C : 0x04;
+        mMaxChannelCount = getMaxChannelCnt();
         mOpenedChannels.resize(mMaxChannelCount, false);
       }
       for (uint8_t xx = 0; xx < mMaxChannelCount; xx++) {
         mOpenedChannels[xx] = false;
       }
       mOpenedchannelCount = 0;
-      mCallbackV1_1->onStateChange_1_1(true, "SE initialized");
+      notifyClients(true, "SE initialized");
     }
   }
-  LOG(ERROR) << "%s: Exit" << __func__;
+  LOG(ERROR) << __func__ << ": Exit";
   return sestatus;
 }
 
@@ -908,6 +1017,45 @@ getResponseInternal(uint8_t cla, phNxpEse_7816_rpdu_t& rpdu,
   }
 
   return sestatus;
+}
+
+uint8_t SecureElement::getReserveChannelCnt(const hidl_vec<uint8_t>& aid) {
+  const hidl_vec<uint8_t> weaverAid = {0xA0, 0x00, 0x00, 0x03,
+                                       0x96, 0x10, 0x10};
+  const hidl_vec<uint8_t> araAid = {0xA0, 0x00, 0x00, 0x01, 0x51,
+                                    0x41, 0x43, 0x4C, 0x00};
+  uint8_t reserveChannel = 0;
+  // Check priority access enabled then only reserve channel
+  if (mHasPriorityAccess && aid != weaverAid && aid != araAid) {
+    // Exclude basic channel
+    reserveChannel = 1;
+  }
+  return reserveChannel;
+}
+
+uint8_t SecureElement::getMaxChannelCnt() {
+  /*
+   * 1) SN1xx max channel supported 4.
+   * 2) SN220 up to v2 max channel supported 5 (If priority access)
+   *    otherwise 4 channel.
+   * 3) SN220 v3 and higher shall be updated accordingly.
+   */
+  uint8_t cnt = 0;
+  if (GET_CHIP_OS_VERSION() < OS_VERSION_6_2)
+    cnt = NUM_OF_CH4;
+  else if (GET_CHIP_OS_VERSION() == OS_VERSION_6_2)
+    cnt = (mHasPriorityAccess ? NUM_OF_CH5 : NUM_OF_CH4);
+  else
+    cnt = NUM_OF_CH5;
+
+  return cnt;
+}
+
+Return<void> SecureElement::debug(const hidl_handle& /* fd */,
+                                  const hidl_vec<hidl_string>& /* options */) {
+  LOG(INFO) << "\n SecureElement-SecureElement HAL MemoryLeak Info = \n"
+            << ::android::GetUnreachableMemoryString(true, 10000).c_str();
+  return Void();
 }
 
 }  // namespace implementation

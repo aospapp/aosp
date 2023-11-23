@@ -183,10 +183,10 @@ public final class MethodSignature {
     }
 
     private final Visibility mVisibility;
-    private final String mReturnType;
+    public final String mReturnType;
     private final String mName;
-    private final ImmutableList<String> mParameterTypes;
-    private final ImmutableSet<String> mExceptions;
+    public final ImmutableList<String> mParameterTypes;
+    public final ImmutableSet<String> mExceptions;
     public MethodSignature(
             Visibility visibility, TypeMirror returnType, String name,
             List<TypeMirror> parameterTypes, Set<TypeMirror> exceptions) {

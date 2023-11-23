@@ -149,11 +149,11 @@ public class ContentPaneFocusTest {
         sendMetaKey(KeyEvent.ACTION_DOWN);
         long time = SystemClock.uptimeMillis();
         KeyEvent metaHotkey = new KeyEvent(time, time, KeyEvent.ACTION_DOWN, keyCode,
-                0, KeyEvent.META_META_ON | KeyEvent.META_META_LEFT_ON);
+                0, KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON);
         mInstrumentation.sendKeySync(metaHotkey);
         time = SystemClock.uptimeMillis();
         metaHotkey = new KeyEvent(time, time, KeyEvent.ACTION_UP, keyCode,
-                0, KeyEvent.META_META_ON | KeyEvent.META_META_LEFT_ON);
+                0, KeyEvent.META_CTRL_ON | KeyEvent.META_CTRL_LEFT_ON);
         mInstrumentation.sendKeySync(metaHotkey);
         Thread.sleep(2);
         sendMetaKey(KeyEvent.ACTION_UP);
@@ -161,8 +161,8 @@ public class ContentPaneFocusTest {
 
     private void sendMetaKey(int action) throws Throwable {
         long time = SystemClock.uptimeMillis();
-        KeyEvent keyEvent = new KeyEvent(time, time, action, KeyEvent.KEYCODE_META_LEFT, 0,
-                KeyEvent.META_META_LEFT_ON | KeyEvent.META_META_ON);
+        KeyEvent keyEvent = new KeyEvent(time, time, action, KeyEvent.KEYCODE_CTRL_LEFT, 0,
+                KeyEvent.META_CTRL_LEFT_ON | KeyEvent.META_CTRL_ON);
         mInstrumentation.sendKeySync(keyEvent);
         Thread.sleep(2);
     }

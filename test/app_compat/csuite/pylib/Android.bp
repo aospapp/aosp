@@ -36,7 +36,4 @@ python_library_host {
     srcs: [
         "csuite_test.py",
     ],
-    defaults: [
-        "csuite_python_defaults",
-    ],
 }

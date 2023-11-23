@@ -21,6 +21,7 @@
 #include <type_traits>
 
 #include "chre/util/non_copyable.h"
+#include "chre/util/raw_storage.h"
 
 namespace chre {
 
@@ -76,9 +77,30 @@ class MemoryPool : public NonCopyable {
   void deallocate(ElementType *element);
 
   /**
+   * Checks if the address of the element provided is within the range managed
+   * by this event pool.
+   * NOTE: If this method returns true, that does not mean that the provided
+   * element has not already been deallocated. It's up to the caller to ensure
+   * they don't double deallocate a given element.
+   *
+   * @param element Address to the element to check if it is in the current
+   * memory pool.
+   * @return true Returns true if the address of the provided element is
+   * managed by this pool.
+   */
+  bool containsAddress(ElementType *element);
+
+  /**
    * @return the number of unused blocks in this memory pool.
    */
   size_t getFreeBlockCount() const;
+
+  /**
+   * @return true Return true if this memory pool is empty.
+   */
+  bool empty() {
+    return mFreeBlockCount == kSize;
+  }
 
  private:
   /**
@@ -105,10 +127,19 @@ class MemoryPool : public NonCopyable {
    */
   MemoryPoolBlock *blocks();
 
-  //! Storage for memory pool blocks. To avoid static initialization of members,
-  //! std::aligned_storage is used.
-  typename std::aligned_storage<sizeof(MemoryPoolBlock),
-                                alignof(MemoryPoolBlock)>::type mBlocks[kSize];
+  /**
+   * Calculate the block index that allocates the element if it belongs to
+   * this memory pool.
+   *
+   * @param element Address to the element.
+   * @param indexOutput Calculated block index output.
+   * @return false if the address of element does not belong to this memory
+   * pool.
+   */
+  bool getBlockIndex(ElementType *element, size_t *indexOutput);
+
+  //! Storage for memory pool blocks.
+  RawStorage<MemoryPoolBlock, kSize> mBlocks;
 
   //! The index of the head of the free slot list.
   size_t mNextFreeBlockIndex = 0;

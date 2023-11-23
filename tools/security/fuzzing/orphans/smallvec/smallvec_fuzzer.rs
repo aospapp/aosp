@@ -14,7 +14,6 @@
 
 #![allow(missing_docs)]
 #![no_main]
-#![feature(bench_black_box)]
 
 use libfuzzer_sys::arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;

@@ -796,7 +796,7 @@ public class FieldsClassificationTest extends AbstractGridActivityTestCase {
         mAfm.commit();
 
         // Assert results
-        final Event defaultUserDataEvent = InstrumentedAutoFillService.getFillEvents(1).get(0);
+        final Event defaultUserDataEvent = InstrumentedAutoFillService.getFillEvents(2).get(1);
         assertFillEventForFieldsClassification(defaultUserDataEvent, fieldId2.get(), "cat", 1.0F);
     }
 

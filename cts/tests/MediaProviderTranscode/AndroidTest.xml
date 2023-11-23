@@ -32,9 +32,11 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.mediaprovidertranscode.cts" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
+        <option name="test-filter-dir" value="/data/data/android.mediaprovidertranscode.cts"/>
         <option name="hidden-api-checks" value="false"/>
     </test>
 

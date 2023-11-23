@@ -21,11 +21,12 @@
  *  NFA interface to NFCEE - API functions
  *
  ******************************************************************************/
+#include "nfa_ee_api.h"
+
 #include <android-base/stringprintf.h>
 #include <base/logging.h>
 
 #include "nfa_dm_int.h"
-#include "nfa_ee_api.h"
 #include "nfa_ee_int.h"
 #include "nfc_int.h"
 
@@ -561,11 +562,7 @@ tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
   tNFA_EE_ECB* p_cb;
 
   DLOG_IF(INFO, nfc_debug_enabled) << StringPrintf("handle:<0x%x>", ee_handle);
-  if (aid_len == 0) {
-    p_cb = &nfa_ee_cb.ecb[NFA_EE_EMPTY_AID_ECB];
-  } else {
-    p_cb = nfa_ee_find_ecb(nfcee_id);
-  }
+  p_cb = nfa_ee_find_ecb(nfcee_id);
 
   /* validate parameters - make sure the AID is in valid length range */
   if ((p_cb == nullptr) ||
@@ -577,7 +574,6 @@ tNFA_STATUS NFA_EeAddAidRouting(tNFA_HANDLE ee_handle, uint8_t aid_len,
     LOG(ERROR) << StringPrintf("Bad ee_handle or AID (len=%d)", aid_len);
     status = NFA_STATUS_INVALID_PARAM;
   } else {
-    p_cb->nfcee_id = nfcee_id;
     p_msg = (tNFA_EE_API_ADD_AID*)GKI_getbuf(size);
     if (p_msg != nullptr) {
       if (p_aid != nullptr)

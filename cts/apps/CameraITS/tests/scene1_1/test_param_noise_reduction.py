@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os.path
 import matplotlib
 from matplotlib import pylab
@@ -28,17 +29,17 @@ import image_processing_utils
 import its_session_utils
 import target_exposure_utils
 
-COLORS = ['R', 'G', 'B']
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-NR_MODES = {'OFF': 0, 'FAST': 1, 'HQ': 2, 'MIN': 3, 'ZSL': 4}
-NR_MODES_LIST = list(NR_MODES.values())
-NUM_COLORS = len(COLORS)
-NUM_FRAMES_PER_MODE = 4
-PATCH_H = 0.1  # center 10%
-PATCH_W = 0.1
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
-SNR_TOLERANCE = 3  # unit in dB
+_COLORS = ('R', 'G', 'B')
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_NR_MODES = {'OFF': 0, 'FAST': 1, 'HQ': 2, 'MIN': 3, 'ZSL': 4}
+_NR_MODES_LIST = list(_NR_MODES.values())
+_NUM_COLORS = len(_COLORS)
+_NUM_FRAMES_PER_MODE = 4
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_SNR_TOLERANCE = 3  # unit in dB
 
 
 class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
@@ -46,15 +47,15 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
 
   Capture images with the camera dimly lit.
 
-  Capture images with low gain and noise redcution off, and use the
+  Capture images with low gain and noise reduction off, and use the
   variance of these captures as the baseline.
 
   Use high analog gain on remaining tests to ensure captured images are noisy.
   """
 
   def test_param_noise_reduction(self):
-    logging.debug('Starting %s', NAME)
-    logging.debug('NR_MODES: %s', str(NR_MODES))
+    logging.debug('Starting %s', _NAME)
+    logging.debug('NR_MODES: %s', str(_NR_MODES))
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -62,6 +63,7 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -71,7 +73,8 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       snrs = [[], [], []]  # List of SNRs for R,G,B
       ref_snr = []  # Reference (baseline) SNR for each of R,G,B
@@ -85,25 +88,25 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
       cap = cam.do_capture(req)
       rgb_image = image_processing_utils.convert_capture_to_rgb_image(cap)
       image_processing_utils.write_image(
-          rgb_image, '%s_low_gain.jpg' % os.path.join(log_path, NAME))
+          rgb_image, f'{name_with_log_path}_low_gain.jpg')
       rgb_patch = image_processing_utils.get_image_patch(
-          rgb_image, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+          rgb_image, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
       ref_snr = image_processing_utils.compute_image_snrs(rgb_patch)
       logging.debug('Ref SNRs: %s', str(ref_snr))
 
       e, s = target_exposure_utils.get_target_exposure_combos(
           log_path, cam)['maxSensitivity']
-      for mode in NR_MODES_LIST:
+      for mode in _NR_MODES_LIST:
         # Skip unavailable modes
         if not camera_properties_utils.noise_reduction_mode(props, mode):
           nr_modes_reported.append(mode)
-          for channel in range(NUM_COLORS):
+          for channel in range(_NUM_COLORS):
             snrs[channel].append(0)
           continue
 
         rgb_snr_list = []
         # Capture several images to account for per frame noise variations
-        for n in range(NUM_FRAMES_PER_MODE):
+        for n in range(_NUM_FRAMES_PER_MODE):
           req = capture_request_utils.manual_capture_request(s, e)
           req['android.noiseReduction.mode'] = mode
           cap = cam.do_capture(req)
@@ -112,10 +115,9 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
             nr_modes_reported.append(
                 cap['metadata']['android.noiseReduction.mode'])
             image_processing_utils.write_image(
-                rgb_image, '%s_high_gain_nr=%d.jpg' % (
-                    os.path.join(log_path, NAME), mode))
+                rgb_image, f'{name_with_log_path}_high_gain_nr={mode}.jpg')
           rgb_patch = image_processing_utils.get_image_patch(
-              rgb_image, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+              rgb_image, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
           rgb_snrs = image_processing_utils.compute_image_snrs(rgb_patch)
           rgb_snr_list.append(rgb_snrs)
 
@@ -131,73 +133,77 @@ class ParamNoiseReductionTest(its_base_test.ItsBaseTest):
         logging.debug('B SNR: %.2f, Min: %.2f, Max: %.2f',
                       rgb_snrs[2], min(b_snrs), max(b_snrs))
 
-        for chan in range(NUM_COLORS):
+        for chan in range(_NUM_COLORS):
           snrs[chan].append(rgb_snrs[chan])
 
     # Draw plot
-    pylab.figure(NAME)
-    for j in range(NUM_COLORS):
-      pylab.plot(NR_MODES_LIST, snrs[j], '-'+'rgb'[j]+'o')
+    pylab.figure(_NAME)
+    for j in range(_NUM_COLORS):
+      pylab.plot(_NR_MODES_LIST, snrs[j], '-'+'rgb'[j]+'o')
     pylab.xlabel('Noise Reduction Mode')
     pylab.ylabel('SNR (dB)')
-    pylab.xticks(NR_MODES_LIST)
-    matplotlib.pyplot.savefig('%s_plot_SNRs.png' % os.path.join(log_path, NAME))
+    pylab.xticks(_NR_MODES_LIST)
+    matplotlib.pyplot.savefig(f'{name_with_log_path}_plot_SNRs.png')
 
-    if nr_modes_reported != NR_MODES_LIST:
-      raise AssertionError(f'{nr_modes_reported} != {NR_MODES_LIST}')
+    if nr_modes_reported != _NR_MODES_LIST:
+      raise AssertionError(f'{nr_modes_reported} != {_NR_MODES_LIST}')
 
-    for j in range(NUM_COLORS):
+    for j in range(_NUM_COLORS):
       # Higher SNR is better
       # Verify OFF is not better than FAST
-      if (snrs[j][NR_MODES['OFF']] >= snrs[j][NR_MODES['FAST']] +
-          SNR_TOLERANCE):
+      if (snrs[j][_NR_MODES['OFF']] >= snrs[j][_NR_MODES['FAST']] +
+          _SNR_TOLERANCE):
         raise AssertionError(
-            f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:.3f}, "
-            f"FAST: {snrs[j][NR_MODES['FAST']]:.3f}, TOL: {SNR_TOLERANCE}")
+            f"{_COLORS[j]} OFF: {snrs[j][_NR_MODES['OFF']]:.3f}, "
+            f"FAST: {snrs[j][_NR_MODES['FAST']]:.3f}, TOL: {_SNR_TOLERANCE}")
 
       # Verify FAST is not better than HQ
-      if (snrs[j][NR_MODES['FAST']] >= snrs[j][NR_MODES['HQ']] +
-          SNR_TOLERANCE):
+      if (snrs[j][_NR_MODES['FAST']] >= snrs[j][_NR_MODES['HQ']] +
+          _SNR_TOLERANCE):
         raise AssertionError(
-            f"{COLORS[j]} FAST: {snrs[j][NR_MODES['FAST']]:.3f}, "
-            f"HQ: {snrs[j][NR_MODES['HQ']]:.3f}, TOL: {SNR_TOLERANCE}")
+            f"{_COLORS[j]} FAST: {snrs[j][_NR_MODES['FAST']]:.3f}, "
+            f"HQ: {snrs[j][_NR_MODES['HQ']]:.3f}, TOL: {_SNR_TOLERANCE}")
 
       # Verify HQ is better than OFF
-      if snrs[j][NR_MODES['HQ']] <= snrs[j][NR_MODES['OFF']]:
+      if snrs[j][_NR_MODES['HQ']] <= snrs[j][_NR_MODES['OFF']]:
         raise AssertionError(
-            f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:.3f}, "
-            f"HQ: {snrs[j][NR_MODES['HQ']]:.3f}")
+            f"{_COLORS[j]} OFF: {snrs[j][_NR_MODES['OFF']]:.3f}, "
+            f"HQ: {snrs[j][_NR_MODES['HQ']]:.3f}")
 
-      if camera_properties_utils.noise_reduction_mode(props, NR_MODES['MIN']):
+      if camera_properties_utils.noise_reduction_mode(props, _NR_MODES['MIN']):
         # Verify OFF is not better than MINIMAL
-        if not(snrs[j][NR_MODES['OFF']] < snrs[j][NR_MODES['MIN']] +
-               SNR_TOLERANCE):
+        if not(snrs[j][_NR_MODES['OFF']] < snrs[j][_NR_MODES['MIN']] +
+               _SNR_TOLERANCE):
           raise AssertionError(
-              f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:.3f}, "
-              f"MIN: {snrs[j][NR_MODES['MIN']]:.3f}, TOL: {SNR_TOLERANCE}")
+              f"{_COLORS[j]} OFF: {snrs[j][_NR_MODES['OFF']]:.3f}, "
+              f"MIN: {snrs[j][_NR_MODES['MIN']]:.3f}, TOL: {_SNR_TOLERANCE}")
 
         # Verify MINIMAL is not better than HQ
-        if not (snrs[j][NR_MODES['MIN']] < snrs[j][NR_MODES['HQ']] +
-                SNR_TOLERANCE):
+        if not (snrs[j][_NR_MODES['MIN']] < snrs[j][_NR_MODES['HQ']] +
+                _SNR_TOLERANCE):
           raise AssertionError(
-              f"{COLORS[j]} MIN: {snrs[j][NR_MODES['MIN']]:.3f}, "
-              f"HQ: {snrs[j][NR_MODES['HQ']]:.3f}, TOL: {SNR_TOLERANCE}")
+              f"{_COLORS[j]} MIN: {snrs[j][_NR_MODES['MIN']]:.3f}, "
+              f"HQ: {snrs[j][_NR_MODES['HQ']]:.3f}, TOL: {_SNR_TOLERANCE}")
 
         # Verify ZSL is close to MINIMAL
-        if camera_properties_utils.noise_reduction_mode(props, NR_MODES['ZSL']):
-          if not np.isclose(snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['MIN']],
-                            atol=SNR_TOLERANCE):
+        if camera_properties_utils.noise_reduction_mode(
+            props, _NR_MODES['ZSL']):
+          if not math.isclose(snrs[j][_NR_MODES['ZSL']],
+                              snrs[j][_NR_MODES['MIN']],
+                              abs_tol=_SNR_TOLERANCE):
             raise AssertionError(
-                f"{COLORS[j]} ZSL: {snrs[j][NR_MODES['ZSL']]:.3f}, "
-                f"MIN: {snrs[j][NR_MODES['MIN']]:.3f}, TOL: {SNR_TOLERANCE}")
+                f"{_COLORS[j]} ZSL: {snrs[j][_NR_MODES['ZSL']]:.3f}, "
+                f"MIN: {snrs[j][_NR_MODES['MIN']]:.3f}, TOL: {_SNR_TOLERANCE}")
 
-      elif camera_properties_utils.noise_reduction_mode(props, NR_MODES['ZSL']):
+      elif camera_properties_utils.noise_reduction_mode(
+          props, _NR_MODES['ZSL']):
         # Verify ZSL is close to OFF
-        if not np.isclose(snrs[j][NR_MODES['ZSL']], snrs[j][NR_MODES['OFF']],
-                          atol=SNR_TOLERANCE):
+        if not math.isclose(
+            snrs[j][_NR_MODES['ZSL']], snrs[j][_NR_MODES['OFF']],
+            abs_tol=_SNR_TOLERANCE):
           raise AssertionError(
-              f"{COLORS[j]} OFF: {snrs[j][NR_MODES['OFF']]:3f}, "
-              f"ZSL: {snrs[j][NR_MODES['ZSL']]:3f}, TOL: {SNR_TOLERANCE}")
+              f"{_COLORS[j]} OFF: {snrs[j][_NR_MODES['OFF']]:.3f}, "
+              f"ZSL: {snrs[j][_NR_MODES['ZSL']]:.3f}, TOL: {_SNR_TOLERANCE}")
 
 
 if __name__ == '__main__':

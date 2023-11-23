@@ -37,7 +37,7 @@ public class EventLibBroadcastReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         BroadcastReceivedEvent.BroadcastReceivedEventLogger logger =
-                BroadcastReceivedEvent.logger(this, context, intent);
+                BroadcastReceivedEvent.logger(this, context, intent, getResultCode());
 
         if (mOverrideBroadcastReceiverClassName != null) {
             logger.setBroadcastReceiver(mOverrideBroadcastReceiverClassName);

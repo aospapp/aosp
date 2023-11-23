@@ -43,6 +43,10 @@ func (mod *Module) SubAndroidMk(data *android.AndroidMkEntries, obj interface{})
 	}
 }
 
+func (mod *Module) AndroidMkSuffix() string {
+	return mod.Properties.RustSubName + mod.Properties.SubName
+}
+
 func (mod *Module) AndroidMkEntries() []android.AndroidMkEntries {
 	if mod.Properties.HideFromMake || mod.hideApexVariantFromMake {
 
@@ -79,8 +83,7 @@ func (mod *Module) AndroidMkEntries() []android.AndroidMkEntries {
 		mod.SubAndroidMk(&ret, mod.sanitize)
 	}
 
-	ret.SubName += mod.Properties.RustSubName
-	ret.SubName += mod.Properties.SubName
+	ret.SubName += mod.AndroidMkSuffix()
 
 	return []android.AndroidMkEntries{ret}
 }
@@ -105,10 +108,11 @@ func (test *testDecorator) AndroidMk(ctx AndroidMkContext, ret *android.AndroidM
 				entries.SetString("LOCAL_FULL_TEST_CONFIG", test.testConfig.String())
 			}
 			entries.SetBoolIfTrue("LOCAL_DISABLE_AUTO_GENERATE_TEST_CONFIG", !BoolDefault(test.Properties.Auto_gen_config, true))
-			entries.SetBoolIfTrue("LOCAL_IS_UNIT_TEST", Bool(test.Properties.Test_options.Unit_test))
 			if test.Properties.Data_bins != nil {
 				entries.AddStrings("LOCAL_TEST_DATA_BINS", test.Properties.Data_bins...)
 			}
+
+			test.Properties.Test_options.SetAndroidMkEntries(entries)
 		})
 
 	cc.AndroidMkWriteTestData(test.data, ret)
@@ -149,6 +153,11 @@ func (library *libraryDecorator) AndroidMk(ctx AndroidMkContext, ret *android.An
 				entries.SetString("LOCAL_SOONG_TOC", library.tocFile.String())
 			}
 		})
+}
+
+func (library *snapshotLibraryDecorator) AndroidMk(ctx AndroidMkContext, ret *android.AndroidMkEntries) {
+	ctx.SubAndroidMk(ret, library.libraryDecorator)
+	ret.SubName = library.SnapshotAndroidMkSuffix()
 }
 
 func (procMacro *procMacroDecorator) AndroidMk(ctx AndroidMkContext, ret *android.AndroidMkEntries) {
@@ -204,8 +213,8 @@ func (compiler *baseCompiler) AndroidMk(ctx AndroidMkContext, ret *android.Andro
 		})
 }
 
-func (fuzz *fuzzDecorator) AndroidMkEntries(ctx AndroidMkContext, entries *android.AndroidMkEntries) {
-	ctx.SubAndroidMk(entries, fuzz.binaryDecorator)
+func (fuzz *fuzzDecorator) AndroidMk(ctx AndroidMkContext, ret *android.AndroidMkEntries) {
+	ctx.SubAndroidMk(ret, fuzz.binaryDecorator)
 
 	var fuzzFiles []string
 	for _, d := range fuzz.fuzzPackagedModule.Corpus {
@@ -228,11 +237,14 @@ func (fuzz *fuzzDecorator) AndroidMkEntries(ctx AndroidMkContext, entries *andro
 			filepath.Dir(fuzz.fuzzPackagedModule.Config.String())+":config.json")
 	}
 
-	entries.ExtraEntries = append(entries.ExtraEntries, func(ctx android.AndroidMkExtraEntriesContext,
+	ret.ExtraEntries = append(ret.ExtraEntries, func(ctx android.AndroidMkExtraEntriesContext,
 		entries *android.AndroidMkEntries) {
 		entries.SetBool("LOCAL_IS_FUZZ_TARGET", true)
 		if len(fuzzFiles) > 0 {
 			entries.AddStrings("LOCAL_TEST_DATA", fuzzFiles...)
+		}
+		if fuzz.installedSharedDeps != nil {
+			entries.AddStrings("LOCAL_FUZZ_INSTALLED_SHARED_DEPS", fuzz.installedSharedDeps...)
 		}
 	})
 }

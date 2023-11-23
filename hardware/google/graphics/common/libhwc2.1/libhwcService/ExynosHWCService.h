@@ -65,12 +65,8 @@ public:
     virtual void getHWCFenceDebug();
     virtual int  setHWCCtl(uint32_t display, uint32_t ctrl, int32_t val);
 
-    virtual int setDDIScaler(uint32_t width, uint32_t height);
+    virtual int setDDIScaler(uint32_t display_id, uint32_t width, uint32_t height);
     virtual void setLbeCtrl(uint32_t display_id, uint32_t state, uint32_t lux) override;
-#if 0
-    void setPSRExitCallback(void (*callback)(exynos_hwc_composer_device_1_t *));
-    virtual void notifyPSRExit();
-#endif
     virtual int32_t setDisplayDeviceMode(int32_t display_id, int32_t mode);
     virtual int32_t setPanelGammaTableSource(int32_t display_id, int32_t type, int32_t source);
     virtual int32_t setDisplayBrightness(int32_t display_id, float brightness);
@@ -78,8 +74,15 @@ public:
 
     virtual int32_t setMinIdleRefreshRate(uint32_t display_id, int32_t fps);
     virtual int32_t setRefreshRateThrottle(uint32_t display_id, int32_t delayMs);
+    virtual int32_t setDisplayDbm(int32_t display_id, uint32_t on);
+
     int32_t setDisplayRCDLayerEnabled(uint32_t displayIndex, bool enable) override;
     int32_t triggerDisplayIdleEnter(uint32_t displayIndex, uint32_t idleTeRefreshRate) override;
+
+    virtual int32_t setDisplayMultiThreadedPresent(const int32_t& display_id,
+                                                   const bool& enable) override;
+    virtual int32_t triggerRefreshRateIndicatorUpdate(uint32_t displayId,
+                                                      uint32_t refreshRate) override;
 
 private:
     friend class Singleton<ExynosHWCService>;
@@ -89,7 +92,6 @@ private:
     Mutex mLock;
     ExynosHWCCtx *mHWCCtx;
     void (*bootFinishedCallback)(ExynosHWCCtx *);
-    void (*doPSRExit)(ExynosHWCCtx *ctx);
 };
 
 }

@@ -17,14 +17,12 @@
 #ifndef ART_COMPILER_OPTIMIZING_SCHEDULER_ARM_H_
 #define ART_COMPILER_OPTIMIZING_SCHEDULER_ARM_H_
 
+#include "base/macros.h"
 #include "code_generator_arm_vixl.h"
 #include "scheduler.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace arm {
-// TODO: Replace CodeGeneratorARMType with CodeGeneratorARMVIXL everywhere?
-typedef CodeGeneratorARMVIXL CodeGeneratorARMType;
-
 // AArch32 instruction latencies.
 // We currently assume that all ARM CPUs share the same instruction latency list.
 // The following latencies were tuned based on performance experiments and
@@ -49,10 +47,10 @@ static constexpr uint32_t kArmNopLatency = 2;
 static constexpr uint32_t kArmLoadWithBakerReadBarrierLatency = 18;
 static constexpr uint32_t kArmRuntimeTypeCheckLatency = 46;
 
-class SchedulingLatencyVisitorARM : public SchedulingLatencyVisitor {
+class SchedulingLatencyVisitorARM final : public SchedulingLatencyVisitor {
  public:
   explicit SchedulingLatencyVisitorARM(CodeGenerator* codegen)
-      : codegen_(down_cast<CodeGeneratorARMType*>(codegen)) {}
+      : codegen_(down_cast<CodeGeneratorARMVIXL*>(codegen)) {}
 
   // Default visitor for instructions not handled specifically below.
   void VisitInstruction(HInstruction* ATTRIBUTE_UNUSED) override {
@@ -133,7 +131,7 @@ class SchedulingLatencyVisitorARM : public SchedulingLatencyVisitor {
 
   // The latency setting for each HInstruction depends on how CodeGenerator may generate code,
   // latency visitors may query CodeGenerator for such information for accurate latency settings.
-  CodeGeneratorARMType* codegen_;
+  CodeGeneratorARMVIXL* codegen_;
 };
 
 class HSchedulerARM : public HScheduler {

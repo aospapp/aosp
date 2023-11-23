@@ -16,7 +16,8 @@
 
 package android.telecom.cts;
 
-import static android.telecom.cts.TestUtils.*;
+import static android.telecom.cts.TestUtils.InvokeCounter;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
 import android.os.Bundle;
 import android.os.Handler;
@@ -29,7 +30,6 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.RemoteConference;
 import android.telecom.RemoteConnection;
 import android.telecom.TelecomManager;
-import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,8 +59,17 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     MockConference mConference, mRemoteConference;
     RemoteConference mRemoteConferenceObject;
 
+    @Override
+    public void tearDown() throws Exception {
+        if (mShouldTestTelecom && mRemoteConference != null && mConference != null) {
+            mRemoteConference.destroy();
+            mConference.destroy();
+        }
+        super.tearDown();
+    }
+
     public void testRemoteConferenceCreate() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -87,7 +96,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceSplit() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -113,7 +122,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceHoldAndUnhold() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -149,7 +158,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceMergeAndSwap() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -185,7 +194,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceDTMFTone() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -212,7 +221,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_StateChange() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -242,7 +251,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_Disconnect() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -273,7 +282,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_ConnectionAdd() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -308,7 +317,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_ConnectionRemove() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -344,7 +353,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_ConnectionCapabilities() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -376,7 +385,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_ConnectionProperties() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -409,7 +418,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_ConferenceableConnections() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -448,7 +457,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
     }
 
     public void testRemoteConferenceCallbacks_Destroy() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -477,7 +486,7 @@ public class RemoteConferenceTest extends BaseRemoteTelecomTest {
 
 
     public void testRemoteConferenceCallbacks_Extras() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 

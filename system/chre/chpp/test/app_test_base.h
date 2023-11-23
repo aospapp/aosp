@@ -26,6 +26,7 @@
 #include "chpp/clients/loopback.h"
 #include "chpp/log.h"
 #include "chpp/macros.h"
+#include "chpp/platform/platform_link.h"
 #include "chpp/transport.h"
 
 namespace chpp {
@@ -38,9 +39,11 @@ class AppTestBase : public testing::Test {
   void SetUp() override;
   void TearDown() override;
 
+  ChppLinuxLinkState mClientLinkContext = {};
   ChppTransportState mClientTransportContext = {};
   ChppAppState mClientAppContext = {};
 
+  ChppLinuxLinkState mServiceLinkContext = {};
   ChppTransportState mServiceTransportContext = {};
   ChppAppState mServiceAppContext = {};
 

@@ -46,6 +46,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class CheckBoxTest {
     private Instrumentation mInstrumentation;
+    private CtsTouchUtils mCtsTouchUtils;
     private Activity mActivity;
     private CheckBox mCheckBox;
 
@@ -56,6 +57,7 @@ public class CheckBoxTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsTouchUtils = new CtsTouchUtils(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mCheckBox = (CheckBox) mActivity.findViewById(R.id.check_box);
     }
@@ -169,12 +171,12 @@ public class CheckBoxTest {
         assertFalse(mCheckBox.isChecked());
 
         // tap to checked
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mCheckBox);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mCheckBox);
         verify(mockCheckedChangeListener, times(1)).onCheckedChanged(mCheckBox, true);
         assertTrue(mCheckBox.isChecked());
 
         // tap to not checked
-        CtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mCheckBox);
+        mCtsTouchUtils.emulateTapOnViewCenter(mInstrumentation, mActivityRule, mCheckBox);
         verify(mockCheckedChangeListener, times(1)).onCheckedChanged(mCheckBox, false);
         assertFalse(mCheckBox.isChecked());
 

@@ -154,7 +154,8 @@ public class KeyValueBackupRestoreTest {
                 .setClassName(SHARED_PREFERENCES_RESTORE_PACKAGE_NAME,
                         SHARED_PREFERENCES_RESTORE_ACTIVITY_NAME)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        mContext.registerReceiver(mSharedPrefencesReceiver, new IntentFilter(RESULT_ACTION));
+        mContext.registerReceiver(mSharedPrefencesReceiver, new IntentFilter(RESULT_ACTION),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         mBackupManager = new BackupManager(mContext);
     }
 

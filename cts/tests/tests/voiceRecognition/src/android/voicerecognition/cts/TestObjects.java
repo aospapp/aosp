@@ -45,4 +45,8 @@ class TestObjects {
     static {
         SEGMENT_RESULTS_BUNDLE.putChar("e", 'e');
     }
+    public static final Bundle LANGUAGE_DETECTION_BUNDLE = new Bundle();
+    static {
+        PARTIAL_RESULTS_BUNDLE.putChar("f", 'f');
+    }
 }

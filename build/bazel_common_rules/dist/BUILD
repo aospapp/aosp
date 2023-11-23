@@ -5,17 +5,19 @@ exports_files(["dist.py"])
 
 bzl_library(
     name = "dist",
-    srcs = ["dist.bzl"] + [
+    srcs = ["dist.bzl"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//build/bazel_common_rules/exec:embedded_exec",
         "@bazel_skylib//rules:copy_file",
     ],
-    visibility = ["//visibility:public"],
 )
 
 # bazel run --package_path=out/soong/workspace //build/bazel_common_rules/dist:dist_bionic_example -- --dist_dir=/tmp/dist
 copy_to_dist_dir(
     name = "dist_bionic_example",
     data = [
-        "//bionic/libc:libc",
-        "//bionic/libdl:libdl",
+        "//bionic/libc",
+        "//bionic/libdl",
     ],
 )

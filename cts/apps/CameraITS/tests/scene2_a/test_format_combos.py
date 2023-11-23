@@ -27,9 +27,9 @@ import its_session_utils
 import target_exposure_utils
 
 
-AUTO_REQUEST_MODE = 1
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-STOP_AT_FIRST_FAILURE = False  # change to True to have test break @ 1st FAIL
+_AUTO_REQUEST_MODE = 1
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_STOP_AT_FIRST_FAILURE = False  # change to True to have test break @ 1st FAIL
 
 
 class FormatCombosTest(its_base_test.ItsBaseTest):
@@ -41,7 +41,7 @@ class FormatCombosTest(its_base_test.ItsBaseTest):
   """
 
   def test_format_combos(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -109,7 +109,7 @@ class FormatCombosTest(its_base_test.ItsBaseTest):
       # Run through them all.
       n = 0
       for r, req in enumerate(reqs):
-        if req['android.control.mode'] == AUTO_REQUEST_MODE:
+        if req['android.control.mode'] == _AUTO_REQUEST_MODE:
           req_str = 'auto'
         else:
           req_str = 'manual'
@@ -125,7 +125,7 @@ class FormatCombosTest(its_base_test.ItsBaseTest):
 
               # Dump the captures out to jpegs in debug mode.
               if debug:
-                name_with_path = os.path.join(self.log_path, NAME)
+                name_with_path = os.path.join(self.log_path, _NAME)
                 if not isinstance(caps, list):
                   caps = [caps]
                 elif isinstance(caps[0], list):
@@ -144,7 +144,7 @@ class FormatCombosTest(its_base_test.ItsBaseTest):
               logging.error(' fmt: %s', str(fmt_combo))
               logging.error(' burst_len: %d\n', burst_len)
               failures.append((n, r, f, b))
-              if STOP_AT_FIRST_FAILURE:
+              if _STOP_AT_FIRST_FAILURE:
                 raise AssertionError(
                     f'Capture fail at combo req: {req_str}, fmt: {fmt_combo}, '
                     f'burst: {burst_len}') from e

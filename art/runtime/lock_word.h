@@ -183,22 +183,24 @@ class LockWord {
 
   LockState GetState() const {
     CheckReadBarrierState();
-    if ((!kUseReadBarrier && UNLIKELY(value_ == 0)) ||
-        (kUseReadBarrier && UNLIKELY((value_ & kGCStateMaskShiftedToggled) == 0))) {
-      return kUnlocked;
-    } else {
-      uint32_t internal_state = (value_ >> kStateShift) & kStateMask;
-      switch (internal_state) {
-        case kStateThinOrUnlocked:
-          return kThinLocked;
-        case kStateHash:
-          return kHashCode;
-        case kStateForwardingAddress:
-          return kForwardingAddress;
-        default:
-          DCHECK_EQ(internal_state, static_cast<uint32_t>(kStateFat));
-          return kFatLocked;
+    if (gUseReadBarrier || gUseUserfaultfd) {
+      if ((value_ & kGCStateMaskShiftedToggled) == 0) {
+        return kUnlocked;
       }
+    } else if (value_ == 0) {
+      return kUnlocked;
+    }
+    uint32_t internal_state = (value_ >> kStateShift) & kStateMask;
+    switch (internal_state) {
+      case kStateThinOrUnlocked:
+        return kThinLocked;
+      case kStateHash:
+        return kHashCode;
+      case kStateForwardingAddress:
+        return kForwardingAddress;
+      default:
+        DCHECK_EQ(internal_state, static_cast<uint32_t>(kStateFat));
+        return kFatLocked;
     }
   }
 
@@ -288,7 +290,7 @@ class LockWord {
   void CheckReadBarrierState() const {
     if (kIsDebugBuild && ((value_ >> kStateShift) & kStateMask) != kStateForwardingAddress) {
       uint32_t rb_state = ReadBarrierState();
-      if (!kUseReadBarrier) {
+      if (!gUseReadBarrier) {
         DCHECK_EQ(rb_state, 0U);
       } else {
         DCHECK(rb_state == ReadBarrier::NonGrayState() ||

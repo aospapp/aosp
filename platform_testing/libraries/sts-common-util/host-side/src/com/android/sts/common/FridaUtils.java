@@ -17,16 +17,34 @@
 package com.android.sts.common;
 
 import static com.android.sts.common.CommandUtil.runAndCheck;
-import static java.util.stream.Collectors.toList;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
+import static java.util.stream.Collectors.toList;
+
+import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
+import com.android.sts.common.util.FridaUtilsBusinessLogicHandler;
+import com.android.tradefed.build.IBuildInfo;
+import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.log.LogUtil.CLog;
+import com.android.tradefed.util.FileUtil;
+import com.android.tradefed.util.RunUtil;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonParser;
+
+import org.tukaani.xz.XZInputStream;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
@@ -37,26 +55,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
-import org.tukaani.xz.XZInputStream;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
-import com.android.sts.common.util.FridaUtilsBusinessLogicHandler;
-import com.android.tradefed.build.IBuildInfo;
-import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.log.LogUtil.CLog;
-import com.android.tradefed.util.FileUtil;
-import com.android.tradefed.util.RunUtil;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.JsonParser;
-
-// import org.json.JSONException;
-
+/** AutoCloseable that downloads and push frida and scripts to device and cleans up when done */
 public class FridaUtils implements AutoCloseable {
     private static final String PRODUCT_CPU_ABI_KEY = "ro.product.cpu.abi";
     private static final String PRODUCT_CPU_ABILIST_KEY = "ro.product.cpu.abilist";
@@ -187,7 +190,6 @@ public class FridaUtils implements AutoCloseable {
             CLog.e("Frida attach output: %s", output.toString(StandardCharsets.UTF_8));
             throw e;
         }
-        device.disableAdbRoot();
         return output;
     }
 
@@ -196,7 +198,13 @@ public class FridaUtils implements AutoCloseable {
     public void close() throws DeviceNotAvailableException, TimeoutException {
         device.enableAdbRoot();
         for (Integer pid : runningPids) {
-            ProcessUtil.killPid(device, pid.intValue(), 10_000L);
+            try {
+                ProcessUtil.killPid(device, pid.intValue(), 10_000L);
+            } catch (ProcessUtil.KillException e) {
+                if (e.getReason() != ProcessUtil.KillException.Reason.NO_SUCH_PROCESS) {
+                    CLog.e(e);
+                }
+            }
         }
         for (String file : fridaFiles) {
             device.deleteFile(file);

@@ -19,7 +19,6 @@
 #include <inttypes.h>
 
 #include <memory>
-#include <regex>
 #include <string>
 
 #include <android-base/file.h>
@@ -29,6 +28,7 @@
 #include <android-base/strings.h>
 #include <android-base/unique_fd.h>
 
+#include "RegEx.h"
 #include "environment.h"
 #include "event_type.h"
 #include "utils.h"
@@ -55,14 +55,14 @@ bool ProbeEvents::ParseKprobeEventName(const std::string& kprobe_cmd, ProbeEvent
 
   // Parse given name.
   event->group_name = "kprobes";
-  std::regex name_reg(R"(:([a-zA-Z_][\w_]*/)?([a-zA-Z_][\w_]*))");
-  std::smatch matches;
-  if (std::regex_search(args[0], matches, name_reg)) {
-    if (matches[1].length() > 0) {
-      event->group_name = matches[1].str();
+  auto name_reg = RegEx::Create(R"(:([a-zA-Z_][\w_]*/)?([a-zA-Z_][\w_]*))");
+  auto match = name_reg->SearchAll(args[0]);
+  if (match->IsValid()) {
+    if (match->GetField(1).length() > 0) {
+      event->group_name = match->GetField(1);
       event->group_name.pop_back();
     }
-    event->event_name = matches[2].str();
+    event->event_name = match->GetField(2);
     return true;
   }
 
@@ -88,7 +88,7 @@ bool ProbeEvents::ParseKprobeEventName(const std::string& kprobe_cmd, ProbeEvent
     }
   }
   std::string s = StringPrintf("%c_%s_%" PRId64, probe_type, symbol.c_str(), offset);
-  event->event_name = std::regex_replace(s, std::regex(R"(\.|:)"), "_");
+  event->event_name = RegEx::Create(R"(\.|:)")->Replace(s, "_").value();
   return true;
 }
 

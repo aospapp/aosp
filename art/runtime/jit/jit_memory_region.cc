@@ -27,7 +27,7 @@
 #include "base/membarrier.h"
 #include "base/memfd.h"
 #include "base/systrace.h"
-#include "gc/allocator/dlmalloc.h"
+#include "gc/allocator/art-dlmalloc.h"
 #include "jit/jit_scoped_code_cache_write.h"
 #include "oat_quick_method_header.h"
 #include "palette/palette.h"
@@ -360,7 +360,7 @@ const uint8_t* JitMemoryRegion::CommitCode(ArrayRef<const uint8_t> reserved_code
   DCHECK(IsInExecSpace(reserved_code.data()));
   ScopedCodeCacheWrite scc(*this);
 
-  size_t alignment = GetInstructionSetAlignment(kRuntimeISA);
+  size_t alignment = GetInstructionSetCodeAlignment(kRuntimeISA);
   size_t header_size = OatQuickMethodHeader::InstructionAlignedSize();
   size_t total_size = header_size + code.size();
 
@@ -468,7 +468,7 @@ bool JitMemoryRegion::CommitData(ArrayRef<const uint8_t> reserved_data,
 }
 
 const uint8_t* JitMemoryRegion::AllocateCode(size_t size) {
-  size_t alignment = GetInstructionSetAlignment(kRuntimeISA);
+  size_t alignment = GetInstructionSetCodeAlignment(kRuntimeISA);
   void* result = mspace_memalign(exec_mspace_, alignment, size);
   if (UNLIKELY(result == nullptr)) {
     return nullptr;

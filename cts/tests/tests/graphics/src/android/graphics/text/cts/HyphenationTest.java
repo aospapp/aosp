@@ -342,6 +342,32 @@ public class HyphenationTest {
     }
 
     @Test
+    public void testPolishPattern() {
+        final String locale = "pl";
+        final String text = "wykształciuchy wykształciuchy wykształciuchy";
+        final float textSize = 13.0f;
+        sPaint.setTextLocale(new Locale(locale));
+        sPaint.setTextSize(textSize);
+
+        // The visual BALANCED line break output is like
+        // | wykształciu-  |
+        // | chy wykształ- |
+        // | ciuchy wy-    |
+        // | kształciuchy  |
+        final LineBreaker.Result r = computeLineBreaks(text);
+
+        assertEquals(4, r.getLineCount());
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(0));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(0));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(1));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(1));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(2));
+        assertEquals(Paint.END_HYPHEN_EDIT_INSERT_HYPHEN, r.getEndLineHyphenEdit(2));
+        assertEquals(Paint.START_HYPHEN_EDIT_NO_EDIT, r.getStartLineHyphenEdit(3));
+        assertEquals(Paint.END_HYPHEN_EDIT_NO_EDIT, r.getEndLineHyphenEdit(3));
+    }
+
+    @Test
     public void testRussianPattern() {
         final String locale = "ru";
         final String text = "проекте проекте проекте проекте проекте";

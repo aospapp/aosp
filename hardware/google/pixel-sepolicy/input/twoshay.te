@@ -8,6 +8,8 @@ allow twoshay twoshay:capability sys_nice;
 
 binder_use(twoshay)
 add_service(twoshay, touch_context_service)
+add_service(twoshay, gril_antenna_tuning_service)
+binder_call(twoshay, platform_app)
 
 allow twoshay fwk_stats_service:service_manager find;
 binder_call(twoshay, stats_service_server)

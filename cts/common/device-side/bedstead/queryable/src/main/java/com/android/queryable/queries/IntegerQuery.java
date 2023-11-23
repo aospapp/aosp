@@ -18,13 +18,12 @@ package com.android.queryable.queries;
 
 import com.android.queryable.Queryable;
 
-import java.io.Serializable;
-
 /** Query for a {@link Integer}. */
 public interface IntegerQuery<E extends Queryable> extends Query<Integer> {
 
-    static IntegerQuery<IntegerQuery<?>> integer() {
-        return new IntegerQueryHelper<>();
+    /** Queries a {@link Integer}. */
+    static IntegerQueryHelper.IntegerQueryBase integer() {
+        return new IntegerQueryHelper.IntegerQueryBase();
     }
 
     /** Require the {@link Integer} is equal to {@code i}. */
@@ -41,4 +40,7 @@ public interface IntegerQuery<E extends Queryable> extends Query<Integer> {
 
     /** Require the {@link Integer} is less than or equal to {@code i}. */
     E isLessThanOrEqualTo(int i);
+
+    /** Require the {@link Integer} matches the requirements of the query annotation. */
+    E matchesAnnotation(com.android.queryable.annotations.IntegerQuery queryAnnotation);
 }

@@ -52,7 +52,7 @@ TEST(BleRequest, MergeWithReplacesParametersOfDisabledRequest) {
   filter.rssiThreshold = -5;
   filter.scanFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
-  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16;
+  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 2;
   filter.scanFilters = scanFilters.get();
   BleRequest enabled(0, true, CHRE_BLE_SCAN_MODE_AGGRESSIVE, 20, &filter);
@@ -65,7 +65,7 @@ TEST(BleRequest, MergeWithReplacesParametersOfDisabledRequest) {
   EXPECT_EQ(20, mergedRequest.getReportDelayMs());
   EXPECT_EQ(-5, mergedRequest.getRssiThreshold());
   EXPECT_EQ(1, mergedRequest.getGenericFilters().size());
-  EXPECT_EQ(CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16,
+  EXPECT_EQ(CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE,
             mergedRequest.getGenericFilters()[0].type);
   EXPECT_EQ(2, mergedRequest.getGenericFilters()[0].len);
 }
@@ -92,7 +92,7 @@ TEST(BleRequest, IsEquivalentToAdvanced) {
   filter.rssiThreshold = -5;
   filter.scanFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
-  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16;
+  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 4;
   filter.scanFilters = scanFilters.get();
 
@@ -107,7 +107,7 @@ TEST(BleRequest, IsNotEquivalentToAdvanced) {
   filter.rssiThreshold = -5;
   filter.scanFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
-  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16;
+  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 4;
   filter.scanFilters = scanFilters.get();
 
@@ -126,7 +126,7 @@ TEST(BleRequest, GetScanFilter) {
   filter.rssiThreshold = -5;
   filter.scanFilterCount = 1;
   auto scanFilters = std::make_unique<chreBleGenericFilter>();
-  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16;
+  scanFilters->type = CHRE_BLE_AD_TYPE_SERVICE_DATA_WITH_UUID_16_LE;
   scanFilters->len = 4;
   filter.scanFilters = scanFilters.get();
 

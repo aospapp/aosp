@@ -28,7 +28,7 @@ import com.android.cts.devicepolicy.DeviceAdminFeaturesCheckerRule.RequiresAddit
  */
 // We need managed users to be supported in order to create a profile of the user owner.
 @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
-public class MixedProfileOwnerHostSideTransferTest extends
+public final class MixedProfileOwnerHostSideTransferTest extends
         DeviceAndProfileOwnerHostSideTransferTest {
 
     @Override

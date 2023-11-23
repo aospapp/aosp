@@ -25,6 +25,7 @@ class DummyNetwork : public Network {
     static const char* INTERFACE_NAME;
     explicit DummyNetwork(unsigned netId);
     virtual ~DummyNetwork();
+    Permission getPermission() const { return PERMISSION_SYSTEM; };
 
   private:
     std::string getTypeString() const override { return "DUMMY"; };

@@ -35,8 +35,10 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -60,7 +62,6 @@ public class BluetoothLeAudioContentMetadataTest {
     };
 
     private Context mContext;
-    private boolean mHasBluetooth;
     private BluetoothAdapter mAdapter;
     private boolean mIsBroadcastSourceSupported;
     private boolean mIsBroadcastAssistantSupported;
@@ -68,13 +69,9 @@ public class BluetoothLeAudioContentMetadataTest {
     @Before
     public void setUp() {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
-        if (!ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU)) {
-            return;
-        }
-        mHasBluetooth = TestUtils.hasBluetooth();
-        if (!mHasBluetooth) {
-            return;
-        }
+        Assume.assumeTrue(ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU));
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+
         TestUtils.adoptPermissionAsShellUid(BLUETOOTH_CONNECT);
         mAdapter = TestUtils.getBluetoothAdapterOrDie();
         assertTrue(BTAdapterUtils.enableAdapter(mAdapter, mContext));
@@ -96,24 +93,18 @@ public class BluetoothLeAudioContentMetadataTest {
             assertTrue("Config must be true when profile is supported",
                     isBroadcastSourceEnabledInConfig);
         }
+
+        Assume.assumeTrue(mIsBroadcastAssistantSupported || mIsBroadcastSourceSupported);
     }
 
     @After
     public void tearDown() {
-        if (mHasBluetooth) {
-            if (mAdapter != null) {
-                assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-            }
-            mAdapter = null;
-            TestUtils.dropPermissionAsShellUid();
-        }
+        TestUtils.dropPermissionAsShellUid();
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @Test
     public void testCreateContentMetadataFromBuilder() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioContentMetadata contentMetadata =
                 new BluetoothLeAudioContentMetadata.Builder()
                         .setProgramInfo(TEST_PROGRAM_INFO).setLanguage(TEST_LANGUAGE).build();
@@ -131,11 +122,9 @@ public class BluetoothLeAudioContentMetadataTest {
                 contentMetadataStrippedLanguage.getRawMetadata());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @Test
     public void testCreateContentMetadataFromCopy() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioContentMetadata contentMetadata =
                 new BluetoothLeAudioContentMetadata.Builder()
                         .setProgramInfo(TEST_PROGRAM_INFO).setLanguage(TEST_LANGUAGE).build();
@@ -146,11 +135,9 @@ public class BluetoothLeAudioContentMetadataTest {
         assertArrayEquals(TEST_METADATA_BYTES, contentMetadataCopy.getRawMetadata());
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @Test
     public void testCreateContentMetadataFromBytes() {
-        if (shouldSkipTest()) {
-            return;
-        }
         BluetoothLeAudioContentMetadata contentMetadata =
                 BluetoothLeAudioContentMetadata.fromRawBytes(TEST_METADATA_BYTES);
         byte[] metadataBytes = contentMetadata.getRawMetadata();
@@ -158,9 +145,5 @@ public class BluetoothLeAudioContentMetadataTest {
         assertArrayEquals(TEST_METADATA_BYTES, metadataBytes);
         assertEquals(TEST_PROGRAM_INFO, contentMetadata.getProgramInfo());
         assertEquals(TEST_LANGUAGE, contentMetadata.getLanguage());
-    }
-
-    private boolean shouldSkipTest() {
-        return !mHasBluetooth || (!mIsBroadcastSourceSupported && !mIsBroadcastAssistantSupported);
     }
 }

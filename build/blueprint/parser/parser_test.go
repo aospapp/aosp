@@ -194,121 +194,6 @@ var validParseTestCases = []struct {
 		nil,
 	},
 
-	{`
-		foo {
-			stuff: {
-				"key1": 1,
-				"key2": 2,
-			},
-		}
-		`,
-		[]Definition{
-			&Module{
-				Type:    "foo",
-				TypePos: mkpos(3, 2, 3),
-				Map: Map{
-					LBracePos: mkpos(7, 2, 7),
-					RBracePos: mkpos(59, 7, 3),
-					Properties: []*Property{
-						{
-							Name:     "stuff",
-							NamePos:  mkpos(12, 3, 4),
-							ColonPos: mkpos(17, 3, 9),
-							Value: &Map{
-								LBracePos: mkpos(19, 3, 11),
-								RBracePos: mkpos(54, 6, 4),
-								MapItems: []*MapItem{
-									&MapItem{
-										ColonPos: mkpos(33, 4, 13),
-										Key: &String{
-											LiteralPos: mkpos(25, 4, 5),
-											Value:      "key1",
-										},
-										Value: &Int64{
-											LiteralPos: mkpos(33, 4, 13),
-											Value:      1,
-											Token:      "1",
-										},
-									},
-									&MapItem{
-										ColonPos: mkpos(48, 5, 13),
-										Key: &String{
-											LiteralPos: mkpos(40, 5, 5),
-											Value:      "key2",
-										},
-										Value: &Int64{
-											LiteralPos: mkpos(48, 5, 13),
-											Value:      2,
-											Token:      "2",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		nil,
-	},
-
-	{`
-		foo {
-			stuff: {
-				"key1": {
-					a: "abc",
-				},
-			},
-		}
-		`,
-		[]Definition{
-			&Module{
-				Type:    "foo",
-				TypePos: mkpos(3, 2, 3),
-				Map: Map{
-					LBracePos: mkpos(7, 2, 7),
-					RBracePos: mkpos(65, 8, 3),
-					Properties: []*Property{
-						{
-							Name:     "stuff",
-							NamePos:  mkpos(12, 3, 4),
-							ColonPos: mkpos(17, 3, 9),
-							Value: &Map{
-								LBracePos: mkpos(19, 3, 11),
-								RBracePos: mkpos(60, 7, 4),
-								MapItems: []*MapItem{
-									&MapItem{
-										ColonPos: mkpos(33, 4, 13),
-										Key: &String{
-											LiteralPos: mkpos(25, 4, 5),
-											Value:      "key1",
-										},
-										Value: &Map{
-											LBracePos: mkpos(33, 4, 13),
-											RBracePos: mkpos(54, 6, 5),
-											Properties: []*Property{
-												&Property{
-													Name:     "a",
-													NamePos:  mkpos(40, 5, 6),
-													ColonPos: mkpos(41, 5, 7),
-													Value: &String{
-														LiteralPos: mkpos(43, 5, 9),
-														Value:      "abc",
-													},
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		nil,
-	},
-
 	{
 		`
 		foo {
@@ -1254,7 +1139,7 @@ var validParseTestCases = []struct {
 				Comments: []*Comment{
 					&Comment{
 						Comment: []string{"/* comment3", "		   comment4 */"},
-						Slash: mkpos(32, 5, 3),
+						Slash:   mkpos(32, 5, 3),
 					},
 					&Comment{
 						Comment: []string{"// comment5"},
@@ -1329,27 +1214,34 @@ func TestParseValidInput(t *testing.T) {
 	}
 }
 
-// TODO: Test error strings
-
-func TestMapParserError(t *testing.T) {
-	input :=
-		`
-		foo {
-			stuff: {
-				1: "value1",
-				2: "value2",
-			},
-		}
-		`
-	expectedErr := `<input>:4:6: only strings are supported as map keys: int64 ('\x01'@<input>:4:5)`
-	_, errs := ParseAndEval("", bytes.NewBufferString(input), NewScope(nil))
-	if len(errs) == 0 {
-		t.Fatalf("Expected errors, got none.")
+func TestParserError(t *testing.T) {
+	testcases := []struct {
+		name  string
+		input string
+		err   string
+	}{
+		{
+			name:  "invalid first token",
+			input: "\x00",
+			err:   "invalid character NUL",
+		},
+		// TODO: test more parser errors
 	}
-	for _, err := range errs {
-		if expectedErr != err.Error() {
-			t.Errorf("Unexpected err:  %s", err)
-		}
+
+	for _, tt := range testcases {
+		t.Run(tt.name, func(t *testing.T) {
+			r := bytes.NewBufferString(tt.input)
+			_, errs := ParseAndEval("", r, NewScope(nil))
+			if len(errs) == 0 {
+				t.Fatalf("missing expected error")
+			}
+			if g, w := errs[0], tt.err; !strings.Contains(g.Error(), w) {
+				t.Errorf("expected error %q, got %q", w, g)
+			}
+			for _, err := range errs[1:] {
+				t.Errorf("got unexpected extra error %q", err)
+			}
+		})
 	}
 }
 

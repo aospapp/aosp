@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#include "base/macros.h"
 #include "graph_checker.h"
 #include "optimizing_unit_test.h"
 
-namespace art {
+namespace art HIDDEN {
 
-class GraphCheckerTest : public OptimizingUnitTest {
+class GraphCheckerTest : public CommonCompilerTest, public OptimizingUnitTestHelper {
  protected:
   HGraph* CreateSimpleCFG();
   void TestCode(const std::vector<uint16_t>& data);

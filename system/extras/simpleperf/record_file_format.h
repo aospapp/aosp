@@ -82,6 +82,9 @@ file2 feature section (used to replace file feature section):
   uint32_t file_msg2_size;
   FileFeature file_msg2;
   ...
+
+etm_branch_list feature section:
+  ETMBranchList etm_branch_list;  // from etm_branch_list.proto
 */
 
 namespace simpleperf {
@@ -116,6 +119,7 @@ enum {
   FEAT_DEBUG_UNWIND,
   FEAT_DEBUG_UNWIND_FILE,
   FEAT_FILE2,
+  FEAT_ETM_BRANCH_LIST,
   FEAT_MAX_NUM = 256,
 };
 

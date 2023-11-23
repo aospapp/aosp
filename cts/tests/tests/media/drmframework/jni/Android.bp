@@ -42,6 +42,5 @@ cc_test_library {
     ],
     stl: "libc++_static",
     gtest: false,
-    // TODO(b/208938664) Change this sdk version suppression to T once it's defined to number (33).
     sdk_version: "current",
 }

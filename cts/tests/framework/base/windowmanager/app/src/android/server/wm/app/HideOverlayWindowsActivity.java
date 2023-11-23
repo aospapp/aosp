@@ -17,7 +17,9 @@
 package android.server.wm.app;
 
 import static android.server.wm.app.Components.HideOverlayWindowsActivity.ACTION;
+import static android.server.wm.app.Components.HideOverlayWindowsActivity.MOTION_EVENT_EXTRA;
 import static android.server.wm.app.Components.HideOverlayWindowsActivity.PONG;
+import static android.server.wm.app.Components.HideOverlayWindowsActivity.REPORT_TOUCH;
 import static android.server.wm.app.Components.HideOverlayWindowsActivity.SHOULD_HIDE;
 
 import android.app.Activity;
@@ -26,6 +28,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
+import android.view.MotionEvent;
 
 /**
  * Helper activity for HideApplicationOverlaysTest. Communication is handled through a pair of
@@ -51,4 +54,9 @@ public class HideOverlayWindowsActivity extends Activity {
         }
     };
 
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        sendBroadcast(new Intent(REPORT_TOUCH).putExtra(MOTION_EVENT_EXTRA, event));
+        return super.dispatchTouchEvent(event);
+    }
 }

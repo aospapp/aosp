@@ -19,11 +19,11 @@
 
 #include <memory>
 
+#include "base/macros.h"
 #include "base/mutex.h"
 #include "base/os.h"
-#include "compiled_method.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class ArtMethod;
 

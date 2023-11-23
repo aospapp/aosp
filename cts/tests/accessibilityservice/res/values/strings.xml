@@ -36,6 +36,13 @@
 
     <string name="button_tooltip">Never press this button</string>
 
+    <!-- String descriptions and title of the views used to test accessibilityDataSensitive -->
+    <string name="container_desc">Outer container View</string>
+    <string name="ads_desc">AccessibilityDataSensitive View</string>
+    <string name="inner_container_desc">Inner container View</string>
+    <string name="inner_desc">Inner Button</string>
+    <string name="inner_title">Inner Click</string>
+
     <!-- String value of the first list item -->
     <string name="first_list_item">First list item</string>
 
@@ -161,6 +168,10 @@
 
     <string name="stub_take_screenshot_service_description">com.android.accessibilityservice.cts.StubTakeScreenshotService</string>
 
+    <string name="stub_motion_intercepting_accessibility_service_description">com.android.accessibilityservice.cts.StubMotionInterceptingAccessibilityService</string>
+
+    <string name="stub_proxy_concurrent_service_description">com.android.accessibilityservice.cts.StubProxyConcurrentAccessibilityService</string>
+
     <string name="android_wiki_paragraphs">
         \n\nAndroid is a\n\n It is developed\n The
         unveiling\n\n</string>
@@ -200,6 +211,12 @@
 
     <!-- String title of embedded display activity -->
     <string name="non_default_display_activity">Non default display activity</string>
+
+    <!-- String title of virtual display activity used for proxy tests-->
+    <string name="proxy_display_activity">Proxy display activity</string>
+
+    <!-- String title of a11y service activity used for proxy tests-->
+    <string name="non_proxy_activity">Proxy concurrent activity</string>
 
     <!-- String title of the accessibility drag & drop activity -->
     <string name="accessibility_drag_and_drop_test_activity">Drag and drop</string>

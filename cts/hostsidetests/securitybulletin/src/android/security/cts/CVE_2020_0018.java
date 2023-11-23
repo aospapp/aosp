@@ -16,21 +16,25 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.AsbSecurityTest;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import com.android.tradefed.device.ITestDevice;
-import java.util.Scanner;
-
-import static org.hamcrest.core.Is.is;
 import static org.hamcrest.CoreMatchers.not;
-import static org.junit.Assert.*;
-import static org.junit.Assume.*;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assume.assumeThat;
 import static org.junit.matchers.JUnitMatchers.containsString;
 
+import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.tradefed.device.ITestDevice;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.util.Scanner;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2020_0018 extends SecurityTestCase {
+public class CVE_2020_0018 extends NonRootSecurityTestCase {
 
     /**
      * b/139945049

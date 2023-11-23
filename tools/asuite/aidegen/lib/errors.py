@@ -38,6 +38,7 @@ class EmptyModuleDependencyError(AIDEgenError):
     dependency.
     """
 
+
 class ProjectOutsideAndroidRootError(AIDEgenError):
     """Raised when a project to be generated IDE project file is not under
     source tree's root directory."""

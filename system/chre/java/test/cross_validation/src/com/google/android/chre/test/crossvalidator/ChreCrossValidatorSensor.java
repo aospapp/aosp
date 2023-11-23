@@ -77,7 +77,7 @@ public class ChreCrossValidatorSensor
 
     private static final long SAMPLING_LATENCY_IN_MS = 0;
 
-    private static final long MAX_TIMESTAMP_DIFF_NS = 10000000L;
+    private static final long MAX_TIMESTAMP_DIFF_NS = 4000000L;
 
     private static final float AP_PROXIMITY_SENSOR_FAR_DISTANCE_IN_CM = 5f;
 
@@ -291,8 +291,8 @@ public class ChreCrossValidatorSensor
                     if (valuesLength != mSensorConfig.expectedValuesLength) {
                         setErrorStr(String.format(kParseDataErrorPrefix
                                         + "incorrect sensor datapoints values length %d when "
-                                        + "expecing %d",
-                                sensorType, valuesLength, mSensorConfig.expectedValuesLength));
+                                        + "expecting %d",
+                                valuesLength, mSensorConfig.expectedValuesLength));
                         break;
                     }
                     mChreDatapointsQueue.add(new ChreSensorDatapoint(datapoint));

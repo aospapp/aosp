@@ -1,7 +1,7 @@
 package android.security.cts;
 
-import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.device.DeviceNotAvailableException;
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceTestCase;
 
 import java.util.Arrays;
@@ -64,15 +64,14 @@ public class FileSystemPermissionTest extends DeviceTestCase {
 
         // This test asserts that, if present, /dev/hw_random must:
         //
-        // 1. Have ownership root:root
-        // 2. Have permissions 0600 (the kernel default). Only the kernel hwrng
-        //    thread needs access to the HW RNG output. Neither apps nor system
-        //    code should use it directly.
+        // 1. Have ownership prng_seeder:prng_seeder
+        // 2. Have permissions 0400 - The only user space process requiring
+        //    access is the PRNG seeder daemon which only needs read access.
         // 3. Be a character device with major:minor 10:183 (the kernel
         //    default).
 
         // That translates to `ls -l` output like this:
-        // crw------- 1 root root 10, 183 2021-02-11 17:55 /dev/hw_random
+        // cr-------- 1 prng_seeder prng_seeder 10, 183 2021-02-11 17:55 /dev/hw_random
 
         String command = "ls -l " + HW_RNG_DEVICE;
         String output = mDevice.executeShellCommand(command).trim();
@@ -80,9 +79,9 @@ public class FileSystemPermissionTest extends DeviceTestCase {
             fail("Unexpected output from " + command + ": \"" + output + "\"");
         }
         String[] outputWords = output.split("\\s");
-        assertEquals("Wrong mode on " + HW_RNG_DEVICE, "crw-------", outputWords[0]);
-        assertEquals("Wrong owner of " + HW_RNG_DEVICE, "root", outputWords[2]);
-        assertEquals("Wrong group of " + HW_RNG_DEVICE, "root", outputWords[3]);
+        assertEquals("Wrong mode on " + HW_RNG_DEVICE, "cr--------", outputWords[0]);
+        assertEquals("Wrong owner of " + HW_RNG_DEVICE, "prng_seeder", outputWords[2]);
+        assertEquals("Wrong group of " + HW_RNG_DEVICE, "prng_seeder", outputWords[3]);
         assertEquals("Wrong device major on " + HW_RNG_DEVICE, "10,", outputWords[4]);
         assertEquals("Wrong device minor on " + HW_RNG_DEVICE, "183", outputWords[5]);
     }

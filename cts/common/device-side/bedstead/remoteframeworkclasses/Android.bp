@@ -14,7 +14,7 @@ android_library {
         "ConnectedAppsSDK"
     ],
     manifest: "src/types/main/AndroidManifest.xml",
-    min_sdk_version: "27",
+    min_sdk_version: "29",
     plugins: ["ConnectedAppsSDK_Processor", "RemoteFrameworkClasses_Processor"],
 }
 

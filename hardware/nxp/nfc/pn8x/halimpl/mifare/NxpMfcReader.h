@@ -109,7 +109,7 @@ class NxpMfcReader {
   void BuildIncDecCmd();
   void CalcSectorAddress();
   void AuthForWrite();
-  void SendIncDecRestoreCmdPart2(const uint8_t* mfcData);
+  void SendIncDecRestoreCmdPart2(uint16_t mfcDataLen, const uint8_t* mfcData);
 
  public:
   int Write(uint16_t mfcDataLen, const uint8_t* pMfcData);

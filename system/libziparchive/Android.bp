@@ -298,16 +298,6 @@ python_test_host {
     name: "ziparchive_tests_large",
     srcs: ["test_ziparchive_large.py"],
     main: "test_ziparchive_large.py",
-    version: {
-        py2: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-    },
     test_suites: ["general-tests"],
     test_options: {
         unit_test: false,

@@ -14,6 +14,7 @@
      limitations under the License.
 -->
 <device-admin xmlns:android="http://schemas.android.com/apk/res/android" android:visible="false">
+    <headless-system-user device-owner-mode="affiliated" />
     <uses-policies>
         <force-lock />
     </uses-policies>

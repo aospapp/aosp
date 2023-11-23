@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
+#include "utils.h"
+
 #include <gtest/gtest.h>
 
 #include <android-base/file.h>
 
+#include "environment.h"
 #include "get_test_data.h"
-#include "utils.h"
 
 using namespace simpleperf;
 
@@ -73,6 +75,20 @@ TEST(utils, GetCpusFromString) {
 TEST(utils, GetTidsFromString) {
   ASSERT_EQ(GetTidsFromString("0,12,9", false), std::make_optional(std::set<pid_t>({0, 9, 12})));
   ASSERT_EQ(GetTidsFromString("-2", false), std::nullopt);
+}
+
+TEST(utils, GetPidsFromStrings) {
+  ASSERT_EQ(GetPidsFromStrings({"0,12", "9"}, false, false),
+            std::make_optional(std::set<pid_t>({0, 9, 12})));
+  ASSERT_EQ(GetPidsFromStrings({"-2"}, false, false), std::nullopt);
+#if defined(__linux__)
+  pid_t pid = getpid();
+  ASSERT_EQ(GetPidsFromStrings({std::to_string(pid)}, true, false),
+            std::make_optional(std::set<pid_t>({pid})));
+  std::string process_name = GetCompleteProcessName(pid);
+  ASSERT_EQ(GetPidsFromStrings({process_name}, true, true),
+            std::make_optional(std::set<pid_t>({pid})));
+#endif  // defined(__linux__)
 }
 
 TEST(utils, LineReader) {

@@ -19,6 +19,7 @@
 #include <android/aidl/tests/ICppJavaTests.h>
 #include <android/aidl/tests/ITestService.h>
 #include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
 #include <gtest/gtest.h>
 #include <utils/String16.h>
 
@@ -30,11 +31,13 @@ using android::aidl::tests::ITestService;
 class AidlTest : public testing::Test {
  public:
   void SetUp() override {
-    using android::getService;
     using android::OK;
     using android::String16;
+    using android::waitForService;
 
-    ASSERT_EQ(OK, getService(ITestService::descriptor, &service));
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
+    android::ProcessState::self()->startThreadPool();
+    service = waitForService<ITestService>(ITestService::descriptor);
     ASSERT_NE(nullptr, service);
 
     sp<android::IBinder> ibinder;

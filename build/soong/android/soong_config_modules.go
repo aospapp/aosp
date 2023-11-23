@@ -20,7 +20,9 @@ package android
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 	"text/scanner"
 
 	"github.com/google/blueprint"
@@ -31,11 +33,17 @@ import (
 )
 
 func init() {
-	RegisterModuleType("soong_config_module_type_import", SoongConfigModuleTypeImportFactory)
-	RegisterModuleType("soong_config_module_type", SoongConfigModuleTypeFactory)
-	RegisterModuleType("soong_config_string_variable", SoongConfigStringVariableDummyFactory)
-	RegisterModuleType("soong_config_bool_variable", SoongConfigBoolVariableDummyFactory)
+	RegisterSoongConfigModuleBuildComponents(InitRegistrationContext)
 }
+
+func RegisterSoongConfigModuleBuildComponents(ctx RegistrationContext) {
+	ctx.RegisterModuleType("soong_config_module_type_import", SoongConfigModuleTypeImportFactory)
+	ctx.RegisterModuleType("soong_config_module_type", SoongConfigModuleTypeFactory)
+	ctx.RegisterModuleType("soong_config_string_variable", SoongConfigStringVariableDummyFactory)
+	ctx.RegisterModuleType("soong_config_bool_variable", SoongConfigBoolVariableDummyFactory)
+}
+
+var PrepareForTestWithSoongConfigModuleBuildComponents = FixtureRegisterWithContext(RegisterSoongConfigModuleBuildComponents)
 
 type soongConfigModuleTypeImport struct {
 	ModuleBase
@@ -172,7 +180,7 @@ func (m *soongConfigModuleTypeImport) Name() string {
 		"soong_config_module_type_import_" + fmt.Sprintf("%p", m)
 }
 
-func (*soongConfigModuleTypeImport) Nameless()                                 {}
+func (*soongConfigModuleTypeImport) Namespaceless()                            {}
 func (*soongConfigModuleTypeImport) GenerateAndroidBuildActions(ModuleContext) {}
 
 // Create dummy modules for soong_config_module_type and soong_config_*_variable
@@ -190,77 +198,78 @@ type soongConfigModuleTypeModule struct {
 //
 // Each soong_config_variable supports an additional value `conditions_default`. The properties
 // specified in `conditions_default` will only be used under the following conditions:
-//   bool variable: the variable is unspecified or not set to a true value
-//   value variable: the variable is unspecified
-//   string variable: the variable is unspecified or the variable is set to a string unused in the
-//                    given module. For example, string variable `test` takes values: "a" and "b",
-//                    if the module contains a property `a` and `conditions_default`, when test=b,
-//                    the properties under `conditions_default` will be used. To specify that no
-//                    properties should be amended for `b`, you can set `b: {},`.
+//
+//	bool variable: the variable is unspecified or not set to a true value
+//	value variable: the variable is unspecified
+//	string variable: the variable is unspecified or the variable is set to a string unused in the
+//	                 given module. For example, string variable `test` takes values: "a" and "b",
+//	                 if the module contains a property `a` and `conditions_default`, when test=b,
+//	                 the properties under `conditions_default` will be used. To specify that no
+//	                 properties should be amended for `b`, you can set `b: {},`.
 //
 // For example, an Android.bp file could have:
 //
-//     soong_config_module_type {
-//         name: "acme_cc_defaults",
-//         module_type: "cc_defaults",
-//         config_namespace: "acme",
-//         variables: ["board"],
-//         bool_variables: ["feature"],
-//         value_variables: ["width"],
-//         properties: ["cflags", "srcs"],
-//     }
+//	    soong_config_module_type {
+//	        name: "acme_cc_defaults",
+//	        module_type: "cc_defaults",
+//	        config_namespace: "acme",
+//	        variables: ["board"],
+//	        bool_variables: ["feature"],
+//	        value_variables: ["width"],
+//	        properties: ["cflags", "srcs"],
+//	    }
 //
-//     soong_config_string_variable {
-//         name: "board",
-//         values: ["soc_a", "soc_b"],
-//     }
+//	    soong_config_string_variable {
+//	        name: "board",
+//	        values: ["soc_a", "soc_b"],
+//	    }
 //
-//     acme_cc_defaults {
-//         name: "acme_defaults",
-//         cflags: ["-DGENERIC"],
-//         soong_config_variables: {
-//             board: {
-//                 soc_a: {
-//                     cflags: ["-DSOC_A"],
-//                 },
-//                 soc_b: {
-//                     cflags: ["-DSOC_B"],
-//                 },
-//                 conditions_default: {
-//                     cflags: ["-DSOC_DEFAULT"],
-//                 },
-//             },
-//             feature: {
-//                 cflags: ["-DFEATURE"],
-//                 conditions_default: {
-//                     cflags: ["-DFEATURE_DEFAULT"],
-//                 },
-//             },
-//             width: {
-//	               cflags: ["-DWIDTH=%s"],
-//                 conditions_default: {
-//                     cflags: ["-DWIDTH=DEFAULT"],
-//                 },
-//             },
-//         },
-//     }
+//	    acme_cc_defaults {
+//	        name: "acme_defaults",
+//	        cflags: ["-DGENERIC"],
+//	        soong_config_variables: {
+//	            board: {
+//	                soc_a: {
+//	                    cflags: ["-DSOC_A"],
+//	                },
+//	                soc_b: {
+//	                    cflags: ["-DSOC_B"],
+//	                },
+//	                conditions_default: {
+//	                    cflags: ["-DSOC_DEFAULT"],
+//	                },
+//	            },
+//	            feature: {
+//	                cflags: ["-DFEATURE"],
+//	                conditions_default: {
+//	                    cflags: ["-DFEATURE_DEFAULT"],
+//	                },
+//	            },
+//	            width: {
+//		               cflags: ["-DWIDTH=%s"],
+//	                conditions_default: {
+//	                    cflags: ["-DWIDTH=DEFAULT"],
+//	                },
+//	            },
+//	        },
+//	    }
 //
-//     cc_library {
-//         name: "libacme_foo",
-//         defaults: ["acme_defaults"],
-//         srcs: ["*.cpp"],
-//     }
+//	    cc_library {
+//	        name: "libacme_foo",
+//	        defaults: ["acme_defaults"],
+//	        srcs: ["*.cpp"],
+//	    }
 //
 // If an acme BoardConfig.mk file contained:
 //
-//     SOONG_CONFIG_NAMESPACES += acme
-//     SOONG_CONFIG_acme += \
-//         board \
-//         feature \
+//	SOONG_CONFIG_NAMESPACES += acme
+//	SOONG_CONFIG_acme += \
+//	    board \
+//	    feature \
 //
-//     SOONG_CONFIG_acme_board := soc_a
-//     SOONG_CONFIG_acme_feature := true
-//     SOONG_CONFIG_acme_width := 200
+//	SOONG_CONFIG_acme_board := soc_a
+//	SOONG_CONFIG_acme_feature := true
+//	SOONG_CONFIG_acme_width := 200
 //
 // Then libacme_foo would build with cflags "-DGENERIC -DSOC_A -DFEATURE".
 func SoongConfigModuleTypeFactory() Module {
@@ -279,9 +288,9 @@ func SoongConfigModuleTypeFactory() Module {
 }
 
 func (m *soongConfigModuleTypeModule) Name() string {
-	return m.properties.Name
+	return m.properties.Name + fmt.Sprintf("%p", m)
 }
-func (*soongConfigModuleTypeModule) Nameless()                                     {}
+func (*soongConfigModuleTypeModule) Namespaceless()                                {}
 func (*soongConfigModuleTypeModule) GenerateAndroidBuildActions(ctx ModuleContext) {}
 
 type soongConfigStringVariableDummyModule struct {
@@ -314,15 +323,15 @@ func SoongConfigBoolVariableDummyFactory() Module {
 }
 
 func (m *soongConfigStringVariableDummyModule) Name() string {
-	return m.properties.Name
+	return m.properties.Name + fmt.Sprintf("%p", m)
 }
-func (*soongConfigStringVariableDummyModule) Nameless()                                     {}
+func (*soongConfigStringVariableDummyModule) Namespaceless()                                {}
 func (*soongConfigStringVariableDummyModule) GenerateAndroidBuildActions(ctx ModuleContext) {}
 
 func (m *soongConfigBoolVariableDummyModule) Name() string {
-	return m.properties.Name
+	return m.properties.Name + fmt.Sprintf("%p", m)
 }
-func (*soongConfigBoolVariableDummyModule) Nameless()                                     {}
+func (*soongConfigBoolVariableDummyModule) Namespaceless()                                {}
 func (*soongConfigBoolVariableDummyModule) GenerateAndroidBuildActions(ctx ModuleContext) {}
 
 // importModuleTypes registers the module factories for a list of module types defined
@@ -381,13 +390,13 @@ func loadSoongConfigModuleTypeDefinition(ctx LoadHookContext, from string) map[s
 		defer r.Close()
 
 		mtDef, errs := soongconfig.Parse(r, from)
-		if ctx.Config().runningAsBp2Build {
-			ctx.Config().Bp2buildSoongConfigDefinitions.AddVars(*mtDef)
-		}
-
 		if len(errs) > 0 {
 			reportErrors(ctx, from, errs...)
 			return (map[string]blueprint.ModuleFactory)(nil)
+		}
+
+		if ctx.Config().BuildMode == Bp2build {
+			ctx.Config().Bp2buildSoongConfigDefinitions.AddVars(mtDef)
 		}
 
 		globalModuleTypes := ctx.moduleFactories()
@@ -397,7 +406,7 @@ func loadSoongConfigModuleTypeDefinition(ctx LoadHookContext, from string) map[s
 		for name, moduleType := range mtDef.ModuleTypes {
 			factory := globalModuleTypes[moduleType.BaseModuleType]
 			if factory != nil {
-				factories[name] = configModuleFactory(factory, moduleType, ctx.Config().runningAsBp2Build)
+				factories[name] = configModuleFactory(factory, moduleType, ctx.Config().BuildMode == Bp2build)
 			} else {
 				reportErrors(ctx, from,
 					fmt.Errorf("missing global module type factory for %q", moduleType.BaseModuleType))
@@ -415,13 +424,43 @@ func loadSoongConfigModuleTypeDefinition(ctx LoadHookContext, from string) map[s
 // configModuleFactory takes an existing soongConfigModuleFactory and a
 // ModuleType to create a new ModuleFactory that uses a custom loadhook.
 func configModuleFactory(factory blueprint.ModuleFactory, moduleType *soongconfig.ModuleType, bp2build bool) blueprint.ModuleFactory {
-	conditionalFactoryProps := soongconfig.CreateProperties(factory, moduleType)
-	if !conditionalFactoryProps.IsValid() {
-		return factory
+	// Defer creation of conditional properties struct until the first call from the factory
+	// method. That avoids having to make a special call to the factory to create the properties
+	// structs from which the conditional properties struct is created. This is needed in order to
+	// allow singleton modules to be customized by soong_config_module_type as the
+	// SingletonModuleFactoryAdaptor factory registers a load hook for the singleton module
+	// everytime that it is called. Calling the factory twice causes a build failure as the load
+	// hook is called twice, the first time it updates the singleton module to indicate that it has
+	// been registered as a module, and the second time it fails because it thinks it has been
+	// registered again and a singleton module can only be registered once.
+	//
+	// This is an issue for singleton modules because:
+	// * Load hooks are registered on the module object and are only called when the module object
+	//   is created by Blueprint while processing the Android.bp file.
+	// * The module factory for a singleton module returns the same module object each time it is
+	//   called, and registers its load hook on that same module object.
+	// * When the module factory is called by Blueprint it then calls all the load hooks that have
+	//   been registered for every call to that module factory.
+	//
+	// It is not an issue for normal modules because they return a new module object each time the
+	// factory is called and so any load hooks registered on module objects which are discarded will
+	// not be run.
+	once := &sync.Once{}
+	conditionalFactoryProps := reflect.Value{}
+	getConditionalFactoryProps := func(props []interface{}) reflect.Value {
+		once.Do(func() {
+			conditionalFactoryProps = soongconfig.CreateProperties(props, moduleType)
+		})
+		return conditionalFactoryProps
 	}
 
 	return func() (blueprint.Module, []interface{}) {
 		module, props := factory()
+		conditionalFactoryProps := getConditionalFactoryProps(props)
+		if !conditionalFactoryProps.IsValid() {
+			return module, props
+		}
+
 		conditionalProps := proptools.CloneEmptyProperties(conditionalFactoryProps)
 		props = append(props, conditionalProps.Interface())
 

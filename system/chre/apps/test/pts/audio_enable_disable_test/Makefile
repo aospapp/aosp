@@ -22,6 +22,7 @@ NANOAPP_VERSION = 0x00000002
 
 NANOAPP_PATH = $(CHRE_PREFIX)/apps/test/pts/audio_enable_disable_test
 
+
 # Protobuf Sources #############################################################
 
 NANOPB_EXTENSION = nanopb

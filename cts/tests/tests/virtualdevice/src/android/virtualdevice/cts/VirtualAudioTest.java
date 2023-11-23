@@ -23,6 +23,7 @@ import static android.Manifest.permission.CREATE_VIRTUAL_DEVICE;
 import static android.Manifest.permission.MODIFY_AUDIO_ROUTING;
 import static android.Manifest.permission.REAL_GET_TASKS;
 import static android.Manifest.permission.WAKE_LOCK;
+import static android.content.pm.PackageManager.FEATURE_FREEFORM_WINDOW_MANAGEMENT;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_TRUSTED;
 import static android.media.AudioFormat.CHANNEL_IN_MONO;
 import static android.media.AudioFormat.ENCODING_PCM_16BIT;
@@ -60,6 +61,7 @@ import static androidx.test.core.app.ApplicationProvider.getApplicationContext;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -81,7 +83,7 @@ import android.media.AudioFormat;
 import android.platform.test.annotations.AppModeFull;
 import android.virtualdevice.cts.common.ActivityResultReceiver;
 import android.virtualdevice.cts.common.AudioHelper;
-import android.virtualdevice.cts.util.FakeAssociationRule;
+import android.virtualdevice.cts.common.FakeAssociationRule;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -152,11 +154,14 @@ public class VirtualAudioTest {
     public void setUp() throws Exception {
         MockitoAnnotations.initMocks(this);
         Context context = getApplicationContext();
-        PackageManager packageManager = context.getPackageManager();
+        final PackageManager packageManager = context.getPackageManager();
         assumeTrue(packageManager.hasSystemFeature(PackageManager.FEATURE_COMPANION_DEVICE_SETUP));
         assumeTrue(packageManager.hasSystemFeature(
                 PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS));
         assumeFalse("Skipping test: not supported on automotive", isAutomotive());
+        // TODO(b/261155110): Re-enable tests once freeform mode is supported in Virtual Display.
+        assumeFalse("Skipping test: VirtualDisplay window policy doesn't support freeform.",
+                packageManager.hasSystemFeature(FEATURE_FREEFORM_WINDOW_MANAGEMENT));
 
         VirtualDeviceManager vdm = context.getSystemService(VirtualDeviceManager.class);
         mVirtualDevice = vdm.createVirtualDevice(
@@ -215,6 +220,12 @@ public class VirtualAudioTest {
         assertThat(audioInjection.getPlayState()).isEqualTo(PLAYSTATE_PLAYING);
         audioInjection.stop();
         assertThat(audioInjection.getPlayState()).isEqualTo(PLAYSTATE_STOPPED);
+    }
+
+    @Test
+    public void audioInjection_createWithNull() {
+        assertThrows(NullPointerException.class, () -> mVirtualDevice.createVirtualAudioDevice(
+                null, /* executor= */ null, /* callback= */ null));
     }
 
     @Test

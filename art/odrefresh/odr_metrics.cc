@@ -36,7 +36,7 @@ namespace art {
 namespace odrefresh {
 
 OdrMetrics::OdrMetrics(const std::string& cache_directory, const std::string& metrics_file)
-    : cache_directory_(cache_directory), metrics_file_(metrics_file), status_(Status::kOK) {
+    : cache_directory_(cache_directory), metrics_file_(metrics_file) {
   DCHECK(StartsWith(metrics_file_, "/"));
 
   // Remove existing metrics file if it exists.
@@ -56,36 +56,57 @@ OdrMetrics::OdrMetrics(const std::string& cache_directory, const std::string& me
 }
 
 OdrMetrics::~OdrMetrics() {
-  cache_space_free_end_mib_ = GetFreeSpaceMiB(cache_directory_);
+  CaptureSpaceFreeEnd();
 
-  // Log metrics only if odrefresh detected a reason to compile.
-  if (trigger_.has_value()) {
+  // Log metrics only if this is explicitly enabled (typically when compilation was done or an error
+  // occurred).
+  if (enabled_) {
     WriteToFile(metrics_file_, this);
   }
 }
 
-void OdrMetrics::SetCompilationTime(int32_t seconds) {
-  switch (stage_) {
+void OdrMetrics::CaptureSpaceFreeEnd() {
+  cache_space_free_end_mib_ = GetFreeSpaceMiB(cache_directory_);
+}
+
+void OdrMetrics::SetDex2OatResult(Stage stage,
+                                  int64_t compilation_time_ms,
+                                  const std::optional<ExecResult>& dex2oat_result) {
+  switch (stage) {
     case Stage::kPrimaryBootClasspath:
-      primary_bcp_compilation_seconds_ = seconds;
+      primary_bcp_compilation_millis_ = compilation_time_ms;
+      primary_bcp_dex2oat_result_ = dex2oat_result;
       break;
     case Stage::kSecondaryBootClasspath:
-      secondary_bcp_compilation_seconds_ = seconds;
+      secondary_bcp_compilation_millis_ = compilation_time_ms;
+      secondary_bcp_dex2oat_result_ = dex2oat_result;
       break;
     case Stage::kSystemServerClasspath:
-      system_server_compilation_seconds_ = seconds;
+      system_server_compilation_millis_ = compilation_time_ms;
+      system_server_dex2oat_result_ = dex2oat_result;
       break;
     case Stage::kCheck:
     case Stage::kComplete:
     case Stage::kPreparation:
     case Stage::kUnknown:
-      break;
+      LOG(FATAL) << "Unexpected stage " << stage_ << " when setting dex2oat result";
   }
 }
 
-void OdrMetrics::SetStage(Stage stage) {
-  if (status_ == Status::kOK) {
-    stage_ = stage;
+void OdrMetrics::SetBcpCompilationType(Stage stage, BcpCompilationType type) {
+  switch (stage) {
+    case Stage::kPrimaryBootClasspath:
+      primary_bcp_compilation_type_ = type;
+      break;
+    case Stage::kSecondaryBootClasspath:
+      secondary_bcp_compilation_type_ = type;
+      break;
+    case Stage::kSystemServerClasspath:
+    case Stage::kCheck:
+    case Stage::kComplete:
+    case Stage::kPreparation:
+    case Stage::kUnknown:
+      LOG(FATAL) << "Unexpected stage " << stage_ << " when setting BCP compilation type";
   }
 }
 
@@ -115,32 +136,43 @@ int32_t OdrMetrics::GetFreeSpaceMiB(const std::string& path) {
   return static_cast<int32_t>(free_space_mib);
 }
 
-bool OdrMetrics::ToRecord(/*out*/OdrMetricsRecord* record) const {
-  if (!trigger_.has_value()) {
-    return false;
+OdrMetricsRecord OdrMetrics::ToRecord() const {
+  return {
+      .odrefresh_metrics_version = kOdrefreshMetricsVersion,
+      .art_apex_version = art_apex_version_,
+      .trigger = static_cast<int32_t>(trigger_),
+      .stage_reached = static_cast<int32_t>(stage_),
+      .status = static_cast<int32_t>(status_),
+      .cache_space_free_start_mib = cache_space_free_start_mib_,
+      .cache_space_free_end_mib = cache_space_free_end_mib_,
+      .primary_bcp_compilation_millis = primary_bcp_compilation_millis_,
+      .secondary_bcp_compilation_millis = secondary_bcp_compilation_millis_,
+      .system_server_compilation_millis = system_server_compilation_millis_,
+      .primary_bcp_dex2oat_result = ConvertExecResult(primary_bcp_dex2oat_result_),
+      .secondary_bcp_dex2oat_result = ConvertExecResult(secondary_bcp_dex2oat_result_),
+      .system_server_dex2oat_result = ConvertExecResult(system_server_dex2oat_result_),
+      .primary_bcp_compilation_type = static_cast<int32_t>(primary_bcp_compilation_type_),
+      .secondary_bcp_compilation_type = static_cast<int32_t>(secondary_bcp_compilation_type_),
+  };
+}
+
+OdrMetricsRecord::Dex2OatExecResult OdrMetrics::ConvertExecResult(
+    const std::optional<ExecResult>& result) {
+  if (result.has_value()) {
+    return OdrMetricsRecord::Dex2OatExecResult(result.value());
+  } else {
+    return {};
   }
-  record->art_apex_version = art_apex_version_;
-  record->trigger = static_cast<uint32_t>(trigger_.value());
-  record->stage_reached = static_cast<uint32_t>(stage_);
-  record->status = static_cast<uint32_t>(status_);
-  record->primary_bcp_compilation_seconds = primary_bcp_compilation_seconds_;
-  record->secondary_bcp_compilation_seconds = secondary_bcp_compilation_seconds_;
-  record->system_server_compilation_seconds = system_server_compilation_seconds_;
-  record->cache_space_free_start_mib = cache_space_free_start_mib_;
-  record->cache_space_free_end_mib = cache_space_free_end_mib_;
-  return true;
 }
 
 void OdrMetrics::WriteToFile(const std::string& path, const OdrMetrics* metrics) {
-  OdrMetricsRecord record;
-  if (!metrics->ToRecord(&record)) {
-    LOG(ERROR) << "Attempting to report metrics without a compilation trigger.";
-    return;
-  }
+  OdrMetricsRecord record = metrics->ToRecord();
 
-  // Preserve order from frameworks/proto_logging/stats/atoms.proto in metrics file written.
-  std::ofstream ofs(path);
-  ofs << record;
+  const android::base::Result<void>& result = record.WriteToFile(path);
+  if (!result.ok()) {
+    LOG(ERROR) << "Failed to report metrics to file: " << path
+               << ", error: " << result.error().message();
+  }
 }
 
 }  // namespace odrefresh

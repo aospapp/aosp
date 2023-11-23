@@ -23,7 +23,6 @@ from acts_contrib.test_utils.bt import bt_test_utils
 from acts_contrib.test_utils.users import users
 import time
 import random
-import re
 
 
 class BtCarMultiUserTest(BluetoothBaseTest):
@@ -73,7 +72,8 @@ class BtCarMultiUserTest(BluetoothBaseTest):
             Fail if bluetooth crashed once
         """
         laps = 10
-        initial_bt_crashes = bt_test_utils.get_bluetooth_crash_count(self.droid_ad)
+        initial_bt_crashes = bt_test_utils.get_bluetooth_crash_count(
+            self.droid_ad)
         crashes_since_start = initial_bt_crashes
 
         for count in range(laps):
@@ -89,10 +89,15 @@ class BtCarMultiUserTest(BluetoothBaseTest):
             if not users.switch_user(self.droid_ad, self.userid_2):
                 return False
 
-            crashes_since_start = abs(initial_bt_crashes - bt_test_utils.get_bluetooth_crash_count(self.droid_ad))
-            self.log.info("Current bluetooth crashes: {} over {} laps".format(crashes_since_start, count))
+            crashes_since_start = abs(
+                initial_bt_crashes -
+                bt_test_utils.get_bluetooth_crash_count(self.droid_ad))
+            self.log.info("Current bluetooth crashes: {} over {} laps".format(
+                crashes_since_start, count))
 
         if crashes_since_start != 0:
-            self.log.error("Bluetooth stack crashed {} times over {} laps".format(crashes_since_start, laps))
+            self.log.error(
+                "Bluetooth stack crashed {} times over {} laps".format(
+                    crashes_since_start, laps))
             return False
         return True

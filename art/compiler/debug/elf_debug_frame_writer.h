@@ -20,13 +20,14 @@
 #include <vector>
 
 #include "arch/instruction_set.h"
+#include "base/macros.h"
 #include "debug/method_debug_info.h"
 #include "dwarf/debug_frame_opcode_writer.h"
 #include "dwarf/dwarf_constants.h"
 #include "dwarf/headers.h"
 #include "elf/elf_builder.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace debug {
 
 static constexpr bool kWriteDebugFrameHdr = false;
@@ -86,6 +87,10 @@ static void WriteCIE(InstructionSet isa, /*inout*/ std::vector<uint8_t>* buffer)
       }
       auto return_reg = Reg::Arm64Core(30);  // R30(LR).
       WriteCIE(is64bit, return_reg, opcodes, buffer);
+      return;
+    }
+    case InstructionSet::kRiscv64: {
+      UNIMPLEMENTED(FATAL);
       return;
     }
     case InstructionSet::kX86: {

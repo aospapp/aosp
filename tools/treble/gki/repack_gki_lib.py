@@ -13,7 +13,7 @@ def fetch_bootimg(client, out_dir, build_id, kernel_version, target):
       client=client,
       build_id=build_id,
       target=target,
-      pattern=r'(gsi_.*-img-.*\.zip|gsi_.*-target_files-.*\.zip|boot-debug-{version}.*\.img|boot-test-harness-{version}.*\.img|otatools.zip)'
+      pattern=r'(gki_.*-img-.*\.zip|gki_.*-target_files-.*\.zip|otatools.zip)'
       .format(version=kernel_version),
       out_dir=out_dir)
 
@@ -29,13 +29,13 @@ def fetch_kernel(client, out_dir, build_id, kernel_target, kernel_debug_target):
       client=client,
       build_id=build_id,
       target=kernel_target,
-      pattern=r'(Image|Image.lz4|System\.map|abi_symbollist|vmlinux)',
+      pattern=r'(Image|Image.lz4|System\.map|abi_symbollist|vmlinux|vmlinux.symvers)',
       out_dir=kernel_dir)
   fetcher_lib.fetch_artifacts(
       client=client,
       build_id=build_id,
       target=kernel_debug_target,
-      pattern=r'(Image|Image.lz4|System\.map|abi-generated.xml|abi-full-generated.xml)',
+      pattern=r'(Image|Image.lz4|System\.map|abi-generated.xml|abi-full-generated.xml|vmlinux|vymlinx.symvers)',
       out_dir=kernel_debug_dir)
 
   print('Compressing kernels')
@@ -107,10 +107,6 @@ def repack_bootimgs(bootimg_dir, kernel_dir, kernel_debug_dir):
 def repack_img_zip(img_zip_path, kernel_dir, kernel_debug_dir, kernel_version):
   """Repacks boot images within an img.zip archive."""
   with tempfile.TemporaryDirectory() as unzip_dir:
-    # TODO(b/209035444): 5.15 GSI boot.img is not yet available, so reuse 5.10 boot.img
-    # which should have an identical ramdisk.
-    if kernel_version == '5.15':
-      kernel_version = '5.10'
     pattern = 'boot-{}*'.format(kernel_version)
     print('Unzipping %s to repack bootimgs' % img_zip_path)
     cmd = [

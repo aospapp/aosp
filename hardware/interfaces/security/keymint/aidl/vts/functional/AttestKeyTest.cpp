@@ -15,6 +15,8 @@
  */
 
 #define LOG_TAG "keymint_1_attest_key_test"
+#include <android-base/logging.h>
+#include <android-base/strings.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
 
@@ -26,39 +28,74 @@
 namespace aidl::android::hardware::security::keymint::test {
 
 namespace {
+string TELEPHONY_CMD_GET_IMEI = "cmd phone get-imei ";
 
 bool IsSelfSigned(const vector<Certificate>& chain) {
     if (chain.size() != 1) return false;
     return ChainSignaturesAreValid(chain);
 }
 
+/*
+ * Run a shell command and collect the output of it. If any error, set an empty string as the
+ * output.
+ */
+string exec_command(string command) {
+    char buffer[128];
+    string result = "";
+
+    FILE* pipe = popen(command.c_str(), "r");
+    if (!pipe) {
+        LOG(ERROR) << "popen failed.";
+        return result;
+    }
+
+    // read till end of process:
+    while (!feof(pipe)) {
+        if (fgets(buffer, 128, pipe) != NULL) {
+            result += buffer;
+        }
+    }
+
+    pclose(pipe);
+    return result;
+}
+
+/*
+ * Get IMEI using Telephony service shell command. If any error while executing the command
+ * then empty string will be returned as output.
+ */
+string get_imei(int slot) {
+    string cmd = TELEPHONY_CMD_GET_IMEI + std::to_string(slot);
+    string output = exec_command(cmd);
+
+    if (output.empty()) {
+        LOG(ERROR) << "Command failed. Cmd: " << cmd;
+        return "";
+    }
+
+    vector<string> out = ::android::base::Tokenize(::android::base::Trim(output), "Device IMEI:");
+
+    if (out.size() != 1) {
+        LOG(ERROR) << "Error in parsing the command output. Cmd: " << cmd;
+        return "";
+    }
+
+    string imei = ::android::base::Trim(out[0]);
+    if (imei.compare("null") == 0) {
+        LOG(ERROR) << "Error in getting IMEI from Telephony service: value is null. Cmd: " << cmd;
+        return "";
+    }
+
+    return imei;
+}
+
 }  // namespace
 
 class AttestKeyTest : public KeyMintAidlTestBase {
-  protected:
-    ErrorCode GenerateAttestKey(const AuthorizationSet& key_desc,
-                                const optional<AttestationKey>& attest_key,
-                                vector<uint8_t>* key_blob,
-                                vector<KeyCharacteristics>* key_characteristics,
-                                vector<Certificate>* cert_chain) {
-        // The original specification for KeyMint v1 required ATTEST_KEY not be combined
-        // with any other key purpose, but the original VTS tests incorrectly did exactly that.
-        // This means that a device that launched prior to Android T (API level 33) may
-        // accept or even require KeyPurpose::SIGN too.
-        if (property_get_int32("ro.board.first_api_level", 0) < 33) {
-            AuthorizationSet key_desc_plus_sign = key_desc;
-            key_desc_plus_sign.push_back(TAG_PURPOSE, KeyPurpose::SIGN);
-
-            auto result = GenerateKey(key_desc_plus_sign, attest_key, key_blob, key_characteristics,
-                                      cert_chain);
-            if (result == ErrorCode::OK) {
-                return result;
-            }
-            // If the key generation failed, it may be because the device is (correctly)
-            // rejecting the combination of ATTEST_KEY+SIGN.  Fall through to try again with
-            // just ATTEST_KEY.
-        }
-        return GenerateKey(key_desc, attest_key, key_blob, key_characteristics, cert_chain);
+  public:
+    void SetUp() override {
+        skipAttestKeyTest();
+        KeyMintAidlTestBase::SetUp();
     }
 };
 
@@ -795,13 +832,44 @@ TEST_P(AttestKeyTest, EcdsaAttestationID) {
 
     // Collection of valid attestation ID tags.
     auto attestation_id_tags = AuthorizationSetBuilder();
-    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_BRAND, "ro.product.brand");
+    // Use ro.product.brand_for_attestation property for attestation if it is present else fallback
+    // to ro.product.brand
+    std::string prop_value =
+            ::android::base::GetProperty("ro.product.brand_for_attestation", /* default= */ "");
+    if (!prop_value.empty()) {
+        add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_BRAND,
+                          "ro.product.brand_for_attestation");
+    } else {
+        add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_BRAND, "ro.product.brand");
+    }
     add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_DEVICE, "ro.product.device");
-    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_PRODUCT, "ro.product.name");
-    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_SERIAL, "ro.serial");
+    // Use ro.product.name_for_attestation property for attestation if it is present else fallback
+    // to ro.product.name
+    prop_value = ::android::base::GetProperty("ro.product.name_for_attestation", /* default= */ "");
+    if (!prop_value.empty()) {
+        add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_PRODUCT,
+                          "ro.product.name_for_attestation");
+    } else {
+        add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_PRODUCT, "ro.product.name");
+    }
+    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_SERIAL, "ro.serialno");
     add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_MANUFACTURER,
                       "ro.product.manufacturer");
-    add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_MODEL, "ro.product.model");
+    // Use ro.product.model_for_attestation property for attestation if it is present else fallback
+    // to ro.product.model
+    prop_value =
+            ::android::base::GetProperty("ro.product.model_for_attestation", /* default= */ "");
+    if (!prop_value.empty()) {
+        add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_MODEL,
+                          "ro.product.model_for_attestation");
+    } else {
+        add_tag_from_prop(&attestation_id_tags, TAG_ATTESTATION_ID_MODEL, "ro.product.model");
+    }
+
+    string imei = get_imei(0);
+    if (!imei.empty()) {
+        attestation_id_tags.Authorization(TAG_ATTESTATION_ID_IMEI, imei.data(), imei.size());
+    }
 
     for (const KeyParameter& tag : attestation_id_tags) {
         SCOPED_TRACE(testing::Message() << "+tag-" << tag);
@@ -869,6 +937,10 @@ TEST_P(AttestKeyTest, EcdsaAttestationMismatchID) {
                     .Authorization(TAG_ATTESTATION_ID_MEID, "mismatching-meid")
                     .Authorization(TAG_ATTESTATION_ID_MANUFACTURER, "malformed-manufacturer")
                     .Authorization(TAG_ATTESTATION_ID_MODEL, "malicious-model");
+
+    if (isSecondImeiIdAttestationRequired()) {
+        attestation_id_tags.Authorization(TAG_ATTESTATION_ID_SECOND_IMEI, "invalid-second-imei");
+    }
     vector<uint8_t> key_blob;
     vector<KeyCharacteristics> key_characteristics;
 
@@ -892,7 +964,170 @@ TEST_P(AttestKeyTest, EcdsaAttestationMismatchID) {
 
         ASSERT_TRUE(result == ErrorCode::CANNOT_ATTEST_IDS || result == ErrorCode::INVALID_TAG)
                 << "result = " << result;
+        device_id_attestation_vsr_check(result);
     }
+    CheckedDeleteKey(&attest_key.keyBlob);
+}
+
+TEST_P(AttestKeyTest, SecondIMEIAttestationIDSuccess) {
+    if (is_gsi_image()) {
+        // GSI sets up a standard set of device identifiers that may not match
+        // the device identifiers held by the device.
+        GTEST_SKIP() << "Test not applicable under GSI";
+    }
+
+    // Skip the test if there is no second IMEI exists.
+    string second_imei = get_imei(1);
+    if (second_imei.empty()) {
+        GTEST_SKIP() << "Test not applicable as there is no second IMEI";
+    }
+
+    if (!isSecondImeiIdAttestationRequired()) {
+        GTEST_SKIP() << "Test not applicable for KeyMint-Version < 3 or first-api-level < 34";
+    }
+
+    // Create attestation key.
+    AttestationKey attest_key;
+    vector<KeyCharacteristics> attest_key_characteristics;
+    vector<Certificate> attest_key_cert_chain;
+    ASSERT_EQ(ErrorCode::OK,
+              GenerateAttestKey(AuthorizationSetBuilder()
+                                        .EcdsaKey(EcCurve::P_256)
+                                        .AttestKey()
+                                        .SetDefaultValidity(),
+                                {} /* attestation signing key */, &attest_key.keyBlob,
+                                &attest_key_characteristics, &attest_key_cert_chain));
+    attest_key.issuerSubjectName = make_name_from_str("Android Keystore Key");
+    EXPECT_EQ(attest_key_cert_chain.size(), 1);
+    EXPECT_TRUE(IsSelfSigned(attest_key_cert_chain));
+
+    // Use attestation key to sign an ECDSA key, but include an attestation ID field.
+    AuthorizationSetBuilder builder = AuthorizationSetBuilder()
+                                              .EcdsaSigningKey(EcCurve::P_256)
+                                              .Authorization(TAG_NO_AUTH_REQUIRED)
+                                              .AttestationChallenge("challenge")
+                                              .AttestationApplicationId("foo")
+                                              .SetDefaultValidity();
+    // b/264979486 - second imei doesn't depend on first imei.
+    // Add second IMEI as attestation id without adding first IMEI as
+    // attestation id.
+    builder.Authorization(TAG_ATTESTATION_ID_SECOND_IMEI, second_imei.data(), second_imei.size());
+
+    vector<uint8_t> attested_key_blob;
+    vector<KeyCharacteristics> attested_key_characteristics;
+    vector<Certificate> attested_key_cert_chain;
+    auto result = GenerateKey(builder, attest_key, &attested_key_blob,
+                              &attested_key_characteristics, &attested_key_cert_chain);
+
+    if (result == ErrorCode::CANNOT_ATTEST_IDS && !isDeviceIdAttestationRequired()) {
+        GTEST_SKIP()
+                << "Test not applicable as device does not support SECOND-IMEI ID attestation.";
+    }
+
+    ASSERT_EQ(result, ErrorCode::OK);
+
+    device_id_attestation_vsr_check(result);
+
+    CheckedDeleteKey(&attested_key_blob);
+
+    AuthorizationSet hw_enforced = HwEnforcedAuthorizations(attested_key_characteristics);
+    AuthorizationSet sw_enforced = SwEnforcedAuthorizations(attested_key_characteristics);
+
+    // The attested key characteristics will not contain APPLICATION_ID_* fields (their
+    // spec definitions all have "Must never appear in KeyCharacteristics"), but the
+    // attestation extension should contain them, so make sure the extra tag is added.
+    vector<uint8_t> imei_blob(second_imei.data(), second_imei.data() + second_imei.size());
+    KeyParameter imei_tag = Authorization(TAG_ATTESTATION_ID_SECOND_IMEI, imei_blob);
+    hw_enforced.push_back(imei_tag);
+
+    EXPECT_TRUE(verify_attestation_record(AidlVersion(), "challenge", "foo", sw_enforced,
+                                          hw_enforced, SecLevel(),
+                                          attested_key_cert_chain[0].encodedCertificate));
+
+    CheckedDeleteKey(&attest_key.keyBlob);
+}
+
+TEST_P(AttestKeyTest, MultipleIMEIAttestationIDSuccess) {
+    if (is_gsi_image()) {
+        // GSI sets up a standard set of device identifiers that may not match
+        // the device identifiers held by the device.
+        GTEST_SKIP() << "Test not applicable under GSI";
+    }
+
+    // Skip the test if there is no first IMEI exists.
+    string imei = get_imei(0);
+    if (imei.empty()) {
+        GTEST_SKIP() << "Test not applicable as there is no first IMEI";
+    }
+
+    // Skip the test if there is no second IMEI exists.
+    string second_imei = get_imei(1);
+    if (second_imei.empty()) {
+        GTEST_SKIP() << "Test not applicable as there is no second IMEI";
+    }
+
+    if (!isSecondImeiIdAttestationRequired()) {
+        GTEST_SKIP() << "Test not applicable for KeyMint-Version < 3 or first-api-level < 34";
+    }
+
+    // Create attestation key.
+    AttestationKey attest_key;
+    vector<KeyCharacteristics> attest_key_characteristics;
+    vector<Certificate> attest_key_cert_chain;
+    ASSERT_EQ(ErrorCode::OK,
+              GenerateAttestKey(AuthorizationSetBuilder()
+                                        .EcdsaKey(EcCurve::P_256)
+                                        .AttestKey()
+                                        .SetDefaultValidity(),
+                                {} /* attestation signing key */, &attest_key.keyBlob,
+                                &attest_key_characteristics, &attest_key_cert_chain));
+    attest_key.issuerSubjectName = make_name_from_str("Android Keystore Key");
+    EXPECT_EQ(attest_key_cert_chain.size(), 1);
+    EXPECT_TRUE(IsSelfSigned(attest_key_cert_chain));
+
+    // Use attestation key to sign an ECDSA key, but include both IMEI attestation ID fields.
+    AuthorizationSetBuilder builder = AuthorizationSetBuilder()
+                                              .EcdsaSigningKey(EcCurve::P_256)
+                                              .Authorization(TAG_NO_AUTH_REQUIRED)
+                                              .AttestationChallenge("challenge")
+                                              .AttestationApplicationId("foo")
+                                              .SetDefaultValidity();
+    builder.Authorization(TAG_ATTESTATION_ID_IMEI, imei.data(), imei.size());
+    builder.Authorization(TAG_ATTESTATION_ID_SECOND_IMEI, second_imei.data(), second_imei.size());
+
+    vector<uint8_t> attested_key_blob;
+    vector<KeyCharacteristics> attested_key_characteristics;
+    vector<Certificate> attested_key_cert_chain;
+    auto result = GenerateKey(builder, attest_key, &attested_key_blob,
+                              &attested_key_characteristics, &attested_key_cert_chain);
+
+    if (result == ErrorCode::CANNOT_ATTEST_IDS && !isDeviceIdAttestationRequired()) {
+        GTEST_SKIP() << "Test not applicable as device does not support IMEI ID attestation.";
+    }
+
+    ASSERT_EQ(result, ErrorCode::OK);
+
+    device_id_attestation_vsr_check(result);
+
+    CheckedDeleteKey(&attested_key_blob);
+
+    AuthorizationSet hw_enforced = HwEnforcedAuthorizations(attested_key_characteristics);
+    AuthorizationSet sw_enforced = SwEnforcedAuthorizations(attested_key_characteristics);
+
+    // The attested key characteristics will not contain APPLICATION_ID_* fields (their
+    // spec definitions all have "Must never appear in KeyCharacteristics"), but the
+    // attestation extension should contain them, so make sure the extra tag is added.
+    vector<uint8_t> imei_blob(imei.data(), imei.data() + imei.size());
+    KeyParameter imei_tag = Authorization(TAG_ATTESTATION_ID_IMEI, imei_blob);
+    hw_enforced.push_back(imei_tag);
+    vector<uint8_t> sec_imei_blob(second_imei.data(), second_imei.data() + second_imei.size());
+    KeyParameter sec_imei_tag = Authorization(TAG_ATTESTATION_ID_SECOND_IMEI, sec_imei_blob);
+    hw_enforced.push_back(sec_imei_tag);
+
+    EXPECT_TRUE(verify_attestation_record(AidlVersion(), "challenge", "foo", sw_enforced,
+                                          hw_enforced, SecLevel(),
+                                          attested_key_cert_chain[0].encodedCertificate));
+
     CheckedDeleteKey(&attest_key.keyBlob);
 }
 

@@ -21,11 +21,15 @@ import static androidx.test.InstrumentationRegistry.getContext;
 import static org.junit.Assert.fail;
 
 import android.media.ExifInterface;
+import android.net.Uri;
+import android.os.FileUtils;
+import android.provider.MediaStore;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RawRes;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
@@ -56,10 +60,24 @@ public class RedactionTestHelper {
      * Retrieve the EXIF metadata from the given file.
      */
     @NonNull
-    public static HashMap<String, String> getExifMetadata(@NonNull File file) throws IOException {
+    public static HashMap<String, String> getExifMetadataFromFile(@NonNull File file)
+            throws IOException {
         final ExifInterface exif = new ExifInterface(file);
         return dumpExifGpsTagsToMap(exif);
     }
+
+    /**
+     * Retrieve the EXIF metadata from the given uri.
+     */
+    @NonNull
+    private static HashMap<String, String> getExifMetadataFromUri(@NonNull Uri uri)
+            throws IOException {
+        try (InputStream is = getContext().getContentResolver().openInputStream(uri)) {
+            final ExifInterface exif = new ExifInterface(is);
+            return dumpExifGpsTagsToMap(exif);
+        }
+    }
+
 
     /**
      * Retrieve the EXIF metadata from the given resource.
@@ -115,5 +133,27 @@ public class RedactionTestHelper {
             res.put(tag, exif.getAttribute(tag));
         }
         return res;
+    }
+
+    public static void assertConsistentNonRedactedAccess(File file, int metadataResId)
+            throws Exception {
+        // Write some meta-data to the file to assert on redacted information access
+        try (InputStream in =
+                     getContext().getResources().openRawResource(metadataResId);
+             FileOutputStream out = new FileOutputStream(file)) {
+            FileUtils.copy(in, out);
+            out.getFD().sync();
+        }
+
+        HashMap<String, String> originalExif = getExifMetadataFromRawResource(metadataResId);
+
+        // Using File API
+        HashMap<String, String> exifFromFilePath = getExifMetadataFromFile(file);
+        assertExifMetadataMatch(exifFromFilePath, originalExif);
+
+        Uri uri = MediaStore.scanFile(getContext().getContentResolver(), file);
+        // Using ContentResolver API
+        HashMap<String, String> exifFromContentResolver = getExifMetadataFromUri(uri);
+        assertExifMetadataMatch(exifFromContentResolver, originalExif);
     }
 }

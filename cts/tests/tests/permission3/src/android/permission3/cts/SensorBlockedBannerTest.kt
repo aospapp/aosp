@@ -16,18 +16,18 @@
 
 package android.permission3.cts
 
+import android.Manifest.permission_group.CAMERA as CAMERA_PERMISSION_GROUP
+import android.Manifest.permission_group.LOCATION as LOCATION_PERMISSION_GROUP
+import android.Manifest.permission_group.MICROPHONE as MICROPHONE_PERMISSION_GROUP
 import android.content.Intent
 import android.hardware.SensorPrivacyManager
 import android.hardware.SensorPrivacyManager.Sensors.CAMERA
 import android.hardware.SensorPrivacyManager.Sensors.MICROPHONE
 import android.location.LocationManager
-import android.Manifest.permission_group.CAMERA as CAMERA_PERMISSION_GROUP
-import android.Manifest.permission_group.LOCATION as LOCATION_PERMISSION_GROUP
-import android.Manifest.permission_group.MICROPHONE as MICROPHONE_PERMISSION_GROUP
 import android.os.Build
 import android.provider.DeviceConfig
-import android.support.test.uiautomator.By
 import androidx.test.filters.SdkSuppress
+import androidx.test.uiautomator.By
 import com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity
 import com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity
 import java.util.regex.Pattern
@@ -65,6 +65,7 @@ class SensorBlockedBannerTest : BaseUsePermissionTest() {
     @Before
     fun setup() {
         Assume.assumeFalse(isTv)
+        Assume.assumeFalse(isWatch)
         // TODO(b/203784852) Auto will eventually support the blocked sensor banner, but there won't
         // be support in T or below
         Assume.assumeFalse(isAutomotive)

@@ -25,10 +25,10 @@ import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.Spatializer;
-import android.media.cts.NonMediaMainlineTest;
 import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Assert;
 
@@ -38,7 +38,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class SpatializerTest extends CtsAndroidTestCase {
 
     private AudioManager mAudioManager;
@@ -385,31 +385,44 @@ public class SpatializerTest extends CtsAndroidTestCase {
         }
     }
 
-    public void testVirtualizerEnabled() throws Exception {
+    public void testSpatializerDisabling() throws Exception {
         Spatializer spat = mAudioManager.getSpatializer();
         if (spat.getImmersiveAudioLevel() == Spatializer.SPATIALIZER_IMMERSIVE_LEVEL_NONE) {
-            Log.i(TAG, "skipping testVirtualizerEnabled, no Spatializer");
+            Log.i(TAG, "skipping testSpatializerDisabling, no Spatializer");
             return;
         }
         if (!spat.isAvailable()) {
-            Log.i(TAG, "skipping testVirtualizerEnabled, Spatializer not available");
+            Log.i(TAG, "skipping testSpatializerDisabling, Spatializer not available");
             return;
         }
-        boolean spatEnabled = spat.isEnabled();
+        if (!spat.isEnabled()) {
+            // this test can only test disabling the feature, and thus requires
+            // to start with an "enabled" state, as a "disabled" state can reflect
+            // a number of internal states that can't always be reset (e.g. an uninitialized
+            // effect or a disabled feature)
+            Log.i(TAG, "skipping testSpatializerDisabling, Spatializer not enabled");
+            return;
+        }
         final MySpatStateListener stateListener = new MySpatStateListener();
 
         spat.addOnSpatializerStateChangedListener(Executors.newSingleThreadExecutor(),
                 stateListener);
         getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity("android.permission.MODIFY_DEFAULT_AUDIO_EFFECTS");
-        spat.setEnabled(!spatEnabled);
-        getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
-        assertEquals("VirtualizerStage enabled state differ",
-                !spatEnabled, spat.isEnabled());
-        Boolean enabled = stateListener.getEnabled();
-        assertNotNull("VirtualizerStage state listener wasn't called", enabled);
-        assertEquals("VirtualizerStage state listener didn't get expected value",
-                !spatEnabled, enabled.booleanValue());
+        try {
+            spat.setEnabled(false);
+            assertEquals("Spatializer not reported as disabled", false, spat.isEnabled());
+            Boolean enabled = stateListener.getEnabled();
+            assertNotNull("Spatializer state listener wasn't called", enabled);
+            assertEquals("Spatializer state listener didn't get expected value",
+                    false, enabled.booleanValue());
+        } finally {
+            // restore state
+            spat.setEnabled(true);
+            getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
+            spat.removeOnSpatializerStateChangedListener(stateListener);
+            assertEquals("Spatializer state cannot be restored", true, spat.isEnabled());
+        }
     }
 
     public void testHeadTrackerAvailable() throws Exception {

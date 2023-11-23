@@ -24,25 +24,6 @@ public class ToggleableTestTileService extends TestTileService {
     public static final String PKG = "android.app.stubs";
     public static final int ICON_ID = R.drawable.robot;
 
-    private static TestTileService sTestTileService = null;
-
-    public static boolean isConnected() {
-        return getInstance() != null && getInstance().isConnected.get();
-    }
-
-    public static boolean isListening() {
-        return getInstance().isListening.get();
-    }
-
-    public static TestTileService getInstance() {
-        return ToggleableTestTileService.sTestTileService;
-    }
-
-    @Override
-    public void setInstance(TestTileService tile) {
-        sTestTileService = tile;
-    }
-
     public static String getId() {
         return String.format("%s/%s", ToggleableTestTileService.class.getPackage().getName(),
                 ToggleableTestTileService.class.getName());
@@ -54,8 +35,8 @@ public class ToggleableTestTileService extends TestTileService {
     }
 
     public void toggleState() {
-        if (isListening()) {
-            Tile tile = getInstance().getQsTile();
+        if (CurrentTestState.isListening()) {
+            Tile tile = getQsTile();
             switch(tile.getState()) {
                 case Tile.STATE_ACTIVE:
                     tile.setState(Tile.STATE_INACTIVE);

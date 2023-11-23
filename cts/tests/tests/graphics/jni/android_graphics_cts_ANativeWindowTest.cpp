@@ -21,7 +21,13 @@
 
 #include <android/native_window.h>
 #include <android/native_window_jni.h>
+#include <android/native_window_aidl.h>
+#include <android/binder_parcel.h>
+#include <android/binder_parcel_jni.h>
+#include <android/binder_auto_utils.h>
 #include <jni.h>
+
+#include "NativeTestHelpers.h"
 
 namespace {
 
@@ -58,6 +64,14 @@ jint getBuffersDataSpace(JNIEnv* env, jclass, jobject jSurface) {
     return ANativeWindow_getBuffersDataSpace(window);
 }
 
+jint getBuffersDefaultDataspace(JNIEnv* env, jclass, jobject jSurface) {
+    ANativeWindow* window = nullptr;
+    if (jSurface) {
+        window = ANativeWindow_fromSurface(env, jSurface);
+    }
+    return ANativeWindow_getBuffersDefaultDataSpace(window);
+}
+
 void tryAllocateBuffers(JNIEnv* env, jclass, jobject jSurface) {
     ANativeWindow* window = nullptr;
     if (jSurface) {
@@ -71,15 +85,39 @@ void tryAllocateBuffers(JNIEnv* env, jclass, jobject jSurface) {
     }
 }
 
-const std::array<JNINativeMethod, 4> JNI_METHODS = {{
+jobject readFromParcel(JNIEnv* env, jclass, jobject jParcel) {
+    ndk::ScopedAParcel parcel(AParcel_fromJavaParcel(env, jParcel));
+    ANativeWindow* window = nullptr;
+    auto result = ANativeWindow_readFromParcel(parcel.get(), &window);
+    jobject jSurface = nullptr;
+    if (result == STATUS_OK) {
+        jSurface = ANativeWindow_toSurface(env, window);
+        ANativeWindow_release(window);
+    }
+    return jSurface;
+}
+
+void writeToParcel(JNIEnv* env, jclass, jobject jSurface, jobject jParcel) {
+    ANativeWindow* window = ANativeWindow_fromSurface(env, jSurface);
+    ndk::ScopedAParcel parcel(AParcel_fromJavaParcel(env, jParcel));
+    auto result = ANativeWindow_writeToParcel(window, parcel.get());
+    ANativeWindow_release(window);
+    ASSERT_EQ(STATUS_OK, result);
+}
+
+const std::array<JNINativeMethod, 7> JNI_METHODS = {{
     {"nPushBufferWithTransform", "(Landroid/view/Surface;I)V",
      (void*)pushBufferWithTransform},
     {"nSetBuffersDataSpace", "(Landroid/view/Surface;I)I",
      (void*)setBuffersDataSpace},
     {"nGetBuffersDataSpace", "(Landroid/view/Surface;)I",
      (void*)getBuffersDataSpace},
+    {"nGetBuffersDefaultDataSpace", "(Landroid/view/Surface;)I",
+     (void*)getBuffersDefaultDataspace},
     {"nTryAllocateBuffers", "(Landroid/view/Surface;)V",
      (void*)tryAllocateBuffers},
+    {"nReadFromParcel", "(Landroid/os/Parcel;)Landroid/view/Surface;", (void*)readFromParcel},
+    {"nWriteToParcel", "(Landroid/view/Surface;Landroid/os/Parcel;)V", (void*)writeToParcel},
 }};
 }
 

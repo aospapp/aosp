@@ -127,7 +127,8 @@
         android:id="@+id/wrapped_stretch"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content">
-        <ScrollView
+        <view
+            class="android.widget.cts.ScrollViewTest$MyScrollView"
             android:id="@+id/scroll_view_stretch"
             android:layout_width="90px"
             android:layout_height="90px"
@@ -160,8 +161,15 @@
                     android:background="#F0F"
                     android:layout_width="90px"
                     android:layout_height="50px"/>
+
+                <SurfaceView
+                    android:id="@+id/surfaceview_stretch_target"
+                    android:visibility="gone"
+                    android:layout_weight="1"
+                    android:layout_width="90px"
+                    android:layout_height="45px"/>
             </LinearLayout>
-        </ScrollView>
+        </view>
     </view>
 </LinearLayout>
 

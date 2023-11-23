@@ -19,10 +19,9 @@
 
 #include <string>
 
-#include <hidl-util/FqInstance.h>
-
-#include "HalFormat.h"
-#include "VersionRange.h"
+#include <vintf/FqInstance.h>
+#include <vintf/HalFormat.h>
+#include <vintf/VersionRange.h>
 
 namespace android {
 namespace vintf {
@@ -43,7 +42,7 @@ class MatrixInstance {
                    bool optional, bool isRegex);
     const std::string& package() const;
     const VersionRange& versionRange() const;
-    const std::string& interface() const;
+    std::string interface() const;
     bool optional() const;
     HalFormat format() const;
 

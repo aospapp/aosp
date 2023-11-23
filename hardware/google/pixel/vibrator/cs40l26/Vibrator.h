@@ -16,17 +16,27 @@
 #pragma once
 
 #include <aidl/android/hardware/vibrator/BnVibrator.h>
+#include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
+#include <linux/input.h>
 #include <tinyalsa/asoundlib.h>
 
 #include <array>
+#include <chrono>
+#include <ctime>
 #include <fstream>
 #include <future>
+
+#include "CapoDetector.h"
+
+using CapoDetector = android::chre::CapoDetector;
 
 namespace aidl {
 namespace android {
 namespace hardware {
 namespace vibrator {
+
+using ::android::base::StringPrintf;
 
 class Vibrator : public BnVibrator {
   public:
@@ -60,6 +70,42 @@ class Vibrator : public BnVibrator {
         virtual bool setRedcCompEnable(bool value) = 0;
         // Stores the minumun delay time between playback and stop effects.
         virtual bool setMinOnOffInterval(uint32_t value) = 0;
+        // Determine the /dev and /sys paths for input force-feedback control.
+        virtual bool initFF() = 0;
+        // Gets the scaling factor for contextual haptic events.
+        virtual uint32_t getContextScale() = 0;
+        // Gets the enable status for contextual haptic events.
+        virtual bool getContextEnable() = 0;
+        // Gets the settling time for contextual haptic events.
+        // This will allow the device to stay face up for the duration given,
+        // even if InMotion events were detected.
+        virtual uint32_t getContextSettlingTime() = 0;
+        // Gets the cooldown time for contextual haptic events.
+        // This is used to avoid changing the scale of close playback events.
+        virtual uint32_t getContextCooldownTime() = 0;
+        // Checks the enable status for contextual haptics fade feature.  When enabled
+        // this feature will cause the scaling factor to fade back up to max over
+        // the setting time set, instead of instantaneously changing it back to max.
+        virtual bool getContextFadeEnable() = 0;
+        // Indicates the number of 0.125-dB steps of attenuation to apply to
+        // waveforms triggered in response to vibration calls from the
+        // Android vibrator HAL.
+        virtual bool setFFGain(uint16_t value) = 0;
+        // Create/modify custom effects for all physical waveforms.
+        virtual bool setFFEffect(struct ff_effect *effect, uint16_t timeoutMs) = 0;
+        // Activates/deactivates the effect index after setFFGain() and setFFEffect().
+        virtual bool setFFPlay(int8_t index, bool value) = 0;
+        // Get the Alsa device for the audio coupled haptics effect
+        virtual bool getHapticAlsaDevice(int *card, int *device) = 0;
+        // Set haptics PCM amplifier before triggering audio haptics feature
+        virtual bool setHapticPcmAmp(struct pcm **haptic_pcm, bool enable, int card,
+                                     int device) = 0;
+        // Set OWT waveform for compose or compose PWLE request
+        virtual bool uploadOwtEffect(const uint8_t *owtData, const uint32_t numBytes,
+                                     struct ff_effect *effect, uint32_t *outEffectIndex,
+                                     int *status) = 0;
+        // Erase OWT waveform
+        virtual bool eraseOwtEffect(int8_t effectIndex, std::vector<ff_effect> *effect) = 0;
         // Emit diagnostic information to the given file.
         virtual void debug(int fd) = 0;
     };
@@ -81,6 +127,10 @@ class Vibrator : public BnVibrator {
         virtual bool getQ(std::string *value) = 0;
         // Obtains frequency shift for long vibrations.
         virtual bool getLongFrequencyShift(int32_t *value) = 0;
+        // Obtains device mass for calculating the bandwidth amplitude map
+        virtual bool getDeviceMass(float *value) = 0;
+        // Obtains loc coeff for calculating the bandwidth amplitude map
+        virtual bool getLocCoeff(float *value) = 0;
         // Obtains the v0/v1(min/max) voltage levels to be applied for
         // tick/click/long in units of 1%.
         virtual bool getTickVolLevels(std::array<uint32_t, 2> *value) = 0;
@@ -90,12 +140,35 @@ class Vibrator : public BnVibrator {
         virtual bool isChirpEnabled() = 0;
         // Obtains the supported primitive effects.
         virtual bool getSupportedPrimitives(uint32_t *value) = 0;
+        // Checks if the f0 compensation feature needs to be enabled.
+        virtual bool isF0CompEnabled() = 0;
+        // Checks if the redc compensation feature needs to be enabled.
+        virtual bool isRedcCompEnabled() = 0;
+        // Emit diagnostic information to the given file.
+        virtual void debug(int fd) = 0;
+    };
+
+    // APIs for logging data to statistics backend
+    class StatsApi {
+      public:
+        virtual ~StatsApi() = default;
+        // Increment count for effect
+        virtual bool logPrimitive(uint16_t effectIndex) = 0;
+        // Increment count for long/short waveform and duration bucket
+        virtual bool logWaveform(uint16_t effectIndex, int32_t duration) = 0;
+        // Increment count for error
+        virtual bool logError(uint16_t errorIndex) = 0;
+        // Start new latency measurement
+        virtual bool logLatencyStart(uint16_t latencyIndex) = 0;
+        // Finish latency measurement and update latency statistics with result
+        virtual bool logLatencyEnd() = 0;
         // Emit diagnostic information to the given file.
         virtual void debug(int fd) = 0;
     };
 
   public:
-    Vibrator(std::unique_ptr<HwApi> hwapi, std::unique_ptr<HwCal> hwcal);
+    Vibrator(std::unique_ptr<HwApi> hwapi, std::unique_ptr<HwCal> hwcal,
+             std::unique_ptr<StatsApi> statsapi);
 
     ndk::ScopedAStatus getCapabilities(int32_t *_aidl_return) override;
     ndk::ScopedAStatus off() override;
@@ -131,10 +204,10 @@ class Vibrator : public BnVibrator {
     binder_status_t dump(int fd, const char **args, uint32_t numArgs) override;
 
   private:
-    ndk::ScopedAStatus on(uint32_t timeoutMs, uint32_t effectIndex,
+    ndk::ScopedAStatus on(uint32_t timeoutMs, uint32_t effectIndex, const class DspMemChunk *ch,
                           const std::shared_ptr<IVibratorCallback> &callback);
     // set 'amplitude' based on an arbitrary scale determined by 'maximum'
-    ndk::ScopedAStatus setEffectAmplitude(float amplitude, float maximum);
+    ndk::ScopedAStatus setEffectAmplitude(float amplitude, float maximum, bool scalable);
     ndk::ScopedAStatus setGlobalAmplitude(bool set);
     // 'simple' effects are those precompiled and loaded into the controller
     ndk::ScopedAStatus getSimpleDetails(Effect effect, EffectStrength strength,
@@ -142,15 +215,13 @@ class Vibrator : public BnVibrator {
                                         uint32_t *outVolLevel);
     // 'compound' effects are those composed by stringing multiple 'simple' effects
     ndk::ScopedAStatus getCompoundDetails(Effect effect, EffectStrength strength,
-                                          uint32_t *outTimeMs, struct dspmem_chunk *outCh);
+                                          uint32_t *outTimeMs, class DspMemChunk *outCh);
     ndk::ScopedAStatus getPrimitiveDetails(CompositePrimitive primitive, uint32_t *outEffectIndex);
-    ndk::ScopedAStatus uploadOwtEffect(uint8_t *owtData, uint32_t num_bytes,
-                                       uint32_t *outEffectIndex);
     ndk::ScopedAStatus performEffect(Effect effect, EffectStrength strength,
                                      const std::shared_ptr<IVibratorCallback> &callback,
                                      int32_t *outTimeMs);
     ndk::ScopedAStatus performEffect(uint32_t effectIndex, uint32_t volLevel,
-                                     struct dspmem_chunk *ch,
+                                     const class DspMemChunk *ch,
                                      const std::shared_ptr<IVibratorCallback> &callback);
     ndk::ScopedAStatus setPwle(const std::string &pwleQueue);
     bool isUnderExternalControl();
@@ -159,26 +230,45 @@ class Vibrator : public BnVibrator {
     bool findHapticAlsaDevice(int *card, int *device);
     bool hasHapticAlsaDevice();
     bool enableHapticPcmAmp(struct pcm **haptic_pcm, bool enable, int card, int device);
+    void createPwleMaxLevelLimitMap();
+    void createBandwidthAmplitudeMap();
+    uint16_t amplitudeToScale(float amplitude, float maximum, bool scalable);
+    void updateContext();
 
     std::unique_ptr<HwApi> mHwApi;
     std::unique_ptr<HwCal> mHwCal;
+    std::unique_ptr<StatsApi> mStatsApi;
     uint32_t mF0Offset;
     std::array<uint32_t, 2> mTickEffectVol;
     std::array<uint32_t, 2> mClickEffectVol;
     std::array<uint32_t, 2> mLongEffectVol;
+    std::vector<ff_effect> mFfEffects;
     std::vector<uint32_t> mEffectDurations;
+    std::vector<std::vector<int16_t>> mEffectCustomData;
     std::future<void> mAsyncHandle;
-    ::android::base::unique_fd mInputFd;
     int8_t mActiveId{-1};
     struct pcm *mHapticPcm;
     int mCard;
     int mDevice;
-    bool mHasHapticAlsaDevice;
+    bool mHasHapticAlsaDevice{false};
     bool mIsUnderExternalControl;
     float mLongEffectScale = 1.0;
     bool mIsChirpEnabled;
     uint32_t mSupportedPrimitivesBits = 0x0;
+    float mRedc{0};
+    float mResonantFrequency{0};
     std::vector<CompositePrimitive> mSupportedPrimitives;
+    bool mConfigHapticAlsaDeviceDone{false};
+    std::vector<float> mBandwidthAmplitudeMap{};
+    bool mCreateBandwidthAmplitudeMapDone{false};
+    uint32_t mScaleTime;
+    bool mFadeEnable;
+    uint32_t mScalingFactor;
+    uint32_t mScaleCooldown;
+    bool mContextEnable;
+    uint32_t mLastEffectPlayedTime = 0;
+    float mLastPlayedScale = 0;
+    sp<CapoDetector> mContextListener;
 };
 
 }  // namespace vibrator

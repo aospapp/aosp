@@ -143,6 +143,10 @@ const std::vector<AidlAnnotation::Schema>& AidlAnnotation::AllSchemas() {
        "JavaOnlyStableParcelable",
        CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE,
        {}},
+      {AidlAnnotation::Type::NDK_STABLE_PARCELABLE,
+       "NdkOnlyStableParcelable",
+       CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE,
+       {}},
       {AidlAnnotation::Type::BACKING,
        "Backing",
        CONTEXT_TYPE_ENUM,
@@ -250,7 +254,7 @@ AidlAnnotation::AidlAnnotation(const AidlLocation& location, const Schema& schem
     : AidlNode(location, comments), schema_(schema), parameters_(std::move(parameters)) {}
 
 struct ConstReferenceFinder : AidlVisitor {
-  const AidlConstantReference* found;
+  const AidlConstantReference* found = nullptr;
   void Visit(const AidlConstantReference& ref) override {
     if (!found) found = &ref;
   }
@@ -351,9 +355,9 @@ bool AidlAnnotation::CheckContext(TargetContext context) const {
   const static map<TargetContext, string> context_name_map{
       {CONTEXT_TYPE_INTERFACE, "interface"},
       {CONTEXT_TYPE_ENUM, "enum"},
-      {CONTEXT_TYPE_STRUCTURED_PARCELABLE, "structured parcelable"},
+      {CONTEXT_TYPE_STRUCTURED_PARCELABLE, "parcelable definition"},
       {CONTEXT_TYPE_UNION, "union"},
-      {CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE, "parcelable"},
+      {CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE, "parcelable declaration"},
       {CONTEXT_CONST, "constant"},
       {CONTEXT_FIELD, "field"},
       {CONTEXT_METHOD, "method"},
@@ -365,8 +369,8 @@ bool AidlAnnotation::CheckContext(TargetContext context) const {
       available.push_back(name);
     }
   }
-  AIDL_ERROR(this) << "@" << GetName() << " is not available. It can annotate {"
-                   << Join(available, ", ") << "}.";
+  AIDL_ERROR(this) << "@" << GetName()
+                   << " is not available. It can only annotate: " << Join(available, ", ") << ".";
   return false;
 }
 
@@ -468,8 +472,16 @@ const AidlAnnotation* AidlAnnotatable::UnsupportedAppUsage() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::UNSUPPORTED_APP_USAGE);
 }
 
-const AidlAnnotation* AidlAnnotatable::RustDerive() const {
-  return GetAnnotation(annotations_, AidlAnnotation::Type::RUST_DERIVE);
+std::vector<std::string> AidlAnnotatable::RustDerive() const {
+  std::vector<std::string> ret;
+  if (const auto* ann = GetAnnotation(annotations_, AidlAnnotation::Type::RUST_DERIVE)) {
+    for (const auto& name_and_param : ann->AnnotationParams(AidlConstantValueDecorator)) {
+      if (name_and_param.second == "true") {
+        ret.push_back(name_and_param.first);
+      }
+    }
+  }
+  return ret;
 }
 
 const AidlAnnotation* AidlAnnotatable::BackingType() const {
@@ -508,13 +520,20 @@ bool AidlAnnotatable::IsPermissionNone() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::PERMISSION_NONE);
 }
 
+bool AidlAnnotatable::IsPermissionAnnotated() const {
+  return IsPermissionNone() || IsPermissionManual() || EnforceExpression();
+}
+
 bool AidlAnnotatable::IsPropagateAllowBlocking() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::PROPAGATE_ALLOW_BLOCKING);
 }
 
 bool AidlAnnotatable::IsStableApiParcelable(Options::Language lang) const {
-  return lang == Options::Language::JAVA &&
-         GetAnnotation(annotations_, AidlAnnotation::Type::JAVA_STABLE_PARCELABLE);
+  if (lang == Options::Language::JAVA)
+    return GetAnnotation(annotations_, AidlAnnotation::Type::JAVA_STABLE_PARCELABLE);
+  if (lang == Options::Language::NDK)
+    return GetAnnotation(annotations_, AidlAnnotation::Type::NDK_STABLE_PARCELABLE);
+  return false;
 }
 
 bool AidlAnnotatable::JavaDerive(const std::string& method) const {
@@ -623,13 +642,17 @@ bool AidlTypeSpecifier::MakeArray(ArrayType array_type) {
   return false;
 }
 
+std::vector<int32_t> FixedSizeArray::GetDimensionInts() const {
+  std::vector<int32_t> ints;
+  for (const auto& dim : dimensions) {
+    ints.push_back(dim->EvaluatedValue<int32_t>());
+  }
+  return ints;
+}
+
 std::vector<int32_t> AidlTypeSpecifier::GetFixedSizeArrayDimensions() const {
   AIDL_FATAL_IF(!IsFixedSizeArray(), "not a fixed-size array");
-  std::vector<int32_t> dimensions;
-  for (const auto& dim : std::get<FixedSizeArray>(GetArray()).dimensions) {
-    dimensions.push_back(dim->EvaluatedValue<int32_t>());
-  }
-  return dimensions;
+  return std::get<FixedSizeArray>(GetArray()).GetDimensionInts();
 }
 
 string AidlTypeSpecifier::Signature() const {
@@ -1040,9 +1063,11 @@ bool AidlConstantDeclaration::CheckValid(const AidlTypenames& typenames) const {
   bool valid = true;
   valid &= type_->CheckValid(typenames);
   valid &= value_->CheckValid();
+  valid = valid && !ValueString(AidlConstantValueDecorator).empty();
   if (!valid) return false;
 
-  const static set<string> kSupportedConstTypes = {"String", "byte", "int", "long"};
+  const static set<string> kSupportedConstTypes = {"String", "byte",  "int",
+                                                   "long",   "float", "double"};
   if (kSupportedConstTypes.find(type_->Signature()) == kSupportedConstTypes.end()) {
     AIDL_ERROR(this) << "Constant of type " << type_->Signature() << " is not supported.";
     return false;
@@ -1284,6 +1309,26 @@ bool AidlDefinedType::CheckValidWithMembers(const AidlTypenames& typenames) cons
     }
   }
 
+  // Rust derive fields must be transitive
+  const std::vector<std::string> rust_derives = RustDerive();
+  for (const auto& v : GetFields()) {
+    const AidlDefinedType* field = typenames.TryGetDefinedType(v->GetType().GetName());
+    if (!field) continue;
+
+    // could get this from CONTEXT_*, but we don't currently save this info when we validated
+    // contexts
+    if (!field->AsStructuredParcelable() && !field->AsUnionDeclaration()) continue;
+
+    auto subs = field->RustDerive();
+    for (const std::string& derive : rust_derives) {
+      if (std::find(subs.begin(), subs.end(), derive) == subs.end()) {
+        AIDL_ERROR(v) << "Field " << v->GetName() << " of type with @RustDerive " << derive
+                      << " also needs to derive this";
+        success = false;
+      }
+    }
+  }
+
   set<string> constant_names;
   for (const auto& constant : GetConstantDeclarations()) {
     if (constant_names.count(constant->GetName()) > 0) {
@@ -1386,14 +1431,18 @@ const AidlDocument& AidlDefinedType::GetDocument() const {
 
 AidlParcelable::AidlParcelable(const AidlLocation& location, const std::string& name,
                                const std::string& package, const Comments& comments,
-                               const std::string& cpp_header, std::vector<std::string>* type_params,
+                               const AidlUnstructuredHeaders& headers,
+                               std::vector<std::string>* type_params,
                                std::vector<std::unique_ptr<AidlMember>>* members)
     : AidlDefinedType(location, name, comments, package, members),
       AidlParameterizable<std::string>(type_params),
-      cpp_header_(cpp_header) {
-  // Strip off quotation marks if we actually have a cpp header.
-  if (cpp_header_.length() >= 2) {
-    cpp_header_ = cpp_header_.substr(1, cpp_header_.length() - 2);
+      headers_(headers) {
+  // Strip off quotation marks if we actually have headers.
+  if (headers_.cpp.length() >= 2) {
+    headers_.cpp = headers_.cpp.substr(1, headers_.cpp.length() - 2);
+  }
+  if (headers_.ndk.length() >= 2) {
+    headers_.ndk = headers_.ndk.substr(1, headers_.ndk.length() - 2);
   }
 }
 
@@ -1441,7 +1490,7 @@ AidlStructuredParcelable::AidlStructuredParcelable(
     const AidlLocation& location, const std::string& name, const std::string& package,
     const Comments& comments, std::vector<std::string>* type_params,
     std::vector<std::unique_ptr<AidlMember>>* members)
-    : AidlParcelable(location, name, package, comments, "" /*cpp_header*/, type_params, members) {}
+    : AidlParcelable(location, name, package, comments, {} /*headers*/, type_params, members) {}
 
 bool AidlStructuredParcelable::CheckValid(const AidlTypenames& typenames) const {
   if (!AidlParcelable::CheckValid(typenames)) {
@@ -1600,7 +1649,7 @@ AidlUnionDecl::AidlUnionDecl(const AidlLocation& location, const std::string& na
                              const std::string& package, const Comments& comments,
                              std::vector<std::string>* type_params,
                              std::vector<std::unique_ptr<AidlMember>>* members)
-    : AidlParcelable(location, name, package, comments, "" /*cpp_header*/, type_params, members) {}
+    : AidlParcelable(location, name, package, comments, {} /*headers*/, type_params, members) {}
 
 bool AidlUnionDecl::CheckValid(const AidlTypenames& typenames) const {
   // visit parents
@@ -1698,42 +1747,30 @@ bool AidlInterface::CheckValid(const AidlTypenames& typenames) const {
     }
   }
 
-  bool success = true;
-  set<string> constant_names;
-  for (const auto& constant : GetConstantDeclarations()) {
-    if (constant_names.count(constant->GetName()) > 0) {
-      AIDL_ERROR(constant) << "Found duplicate constant name '" << constant->GetName() << "'";
-      success = false;
-    }
-    constant_names.insert(constant->GetName());
-    success = success && constant->CheckValid(typenames);
-  }
-  return success;
+  return true;
 }
 
 bool AidlInterface::CheckValidPermissionAnnotations(const AidlMethod& m) const {
-  if (IsPermissionNone() || IsPermissionManual()) {
-    if (m.GetType().IsPermissionNone() || m.GetType().IsPermissionManual() ||
-        m.GetType().EnforceExpression()) {
-      std::string interface_annotation = IsPermissionNone()
-                                             ? "requiring no permission"
-                                             : "manually implementing permission checks";
-      AIDL_ERROR(m) << "The interface " << GetName() << " is annotated as " << interface_annotation
-                    << " but the method " << m.GetName() << " is also annotated.\n"
-                    << "Consider distributing the annotation to each method.";
-      return false;
-    }
-  } else if (EnforceExpression()) {
-    if (m.GetType().IsPermissionNone() || m.GetType().IsPermissionManual()) {
-      AIDL_ERROR(m) << "The interface " << GetName()
-                    << " enforces permissions using annotations"
-                       " but the method "
-                    << m.GetName() << " is also annotated.\n"
-                    << "Consider distributing the annotation to each method.";
-      return false;
-    }
+  if (IsPermissionAnnotated() && m.GetType().IsPermissionAnnotated()) {
+    AIDL_ERROR(m) << "The interface " << GetName()
+                  << " uses a permission annotation but the method " << m.GetName()
+                  << " is also annotated.\n"
+                  << "Consider distributing the annotation to each method.";
+    return false;
   }
   return true;
+}
+
+bool AidlInterface::UsesPermissions() const {
+  if (EnforceExpression()) {
+    return true;
+  }
+  for (auto& m : GetMethods()) {
+    if (m->GetType().EnforceExpression()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 std::string AidlInterface::GetDescriptor() const {

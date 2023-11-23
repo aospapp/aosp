@@ -31,7 +31,7 @@ import android.provider.ContactsContract;
 import android.provider.MediaStore;
 
 /**
- * Tests related to created and reading JobInfo objects.
+ * Tests related to creating and reading JobInfo objects.
  */
 public class JobInfoTest extends BaseJobSchedulerTest {
     private static final int JOB_ID = JobInfoTest.class.hashCode();
@@ -136,12 +136,42 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                         .setEstimatedNetworkBytes(500, 1000));
 
+        try {
+            assertBuildFails(
+                    "Successfully built a JobInfo specifying a negative download bytes value",
+                    new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                            .setEstimatedNetworkBytes(-500, JobInfo.NETWORK_BYTES_UNKNOWN));
+        } catch (IllegalArgumentException expected) {
+            // Success. setMinimumNetworkChunkBytes() should throw the exception.
+        }
+
+        try {
+            assertBuildFails(
+                    "Successfully built a JobInfo specifying a negative upload bytes value",
+                    new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                            .setEstimatedNetworkBytes(JobInfo.NETWORK_BYTES_UNKNOWN, -500));
+        } catch (IllegalArgumentException expected) {
+            // Success. setMinimumNetworkChunkBytes() should throw the exception.
+        }
+
         JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                 .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
                 .setEstimatedNetworkBytes(500, 1000)
                 .build();
         assertEquals(500, ji.getEstimatedNetworkDownloadBytes());
         assertEquals(1000, ji.getEstimatedNetworkUploadBytes());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setEstimatedNetworkBytes(
+                        JobInfo.NETWORK_BYTES_UNKNOWN, JobInfo.NETWORK_BYTES_UNKNOWN)
+                .build();
+        assertEquals(JobInfo.NETWORK_BYTES_UNKNOWN, ji.getEstimatedNetworkDownloadBytes());
+        assertEquals(JobInfo.NETWORK_BYTES_UNKNOWN, ji.getEstimatedNetworkUploadBytes());
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
     }
@@ -225,6 +255,10 @@ public class JobInfoTest extends BaseJobSchedulerTest {
                 new JobInfo.Builder(JOB_ID, kJobServiceComponent)
                         .setExpedited(true)
                         .setRequiresCharging(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setExpedited(true)
+                        .setUserInitiated(true));
         final JobInfo.TriggerContentUri tcu = new JobInfo.TriggerContentUri(
                 Uri.parse("content://" + MediaStore.AUTHORITY + "/"),
                 JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS);
@@ -649,6 +683,108 @@ public class JobInfoTest extends BaseJobSchedulerTest {
         assertEquals(tcu2, ji.getTriggerContentUris()[1]);
         // Confirm JobScheduler accepts the JobInfo object.
         mJobScheduler.schedule(ji);
+    }
+
+    public void testUserInitiatedJob() {
+        // Test all allowed constraints.
+        JobInfo ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setUserInitiated(true)
+                .setBackoffCriteria(0, JobInfo.BACKOFF_POLICY_EXPONENTIAL)
+                .setPriority(JobInfo.PRIORITY_MAX)
+                .setPersisted(true)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setRequiresStorageNotLow(true)
+                .setRequiresBatteryNotLow(true)
+                .setRequiresCharging(true)
+                .build();
+        assertTrue(ji.isUserInitiated());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        // Confirm default priority for UIJs.
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setUserInitiated(true)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .build();
+        assertEquals(JobInfo.PRIORITY_MAX, ji.getPriority());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        // Confirm linear backoff allowed
+        ji = new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                .setUserInitiated(true)
+                .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                .setBackoffCriteria(0, JobInfo.BACKOFF_POLICY_LINEAR)
+                .build();
+        assertTrue(ji.isUserInitiated());
+        // Confirm JobScheduler accepts the JobInfo object.
+        mJobScheduler.schedule(ji);
+
+        // Test disallowed constraints.
+        final String failureMessage =
+                "Successfully built a user-initiated JobInfo object with disallowed constraints";
+
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setMinimumLatency(100));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setOverrideDeadline(200));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setPeriodic(15 * 60_000));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setPriority(JobInfo.PRIORITY_LOW));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setPriority(JobInfo.PRIORITY_HIGH));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setPriority(JobInfo.PRIORITY_DEFAULT));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setImportantWhileForeground(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setPrefetch(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .setRequiresDeviceIdle(true));
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setExpedited(true)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY));
+        final JobInfo.TriggerContentUri tcu = new JobInfo.TriggerContentUri(
+                Uri.parse("content://" + MediaStore.AUTHORITY + "/"),
+                JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS);
+        assertBuildFails(failureMessage,
+                new JobInfo.Builder(JOB_ID, kJobServiceComponent)
+                        .setUserInitiated(true)
+                        .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+                        .addTriggerContentUri(tcu));
     }
 
     private void assertBuildFails(String message, JobInfo.Builder builder) {

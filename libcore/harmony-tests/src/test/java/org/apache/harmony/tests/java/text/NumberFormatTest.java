@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -39,12 +39,12 @@ public class NumberFormatTest extends junit.framework.TestCase {
                 .getInstance(Locale.US);
 
         pos = new FieldPosition(0);
-        out = format.format(new Long(Long.MAX_VALUE), new StringBuffer(), pos);
+        out = format.format(Long.valueOf(Long.MAX_VALUE), new StringBuffer(), pos);
         assertEquals("Wrong result L1: " + out, "9,223,372,036,854,775,807",
                 out.toString());
 
         pos = new FieldPosition(0);
-        out = format.format(new Long(Long.MIN_VALUE), new StringBuffer(), pos);
+        out = format.format(Long.valueOf(Long.MIN_VALUE), new StringBuffer(), pos);
         assertEquals("Wrong result L2: " + out, "-9,223,372,036,854,775,808",
                 out.toString());
 
@@ -100,14 +100,14 @@ public class NumberFormatTest extends junit.framework.TestCase {
         }
 
         try {
-            format.format(new Long(0), null, pos);
+            format.format(Long.valueOf(0), null, pos);
             fail("Should throw NullPointerException");
         } catch (NullPointerException e) {
             // Expected
         }
 
         try {
-            format.format(new Long(0), new StringBuffer(), null);
+            format.format(Long.valueOf(0), new StringBuffer(), null);
             fail("Should throw NullPointerException");
         } catch (NullPointerException e) {
             // Expected
@@ -133,10 +133,10 @@ public class NumberFormatTest extends junit.framework.TestCase {
                 "36", format.format(35.76));
         assertEquals(
                 "Test3: NumberFormat.getIntegerInstance().parse(\"35.76\") returned wrong number",
-                new Long(35), format.parse("35.76"));
+                Long.valueOf(35), format.parse("35.76"));
         assertEquals(
                 "Test4: NumberFormat.getIntegerInstance().parseObject(\"35.76\") returned wrong number",
-                new Long(35), format.parseObject("35.76"));
+                Long.valueOf(35), format.parseObject("35.76"));
         Locale.setDefault(origLocale);
     }
 
@@ -160,10 +160,10 @@ public class NumberFormatTest extends junit.framework.TestCase {
                 "-36", format.format(-35.76));
         assertEquals(
                 "Test3: NumberFormat.getIntegerInstance().parse(\"-36\") returned wrong number",
-                new Long(-36), format.parse("-36"));
+                Long.valueOf(-36), format.parse("-36"));
         assertEquals(
                 "Test4: NumberFormat.getIntegerInstance().parseObject(\"-36\") returned wrong number",
-                new Long(-36), format.parseObject("-36"));
+                Long.valueOf(-36), format.parseObject("-36"));
         assertEquals(
                 "Test5: NumberFormat.getIntegerInstance().getMaximumFractionDigits() returned wrong value",
                 0, format.getMaximumFractionDigits());
@@ -183,10 +183,10 @@ public class NumberFormatTest extends junit.framework.TestCase {
                 "-\u0666", format.format(-6));
         assertEquals(
                 "Test9: NumberFormat.getIntegerInstance(new Locale(\"ar\", \"AE\")).parse(\"-36-\") returned wrong number",
-                new Long(36), format.parse("36-"));
+                Long.valueOf(36), format.parse("36-"));
         assertEquals(
                 "Test10: NumberFormat.getIntegerInstance(new Locale(\"ar\", \"AE\")).parseObject(\"36-\") returned wrong number",
-                new Long(36), format.parseObject("36-"));
+                Long.valueOf(36), format.parseObject("36-"));
 
         assertEquals(
                 "Test11: NumberFormat.getIntegerInstance(new Locale(\"ar\", \"AE\")).getMaximumFractionDigits() returned wrong value",

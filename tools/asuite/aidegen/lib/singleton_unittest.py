@@ -33,5 +33,6 @@ class AidegenSingletonUnittests(unittest.TestCase):
         singleton_a2 = SingletonClass()
         self.assertTrue(singleton_a1 is singleton_a2)
 
+
 if __name__ == '__main__':
     unittest.main()

@@ -113,11 +113,25 @@
             android:layout_weight="3"
             android:gravity="center" >
 
-            <VideoView
-                android:id="@+id/video_playback"
-                android:layout_height="0dp"
+            <LinearLayout
+                android:orientation="vertical"
                 android:layout_width="fill_parent"
-                android:layout_weight="3" />
+                android:layout_height="0dp"
+                android:layout_weight="3"
+                android:gravity="center" >
+
+                <VideoView
+                    android:id="@+id/video_playback"
+                    android:layout_alignParentLeft="true"
+                    android:layout_alignParentRight="true"
+                    android:layout_centerInParent="true"
+                    android:layout_height="wrap_content"
+                    android:layout_width="match_parent"
+                    android:focusable="false"
+                    android:focusableInTouchMode="false" />
+
+            </LinearLayout>
+
             <TextView
                 android:id="@+id/camera_video_playback_label"
                 android:layout_height="wrap_content"

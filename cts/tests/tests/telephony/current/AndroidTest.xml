@@ -21,15 +21,22 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <option name="not-shardable" value="true" />
+    <target_preparer class="com.android.tradefed.targetprep.DeviceSetup">
+        <!-- Disable package verifier before installing APKs -->
+        <option name="set-global-setting" key="verifier_verify_adb_installs" value="0" />
+        <option name="restore-settings" value="true" />
+        <option name="force-skip-system-props" value="true" />
+    </target_preparer>
     <target_preparer class="android.telephony.cts.preconditions.TelephonyPreparer">
         <option name="apk" value="CtsTelephonyPreparerApp.apk" />
         <option name="package" value="android.telephony.cts.preconditions.preparerApp" />
     </target_preparer>
-  <target_preparer class="android.telephony.cts.preconditions.TelephonyCleaner">
-    <option name="apk" value="CtsTelephonyCleanerApp.apk" />
-    <option name="package" value="android.telephony.cts.preconditions.cleanerApp" />
-  </target_preparer>
+    <target_preparer class="android.telephony.cts.preconditions.TelephonyCleaner">
+      <option name="apk" value="CtsTelephonyCleanerApp.apk" />
+      <option name="package" value="android.telephony.cts.preconditions.cleanerApp" />
+    </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsTelephonyTestCases.apk" />
@@ -55,5 +62,7 @@
         <option name="run-command" value="pm disable com.android.dialer/com.android.voicemail.impl.OmtpService" />
         <option name="teardown-command" value="pm enable com.android.dialer/com.android.voicemail.impl.StatusCheckJobService" />
         <option name="teardown-command" value="pm enable com.android.dialer/com.android.voicemail.impl.OmtpService" />
+        <option name="run-command" value="setprop persist.radio.allow_mock_modem true" />
+        <option name="teardown-command" value="setprop persist.radio.allow_mock_modem false" />
     </target_preparer>
 </configuration>

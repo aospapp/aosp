@@ -18,7 +18,7 @@ package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
 
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
@@ -27,25 +27,24 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0315 extends StsExtraBusinessLogicHostTestBase  {
+public class CVE_2021_0315 extends NonRootSecurityTestCase {
     static final String TEST_PKG = "android.security.cts.CVE_2021_0315";
-    ITestDevice mDevice;
 
     @After
     public void tearDown() throws Exception {
-        AdbUtils.runCommandLine("input keyevent KEYCODE_BACK", mDevice);
+        AdbUtils.runCommandLine("input keyevent KEYCODE_BACK", getDevice());
     }
 
     @AsbSecurityTest(cveBugId = 169763814)
     @Test
     public void testPocCVE_2021_0315() throws Exception {
-        mDevice = getDevice();
-        uninstallPackage(mDevice, TEST_PKG);
+        ITestDevice device = getDevice();
+        uninstallPackage(device, TEST_PKG);
 
         /* Wake up the screen */
-        AdbUtils.runCommandLine("input keyevent KEYCODE_WAKEUP", mDevice);
-        AdbUtils.runCommandLine("input keyevent KEYCODE_MENU", mDevice);
-        AdbUtils.runCommandLine("input keyevent KEYCODE_HOME", mDevice);
+        AdbUtils.runCommandLine("input keyevent KEYCODE_WAKEUP", device);
+        AdbUtils.runCommandLine("input keyevent KEYCODE_MENU", device);
+        AdbUtils.runCommandLine("input keyevent KEYCODE_HOME", device);
 
         installPackage("CVE-2021-0315.apk");
         runDeviceTests(TEST_PKG, TEST_PKG + ".DeviceTest", "testOverlayButtonPresence");

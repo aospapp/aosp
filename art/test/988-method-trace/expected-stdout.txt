@@ -13,13 +13,14 @@
 ..=> public java.lang.Object()
 ..<= public java.lang.Object() -> <null: null>
 .<= public art.Test988$FibResult(java.lang.String,int,int) -> <null: null>
-.=> public boolean java.util.ArrayList.add(java.lang.Object)
-..=> private void java.util.ArrayList.ensureCapacityInternal(int)
-...=> private void java.util.ArrayList.ensureExplicitCapacity(int)
-...<= private void java.util.ArrayList.ensureExplicitCapacity(int) -> <null: null>
-..<= private void java.util.ArrayList.ensureCapacityInternal(int) -> <null: null>
+.=> static void art.Test988.addToResults(art.Test988$Printable)
+..=> public void java.util.ArrayList.ensureCapacity(int)
+..<= public void java.util.ArrayList.ensureCapacity(int) -> <null: null>
+..=> public boolean java.util.ArrayList.add(java.lang.Object)
 fibonacci(30)=832040
-.<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+...<= private void java.util.ArrayList.add(java.lang.Object,java.lang.Object[],int) -> <null: null>
+..<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+.<= static void art.Test988.addToResults(art.Test988$Printable) -> <null: null>
 <= public static void art.Test988.doFibTest(int,java.util.function.IntUnaryOperator) -> <null: null>
 => art.Test988$RecurOp()
 .=> public java.lang.Object()
@@ -62,13 +63,14 @@ fibonacci(30)=832040
 ..=> public java.lang.Object()
 ..<= public java.lang.Object() -> <null: null>
 .<= public art.Test988$FibResult(java.lang.String,int,int) -> <null: null>
-.=> public boolean java.util.ArrayList.add(java.lang.Object)
-..=> private void java.util.ArrayList.ensureCapacityInternal(int)
-...=> private void java.util.ArrayList.ensureExplicitCapacity(int)
-...<= private void java.util.ArrayList.ensureExplicitCapacity(int) -> <null: null>
-..<= private void java.util.ArrayList.ensureCapacityInternal(int) -> <null: null>
+.=> static void art.Test988.addToResults(art.Test988$Printable)
+..=> public void java.util.ArrayList.ensureCapacity(int)
+..<= public void java.util.ArrayList.ensureCapacity(int) -> <null: null>
+..=> public boolean java.util.ArrayList.add(java.lang.Object)
 fibonacci(5)=5
-.<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+...<= private void java.util.ArrayList.add(java.lang.Object,java.lang.Object[],int) -> <null: null>
+..<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+.<= static void art.Test988.addToResults(art.Test988$Printable) -> <null: null>
 <= public static void art.Test988.doFibTest(int,java.util.function.IntUnaryOperator) -> <null: null>
 => art.Test988$NativeOp()
 .=> public java.lang.Object()
@@ -83,13 +85,14 @@ fibonacci(5)=5
 ..=> public java.lang.Object()
 ..<= public java.lang.Object() -> <null: null>
 .<= public art.Test988$FibResult(java.lang.String,int,int) -> <null: null>
-.=> public boolean java.util.ArrayList.add(java.lang.Object)
-..=> private void java.util.ArrayList.ensureCapacityInternal(int)
-...=> private void java.util.ArrayList.ensureExplicitCapacity(int)
-...<= private void java.util.ArrayList.ensureExplicitCapacity(int) -> <null: null>
-..<= private void java.util.ArrayList.ensureCapacityInternal(int) -> <null: null>
+.=> static void art.Test988.addToResults(art.Test988$Printable)
+..=> public void java.util.ArrayList.ensureCapacity(int)
+..<= public void java.util.ArrayList.ensureCapacity(int) -> <null: null>
+..=> public boolean java.util.ArrayList.add(java.lang.Object)
 fibonacci(5)=5
-.<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+...<= private void java.util.ArrayList.add(java.lang.Object,java.lang.Object[],int) -> <null: null>
+..<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+.<= static void art.Test988.addToResults(art.Test988$Printable) -> <null: null>
 <= public static void art.Test988.doFibTest(int,java.util.function.IntUnaryOperator) -> <null: null>
 => art.Test988$IterOp()
 .=> public java.lang.Object()
@@ -110,32 +113,42 @@ fibonacci(5)=5
 .....<= public int java.lang.String.length() -> <class java.lang.Integer: 14>
 .....=> private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int)
 .....<= private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int) -> <null: null>
-.....=> public void java.lang.String.getChars(int,int,char[],int)
-......=> public int java.lang.String.length()
-......<= public int java.lang.String.length() -> <class java.lang.Integer: 14>
-......=> static void java.lang.String.checkBoundsBeginEnd(int,int,int)
-......<= static void java.lang.String.checkBoundsBeginEnd(int,int,int) -> <null: null>
-......=> native void java.lang.String.getCharsNoCheck(int,int,char[],int)
-......<= native void java.lang.String.getCharsNoCheck(int,int,char[],int) -> <null: null>
-.....<= public void java.lang.String.getChars(int,int,char[],int) -> <null: null>
+.....=> private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String)
+......=> final byte java.lang.AbstractStringBuilder.getCoder()
+......<= final byte java.lang.AbstractStringBuilder.getCoder() -> <class java.lang.Byte: 0>
+......=> byte java.lang.String.coder()
+......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+......=> void java.lang.String.getBytes(byte[],int,byte)
+.......=> byte java.lang.String.coder()
+.......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+.......=> public int java.lang.String.length()
+.......<= public int java.lang.String.length() -> <class java.lang.Integer: 14>
+.......=> static void java.lang.String.checkBoundsOffCount(int,int,int)
+.......<= static void java.lang.String.checkBoundsOffCount(int,int,int) -> <null: null>
+.......=> private void java.lang.String.fillBytesLatin1(byte[],int)
+.......<= private void java.lang.String.fillBytesLatin1(byte[],int) -> <null: null>
+......<= void java.lang.String.getBytes(byte[],int,byte) -> <null: null>
+.....<= private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String) -> <null: null>
 ....<= public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...<= public java.lang.StringBuilder java.lang.StringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...=> public java.lang.StringBuilder java.lang.StringBuilder.append(int)
 ....=> public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(int)
 .....=> static int java.lang.Integer.stringSize(int)
-.....<= static int java.lang.Integer.stringSize(int) -> <class java.lang.Integer: 2>
+.....<= static int java.lang.Integer.stringSize(int) -> <class java.lang.Integer: 3>
 .....=> private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int)
 ......=> private int java.lang.AbstractStringBuilder.newCapacity(int)
 ......<= private int java.lang.AbstractStringBuilder.newCapacity(int) -> <class java.lang.Integer: 34>
-......=> public static char[] java.util.Arrays.copyOf(char[],int)
+......=> public static byte[] java.util.Arrays.copyOf(byte[],int)
 .......=> public static int java.lang.Math.min(int,int)
 .......<= public static int java.lang.Math.min(int,int) -> <class java.lang.Integer: 16>
 .......=> public static void java.lang.System.arraycopy(java.lang.Object,int,java.lang.Object,int,int)
 .......<= public static void java.lang.System.arraycopy(java.lang.Object,int,java.lang.Object,int,int) -> <null: null>
-......<= public static char[] java.util.Arrays.copyOf(char[],int) -> <class [C: [B, a, d,  , a, r, g, u, m, e, n, t, :,  , -, 1, 9,  , <,  , 0, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>]>
+......<= public static byte[] java.util.Arrays.copyOf(byte[],int) -> <class [B: [66, 97, 100, 32, 97, 114, 103, 117, 109, 101, 110, 116, 58, 32, 45, 49, 57, 32, 60, 32, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]>
 .....<= private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int) -> <null: null>
-.....=> static int java.lang.Integer.getChars(int,int,char[])
-.....<= static int java.lang.Integer.getChars(int,int,char[]) -> <class java.lang.Integer: 14>
+.....=> final boolean java.lang.AbstractStringBuilder.isLatin1()
+.....<= final boolean java.lang.AbstractStringBuilder.isLatin1() -> <class java.lang.Boolean: true>
+.....=> static int java.lang.Integer.getChars(int,int,byte[])
+.....<= static int java.lang.Integer.getChars(int,int,byte[]) -> <class java.lang.Integer: 14>
 ....<= public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(int) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...<= public java.lang.StringBuilder java.lang.StringBuilder.append(int) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...=> public java.lang.StringBuilder java.lang.StringBuilder.append(java.lang.String)
@@ -144,21 +157,31 @@ fibonacci(5)=5
 .....<= public int java.lang.String.length() -> <class java.lang.Integer: 4>
 .....=> private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int)
 .....<= private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int) -> <null: null>
-.....=> public void java.lang.String.getChars(int,int,char[],int)
-......=> public int java.lang.String.length()
-......<= public int java.lang.String.length() -> <class java.lang.Integer: 4>
-......=> static void java.lang.String.checkBoundsBeginEnd(int,int,int)
-......<= static void java.lang.String.checkBoundsBeginEnd(int,int,int) -> <null: null>
-......=> native void java.lang.String.getCharsNoCheck(int,int,char[],int)
-......<= native void java.lang.String.getCharsNoCheck(int,int,char[],int) -> <null: null>
-.....<= public void java.lang.String.getChars(int,int,char[],int) -> <null: null>
+.....=> private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String)
+......=> final byte java.lang.AbstractStringBuilder.getCoder()
+......<= final byte java.lang.AbstractStringBuilder.getCoder() -> <class java.lang.Byte: 0>
+......=> byte java.lang.String.coder()
+......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+......=> void java.lang.String.getBytes(byte[],int,byte)
+.......=> byte java.lang.String.coder()
+.......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+.......=> public int java.lang.String.length()
+.......<= public int java.lang.String.length() -> <class java.lang.Integer: 4>
+.......=> static void java.lang.String.checkBoundsOffCount(int,int,int)
+.......<= static void java.lang.String.checkBoundsOffCount(int,int,int) -> <null: null>
+.......=> private void java.lang.String.fillBytesLatin1(byte[],int)
+.......<= private void java.lang.String.fillBytesLatin1(byte[],int) -> <null: null>
+......<= void java.lang.String.getBytes(byte[],int,byte) -> <null: null>
+.....<= private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String) -> <null: null>
 ....<= public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...<= public java.lang.StringBuilder java.lang.StringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...=> public java.lang.String java.lang.StringBuilder.toString()
-....=> public static java.lang.String java.lang.StringFactory.newStringFromChars(char[],int,int)
-.....=> static java.lang.String java.lang.StringFactory.newStringFromChars(int,int,char[])
-.....<= static java.lang.String java.lang.StringFactory.newStringFromChars(int,int,char[]) -> <class java.lang.String: Bad argument: -19 < 0>
-....<= public static java.lang.String java.lang.StringFactory.newStringFromChars(char[],int,int) -> <class java.lang.String: Bad argument: -19 < 0>
+....=> final boolean java.lang.AbstractStringBuilder.isLatin1()
+....<= final boolean java.lang.AbstractStringBuilder.isLatin1() -> <class java.lang.Boolean: true>
+....=> public static java.lang.String java.lang.StringLatin1.newString(byte[],int,int)
+.....=> public static java.lang.String java.lang.StringFactory.newStringFromBytes(byte[],int,int,int)
+.....<= public static java.lang.String java.lang.StringFactory.newStringFromBytes(byte[],int,int,int) -> <class java.lang.String: Bad argument: -19 < 0>
+....<= public static java.lang.String java.lang.StringLatin1.newString(byte[],int,int) -> <class java.lang.String: Bad argument: -19 < 0>
 ...<= public java.lang.String java.lang.StringBuilder.toString() -> <class java.lang.String: Bad argument: -19 < 0>
 ...=> public java.lang.Error(java.lang.String)
 ....=> public java.lang.Throwable(java.lang.String)
@@ -170,10 +193,10 @@ fibonacci(5)=5
 ......=> private static java.lang.Object java.lang.Throwable.nativeFillInStackTrace()
 ......<= private static java.lang.Object java.lang.Throwable.nativeFillInStackTrace() -> <class [Ljava.lang.Object;: <non-deterministic>>
 .....<= public synchronized java.lang.Throwable java.lang.Throwable.fillInStackTrace() -> <class java.lang.Error: java.lang.Error: Bad argument: -19 < 0
-	art.Test988.iter_fibonacci(Test988.java:269)
-	art.Test988$IterOp.applyAsInt(Test988.java:264)
-	art.Test988.doFibTest(Test988.java:402)
-	art.Test988.run(Test988.java:358)
+	art.Test988.iter_fibonacci(Test988.java:280)
+	art.Test988$IterOp.applyAsInt(Test988.java:275)
+	art.Test988.doFibTest(Test988.java:413)
+	art.Test988.run(Test988.java:369)
 	<additional hidden frames>
 >
 ....<= public java.lang.Throwable(java.lang.String) -> <null: null>
@@ -184,19 +207,20 @@ fibonacci(5)=5
 ..=> public java.lang.Object()
 ..<= public java.lang.Object() -> <null: null>
 .<= public art.Test988$FibThrow(java.lang.String,int,java.lang.Throwable) -> <null: null>
-.=> public boolean java.util.ArrayList.add(java.lang.Object)
-..=> private void java.util.ArrayList.ensureCapacityInternal(int)
-...=> private void java.util.ArrayList.ensureExplicitCapacity(int)
-...<= private void java.util.ArrayList.ensureExplicitCapacity(int) -> <null: null>
-..<= private void java.util.ArrayList.ensureCapacityInternal(int) -> <null: null>
+.=> static void art.Test988.addToResults(art.Test988$Printable)
+..=> public void java.util.ArrayList.ensureCapacity(int)
+..<= public void java.util.ArrayList.ensureCapacity(int) -> <null: null>
+..=> public boolean java.util.ArrayList.add(java.lang.Object)
 fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
-	art.Test988.iter_fibonacci(Test988.java:269)
-	art.Test988$IterOp.applyAsInt(Test988.java:264)
-	art.Test988.doFibTest(Test988.java:402)
-	art.Test988.run(Test988.java:358)
+	art.Test988.iter_fibonacci(Test988.java:280)
+	art.Test988$IterOp.applyAsInt(Test988.java:275)
+	art.Test988.doFibTest(Test988.java:413)
+	art.Test988.run(Test988.java:369)
 	<additional hidden frames>
 
-.<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+...<= private void java.util.ArrayList.add(java.lang.Object,java.lang.Object[],int) -> <null: null>
+..<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+.<= static void art.Test988.addToResults(art.Test988$Printable) -> <null: null>
 <= public static void art.Test988.doFibTest(int,java.util.function.IntUnaryOperator) -> <null: null>
 => art.Test988$RecurOp()
 .=> public java.lang.Object()
@@ -217,32 +241,42 @@ fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
 .....<= public int java.lang.String.length() -> <class java.lang.Integer: 14>
 .....=> private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int)
 .....<= private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int) -> <null: null>
-.....=> public void java.lang.String.getChars(int,int,char[],int)
-......=> public int java.lang.String.length()
-......<= public int java.lang.String.length() -> <class java.lang.Integer: 14>
-......=> static void java.lang.String.checkBoundsBeginEnd(int,int,int)
-......<= static void java.lang.String.checkBoundsBeginEnd(int,int,int) -> <null: null>
-......=> native void java.lang.String.getCharsNoCheck(int,int,char[],int)
-......<= native void java.lang.String.getCharsNoCheck(int,int,char[],int) -> <null: null>
-.....<= public void java.lang.String.getChars(int,int,char[],int) -> <null: null>
+.....=> private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String)
+......=> final byte java.lang.AbstractStringBuilder.getCoder()
+......<= final byte java.lang.AbstractStringBuilder.getCoder() -> <class java.lang.Byte: 0>
+......=> byte java.lang.String.coder()
+......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+......=> void java.lang.String.getBytes(byte[],int,byte)
+.......=> byte java.lang.String.coder()
+.......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+.......=> public int java.lang.String.length()
+.......<= public int java.lang.String.length() -> <class java.lang.Integer: 14>
+.......=> static void java.lang.String.checkBoundsOffCount(int,int,int)
+.......<= static void java.lang.String.checkBoundsOffCount(int,int,int) -> <null: null>
+.......=> private void java.lang.String.fillBytesLatin1(byte[],int)
+.......<= private void java.lang.String.fillBytesLatin1(byte[],int) -> <null: null>
+......<= void java.lang.String.getBytes(byte[],int,byte) -> <null: null>
+.....<= private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String) -> <null: null>
 ....<= public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...<= public java.lang.StringBuilder java.lang.StringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...=> public java.lang.StringBuilder java.lang.StringBuilder.append(int)
 ....=> public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(int)
 .....=> static int java.lang.Integer.stringSize(int)
-.....<= static int java.lang.Integer.stringSize(int) -> <class java.lang.Integer: 2>
+.....<= static int java.lang.Integer.stringSize(int) -> <class java.lang.Integer: 3>
 .....=> private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int)
 ......=> private int java.lang.AbstractStringBuilder.newCapacity(int)
 ......<= private int java.lang.AbstractStringBuilder.newCapacity(int) -> <class java.lang.Integer: 34>
-......=> public static char[] java.util.Arrays.copyOf(char[],int)
+......=> public static byte[] java.util.Arrays.copyOf(byte[],int)
 .......=> public static int java.lang.Math.min(int,int)
 .......<= public static int java.lang.Math.min(int,int) -> <class java.lang.Integer: 16>
 .......=> public static void java.lang.System.arraycopy(java.lang.Object,int,java.lang.Object,int,int)
 .......<= public static void java.lang.System.arraycopy(java.lang.Object,int,java.lang.Object,int,int) -> <null: null>
-......<= public static char[] java.util.Arrays.copyOf(char[],int) -> <class [C: [B, a, d,  , a, r, g, u, m, e, n, t, :,  , -, 1, 9,  , <,  , 0, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>, <control-0000>]>
+......<= public static byte[] java.util.Arrays.copyOf(byte[],int) -> <class [B: [66, 97, 100, 32, 97, 114, 103, 117, 109, 101, 110, 116, 58, 32, 45, 49, 57, 32, 60, 32, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]>
 .....<= private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int) -> <null: null>
-.....=> static int java.lang.Integer.getChars(int,int,char[])
-.....<= static int java.lang.Integer.getChars(int,int,char[]) -> <class java.lang.Integer: 14>
+.....=> final boolean java.lang.AbstractStringBuilder.isLatin1()
+.....<= final boolean java.lang.AbstractStringBuilder.isLatin1() -> <class java.lang.Boolean: true>
+.....=> static int java.lang.Integer.getChars(int,int,byte[])
+.....<= static int java.lang.Integer.getChars(int,int,byte[]) -> <class java.lang.Integer: 14>
 ....<= public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(int) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...<= public java.lang.StringBuilder java.lang.StringBuilder.append(int) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...=> public java.lang.StringBuilder java.lang.StringBuilder.append(java.lang.String)
@@ -251,21 +285,31 @@ fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
 .....<= public int java.lang.String.length() -> <class java.lang.Integer: 4>
 .....=> private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int)
 .....<= private void java.lang.AbstractStringBuilder.ensureCapacityInternal(int) -> <null: null>
-.....=> public void java.lang.String.getChars(int,int,char[],int)
-......=> public int java.lang.String.length()
-......<= public int java.lang.String.length() -> <class java.lang.Integer: 4>
-......=> static void java.lang.String.checkBoundsBeginEnd(int,int,int)
-......<= static void java.lang.String.checkBoundsBeginEnd(int,int,int) -> <null: null>
-......=> native void java.lang.String.getCharsNoCheck(int,int,char[],int)
-......<= native void java.lang.String.getCharsNoCheck(int,int,char[],int) -> <null: null>
-.....<= public void java.lang.String.getChars(int,int,char[],int) -> <null: null>
+.....=> private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String)
+......=> final byte java.lang.AbstractStringBuilder.getCoder()
+......<= final byte java.lang.AbstractStringBuilder.getCoder() -> <class java.lang.Byte: 0>
+......=> byte java.lang.String.coder()
+......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+......=> void java.lang.String.getBytes(byte[],int,byte)
+.......=> byte java.lang.String.coder()
+.......<= byte java.lang.String.coder() -> <class java.lang.Byte: 0>
+.......=> public int java.lang.String.length()
+.......<= public int java.lang.String.length() -> <class java.lang.Integer: 4>
+.......=> static void java.lang.String.checkBoundsOffCount(int,int,int)
+.......<= static void java.lang.String.checkBoundsOffCount(int,int,int) -> <null: null>
+.......=> private void java.lang.String.fillBytesLatin1(byte[],int)
+.......<= private void java.lang.String.fillBytesLatin1(byte[],int) -> <null: null>
+......<= void java.lang.String.getBytes(byte[],int,byte) -> <null: null>
+.....<= private final void java.lang.AbstractStringBuilder.putStringAt(int,java.lang.String) -> <null: null>
 ....<= public java.lang.AbstractStringBuilder java.lang.AbstractStringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...<= public java.lang.StringBuilder java.lang.StringBuilder.append(java.lang.String) -> <class java.lang.StringBuilder: Bad argument: -19 < 0>
 ...=> public java.lang.String java.lang.StringBuilder.toString()
-....=> public static java.lang.String java.lang.StringFactory.newStringFromChars(char[],int,int)
-.....=> static java.lang.String java.lang.StringFactory.newStringFromChars(int,int,char[])
-.....<= static java.lang.String java.lang.StringFactory.newStringFromChars(int,int,char[]) -> <class java.lang.String: Bad argument: -19 < 0>
-....<= public static java.lang.String java.lang.StringFactory.newStringFromChars(char[],int,int) -> <class java.lang.String: Bad argument: -19 < 0>
+....=> final boolean java.lang.AbstractStringBuilder.isLatin1()
+....<= final boolean java.lang.AbstractStringBuilder.isLatin1() -> <class java.lang.Boolean: true>
+....=> public static java.lang.String java.lang.StringLatin1.newString(byte[],int,int)
+.....=> public static java.lang.String java.lang.StringFactory.newStringFromBytes(byte[],int,int,int)
+.....<= public static java.lang.String java.lang.StringFactory.newStringFromBytes(byte[],int,int,int) -> <class java.lang.String: Bad argument: -19 < 0>
+....<= public static java.lang.String java.lang.StringLatin1.newString(byte[],int,int) -> <class java.lang.String: Bad argument: -19 < 0>
 ...<= public java.lang.String java.lang.StringBuilder.toString() -> <class java.lang.String: Bad argument: -19 < 0>
 ...=> public java.lang.Error(java.lang.String)
 ....=> public java.lang.Throwable(java.lang.String)
@@ -277,10 +321,10 @@ fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
 ......=> private static java.lang.Object java.lang.Throwable.nativeFillInStackTrace()
 ......<= private static java.lang.Object java.lang.Throwable.nativeFillInStackTrace() -> <class [Ljava.lang.Object;: <non-deterministic>>
 .....<= public synchronized java.lang.Throwable java.lang.Throwable.fillInStackTrace() -> <class java.lang.Error: java.lang.Error: Bad argument: -19 < 0
-	art.Test988.fibonacci(Test988.java:291)
-	art.Test988$RecurOp.applyAsInt(Test988.java:286)
-	art.Test988.doFibTest(Test988.java:402)
-	art.Test988.run(Test988.java:359)
+	art.Test988.fibonacci(Test988.java:302)
+	art.Test988$RecurOp.applyAsInt(Test988.java:297)
+	art.Test988.doFibTest(Test988.java:413)
+	art.Test988.run(Test988.java:370)
 	<additional hidden frames>
 >
 ....<= public java.lang.Throwable(java.lang.String) -> <null: null>
@@ -291,19 +335,20 @@ fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
 ..=> public java.lang.Object()
 ..<= public java.lang.Object() -> <null: null>
 .<= public art.Test988$FibThrow(java.lang.String,int,java.lang.Throwable) -> <null: null>
-.=> public boolean java.util.ArrayList.add(java.lang.Object)
-..=> private void java.util.ArrayList.ensureCapacityInternal(int)
-...=> private void java.util.ArrayList.ensureExplicitCapacity(int)
-...<= private void java.util.ArrayList.ensureExplicitCapacity(int) -> <null: null>
-..<= private void java.util.ArrayList.ensureCapacityInternal(int) -> <null: null>
+.=> static void art.Test988.addToResults(art.Test988$Printable)
+..=> public void java.util.ArrayList.ensureCapacity(int)
+..<= public void java.util.ArrayList.ensureCapacity(int) -> <null: null>
+..=> public boolean java.util.ArrayList.add(java.lang.Object)
 fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
-	art.Test988.fibonacci(Test988.java:291)
-	art.Test988$RecurOp.applyAsInt(Test988.java:286)
-	art.Test988.doFibTest(Test988.java:402)
-	art.Test988.run(Test988.java:359)
+	art.Test988.fibonacci(Test988.java:302)
+	art.Test988$RecurOp.applyAsInt(Test988.java:297)
+	art.Test988.doFibTest(Test988.java:413)
+	art.Test988.run(Test988.java:370)
 	<additional hidden frames>
 
-.<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+...<= private void java.util.ArrayList.add(java.lang.Object,java.lang.Object[],int) -> <null: null>
+..<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+.<= static void art.Test988.addToResults(art.Test988$Printable) -> <null: null>
 <= public static void art.Test988.doFibTest(int,java.util.function.IntUnaryOperator) -> <null: null>
 => art.Test988$NativeOp()
 .=> public java.lang.Object()
@@ -323,9 +368,9 @@ fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
 ......<= private static java.lang.Object java.lang.Throwable.nativeFillInStackTrace() -> <class [Ljava.lang.Object;: <non-deterministic>>
 .....<= public synchronized java.lang.Throwable java.lang.Throwable.fillInStackTrace() -> <class java.lang.Error: java.lang.Error: bad argument
 	art.Test988.nativeFibonacci(Native Method)
-	art.Test988$NativeOp.applyAsInt(Test988.java:301)
-	art.Test988.doFibTest(Test988.java:402)
-	art.Test988.run(Test988.java:360)
+	art.Test988$NativeOp.applyAsInt(Test988.java:312)
+	art.Test988.doFibTest(Test988.java:413)
+	art.Test988.run(Test988.java:371)
 	<additional hidden frames>
 >
 ....<= public java.lang.Throwable(java.lang.String) -> <null: null>
@@ -336,19 +381,20 @@ fibonacci(-19) -> java.lang.Error: Bad argument: -19 < 0
 ..=> public java.lang.Object()
 ..<= public java.lang.Object() -> <null: null>
 .<= public art.Test988$FibThrow(java.lang.String,int,java.lang.Throwable) -> <null: null>
-.=> public boolean java.util.ArrayList.add(java.lang.Object)
-..=> private void java.util.ArrayList.ensureCapacityInternal(int)
-...=> private void java.util.ArrayList.ensureExplicitCapacity(int)
-...<= private void java.util.ArrayList.ensureExplicitCapacity(int) -> <null: null>
-..<= private void java.util.ArrayList.ensureCapacityInternal(int) -> <null: null>
+.=> static void art.Test988.addToResults(art.Test988$Printable)
+..=> public void java.util.ArrayList.ensureCapacity(int)
+..<= public void java.util.ArrayList.ensureCapacity(int) -> <null: null>
+..=> public boolean java.util.ArrayList.add(java.lang.Object)
 fibonacci(-19) -> java.lang.Error: bad argument
 	art.Test988.nativeFibonacci(Native Method)
-	art.Test988$NativeOp.applyAsInt(Test988.java:301)
-	art.Test988.doFibTest(Test988.java:402)
-	art.Test988.run(Test988.java:360)
+	art.Test988$NativeOp.applyAsInt(Test988.java:312)
+	art.Test988.doFibTest(Test988.java:413)
+	art.Test988.run(Test988.java:371)
 	<additional hidden frames>
 
-.<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+...<= private void java.util.ArrayList.add(java.lang.Object,java.lang.Object[],int) -> <null: null>
+..<= public boolean java.util.ArrayList.add(java.lang.Object) -> <class java.lang.Boolean: true>
+.<= static void art.Test988.addToResults(art.Test988$Printable) -> <null: null>
 <= public static void art.Test988.doFibTest(int,java.util.function.IntUnaryOperator) -> <null: null>
 => public final void <non-deterministic-type 0>.run()
 .=> private static java.lang.Object java.lang.reflect.Proxy.invoke(java.lang.reflect.Proxy,java.lang.reflect.Method,java.lang.Object[]) throws java.lang.Throwable

@@ -20,28 +20,26 @@ import android.content.pm.PackageManager;
 import android.media.AudioDeviceInfo;
 import android.media.AudioFormat;
 import android.media.AudioManager;
-import android.media.AudioPlaybackConfiguration;
 import android.media.AudioRecord;
 import android.media.AudioRecordingConfiguration;
 import android.media.MediaRecorder;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
 import android.os.Parcel;
-import android.util.Log;
 
 import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
     private static final String TAG = "AudioRecordingConfigurationTest";
 
@@ -224,7 +222,7 @@ public class AudioRecordingConfigurationTest extends CtsAndroidTestCase {
         }
     }
 
-    @NonMediaMainlineTest
+    @NonMainlineTest
     public void testParcel() throws Exception {
         if (!hasMicrophone()) {
             return;

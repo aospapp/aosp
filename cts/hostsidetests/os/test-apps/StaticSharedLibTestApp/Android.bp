@@ -21,17 +21,18 @@ package {
 android_test_helper_app {
     name: "CtsStaticSharedLibTestApp",
     defaults: ["cts_support_defaults"],
-    sdk_version: "current",
+    sdk_version: "system_current",
     srcs: ["src/**/*.java"],
     static_libs: [
         "cts-install-lib",
+        "Nene",
+        "Harrier",
     ],
     java_resources: [
         ":CtsStaticSharedLibProviderApp5",
     ],
     // Tag this module as a cts test artifact
     test_suites: [
-        "cts",
         "vts10",
         "general-tests",
     ],

@@ -13,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
-cp ../../../../../packages/modules/Bluetooth/framework/api/current.txt src/processor/res/apis/bluetooth-current.txt
-cp ../../../../../packages/modules/Wifi/framework/api/current.txt src/processor/res/apis/wifi-current.txt
-cp ../../../../../frameworks/base/core/api/current.txt src/processor/res/apis/current.txt
-cp ../../../../../frameworks/base/core/api/test-current.txt src/processor/res/apis/test-current.txt
+cp $SCRIPT_DIR/../../../../../packages/modules/Bluetooth/framework/api/current.txt $SCRIPT_DIR/src/processor/res/apis/bluetooth-current.txt
+cp $SCRIPT_DIR/../../../../../packages/modules/Wifi/framework/api/current.txt $SCRIPT_DIR/src/processor/res/apis/wifi-current.txt
+cp $SCRIPT_DIR/../../../../../frameworks/base/core/api/current.txt $SCRIPT_DIR/src/processor/res/apis/current.txt
+cp $SCRIPT_DIR/../../../../../frameworks/base/core/api/test-current.txt $SCRIPT_DIR/src/processor/res/apis/test-current.txt
+cp $SCRIPT_DIR/../../../../../frameworks/base/core/api/system-current.txt $SCRIPT_DIR/src/processor/res/apis/system-current.txt

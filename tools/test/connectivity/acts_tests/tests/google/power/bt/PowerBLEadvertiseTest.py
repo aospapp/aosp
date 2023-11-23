@@ -25,6 +25,7 @@ ADV_TAIL = 5
 
 
 class PowerBLEadvertiseTest(PBtBT.PowerBTBaseTest):
+
     def __init__(self, configs):
         super().__init__(configs)
         req_params = ['adv_modes', 'adv_power_levels']
@@ -32,7 +33,9 @@ class PowerBLEadvertiseTest(PBtBT.PowerBTBaseTest):
         # Loop all advertise modes and power levels
         for adv_mode in self.adv_modes:
             for adv_power_level in self.adv_power_levels:
-                self.generate_test_case(adv_mode, adv_power_level)
+                # As a temporary fix, set high power tests directly
+                if adv_power_level != 3:
+                    self.generate_test_case(adv_mode, adv_power_level)
 
     def setup_class(self):
 
@@ -58,3 +61,12 @@ class PowerBLEadvertiseTest(PBtBT.PowerBTBaseTest):
                                    self.adv_duration)
         time.sleep(EXTRA_ADV_TIME)
         self.measure_power_and_validate()
+
+    def test_BLE_ADVERTISE_MODE_LOW_POWER_TX_POWER_HIGH(self):
+        self.measure_ble_advertise_power(0, 3)
+
+    def test_BLE_ADVERTISE_MODE_BALANCED_TX_POWER_HIGH(self):
+        self.measure_ble_advertise_power(1, 3)
+
+    def test_BLE_ADVERTISE_MODE_LOW_LATENCY_TX_POWER_HIGH(self):
+        self.measure_ble_advertise_power(2, 3)

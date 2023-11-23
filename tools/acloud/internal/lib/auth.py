@@ -52,6 +52,7 @@ from acloud import errors
 
 logger = logging.getLogger(__name__)
 HOME_FOLDER = os.path.expanduser("~")
+_WEB_SERVER_DEFAULT_PORT = 8080
 # If there is no specific scope use case, we will always use this default full
 # scopes to run CreateCredentials func and user will only go oauth2 flow once
 # after login with this full scopes credentials.
@@ -82,8 +83,8 @@ def _CreateOauthServiceAccountCreds(email, private_key_path, scopes):
             email, private_key_path, scopes=scopes)
     except EnvironmentError as e:
         raise errors.AuthenticationError(
-            "Could not authenticate using private key file (%s) "
-            " error message: %s" % (private_key_path, str(e)))
+            f"Could not authenticate using private key file ({private_key_path}) "
+            f" error message: {str(e)}")
     return credentials
 
 
@@ -118,8 +119,8 @@ def _CreateOauthServiceAccountCredsWithJsonKey(json_private_key_path, scopes,
         credentials.set_store(storage)
     except EnvironmentError as e:
         raise errors.AuthenticationError(
-            "Could not authenticate using json private key file (%s) "
-            " error message: %s" % (json_private_key_path, str(e)))
+            f"Could not authenticate using json private key file ({json_private_key_path}) "
+            f"error message: {str(e)}")
 
     return credentials
 
@@ -137,6 +138,8 @@ class RunFlowFlags():
 def _RunAuthFlow(storage, client_id, client_secret, user_agent, scopes):
     """Get user oauth2 credentials.
 
+    Using the loopback IP address flow for desktop clients.
+
     Args:
         client_id: String, client id from the cloud project.
         client_secret: String, client secret for the client_id.
@@ -146,12 +149,13 @@ def _RunAuthFlow(storage, client_id, client_secret, user_agent, scopes):
     Returns:
         An oauth2client.OAuth2Credentials instance.
     """
-    flags = RunFlowFlags(browser_auth=False)
+    flags = RunFlowFlags(browser_auth=True)
     flow = oauth2_client.OAuth2WebServerFlow(
         client_id=client_id,
         client_secret=client_secret,
         scope=scopes,
-        user_agent=user_agent)
+        user_agent=user_agent,
+        redirect_uri=f"http://localhost:{_WEB_SERVER_DEFAULT_PORT}")
     credentials = oauth2_tools.run_flow(
         flow=flow, storage=storage, flags=flags)
     return credentials

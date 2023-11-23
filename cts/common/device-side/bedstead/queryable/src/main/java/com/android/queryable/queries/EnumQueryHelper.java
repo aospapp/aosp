@@ -95,6 +95,12 @@ public final class EnumQueryHelper <E extends Queryable, F> implements EnumQuery
     }
 
     @Override
+    public boolean isEmptyQuery() {
+        return mIsEqualTo == null
+                && (mIsNotEqualTo == null || mIsNotEqualTo.isEmpty());
+    }
+
+    @Override
     public boolean matches(F value) {
         if (!checkIsEqualTo(value)) {
             return false;

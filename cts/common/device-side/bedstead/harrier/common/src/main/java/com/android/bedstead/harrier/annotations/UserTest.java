@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
  * A test which runs on multiple users.
  */
 // TODO(b/217858437): Enable indirect usage
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @RequiresBedsteadJUnit4
 public @interface UserTest {

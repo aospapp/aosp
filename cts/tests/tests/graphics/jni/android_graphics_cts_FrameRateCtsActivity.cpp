@@ -181,6 +181,15 @@ jint nativeWindowSetFrameRate(JNIEnv* env, jclass, jobject jSurface, jfloat fram
             changeFrameRateStrategy);
 }
 
+jint nativeWindowClearFrameRate(JNIEnv* env, jclass, jobject jSurface) {
+    ANativeWindowRAII window;
+    if (jSurface) {
+        window.mNw = ANativeWindow_fromSurface(env, jSurface);
+    }
+
+    return ANativeWindow_clearFrameRate(window.mNw);
+}
+
 jlong surfaceControlCreate(JNIEnv* env, jclass, jobject jParentSurface, jstring jName, jint left,
                            jint top, jint right, jint bottom) {
     if (!jParentSurface || !jName) {
@@ -227,6 +236,15 @@ void surfaceControlSetFrameRate(JNIEnv*, jclass, jlong surfaceControlLong, jfloa
     ASurfaceTransaction_delete(transaction);
 }
 
+void surfaceControlClearFrameRate(JNIEnv*, jclass, jlong surfaceControlLong) {
+    ASurfaceControl* surfaceControl =
+            reinterpret_cast<Surface*>(surfaceControlLong)->getSurfaceControl();
+    ASurfaceTransaction* transaction = ASurfaceTransaction_create();
+    ASurfaceTransaction_clearFrameRate(transaction, surfaceControl);
+    ASurfaceTransaction_apply(transaction);
+    ASurfaceTransaction_delete(transaction);
+}
+
 void surfaceControlSetVisibility(JNIEnv*, jclass, jlong surfaceControlLong, jboolean visible) {
     ASurfaceControl* surfaceControl =
             reinterpret_cast<Surface*>(surfaceControlLong)->getSurfaceControl();
@@ -261,7 +279,7 @@ jboolean surfaceControlPostBuffer(JNIEnv*, jclass, jlong surfaceControlLong, jin
     return JNI_TRUE;
 }
 
-const std::array<JNINativeMethod, 6> JNI_METHODS = {{
+const std::array<JNINativeMethod, 8> JNI_METHODS = {{
         {"nativeWindowSetFrameRate", "(Landroid/view/Surface;FII)I",
          (void*)nativeWindowSetFrameRate},
         {"nativeSurfaceControlCreate", "(Landroid/view/Surface;Ljava/lang/String;IIII)J",
@@ -270,6 +288,9 @@ const std::array<JNINativeMethod, 6> JNI_METHODS = {{
         {"nativeSurfaceControlSetFrameRate", "(JFII)V", (void*)surfaceControlSetFrameRate},
         {"nativeSurfaceControlSetVisibility", "(JZ)V", (void*)surfaceControlSetVisibility},
         {"nativeSurfaceControlPostBuffer", "(JI)Z", (void*)surfaceControlPostBuffer},
+        {"nativeWindowClearFrameRate", "(Landroid/view/Surface;)I",
+         (void*)nativeWindowClearFrameRate},
+        {"nativeSurfaceControlClearFrameRate", "(J)V", (void*)surfaceControlClearFrameRate},
 }};
 
 } // namespace

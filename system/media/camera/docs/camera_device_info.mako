@@ -90,6 +90,34 @@ message CameraDeviceInfo {
 
     optional string cameraId = 1;
 
+    message Capability {
+        optional int32 mode = 1;
+        optional int32 maxStreamingWidth = 2;
+        optional int32 maxStreamingHeight = 3;
+        optional float minZoomRatio = 4;
+        optional float maxZoomRatio = 5;
+    }
+
+    message DynamicRangeProfiles {
+        repeated int64 dynamic_range_profiles = 1 [packed = true];
+    }
+
+    message DeviceStateSensorOrientationMap {
+        repeated int64 elements = 1 [packed = true];
+    }
+
+    message ColorSpaceProfiles {
+        message ColorSpaceProfile {
+            message FormatAndDynamicRangeProfiles {
+                optional int32 image_format = 1;
+                repeated int64 dynamic_range_profiles = 2 [packed = true];
+            }
+            optional int32 color_space = 1;
+            repeated FormatAndDynamicRangeProfiles image_formats = 2;
+        }
+        repeated ColorSpaceProfile color_space_profiles = 1;
+    }
+
     // Start of codegen fields
 <%
   section_idx = 1
@@ -100,7 +128,7 @@ message CameraDeviceInfo {
   idx = section_idx * pow(2,16)
 %>\
 % for entry in find_unique_entries(sec):
-% if entry.kind == 'static' and entry.visibility in ("public", "java_public"):
+% if entry.kind == 'static' and entry.visibility in ("public", "java_public", "fwk_java_public"):
     ${protobuf_type(entry)} ${protobuf_name(entry)} = ${idx};
 <%
     idx += 1

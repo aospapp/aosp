@@ -84,7 +84,7 @@ public class CodecState {
     private boolean mIsFirstTunnelFrameReady;
     private volatile OnFirstTunnelFrameReadyListener mOnFirstTunnelFrameReadyListener;
     /** If true, starves the underlying {@link MediaCodec} to simulate an underrun. */
-    private boolean mShouldSimulateUnderrun;
+    private boolean mShouldStopDrainingOutputBuffers;
     /**
      * An offset (in nanoseconds) to add to presentation timestamps fed to the {@link AudioTrack}.
      *
@@ -134,7 +134,7 @@ public class CodecState {
         mRenderedVideoFrameSystemTimeNano = UNINITIALIZED_TIMESTAMP;
 
         mIsFirstTunnelFrameReady = false;
-        mShouldSimulateUnderrun = false;
+        mShouldStopDrainingOutputBuffers = false;
 
         mAudioOffsetNs = 0;
 
@@ -169,13 +169,15 @@ public class CodecState {
         }
     }
 
-    public void start() {
+    public void startCodec() {
         mCodec.start();
         mCodecInputBuffers = mCodec.getInputBuffers();
         if (!mIsTunneled || mIsAudio) {
             mCodecOutputBuffers = mCodec.getOutputBuffers();
         }
+    }
 
+    public void play() {
         if (mAudioTrack != null) {
             mAudioTrack.play();
         }
@@ -358,7 +360,7 @@ public class CodecState {
                 return null;
             }
 
-            if (mIsTunneled && !mIsAudio) {
+            if (mIsTunneled) {
                 if (mFirstSampleTimeUs == -1) {
                     mFirstSampleTimeUs = sampleTime;
                 }
@@ -438,7 +440,8 @@ public class CodecState {
 
     /** Returns true if more output data could be drained. */
     private boolean drainOutputBuffer() {
-        if (mSawOutputEOS || mAvailableOutputBufferIndices.isEmpty() || mShouldSimulateUnderrun) {
+        if (mSawOutputEOS || mAvailableOutputBufferIndices.isEmpty()
+                || mShouldStopDrainingOutputBuffers) {
             return false;
         }
 
@@ -627,12 +630,10 @@ public class CodecState {
     }
 
     /**
-     * Option to simulate underrun by pausing the release of the underlying codec's output buffers
-     * (in non-tunnel mode).
-     * Note: This might starve the underlying buffer queue.
+     * Stop draining output buffers which can simulate underrun condition.
      */
-    public void simulateUnderrun(boolean enable) {
-        mShouldSimulateUnderrun = enable;
+    public void stopDrainingOutputBuffers(boolean enable) {
+        mShouldStopDrainingOutputBuffers = enable;
     }
 
     /**
@@ -641,12 +642,6 @@ public class CodecState {
      */
     public void setAudioOffsetMs(int audioOffsetMs) {
         mAudioOffsetNs = audioOffsetMs * 1000000;
-    }
-
-    public void stopWritingToAudioTrack(boolean stopWriting) {
-        if (mAudioTrack != null) {
-            mAudioTrack.stopWriting(stopWriting);
-        }
     }
 
     /** Returns the underlying {@code AudioTrack}, if any. */

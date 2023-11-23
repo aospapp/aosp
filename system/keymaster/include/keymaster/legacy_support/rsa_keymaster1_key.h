@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <openssl/rsa.h>
 
 #include <keymaster/km_openssl/rsa_key.h>
@@ -79,7 +81,7 @@ class RsaKeymaster1Key : public RsaKey {
   public:
     RsaKeymaster1Key(RSA* rsa_key, AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                      const KeyFactory* key_factory)
-        : RsaKey(rsa_key, move(hw_enforced), move(sw_enforced), key_factory) {}
+        : RsaKey(rsa_key, std::move(hw_enforced), std::move(sw_enforced), key_factory) {}
 };
 
 }  // namespace keymaster

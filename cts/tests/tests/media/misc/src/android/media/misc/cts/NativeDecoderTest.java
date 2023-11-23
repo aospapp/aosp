@@ -16,39 +16,26 @@
 
 package android.media.misc.cts;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import android.content.res.AssetFileDescriptor;
-import android.media.MediaCodec;
-import android.media.MediaCodec.BufferInfo;
 import android.media.MediaExtractor;
-import android.media.MediaFormat;
-import android.media.MediaPlayer;
 import android.media.cts.MediaTestBase;
-import android.media.cts.Preconditions;
 import android.media.cts.TestUtils.Monitor;
-import android.net.Uri;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
 import android.util.Log;
-import android.view.Surface;
 import android.webkit.cts.CtsTestServer;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
-import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 
-import org.apache.http.Header;
-import org.apache.http.HttpRequest;
 import org.apache.http.impl.DefaultHttpServerConnection;
 import org.apache.http.impl.io.SocketOutputBuffer;
 import org.apache.http.io.SessionOutputBuffer;
@@ -56,19 +43,13 @@ import org.apache.http.params.HttpParams;
 import org.apache.http.util.CharArrayBuffer;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.Socket;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;

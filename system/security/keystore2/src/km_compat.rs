@@ -15,6 +15,7 @@
 //! Provide a wrapper around a KeyMint device that allows up-level features to
 //! be emulated on back-level devices.
 
+use crate::ks_err;
 use crate::error::{map_binder_status, map_binder_status_code, map_or_log_err, Error, ErrorCode};
 use android_hardware_security_keymint::binder::{BinderFeatures, StatusCode, Strong};
 use android_hardware_security_secureclock::aidl::android::hardware::security::secureclock::TimeStampToken::TimeStampToken;
@@ -81,7 +82,7 @@ fn wrap_keyblob(keyblob: &[u8]) -> anyhow::Result<Vec<u8>> {
     result.extend_from_slice(KEYBLOB_PREFIX);
     result.extend_from_slice(keyblob);
     let tag = hmac_sha256(KEYBLOB_HMAC_KEY, keyblob)
-        .context("In wrap_keyblob, failed to calculate HMAC-SHA256")?;
+        .context(ks_err!("failed to calculate HMAC-SHA256"))?;
     result.extend_from_slice(&tag);
     Ok(result)
 }
@@ -138,10 +139,9 @@ where
         // This is a no-op if it was called before.
         keystore2_km_compat::add_keymint_device_service();
 
-        let keystore_compat_service: Strong<dyn IKeystoreCompatService> = map_binder_status_code(
-            binder::get_interface("android.security.compat"),
-        )
-        .context("In BacklevelKeyMintWrapper::wrap: Trying to connect to compat service.")?;
+        let keystore_compat_service: Strong<dyn IKeystoreCompatService> =
+            map_binder_status_code(binder::get_interface("android.security.compat"))
+                .context(ks_err!("Trying to connect to compat service."))?;
         let soft =
             map_binder_status(keystore_compat_service.getKeyMintDevice(SecurityLevel::SOFTWARE))
                 .map_err(|e| match e {
@@ -150,7 +150,7 @@ where
                     }
                     e => e,
                 })
-                .context("In BacklevelKeyMintWrapper::wrap: Trying to get software device.")?;
+                .context(ks_err!("Trying to get software device."))?;
 
         Ok(BnKeyMintDevice::new_binder(
             Self { real, soft, emu },

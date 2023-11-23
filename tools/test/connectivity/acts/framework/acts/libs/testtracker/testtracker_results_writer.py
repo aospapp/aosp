@@ -44,7 +44,6 @@ _TEST_RESULT_TO_STATUS_MAP = {
 
 class TestTrackerError(Exception):
     """Exception class for errors raised within TestTrackerResultsWriter"""
-    pass
 
 
 class TestTrackerResultsWriter(object):
@@ -52,6 +51,7 @@ class TestTrackerResultsWriter(object):
     writes it to the log directory. In automation, these protos will
     automatically be read from Sponge and uploaded to TestTracker.
     """
+
     def __init__(self, log_path, properties):
         """Creates a TestTrackerResultsWriter
 
@@ -104,7 +104,9 @@ class TestTrackerResultsWriter(object):
             TestTrackerError if one or more required properties is absent
         """
         required_props = [KEY_USER, KEY_PROJECT_ID, KEY_EFFORT_NAME]
-        missing_props = [p for p in required_props if p not in self._properties]
+        missing_props = [
+            p for p in required_props if p not in self._properties
+        ]
         if missing_props:
             raise TestTrackerError(
                 'Missing the following required properties for TestTracker: %s'
@@ -143,11 +145,10 @@ class TestTrackerResultsWriter(object):
         result = Result()
         result.uuid = uuid
         result.status = _TEST_RESULT_TO_STATUS_MAP[record.result]
-        result.timestamp = (
-            datetime.datetime.fromtimestamp(
-                record.begin_time / 1000, datetime.timezone.utc)
-            .isoformat(timespec='milliseconds')
-            .replace('+00:00', 'Z'))
+        result.timestamp = (datetime.datetime.fromtimestamp(
+            record.begin_time / 1000,
+            datetime.timezone.utc).isoformat(timespec='milliseconds').replace(
+                '+00:00', 'Z'))
 
         self._add_property(result, KEY_UUID, uuid)
         if record.details:
@@ -166,7 +167,8 @@ class TestTrackerResultsWriter(object):
 
         Returns: Path to the created directory.
         """
-        dir_path = os.path.join(self._log_path, TESTTRACKER_PATH % (
-            self._properties[KEY_EFFORT_NAME], uuid))
+        dir_path = os.path.join(
+            self._log_path,
+            TESTTRACKER_PATH % (self._properties[KEY_EFFORT_NAME], uuid))
         os.makedirs(dir_path, exist_ok=True)
         return dir_path

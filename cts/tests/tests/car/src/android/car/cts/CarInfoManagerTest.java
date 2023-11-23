@@ -24,9 +24,11 @@ import android.car.EvConnectorType;
 import android.car.FuelType;
 import android.car.PortLocationType;
 import android.car.VehicleAreaSeat;
+import android.car.test.ApiCheckerRule.Builder;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -41,17 +43,26 @@ import java.util.List;
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Instant apps cannot get car related permissions.")
-public class CarInfoManagerTest extends CarApiTestBase {
+public final class CarInfoManagerTest extends AbstractCarTestCase {
 
-    private CarInfoManager mCarInfoManager;
+    private static final String TAG = CarInfoManagerTest.class.getSimpleName();
+
     // SCAME EvConnectorType in VHAL
     private static final int SCAME = 11;
     // GBT_DC EvConnectorType in VHAL
     private static final int GBT_DC = 10;
 
+    private CarInfoManager mCarInfoManager;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
+
     @Before
     public void setUp() throws Exception {
-        super.setUp();
         mCarInfoManager = (CarInfoManager) getCar().getCarManager(Car.INFO_SERVICE);
     }
 

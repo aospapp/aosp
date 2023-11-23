@@ -1,13 +1,13 @@
-/* 
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
  * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
- * 
- *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -64,7 +64,7 @@ public class AttributesTest extends TestCase {
      * java.util.jar.Attributes#containsKey(java.lang.Object)
      */
     public void test_containsKeyLjava_lang_Object() {
-        assertTrue("a) Should have returned false", !a.containsKey(new Integer(1)));
+        assertTrue("a) Should have returned false", !a.containsKey(Integer.valueOf(1)));
         assertTrue("b) Should have returned false", !a.containsKey("0"));
         assertTrue("Should have returned true", a.containsKey(new Attributes.Name("1")));
     }

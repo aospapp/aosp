@@ -18,6 +18,7 @@
 #include <stdio.h>
 
 extern int register_android_hardware_cts_HardwareBufferTest(JNIEnv*);
+extern int register_android_hardware_cts_HardwareBufferTestService(JNIEnv*);
 
 jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
     JNIEnv* env = nullptr;
@@ -25,5 +26,7 @@ jint JNI_OnLoad(JavaVM* vm, void* /*reserved*/) {
         return JNI_ERR;
     if (register_android_hardware_cts_HardwareBufferTest(env))
         return JNI_ERR;
+    if (register_android_hardware_cts_HardwareBufferTestService(env))
+            return JNI_ERR;
     return JNI_VERSION_1_4;
 }

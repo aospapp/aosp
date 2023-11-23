@@ -33,4 +33,7 @@ namespace android::vintf::testing {
 android::base::Result<void> TestTargetFcmVersion(Level shipping_fcm_version,
                                                  uint64_t shipping_api_level);
 
+// Map VINTF levels to API levels.
+android::base::Result<Level> GetFcmVersionFromApiLevel(uint64_t api_level);
+
 }  // namespace android::vintf::testing

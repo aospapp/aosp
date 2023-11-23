@@ -61,6 +61,7 @@ DISCOVERY_KEY_TERM_CB_ENABLED = "TerminateNotificationEnabled"
 DISCOVERY_KEY_RANGING_ENABLED = "RangingEnabled"
 DISCOVERY_KEY_MIN_DISTANCE_MM = "MinDistanceMm"
 DISCOVERY_KEY_MAX_DISTANCE_MM = "MaxDistanceMm"
+DISCOVERY_KEY_INSTANT_COMMUNICATION_MODE = "InstantModeEnabled"
 
 PUBLISH_TYPE_UNSOLICITED = 0
 PUBLISH_TYPE_SOLICITED = 1
@@ -150,6 +151,7 @@ CAP_MAX_APP_INFO_LEN = "maxAppInfoLen"
 CAP_MAX_QUEUED_TRANSMIT_MESSAGES = "maxQueuedTransmitMessages"
 CAP_MAX_SUBSCRIBE_INTERFACE_ADDRESSES = "maxSubscribeInterfaceAddresses"
 CAP_SUPPORTED_CIPHER_SUITES = "supportedCipherSuites"
+CAP_SUPPORTED_INSTANT_COMMUNICATION_MODE = "isInstantCommunicationModeSupported"
 
 ######################################################
 # WifiAwareNetworkCapabilities keys

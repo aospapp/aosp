@@ -16,12 +16,17 @@
 
 package android.provider.cts.contacts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-
+import android.app.Instrumentation;
 import android.content.ContentProviderClient;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
@@ -42,21 +47,30 @@ import android.provider.Contacts.Photos;
 import android.provider.Contacts.Settings;
 import android.provider.ContactsContract;
 import android.telephony.PhoneNumberUtils;
-import android.test.InstrumentationTestCase;
+
+import androidx.test.InstrumentationRegistry;
+import androidx.test.runner.AndroidJUnit4;
+
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Date;
 
-public class ContactsTest extends InstrumentationTestCase {
+@RunWith(AndroidJUnit4.class)
+public class ContactsTest {
+    private Instrumentation mInstrumentation;
     private ContentResolver mContentResolver;
     private ContentProviderClient mProvider;
     private ContentProviderClient mCallLogProvider;
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mContentResolver = getInstrumentation().getTargetContext().getContentResolver();
+    @Before
+    public void setUp() throws Exception {
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mContentResolver = mInstrumentation.getContext().getContentResolver();
         mProvider = mContentResolver.acquireContentProviderClient(ContactsContract.AUTHORITY);
         mCallLogProvider = mContentResolver.acquireContentProviderClient(CallLog.AUTHORITY);
     }
@@ -65,6 +79,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's people table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testPeopleTable() {
         final String[] PEOPLE_PROJECTION = new String[] {
                 People._ID,
@@ -147,6 +162,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's groups table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testGroupsTable() {
         final String[] GROUPS_PROJECTION = new String[] {
                 Groups._ID, Groups.NAME, Groups.NOTES,
@@ -203,6 +219,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's photos table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testPhotosTable() {
         final String[] PHOTOS_PROJECTION = new String[] {
                 Photos._ID, Photos.EXISTS_ON_SERVER, Photos.PERSON_ID,
@@ -218,7 +235,7 @@ public class ContactsTest extends InstrumentationTestCase {
         String updatePhotosLocalVersion = "local_version1";
 
         try {
-            Context context = getInstrumentation().getTargetContext();
+            Context context = mInstrumentation.getContext();
             InputStream inputStream = context.getResources().openRawResource(
                     android.provider.cts.contacts.R.drawable.testimage);
             int size = inputStream.available();
@@ -248,6 +265,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's phones table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testPhonesTable() {
         final String[] PHONES_PROJECTION = new String[] {
                 Phones._ID, Phones.PERSON_ID, Phones.TYPE, Phones.NUMBER,
@@ -327,6 +345,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's organizations table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testOrganizationsTable() {
         final String[] ORGANIZATIONS_PROJECTION = new String[] {
                 Organizations._ID, Organizations.COMPANY, Organizations.TITLE,
@@ -410,7 +429,12 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's calls table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testCallsTable() {
+        // Call logs are not available on devices where telephony is not supported.
+        Assume.assumeTrue(mInstrumentation.getContext().getPackageManager()
+                            .hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+
         final String[] CALLS_PROJECTION = new String[] {
                 Calls._ID, Calls.NUMBER, Calls.DATE, Calls.DURATION, Calls.TYPE,
                 Calls.NEW, Calls.CACHED_NAME, Calls.CACHED_NUMBER_TYPE,
@@ -547,6 +571,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's contact_methods table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testContactMethodsTable() {
         final String[] CONTACT_METHODS_PROJECTION = new String[] {
                 ContactMethods._ID, ContactMethods.PERSON_ID, ContactMethods.KIND,
@@ -638,6 +663,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's settings table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testSettingsTable() {
         final String[] SETTINGS_PROJECTION = new String[] {
                 Settings._ID, Settings._SYNC_ACCOUNT, Settings._SYNC_ACCOUNT_TYPE,
@@ -756,6 +782,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's extensions table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testExtensionsTable() {
         final String[] EXTENSIONS_PROJECTION = new String[] {
                 Extensions._ID, Extensions.NAME,
@@ -825,6 +852,7 @@ public class ContactsTest extends InstrumentationTestCase {
      * Test case for the behavior of the ContactsProvider's groupmembership table
      * It does not test any APIs in android.provider.Contacts.java
      */
+    @Test
     public void testGroupMembershipTable() {
         final String[] GROUP_MEMBERSHIP_PROJECTION = new String[] {
                 GroupMembership._ID, GroupMembership.PERSON_ID,

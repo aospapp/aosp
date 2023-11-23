@@ -178,6 +178,12 @@ public class JsonResultReporter implements ITestInvocationListener {
         mTestMetricsUtil.setIterationSeparator(mTestIterationSeparator);
     }
 
+    /** Re-initialize object to erase all existing test metrics */
+    private void reInitializeTestMetricsUtil() {
+        mTestMetricsUtil = initializeTestMetricsUtil();
+        mTestMetricsUtil.setIterationSeparator(mTestIterationSeparator);
+    }
+
     /** Write Test Metrics to JSON */
     private void writeTestMetrics(
             String classMethodName, Map<String, String> metrics) {
@@ -332,6 +338,9 @@ public class JsonResultReporter implements ITestInvocationListener {
                 writeTestMetrics(testName, aggregatedMetrics.get(testName));
             }
         }
+
+        // Avoid reporting duplicate metrics by erasing metrics from previous runs
+        reInitializeTestMetricsUtil();
     }
 
     /** {@inheritDoc} */

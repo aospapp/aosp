@@ -23,6 +23,7 @@ namespace android::net {
 class UnreachableNetwork : public Network {
   public:
     explicit UnreachableNetwork(unsigned netId);
+    Permission getPermission() const { return PERMISSION_SYSTEM; };
     [[nodiscard]] int addUsers(const UidRanges& uidRanges, int32_t subPriority) override;
     [[nodiscard]] int removeUsers(const UidRanges& uidRanges, int32_t subPriority) override;
     bool isUnreachable() override { return true; }

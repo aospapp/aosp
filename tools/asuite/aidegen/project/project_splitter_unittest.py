@@ -55,7 +55,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'source_folder_path': {'src1', 'src2', 'other1'},
             'test_folder_path': {'src1/tests'},
             'jar_path': {'jar1.jar'},
-            'jar_module_path': dict(),
+            'jar_module_path': {},
             'r_java_path': set(),
             'srcjar_path': {'srcjar1.srcjar'}
         }
@@ -64,7 +64,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'source_folder_path': {'src2', 'src2/src3', 'src2/lib', 'other2'},
             'test_folder_path': {'src2/tests'},
             'jar_path': set(),
-            'jar_module_path': dict(),
+            'jar_module_path': {},
             'r_java_path': set(),
             'srcjar_path': {'srcjar2.srcjar'}
         }
@@ -73,7 +73,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'source_folder_path': {'src2/src3', 'src2/lib'},
             'test_folder_path': {'src2/src3/tests'},
             'jar_path': {'jar3.jar'},
-            'jar_module_path': dict(),
+            'jar_module_path': {},
             'r_java_path': set(),
             'srcjar_path': {'srcjar3.srcjar'}
         }
@@ -82,7 +82,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
             'source_folder_path': set(),
             'test_folder_path': set(),
             'jar_path': set(),
-            'jar_module_path': dict(),
+            'jar_module_path': {},
             'r_java_path': set(),
             'srcjar_path': {'framework.srcjar', 'other.srcjar'}
         }
@@ -196,7 +196,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
                        '_remove_permission_definition_srcjar_path')
     @mock.patch.object(common_util, 'get_android_root_dir')
     def test_gen_framework_srcjars_iml(
-        self, mock_root, mock_remove, mock_get, mock_create_iml):
+            self, mock_root, mock_remove, mock_get, mock_create_iml):
         """Test gen_framework_srcjars_iml."""
         mock_root.return_value = self._TEST_DIR
         mock_get.return_value = 'aapt2/R'
@@ -289,7 +289,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
         parent_sources = ['a/b/c/d/e', 'a/b/e/f']
         result = project_splitter._remove_child_duplicate_sources_from_parent(
             child, parent_sources, root)
-        self.assertEqual(set(['a/b/c/d/e']), result)
+        self.assertEqual({'a/b/c/d/e'}, result)
 
     @mock.patch('os.path.relpath')
     def test_get_rel_project_soong_paths(self, mock_rel):
@@ -347,7 +347,7 @@ class ProjectSplitterUnittest(unittest.TestCase):
     @mock.patch.object(project_splitter, '_get_permission_r_srcjar_rel_path')
     @mock.patch.object(project_splitter, '_get_permission_aapt2_rel_path')
     def test_remove_permission_definition_srcjar_path(
-        self, mock_get_aapt2, mock_get_r_srcjar):
+            self, mock_get_aapt2, mock_get_r_srcjar):
         """Test _remove_permission_definition_srcjar_path with conditions."""
         expected_srcjars = [
             'other.srcjar',
@@ -379,7 +379,8 @@ class ProjectSplitterUnittest(unittest.TestCase):
     @mock.patch('os.path.isfile')
     @mock.patch('os.path.isdir')
     def test_get_permission_defined_source_path(
-        self, mock_is_dir, mock_is_file, mock_rmtree, mock_unzip, mock_join):
+            self, mock_is_dir, mock_is_file, mock_rmtree, mock_unzip,
+            mock_join):
         """Test _get_permission_defined_source_path function."""
         mock_is_dir.return_value = True
         self.split_projs._get_permission_defined_source_path()
@@ -400,7 +401,8 @@ class ProjectSplitterUnittest(unittest.TestCase):
     @mock.patch('os.path.dirname')
     @mock.patch('os.path.isdir')
     def test_unzip_all_scrjars(
-        self, mock_is_dir, mock_dirname, mock_join, mock_rmtree, mock_unzip):
+            self, mock_is_dir, mock_dirname, mock_join, mock_rmtree,
+            mock_unzip):
         """Test _unzip_all_scrjars function."""
         mock_is_dir.return_value = True
         self.split_projs._unzip_all_scrjars()

@@ -100,14 +100,16 @@ static bool GetExceptionSummary(JNIEnv* env, jthrowable thrown, struct Expandabl
     (*env)->DeleteLocalRef(env, className);
     className = NULL;
 
+    bool success = false;
     jmethodID getMessage =
         FindMethod(env, "java/lang/Throwable", "getMessage", "()Ljava/lang/String;");
     jstring message = (jstring) (*env)->CallObjectMethod(env, thrown, getMessage);
-    if (message == NULL) {
-        return true;
+    if (message != NULL) {
+        success = (ExpandableStringAppend(dst, ": ") && AppendJString(env, message, dst));
+    } else if ((*env)->ExceptionOccurred(env) == NULL) {
+        success = true;
     }
 
-    bool success = (ExpandableStringAppend(dst, ": ") && AppendJString(env, message, dst));
     if (!success) {
         // Two potential reasons for reaching here:
         //
@@ -169,7 +171,7 @@ static bool GetStackTrace(JNIEnv* env, jthrowable thrown, struct ExpandableStrin
         FindMethod(env, "java/lang/Throwable", "printStackTrace", "(Ljava/io/PrintWriter;)V");
     (*env)->CallVoidMethod(env, thrown, printStackTrace, pw);
 
-    jstring trace = StringWriterToString(env, sw);
+    jstring trace = ((*env)->ExceptionOccurred(env) != NULL) ? NULL : StringWriterToString(env, sw);
 
     (*env)->DeleteLocalRef(env, pw);
     pw = NULL;

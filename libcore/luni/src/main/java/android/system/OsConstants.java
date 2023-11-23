@@ -361,7 +361,9 @@ public final class OsConstants {
     public static final int IFA_F_DADFAILED = placeholder();
     public static final int IFA_F_DEPRECATED = placeholder();
     public static final int IFA_F_HOMEADDRESS = placeholder();
+    public static final int IFA_F_MANAGETEMPADDR = placeholder();
     public static final int IFA_F_NODAD = placeholder();
+    public static final int IFA_F_NOPREFIXROUTE = placeholder();
     public static final int IFA_F_OPTIMISTIC = placeholder();
     public static final int IFA_F_PERMANENT = placeholder();
     public static final int IFA_F_SECONDARY = placeholder();

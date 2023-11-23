@@ -27,9 +27,7 @@
 #include "ExynosResourceManager.h"
 #include "ExynosResourceRestriction.h"
 
-#ifndef USE_MODULE_ATTR
-extern feature_support_t feature_table[];
-#endif
+using namespace SOC_VERSION;
 
 void ExynosDeviceInterface::printDppRestriction(struct hwc_dpp_ch_restriction res)
 {

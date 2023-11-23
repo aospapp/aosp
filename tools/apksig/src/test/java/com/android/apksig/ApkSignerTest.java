@@ -18,14 +18,21 @@ package com.android.apksig;
 
 import static com.android.apksig.apk.ApkUtils.SOURCE_STAMP_CERTIFICATE_HASH_ZIP_ENTRY_NAME;
 import static com.android.apksig.apk.ApkUtils.findZipSections;
+import static com.android.apksig.ApkVerifier.Result.V3SchemeSignerInfo;
+import static com.android.apksig.SigningCertificateLineageTest.assertLineageContainsExpectedSigners;
+import static com.android.apksig.SigningCertificateLineageTest.assertLineageContainsExpectedSignersWithCapabilities;
+import static com.android.apksig.SigningCertificateLineage.SignerCapabilities;
+import static com.android.apksig.ApkVerifierTest.assertVerificationWarning;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import com.android.apksig.ApkVerifier.Issue;
 import com.android.apksig.apk.ApkFormatException;
@@ -48,6 +55,7 @@ import com.android.apksig.util.DataSource;
 import com.android.apksig.util.DataSources;
 import com.android.apksig.zip.ZipFormatException;
 
+import java.security.InvalidKeyException;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -95,6 +103,7 @@ public class ApkSignerTest {
     static final String THIRD_RSA_2048_SIGNER_RESOURCE_NAME = "rsa-2048_3";
 
     private static final String EC_P256_SIGNER_RESOURCE_NAME = "ec-p256";
+    private static final String EC_P256_2_SIGNER_RESOURCE_NAME = "ec-p256_2";
 
     // This is the same cert as above with the modulus reencoded to remove the leading 0 sign bit.
     private static final String FIRST_RSA_2048_SIGNER_CERT_WITH_NEGATIVE_MODULUS =
@@ -102,6 +111,20 @@ public class ApkSignerTest {
 
     private static final String LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME =
             "rsa-2048-lineage-2-signers";
+    private static final String LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME =
+            "rsa-2048-lineage-3-signers";
+    private static final String LINEAGE_RSA_2048_3_SIGNERS_1_NO_CAPS_RESOURCE_NAME =
+            "rsa-2048-lineage-3-signers-1-no-caps";
+    private static final String LINEAGE_RSA_2048_2_SIGNERS_2_3_RESOURCE_NAME =
+            "rsa-2048-lineage-2-signers-2-3";
+
+    private static final String LINEAGE_EC_P256_2_SIGNERS_RESOURCE_NAME =
+            "ec-p256-lineage-2-signers";
+
+    private static final SignerCapabilities DEFAULT_CAPABILITIES =
+            new SignerCapabilities.Builder().build();
+    private static final SignerCapabilities NO_CAPABILITIES = new SignerCapabilities.Builder(
+            0).build();
 
     // These are the ID and value of an extra signature block within the APK signing block that
     // can be preserved through the setOtherSignersSignaturesPreserved API.
@@ -393,7 +416,11 @@ public class ApkSignerTest {
                         .setV2SigningEnabled(true)
                         .setV3SigningEnabled(true)
                         .setVerityEnabled(true));
-
+        signGolden(
+                "original.apk",
+                new File(outDir, "golden-file-size-aligned.apk"),
+                new ApkSigner.Builder(rsa2048SignerConfig)
+                        .setAlignFileSize(true));
         signGolden(
                 "pinsapp-unsigned.apk",
                 new File(outDir, "golden-pinsapp-signed.apk"),
@@ -715,6 +742,19 @@ public class ApkSignerTest {
     }
 
     @Test
+    public void testAlignFileSize_Golden() throws Exception {
+        List<ApkSigner.SignerConfig> rsaSignerConfig =
+                Collections.singletonList(
+                        getDefaultSignerConfigFromResources(FIRST_RSA_2048_SIGNER_RESOURCE_NAME));
+        String goldenOutput = "golden-file-size-aligned.apk";
+        assertGolden(
+                "original.apk",
+                goldenOutput,
+                new ApkSigner.Builder(rsaSignerConfig).setAlignFileSize(true));
+        assertTrue(Resources.toByteArray(getClass(), goldenOutput).length % 4096 == 0);
+    }
+
+    @Test
     public void testRsaSignedVerifies() throws Exception {
         List<ApkSigner.SignerConfig> signers =
                 Collections.singletonList(
@@ -835,6 +875,106 @@ public class ApkSignerTest {
                         sign(
                                 "v1-only-with-nul-in-entry-name.apk",
                                 new ApkSigner.Builder(signers).setV1SigningEnabled(true)));
+    }
+
+    @Test
+    public void testV1SigningAllowedWithMaximumNumberOfSigners() throws Exception {
+        // The APK Signature Scheme v1 supports a maximum of 10 signers; this test verifies a
+        // signing config with the maximum number of signers is allowed to sign the APK.
+        List<ApkSigner.SignerConfig> signers = List.of(
+                getDefaultSignerConfigFromResources("dsa-1024"),
+                getDefaultSignerConfigFromResources("dsa-2048"),
+                getDefaultSignerConfigFromResources("dsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-1024"),
+                getDefaultSignerConfigFromResources("rsa-2048"),
+                getDefaultSignerConfigFromResources("rsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-4096"),
+                getDefaultSignerConfigFromResources("rsa-8192"),
+                getDefaultSignerConfigFromResources("ec-p256"),
+                getDefaultSignerConfigFromResources("ec-p384")
+        );
+        sign("original.apk",
+                new ApkSigner.Builder(signers)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(false)
+                        .setV4SigningEnabled(false));
+    }
+
+    @Test
+    public void testV1SigningRejectedWithMoreThanMaximumNumberOfSigners() throws Exception {
+        // This test ensures a v1 signing config with more than the maximum supported number
+        // of signers will fail to sign.
+        List<ApkSigner.SignerConfig> signers = List.of(
+                getDefaultSignerConfigFromResources("dsa-1024"),
+                getDefaultSignerConfigFromResources("dsa-2048"),
+                getDefaultSignerConfigFromResources("dsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-1024"),
+                getDefaultSignerConfigFromResources("rsa-2048"),
+                getDefaultSignerConfigFromResources("rsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-4096"),
+                getDefaultSignerConfigFromResources("rsa-8192"),
+                getDefaultSignerConfigFromResources("ec-p256"),
+                getDefaultSignerConfigFromResources("ec-p384"),
+                getDefaultSignerConfigFromResources("ec-p521")
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+            sign("original.apk",
+                    new ApkSigner.Builder(signers)
+                            .setV1SigningEnabled(true)
+                            .setV2SigningEnabled(false)
+                            .setV3SigningEnabled(false)
+                            .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV2SigningAllowedWithMaximumNumberOfSigners() throws Exception {
+        // The APK Signature Scheme v2 supports a maximum of 10 signers; this test verifies a
+        // signing config with the maximum number of signers is allowed to sign the APK.
+        List<ApkSigner.SignerConfig> signers = List.of(
+                getDefaultSignerConfigFromResources("dsa-1024"),
+                getDefaultSignerConfigFromResources("dsa-2048"),
+                getDefaultSignerConfigFromResources("dsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-1024"),
+                getDefaultSignerConfigFromResources("rsa-2048"),
+                getDefaultSignerConfigFromResources("rsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-4096"),
+                getDefaultSignerConfigFromResources("rsa-8192"),
+                getDefaultSignerConfigFromResources("ec-p256"),
+                getDefaultSignerConfigFromResources("ec-p384")
+        );
+        sign("original.apk",
+                new ApkSigner.Builder(signers)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(false)
+                        .setV4SigningEnabled(false));
+    }
+
+    @Test
+    public void testV2SigningRejectedWithMoreThanMaximumNumberOfSigners() throws Exception {
+        // This test ensures a v2 signing config with more than the maximum supported number
+        // of signers will fail to sign.
+        List<ApkSigner.SignerConfig> signers = List.of(
+                getDefaultSignerConfigFromResources("dsa-1024"),
+                getDefaultSignerConfigFromResources("dsa-2048"),
+                getDefaultSignerConfigFromResources("dsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-1024"),
+                getDefaultSignerConfigFromResources("rsa-2048"),
+                getDefaultSignerConfigFromResources("rsa-3072"),
+                getDefaultSignerConfigFromResources("rsa-4096"),
+                getDefaultSignerConfigFromResources("rsa-8192"),
+                getDefaultSignerConfigFromResources("ec-p256"),
+                getDefaultSignerConfigFromResources("ec-p384"),
+                getDefaultSignerConfigFromResources("ec-p521")
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                sign("original.apk",
+                        new ApkSigner.Builder(signers)
+                                .setV1SigningEnabled(false)
+                                .setV2SigningEnabled(true)
+                                .setV3SigningEnabled(false)
+                                .setV4SigningEnabled(false)));
     }
 
     @Test
@@ -1727,7 +1867,7 @@ public class ApkSignerTest {
         SigningCertificateLineage lineage =
                 Resources.toSigningCertificateLineage(
                         ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
-        int rotationMinSdkVersion = V3SchemeConstants.MIN_SDK_WITH_V31_SUPPORT + 1;
+        int rotationMinSdkVersion = 10000;
 
         File signedApk = sign("original.apk",
                 new ApkSigner.Builder(rsa2048SignerConfigWithLineage)
@@ -1899,6 +2039,909 @@ public class ApkSignerTest {
     }
 
     @Test
+    public void testV31_rotationMinSdkVersionDevRelease_rotationTargetsDevRelease()
+            throws Exception {
+        // The V3.1 signature scheme can be used to target rotation for a development release;
+        // a development release uses the SDK version of the previously finalized release until
+        // its own SDK is finalized. This test verifies if the rotation-min-sdk-version is set to
+        // the current development release, then the resulting APK should target the previously
+        // finalized release and the rotation-targets-dev-release attribute should be set for
+        // the signer.
+        // If the development release is less than the first release that supports V3.1, then
+        // a development release is not currently supported.
+        assumeTrue(V3SchemeConstants.DEV_RELEASE >= V3SchemeConstants.MIN_SDK_WITH_V31_SUPPORT);
+        List<ApkSigner.SignerConfig> rsa2048SignerConfigWithLineage =
+                Arrays.asList(
+                        getDefaultSignerConfigFromResources(FIRST_RSA_2048_SIGNER_RESOURCE_NAME),
+                        getDefaultSignerConfigFromResources(SECOND_RSA_2048_SIGNER_RESOURCE_NAME));
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(rsa2048SignerConfigWithLineage)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setMinSdkVersionForRotation(V3SchemeConstants.DEV_RELEASE)
+                        .setSigningCertificateLineage(lineage));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(V3SchemeConstants.PROD_RELEASE,
+                result.getV31SchemeSigners().get(0).getMinSdkVersion());
+        assertTrue(result.getV31SchemeSigners().get(0).getRotationTargetsDevRelease());
+        // The maxSdkVersion for the V3 signer should overlap with the minSdkVersion for the V3.1
+        // signer.
+        assertEquals(V3SchemeConstants.PROD_RELEASE,
+                result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+    }
+
+
+    @Test
+    public void testV31_oneTargetedSigningConfigT_targetsT() throws Exception {
+        // The V3.1 signature scheme supports targeting a signing config for devices running
+        // T+. This test verifies a single signing config targeting T+ is written to the v3.1
+        // block, and the original signer is used for pre-T devices in the v3.0 block. This
+        // is functionally equivalent to calling setMinSdkVersionForRotation(AndroidSdkVersion.T).
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig targetedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineage);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, targetedSigner);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(AndroidSdkVersion.Sv2, result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertLineageContainsExpectedSigners(
+                result.getV31SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_oneTargetedSigningConfig10000_targets10000() throws Exception {
+        // When a signing config targets a later release, the V3.0 signature should be used for all
+        // platform releases prior to the targeted release. This test verifies a signing config
+        // targeting SDK 10000 has a V3.0 block that targets through SDK 9999.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig targetedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, 10000, lineage);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, targetedSigner);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(9999, result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME, 10000);
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertLineageContainsExpectedSigners(
+                result.getV31SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+
+    @Test
+    public void test31_twoTargetedSigningConfigs_twoV31Signers() throws Exception {
+        // This test verifies multiple signing configs targeting T+ can be added to the V3.1
+        // signing block.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetU =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineageTargetT);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U, lineageTargetU);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetT,
+                signerTargetU);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(AndroidSdkVersion.Sv2, result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+        assertEquals(2, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.U);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.T).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.U).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void test31_threeTargetedSigningConfigs_threeV31Signers() throws Exception {
+        // This test verifies multiple signing configs targeting T+ with modified capabilities
+        // can be added to the V3.1 signing block.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetU =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTarget10000 =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_1_NO_CAPS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineageTargetT);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U,
+                lineageTargetU);
+        ApkSigner.SignerConfig signerTarget10000 = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, 10000,
+                lineageTarget10000);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetT,
+                signerTargetU, signerTarget10000);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(AndroidSdkVersion.Sv2, result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+        assertEquals(3, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.U);
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME, 10000);
+        assertLineageContainsExpectedSignersWithCapabilities(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.T).getSigningCertificateLineage(),
+                new String[]{FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME},
+                new SignerCapabilities[]{DEFAULT_CAPABILITIES, DEFAULT_CAPABILITIES});
+        assertLineageContainsExpectedSignersWithCapabilities(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.U).getSigningCertificateLineage(),
+                new String[]{FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME},
+                new SignerCapabilities[]{DEFAULT_CAPABILITIES, DEFAULT_CAPABILITIES,
+                        DEFAULT_CAPABILITIES});
+        assertLineageContainsExpectedSignersWithCapabilities(getV31SignerTargetingSdkVersion(result,
+                        10000).getSigningCertificateLineage(),
+                new String[]{FIRST_RSA_2048_SIGNER_RESOURCE_NAME,
+                        SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME},
+                new SignerCapabilities[]{NO_CAPABILITIES, DEFAULT_CAPABILITIES,
+                        DEFAULT_CAPABILITIES});
+    }
+
+    @Test
+    public void testV31_oneTargetedSigningConfigP_targetsP() throws Exception {
+        // A single signing config can be specified targeting < T; this test verifies a single
+        // config targeting P is written to the V3.0 signing block
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig targetedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.P, lineage);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, targetedSigner);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertFalse(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV3SchemeSigners().size());
+        assertEquals(AndroidSdkVersion.P, result.getV3SchemeSigners().get(0).getMinSdkVersion());
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_oneTargetedSigningConfigS_targetsP() throws Exception {
+        // A single signing config can be specified targeting < T, but the V3.0 signature scheme
+        // does not have verified SDK targeting. If a signing config is specified to target < T and
+        // > P, the targeted SDK version should be set to P to ensure it applies on all platform
+        // releases that support the V3.0 signature scheme.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig targetedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.S, lineage);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, targetedSigner);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertFalse(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV3SchemeSigners().size());
+        assertEquals(AndroidSdkVersion.P, result.getV3SchemeSigners().get(0).getMinSdkVersion());
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_twoTargetedSigningConfigsTargetT_throwsException() throws Exception {
+        // The V3.1 signature scheme does not support multiple targeted signers targeting the same
+        // SDK version; this test ensures an Exception is thrown if the caller specifies multiple
+        // signers targeting the same release.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage secondLineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineageTargetT);
+        ApkSigner.SignerConfig secondSignerTargetT = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T,
+                secondLineageTargetT);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetT,
+                secondSignerTargetT);
+
+        assertThrows(IllegalStateException.class, () -> sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV31_oneTargetedSignerUAndDefaultRotationMinSdkVersion_multipleV31Signers()
+            throws Exception {
+        // SDK targeted signing configs can be specified alongside the rotation-min-sdk-version
+        // for the initial rotation. This test verifies when the initial rotation is specified with
+        // the default value for rotation-min-sdk-version and a separate signing config targeting U,
+        // the two signing configs are written as separate V3.1 signatures.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetU =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig rotatedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U,
+                lineageTargetU);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, rotatedSigner,
+                signerTargetU);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setSigningCertificateLineage(lineage));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(AndroidSdkVersion.Sv2, result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+        assertEquals(2, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.U);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.T).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.U).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_oneTargetedSignerSAndRotationMinSdkVersionP_throwsException()
+            throws Exception {
+        // Since the v3.0 does not have verified targeted signing configs, any targeted SDK < T
+        // will target P. If a signing config targets < T and the rotation-min-sdk-version targets
+        // < T, then an exception should be thrown to prevent both signers from targeting P.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetS =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig rotatedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetS = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.S,
+                lineageTargetS);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, rotatedSigner,
+                signerTargetS);
+
+        assertThrows(IllegalStateException.class, () -> sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setSigningCertificateLineage(lineage)
+                        .setMinSdkVersionForRotation(AndroidSdkVersion.P)));
+    }
+
+    @Test
+    public void testV31_twoTargetedSignerPAndS_throwsException()
+            throws Exception {
+        // Since the v3.0 does not have verified targeted signing configs, any targeted SDK < T
+        // will target P. If two signing configs target < T, then an exception should be thrown to
+        // prevent both signers from targeting P.
+        SigningCertificateLineage lineageTargetP =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetS =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetP = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.P, lineageTargetP);
+        ApkSigner.SignerConfig signerTargetS = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.S, lineageTargetS);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetP,
+                signerTargetS);
+
+        assertThrows(IllegalStateException.class, () -> sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV31_oneTargetedSignerTAndRotationMinSdkVersionP_rotationInV3andV31()
+            throws Exception {
+        // An initial rotation could target P with a separate signing config targeting T+; this
+        // test verifies a rotation-min-sdk-version < T and a signing config targeting T results
+        // in the initial rotation being written to the V3 signing block and the targeted signing
+        // config written to the V3.1 block.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig rotatedSigner = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T,
+                lineageTargetT);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, rotatedSigner,
+                signerTargetT);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setSigningCertificateLineage(lineage)
+                        .setMinSdkVersionForRotation(AndroidSdkVersion.P));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(AndroidSdkVersion.Sv2, result.getV3SchemeSigners().get(0).getMaxSdkVersion());
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.T).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_oneTargetedSignerTApkMinSdkT_oneV3Signer()
+            throws Exception {
+        // The V3.1 signature scheme was introduced in SDK version 33; an APK with 33 as its
+        // minSdkVersion can only be installed on devices with v3.1 support. However the V3.1
+        // signature scheme should only be used if there's a separate signing config in the V3.0
+        // block. This test verifies a single signing config targeting an APK's minSdkVersion of
+        // 33 is written to the V3.0 block.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T,
+                lineageTargetT);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetT);
+
+        File signedApk = sign("original-minSdk33.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertFalse(result.isVerifiedUsingV31Scheme());
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_oneTargetedSignerTApkMinSdkSv2_throwsException()
+            throws Exception {
+        // When a signing config targeting T+ is specified for an APK with a minSdkVersion < T,
+        // the original signer (or another config targeting the minSdkVersion), must be specified
+        // to ensure the APK can be installed on all supported platform releases. If a signer is
+        // not provided for the minimum SDK version, then an Exception should be thrown.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T,
+                lineageTargetT);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetT);
+
+        assertThrows(IllegalArgumentException.class, () -> sign("original-minSdk32.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV31_twoTargetedSignersSv2AndTApkMinSdkSv2_v3AndV31Signed()
+            throws Exception {
+        // V3.0 does not support verified SDK targeting, so a signing config targeting SDK > P and
+        // < T will be applied to P in the V3.0 signing block. If an app's minSdkVersion > P, then
+        // the app should still successfully sign and verify with one of the signers targeting the
+        // APK's minSdkVersion.
+        SigningCertificateLineage lineageTargetSv2 =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetSv2 = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.Sv2,
+                lineageTargetSv2);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T,
+                lineageTargetT);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetSv2, signerTargetT);
+
+        File signedApk = sign("original-minSdk32.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.T).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_twoTargetedSignersTAndUApkMinSdkT_v3AndV31Signed()
+            throws Exception {
+        // A V3.0 block is always required before a V3.1 block can be written to the APK's signing
+        // block. If an APK targets T (the first release with support for V3.1), and has two
+        // targeted signers, the signer targeting T should be written to the V3.0 block and the
+        // signer targeting a later release should be written to the V3.1 block.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetU =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T,
+                lineageTargetT);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U,
+                lineageTargetU);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetT, signerTargetU);
+
+        File signedApk = sign("original-minSdk33.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV3SchemeSigners().size());
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.U);
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.U).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_twoTargetedSignersTAndUWithTruncatedLineage_v3AndV31Signed()
+            throws Exception {
+        // The V3.1 signature scheme allows different lineages to be specified for each targeted
+        // signing config as long as all the lineages can be merged to form a common lineage. A
+        // signing lineage with signers A -> B -> C could be truncated to only signer C in a
+        // targeted signing config.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineage);
+        // Manually instantiate this signer instance to make use of the Builder's setMinSdkVersion.
+        ApkSigner.SignerConfig signerTargetU = new ApkSigner.SignerConfig.Builder(
+                signerTargetT.getName(), signerTargetT.getPrivateKey(),
+                signerTargetT.getCertificates())
+                .setMinSdkVersion(AndroidSdkVersion.U)
+                .build();
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetT, signerTargetU);
+
+        File signedApk = sign("original-minSdk33.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV3SchemeSigners().size());
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.U);
+        assertLineageContainsExpectedSigners(
+                result.getV3SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertNull(getV31SignerTargetingSdkVersion(result,
+                AndroidSdkVersion.U).getSigningCertificateLineage());
+    }
+
+    @Test
+    public void testV31_twoTargetedSignersTAndUWithSignerNotInLineage_throwsException()
+            throws Exception {
+        // While the V3.1 signature scheme allows a targeted signing config to omit a lineage,
+        // this can only be used if a previous targeted signer has specified a lineage that
+        // includes the new signer without a lineage. If an independent signer is specified
+        // that is not in the common lineage, an Exception should be thrown.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineage);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U, null);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetT, signerTargetU);
+
+        assertThrows(IllegalStateException.class, () -> sign("original-minSdk33.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV31_twoTargetedSignersSeparateLineages_throwsException() throws Exception {
+        // When multiple SDK targeted signers are specified, the lineage for each signer must
+        // be part of a common lineage; if any of the targeted signers has a lineage that diverges
+        // from the common lineage, then an Exception should be thrown.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_EC_P256_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetU =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                EC_P256_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                EC_P256_2_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineageTargetT);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U, lineageTargetU);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetT,
+                signerTargetU);
+
+        assertThrows(IllegalStateException.class, () -> sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV31_targetedSignerTAndRotationMinSdkVersionPSeparateLineages_throwsException()
+            throws Exception {
+        // When one or more SDK targeted signers are specified with the initial rotation using
+        // rotation-min-sdk-version, the lineage for each signer must be part of a common lineage;
+        // if any of the targeted signers has a lineage that diverges from the common lineage,
+        // then an Exception should be thrown.
+        SigningCertificateLineage lineage =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_EC_P256_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                EC_P256_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig rotatedSigner = getDefaultSignerConfigFromResources(
+                EC_P256_2_SIGNER_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U, lineageTargetT);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, rotatedSigner,
+                signerTargetT);
+
+        assertThrows(IllegalStateException.class, () -> sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(false)
+                        .setV2SigningEnabled(false)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setSigningCertificateLineage(lineage)
+                        .setMinSdkVersionForRotation(AndroidSdkVersion.P)));
+    }
+
+    @Test
+    public void testV31_targetedSignerWithSignerNotInLineage_throwsException()
+            throws Exception {
+        // When a targeted signer is created with a lineage, the signer must be in the provided
+        // lineage otherwise an Exception should be thrown.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_EC_P256_2_SIGNERS_RESOURCE_NAME);
+
+        assertThrows(IllegalArgumentException.class, () ->
+                getDefaultSignerConfigFromResources(SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false,
+                        AndroidSdkVersion.T, lineageTargetT));
+    }
+
+    @Test
+    public void testV31_targetedSignerTCertNotLastInLineage_truncatesLineage() throws Exception {
+        // Previously when a rotation signing config was provided with a lineage that did not
+        // contain the signer as the last node, the lineage was truncated to the signer's position.
+        // This test verifies a targeted signing config specified with a lineage containing signers
+        // later than the current signer will be truncated to the provided signer.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_3_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineageTargetT);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetT);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV3SchemeSigners().size());
+        assertEquals(1, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertLineageContainsExpectedSigners(
+                result.getV31SchemeSigners().get(0).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_targetedSignerTAndUSubLineages_signsWithExpectedLineages()
+            throws Exception {
+        // Since the V3.1 signature scheme supports targeted signing configs with separate lineages
+        // as long as the lineages can be merged into a common lineage, this test verifies two
+        // targeted signing configs with lineages A -> B and B -> C can be used to sign an APK
+        // and that each signer from a verification has the expected lineage.
+        SigningCertificateLineage lineageTargetT =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        SigningCertificateLineage lineageTargetU =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_2_3_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetT = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.T, lineageTargetT);
+        ApkSigner.SignerConfig signerTargetU = getDefaultSignerConfigFromResources(
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.U, lineageTargetU);
+        ApkSigner.SignerConfig originalSigner = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(originalSigner, signerTargetT,
+                signerTargetU);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertTrue(result.isVerifiedUsingV31Scheme());
+        assertEquals(1, result.getV3SchemeSigners().size());
+        assertEquals(2, result.getV31SchemeSigners().size());
+        assertV31SignerTargetsMinApiLevel(result, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.T);
+        assertV31SignerTargetsMinApiLevel(result, THIRD_RSA_2048_SIGNER_RESOURCE_NAME,
+                AndroidSdkVersion.U);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.T).getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(getV31SignerTargetingSdkVersion(result,
+                        AndroidSdkVersion.U).getSigningCertificateLineage(),
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+        assertLineageContainsExpectedSigners(result.getSigningCertificateLineage(),
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, SECOND_RSA_2048_SIGNER_RESOURCE_NAME,
+                THIRD_RSA_2048_SIGNER_RESOURCE_NAME);
+    }
+
+    @Test
+    public void testV31_targetedSignerPNoOriginalSigner_throwsException() throws Exception {
+        // Targeted signing configs can only target Android P and later since this was the initial
+        // release that added support for V3. This test verifies if a signing config with a lineage
+        // targeting P is provided without an original signer, an Exception is thrown to indicate
+        // the original signer is required for the V1 and V2 signature schemes.
+        SigningCertificateLineage lineageTargetP =
+                Resources.toSigningCertificateLineage(
+                        ApkSignerTest.class, LINEAGE_RSA_2048_2_SIGNERS_RESOURCE_NAME);
+        ApkSigner.SignerConfig signerTargetP = getDefaultSignerConfigFromResources(
+                SECOND_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.P, lineageTargetP);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetP);
+
+        assertThrows(IllegalArgumentException.class, () -> sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)));
+    }
+
+    @Test
+    public void testV31_targetedSignerPOriginalSigner_signed() throws Exception {
+        // While SDK targeted signing configs are intended to target later platform releases for
+        // rotation, it is possible for a signer to target P with the original signing key. Without
+        // a lineage, the signer will treat this as the original signing key and can use it to sign
+        // the V1 and V2 blocks as well.
+        ApkSigner.SignerConfig signerTargetP = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME, false, AndroidSdkVersion.P, null);
+        List<ApkSigner.SignerConfig> signerConfigs = Arrays.asList(signerTargetP);
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(signerConfigs)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertVerified(result);
+        assertVerificationWarning(result, null);
+        assertTrue(result.isVerifiedUsingV3Scheme());
+        assertFalse(result.isVerifiedUsingV31Scheme());
+    }
+
+    @Test
     public void testV4_rotationMinSdkVersionLessThanT_signatureOnlyHasRotatedSigner()
             throws Exception {
         // To support SDK version targeting in the v3.1 signature scheme, apksig added a
@@ -1959,11 +3002,12 @@ public class ApkSignerTest {
     }
 
     @Test
-    public void testSourceStampTimestamp_signWithSourceStamp_validTimestampValue()
+    public void
+    testSourceStampTimestamp_signWithSourceStampAndTimestampDefault_validTimestampValue()
             throws Exception {
         // Source stamps should include a timestamp attribute with the epoch time the stamp block
         // was signed. This test verifies a standard signing with a source stamp includes a valid
-        // value for the source stamp timestamp attribute.
+        // value for the source stamp timestamp attribute by default.
         ApkSigner.SignerConfig rsa2048SignerConfig = getDefaultSignerConfigFromResources(
                 FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
         List<ApkSigner.SignerConfig> ecP256SignerConfig = Collections.singletonList(
@@ -1981,6 +3025,61 @@ public class ApkSignerTest {
         assertSourceStampVerified(signedApk, result);
         long timestamp = result.getSourceStampInfo().getTimestampEpochSeconds();
         assertTrue("Invalid source stamp timestamp value: " + timestamp, timestamp > 0);
+    }
+
+    @Test
+    public void
+    testSourceStampTimestamp_signWithSourceStampAndTimestampEnabled_validTimestampValue()
+            throws Exception {
+        // Similar to above, this test verifies a valid timestamp value is written to the
+        // attribute when the caller explicitly requests to enable the source stamp timestamp.
+        ApkSigner.SignerConfig rsa2048SignerConfig = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        List<ApkSigner.SignerConfig> ecP256SignerConfig = Collections.singletonList(
+                getDefaultSignerConfigFromResources(EC_P256_SIGNER_RESOURCE_NAME));
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(ecP256SignerConfig)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setSourceStampSignerConfig(rsa2048SignerConfig)
+                        .setSourceStampTimestampEnabled(true));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertSourceStampVerified(signedApk, result);
+        long timestamp = result.getSourceStampInfo().getTimestampEpochSeconds();
+        assertTrue("Invalid source stamp timestamp value: " + timestamp, timestamp > 0);
+    }
+
+    @Test
+    public void
+    testSourceStampTimestamp_signWithSourceStampAndTimestampDisabled_defaultTimestampValue()
+            throws Exception {
+        // While source stamps should include a timestamp attribute indicating the time at which
+        // the stamp was signed, this can cause problems for reproducible builds. The
+        // ApkSigner.Builder#setSourceStampTimestampEnabled API allows the caller to specify
+        // whether the timestamp attribute should be written; this test verifies no timestamp is
+        // written to the source stamp if this API is used to disable the timestamp.
+        ApkSigner.SignerConfig rsa2048SignerConfig = getDefaultSignerConfigFromResources(
+                FIRST_RSA_2048_SIGNER_RESOURCE_NAME);
+        List<ApkSigner.SignerConfig> ecP256SignerConfig = Collections.singletonList(
+                getDefaultSignerConfigFromResources(EC_P256_SIGNER_RESOURCE_NAME));
+
+        File signedApk = sign("original.apk",
+                new ApkSigner.Builder(ecP256SignerConfig)
+                        .setV1SigningEnabled(true)
+                        .setV2SigningEnabled(true)
+                        .setV3SigningEnabled(true)
+                        .setV4SigningEnabled(false)
+                        .setSourceStampSignerConfig(rsa2048SignerConfig)
+                        .setSourceStampTimestampEnabled(false));
+        ApkVerifier.Result result = verify(signedApk, null);
+
+        assertSourceStampVerified(signedApk, result);
+        long timestamp = result.getSourceStampInfo().getTimestampEpochSeconds();
+        assertEquals(0, timestamp);
     }
 
     /**
@@ -2068,7 +3167,7 @@ public class ApkSignerTest {
 
         if (result.isVerifiedUsingV3Scheme()) {
             Set<X509Certificate> v3Signers = new HashSet<>();
-            for (ApkVerifier.Result.V3SchemeSignerInfo signer : result.getV3SchemeSigners()) {
+            for (V3SchemeSignerInfo signer : result.getV3SchemeSigners()) {
                 v3Signers.add(signer.getCertificate());
             }
             assertTrue("Expected V3 signers: " + getAllSubjectNamesFrom(expectedV3Signers)
@@ -2078,7 +3177,7 @@ public class ApkSignerTest {
 
         if (result.isVerifiedUsingV31Scheme()) {
             Set<X509Certificate> v31Signers = new HashSet<>();
-            for (ApkVerifier.Result.V3SchemeSignerInfo signer : result.getV31SchemeSigners()) {
+            for (V3SchemeSignerInfo signer : result.getV31SchemeSigners()) {
                 v31Signers.add(signer.getCertificate());
             }
             // V3.1 only supports specifying signatures with a rotated signing key; if a V3.1
@@ -2120,19 +3219,73 @@ public class ApkSignerTest {
         int minSdkVersion) throws Exception {
         assertTrue(result.isVerifiedUsingV31Scheme());
         ApkSigner.SignerConfig expectedSignerConfig = getDefaultSignerConfigFromResources(signer);
+        StringBuilder errorMessage = new StringBuilder();
 
-        for (ApkVerifier.Result.V3SchemeSignerInfo signerConfig : result.getV31SchemeSigners()) {
+        boolean signerTargetsDevRelease = false;
+        if (minSdkVersion == V3SchemeConstants.DEV_RELEASE) {
+            minSdkVersion = V3SchemeConstants.PROD_RELEASE;
+            signerTargetsDevRelease = true;
+        }
+
+        for (V3SchemeSignerInfo signerConfig : result.getV31SchemeSigners()) {
             if (signerConfig.getCertificates()
                 .containsAll(expectedSignerConfig.getCertificates())) {
-                assertEquals("The signer, " + getAllSubjectNamesFrom(signerConfig.getCertificates())
-                        + ", is expected to target SDK version " + minSdkVersion
-                        + ", instead it is targeting " + signerConfig.getMinSdkVersion(),
-                    minSdkVersion, signerConfig.getMinSdkVersion());
-                return;
+                // The V3.1 signature scheme allows the same signer to target multiple SDK versions
+                // with different capabilities in the lineage, so save the current error message
+                // in case no subsequent instances of this signer target the specified SDK version.
+                if (minSdkVersion != signerConfig.getMinSdkVersion()) {
+                    if (errorMessage.length() > 0) {
+                        errorMessage.append(System.getProperty("line.separator"));
+                    }
+                    errorMessage.append(
+                            "The signer, " + getAllSubjectNamesFrom(signerConfig.getCertificates())
+                                    + ", is expected to target SDK version " + minSdkVersion
+                                    + ", instead it is targeting "
+                                    + signerConfig.getMinSdkVersion());
+                } else if (signerTargetsDevRelease
+                        && !signerConfig.getRotationTargetsDevRelease()) {
+                    if (errorMessage.length() > 0) {
+                        errorMessage.append(System.getProperty("line.separator"));
+                    }
+                    errorMessage.append(
+                            "The signer, " + getAllSubjectNamesFrom(signerConfig.getCertificates())
+                                    + ", is targeting a development release, " + minSdkVersion
+                                    + ", but the attribute to target a development release is not"
+                                    + " set");
+                } else {
+                    return;
+                }
             }
         }
         fail("Did not find the expected signer, " + getAllSubjectNamesFrom(
-            expectedSignerConfig.getCertificates()));
+            expectedSignerConfig.getCertificates()) + ": " + errorMessage);
+    }
+
+    /**
+     * Returns the V3.1 signer from the provided {@code result} targeting the specified {@code
+     * targetSdkVersion}.
+     */
+    private V3SchemeSignerInfo getV31SignerTargetingSdkVersion(ApkVerifier.Result result,
+            int targetSdkVersion) throws Exception {
+        boolean signerTargetsDevRelease = false;
+        if (targetSdkVersion == V3SchemeConstants.DEV_RELEASE) {
+            targetSdkVersion = V3SchemeConstants.PROD_RELEASE;
+            signerTargetsDevRelease = true;
+        }
+        for (V3SchemeSignerInfo signer : result.getV31SchemeSigners()) {
+            if (signer.getMinSdkVersion() == targetSdkVersion) {
+                // If a signer is targeting a development release and another signer is targeting
+                // the most recent production release, then both could be targeting the same SDK
+                // version.
+                if (signerTargetsDevRelease != signer.getRotationTargetsDevRelease()) {
+                    continue;
+                }
+                return signer;
+            }
+        }
+        fail("No V3.1 signer found targeting min SDK version " + targetSdkVersion
+                + ", dev release: " + signerTargetsDevRelease);
+        return null;
     }
 
     /**
@@ -2346,6 +3499,15 @@ public class ApkSignerTest {
                 Files.readAllBytes(Paths.get(second.getPath())));
     }
 
+    private static List<ApkSigner.SignerConfig> getSignerConfigsFromResources(
+            String... signerNames) throws Exception {
+        List<ApkSigner.SignerConfig> signerConfigs = new ArrayList<>();
+        for (String signerName : signerNames) {
+            signerConfigs.add(getDefaultSignerConfigFromResources(signerName));
+        }
+        return signerConfigs;
+    }
+
     private static ApkSigner.SignerConfig getDefaultSignerConfigFromResources(
             String keyNameInResources) throws Exception {
         return getDefaultSignerConfigFromResources(keyNameInResources, false);
@@ -2353,12 +3515,29 @@ public class ApkSignerTest {
 
     private static ApkSigner.SignerConfig getDefaultSignerConfigFromResources(
             String keyNameInResources, boolean deterministicDsaSigning) throws Exception {
+        return getDefaultSignerConfigFromResources(keyNameInResources, deterministicDsaSigning, 0,
+                null);
+    }
+
+    /**
+     * Returns a new {@link ApkSigner.SignerConfig} with the certificate and private key in
+     * resources with the file prefix {@code keyNameInResources} targeting {@code targetSdkVersion}
+     * with lineage {@code lineage} and using deterministic DSA signing when {@code
+     * deterministicDsaSigning} is set to true.
+     */
+    private static ApkSigner.SignerConfig getDefaultSignerConfigFromResources(
+            String keyNameInResources, boolean deterministicDsaSigning, int targetSdkVersion,
+            SigningCertificateLineage lineage) throws Exception {
         PrivateKey privateKey =
                 Resources.toPrivateKey(ApkSignerTest.class, keyNameInResources + ".pk8");
         List<X509Certificate> certs =
                 Resources.toCertificateChain(ApkSignerTest.class, keyNameInResources + ".x509.pem");
-        return new ApkSigner.SignerConfig.Builder(keyNameInResources, privateKey, certs,
-                deterministicDsaSigning).build();
+        ApkSigner.SignerConfig.Builder signerConfigBuilder = new ApkSigner.SignerConfig.Builder(
+                keyNameInResources, privateKey, certs, deterministicDsaSigning);
+        if (targetSdkVersion > 0) {
+            signerConfigBuilder.setLineageForMinSdkVersion(lineage, targetSdkVersion);
+        }
+        return signerConfigBuilder.build();
     }
 
     private static ApkSigner.SignerConfig getDefaultSignerConfigFromResources(

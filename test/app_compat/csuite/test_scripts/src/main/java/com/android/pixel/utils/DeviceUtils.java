@@ -25,11 +25,14 @@ import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.util.Log;
 
+import com.google.common.base.Preconditions;
+
 import org.junit.Assert;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.Optional;
 
 public class DeviceUtils {
     private static final String TAG = DeviceUtils.class.getSimpleName();
@@ -39,6 +42,8 @@ public class DeviceUtils {
     private static final long VIDEO_TAIL_BUFFER = 500;
     private static final String DISMISS_KEYGUARD = "wm dismiss-keyguard";
 
+    private String mFolderDir = LOG_DATA_DIR;
+    private String mTestName = TAG;
     private RecordingThread mCurrentThread;
     private File mLogDataDir;
     private UiDevice mDevice;
@@ -47,9 +52,24 @@ public class DeviceUtils {
         mDevice = device;
     }
 
+    /**
+     * Sets the test name and the folder path for the current test.
+     *
+     * @param testName The test name.
+     */
+    public void setTestName(String testName) {
+        Optional<String> optionalTestName = Optional.ofNullable(testName);
+        if (optionalTestName.isPresent()) {
+            mTestName = optionalTestName.get();
+            mFolderDir = String.join("/", LOG_DATA_DIR, optionalTestName.get());
+        } else {
+            Preconditions.checkNotNull(testName, "testName cannot be null");
+        }
+    }
+
     /** Create a directory to save test screenshots, screenrecord and text files. */
     public void createLogDataDir() {
-        mLogDataDir = new File(LOG_DATA_DIR);
+        mLogDataDir = new File(mFolderDir);
         if (mLogDataDir.exists()) {
             String[] children = mLogDataDir.list();
             for (String file : children) {
@@ -104,8 +124,9 @@ public class DeviceUtils {
     public void takeScreenshot(String packageName, String description) {
         File screenshot =
                 new File(
-                        LOG_DATA_DIR,
-                        String.format("%s_screenshot_%s.png", packageName, description));
+                        mFolderDir,
+                        String.format(
+                                "%s_%s_screenshot_%s.png", mTestName, packageName, description));
         mDevice.takeScreenshot(screenshot);
     }
 
@@ -118,7 +139,8 @@ public class DeviceUtils {
         Log.v(TAG, "Started Recording");
         mCurrentThread =
                 new RecordingThread(
-                        "test-screen-record", String.format("%s_screenrecord", packageName));
+                        "test-screen-record",
+                        String.format("%s_%s_screenrecord", mTestName, packageName));
         mCurrentThread.start();
     }
 

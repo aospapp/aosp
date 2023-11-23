@@ -15,7 +15,6 @@
 #   limitations under the License.
 
 import itertools
-import pprint
 import queue
 import time
 
@@ -45,7 +44,6 @@ AutoJoin = "enableAutojoin"
 ClearCapabilities = "ClearCapabilities"
 TransportType = "TransportType"
 
-
 # Default timeout used for reboot, toggle WiFi and Airplane mode,
 # for the system to settle down after the operation.
 DEFAULT_TIMEOUT = 10
@@ -60,6 +58,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
     * Several Wi-Fi networks visible to the device, including an open Wi-Fi
       network.
     """
+
     def __init__(self, configs):
         super().__init__(configs)
         self.enable_packet_log = True
@@ -69,36 +68,44 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         self.dut = self.android_devices[0]
         opt_param = [
-            "open_network", "reference_networks", "hidden_networks", "radius_conf_2g",
-            "radius_conf_5g", "ca_cert", "eap_identity", "eap_password", "passpoint_networks",
-            "domain_suffix_match", "wifi6_models"]
-        self.unpack_userparams(opt_param_names=opt_param,)
+            "open_network", "reference_networks", "hidden_networks",
+            "radius_conf_2g", "radius_conf_5g", "ca_cert", "eap_identity",
+            "eap_password", "passpoint_networks", "domain_suffix_match",
+            "wifi6_models"
+        ]
+        self.unpack_userparams(opt_param_names=opt_param, )
 
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start(
-                wpa_network=True, ent_network=True,
+                wpa_network=True,
+                ent_network=True,
                 radius_conf_2g=self.radius_conf_2g,
-                radius_conf_5g=self.radius_conf_5g,)
+                radius_conf_5g=self.radius_conf_5g,
+            )
         elif "OpenWrtAP" in self.user_params:
-            self.configure_openwrt_ap_and_start(open_network=True,
-                                                wpa_network=True,)
+            self.configure_openwrt_ap_and_start(
+                open_network=True,
+                wpa_network=True,
+            )
         if hasattr(self, "reference_networks") and \
             isinstance(self.reference_networks, list):
-              self.wpa_psk_2g = self.reference_networks[0]["2g"]
-              self.wpa_psk_5g = self.reference_networks[0]["5g"]
-        if hasattr(self, "open_network") and isinstance(self.open_network,list):
+            self.wpa_psk_2g = self.reference_networks[0]["2g"]
+            self.wpa_psk_5g = self.reference_networks[0]["5g"]
+        if hasattr(self, "open_network") and isinstance(
+                self.open_network, list):
             self.open_2g = self.open_network[0]["2g"]
             self.open_5g = self.open_network[0]["5g"]
         if hasattr(self, "hidden_networks") and \
             isinstance(self.hidden_networks, list):
-              self.hidden_network = self.hidden_networks[0]
+            self.hidden_network = self.hidden_networks[0]
         if hasattr(self, "passpoint_networks"):
             self.passpoint_network = self.passpoint_networks[BOINGO]
             self.passpoint_network[WifiEnums.SSID_KEY] = \
                 self.passpoint_networks[BOINGO][WifiEnums.SSID_KEY][0]
         self.dut.droid.wifiRemoveNetworkSuggestions([])
         self.dut.adb.shell(
-            "pm disable com.google.android.apps.carrier.carrierwifi", ignore_status=True)
+            "pm disable com.google.android.apps.carrier.carrierwifi",
+            ignore_status=True)
 
     def setup_test(self):
         super().setup_test()
@@ -108,14 +115,16 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.clear_user_disabled_networks()
         wutils.wifi_toggle_state(self.dut, True)
         self.dut.ed.clear_all_events()
-        self.clear_carrier_approved(str(self.dut.droid.telephonyGetSimCarrierId()))
+        self.clear_carrier_approved(
+            str(self.dut.droid.telephonyGetSimCarrierId()))
         if "_ent_" in self.test_name:
             if "OpenWrtAP" in self.user_params:
                 self.access_points[0].close()
                 self.configure_openwrt_ap_and_start(
                     ent_network=True,
                     radius_conf_2g=self.radius_conf_2g,
-                    radius_conf_5g=self.radius_conf_5g,)
+                    radius_conf_5g=self.radius_conf_5g,
+                )
             self.ent_network_2g = self.ent_networks[0]["2g"]
             self.ent_network_5g = self.ent_networks[0]["5g"]
 
@@ -128,7 +137,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         wutils.reset_wifi(self.dut)
         wutils.wifi_toggle_state(self.dut, False)
         self.dut.ed.clear_all_events()
-        self.clear_carrier_approved(str(self.dut.droid.telephonyGetSimCarrierId()))
+        self.clear_carrier_approved(
+            str(self.dut.droid.telephonyGetSimCarrierId()))
 
     def teardown_class(self):
         self.dut.adb.shell(
@@ -138,25 +148,27 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
             del self.user_params["open_network"]
 
     """Helper Functions"""
+
     def set_approved(self, approved):
-        self.dut.log.debug("Setting suggestions from sl4a app "
-                           + "approved" if approved else "not approved")
-        self.dut.adb.shell("cmd wifi network-suggestions-set-user-approved"
-                           + " " + SL4A_APK_NAME
-                           + " " + ("yes" if approved else "no"))
+        self.dut.log.debug("Setting suggestions from sl4a app " +
+                           "approved" if approved else "not approved")
+        self.dut.adb.shell("cmd wifi network-suggestions-set-user-approved" +
+                           " " + SL4A_APK_NAME + " " +
+                           ("yes" if approved else "no"))
 
     def is_approved(self):
         is_approved_str = self.dut.adb.shell(
-            "cmd wifi network-suggestions-has-user-approved"
-            + " " + SL4A_APK_NAME)
+            "cmd wifi network-suggestions-has-user-approved" + " " +
+            SL4A_APK_NAME)
         return True if (is_approved_str == "yes") else False
 
     def set_carrier_approved(self, carrier_id, approved):
-        self.dut.log.debug(("Setting IMSI protection exemption for carrier: " + carrier_id
-                                + "approved" if approved else "not approved"))
-        self.dut.adb.shell("cmd wifi imsi-protection-exemption-set-user-approved-for-carrier"
-                           + " " + carrier_id
-                           + " " + ("yes" if approved else "no"))
+        self.dut.log.debug(
+            ("Setting IMSI protection exemption for carrier: " + carrier_id +
+             "approved" if approved else "not approved"))
+        self.dut.adb.shell(
+            "cmd wifi imsi-protection-exemption-set-user-approved-for-carrier"
+            + " " + carrier_id + " " + ("yes" if approved else "no"))
 
     def is_carrier_approved(self, carrier_id):
         is_approved_str = self.dut.adb.shell(
@@ -171,12 +183,11 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
     def clear_user_disabled_networks(self):
         self.dut.log.debug("Clearing user disabled networks")
-        self.dut.adb.shell(
-            "cmd wifi clear-user-disabled-networks")
+        self.dut.adb.shell("cmd wifi clear-user-disabled-networks")
 
-    def add_suggestions_and_ensure_connection(self, network_suggestions,
-                                              expected_ssid,
-                                              expect_post_connection_broadcast):
+    def add_suggestions_and_ensure_connection(
+            self, network_suggestions, expected_ssid,
+            expect_post_connection_broadcast):
         if expect_post_connection_broadcast is not None:
             self.dut.droid.wifiStartTrackingNetworkSuggestionStateChange()
 
@@ -206,15 +217,13 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
                     "Did not receive post connection broadcast")
         else:
             if not expect_post_connection_broadcast:
-                raise signals.TestFailure(
-                    "Received post connection broadcast")
+                raise signals.TestFailure("Received post connection broadcast")
         finally:
             self.dut.droid.wifiStopTrackingNetworkSuggestionStateChange()
         self.dut.ed.clear_all_events()
 
-    def remove_suggestions_disconnect_and_ensure_no_connection_back(self,
-                                                                    network_suggestions,
-                                                                    expected_ssid):
+    def remove_suggestions_disconnect_and_ensure_no_connection_back(
+            self, network_suggestions, expected_ssid):
         # Remove suggestion trigger disconnect and wait for the disconnect.
         self.dut.log.info("Removing network suggestions")
         asserts.assert_true(
@@ -225,12 +234,13 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         # Now ensure that we didn't connect back.
         asserts.assert_false(
-            wutils.wait_for_connect(self.dut, expected_ssid, assert_on_fail=False),
+            wutils.wait_for_connect(self.dut,
+                                    expected_ssid,
+                                    assert_on_fail=False),
             "Device should not connect back")
 
-    def _test_connect_to_wifi_network_reboot_config_store(self,
-                                                          network_suggestions,
-                                                          wifi_network):
+    def _test_connect_to_wifi_network_reboot_config_store(
+            self, network_suggestions, wifi_network):
         """ Test network suggestion with reboot config store
 
         Args:
@@ -240,16 +250,16 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         self.add_suggestions_and_ensure_connection(
             network_suggestions, wifi_network[WifiEnums.SSID_KEY], None)
-        wutils.verify_11ax_wifi_connection(
-            self.dut, self.wifi6_models, "wifi6_ap" in self.user_params)
+        wutils.verify_11ax_wifi_connection(self.dut, self.wifi6_models,
+                                           "wifi6_ap" in self.user_params)
 
         # Reboot and wait for connection back to the same suggestion.
         self.dut.reboot()
         time.sleep(DEFAULT_TIMEOUT)
 
         wutils.wait_for_connect(self.dut, wifi_network[WifiEnums.SSID_KEY])
-        wutils.verify_11ax_wifi_connection(
-            self.dut, self.wifi6_models, "wifi6_ap" in self.user_params)
+        wutils.verify_11ax_wifi_connection(self.dut, self.wifi6_models,
+                                           "wifi6_ap" in self.user_params)
 
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             network_suggestions, wifi_network[WifiEnums.SSID_KEY])
@@ -271,8 +281,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         4. Remove the suggestions and ensure the device does not connect back.
         """
         self.add_suggestions_and_ensure_connection(
-            [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            False)
+            [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY], False)
 
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY])
@@ -310,8 +319,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         # Add valid suggestions & ensure we restart PNO and connect to it.
         self.add_suggestions_and_ensure_connection(
-            [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            False)
+            [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY], False)
 
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY])
@@ -334,8 +342,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         8. Remove the suggestions and ensure the device does not connect back.
         """
         self.add_suggestions_and_ensure_connection(
-            [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            False)
+            [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY], False)
 
         mod_suggestion = self.wpa_psk_2g
 
@@ -365,7 +372,6 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             [mod_suggestion], mod_suggestion[WifiEnums.SSID_KEY])
 
-
     @test_tracker_info(uuid="f54bc250-d9e9-4f00-8b5b-b866e8550b43")
     def test_connect_to_highest_priority(self):
         """
@@ -391,16 +397,15 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         network_suggestion_5g[WifiEnums.PRIORITY] = 2
         self.add_suggestions_and_ensure_connection(
             [network_suggestion_2g, network_suggestion_5g],
-            self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            None)
+            self.wpa_psk_2g[WifiEnums.SSID_KEY], None)
 
         # In-place modify Reverse the priority, should be no disconnect
         network_suggestion_2g[WifiEnums.PRIORITY] = 2
         network_suggestion_5g[WifiEnums.PRIORITY] = 5
         self.dut.log.info("Modifying network suggestions")
         asserts.assert_true(
-            self.dut.droid.wifiAddNetworkSuggestions([network_suggestion_2g,
-                                                      network_suggestion_5g]),
+            self.dut.droid.wifiAddNetworkSuggestions(
+                [network_suggestion_2g, network_suggestion_5g]),
             "Failed to add suggestions")
         wutils.ensure_no_disconnect(self.dut)
 
@@ -420,8 +425,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         network_suggestion_5g[WifiEnums.PRIORITY] = 2
         self.add_suggestions_and_ensure_connection(
             [network_suggestion_2g, network_suggestion_5g],
-            self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            None)
+            self.wpa_psk_2g[WifiEnums.SSID_KEY], None)
 
     @test_tracker_info(uuid="b1d27eea-23c8-4c4f-b944-ef118e4cc35f")
     def test_connect_to_wpa_psk_2g_with_post_connection_broadcast(self):
@@ -438,8 +442,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         network_suggestion = self.wpa_psk_2g
         network_suggestion[WifiEnums.IS_APP_INTERACTION_REQUIRED] = True
         self.add_suggestions_and_ensure_connection(
-            [network_suggestion], self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            True)
+            [network_suggestion], self.wpa_psk_2g[WifiEnums.SSID_KEY], True)
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             [self.wpa_psk_2g], self.wpa_psk_2g[WifiEnums.SSID_KEY])
 
@@ -541,9 +544,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.set_approved(False)
 
         # Ensure the app is not approved.
-        asserts.assert_false(
-            self.is_approved(),
-            "Suggestions should be disabled")
+        asserts.assert_false(self.is_approved(),
+                             "Suggestions should be disabled")
 
         # Start a new scan to trigger auto-join.
         wutils.start_wifi_connection_scan_and_ensure_network_found(
@@ -551,8 +553,9 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         # Ensure we don't connect to the network.
         asserts.assert_false(
-            wutils.wait_for_connect(
-                self.dut, self.wpa_psk_5g[WifiEnums.SSID_KEY], assert_on_fail=False),
+            wutils.wait_for_connect(self.dut,
+                                    self.wpa_psk_5g[WifiEnums.SSID_KEY],
+                                    assert_on_fail=False),
             "Should not connect to network suggestions from unapproved app")
 
         self.dut.log.info("Enabling suggestions from test")
@@ -560,9 +563,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.set_approved(True)
 
         # Ensure the app is approved.
-        asserts.assert_true(
-            self.is_approved(),
-            "Suggestions should be enabled")
+        asserts.assert_true(self.is_approved(),
+                            "Suggestions should be enabled")
 
         # Start a new scan to trigger auto-join.
         wutils.start_wifi_connection_scan_and_ensure_network_found(
@@ -588,8 +590,7 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         network_suggestion = self.wpa_psk_2g
         network_suggestion[WifiEnums.IS_APP_INTERACTION_REQUIRED] = True
         self.add_suggestions_and_ensure_connection(
-            [network_suggestion], self.wpa_psk_2g[WifiEnums.SSID_KEY],
-            True)
+            [network_suggestion], self.wpa_psk_2g[WifiEnums.SSID_KEY], True)
 
         # Simulate user disconnect the network.
         self.dut.droid.wifiUserDisconnectNetwork(
@@ -619,11 +620,13 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
            (isAppInteractionRequired = False).
         4. Remove the suggestions and ensure the device does not connect back.
         """
-        asserts.skip_if(not hasattr(self, "hidden_networks"), "No hidden networks, skip this test")
+        asserts.skip_if(not hasattr(self, "hidden_networks"),
+                        "No hidden networks, skip this test")
 
         network_suggestion = self.hidden_network
         self.add_suggestions_and_ensure_connection(
-            [network_suggestion], network_suggestion[WifiEnums.SSID_KEY], False)
+            [network_suggestion], network_suggestion[WifiEnums.SSID_KEY],
+            False)
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             [network_suggestion], network_suggestion[WifiEnums.SSID_KEY])
 
@@ -644,8 +647,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         passpoint_config[WifiEnums.IS_APP_INTERACTION_REQUIRED] = True
         if "carrierId" in passpoint_config:
             self.set_carrier_approved(passpoint_config["carrierId"], True)
-        self.add_suggestions_and_ensure_connection([passpoint_config],
-                                                   passpoint_config[WifiEnums.SSID_KEY], True)
+        self.add_suggestions_and_ensure_connection(
+            [passpoint_config], passpoint_config[WifiEnums.SSID_KEY], True)
         self.remove_suggestions_disconnect_and_ensure_no_connection_back(
             [passpoint_config], passpoint_config[WifiEnums.SSID_KEY])
         if "carrierId" in passpoint_config:
@@ -672,8 +675,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         passpoint_config = self.passpoint_network
         if "carrierId" in passpoint_config:
             self.set_carrier_approved(passpoint_config["carrierId"], True)
-        self._test_connect_to_wifi_network_reboot_config_store([passpoint_config],
-                                                               passpoint_config)
+        self._test_connect_to_wifi_network_reboot_config_store(
+            [passpoint_config], passpoint_config)
         if "carrierId" in passpoint_config:
             self.clear_carrier_approved(passpoint_config["carrierId"])
 
@@ -704,9 +707,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.set_approved(False)
 
         # Ensure the app is not approved.
-        asserts.assert_false(
-            self.is_approved(),
-            "Suggestions should be disabled")
+        asserts.assert_false(self.is_approved(),
+                             "Suggestions should be disabled")
 
         # Start a new scan to trigger auto-join.
         wutils.start_wifi_connection_scan_and_ensure_network_found(
@@ -714,8 +716,9 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         # Ensure we don't connect to the network.
         asserts.assert_false(
-            wutils.wait_for_connect(
-                self.dut, passpoint_config[WifiEnums.SSID_KEY], assert_on_fail=False),
+            wutils.wait_for_connect(self.dut,
+                                    passpoint_config[WifiEnums.SSID_KEY],
+                                    assert_on_fail=False),
             "Should not connect to network suggestions from unapproved app")
 
         self.dut.log.info("Enabling suggestions from test")
@@ -723,9 +726,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.set_approved(True)
 
         # Ensure the app is approved.
-        asserts.assert_true(
-            self.is_approved(),
-            "Suggestions should be enabled")
+        asserts.assert_true(self.is_approved(),
+                            "Suggestions should be enabled")
 
         # Start a new scan to trigger auto-join.
         wutils.start_wifi_connection_scan_and_ensure_network_found(
@@ -736,7 +738,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
             self.clear_carrier_approved(passpoint_config["carrierId"])
 
     @test_tracker_info(uuid="cf624cda-4d25-42f1-80eb-6c717fb08338")
-    def test_fail_to_connect_to_passpoint_network_when_imsi_protection_exemption_not_approved(self):
+    def test_fail_to_connect_to_passpoint_network_when_imsi_protection_exemption_not_approved(
+            self):
         """
         Adds a passpoint network suggestion using SIM credential without IMSI privacy protection.
         Before user approves the exemption, ensure that the device does noconnect to it until we
@@ -752,8 +755,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         asserts.skip_if(not hasattr(self, "passpoint_networks"),
                         "No passpoint networks, skip this test")
         passpoint_config = self.passpoint_networks[ATT]
-        passpoint_config[WifiEnums.SSID_KEY] = self.passpoint_networks[
-                ATT][WifiEnums.SSID_KEY][0]
+        passpoint_config[WifiEnums.SSID_KEY] = self.passpoint_networks[ATT][
+            WifiEnums.SSID_KEY][0]
         asserts.skip_if("carrierId" not in passpoint_config,
                         "Not a SIM based passpoint network, skip this test")
 
@@ -773,8 +776,9 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         # Ensure we don't connect to the network.
         asserts.assert_false(
-            wutils.wait_for_connect(
-                self.dut, passpoint_config[WifiEnums.SSID_KEY], assert_on_fail=False),
+            wutils.wait_for_connect(self.dut,
+                                    passpoint_config[WifiEnums.SSID_KEY],
+                                    assert_on_fail=False),
             "Should not connect to network suggestions from unapproved app")
 
         self.dut.log.info("Enabling suggestions from test")
@@ -817,8 +821,10 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         self.set_approved(True)
         wutils.start_wifi_connection_scan_and_return_status(self.dut)
         asserts.assert_false(
-            wutils.wait_for_connect(self.dut, network_suggestion[WifiEnums.SSID_KEY],
-                                    assert_on_fail=False), "Device should not connect.")
+            wutils.wait_for_connect(self.dut,
+                                    network_suggestion[WifiEnums.SSID_KEY],
+                                    assert_on_fail=False),
+            "Device should not connect.")
 
     @test_tracker_info(uuid="ff4e451f-a380-4ff5-a5c2-dd9b1633d5e5")
     def test_user_override_auto_join_on_network_suggestion(self):
@@ -834,8 +840,9 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         4. Ensure device doesn't connect to his network
         """
         network_suggestion = self.wpa_psk_5g
-        self.add_suggestions_and_ensure_connection([network_suggestion],
-                                                   network_suggestion[WifiEnums.SSID_KEY], False)
+        self.add_suggestions_and_ensure_connection(
+            [network_suggestion], network_suggestion[WifiEnums.SSID_KEY],
+            False)
         wifi_info = self.dut.droid.wifiGetConnectionInfo()
         self.dut.log.info(wifi_info)
         network_id = wifi_info[WifiEnums.NETID_KEY]
@@ -845,8 +852,10 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         wutils.wifi_toggle_state(self.dut, False)
         wutils.wifi_toggle_state(self.dut, True)
         asserts.assert_false(
-            wutils.wait_for_connect(self.dut, network_suggestion[WifiEnums.SSID_KEY],
-                                    assert_on_fail=False), "Device should not connect.")
+            wutils.wait_for_connect(self.dut,
+                                    network_suggestion[WifiEnums.SSID_KEY],
+                                    assert_on_fail=False),
+            "Device should not connect.")
 
     @test_tracker_info(uuid="32201b1c-76a0-46dc-9983-2cd24312a783")
     def test_untrusted_suggestion_without_untrusted_request(self):
@@ -869,9 +878,11 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
 
         # Ensure we don't connect to the network.
         asserts.assert_false(
-            wutils.wait_for_connect(
-                self.dut, network_suggestion[WifiEnums.SSID_KEY], assert_on_fail=False),
-            "Should not connect to untrusted network suggestions with no request")
+            wutils.wait_for_connect(self.dut,
+                                    network_suggestion[WifiEnums.SSID_KEY],
+                                    assert_on_fail=False),
+            "Should not connect to untrusted network suggestions with no request"
+        )
         network_request = {ClearCapabilities: True, TransportType: 1}
         req_key = self.dut.droid.connectivityRequestNetwork(network_request)
 
@@ -879,8 +890,8 @@ class WifiNetworkSuggestionTest(WifiBaseTest):
         wutils.start_wifi_connection_scan_and_ensure_network_found(
             self.dut, network_suggestion[WifiEnums.SSID_KEY])
 
-        wutils.wait_for_connect(
-            self.dut, network_suggestion[WifiEnums.SSID_KEY], assert_on_fail=False)
+        wutils.wait_for_connect(self.dut,
+                                network_suggestion[WifiEnums.SSID_KEY],
+                                assert_on_fail=False)
 
         self.dut.droid.connectivityUnregisterNetworkCallback(req_key)
-

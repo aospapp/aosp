@@ -40,23 +40,33 @@ class AndroidSDK:
     """Configures API level from the Android SDK path.
 
     Attributes:
-        _android_sdk_path: The path to the Android SDK, None if the Android SDK
-                           doesn't exist.
+        _android_sdk_path: The path to the Android SDK,
+                           None if the Android SDK doesn't exist.
         _max_api_level: An integer, the max API level in the platforms folder.
         _max_code_name: A string, the code name of the max API level.
+        _max_folder_name: A string, the folder name corresponding
+                          to the max API level.
         _platform_mapping: A dictionary of Android platform versions mapping to
-                           the API level and the Android version code name.
-                           e.g.
+                           the API level and the Android version code name. e.g.
                            {
-                             'android-29': {'api_level': 29, 'code_name': '29'},
-                             'android-Q': {'api_level': 29, 'code_name': 'Q'}
+                             'android-29': {
+                               'api_level': 29,
+                               'code_name': '29',
+                             },
+                             'android-Q': {
+                               'api_level': 29,
+                               'code_name': 'Q',
+                             }
                            }
     """
 
     _API_LEVEL = 'api_level'
     _CODE_NAME = 'code_name'
-    _RE_API_LEVEL = re.compile(r'AndroidVersion.ApiLevel=(?P<api_level>[\d]+)')
-    _RE_CODE_NAME = re.compile(r'AndroidVersion.CodeName=(?P<code_name>[A-Z])')
+    _FOLDER_NAME = 'folder_name'
+    _RE_API_LEVEL = re.compile(
+        r'AndroidVersion\.ApiLevel=(?P<api_level>[\d]+)')
+    _RE_CODE_NAME = re.compile(
+        r'AndroidVersion\.CodeName=(?P<code_name>[a-zA-Z]+)')
     _GLOB_PROPERTIES_FILE = os.path.join('platforms', 'android-*',
                                          'source.properties')
     _INPUT_QUERY_TIMES = 3
@@ -75,6 +85,7 @@ class AndroidSDK:
         """Initializes AndroidSDK."""
         self._max_api_level = 0
         self._max_code_name = None
+        self._max_folder_name = None
         self._platform_mapping = {}
         self._android_sdk_path = None
 
@@ -87,6 +98,11 @@ class AndroidSDK:
     def max_code_name(self):
         """Gets the max code name."""
         return self._max_code_name
+
+    @property
+    def max_folder_name(self):
+        """Gets the max folder name."""
+        return self._max_folder_name
 
     @property
     def platform_mapping(self):
@@ -120,6 +136,20 @@ class AndroidSDK:
                     and data[self._CODE_NAME] > code_name):
                 code_name = data[self._CODE_NAME]
         return code_name
+
+    def _get_max_folder_name(self):
+        """Gets the max folder name from self._platform_mapping.
+
+        Returns:
+            A string of the folder name corresponding to the max API level.
+        """
+        folder_name = ''
+        for platform, data in self._platform_mapping.items():
+            if (data[self._API_LEVEL] == self.max_api_level
+                    and data[self._CODE_NAME] == self._max_code_name):
+                folder_name = platform
+                break
+        return folder_name
 
     def _parse_api_info(self, properties_file):
         """Parses the API information from the source.properties file.
@@ -189,13 +219,14 @@ class AndroidSDK:
             self._android_sdk_path = path
             self._max_api_level = self._parse_max_api_level()
             self._max_code_name = self._parse_max_code_name()
+            self._max_folder_name = self._get_max_folder_name()
             return True
         return False
 
     def path_analysis(self, sdk_path):
         """Analyses the Android SDK path.
 
-        Confirm the path is a Android SDK folder. If it's not correct, ask user
+        Confirm the path is an Android SDK folder. If it's not correct, ask user
         to enter a new one. Skip asking when enter nothing.
 
         Args:

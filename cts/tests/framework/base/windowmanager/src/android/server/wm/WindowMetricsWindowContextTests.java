@@ -28,6 +28,7 @@ import android.graphics.PixelFormat;
 import android.graphics.Point;
 import android.graphics.Rect;
 import android.hardware.display.DisplayManager;
+import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.WindowMetricsTestHelper.OnLayoutChangeListener;
 import android.view.Display;
@@ -38,16 +39,21 @@ import android.view.WindowMetrics;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 
 /**
- * Tests that verify the behavior of {@link WindowMetrics} and {@link android.app.WindowContext}
- * APIs
+ * Tests that verify the behavior of {@link WindowMetrics} APIs on {@link Context contexts} created
+ * from {@link Context#createWindowContext(Display, int, Bundle)}.
  *
  * Build/Install/Run:
  *     atest CtsWindowManagerDeviceTestCases:WindowMetricsWindowContextTests
  */
 @Presubmit
+@ApiTest(apis = {"android.view.WindowManager#getCurrentWindowMetrics",
+        "android.view.WindowManager#getMaximumWindowMetrics",
+        "android.content.Context#createWindowContext"})
 public class WindowMetricsWindowContextTests extends WindowManagerTestBase {
     @Test
     public void testMetricsMatchesLayoutOnWindowContext() {

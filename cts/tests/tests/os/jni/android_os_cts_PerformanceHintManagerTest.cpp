@@ -19,6 +19,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <vector>
+
 #include <android/performance_hint.h>
 
 static jstring toJString(JNIEnv *env, const char* c_str) {
@@ -155,6 +157,25 @@ static jstring nativeReportActualWorkDurationWithIllegalArgument(JNIEnv *env, jo
     return nullptr;
 }
 
+static jstring nativeTestSetThreadsWithInvalidTid(JNIEnv* env, jobject) {
+    APerformanceHintManager* manager = APerformanceHint_getManager();
+    if (!manager) {
+        return toJString(env, "null manager");
+    }
+    SessionWrapper wrapper = createSession(manager);
+    if (wrapper.session() == nullptr) {
+        return nullptr;
+    }
+
+    std::vector<pid_t> tids;
+    tids.push_back(2);
+    int result = APerformanceHint_setThreads(wrapper.session(), tids.data(), 1);
+    if (result != EINVAL) {
+        return toJString(env, "setThreads did not return EINVAL");
+    }
+    return nullptr;
+}
+
 
 static JNINativeMethod gMethods[] = {
     {"nativeTestCreateHintSession", "()Ljava/lang/String;",
@@ -169,6 +190,8 @@ static JNINativeMethod gMethods[] = {
      (void*)nativeReportActualWorkDuration},
     {"nativeReportActualWorkDurationWithIllegalArgument", "()Ljava/lang/String;",
      (void*)nativeReportActualWorkDurationWithIllegalArgument},
+    {"nativeTestSetThreadsWithInvalidTid", "()Ljava/lang/String;",
+     (void*)nativeTestSetThreadsWithInvalidTid},
 };
 
 int register_android_os_cts_PerformanceHintManagerTest(JNIEnv *env) {

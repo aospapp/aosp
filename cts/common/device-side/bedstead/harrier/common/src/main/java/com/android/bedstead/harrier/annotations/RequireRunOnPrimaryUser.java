@@ -16,11 +16,11 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.REQUIRE_RUN_ON_PRECEDENCE;
+import static com.android.bedstead.nene.types.OptionalBoolean.TRUE;
 
-import com.android.bedstead.harrier.OptionalBoolean;
 import com.android.bedstead.harrier.annotations.meta.RequireRunOnUserAnnotation;
+import com.android.bedstead.nene.types.OptionalBoolean;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -37,14 +37,18 @@ import java.lang.annotation.Target;
  *
  * <p>Note that in practice this requires that the test runs on the system user, but excludes
  * headless system users. To mark that a test should run on the system user, including headless
- * system users, see {@link RequireRunOnSystemUser}.
+ * system users, see {@link RequireRunOnSystemUser} - or to run on the first user used by a
+ * human (which will be the primary user on non-headless-system-user devices, or a secondary user
+ * otherwise), use {@link RequireRunOnInitialUser}.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @RequireRunOnUserAnnotation("android.os.usertype.full.SYSTEM")
 public @interface RequireRunOnPrimaryUser {
     /**
-     * Should we ensure that we are switched to the given user
+     * Should we ensure that we are switched to the given user.
+     *
+     * <p>ANY will be treated as TRUE if no other annotation has forced a switch.
      */
     OptionalBoolean switchedToUser() default TRUE;
 
@@ -58,5 +62,5 @@ public @interface RequireRunOnPrimaryUser {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default EARLY;
+    int weight() default REQUIRE_RUN_ON_PRECEDENCE;
 }

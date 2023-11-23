@@ -87,7 +87,9 @@ constexpr uint32_t ALGO_MASK_CRYPT_ALL = ~0;
 // Exposed for testing
 constexpr uint32_t ALGO_MASK_AEAD_ALL = ~0;
 // Exposed for testing
-constexpr uint8_t REPLAY_WINDOW_SIZE = 32;
+constexpr uint8_t REPLAY_WINDOW_SIZE = 0;
+// Exposed for testing
+constexpr uint32_t REPLAY_WINDOW_SIZE_ESN = 4096;
 
 namespace {
 
@@ -587,9 +589,6 @@ netdutils::Status XfrmController::ipSecAddSecurityAssociation(
     switch (static_cast<XfrmEncapType>(encapType)) {
         case XfrmEncapType::ESPINUDP:
         case XfrmEncapType::ESPINUDP_NON_IKE:
-            if (saInfo.addrFamily != AF_INET) {
-                return netdutils::statusFromErrno(EAFNOSUPPORT, "IPv6 encap not supported");
-            }
             // The ports are not used on input SAs, so this is OK to be wrong when
             // direction is ultimately input.
             saInfo.encap.srcPort = encapLocalPort;
@@ -949,6 +948,7 @@ netdutils::Status XfrmController::updateSecurityAssociation(const XfrmSaInfo& re
     nlattr_xfrm_output_mark xfrmoutputmark{};
     nlattr_encap_tmpl encap{};
     nlattr_xfrm_interface_id xfrm_if_id{};
+    nlattr_xfrm_replay_esn xfrm_replay_esn{};
 
     enum {
         NLMSG_HDR,
@@ -968,26 +968,30 @@ netdutils::Status XfrmController::updateSecurityAssociation(const XfrmSaInfo& re
         ENCAP_PAD,
         INTF_ID,
         INTF_ID_PAD,
+        REPLAY_ESN,  // Used to enable BMP (extended replay window) mode
+        REPLAY_ESN_PAD,
     };
 
     std::vector<iovec> iov = {
-            {nullptr, 0},          // reserved for the eventual addition of a NLMSG_HDR
-            {&usersa, 0},          // main usersa_info struct
-            {kPadBytes, 0},        // up to NLMSG_ALIGNTO pad bytes of padding
-            {&crypt, 0},           // adjust size if crypt algo is present
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
-            {&auth, 0},            // adjust size if auth algo is present
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
-            {&aead, 0},            // adjust size if aead algo is present
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
-            {&xfrmmark, 0},        // adjust size if xfrm mark is present
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
-            {&xfrmoutputmark, 0},  // adjust size if xfrm output mark is present
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
-            {&encap, 0},           // adjust size if encapsulating
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
-            {&xfrm_if_id, 0},      // adjust size if interface ID is present
-            {kPadBytes, 0},        // up to NLATTR_ALIGNTO pad bytes
+            {nullptr, 0},           // reserved for the eventual addition of a NLMSG_HDR
+            {&usersa, 0},           // main usersa_info struct
+            {kPadBytes, 0},         // up to NLMSG_ALIGNTO pad bytes of padding
+            {&crypt, 0},            // adjust size if crypt algo is present
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&auth, 0},             // adjust size if auth algo is present
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&aead, 0},             // adjust size if aead algo is present
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&xfrmmark, 0},         // adjust size if xfrm mark is present
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&xfrmoutputmark, 0},   // adjust size if xfrm output mark is present
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&encap, 0},            // adjust size if encapsulating
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&xfrm_if_id, 0},       // adjust size if interface ID is present
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
+            {&xfrm_replay_esn, 0},  // Always use BMP mode with a large replay window
+            {kPadBytes, 0},         // up to NLATTR_ALIGNTO pad bytes
     };
 
     if (!record.aead.name.empty() && (!record.auth.name.empty() || !record.crypt.name.empty())) {
@@ -1034,6 +1038,9 @@ netdutils::Status XfrmController::updateSecurityAssociation(const XfrmSaInfo& re
 
     len = iov[INTF_ID].iov_len = fillNlAttrXfrmIntfId(record.xfrm_if_id, &xfrm_if_id);
     iov[INTF_ID_PAD].iov_len = NLA_ALIGN(len) - len;
+
+    len = iov[REPLAY_ESN].iov_len = fillNlAttrXfrmReplayEsn(&xfrm_replay_esn);
+    iov[REPLAY_ESN_PAD].iov_len = NLA_ALIGN(len) - len;
 
     return sock.sendMessage(XFRM_MSG_UPDSA, NETLINK_REQUEST_FLAGS, 0, &iov);
 }
@@ -1423,6 +1430,16 @@ int XfrmController::fillNlAttrXfrmIntfId(const uint32_t intfIdValue,
     intf_id->if_id = intfIdValue;
     int len = NLA_HDRLEN + sizeof(__u32);
     fillXfrmNlaHdr(&intf_id->hdr, XFRMA_IF_ID, len);
+    return len;
+}
+
+int XfrmController::fillNlAttrXfrmReplayEsn(nlattr_xfrm_replay_esn* replay_esn) {
+    replay_esn->replay_state.replay_window = REPLAY_WINDOW_SIZE_ESN;
+    replay_esn->replay_state.bmp_len = (REPLAY_WINDOW_SIZE_ESN + 31) / 32;
+
+    // bmp array allocated in kernel, this does NOT account for that.
+    const int len = NLA_HDRLEN + sizeof(xfrm_replay_state_esn);
+    fillXfrmNlaHdr(&replay_esn->hdr, XFRMA_REPLAY_ESN_VAL, len);
     return len;
 }
 

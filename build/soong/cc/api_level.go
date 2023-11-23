@@ -20,7 +20,9 @@ import (
 	"android/soong/android"
 )
 
-func minApiForArch(ctx android.BaseModuleContext,
+// MinApiLevelForArch returns the ApiLevel for the Android version that
+// first supported the architecture.
+func MinApiForArch(ctx android.EarlyModuleContext,
 	arch android.ArchType) android.ApiLevel {
 
 	switch arch {
@@ -28,6 +30,8 @@ func minApiForArch(ctx android.BaseModuleContext,
 		return ctx.Config().MinSupportedSdkVersion()
 	case android.Arm64, android.X86_64:
 		return android.FirstLp64Version
+	case android.Riscv64:
+		return android.FutureApiLevel
 	default:
 		panic(fmt.Errorf("Unknown arch %q", arch))
 	}
@@ -36,7 +40,7 @@ func minApiForArch(ctx android.BaseModuleContext,
 func nativeApiLevelFromUser(ctx android.BaseModuleContext,
 	raw string) (android.ApiLevel, error) {
 
-	min := minApiForArch(ctx, ctx.Arch().ArchType)
+	min := MinApiForArch(ctx, ctx.Arch().ArchType)
 	if raw == "minimum" {
 		return min, nil
 	}

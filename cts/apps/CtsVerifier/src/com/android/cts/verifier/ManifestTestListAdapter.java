@@ -28,11 +28,13 @@ import android.content.pm.ResolveInfo;
 import android.content.res.Resources;
 import android.hardware.SensorPrivacyManager;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.widget.ListView;
 
 import com.android.cts.verifier.TestListActivity.DisplayMode;
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -112,6 +114,14 @@ import java.util.stream.Collectors;
  *             <meta-data android:name="test_required_actions" android:value="android.app.action.ADD_DEVICE_ADMIN" />
  *         </pre>
  *     </li>
+ *     <li>OPTIONAL: Add a meta data attribute to indicate which intent actions should not run when
+ *         the user running the test is of the given "type" (notice that the type here is not
+ *         necessarily the same as {@link UserManager#getUserType()}).
+ *         Use a colon (:) to specify multiple user types.
+ *         <pre>
+ *             <meta-data android:name="test_excluded_user_types" android:value="visible_background_non-profile_user" />
+ *         </pre>
+ *     </li>
  *
  * </ol>
  */
@@ -132,7 +142,11 @@ public class ManifestTestListAdapter extends TestListAdapter {
 
     private static final String TEST_REQUIRED_ACTIONS_META_DATA = "test_required_actions";
 
+    private static final String TEST_EXCLUDED_USER_TYPES_META_DATA = "test_excluded_user_types";
+
     private static final String TEST_DISPLAY_MODE_META_DATA = "display_mode";
+
+    private static final String TEST_PASS_MODE = "test_pass_mode";
 
     private static final String CONFIG_NO_EMULATOR = "config_no_emulator";
 
@@ -155,6 +169,19 @@ public class ManifestTestListAdapter extends TestListAdapter {
     /** The config to represent that a test is needed to run in the multiple display modes
      * (i.e. both unfolded and folded) */
     private static final String MULTIPLE_DISPLAY_MODE = "multi_display_mode";
+
+    /** The config to represent that a test is only needed to run in the folded display mode. */
+    private static final String FOLDED_DISPLAY_MODE = "folded_display_mode";
+
+    /** The config to represent that a test is marked as pass when it passes either in folded mode
+     * or in unfolded mode. */
+    private static final String EITHER_MODE = "either_mode";
+
+    /**
+     * The user is not a {@link UserManager#isProfile() profile} and is running in the background,
+     * but {@link UserManager#isUserVisible() visible} in a display.
+     */
+    private static final String USER_TYPE_VISIBLE_BG_USER = "visible_background_non-profile_user";
 
     private final HashSet<String> mDisabledTests;
 
@@ -186,6 +213,12 @@ public class ManifestTestListAdapter extends TestListAdapter {
             for (DisplayMode mode : DisplayMode.values()) {
                 allRows = getRowsWithDisplayMode(mode.toString());
                 mDisplayModesTests.put(mode.toString(), allRows);
+                PackageManager packageManager = mContext.getPackageManager();
+                boolean isCustomLauncher = packageManager.hasSystemFeature("com.google.android.tv.custom_launcher");
+                if (isCustomLauncher) {
+                    mDisabledTests.add(
+                    "com.android.cts.verifier.net.ConnectivityBackgroundTestActivity");
+                }
             }
         }
 
@@ -263,12 +296,14 @@ public class ManifestTestListAdapter extends TestListAdapter {
             String[] requiredConfigs = getRequiredConfigs(info.activityInfo.metaData);
             String[] requiredActions = getRequiredActions(info.activityInfo.metaData);
             String[] excludedFeatures = getExcludedFeatures(info.activityInfo.metaData);
+            String[] excludedUserTypes = getExcludedUserTypes(info.activityInfo.metaData);
             String[] applicableFeatures = getApplicableFeatures(info.activityInfo.metaData);
             String displayMode = getDisplayMode(info.activityInfo.metaData);
+            boolean passInEitherMode = getTestPassMode(info.activityInfo.metaData, displayMode);
 
             TestListItem item = TestListItem.newTest(title, testName, intent, requiredFeatures,
                      requiredConfigs, requiredActions, excludedFeatures, applicableFeatures,
-                     displayMode);
+                     excludedUserTypes, displayMode, passInEitherMode);
 
             String testCategory = getTestCategory(mContext, info.activityInfo.metaData);
             addTestToCategory(testsByCategory, testCategory, item);
@@ -294,62 +329,34 @@ public class ManifestTestListAdapter extends TestListAdapter {
     }
 
     static String[] getRequiredFeatures(Bundle metaData) {
-        if (metaData == null) {
-            return null;
-        } else {
-            String value = metaData.getString(TEST_REQUIRED_FEATURES_META_DATA);
-            if (value == null) {
-                return null;
-            } else {
-                return value.split(":");
-            }
-        }
+        return getMetadataAttributes(metaData, TEST_REQUIRED_FEATURES_META_DATA);
     }
 
     static String[] getRequiredActions(Bundle metaData) {
-        if (metaData == null) {
-            return null;
-        } else {
-            String value = metaData.getString(TEST_REQUIRED_ACTIONS_META_DATA);
-            if (value == null) {
-                return null;
-            } else {
-                return value.split(":");
-            }
-        }
+        return getMetadataAttributes(metaData, TEST_REQUIRED_ACTIONS_META_DATA);
     }
 
     static String[] getRequiredConfigs(Bundle metaData) {
-        if (metaData == null) {
-            return null;
-        } else {
-            String value = metaData.getString(TEST_REQUIRED_CONFIG_META_DATA);
-            if (value == null) {
-                return null;
-            } else {
-                return value.split(":");
-            }
-        }
+        return getMetadataAttributes(metaData, TEST_REQUIRED_CONFIG_META_DATA);
     }
 
     static String[] getExcludedFeatures(Bundle metaData) {
-        if (metaData == null) {
-            return null;
-        } else {
-            String value = metaData.getString(TEST_EXCLUDED_FEATURES_META_DATA);
-            if (value == null) {
-                return null;
-            } else {
-                return value.split(":");
-            }
-        }
+        return getMetadataAttributes(metaData, TEST_EXCLUDED_FEATURES_META_DATA);
     }
 
     static String[] getApplicableFeatures(Bundle metaData) {
+        return getMetadataAttributes(metaData, TEST_APPLICABLE_FEATURES_META_DATA);
+    }
+
+    static String[] getExcludedUserTypes(Bundle metaData) {
+        return getMetadataAttributes(metaData, TEST_EXCLUDED_USER_TYPES_META_DATA);
+    }
+
+    private static String[] getMetadataAttributes(Bundle metaData, String attribute) {
         if (metaData == null) {
             return null;
         } else {
-            String value = metaData.getString(TEST_APPLICABLE_FEATURES_META_DATA);
+            String value = metaData.getString(attribute);
             if (value == null) {
                 return null;
             } else {
@@ -370,6 +377,21 @@ public class ManifestTestListAdapter extends TestListAdapter {
         }
         String displayMode = metaData.getString(TEST_DISPLAY_MODE_META_DATA);
         return displayMode == null ? MULTIPLE_DISPLAY_MODE : displayMode;
+    }
+
+    /**
+     * Gets the configuration of the test pass mode per test.
+     *
+     * @param metaData Given metadata of the test pass mode.
+     * @return A boolean representing whether the test can be marked as pass when it passes either
+     * in the folded mode or in the unfolded mode.
+     */
+    static boolean getTestPassMode(Bundle metaData, String displayMode) {
+        if (metaData == null || !displayMode.equals(MULTIPLE_DISPLAY_MODE)) {
+            return false;
+        }
+        String testPassMode = metaData.getString(TEST_PASS_MODE);
+        return testPassMode != null && testPassMode.equals(EITHER_MODE);
     }
 
     static String getTitle(Context context, ActivityInfo activityInfo) {
@@ -438,7 +460,7 @@ public class ManifestTestListAdapter extends TestListAdapter {
         return true;
     }
 
-    private boolean matchAllConfigs(String[] configs) {
+    public static boolean matchAllConfigs(Context context, String[] configs) {
         if (configs != null) {
             for (String config : configs) {
                 switch (config) {
@@ -457,14 +479,14 @@ public class ManifestTestListAdapter extends TestListAdapter {
                         }
                         break;
                     case CONFIG_VOICE_CAPABLE:
-                        TelephonyManager telephonyManager = mContext.getSystemService(
+                        TelephonyManager telephonyManager = context.getSystemService(
                                 TelephonyManager.class);
                         if (!telephonyManager.isVoiceCapable()) {
                             return false;
                         }
                         break;
                     case CONFIG_HAS_RECENTS:
-                        if (!getSystemResourceFlag("config_hasRecents")) {
+                        if (!getSystemResourceFlag(context, "config_hasRecents")) {
                             return false;
                         }
                         break;
@@ -482,14 +504,14 @@ public class ManifestTestListAdapter extends TestListAdapter {
                         }
                         break;
                     case CONFIG_QUICK_SETTINGS_SUPPORTED:
-                        if (!getSystemResourceFlag("config_quickSettingsSupported")) {
+                        if (!getSystemResourceFlag(context, "config_quickSettingsSupported")) {
                             return false;
                         }
                         break;
                     case CONFIG_HAS_MIC_TOGGLE:
-                        return isHardwareToggleSupported(SensorPrivacyManager.Sensors.MICROPHONE);
+                        return isHardwareToggleSupported(context, SensorPrivacyManager.Sensors.MICROPHONE);
                     case CONFIG_HAS_CAMERA_TOGGLE:
-                        return isHardwareToggleSupported(SensorPrivacyManager.Sensors.CAMERA);
+                        return isHardwareToggleSupported(context, SensorPrivacyManager.Sensors.CAMERA);
                     default:
                         break;
                 }
@@ -514,13 +536,49 @@ public class ManifestTestListAdapter extends TestListAdapter {
                 return currentMode.equals(DisplayMode.UNFOLDED.toString());
             case MULTIPLE_DISPLAY_MODE:
                 return true;
+            case FOLDED_DISPLAY_MODE:
+                return currentMode.equals(DisplayMode.FOLDED.toString());
             default:
                 return false;
         }
     }
 
-    private boolean getSystemResourceFlag(String key) {
-        final Resources systemRes = mContext.getResources().getSystem();
+    /**
+     * Checks whether the test is being run by a user type that doesn't support it.
+     */
+    private boolean matchAnyExcludedUserType(String[] userTypes) {
+        if (userTypes == null) {
+            return false;
+        }
+
+        for (String userType : userTypes) {
+            switch (userType) {
+                case USER_TYPE_VISIBLE_BG_USER:
+                    if (isVisibleBackgroundNonProfileUser()) {
+                        Log.d(LOG_TAG, "Match for " + USER_TYPE_VISIBLE_BG_USER);
+                        return true;
+                    }
+                    return false;
+                default:
+                    throw new IllegalArgumentException("Invalid "
+                            + TEST_EXCLUDED_USER_TYPES_META_DATA + " value: " + userType);
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isVisibleBackgroundNonProfileUser() {
+        if (!SdkLevel.isAtLeastU()) {
+            Log.d(LOG_TAG, "isVisibleBagroundNonProfileUser() returning false on pre-UDC device");
+            return false;
+        }
+        UserManager userMgr = mContext.getSystemService(UserManager.class);
+        return userMgr.isUserVisible() && !userMgr.isUserForeground() && !userMgr.isProfile();
+    }
+
+    private static boolean getSystemResourceFlag(Context context, String key) {
+        final Resources systemRes = context.getResources().getSystem();
         final int id = systemRes.getIdentifier(key, "bool", "android");
         if (id == Resources.ID_NULL) {
             // The flag being queried should exist in
@@ -551,8 +609,9 @@ public class ManifestTestListAdapter extends TestListAdapter {
         for (TestListItem test : tests) {
             if (!hasAnyFeature(test.excludedFeatures) && hasAllFeatures(test.requiredFeatures)
                     && hasAllActions(test.requiredActions)
-                    && matchAllConfigs(test.requiredConfigs)
-                    && matchDisplayMode(test.displayMode, mode)) {
+                    && matchAllConfigs(mContext, test.requiredConfigs)
+                    && matchDisplayMode(test.displayMode, mode)
+                    && !matchAnyExcludedUserType(test.excludedUserTypes)) {
                 if (test.applicableFeatures == null || hasAnyFeature(test.applicableFeatures)) {
                     // Add suffix in test name if the test is in the folded mode.
                     test.testName = setTestNameSuffix(mode, test.testName);
@@ -593,9 +652,9 @@ public class ManifestTestListAdapter extends TestListAdapter {
     }
 
     @SuppressLint("NewApi")
-    private boolean isHardwareToggleSupported(final int sensorType) {
+    private static boolean isHardwareToggleSupported(Context context, final int sensorType) {
         boolean isToggleSupported = false;
-        SensorPrivacyManager sensorPrivacyManager = mContext.getSystemService(
+        SensorPrivacyManager sensorPrivacyManager = context.getSystemService(
                 SensorPrivacyManager.class);
         if (sensorPrivacyManager != null) {
             isToggleSupported = sensorPrivacyManager.supportsSensorToggle(

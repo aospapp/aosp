@@ -14,11 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import os
-import re
-import time
-import urllib.request
-
 import acts.base_test
 import acts.signals as signals
 
@@ -49,28 +44,27 @@ class CoreNetworkingOTATest(BaseTestClass):
         req_params.extend(["download_file", "file_size"])
         self.unpack_userparams(req_params)
 
-        vpn_params = {'vpn_username': self.vpn_username,
-                      'vpn_password': self.vpn_password,
-                      'psk_secret': self.psk_secret,
-                      'client_pkcs_file_name': self.client_pkcs_file_name,
-                      'cert_path_vpnserver': self.cert_path_vpnserver,
-                      'cert_password': self.cert_password}
+        vpn_params = {
+            'vpn_username': self.vpn_username,
+            'vpn_password': self.vpn_password,
+            'psk_secret': self.psk_secret,
+            'client_pkcs_file_name': self.client_pkcs_file_name,
+            'cert_path_vpnserver': self.cert_path_vpnserver,
+            'cert_password': self.cert_password
+        }
 
         # generate legacy vpn profiles
         wutils.wifi_connect(self.dut, self.wifi_network)
         self.xauth_rsa = nutils.generate_legacy_vpn_profile(
-            self.dut, vpn_params,
-            VPN_TYPE.IPSEC_XAUTH_RSA,
+            self.dut, vpn_params, VPN_TYPE.IPSEC_XAUTH_RSA,
             self.vpn_server_addresses[VPN_TYPE.IPSEC_XAUTH_RSA.name][0],
             self.ipsec_server_type[0], self.log_path)
         self.l2tp_rsa = nutils.generate_legacy_vpn_profile(
-            self.dut, vpn_params,
-            VPN_TYPE.L2TP_IPSEC_RSA,
+            self.dut, vpn_params, VPN_TYPE.L2TP_IPSEC_RSA,
             self.vpn_server_addresses[VPN_TYPE.L2TP_IPSEC_RSA.name][0],
             self.ipsec_server_type[0], self.log_path)
         self.hybrid_rsa = nutils.generate_legacy_vpn_profile(
-            self.dut, vpn_params,
-            VPN_TYPE.IPSEC_HYBRID_RSA,
+            self.dut, vpn_params, VPN_TYPE.IPSEC_HYBRID_RSA,
             self.vpn_server_addresses[VPN_TYPE.IPSEC_HYBRID_RSA.name][0],
             self.ipsec_server_type[0], self.log_path)
         self.vpn_profiles = [self.l2tp_rsa, self.hybrid_rsa, self.xauth_rsa]
@@ -81,8 +75,8 @@ class CoreNetworkingOTATest(BaseTestClass):
 
         # Run OTA below, if ota fails then abort all tests.
         try:
-          for ad in self.android_devices:
-              ota_updater.update(ad)
+            for ad in self.android_devices:
+                ota_updater.update(ad)
         except Exception as err:
             raise signals.TestAbortClass(
                 "Failed up apply OTA update. Aborting tests")

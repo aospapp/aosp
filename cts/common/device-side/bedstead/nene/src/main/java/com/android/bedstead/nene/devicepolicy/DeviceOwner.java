@@ -107,7 +107,7 @@ public final class DeviceOwner extends DevicePolicyController {
                     .validate(ShellCommandUtils::startsWithSuccess)
                     .execute();
         } catch (AdbException e) {
-            if (mPackage.appComponentFactory().equals(TEST_APP_APP_COMPONENT_FACTORY)
+            if (TEST_APP_APP_COMPONENT_FACTORY.equals(mPackage.appComponentFactory())
                     && user().parent() == null) {
                 // We can't see why it failed so we'll try the test app version
                 removeTestApp();
@@ -164,5 +164,70 @@ public final class DeviceOwner extends DevicePolicyController {
         return Objects.equals(other.mUser, mUser)
                 && Objects.equals(other.mPackage, mPackage)
                 && Objects.equals(other.mComponentName, mComponentName);
+    }
+
+    /**
+     * Sets the type of device owner that is on the device.
+     *
+     * @param deviceOwnerType The type of device owner that is managing the device which can be
+     *                        {@link DeviceOwnerType#DEFAULT} as a default device owner or
+     *                        {@link DeviceOwnerType#FINANCED} as a financed device owner.
+     * @throws IllegalArgumentException If the device owner type is not one of
+     *                                  {@link DeviceOwnerType#DEFAULT} or {@link
+     *                                  DeviceOwnerType#FINANCED}.
+     * @throws NeneException            When the device owner type fails to be set.
+     */
+    public void setType(int deviceOwnerType) {
+        if (!isValidDeviceOwnerType(deviceOwnerType)) {
+            throw new IllegalArgumentException("Device owner type provided is not valid: "
+                    + deviceOwnerType);
+        }
+
+        DevicePolicyManager devicePolicyManager =
+                TestApis.context().androidContextAsUser(mUser).getSystemService(
+                        DevicePolicyManager.class);
+
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)) {
+            devicePolicyManager.setDeviceOwnerType(mComponentName, deviceOwnerType);
+        } catch (IllegalStateException e) {
+            throw new NeneException("Failed to set the device owner type", e);
+        }
+
+        assertThat(getType()).isEqualTo(deviceOwnerType);
+    }
+
+    /**
+     * Returns the device owner type set by {@link #setType(int)}. If it is not set, then
+     * {@link DeviceOwnerType#DEFAULT} is returned instead.
+     *
+     * @throws NeneException         If retrieving the device owner type fails.
+     * @throws IllegalStateException If the device owner type returned is not one of {@link
+     *                               DeviceOwnerType#DEFAULT} or
+     *                               {@link DeviceOwnerType#FINANCED}.
+     */
+    public int getType() {
+        int deviceOwnerType;
+
+        DevicePolicyManager devicePolicyManager =
+                TestApis.context().androidContextAsUser(mUser).getSystemService(
+                        DevicePolicyManager.class);
+
+        try {
+            deviceOwnerType = devicePolicyManager.getDeviceOwnerType(mComponentName);
+        } catch (IllegalStateException e) {
+            throw new NeneException("Failed to retrieve the device owner type", e);
+        }
+
+        if (!isValidDeviceOwnerType(deviceOwnerType)) {
+            throw new IllegalStateException("Device owner type returned is not valid: "
+                    + deviceOwnerType);
+        }
+        return deviceOwnerType;
+    }
+
+    private boolean isValidDeviceOwnerType(int deviceOwnerType) {
+        return (deviceOwnerType == DeviceOwnerType.DEFAULT)
+                || (deviceOwnerType == DeviceOwnerType.FINANCED);
     }
 }

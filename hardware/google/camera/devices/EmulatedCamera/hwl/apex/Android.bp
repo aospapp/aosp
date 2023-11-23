@@ -33,6 +33,13 @@ prebuilt_etc {
     installable: false,
 }
 
+prebuilt_etc {
+    name: "com.google.emulated.camera.provider.hal.xml",
+    src: ":android.hardware.camera.provider@2.7-service-google.xml",
+    sub_dir: "vintf",
+    installable: false,
+}
+
 apex_defaults {
     name: "com.google.emulated.camera.provider.hal.defaults",
     manifest: "apex_manifest.json",
@@ -54,6 +61,7 @@ apex_defaults {
     ],
     prebuilts: [
         "com.google.emulated.camera.provider.hal.rc",
+        "com.google.emulated.camera.provider.hal.xml", // vintf fragment
         "android.hardware.camera.concurrent.prebuilt.xml",
         "android.hardware.camera.flash-autofocus.prebuilt.xml",
         "android.hardware.camera.front.prebuilt.xml",
@@ -63,7 +71,6 @@ apex_defaults {
         "emu_camera_depth.json",
         "emu_camera_front.json",
     ],
-    vintf_fragments: [":android.hardware.camera.provider@2.7-service-google.xml"],
 }
 
 apex {
@@ -76,5 +83,4 @@ apex {
     name: "com.google.emulated.camera.provider.hal.fastscenecycle",
     defaults: ["com.google.emulated.camera.provider.hal.defaults"],
     native_shared_libs: ["libgooglecamerahwl_impl_fast_scene_cycle"],
-    multi_install_skip_symbol_files: true,
 }

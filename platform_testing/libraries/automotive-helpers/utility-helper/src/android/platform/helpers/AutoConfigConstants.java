@@ -54,7 +54,6 @@ public class AutoConfigConstants {
     public static final String SETTINGS_PACKAGE = "SETTINGS_PACKAGE";
     public static final String SETTINGS_RRO_PACKAGE = "SETTINGS_RRO_PACKAGE";
     public static final String OPEN_SETTINGS_COMMAND = "OPEN_SETTINGS_COMMAND";
-    public static final String OPEN_QUICK_SETTINGS_COMMAND = "OPEN_QUICK_SETTINGS_COMMAND";
     public static final String SPLIT_SCREEN_UI = "SPLIT_SCREEN_UI";
     // Full Settings
     public static final String FULL_SETTINGS = "FULL_SETTINGS";
@@ -64,10 +63,6 @@ public class AutoConfigConstants {
     public static final String SEARCH_RESULTS = "SEARCH_RESULTS";
     public static final String UP_BUTTON = "UP_BUTTON";
     public static final String DOWN_BUTTON = "DOWN_BUTTON";
-    // Quick Settings
-    public static final String QUICK_SETTINGS = "QUICK_SETTINGS";
-    public static final String OPEN_MORE_SETTINGS = "OPEN_MORE_SETTINGS";
-    public static final String NIGHT_MODE = "NIGHT_MODE";
     // Display
     public static final String DISPLAY_SETTINGS = "DISPLAY";
     public static final String BRIGHTNESS_LEVEL = "BRIGHTNESS_LEVEL";
@@ -95,6 +90,7 @@ public class AutoConfigConstants {
     public static final String ALLOW_BUTTON = "ALLOW_BUTTON";
     public static final String DONT_ALLOW_BUTTON = "DONT_ALLOW_BUTTON";
     public static final String DONT_ALLOW_ANYWAY_BUTTON = "DONT_ALLOW_ANYWAY_BUTTON";
+    public static final String ALLOWED_TEXT = "ALLOWED_TEXT";
     // Date and Time
     public static final String DATE_AND_TIME_SETTINGS = "DATE_AND_TIME";
     public static final String SET_TIME_AUTOMATICALLY = "SET_TIME_AUTOMATICALLY";

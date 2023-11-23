@@ -19,7 +19,8 @@
 #include <inttypes.h>
 #include <string.h>
 
-#include "chre/core/host_notifications.h"
+#include "chre/core/event_loop_manager.h"
+#include "chre/core/host_endpoint_manager.h"
 #include "chre/platform/log.h"
 #include "chre/platform/shared/generated/host_messages_generated.h"
 #include "chre/util/macros.h"
@@ -131,7 +132,8 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         struct chreHostEndpointInfo info;
         info.hostEndpointId = connectedMessage->host_endpoint();
         info.hostEndpointType = connectedMessage->type();
-        if (connectedMessage->package_name()->size() > 0) {
+        if (strlen(reinterpret_cast<const char *>(
+                connectedMessage->package_name()->data())) > 0) {
           info.isNameValid = true;
           memcpy(&info.packageName[0], connectedMessage->package_name()->data(),
                  MIN(connectedMessage->package_name()->size(),
@@ -140,7 +142,8 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         } else {
           info.isNameValid = false;
         }
-        if (connectedMessage->attribution_tag()->size() > 0) {
+        if (strlen(reinterpret_cast<const char *>(
+                connectedMessage->attribution_tag()->data())) > 0) {
           info.isTagValid = true;
           memcpy(&info.attributionTag[0],
                  connectedMessage->attribution_tag()->data(),
@@ -151,7 +154,9 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
           info.isTagValid = false;
         }
 
-        postHostEndpointConnected(info);
+        EventLoopManagerSingleton::get()
+            ->getHostEndpointManager()
+            .postHostEndpointConnected(info);
         break;
       }
 
@@ -159,7 +164,9 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
         const auto *disconnectedMessage =
             static_cast<const fbs::HostEndpointDisconnected *>(
                 container->message());
-        postHostEndpointDisconnected(disconnectedMessage->host_endpoint());
+        EventLoopManagerSingleton::get()
+            ->getHostEndpointManager()
+            .postHostEndpointDisconnected(disconnectedMessage->host_endpoint());
         break;
       }
 
@@ -169,6 +176,13 @@ bool HostProtocolChre::decodeMessageFromHost(const void *message,
                 container->message());
         HostMessageHandlers::handleNanConfigurationUpdate(
             nanConfigUpdateMessage->enabled());
+        break;
+      }
+
+      case fbs::ChreMessage::DebugConfiguration: {
+        const auto *debugConfiguration =
+            static_cast<const fbs::DebugConfiguration *>(container->message());
+        HostMessageHandlers::handleDebugConfiguration(debugConfiguration);
         break;
       }
 

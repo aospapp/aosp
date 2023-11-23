@@ -34,3 +34,23 @@ prop {
     access: ReadWrite
     prop_name: "power.battery_input.suspended"
 }
+
+# Allows apps to turn the screen on with android.os.PowerManager#ACQUIRE_CAUSES_WAKEUP
+# without being granted android.app.AppOpsManager#OP_TURN_SCREEN_ON.
+prop {
+    api_name: "permissionless_turn_screen_on"
+    type: Boolean
+    scope: Internal
+    access: ReadWrite
+    prop_name: "debug.power.permissionless_turn_screen_on"
+}
+
+# Waives the minimum target-sdk check for android.os.PowerManager#ACQUIRE_CAUSES_WAKEUP
+# and only allows the flag for apps holding android.permission.TURN_SCREEN_ON
+prop {
+    api_name: "waive_target_sdk_check_for_turn_screen_on"
+    type: Boolean
+    scope: Internal
+    access: Readonly
+    prop_name: "ro.power.waive_target_sdk_check_for_turn_screen_on"
+}

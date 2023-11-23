@@ -25,10 +25,11 @@ import android.graphics.Bitmap;
 import android.os.BadParcelableException;
 import android.os.IBinder;
 import android.platform.test.annotations.AsbSecurityTest;
-import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
 
 import com.google.common.util.concurrent.AbstractFuture;
 
@@ -48,6 +49,7 @@ public class BitmapTest extends StsExtraBusinessLogicTestCase {
     private Instrumentation mInstrumentation;
     private PeerConnection mRemoteConnection;
     private IBitmapService mRemote;
+    private Intent mIntent;
 
     public static class PeerConnection extends AbstractFuture<IBitmapService>
             implements ServiceConnection {
@@ -80,6 +82,9 @@ public class BitmapTest extends StsExtraBusinessLogicTestCase {
         if (mRemoteConnection != null) {
             final Context context = mInstrumentation.getContext();
             context.unbindService(mRemoteConnection);
+            try {
+                mRemote.exit();
+            } catch (Exception ex) { }
             mRemote = null;
             mRemoteConnection = null;
         }
@@ -88,12 +93,11 @@ public class BitmapTest extends StsExtraBusinessLogicTestCase {
     IBitmapService getRemoteService() throws ExecutionException, InterruptedException {
         if (mRemote == null) {
             final Context context = mInstrumentation.getContext();
-            Intent intent = new Intent();
-            intent.setComponent(new ComponentName(
+            mIntent = new Intent();
+            mIntent.setComponent(new ComponentName(
                     "android.security.cts", "android.security.cts.BitmapService"));
             mRemoteConnection = new PeerConnection();
-            context.bindService(intent, mRemoteConnection,
-                    Context.BIND_AUTO_CREATE | Context.BIND_IMPORTANT);
+            context.bindService(mIntent, mRemoteConnection, Context.BIND_AUTO_CREATE);
             mRemote = mRemoteConnection.get();
         }
         return mRemote;

@@ -32,10 +32,11 @@ import static org.junit.Assert.assertTrue;
 
 import android.media.Rating;
 import android.os.Parcel;
-import android.media.cts.NonMediaMainlineTest;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -46,7 +47,7 @@ import org.junit.runner.RunWith;
  * TODO: Tests for applying invalid method (e.g. heartRating.getPercentRating()).
  * TODO: Tests for methods inherited from Parcelable
  */
-@NonMediaMainlineTest
+@NonMainlineTest
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class RatingTest {
@@ -189,6 +190,7 @@ public class RatingTest {
         assertTrue(percentageRating.getStarRating() < 0f);
     }
 
+    @SuppressWarnings("ReturnValueIgnored")
     @Test
     public void testToStringDoesNotCrash() {
         Rating rating = Rating.newHeartRating(/*hasHeart=*/ true);

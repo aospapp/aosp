@@ -16,6 +16,10 @@
 
 package com.android.compatibility.common.util;
 
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
+
+import org.junit.AssumptionViolatedException;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -23,8 +27,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import org.junit.AssumptionViolatedException;
 
 /**
  * Resolves methods provided by the BusinessLogicService and invokes them
@@ -120,15 +122,17 @@ public abstract class BusinessLogicExecutor {
 
     /**
      * Execute a business logic method.
+     *
      * @param method the name of the method to invoke. Must include fully qualified name of the
-     * enclosing class, followed by '.', followed by the name of the method
+     *     enclosing class, followed by '.', followed by the name of the method
      * @param args the string arguments to supply to the method
      * @return the return value of the method invoked (type Boolean if method is a condition)
      * @throws RuntimeException when failing to resolve or invoke the method
      */
-    protected Object invokeMethod(String method, String... args) throws ClassNotFoundException,
-            IllegalAccessException, InstantiationException, InvocationTargetException,
-            NoSuchMethodException {
+    @CanIgnoreReturnValue
+    protected Object invokeMethod(String method, String... args)
+            throws ClassNotFoundException, IllegalAccessException, InstantiationException,
+                    InvocationTargetException, NoSuchMethodException {
         // Method names served by the BusinessLogic service should assume format
         // classname.methodName, but also handle format classname#methodName since test names use
         // this format

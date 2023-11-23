@@ -27,6 +27,7 @@ import android.telephony.TelephonyManager;
 
 import androidx.test.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.AmUtils;
 import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.UiccUtil;
 
@@ -89,6 +90,12 @@ public abstract class BaseCarrierApiTest {
                         + getClass().getSimpleName()
                         + " cases will be skipped",
                 FeatureUtil.hasTelephony());
+
+        // Wait for the broadcast queue to be handled completely to make sure
+        // CarrierPrivilegesTracker has received the ACTION_PACKAGE_ADDED for this test package and
+        // updated the carrier privileges in advance to avoid flakiness.
+        AmUtils.waitForBroadcastBarrier();
+
         // We must run with carrier privileges. As of 2022, all devices must run CTS with a SIM
         // compliant with the 2021 spec, which has a new certificate. To make results very clear, we
         // still explicitly check for the legacy certificate, and if we don't have carrier

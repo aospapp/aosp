@@ -16,15 +16,12 @@
 
 import json
 import logging
-import pprint
 import requests
-import time
 
 from acts import asserts
 from acts import signals
 from acts import utils
 from acts_contrib.test_utils.wifi import wifi_constants
-
 """This file consists of all the helper methods needed to interact with the
    Datastore @ https://chaos-188802.appspot.com/ used for Android Interop
    testing.
@@ -43,6 +40,7 @@ GET_DEVICES = "devices/"
 # HTTP content type. JSON encoded with UTF-8 character encoding.
 HTTP_HEADER = {'content-type': 'application/json'}
 
+
 def add_device(name, ap_label, lab_label):
     """Add a device(AP or Packet Capturer) in datastore.
 
@@ -57,13 +55,16 @@ def add_device(name, ap_label, lab_label):
     logging.debug("Request = %s" % request)
     response = requests.post(request,
                              headers=HTTP_HEADER,
-                             data=json.dumps({"hostname":name,
-                                              "ap_label":ap_label,
-                                              "lab_label":lab_label}))
+                             data=json.dumps({
+                                 "hostname": name,
+                                 "ap_label": ap_label,
+                                 "lab_label": lab_label
+                             }))
     if response.json()['result'] == 'success':
         logging.info("Added device %s to datastore" % name)
         return True
     return False
+
 
 def remove_device(name):
     """Delete a device(AP or Packet Capturer) in datastore.
@@ -77,12 +78,13 @@ def remove_device(name):
     logging.debug("Request = %s" % request)
     response = requests.put(request,
                             headers=HTTP_HEADER,
-                            data=json.dumps({"hostname":name}))
+                            data=json.dumps({"hostname": name}))
     result_str = "%s deleted." % name
     if result_str in response.text:
         logging.info("Removed device %s from datastore" % name)
         return True
     return False
+
 
 def lock_device(name, admin):
     """Lock a device(AP or Packet Capturer) in datastore.
@@ -97,11 +99,15 @@ def lock_device(name, admin):
     logging.debug("Request = %s" % request)
     response = requests.put(request,
                             headers=HTTP_HEADER,
-                            data=json.dumps({"hostname":name, "locked_by":admin}))
+                            data=json.dumps({
+                                "hostname": name,
+                                "locked_by": admin
+                            }))
     if response.json()['result']:
         logging.info("Locked device %s in datastore" % name)
         return True
     return False
+
 
 def unlock_device(name):
     """Un-lock a device(AP or Packet Capturer) in datastore.
@@ -115,11 +121,12 @@ def unlock_device(name):
     logging.debug("Request = %s" % request)
     response = requests.put(request,
                             headers=HTTP_HEADER,
-                            data=json.dumps({"hostname":name}))
+                            data=json.dumps({"hostname": name}))
     if response.json()['result']:
         logging.info("Finished un-locking AP %s in datastore" % name)
         return True
     return False
+
 
 def show_device(name):
     """Show device properties for a given device(AP or Packet Capturer).
@@ -135,6 +142,7 @@ def show_device(name):
     if 'error' in response.text:
         return None
     return response.json()
+
 
 def get_devices():
     """Get a list of all devices in the datastore.

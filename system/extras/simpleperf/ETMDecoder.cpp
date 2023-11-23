@@ -67,7 +67,10 @@ class ETMV4IDecodeTree {
  public:
   ETMV4IDecodeTree()
       : error_logger_(std::bind(&ETMV4IDecodeTree::ProcessError, this, std::placeholders::_1)) {
-    frame_decoder_.Configure(OCSD_DFRMTR_FRAME_MEM_ALIGN);
+    ocsd_err_t err = frame_decoder_.Init();
+    CHECK_EQ(err, OCSD_OK);
+    err = frame_decoder_.Configure(OCSD_DFRMTR_FRAME_MEM_ALIGN);
+    CHECK_EQ(err, OCSD_OK);
     frame_decoder_.getErrLogAttachPt()->attach(&error_logger_);
   }
 
@@ -178,10 +181,8 @@ class PacketSink : public IPktDataIn<EtmV4ITrcPacket> {
 // For each trace_id, when given an addr, find the thread and map it belongs to.
 class MapLocator : public PacketCallback {
  public:
-  MapLocator(ThreadTree& thread_tree)
+  MapLocator(ETMThreadTree& thread_tree)
       : PacketCallback(PacketCallback::MAP_LOCATOR), thread_tree_(thread_tree) {}
-
-  ThreadTree& GetThreadTree() { return thread_tree_; }
 
   // Return current thread id of a trace_id. If not available, return -1.
   pid_t GetTid(uint8_t trace_id) const { return trace_data_[trace_id].tid; }
@@ -242,7 +243,7 @@ class MapLocator : public PacketCallback {
     bool use_vmid = false;  // use vmid for PID
   };
 
-  ThreadTree& thread_tree_;
+  ETMThreadTree& thread_tree_;
   TraceData trace_data_[256];
 };
 
@@ -286,14 +287,21 @@ class MemAccess : public ITargetMemAccess {
       // addr.
       if (!map->in_kernel) {
         data.buffer_map = map;
-        data.buffer = memory == nullptr ? nullptr : (memory->getBufferStart() + map->pgoff);
         data.buffer_start = map->start_addr;
         data.buffer_end = map->get_end_addr();
+        if (memory != nullptr && memory->getBufferSize() > map->pgoff &&
+            (memory->getBufferSize() - map->pgoff >= map->len)) {
+          data.buffer = memory->getBufferStart() + map->pgoff;
+        } else {
+          data.buffer = nullptr;
+        }
       }
     }
     *num_bytes = copy_size;
     return OCSD_OK;
   }
+
+  void InvalidateMemAccCache(const uint8_t cs_trace_id) override {}
 
  private:
   llvm::MemoryBuffer* GetMemoryBuffer(Dso* dso) {
@@ -639,7 +647,11 @@ class BranchListParser : public PacketCallback {
 // 2. Supports dumping data at different stages.
 class ETMDecoderImpl : public ETMDecoder {
  public:
-  ETMDecoderImpl(ThreadTree& thread_tree) : thread_tree_(thread_tree) {}
+  ETMDecoderImpl(ETMThreadTree& thread_tree) : thread_tree_(thread_tree) {
+    // If the aux record for a thread is processed after it's thread exit record, we can't find
+    // the thread's maps when processing ETM data. To handle this, disable thread exit records.
+    thread_tree.DisableThreadExitRecords();
+  }
 
   void CreateDecodeTree(const AuxTraceInfoRecord& auxtrace_info) {
     uint8_t trace_id = 0;
@@ -793,7 +805,7 @@ class ETMDecoderImpl : public ETMDecoder {
   }
 
   // map ip address to binary path and binary offset
-  ThreadTree& thread_tree_;
+  ETMThreadTree& thread_tree_;
   // handle to build OpenCSD decoder
   ETMV4IDecodeTree decode_tree_;
   // map from cpu to trace id
@@ -830,7 +842,7 @@ bool ParseEtmDumpOption(const std::string& s, ETMDumpOption* option) {
 }
 
 std::unique_ptr<ETMDecoder> ETMDecoder::Create(const AuxTraceInfoRecord& auxtrace_info,
-                                               ThreadTree& thread_tree) {
+                                               ETMThreadTree& thread_tree) {
   auto decoder = std::make_unique<ETMDecoderImpl>(thread_tree);
   decoder->CreateDecodeTree(auxtrace_info);
   return std::unique_ptr<ETMDecoder>(decoder.release());

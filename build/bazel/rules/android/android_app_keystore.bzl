@@ -1,18 +1,16 @@
-"""
-Copyright (C) 2022 The Android Open Source Project
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-"""
+# Copyright (C) 2022 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 load("@bazel_skylib//lib:paths.bzl", "paths")
 load("android_app_certificate.bzl", "AndroidAppCertificateInfo")
@@ -32,7 +30,7 @@ def _pk8_to_private_pem(ctx, openssl, pk8_file, private_pem_file):
     args.add_all(["-inform", "DER"])
     args.add_all(["-outform", "PEM"])
     args.add_all(["-out", private_pem_file])
-    args.add("-nocrypt") # don't bother encrypting this private key since it is just an intermediate file
+    args.add("-nocrypt")  # don't bother encrypting this private key since it is just an intermediate file
 
     ctx.actions.run(
         inputs = [pk8_file],
@@ -51,6 +49,7 @@ def _pem_to_pk12(ctx, openssl, certificate_pem, private_key_pem, pk12_file):
     args.add_all(["-inkey", private_key_pem])
     args.add_all(["-out", pk12_file])
     args.add_all(["-name", "android"])
+
     # openssl requires a password and will request a
     # password from STDIN if we don't supply one here
     args.add_all(["-passout", "pass:android"])
@@ -66,14 +65,17 @@ def _pem_to_pk12(ctx, openssl, certificate_pem, private_key_pem, pk12_file):
         mnemonic = "CreatePK12",
     )
 
-def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
+def _pk12_to_keystore(ctx, pk12_file, keystore_file):
     """Converts a PKCS12 keystore file to a JKS keystore file."""
+    java_runtime = ctx.attr._java_runtime[java_common.JavaRuntimeInfo]
+    keytool = paths.join(java_runtime.java_home, "bin", "keytool")
     args = ctx.actions.args()
     args.add("-importkeystore")
     args.add_all(["-destkeystore", keystore_file])
     args.add_all(["-srckeystore", pk12_file])
     args.add_all(["-srcstoretype", "PKCS12"])
     args.add_all(["-srcstorepass", "android"])
+
     # apksigner expects keystores provided by the debug_signing_keys attribute
     # to be secured with the password "android"
     args.add_all(["-deststorepass", "android"])
@@ -81,6 +83,7 @@ def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
     ctx.actions.run(
         inputs = [pk12_file],
         executable = keytool,
+        tools = [java_runtime.files],
         outputs = [keystore_file],
         arguments = [args],
         mnemonic = "CreateKeystore",
@@ -88,7 +91,6 @@ def _pk12_to_keystore(ctx, keytool, pk12_file, keystore_file):
 
 def _android_app_keystore_rule_impl(ctx):
     openssl = ctx.executable._openssl
-    keytool = ctx.executable._keytool
 
     private_pem = ctx.actions.declare_file(ctx.attr.name + ".priv.pem")
     pk12 = ctx.actions.declare_file(ctx.attr.name + ".pk12")
@@ -98,13 +100,13 @@ def _android_app_keystore_rule_impl(ctx):
     pem_file = ctx.attr.certificate[AndroidAppCertificateInfo].pem
     _pk8_to_private_pem(ctx, openssl, pk8_file, private_pem)
     _pem_to_pk12(ctx, openssl, pem_file, private_pem, pk12)
-    _pk12_to_keystore(ctx, keytool, pk12, keystore)
+    _pk12_to_keystore(ctx, pk12, keystore)
 
     return [
         AndroidAppKeystoreInfo(
             keystore = keystore,
         ),
-        DefaultInfo(files = depset(direct = [keystore]))
+        DefaultInfo(files = depset(direct = [keystore])),
     ]
 
 """Converts an android_app_certificate (i.e. pem/pk8 pair) into a JKS keystore"""
@@ -117,14 +119,12 @@ android_app_keystore = rule(
             allow_single_file = True,
             executable = True,
             cfg = "exec",
-            doc = "An OpenSSL compatible tool."
+            doc = "An OpenSSL compatible tool.",
         ),
-        "_keytool": attr.label(
-            default = Label("//prebuilts/jdk/jdk11:linux-x86/bin/keytool"),
-            allow_single_file = True,
-            executable = True,
+        "_java_runtime": attr.label(
+            default = Label("@bazel_tools//tools/jdk:current_java_runtime"),
             cfg = "exec",
-            doc = "The keytool binary."
+            providers = [java_common.JavaRuntimeInfo],
         ),
     },
     provides = [AndroidAppKeystoreInfo],

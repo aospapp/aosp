@@ -20,7 +20,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
 import androidx.test.uiautomator.BySelector;
 import androidx.test.uiautomator.UiDevice;
-import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.Until;
 
 public class NavigationControlHelper {
 
@@ -31,8 +31,8 @@ public class NavigationControlHelper {
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
     public static void assertNavigationBarNotVisible() {
-        final UiObject2 navBarObject = sDevice.findObject(NAVIGATION_BAR_VIEW);
-        if (navBarObject != null) {
+        final boolean navBarInvisible = sDevice.wait(Until.gone(NAVIGATION_BAR_VIEW), 2_000);
+        if (!navBarInvisible) {
             throw new AssertionError("Navigation bar is visible, expected: invisible");
         }
     }

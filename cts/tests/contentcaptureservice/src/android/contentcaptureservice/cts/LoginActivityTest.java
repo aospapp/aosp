@@ -46,9 +46,9 @@ import android.content.ContextParams;
 import android.content.LocusId;
 import android.contentcaptureservice.cts.CtsContentCaptureService.Session;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.text.Editable;
-import android.text.Spannable;
 import android.util.ArraySet;
 import android.util.Log;
 import android.view.View;
@@ -114,6 +114,7 @@ public class LoginActivityTest
 
         final LoginActivity activity = launchActivity();
         watcher.waitFor(RESUMED);
+        final int taskId = activity.getTaskId();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -125,8 +126,8 @@ public class LoginActivityTest
 
         final ComponentName name = activity.getComponentName();
         service.assertThat()
-                .activityResumed(name)
-                .activityPaused(name);
+                .activityResumed(name, taskId)
+                .activityPaused(name, taskId);
     }
 
     @Test
@@ -403,6 +404,8 @@ public class LoginActivityTest
             activity.mUsername.setText("USER");
             activity.mPassword.setText("PASS");
         });
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -444,6 +447,8 @@ public class LoginActivityTest
 
             activity.mUsername.setText("abc");
         });
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -492,6 +497,8 @@ public class LoginActivityTest
             appendText(activity.mUsername, "i");
             appendText(activity.mUsername, "d");
         });
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -531,6 +538,8 @@ public class LoginActivityTest
             appendText(activity.mUsername, "m");
             appendText(activity.mUsername, "orning");
         });
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -541,15 +550,10 @@ public class LoginActivityTest
 
         assertor.isAtLeast(LoginActivity.MIN_EVENTS + 4)
                 .assertViewTextChanged(activity.mUsername.getAutofillId(), "Good");
-        assertComposingSpan(assertor.getLastEvent().getText(), 0, 4);
 
         assertor.assertViewTextChanged(activity.mUsername.getAutofillId(), "Good ");
-        assertNoComposingSpan(assertor.getLastEvent().getText());
 
         assertor.assertViewTextChanged(activity.mUsername.getAutofillId(), "Good morning");
-        // TODO: Change how the appending works to more realistically test the case where only
-        // "morning" is in the composing state.
-        assertComposingSpan(assertor.getLastEvent().getText(), 0, 12);
 
         activity.assertInitialViewsDisappeared(assertor);
     }
@@ -574,6 +578,8 @@ public class LoginActivityTest
             appendText(activity.mUsername, " morning");
             appendText(activity.mPassword, " are you");
         });
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -613,6 +619,8 @@ public class LoginActivityTest
             activity.mUsername.setText("end");
             // TODO: Test setComposingText.
         });
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -624,16 +632,12 @@ public class LoginActivityTest
         assertor.isAtLeast(LoginActivity.MIN_EVENTS + 5)
                 // TODO: The first two events should probably be merged.
                 .assertViewTextChanged(activity.mUsername.getAutofillId(), "Android");
-        assertNoComposingSpan(assertor.getLastEvent().getText());
 
         assertor.assertViewTextChanged(activity.mUsername.getAutofillId(), "Android");
-        assertComposingSpan(assertor.getLastEvent().getText(), 1, 3);
 
         assertor.assertViewTextChanged(activity.mUsername.getAutofillId(), "Android");
-        assertNoComposingSpan(assertor.getLastEvent().getText());
 
         assertor.assertViewTextChanged(activity.mUsername.getAutofillId(), "end");
-        assertNoComposingSpan(assertor.getLastEvent().getText());
 
         activity.assertInitialViewsDisappeared(assertor);
     }
@@ -888,6 +892,8 @@ public class LoginActivityTest
         final Context newContext = activity.createContext(new ContextParams.Builder().build());
         final TextView child = newImportantView(newContext, "Important I am");
         activity.runOnUiThread(() -> rootView.addView(child));
+        // wait to sent event
+        sleep();
 
         activity.finish();
         watcher.waitFor(DESTROYED);
@@ -927,6 +933,9 @@ public class LoginActivityTest
         final LoginActivity activity = launchActivity();
         watcher.waitFor(RESUMED);
 
+        // Wait to make sure the animation is complete
+        sleep();
+
         activity.finish();
         watcher.waitFor(DESTROYED);
 
@@ -952,6 +961,11 @@ public class LoginActivityTest
                         activity.mUsernameLabel.getAutofillId(), activity.mUsername.getAutofillId(),
                         activity.mPasswordLabel.getAutofillId(), activity.mPassword.getAutofillId(),
                         children[0].getAutofillId(), children[1].getAutofillId());
+    }
+
+    private void sleep() {
+        Log.d(TAG, "sleeping 0.5s ");
+        SystemClock.sleep(500);
     }
 
     @Test
@@ -1011,19 +1025,6 @@ public class LoginActivityTest
                 .isEqualTo(1);
         assertWithMessage("wrong extras on context %s", context).that(extras.getString("DUDE"))
                 .isEqualTo("SWEET");
-    }
-
-    private void assertComposingSpan(CharSequence text, int start, int end) {
-        assertThat(text).isInstanceOf(Spannable.class);
-        Spannable sp = (Spannable) text;
-        assertThat(BaseInputConnection.getComposingSpanStart(sp)).isEqualTo(start);
-        assertThat(BaseInputConnection.getComposingSpanEnd(sp)).isEqualTo(end);
-    }
-
-    private void assertNoComposingSpan(CharSequence text) {
-        if (text instanceof Spannable) {
-            assertThat(BaseInputConnection.getComposingSpanStart((Spannable) text)).isLessThan(0);
-        }
     }
 
     // TODO(b/123540602): add moar test cases for different sessions:

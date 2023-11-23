@@ -46,8 +46,6 @@ StreamBase::Result OboeStream::OboeErrorToMegaAudioError(oboe::Result oboeError)
 }
 
 StreamBase::Result OboeStream::teardownStream() {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "teardownStream()");
-
     std::lock_guard<std::mutex> lock(mStreamLock);
     return teardownStream_l();
 }
@@ -68,8 +66,6 @@ StreamBase::Result OboeStream::teardownStream_l() {
 }
 
 StreamBase::Result OboeStream::startStream() {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "startStream()");
-
     // Don't cover up (potential) bugs in AAudio
     oboe::OboeGlobals::setWorkaroundsEnabled(false);
 
@@ -111,10 +107,9 @@ StreamBase::Result OboeStream::stopStream() {
 }
 
 StreamBase::Result OboeStream::getTimeStamp(oboe::FrameTimestamp* timeStamp) {
-    __android_log_print(ANDROID_LOG_INFO, TAG, "getTimeStamp()");
     Result errCode = ERROR_UNKNOWN;
     if (mAudioStream == nullptr) {
-        __android_log_print(ANDROID_LOG_INFO, TAG, "ERROR_INVALID_STATE");
+        __android_log_print(ANDROID_LOG_ERROR, TAG, "ERROR_INVALID_STATE");
         errCode = ERROR_INVALID_STATE;
     } else {
         ResultWithValue<oboe::FrameTimestamp> result = mAudioStream->getTimestamp(CLOCK_MONOTONIC);
@@ -125,4 +120,13 @@ StreamBase::Result OboeStream::getTimeStamp(oboe::FrameTimestamp* timeStamp) {
     }
 
     return errCode;
+}
+
+oboe::StreamState OboeStream::getState() const {
+    return mAudioStream != nullptr ? mAudioStream->getState() : oboe::StreamState::Unknown;
+}
+
+int OboeStream::getLastErrorCallbackResult() {
+    return (int) (mAudioStream != nullptr
+                    ? (int) mAudioStream->getLastErrorCallbackResult() : StreamBase::ERROR_INVALID_STATE);
 }

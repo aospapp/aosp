@@ -16,8 +16,6 @@
 
 package android.keystore.cts;
 
-import co.nstant.in.cbor.CborException;
-
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.BaseEncoding;
@@ -25,6 +23,8 @@ import com.google.common.io.BaseEncoding;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.Set;
+
+import co.nstant.in.cbor.CborException;
 
 /**
  * Parses an attestation certificate and provides an easy-to-use interface for examining the
@@ -34,6 +34,8 @@ public abstract class Attestation {
     static final String EAT_OID = "1.3.6.1.4.1.11129.2.1.25";
     static final String ASN1_OID = "1.3.6.1.4.1.11129.2.1.17";
     static final String KEY_USAGE_OID = "2.5.29.15"; // Standard key usage extension.
+
+    static final String CRL_DP_OID = "2.5.29.31"; // Standard CRL Distribution Points extension.
 
     public static final int KM_SECURITY_LEVEL_SOFTWARE = 0;
     public static final int KM_SECURITY_LEVEL_TRUSTED_ENVIRONMENT = 1;
@@ -48,6 +50,8 @@ public abstract class Attestation {
     public static final int KM_VERSION_KEYMASTER_4 = 40;
     public static final int KM_VERSION_KEYMASTER_4_1 = 41;
     public static final int KM_VERSION_KEYMINT_1 = 100;
+    public static final int KM_VERSION_KEYMINT_2 = 200;
+    public static final int KM_VERSION_KEYMINT_3 = 300;
 
     int attestationVersion;
     int keymasterVersion;
@@ -88,6 +92,10 @@ public abstract class Attestation {
             } catch (CborException cbe) {
                 throw new CertificateParsingException("Unable to parse EAT extension", cbe);
             }
+        }
+        if (x509Cert.getExtensionValue(CRL_DP_OID) != null) {
+            throw new CertificateParsingException(
+                    "CRL Distribution Points extension found in leaf certificate.");
         }
         return new Asn1Attestation(x509Cert, strictParsing);
     }

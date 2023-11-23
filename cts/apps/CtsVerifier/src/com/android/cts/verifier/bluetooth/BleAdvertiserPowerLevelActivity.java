@@ -16,19 +16,20 @@
 
 package com.android.cts.verifier.bluetooth;
 
-import com.android.cts.verifier.PassFailButtons;
-import com.android.cts.verifier.R;
+import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.Toast;
+
+import com.android.cts.verifier.PassFailButtons;
+import com.android.cts.verifier.R;
 
 public class BleAdvertiserPowerLevelActivity extends PassFailButtons.Activity {
 
@@ -68,7 +69,7 @@ public class BleAdvertiserPowerLevelActivity extends PassFailButtons.Activity {
         filter.addAction(BleAdvertiserService.BLE_START_POWER_LEVEL);
         filter.addAction(BleAdvertiserService.BLE_STOP_POWER_LEVEL);
         filter.addAction(BleAdvertiserService.BLE_ADV_NOT_SUPPORT);
-        registerReceiver(onBroadcast, filter);
+        registerReceiver(onBroadcast, filter, RECEIVER_EXPORTED);
     }
 
     @Override

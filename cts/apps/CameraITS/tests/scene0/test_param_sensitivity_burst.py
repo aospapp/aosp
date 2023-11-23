@@ -21,8 +21,8 @@ import camera_properties_utils
 import capture_request_utils
 import its_session_utils
 
-NUM_STEPS = 3
-ERROR_TOLERANCE = 0.96  # Allow ISO to be rounded down by 4%
+_NUM_STEPS = 3
+_ERROR_TOLERANCE = 0.96  # Allow ISO to be rounded down by 4%
 
 
 class ParamSensitivityBurstTest(its_base_test.ItsBaseTest):
@@ -43,7 +43,7 @@ class ParamSensitivityBurstTest(its_base_test.ItsBaseTest):
           camera_properties_utils.per_frame_control(props))
 
       sens_range = props['android.sensor.info.sensitivityRange']
-      sens_step = (sens_range[1] - sens_range[0]) // NUM_STEPS
+      sens_step = (sens_range[1] - sens_range[0]) // _NUM_STEPS
       sens_list = range(sens_range[0], sens_range[1], sens_step)
       exp = min(props['android.sensor.info.exposureTimeRange'])
       if exp == 0:
@@ -58,9 +58,9 @@ class ParamSensitivityBurstTest(its_base_test.ItsBaseTest):
       for i, cap in enumerate(caps):
         s_req = sens_list[i]
         s_cap = cap['metadata']['android.sensor.sensitivity']
-        if (s_req < s_cap or s_cap / float(s_req) < ERROR_TOLERANCE):
+        if (s_req < s_cap or s_cap / float(s_req) < _ERROR_TOLERANCE):
           raise AssertionError(f's_request: {s_req}, s_capture: {s_cap}, '
-                               f'TOL: {ERROR_TOLERANCE:.2f}')
+                               f'TOL: {_ERROR_TOLERANCE:.2f}')
 
 
 if __name__ == '__main__':

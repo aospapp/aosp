@@ -17,6 +17,7 @@
 package com.android.cts.verifier;
 
 import static com.android.cts.verifier.TestListActivity.sCurrentDisplayMode;
+import static com.android.cts.verifier.TestListAdapter.removeTestNameSuffix;
 import static com.android.cts.verifier.TestListAdapter.setTestNameSuffix;
 
 import android.app.Activity;
@@ -24,6 +25,7 @@ import android.content.Intent;
 import android.util.Log;
 
 import com.android.compatibility.common.util.ReportLog;
+import com.android.cts.verifier.TestListActivity.DisplayMode;
 
 /**
  * Object representing the result of a test activity like whether it succeeded or failed.
@@ -69,6 +71,13 @@ public class TestResult {
             ReportLog reportLog, TestResultHistoryCollection historyCollection) {
         Log.i(TAG, "setPassedResult(activity=" + activity + ", testId=" + testId
                 + ", testDetails=" + testDetails);
+
+        // We store results here straight into the content provider so it can be fetched by the
+        // CTSInteractive host
+        TestResultsProvider.setTestResult(
+                activity, testId, 1, testDetails, reportLog, historyCollection,
+                null);
+
         activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_PASSED, testId,
                 testDetails, reportLog, historyCollection));
     }
@@ -89,6 +98,13 @@ public class TestResult {
             ReportLog reportLog, TestResultHistoryCollection historyCollection) {
         Log.e(TAG, "setFailedResult(activity=" + activity + ", testId=" + testId
                 + ", testDetails=" + testDetails);
+
+        // We store results here straight into the content provider so it can be fetched by the
+        // CTSInteractive host
+        TestResultsProvider.setTestResult(
+                activity, testId, 2, testDetails, reportLog, historyCollection,
+                null);
+
         activity.setResult(Activity.RESULT_OK, createResult(activity, TEST_RESULT_FAILED, testId,
                 testDetails, reportLog, historyCollection));
     }
@@ -119,13 +135,42 @@ public class TestResult {
      * {@link TestListActivity}.
      */
     static TestResult fromActivityResult(int resultCode, Intent data) {
-        String name = data.getStringExtra(TEST_NAME);
+        String name = setTestNameSuffix(sCurrentDisplayMode, data.getStringExtra(TEST_NAME));
+        return fromActivityResultWithTestName(resultCode, data, name);
+    }
+
+    /**
+     * Convert the test activity's result into a {@link TestResult} with the given test name.
+     * Only meant to be used by {@link TestResult}.
+     */
+    static TestResult fromActivityResultWithTestName(
+            int resultCode, Intent data, String name) {
         int result = data.getIntExtra(TEST_RESULT, TEST_RESULT_NOT_EXECUTED);
         String details = data.getStringExtra(TEST_DETAILS);
         ReportLog reportLog = (ReportLog) data.getSerializableExtra(TEST_METRICS);
         TestResultHistoryCollection historyCollection =
                 (TestResultHistoryCollection) data.getSerializableExtra(TEST_HISTORY_COLLECTION);
         return new TestResult(name, result, details, reportLog, historyCollection);
+    }
+
+    /**
+     * Convert the test activity's result into a {@link TestResult} with the given display mode.
+     * Only meant to be used by {@link TestListActivity}.
+     */
+    static TestResult fromActivityResultWithDisplayMode(
+            int resultCode, Intent data, String mode) {
+        if (mode.equalsIgnoreCase(DisplayMode.UNFOLDED.toString())) {
+            return fromActivityResultWithTestName(
+                    resultCode,
+                    data,
+                    removeTestNameSuffix(mode, data.getStringExtra(TEST_NAME))
+            );
+        }
+        return fromActivityResultWithTestName(
+                resultCode,
+                data,
+                setTestNameSuffix(mode, data.getStringExtra(TEST_NAME))
+        );
     }
 
     private TestResult(

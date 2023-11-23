@@ -17,17 +17,15 @@
 package android.media.audio.cts;
 
 import android.media.audiofx.AudioEffect;
-import android.media.AudioFormat;
-import android.media.AudioManager;
 import android.media.audiofx.PresetReverb;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.cts.PostProcTestBase;
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
 import android.util.Log;
 
-@NonMediaMainlineTest
+import com.android.compatibility.common.util.NonMainlineTest;
+
+@NonMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 public class PresetReverbTest extends PostProcTestBase {
 

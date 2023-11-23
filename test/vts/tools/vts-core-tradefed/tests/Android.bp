@@ -27,5 +27,9 @@ java_library_host {
         "vts-core-tradefed-harness",
     ],
 
-    static_libs: ["easymock"],
+    static_libs: [
+        "easymock",
+        // Import common validation tests
+        "suite-loading-tests",
+    ],
 }

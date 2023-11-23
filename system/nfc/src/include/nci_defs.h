@@ -27,12 +27,11 @@
 
 #include <stdint.h>
 
-/* Define the message header size for all NCI Commands and Notifications.
-*/
+/* Define the message header size for all NCI Commands and Notifications. */
 #define NCI_MSG_HDR_SIZE 3  /* per NCI spec */
 #define NCI_DATA_HDR_SIZE 3 /* per NCI spec */
 #define NCI_MAX_PAYLOAD_SIZE 0xFE
-#define NCI_CTRL_INIT_SIZE 32  /* initial NFCC control payload size */
+#define NCI_CTRL_INIT_SIZE 32 /* initial NFCC control payload size */
 #define NCI_MAX_VSC_SIZE 0xFF
 #define APPL_DTA_MODE FALSE
 /* NCI header (3) + callback function pointer(8; use 8 to be safe) + HCIT (1
@@ -244,7 +243,7 @@
 #define NCI_CON_CREATE_TAG_RF_DISC_ID 0x00
 #define NCI_CON_CREATE_TAG_NFCEE_VAL 0x01
 
-#define NCI_CORE_PARAM_SIZE_CON_CLOSE 0x01     /* Conn ID (1 octet) */
+#define NCI_CORE_PARAM_SIZE_CON_CLOSE 0x01 /* Conn ID (1 octet) */
 
 /* Keep the NCI configuration and perform NCI initialization. */
 #define NCI_RESET_TYPE_KEEP_CFG 0x00
@@ -263,12 +262,14 @@
 #define NCI_DISCOVER_ACTION_DISABLE 0
 #define NCI_DISCOVER_ACTION_ENABLE 1
 
-#define NCI_RF_PARAM_ID_TECH_N_MODE 0x00 /* RF Technology and Mode   */
-#define NCI_RF_PARAM_ID_TX_BIT_RATE 0x01 /* Transmit Bit Rate        */
-#define NCI_RF_PARAM_ID_RX_BIT_RATE 0x02 /* Receive Bit Rate         */
-#define NCI_RF_PARAM_ID_B_DATA_EX_PARAM \
-  0x03 /* B Data Exchange config param  \
-          */
+/* RF Technology and Mode */
+#define NCI_RF_PARAM_ID_TECH_N_MODE 0x00
+/* Transmit Bit Rate */
+#define NCI_RF_PARAM_ID_TX_BIT_RATE 0x01
+/* Receive Bit Rate */
+#define NCI_RF_PARAM_ID_RX_BIT_RATE 0x02
+/* B Data Exchange config param */
+#define NCI_RF_PARAM_ID_B_DATA_EX_PARAM 0x03
 
 #define NCI_NFCEE_INTERFACE_APDU 0x00
 #define NCI_NFCEE_INTERFACE_HCI_ACCESS 0x01
@@ -322,8 +323,8 @@ typedef uint8_t tNCI_EE_NTF_STATUS;
 typedef uint8_t tNCI_NFCEE_PL_CONFIG;
 
 /**********************************************
-* NCI Interface Mode
-**********************************************/
+ * NCI Interface Mode
+ **********************************************/
 #define NCI_INTERFACE_MODE_POLL_N_LISTEN 3
 
 /**********************************************
@@ -342,8 +343,8 @@ typedef uint8_t tNCI_INTF_TYPE;
  * NCI RF Management / DISCOVERY Group Params
  **********************************************/
 
-#define NCI_DISCOVER_PARAM_SIZE_SELECT 0x03     /* ID, protocol, interface */
-#define NCI_DISCOVER_PARAM_SIZE_DEACT 0x01      /* type */
+#define NCI_DISCOVER_PARAM_SIZE_SELECT 0x03 /* ID, protocol, interface */
+#define NCI_DISCOVER_PARAM_SIZE_DEACT 0x01  /* type */
 
 /**********************************************
  * Supported Protocols
@@ -381,8 +382,8 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 #define NCI_EE_TRIG_RF_TECHNOLOGY 0x02
 #define NCI_EE_TRIG_APP_INIT 0x10
 
-#define NCI_EE_ACT_TAG_AID 0xC0   /* AID                 */
-#define NCI_EE_ACT_TAG_DATA 0xC3  /* hex data for app    */
+#define NCI_EE_ACT_TAG_AID 0xC0  /* AID                 */
+#define NCI_EE_ACT_TAG_DATA 0xC3 /* hex data for app    */
 
 /* NFCEE ID (1 octet) PL config (1 octet) */
 #define NCI_CORE_PARAM_SIZE_NFCEE_PL_CTRL 0x02
@@ -391,7 +392,7 @@ typedef uint8_t tNCI_DISCOVERY_TYPE;
 #define NCI_ROUTE_TAG_TECH 0x00
 /* Protocol based routing  */
 #define NCI_ROUTE_TAG_PROTO 0x01
-#define NCI_ROUTE_TAG_AID 0x02 /* AID routing */
+#define NCI_ROUTE_TAG_AID 0x02     /* AID routing */
 #define NCI_ROUTE_TAG_SYSCODE 0x03 /* SystemCode routing */
 
 #define NCI_ROUTE_PWR_STATE_ON 0x01 /* The device is on */
@@ -643,7 +644,9 @@ typedef struct {
   uint8_t ats_res[NCI_MAX_ATS_LEN]; /* ATS RES defined in [DIGPROT] */
 } tNCI_INTF_PA_ISO_DEP;
 
-typedef struct { uint8_t rats; /* RATS */ } tNCI_INTF_LA_ISO_DEP;
+typedef struct {
+  uint8_t rats; /* RATS */
+} tNCI_INTF_LA_ISO_DEP;
 
 #define NCI_P_GEN_BYTE_INDEX 15
 #define NCI_L_GEN_BYTE_INDEX 14

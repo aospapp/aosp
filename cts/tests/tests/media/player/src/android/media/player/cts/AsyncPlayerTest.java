@@ -20,27 +20,50 @@ import android.content.Context;
 import android.media.AsyncPlayer;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
-import android.media.cts.NonMediaMainlineTest;
 import android.net.Uri;
 import android.provider.Settings;
-import android.test.AndroidTestCase;
 
-@NonMediaMainlineTest
-public class AsyncPlayerTest extends AndroidTestCase {
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.NonMainlineTest;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@NonMainlineTest
+@RunWith(AndroidJUnit4.class)
+public class AsyncPlayerTest {
+
+    private Context mContext;
+
+    @Before
+    public void setUp() {
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+    }
+
+    @After
+    public void tearDown() {
+        mContext = null;
+    }
+
+    @Test
     public void testAsyncPlayer() throws Exception {
         final Uri PLAY_URI = Settings.System.DEFAULT_NOTIFICATION_URI;
         AsyncPlayer asyncPlayer = new AsyncPlayer(null);
-        asyncPlayer.play(getContext(), PLAY_URI, true, AudioManager.STREAM_RING);
+        asyncPlayer.play(mContext, PLAY_URI, true, AudioManager.STREAM_RING);
         final int PLAY_TIME = 3000;
         Thread.sleep(PLAY_TIME);
         asyncPlayer.stop();
     }
 
+    @Test
     public void testAsyncPlayerAudioAttributes() throws Exception {
         final Uri PLAY_URI = Settings.System.DEFAULT_NOTIFICATION_URI;
         AsyncPlayer asyncPlayer = new AsyncPlayer(null);
-        asyncPlayer.play(getContext(), PLAY_URI, true,
+        asyncPlayer.play(mContext, PLAY_URI, true,
                 new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION).build());
         final int PLAY_TIME = 3000;
         Thread.sleep(PLAY_TIME);

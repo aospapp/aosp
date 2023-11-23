@@ -21,6 +21,13 @@ import static android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC;
 import static android.media.MediaMetadataRetriever.OPTION_NEXT_SYNC;
 import static android.media.MediaMetadataRetriever.OPTION_PREVIOUS_SYNC;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
@@ -33,30 +40,35 @@ import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMetadataRetriever;
 import android.media.cts.CodecUtils;
-import android.media.cts.Preconditions;
 import android.media.cts.TestMediaDataSource;
-import android.media.cts.TestUtils;
-import android.os.ParcelFileDescriptor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
+import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
-import android.test.AndroidTestCase;
 import android.util.Log;
 import android.view.Display;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -68,7 +80,8 @@ import java.util.function.Function;
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "No interaction with system server")
-public class MediaMetadataRetrieverTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class MediaMetadataRetrieverTest {
     private static final String TAG = "MediaMetadataRetrieverTest";
     private static final boolean SAVE_BITMAP_OUTPUT = false;
     private static final String TEST_MEDIA_FILE = "retriever_test.3gp";
@@ -93,16 +106,18 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     private boolean mIsAtLeastR = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.R);
     private boolean mIsAtLeastS = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    private Context getContext() {
+        return InstrumentationRegistry.getInstrumentation().getContext();
+    }
+
+    @Before
+    public void setUp() throws Exception {
         mRetriever = new MediaMetadataRetriever();
         mPackageManager = getContext().getPackageManager();
     }
 
-    @Override
-    protected void tearDown() throws Exception {
-        super.tearDown();
+    @After
+    public void tearDown() throws Exception {
         mRetriever.release();
         File file = new File(Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE);
         if (file.exists()) {
@@ -157,6 +172,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         return ds;
     }
 
+    @Test
     public void testExceptionWhileClosingMediaDataSource() throws IOException {
         MediaDataSource backingMediaDataSource =
                 TestMediaDataSource.fromAssetFd(
@@ -188,6 +204,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testAudioMetadata() {
         setDataSourceCallback("audio_with_metadata.mp3");
 
@@ -221,6 +238,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
             mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
     }
 
+    @Test
     public void test3gppMetadata() {
         setDataSourceCallback("testvideo.3gp");
 
@@ -317,6 +335,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_WRITER));
     }
 
+    @Test
     public void testID3v2Metadata() {
         setDataSourceFd(
                 "video_480x360_mp4_h264_500kbps_25fps_aac_stereo_128kbps_44100hz_id3v2.mp4");
@@ -414,6 +433,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_WRITER));
     }
 
+    @Test
     public void testID3v2Unsynchronization() {
         setDataSourceFd("testmp3_4.mp3");
         assertEquals("Mime type was other than expected",
@@ -421,6 +441,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_MIMETYPE));
     }
 
+    @Test
     public void testID3v240ExtHeader() {
         setDataSourceFd("sinesweepid3v24ext.mp3");
         assertEquals("Mime type was other than expected",
@@ -433,6 +454,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.getEmbeddedPicture());
     }
 
+    @Test
     public void testID3v230ExtHeader() {
         setDataSourceFd("sinesweepid3v23ext.mp3");
         assertEquals("Mime type was other than expected",
@@ -445,6 +467,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.getEmbeddedPicture());
     }
 
+    @Test
     public void testID3v230ExtHeaderBigEndian() {
         setDataSourceFd("sinesweepid3v23extbe.mp3");
         assertEquals("Mime type was other than expected",
@@ -457,6 +480,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.getEmbeddedPicture());
     }
 
+    @Test
     public void testMp4AlbumArt() {
         setDataSourceFd("swirl_128x128_h264_albumart.mp4");
         assertEquals("Mime type was other than expected",
@@ -466,6 +490,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 mRetriever.getEmbeddedPicture());
     }
 
+    @Test
     public void testGenreParsing() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         Object [][] genres = {
@@ -490,6 +515,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testBitsPerSampleAndSampleRate() {
         setDataSourceFd("testwav_16bit_44100hz.wav");
 
@@ -503,17 +529,20 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
     }
 
+    @Test
     public void testGetEmbeddedPicture() {
         setDataSourceFd("largealbumart.mp3");
 
         assertNotNull("couldn't retrieve album art", mRetriever.getEmbeddedPicture());
     }
 
+    @Test
     public void testAlbumArtInOgg() throws Exception {
         setDataSourceFd("sinesweepoggalbumart.ogg");
         assertNotNull("couldn't retrieve album art from ogg", mRetriever.getEmbeddedPicture());
     }
 
+    @Test
     public void testSetDataSourcePath() {
         copyMediaFile();
         File file = new File(Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE);
@@ -524,6 +553,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetDataSourceUri() {
         copyMediaFile();
         File file = new File(Environment.getExternalStorageDirectory(), TEST_MEDIA_FILE);
@@ -535,6 +565,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetDataSourceNullPath() {
         try {
             mRetriever.setDataSource((String)null);
@@ -544,6 +575,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testSetDataSourceNullUri() {
         try {
             mRetriever.setDataSource(getContext(), (Uri)null);
@@ -553,6 +585,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testNullMediaDataSourceIsRejected() {
         try {
             mRetriever.setDataSource((MediaDataSource)null);
@@ -562,6 +595,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testMediaDataSourceIsClosedOnRelease() throws Exception {
         TestMediaDataSource dataSource = setDataSourceCallback("testvideo.3gp");
         mRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE);
@@ -569,6 +603,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         assertTrue(dataSource.isClosed());
     }
 
+    @Test
     public void testRetrieveFailsIfMediaDataSourceThrows() throws Exception {
         TestMediaDataSource ds = getFaultyDataSource("testvideo.3gp", true /* throwing */);
         try {
@@ -579,6 +614,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testRetrieveFailsIfMediaDataSourceReturnsAnError() throws Exception {
         TestMediaDataSource ds = getFaultyDataSource("testvideo.3gp", false /* throwing */);
         try {
@@ -599,8 +635,8 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
         setDataSourceFd(res);
 
-        if (!MediaUtils.hasCodecForResourceAndDomain(res, "video/")) {
-            MediaUtils.skipTest("no video codecs for resource");
+        if (!MediaUtils.hasCodecForResourceAndDomain(mInpPrefix + res, "video/")) {
+            MediaUtils.skipTest("no video codecs for resource: " + mInpPrefix + res);
             return;
         }
 
@@ -637,6 +673,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testThumbnailH264() {
         testThumbnail(
                 "bbb_s4_1280x720_mp4_h264_mp31_8mbps_30fps_aac_he_mono_40kbps_44100hz.mp4",
@@ -644,10 +681,12 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 720);
     }
 
+    @Test
     public void testThumbnailH263() {
         testThumbnail("video_176x144_3gp_h263_56kbps_12fps_aac_mono_24kbps_11025hz.3gp", 176, 144);
     }
 
+    @Test
     public void testThumbnailMPEG4() {
         testThumbnail(
                 "video_1280x720_mp4_mpeg4_1000kbps_25fps_aac_stereo_128kbps_44100hz.mp4",
@@ -655,6 +694,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 720);
     }
 
+    @Test
     public void testThumbnailVP8() {
         testThumbnail(
                 "bbb_s1_640x360_webm_vp8_2mbps_30fps_vorbis_5ch_320kbps_48000hz.webm",
@@ -662,6 +702,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 360);
     }
 
+    @Test
     public void testThumbnailVP9() {
         testThumbnail(
                 "bbb_s1_640x360_webm_vp9_0p21_1600kbps_30fps_vorbis_stereo_128kbps_48000hz.webm",
@@ -669,6 +710,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 360);
     }
 
+    @Test
     public void testThumbnailHEVC() {
         testThumbnail(
                 "bbb_s1_720x480_mp4_hevc_mp3_1600kbps_30fps_aac_he_6ch_240kbps_48000hz.mp4",
@@ -676,10 +718,11 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 480);
     }
 
+    @Test
     public void testThumbnailVP9Hdr() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
 
-        DisplayManager displayManager = mContext.getSystemService(DisplayManager.class);
+        DisplayManager displayManager = getContext().getSystemService(DisplayManager.class);
         int numberOfSupportedHdrTypes =
             displayManager.getDisplay(Display.DEFAULT_DISPLAY).getHdrCapabilities()
                 .getSupportedHdrTypes().length;
@@ -692,10 +735,11 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testThumbnail("video_1280x720_vp9_hdr_static_3mbps.mkv", 1280, 720);
     }
 
+    @Test
     public void testThumbnailAV1Hdr() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
 
-        DisplayManager displayManager = mContext.getSystemService(DisplayManager.class);
+        DisplayManager displayManager = getContext().getSystemService(DisplayManager.class);
         int numberOfSupportedHdrTypes =
             displayManager.getDisplay(Display.DEFAULT_DISPLAY).getHdrCapabilities()
                 .getSupportedHdrTypes().length;
@@ -708,6 +752,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testThumbnail("video_1280x720_av1_hdr_static_3mbps.webm", 1280, 720);
     }
 
+    @Test
     public void testThumbnailHDR10() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
 
@@ -719,8 +764,8 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
         setDataSourceFd(res);
 
-        if (!MediaUtils.hasCodecForResourceAndDomain(res, "video/")) {
-            MediaUtils.skipTest("no video codecs for resource");
+        if (!MediaUtils.hasCodecForResourceAndDomain(mInpPrefix + res, "video/")) {
+            MediaUtils.skipTest("no video codecs for resource: " + mInpPrefix + res);
             return;
         }
 
@@ -735,6 +780,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         verifyVideoFrameRotation(thumbnail, targetRotation);
     }
 
+    @Test
     public void testThumbnailWithRotation() {
         String[] res = {"video_h264_mpeg4_rotate_0.mp4", "video_h264_mpeg4_rotate_90.mp4",
                 "video_h264_mpeg4_rotate_180.mp4", "video_h264_mpeg4_rotate_270.mp4"};
@@ -759,30 +805,35 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
      *     4) frame time is shortly before a sync frame
      *     5) frame time is shortly after a sync frame
      */
+    @Test
     public void testGetFrameAtTimePreviousSync() {
         int[][] testCases = {
                 { 2066666, 60 }, { 2500000, 60 }, { 2600000, 60 }, { 3000000, 60 }, { 3200000, 90}};
         testGetFrameAtTime(OPTION_PREVIOUS_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeNextSync() {
         int[][] testCases = {
                 { 2066666, 60 }, { 2500000, 90 }, { 2600000, 90 }, { 3000000, 90 }, { 3200000, 120}};
         testGetFrameAtTime(OPTION_NEXT_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeClosestSync() {
         int[][] testCases = {
                 { 2066666, 60 }, { 2500000, 60 }, { 2600000, 90 }, { 3000000, 90 }, { 3200000, 90}};
         testGetFrameAtTime(OPTION_CLOSEST_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeClosest() {
         int[][] testCases = {
                 { 2066666, 60 }, { 2500001, 73 }, { 2599999, 76 }, { 3016000, 88 }, { 3184000, 94}};
         testGetFrameAtTime(OPTION_CLOSEST, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimePreviousSyncEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -790,6 +841,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEditList(OPTION_PREVIOUS_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeNextSyncEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -797,6 +849,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEditList(OPTION_NEXT_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeClosestSyncEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -804,6 +857,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEditList(OPTION_CLOSEST_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeClosestEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -811,6 +865,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEditList(OPTION_CLOSEST, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimePreviousSyncEmptyNormalEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -818,6 +873,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEmptyNormalEditList(OPTION_PREVIOUS_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeNextSyncEmptyNormalEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {{ 2000000, 60 }, { 2133000, 60 }, { 2566334, 90 }, { 3100000, 90 },
@@ -825,6 +881,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEmptyNormalEditList(OPTION_NEXT_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeClosestSyncEmptyNormalEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -832,6 +889,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetFrameAtTimeEmptyNormalEditList(OPTION_CLOSEST_SYNC, testCases);
     }
 
+    @Test
     public void testGetFrameAtTimeClosestEmptyNormalEditList() {
         if (!MediaUtils.check(mIsAtLeastR, "test needs Android 11")) return;
         int[][] testCases = {
@@ -879,6 +937,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         });
     }
 
+    @Test
     public void testGetFrameAtIndex() {
         int[][] testCases = { { 60, 60 }, { 73, 73 }, { 76, 76 }, { 88, 88 }, { 94, 94} };
 
@@ -906,6 +965,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         });
     }
 
+    @Test
     public void testGetFramesAtIndex() {
         int[][] testCases = { { 27, 27 }, { 28, 28 }, { 29, 29 }, { 30, 30 }, { 31, 31} };
 
@@ -948,9 +1008,9 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
         setDataSourceFd(res);
 
-        if (!MediaUtils.hasCodecForResourceAndDomain(res, "video/")
+        if (!MediaUtils.hasCodecForResourceAndDomain(mInpPrefix + res, "video/")
             && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            MediaUtils.skipTest("no video codecs for resource on watch");
+            MediaUtils.skipTest("no video codecs for resource: " + mInpPrefix + res + " on watch");
             return;
         }
 
@@ -991,6 +1051,7 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
     /**
      * The following tests verifies MediaMetadataRetriever.getScaledFrameAtTime behavior.
      */
+    @Test
     public void testGetScaledFrameAtTimeWithInvalidResolutions() {
         String[] resources = {"binary_counter_320x240_30fps_600frames.mp4",
                 "binary_counter_320x240_30fps_600frames_editlist.mp4",
@@ -1009,9 +1070,10 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
 
         for (String res : resources) {
             setDataSourceFd(res);
-            if (!MediaUtils.hasCodecForResourceAndDomain(res, "video/")
+            if (!MediaUtils.hasCodecForResourceAndDomain(mInpPrefix + res, "video/")
                     && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-                MediaUtils.skipTest("no video codecs for resource on watch");
+                MediaUtils.skipTest("no video codecs for resource: " + mInpPrefix + res +
+                        " on watch");
                 continue;
             }
 
@@ -1059,12 +1121,13 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         assertEquals("Bitmap height is wrong", expectedHeight, bitmap.getHeight());
     }
 
+    @Test
     public void testGetScaledFrameAtTime() {
         String res = "binary_counter_320x240_30fps_600frames.mp4";
         setDataSourceFd(res);
-        if (!MediaUtils.hasCodecForResourceAndDomain(res, "video/")
+        if (!MediaUtils.hasCodecForResourceAndDomain(mInpPrefix + res, "video/")
             && mPackageManager.hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-            MediaUtils.skipTest("no video codecs for resource on watch");
+            MediaUtils.skipTest("no video codecs for resource: " + mInpPrefix + res + " on watch");
             return;
         }
 
@@ -1089,9 +1152,10 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
         testGetScaledFrameAtTime(330, 240, 330, 110, null);
     }
 
+    @Test
     public void testGetImageAtIndex() throws Exception {
         if (!MediaUtils.hasDecoder(MediaFormat.MIMETYPE_VIDEO_HEVC)) {
-            MediaUtils.skipTest("no video decoders for resource");
+            MediaUtils.skipTest("no video decoders for HEVC");
             return;
         }
 
@@ -1099,9 +1163,10 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 4 /*imageCount*/, 3 /*primary*/, true /*useGrid*/, true /*checkColor*/);
     }
 
+    @Test
     public void testGetImageAtIndexAvif() throws Exception {
         if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
-        if (!MediaUtils.canDecodeVideo("AV1", 1920, 1080, 30)) {
+        if (!MediaUtils.canDecodeVideo(MediaFormat.MIMETYPE_VIDEO_AV1, 1920, 1080, 30)) {
             MediaUtils.skipTest("No AV1 codec for 1080p");
             return;
         }
@@ -1109,9 +1174,10 @@ public class MediaMetadataRetrieverTest extends AndroidTestCase {
                 1 /*imageCount*/, 0 /*primary*/, false /*useGrid*/, true /*checkColor*/);
     }
 
+    @Test
     public void testGetImageAtIndexAvifGrid() throws Exception {
         if (!MediaUtils.check(mIsAtLeastS, "test needs Android 12")) return;
-        if (!MediaUtils.canDecodeVideo("AV1", 512, 512, 30)) {
+        if (!MediaUtils.canDecodeVideo(MediaFormat.MIMETYPE_VIDEO_AV1, 512, 512, 30)) {
             MediaUtils.skipTest("No AV1 codec for 512p");
             return;
         }

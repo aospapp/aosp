@@ -39,7 +39,7 @@ class AndroidVirtualDevice():
     """Represent an Android device."""
 
     def __init__(self, instance_name, ip=None, time_info=None, stage=None,
-                 openwrt=None):
+                 openwrt=None, gce_hostname=None):
         """Initialize.
 
         Args:
@@ -49,6 +49,7 @@ class AndroidVirtualDevice():
             time_info: Dict of time cost information, e.g. {"launch_cvd": 5}
             stage: Integer of AVD in which stage, e.g. STAGE_GCE, STAGE_BOOT_UP
             openwrt: Boolean of the instance creates the OpenWrt device.
+            gce_hostname: String of the GCE hostname.
         """
         self._ip = ip
         self._instance_name = instance_name
@@ -77,6 +78,7 @@ class AndroidVirtualDevice():
         self._build_info = {}
         self._stage = stage
         self._openwrt = openwrt
+        self._gce_hostname = gce_hostname
 
     @property
     def ip(self):
@@ -114,6 +116,11 @@ class AndroidVirtualDevice():
     def openwrt(self):
         """Getter of _openwrt."""
         return self._openwrt
+
+    @property
+    def gce_hostname(self):
+        """Getter of _gce_hostname."""
+        return self._gce_hostname
 
     @build_info.setter
     def build_info(self, value):

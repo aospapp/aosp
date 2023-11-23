@@ -20,7 +20,7 @@
 
 #include "chre/core/event_loop_manager.h"
 #include "chre/core/host_comms_manager.h"
-#include "chre/core/host_notifications.h"
+#include "chre/core/host_endpoint_manager.h"
 #include "chre/platform/fatal_error.h"
 #include "chre/platform/log.h"
 #include "chre/util/macros.h"
@@ -167,5 +167,7 @@ DLL_EXPORT bool chrePublishRpcServices(struct chreNanoappRpcService *services,
 
 DLL_EXPORT bool chreGetHostEndpointInfo(uint16_t hostEndpointId,
                                         struct chreHostEndpointInfo *info) {
-  return chre::getHostEndpointInfo(hostEndpointId, info);
+  return EventLoopManagerSingleton::get()
+      ->getHostEndpointManager()
+      .getHostEndpointInfo(hostEndpointId, info);
 }

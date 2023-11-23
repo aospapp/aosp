@@ -20,8 +20,12 @@ import static android.hardware.location.ContextHubManager.AUTHORIZATION_GRANTED;
 
 import android.hardware.location.ContextHubClient;
 import android.hardware.location.ContextHubClientCallback;
-import android.hardware.location.ContextHubIntentEvent;
 import android.hardware.location.NanoAppMessage;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import java.util.Objects;
 
 import dev.pigweed.pw_rpc.Client;
 
@@ -29,100 +33,134 @@ import dev.pigweed.pw_rpc.Client;
  * Implementation that can be used to ensure callbacks from the ContextHub APIs are properly handled
  * when using pw_rpc.
  */
-public class ChreCallbackHandler {
-    private final ContextHubClient mHubClient;
+public class ChreCallbackHandler extends ContextHubClientCallback {
     private final long mNanoappId;
-    private final Client mRpcClient;
-    private final ChreChannelOutput mChannelOutput;
+    @Nullable
+    private final ContextHubClientCallback mCallback;
+    private Client mRpcClient;
+    private ChreChannelOutput mChannelOutput;
 
-    public ChreCallbackHandler(ContextHubClient hubClient,
-            long nanoappId, Client rpcClient, ChreChannelOutput channelOutput) {
-        mHubClient = hubClient;
+    /**
+     * @param nanoappId ID of the RPC Server nanoapp
+     * @param callback The callbacks receiving messages and life-cycle events from nanoapps
+     */
+    public ChreCallbackHandler(long nanoappId, @Nullable ContextHubClientCallback callback) {
         mNanoappId = nanoappId;
-        mRpcClient = rpcClient;
-        mChannelOutput = channelOutput;
+        mCallback = callback;
     }
 
     /**
-     * This must be called directly from the equivalent {@link ContextHubClientCallback} method
-     * or after decoding a {@link ContextHubIntentEvent} of type
-     * {@link ContextHubManager.EVENT_NANOAPP_MESSAGE}.
+     * Completes the initialization.
      *
+     * @param rpcClient The Pigweed RPC client
+     * @param channelOutput The ChannelOutput used by Pigweed
+     */
+    public void lateInit(@NonNull Client rpcClient, @NonNull ChreChannelOutput channelOutput) {
+        mRpcClient = Objects.requireNonNull(rpcClient);
+        mChannelOutput = Objects.requireNonNull(channelOutput);
+    }
+
+    /**
      * This method passes the message to pigweed RPC for decoding.
      */
-    public void onMessageFromNanoApp(NanoAppMessage message) {
-        if (message.getNanoAppId() == mNanoappId) {
+    @Override
+    public void onMessageFromNanoApp(ContextHubClient client, NanoAppMessage message) {
+        if (mRpcClient != null && message.getNanoAppId() == mNanoappId) {
             mRpcClient.processPacket(message.getMessageBody());
         }
-    }
-
-    /**
-     * This must be called directly from the equivalent {@link ContextHubClientCallback} method
-     * or after decoding a {@link ContextHubIntentEvent} of type
-     * {@link ContextHubManager.EVENT_HUB_RESET}.
-     *
-     * This method ensures all outstanding RPCs are canceled.
-     */
-    public void onHubReset() {
-        // TODO(b/210138227): Close all outsanding RPCs.
-    }
-
-
-    /**
-     * This must be called directly from the equivalent {@link ContextHubClientCallback} method
-     * or after decoding a {@link ContextHubIntentEvent} of type
-     * {@link ContextHubManager.EVENT_NANOAPP_UNLOADED}.
-     *
-     * This method ensures all outstanding RPCs are canceled.
-     */
-    public void onNanoappUnloaded(long nanoappId) {
-        if (nanoappId == mNanoappId) {
-            // TODO(b/210138227): Close all outsanding RPCs.
+        if (mCallback != null) {
+            mCallback.onMessageFromNanoApp(client, message);
         }
     }
 
     /**
-     * This must be called directly from the equivalent {@link ContextHubClientCallback} method
-     * or after decoding a {@link ContextHubIntentEvent} of type
-     * {@link ContextHubManager.EVENT_NANOAPP_DISABLED}.
-     *
      * This method ensures all outstanding RPCs are canceled.
      */
-    public void onNanoappDisabled(long nanoappId) {
-        if (nanoappId == mNanoappId) {
-            // TODO(b/210138227): Close all outsanding RPCs.
+    @Override
+    public void onHubReset(ContextHubClient client) {
+        closeChannel();
+        if (mCallback != null) {
+            mCallback.onHubReset(client);
         }
     }
 
     /**
-     * This must be called directly from the equivalent {@link ContextHubClientCallback} method
-     * or after decoding a {@link ContextHubIntentEvent} of type
-     * {@link ContextHubManager.EVENT_NANOAPP_ABORTED}.
-     *
      * This method ensures all outstanding RPCs are canceled.
      */
-    public void onNanoppAborted(long nanoappId) {
+    @Override
+    public void onNanoAppAborted(ContextHubClient client, long nanoappId, int abortCode) {
         if (nanoappId == mNanoappId) {
-            // TODO(b/210138227): Close all outsanding RPCs.
+            closeChannel();
+        }
+        if (mCallback != null) {
+            mCallback.onNanoAppAborted(client, nanoappId, abortCode);
+        }
+    }
+
+    @Override
+    public void onNanoAppLoaded(ContextHubClient client, long nanoappId) {
+        if (mCallback != null) {
+            mCallback.onNanoAppLoaded(client, nanoappId);
         }
     }
 
     /**
-     * This must be called directly from the equivalent {@link ContextHubClientCallback} method
-     * or after decoding a {@link ContextHubIntentEvent} of type
-     * {@link ContextHubManager.EVENT_CLIENT_AUTHORIZATION}.
-     *
+     * This method ensures all outstanding RPCs are canceled.
+     */
+    @Override
+    public void onNanoAppUnloaded(ContextHubClient client, long nanoappId) {
+        if (nanoappId == mNanoappId) {
+            closeChannel();
+        }
+        if (mCallback != null) {
+            mCallback.onNanoAppUnloaded(client, nanoappId);
+        }
+    }
+
+    @Override
+    public void onNanoAppEnabled(ContextHubClient client, long nanoappId) {
+        if (mCallback != null) {
+            mCallback.onNanoAppEnabled(client, nanoappId);
+        }
+    }
+
+    /**
+     * This method ensures all outstanding RPCs are canceled.
+     */
+    @Override
+    public void onNanoAppDisabled(ContextHubClient client, long nanoappId) {
+        if (nanoappId == mNanoappId) {
+            closeChannel();
+        }
+        if (mCallback != null) {
+            mCallback.onNanoAppDisabled(client, nanoappId);
+        }
+    }
+
+    /**
      * If the client is now unauthorized to communicate with the nanoapp, any future RPCs attempted
      * will fail until the client becomes authorized again.
      */
-    public void onClientAuthorizationChanged(long nanoappId, int authorization) {
-        if (nanoappId == mNanoappId) {
+    @Override
+    public void onClientAuthorizationChanged(ContextHubClient client, long nanoappId,
+            int authorization) {
+        if (mChannelOutput != null && nanoappId == mNanoappId) {
             if (authorization == AUTHORIZATION_DENIED) {
                 mChannelOutput.setAuthDenied(true /* denied */);
-                // TODO(b/210138227): Close all outsanding RPCs.
+                closeChannel();
             } else if (authorization == AUTHORIZATION_GRANTED) {
                 mChannelOutput.setAuthDenied(false /* denied */);
             }
+        }
+        if (mCallback != null) {
+            mCallback.onClientAuthorizationChanged(client, nanoappId, authorization);
+        }
+    }
+
+    private void closeChannel() {
+        if (mRpcClient != null && mChannelOutput != null) {
+            mRpcClient.closeChannel(mChannelOutput.getChannelId());
+            mChannelOutput = null;
         }
     }
 }

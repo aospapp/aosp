@@ -23,10 +23,6 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
-    <target_preparer class="com.android.tradefed.targetprep.SwitchUserTargetPreparer">
-        <option name="user-type" value="system"/>
-    </target_preparer>
-
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="mkdir -p /data/local/tmp/cts/packageinstaller/" />
         <option name="run-command" value="pm uninstall com.android.cts.install.lib.testapp.A" />
@@ -44,6 +40,8 @@
         <option name="install-arg" value="-t" />
         <option name="test-file-name" value="CtsAdminPackageInstallerTestCases.apk" />
     </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunOnSystemUserTargetPreparer"/>
 
     <target_preparer class="com.android.tradefed.targetprep.DeviceOwnerTargetPreparer">
         <option name="device-owner-component-name" value="android.packageinstaller.admin.cts/.BasicAdminReceiver" />

@@ -16,6 +16,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.content.syncmanager.cts">
 
+    <queries>
+        <package android:name="android.content.syncmanager.cts.app1" />
+    </queries>
+
     <application>
         <uses-library android:name="android.test.runner" />
     </application>

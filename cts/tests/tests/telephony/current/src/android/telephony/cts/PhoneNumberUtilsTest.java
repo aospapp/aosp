@@ -397,6 +397,17 @@ public class PhoneNumberUtilsTest {
     }
 
     @Test
+    public void testFormatNumberToE164_countryCodeLowerCase() {
+        assertNull(PhoneNumberUtils.formatNumber("invalid#", "us"));
+        assertNull(PhoneNumberUtils.formatNumberToE164("1234567", "us"));
+
+        assertEquals("+18004664114", PhoneNumberUtils.formatNumberToE164("800-GOOG-114", "us"));
+        assertEquals("+16502910000", PhoneNumberUtils.formatNumberToE164("650 2910000", "us"));
+        assertEquals("+12023458246", PhoneNumberUtils.formatNumberToE164("(202)345-8246", "us"));
+        assertEquals("+812023458246", PhoneNumberUtils.formatNumberToE164("202-345-8246", "jp"));
+    }
+
+    @Test
     public void testAreSamePhoneNumber() {
         assertFalse(PhoneNumberUtils.areSamePhoneNumber("abcd", "bcde", "us"));
         assertTrue(PhoneNumberUtils.areSamePhoneNumber("1-800-flowers", "800-flowers", "us"));
@@ -447,5 +458,58 @@ public class PhoneNumberUtilsTest {
         assertTrue(PhoneNumberUtils.areSamePhoneNumber("+31771234567", "0771234567", "nl"));
 
         assertTrue(PhoneNumberUtils.areSamePhoneNumber("+593(800)123-1234", "8001231234", "ec"));
+    }
+
+    @Test
+    public void testAreSamePhoneNumber_countryCodeUpperCase() {
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("abcd", "bcde", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("1-800-flowers", "800-flowers", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("1-800-flowers", "1-800-abcdefg", "US"));
+
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("999", "999", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("123456789", "923456789", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("123456789", "0123456789", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("650-253-0000", "650 253 0000", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("650-253-0000", "1-650-253-0000", "US"));
+
+        //TODO: Change the expected result to false after libphonenumber improvement
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("650-253-0000", "11-650-253-0000", "US"));
+
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("650-253-0000", "0-650-253-0000", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("555-4141", "+1-700-555-4141", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("+1650-253-0000", "6502530000", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("001650-253-0000", "6502530000", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("0111650-253-0000", "6502530000", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("+19012345678", "+819012345678", "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("008001231234", "8001231234", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("+66811234567", "166811234567", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("080-1234-5678", "+819012345678", "US"));
+
+        //TODO: Change the expected result to false after libphonenumber improvement
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("011 11 7005554141", "+17005554141", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("+44 207 792 3490", "00 207 792 3490",
+                "US"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("16610001234", "6610001234", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("550-450-3605", "+14504503605", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("550-450-3605", "+15404503605", "US"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("550-450-3605", "+15514503605", "US"));
+
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("+31771234567", "0771234567", "JP"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("090-1234-5678", "+819012345678", "JP"));
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("090-1234-5678", "90-1234-5678", "JP"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("090-1234-5678", "080-1234-5678", "JP"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("090-1234-5678", "190-1234-5678", "JP"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("090-1234-5678", "890-1234-5678", "JP"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("080-1234-5678", "+819012345678", "JP"));
+        assertFalse(PhoneNumberUtils.areSamePhoneNumber("290-1234-5678", "+819012345678", "JP"));
+
+        //TODO: Change the expected result to false after libphonenumber improvement
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("+79161234567", "89161234567", "RU"));
+
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("+33123456789", "0123456789", "FR"));
+
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("+31771234567", "0771234567", "NL"));
+
+        assertTrue(PhoneNumberUtils.areSamePhoneNumber("+593(800)123-1234", "8001231234", "EC"));
     }
 }

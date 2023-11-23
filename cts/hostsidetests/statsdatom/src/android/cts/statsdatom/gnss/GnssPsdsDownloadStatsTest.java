@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.gnss;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -52,7 +53,7 @@ public class GnssPsdsDownloadStatsTest extends DeviceTestCase implements IBuildR
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -79,7 +80,7 @@ public class GnssPsdsDownloadStatsTest extends DeviceTestCase implements IBuildR
                 AtomsProto.Atom.GNSS_PSDS_DOWNLOAD_REPORTED_FIELD_NUMBER);
 
         getDevice().executeShellCommand(FORCE_PSDS_DOWNLOAD_COMMAND);
-        Thread.sleep(PSDS_DOWNLOAD_TIMEOUT_MILLIS);
+        RunUtil.getDefault().sleep(PSDS_DOWNLOAD_TIMEOUT_MILLIS);
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         assertWithMessage("GNSS PSDS must be downloaded").that(data.size()).isAtLeast(1);
     }

@@ -1,0 +1,17 @@
+[package]
+name = "netsim-cli"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib", "lib"]
+doctest = false
+test = false
+
+[dependencies]
+clap = { version = "4.1.8", default-features = false, features = ["derive", "error-context", "help", "std", "usage"] }
+frontend-proto = { path = "../frontend-proto" }
+netsim-common = { path = "../netsim-common" }
+frontend-client-cxx = { path = "../frontend-client-cxx" }
+protobuf = "3.2.0"
+cxx = { version = ">=1.0.85", features = ["c++17"] }

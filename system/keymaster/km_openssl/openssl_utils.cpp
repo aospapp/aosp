@@ -80,7 +80,7 @@ keymaster_error_t convert_pkcs8_blob_to_evp(const uint8_t* key_data, size_t key_
 
     // Check the key type detected from the PKCS8 blob matches the KM algorithm we expect.
     keymaster_algorithm_t got_algorithm;
-    switch (EVP_PKEY_type((*pkey)->type)) {
+    switch (EVP_PKEY_id(pkey->get())) {
     case EVP_PKEY_RSA:
         got_algorithm = KM_ALGORITHM_RSA;
         break;
@@ -91,13 +91,13 @@ keymaster_error_t convert_pkcs8_blob_to_evp(const uint8_t* key_data, size_t key_
         break;
     default:
         LOG_E("EVP key algorithm was unknown (type %d), not the expected %d",
-              EVP_PKEY_type((*pkey)->type), expected_algorithm);
+              EVP_PKEY_id(pkey->get()), expected_algorithm);
         return KM_ERROR_INVALID_KEY_BLOB;
     }
 
     if (expected_algorithm != got_algorithm) {
         LOG_E("EVP key algorithm was %d (from type %d), not the expected %d", got_algorithm,
-              EVP_PKEY_type((*pkey)->type), expected_algorithm);
+              EVP_PKEY_id(pkey->get()), expected_algorithm);
         return KM_ERROR_INVALID_KEY_BLOB;
     }
 
@@ -115,7 +115,7 @@ keymaster_error_t KeyMaterialToEvpKey(keymaster_key_format_t key_format,
 }
 
 keymaster_error_t EvpKeyToKeyMaterial(const EVP_PKEY* pkey, KeymasterKeyBlob* key_blob) {
-    switch (EVP_PKEY_type(pkey->type)) {
+    switch (EVP_PKEY_id(pkey)) {
     case EVP_PKEY_ED25519:
     case EVP_PKEY_X25519: {
         // BoringSSL's i2d_PrivateKey does not handle curve 25519 keys.

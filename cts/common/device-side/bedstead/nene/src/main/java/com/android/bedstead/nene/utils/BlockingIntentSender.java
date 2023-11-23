@@ -21,9 +21,8 @@ import android.content.Intent;
 import android.content.IntentSender;
 
 import com.android.bedstead.nene.TestApis;
-import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 
-import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Provider of a blocking version of {@link IntentSender}.
@@ -40,46 +39,38 @@ import java.util.UUID;
  */
 public class BlockingIntentSender implements AutoCloseable {
 
-    private static final String ACTION_PREFIX = "com.android.bedstead.intentsender.";
-
-    private final TestApis mTestApis = new TestApis();
+    private Intent mIntent;
 
     /** Create and register a {@link BlockingIntentSender}. */
     public static BlockingIntentSender create() {
-        BlockingIntentSender blockingIntentSender =
-                new BlockingIntentSender(
-                        ACTION_PREFIX + UUID.randomUUID().getLeastSignificantBits());
+        BlockingIntentSender blockingIntentSender = new BlockingIntentSender();
         blockingIntentSender.register();
 
         return blockingIntentSender;
     }
 
-    private final String mAction;
     private IntentSender mIntentSender;
-    private BlockingBroadcastReceiver mBlockingBroadcastReceiver;
-
-    private BlockingIntentSender(String action) {
-        mAction = action;
+    private BlockingIntentSender() {
     }
 
     private void register() {
-        mBlockingBroadcastReceiver = BlockingBroadcastReceiver.create(
-                mTestApis.context().instrumentedContext(), mAction);
-        mBlockingBroadcastReceiver.register();
+        mIntent = BlockingIntentSenderService.register();
 
-        Intent intent = new Intent(mAction);
-        intent.setPackage(mTestApis.context().instrumentedContext().getPackageName());
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(
-                mTestApis.context().instrumentedContext(),
-                /* requestCode= */ 0,
-                intent,
+        PendingIntent pendingIntent = PendingIntent.getService(
+                TestApis.context().instrumentedContext(),
+                /* requestCode= */ 0, mIntent,
                 PendingIntent.FLAG_MUTABLE);
         mIntentSender = pendingIntent.getIntentSender();
     }
 
     /** Wait for the {@link #intentSender()} to be used. */
     public Intent await() {
-        return mBlockingBroadcastReceiver.awaitForBroadcast();
+        return BlockingIntentSenderService.await(mIntent);
+    }
+
+    /** Wait for the {@link #intentSender()} to be used. */
+    public Intent await(long timeoutMillis) {
+        return BlockingIntentSenderService.await(mIntent, timeoutMillis, TimeUnit.MILLISECONDS);
     }
 
     /** Get the intent sender. */
@@ -89,6 +80,8 @@ public class BlockingIntentSender implements AutoCloseable {
 
     @Override
     public void close() {
-        mBlockingBroadcastReceiver.close();
+        if (mIntent != null) {
+            BlockingIntentSenderService.unregister(mIntent);
+        }
     }
 }

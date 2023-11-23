@@ -16,6 +16,10 @@
 
 package libcore.java.lang.reflect;
 
+import dalvik.system.PathClassLoader;
+
+import libcore.io.Streams;
+
 import junit.framework.TestCase;
 
 import java.io.File;
@@ -35,9 +39,6 @@ import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
-import libcore.io.Streams;
-
-import dalvik.system.PathClassLoader;
 
 /**
  * Tests for {@link Parameter}. For annotation-related tests see
@@ -1052,6 +1053,7 @@ public class ParameterTest extends TestCase {
         String fileName = new File(resourcePath).getName();
         File dexOrJarFile = new File(destDir, fileName);
         copyResource(resourcePath, dexOrJarFile);
+        assertTrue(dexOrJarFile.setReadOnly());
         return new PathClassLoader(
                 dexOrJarFile.getAbsolutePath(), ClassLoader.getSystemClassLoader());
     }

@@ -59,6 +59,7 @@ using IServiceManager1_0 = android::hidl::manager::V1_0::IServiceManager;
 using IServiceManager1_1 = android::hidl::manager::V1_1::IServiceManager;
 using IServiceManager1_2 = android::hidl::manager::V1_2::IServiceManager;
 using ::android::hidl::manager::V1_0::IServiceNotification;
+using ::android::hidl::manager::V1_2::IClientCallback;
 
 namespace android {
 namespace hardware {
@@ -174,12 +175,15 @@ static bool isDebuggable() {
 }
 
 static inline bool isTrebleTestingOverride() {
+    // return false early so we don't need to check the debuggable property
+    if (!*getTrebleTestingOverridePtr()) return false;
+
     if (kEnforceVintfManifest && !isDebuggable()) {
         // don't allow testing override in production
         return false;
     }
 
-    return *getTrebleTestingOverridePtr();
+    return true;
 }
 
 static void onRegistrationImpl(const std::string& descriptor, const std::string& instanceName) {
@@ -201,6 +205,109 @@ sp<IServiceManager1_0> defaultServiceManager() {
 sp<IServiceManager1_1> defaultServiceManager1_1() {
     return defaultServiceManager1_2();
 }
+static bool isServiceManager(const hidl_string& fqName) {
+    return fqName == IServiceManager1_0::descriptor || fqName == IServiceManager1_1::descriptor ||
+           fqName == IServiceManager1_2::descriptor;
+}
+static bool isHwServiceManagerInstalled() {
+    return access("/system/bin/hwservicemanager", F_OK) == 0;
+}
+
+/*
+ * A replacement for hwservicemanager when it is not installed on a device.
+ *
+ * Clients in the framework need to continue supporting HIDL services through
+ * hwservicemanager for upgrading devices. Being unable to get an instance of
+ * hardware service manager is a hard error, so this implementation is returned
+ * to be able service the requests and tell clients there are no services
+ * registered.
+ */
+struct NoHwServiceManager : public IServiceManager1_2 {
+    Return<sp<IBase>> get(const hidl_string& fqName, const hidl_string&) override {
+        sp<IBase> ret = nullptr;
+
+        if (isServiceManager(fqName)) {
+            ret = defaultServiceManager1_2();
+        }
+        return ret;
+    }
+
+    Return<bool> add(const hidl_string& name, const sp<IBase>& /* service */) override {
+        LOG(INFO) << "Cannot add " << name << " without hwservicemanager";
+        return false;
+    }
+
+    Return<Transport> getTransport(const hidl_string& fqName, const hidl_string& name) {
+        LOG(INFO) << "Trying to get transport of " << fqName << "/" << name
+                  << " without hwservicemanager";
+        return Transport::PASSTHROUGH;
+    }
+
+    Return<void> list(list_cb _hidl_cb) override {
+        _hidl_cb({});
+        LOG(INFO) << "Cannot list all services without hwservicemanager";
+        return Void();
+    }
+    Return<void> listByInterface(const hidl_string& fqName, listByInterface_cb _hidl_cb) override {
+        _hidl_cb({});
+        LOG(INFO) << "Cannot list service " << fqName << " without hwservicemanager";
+        return Void();
+    }
+
+    Return<bool> registerForNotifications(const hidl_string& fqName, const hidl_string& name,
+                                          const sp<IServiceNotification>& /* callback */) override {
+        LOG(INFO) << "Cannot register for notifications for " << fqName << "/" << name
+                  << " without hwservicemanager";
+        return false;
+    }
+
+    Return<void> debugDump(debugDump_cb _hidl_cb) override {
+        _hidl_cb({});
+        return Void();
+    }
+
+    Return<void> registerPassthroughClient(const hidl_string& fqName,
+                                           const hidl_string& name) override {
+        LOG(INFO) << "This process is a client of " << fqName << "/" << name
+                  << " passthrough HAL, but it won't show up in lshal because hwservicemanager is "
+                     "not installed";
+        return Void();
+    }
+
+    Return<bool> unregisterForNotifications(
+            const hidl_string& fqName, const hidl_string& name,
+            const sp<IServiceNotification>& /* callback */) override {
+        LOG(INFO) << "Cannot unregister for notifications for " << fqName << "/" << name
+                  << " without hwservicemanager";
+        return false;
+    }
+    Return<bool> registerClientCallback(const hidl_string& fqName, const hidl_string& name,
+                                        const sp<IBase>&, const sp<IClientCallback>&) {
+        LOG(INFO) << "Cannot add client callback for " << fqName << "/" << name
+                  << " without hwservicemanager";
+        return false;
+    }
+    Return<bool> unregisterClientCallback(const sp<IBase>&, const sp<IClientCallback>&) {
+        LOG(INFO) << "Cannot unregister client callbacks without hwservicemanager";
+        return false;
+    }
+    Return<bool> addWithChain(const hidl_string& fqName, const sp<IBase>&,
+                              const hidl_vec<hidl_string>&) {
+        LOG(INFO) << "Cannot add " << fqName << " with chain without hwservicemanager";
+        return false;
+    }
+    Return<void> listManifestByInterface(const hidl_string& fqName, listManifestByInterface_cb) {
+        LOG(INFO) << "Cannot list manifest for " << fqName << " without hwservicemanager";
+        return Void();
+    }
+    Return<bool> tryUnregister(const hidl_string& fqName, const hidl_string& name,
+                               const sp<IBase>&) {
+        LOG(INFO) << "Cannot unregister service " << fqName << "/" << name
+                  << " without hwservicemanager";
+        return false;
+    }
+};
+
 sp<IServiceManager1_2> defaultServiceManager1_2() {
     using android::hidl::manager::V1_2::BnHwServiceManager;
     using android::hidl::manager::V1_2::BpHwServiceManager;
@@ -211,6 +318,12 @@ sp<IServiceManager1_2> defaultServiceManager1_2() {
     {
         std::lock_guard<std::mutex> _l(gDefaultServiceManagerLock);
         if (gDefaultServiceManager != nullptr) {
+            return gDefaultServiceManager;
+        }
+
+        if (!isHwServiceManagerInstalled()) {
+            // hwservicemanager is not available on this device.
+            gDefaultServiceManager = sp<NoHwServiceManager>::make();
             return gDefaultServiceManager;
         }
 
@@ -410,6 +523,12 @@ struct PassthroughServiceManager : IServiceManager1_1 {
     Return<sp<IBase>> get(const hidl_string& fqName,
                           const hidl_string& name) override {
         sp<IBase> ret = nullptr;
+        // This is required to run without hwservicemanager while we have
+        // passthrough HIDL services. Once the passthrough HIDL services have
+        // been removed, the PassthroughServiceManager will no longer be needed.
+        if (!isHwServiceManagerInstalled() && isServiceManager(fqName)) {
+            return defaultServiceManager1_2();
+        }
 
         openLibs(fqName, [&](void* handle, const std::string &lib, const std::string &sym) {
             IBase* (*generator)(const char* name);

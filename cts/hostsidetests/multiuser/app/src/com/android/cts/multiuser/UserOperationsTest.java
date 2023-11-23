@@ -54,6 +54,8 @@ public final class UserOperationsTest {
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
                 .adoptShellPermissionIdentity(android.Manifest.permission.CREATE_USERS);
         try {
+            Log.i(TAG, "Calling removeUserWhenPossible(" + userId + ", " + overrideDevicePolicy
+                    + ")");
             int result = mUserManager.removeUserWhenPossible(UserHandle.of(userId),
                     overrideDevicePolicy);
 

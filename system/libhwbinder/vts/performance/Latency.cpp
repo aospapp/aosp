@@ -162,14 +162,14 @@ static Pipe makeServiceProces(string service_name) {
     pid_t pid = fork();
     if (pid) {
         // parent
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     } else {
         threadDumpPri("service");
         // child
-        serviceFx(service_name, move(get<1>(pipe_pair)));
+        serviceFx(service_name, std::move(get<1>(pipe_pair)));
         // never get here
         ASSERT(0);
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     }
 }
 
@@ -241,14 +241,14 @@ static Pipe makeClientProcess(int num, int iterations, int no_pair) {
     pid_t pid = fork();
     if (pid) {
         // parent
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     } else {
         // child
         threadDumpPri("client");
-        clientFx(num, no_pair, iterations, move(get<1>(pipe_pair)));
+        clientFx(num, no_pair, iterations, std::move(get<1>(pipe_pair)));
         // never get here
         ASSERT(0);
-        return move(get<0>(pipe_pair));
+        return std::move(get<0>(pipe_pair));
     }
 }
 

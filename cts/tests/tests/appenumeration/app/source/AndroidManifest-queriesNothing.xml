@@ -17,6 +17,9 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.appenumeration.queries.nothing">
+
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
         <activity android:name="android.appenumeration.cts.TestActivity"

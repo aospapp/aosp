@@ -54,6 +54,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -342,10 +343,11 @@ public class CompatChangeGatingTestCase extends DeviceTestCase implements IBuild
                         atom -> atom.getState() ==  // Value
                                 AtomsProto.AppCompatibilityChangeReported.State.ENABLED,
                                 (a, b) -> {
-                                  if (a != b) {
-                                    throw new IllegalStateException("inconsistent compatibility states");
-                                  }
-                                  return a;
+                                    if (!Objects.equals(a, b)) {
+                                        throw new IllegalStateException(
+                                                "inconsistent compatibility states");
+                                    }
+                                    return a;
                                 }));
     }
 

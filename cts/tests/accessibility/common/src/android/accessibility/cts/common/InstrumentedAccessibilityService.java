@@ -168,20 +168,22 @@ public class InstrumentedAccessibilityService extends AccessibilityService {
         }
     }
 
-    public static <T extends InstrumentedAccessibilityService> T enableService(
-            Class<T> clazz) {
-        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+    /**
+     * Enables the service.
+     *
+     * <p> This behaves like {@link #enableService(Class)} except it simply runs the shell command
+     * to enable the service and does not wait for {@link AccessibilityService#onServiceConnected()}
+     * to be called.
+     */
+    public static void enableServiceWithoutWait(Class clazz, Instrumentation instrumentation,
+            String enabledServices) {
         final String serviceName = clazz.getSimpleName();
-        final Context context = instrumentation.getContext();
-        final String enabledServices =
-                Settings.Secure.getString(
-                        context.getContentResolver(),
-                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
         if (enabledServices != null) {
             assertFalse("Service is already enabled", enabledServices.contains(serviceName));
         }
         final AccessibilityManager manager =
-                (AccessibilityManager) context.getSystemService(Context.ACCESSIBILITY_SERVICE);
+                (AccessibilityManager) instrumentation.getContext()
+                        .getSystemService(Context.ACCESSIBILITY_SERVICE);
         final List<AccessibilityServiceInfo> serviceInfos =
                 manager.getInstalledAccessibilityServiceList();
         for (AccessibilityServiceInfo serviceInfo : serviceInfos) {
@@ -193,24 +195,39 @@ public class InstrumentedAccessibilityService extends AccessibilityService {
                                 enabledServices + COMPONENT_NAME_SEPARATOR + serviceId)
                         .putSecureSetting(Settings.Secure.ACCESSIBILITY_ENABLED, "1")
                         .run();
-
-                final T instance = getInstanceForClass(clazz, TIMEOUT_SERVICE_ENABLE);
-                if (instance == null) {
-                    ShellCommandBuilder.create(instrumentation)
-                            .putSecureSetting(
-                                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, enabledServices)
-                            .run();
-                    throw new RuntimeException(
-                            "Starting accessibility service "
-                                    + serviceName
-                                    + " took longer than "
-                                    + TIMEOUT_SERVICE_ENABLE
-                                    + "ms");
-                }
-                return instance;
+                return;
             }
         }
         throw new RuntimeException("Accessibility service " + serviceName + " not found");
+    }
+
+    /**
+     * Enables and returns the service.
+     */
+    public static <T extends InstrumentedAccessibilityService> T enableService(
+            Class<T> clazz) {
+        final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        final String enabledServices =
+                Settings.Secure.getString(
+                        instrumentation.getContext().getContentResolver(),
+                        Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+
+        enableServiceWithoutWait(clazz, instrumentation, enabledServices);
+
+        final T instance = getInstanceForClass(clazz, TIMEOUT_SERVICE_ENABLE);
+        if (instance == null) {
+            ShellCommandBuilder.create(instrumentation)
+                    .putSecureSetting(
+                            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES, enabledServices)
+                    .run();
+            throw new RuntimeException(
+                    "Starting accessibility service "
+                            + clazz.getSimpleName()
+                            + " took longer than "
+                            + TIMEOUT_SERVICE_ENABLE
+                            + "ms");
+        }
+        return instance;
     }
 
     public static <T extends InstrumentedAccessibilityService> T getInstanceForClass(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2013, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -98,6 +98,7 @@ final class ChronoPeriodImpl
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = 57387258289L;
 
     /**
@@ -108,6 +109,7 @@ final class ChronoPeriodImpl
     /**
      * The chronology.
      */
+    @SuppressWarnings("serial") // Not statically typed as Serializable
     private final Chronology chrono;
     /**
      * The number of years.
@@ -197,11 +199,10 @@ final class ChronoPeriodImpl
      */
     private ChronoPeriodImpl validateAmount(TemporalAmount amount) {
         Objects.requireNonNull(amount, "amount");
-        if (amount instanceof ChronoPeriodImpl == false) {
+        if (!(amount instanceof ChronoPeriodImpl period)) {
             throw new DateTimeException("Unable to obtain ChronoPeriod from TemporalAmount: " + amount.getClass());
         }
-        ChronoPeriodImpl period = (ChronoPeriodImpl) amount;
-        if (chrono.equals(period.getChronology()) == false) {
+        if (!(chrono.equals(period.getChronology()))) {
             throw new ClassCastException("Chronology mismatch, expected: " + chrono.getId() + ", actual: " + period.getChronology().getId());
         }
         return period;
@@ -318,12 +319,9 @@ final class ChronoPeriodImpl
         if (this == obj) {
             return true;
         }
-        if (obj instanceof ChronoPeriodImpl) {
-            ChronoPeriodImpl other = (ChronoPeriodImpl) obj;
-            return years == other.years && months == other.months &&
-                    days == other.days && chrono.equals(other.chrono);
-        }
-        return false;
+        return (obj instanceof ChronoPeriodImpl other)
+                && years == other.years && months == other.months
+                && days == other.days && chrono.equals(other.chrono);
     }
 
     @Override
@@ -355,7 +353,7 @@ final class ChronoPeriodImpl
     //-----------------------------------------------------------------------
     /**
      * Writes the Chronology using a
-     * <a href="../../../serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
      * <pre>
      *  out.writeByte(12);  // identifies this as a ChronoPeriodImpl
      *  out.writeUTF(getId());  // the chronology
@@ -366,6 +364,7 @@ final class ChronoPeriodImpl
      *
      * @return the instance of {@code Ser}, not null
      */
+    @java.io.Serial
     protected Object writeReplace() {
         return new Ser(Ser.CHRONO_PERIOD_TYPE, this);
     }
@@ -376,6 +375,7 @@ final class ChronoPeriodImpl
      * @param s the stream to read
      * @throws InvalidObjectException always
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s) throws ObjectStreamException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }

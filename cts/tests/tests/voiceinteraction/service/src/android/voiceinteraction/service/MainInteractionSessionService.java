@@ -18,18 +18,36 @@ package android.voiceinteraction.service;
 
 import android.content.Context;
 import android.os.Bundle;
+import android.os.RemoteCallback;
 import android.service.voice.VoiceInteractionSession;
 import android.service.voice.VoiceInteractionSessionService;
+import android.util.Log;
 import android.voiceinteraction.common.Utils;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 
 public class MainInteractionSessionService extends VoiceInteractionSessionService {
+
+    private static final String TAG = "MainInteractionSessionService";
     @Override
     public VoiceInteractionSession onNewSession(Bundle args) {
         final String className = (args != null)
                 ? args.getString(Utils.VOICE_INTERACTION_KEY_CLASS) : null;
+        String command = args != null ? args.getString(Utils.VOICE_INTERACTION_KEY_COMMAND) : null;
+        final RemoteCallback callback = (args != null) ? args.getParcelable(
+                Utils.VOICE_INTERACTION_KEY_REMOTE_CALLBACK_FOR_NEW_SESSION, RemoteCallback.class)
+                : null;
+        if (callback != null) {
+            // Notify the session is started. The result value is not important
+            callback.sendResult(Bundle.EMPTY);
+        }
+        boolean testStartAssistantActivity =
+                command != null && command.equals("startAssistantActivity");
+        Log.d(TAG, "testStartAssistantActivity = " + testStartAssistantActivity);
+        if (testStartAssistantActivity) {
+            return new SimpleVoiceInteractionSession(this);
+        }
         if (className == null) {
             return new MainInteractionSession(this);
         } else {

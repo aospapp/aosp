@@ -18,6 +18,7 @@
 #define ART_COMPILER_OPTIMIZING_CODE_GENERATOR_ARM64_H_
 
 #include "base/bit_field.h"
+#include "base/macros.h"
 #include "class_root.h"
 #include "code_generator.h"
 #include "common_arm64.h"
@@ -36,7 +37,7 @@
 #include "aarch64/macro-assembler-aarch64.h"
 #pragma GCC diagnostic pop
 
-namespace art {
+namespace art HIDDEN {
 
 namespace linker {
 class Arm64RelativePatcherTest;
@@ -92,7 +93,10 @@ const vixl::aarch64::CPURegList runtime_reserved_core_registers =
     vixl::aarch64::CPURegList(
         tr,
         // Reserve X20 as Marking Register when emitting Baker read barriers.
-        ((kEmitCompilerReadBarrier && kUseBakerReadBarrier) ? mr : vixl::aarch64::NoCPUReg),
+        // TODO: We don't need to reserve marking-register for userfaultfd GC. But
+        // that would require some work in the assembler code as the right GC is
+        // chosen at load-time and not compile time.
+        (kReserveMarkingRegister ? mr : vixl::aarch64::NoCPUReg),
         kImplicitSuspendCheckRegister,
         vixl::aarch64::lr);
 
@@ -111,15 +115,48 @@ inline Location FixedTempLocation() {
 const vixl::aarch64::CPURegList callee_saved_core_registers(
     vixl::aarch64::CPURegister::kRegister,
     vixl::aarch64::kXRegSize,
-    ((kEmitCompilerReadBarrier && kUseBakerReadBarrier)
-         ? vixl::aarch64::x21.GetCode()
-         : vixl::aarch64::x20.GetCode()),
+    (kReserveMarkingRegister ? vixl::aarch64::x21.GetCode() : vixl::aarch64::x20.GetCode()),
      vixl::aarch64::x30.GetCode());
 const vixl::aarch64::CPURegList callee_saved_fp_registers(vixl::aarch64::CPURegister::kVRegister,
                                                           vixl::aarch64::kDRegSize,
                                                           vixl::aarch64::d8.GetCode(),
                                                           vixl::aarch64::d15.GetCode());
 Location ARM64ReturnLocation(DataType::Type return_type);
+
+#define UNIMPLEMENTED_INTRINSIC_LIST_ARM64(V) \
+  V(StringStringIndexOf)                      \
+  V(StringStringIndexOfAfter)                 \
+  V(StringBufferAppend)                       \
+  V(StringBufferLength)                       \
+  V(StringBufferToString)                     \
+  V(StringBuilderAppendObject)                \
+  V(StringBuilderAppendString)                \
+  V(StringBuilderAppendCharSequence)          \
+  V(StringBuilderAppendCharArray)             \
+  V(StringBuilderAppendBoolean)               \
+  V(StringBuilderAppendChar)                  \
+  V(StringBuilderAppendInt)                   \
+  V(StringBuilderAppendLong)                  \
+  V(StringBuilderAppendFloat)                 \
+  V(StringBuilderAppendDouble)                \
+  V(StringBuilderLength)                      \
+  V(StringBuilderToString)                    \
+  V(SystemArrayCopyByte)                      \
+  V(SystemArrayCopyInt)                       \
+  /* 1.8 */                                   \
+  V(UnsafeGetAndAddInt)                       \
+  V(UnsafeGetAndAddLong)                      \
+  V(UnsafeGetAndSetInt)                       \
+  V(UnsafeGetAndSetLong)                      \
+  V(UnsafeGetAndSetObject)                    \
+  V(MethodHandleInvokeExact)                  \
+  V(MethodHandleInvoke)                       \
+  /* OpenJDK 11 */                            \
+  V(JdkUnsafeGetAndAddInt)                    \
+  V(JdkUnsafeGetAndAddLong)                   \
+  V(JdkUnsafeGetAndSetInt)                    \
+  V(JdkUnsafeGetAndSetLong)                   \
+  V(JdkUnsafeGetAndSetObject)
 
 class SlowPathCodeARM64 : public SlowPathCode {
  public:
@@ -327,7 +364,8 @@ class InstructionCodeGeneratorARM64 : public InstructionCodeGenerator {
 
   void HandleFieldSet(HInstruction* instruction,
                       const FieldInfo& field_info,
-                      bool value_can_be_null);
+                      bool value_can_be_null,
+                      WriteBarrierKind write_barrier_kind);
   void HandleFieldGet(HInstruction* instruction, const FieldInfo& field_info);
   void HandleCondition(HCondition* instruction);
 
@@ -615,7 +653,7 @@ class CodeGeneratorARM64 : public CodeGenerator {
   // Emit a write barrier.
   void MarkGCCard(vixl::aarch64::Register object,
                   vixl::aarch64::Register value,
-                  bool value_can_be_null);
+                  bool emit_null_check);
 
   void GenerateMemoryBarrier(MemBarrierKind kind);
 

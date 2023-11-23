@@ -20,12 +20,13 @@ import android.content.Intent;
 import android.graphics.PointF;
 import android.media.FaceDetector;
 import android.media.FaceDetector.Face;
-import android.media.cts.NonMediaMainlineTest;
 import android.test.InstrumentationTestCase;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import java.util.List;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class FaceDetector_FaceTest extends InstrumentationTestCase {
     private FaceDetectorStub mActivity;
 

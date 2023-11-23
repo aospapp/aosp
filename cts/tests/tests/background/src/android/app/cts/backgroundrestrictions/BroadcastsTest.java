@@ -74,7 +74,8 @@ public class BroadcastsTest {
                     };
                     receiverRef.set(receiver);
 
-                    getContext().registerReceiver(receiver, filter);
+                    getContext().registerReceiver(receiver, filter,
+                            Context.RECEIVER_EXPORTED_UNAUDITED);
                 },
                 (intent) -> {},
                 () -> getContext().unregisterReceiver(receiverRef.get()));

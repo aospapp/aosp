@@ -35,36 +35,47 @@ import android.telecom.VideoProfile;
 public class HandoverTest extends BaseTelecomTestWithMockServices {
     @Override
     protected void setUp() throws Exception {
+        boolean isSetUpComplete = false;
         super.setUp();
         mContext = getInstrumentation().getContext();
         if (mShouldTestTelecom) {
-            setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
+            try {
+                setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
 
-            // Test handover source is a managed ConnectionService
-            mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDOVER_SRC);
-            TestUtils.enablePhoneAccount(getInstrumentation(),
-                    TestUtils.TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
-            assertPhoneAccountEnabled(TestUtils.TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
+                // Test handover source is a managed ConnectionService
+                mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDOVER_SRC);
+                TestUtils.enablePhoneAccount(getInstrumentation(),
+                        TestUtils.TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
+                assertPhoneAccountEnabled(TestUtils.TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
 
-            // Test handover destination is a self-managed ConnectionService.
-            mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDOVER_DEST);
+                // Test handover destination is a self-managed ConnectionService.
+                mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDOVER_DEST);
+                isSetUpComplete = true;
+            } finally {
+                // Force tearDown if setUp errors out to ensure unused listeners are cleaned up.
+                if (!isSetUpComplete) {
+                    tearDown();
+                }
+            }
         }
 
     }
 
     @Override
     protected void tearDown() throws Exception {
-        CtsSelfManagedConnectionService connectionService =
-                CtsSelfManagedConnectionService.getConnectionService();
-        if (connectionService != null) {
-            connectionService.tearDown();
-            mTelecomManager.unregisterPhoneAccount(
-                    TestUtils.TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
-            mTelecomManager.unregisterPhoneAccount(
-                    TestUtils.TEST_HANDOVER_DEST_PHONE_ACCOUNT_HANDLE);
+        try {
+            CtsSelfManagedConnectionService connectionService =
+                    CtsSelfManagedConnectionService.getConnectionService();
+            if (connectionService != null) {
+                connectionService.tearDown();
+                mTelecomManager.unregisterPhoneAccount(
+                        TestUtils.TEST_HANDOVER_SRC_PHONE_ACCOUNT_HANDLE);
+                mTelecomManager.unregisterPhoneAccount(
+                        TestUtils.TEST_HANDOVER_DEST_PHONE_ACCOUNT_HANDLE);
+            }
+        } finally {
+            super.tearDown();
         }
-
-        super.tearDown();
     }
 
     /**

@@ -15,9 +15,6 @@
   ~ limitations under the License.
   -->
 <configuration description="Example Mobly test.">
-    <target_preparer class="com.android.tradefed.targetprep.PythonVirtualenvPreparer">
-      <option name="dep-module" value="mobly" />
-    </target_preparer>
     <test class="com.android.tradefed.testtype.mobly.MoblyBinaryHostTest">
       <option name="mobly-par-file-name" value="mobly-hello-world-test" />
       <option name="mobly-config-file-name" value="mobly-hello-world-test_config.yaml" />

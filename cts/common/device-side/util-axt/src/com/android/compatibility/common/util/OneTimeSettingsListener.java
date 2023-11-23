@@ -16,8 +16,9 @@
 
 package com.android.compatibility.common.util;
 
-import static com.android.compatibility.common.util.SettingsUtils.NAMESPACE_GLOBAL;
-import static com.android.compatibility.common.util.SettingsUtils.NAMESPACE_SECURE;
+import static com.android.compatibility.common.util.UserSettings.NAMESPACE_GLOBAL;
+import static com.android.compatibility.common.util.UserSettings.NAMESPACE_SECURE;
+import static com.android.compatibility.common.util.UserSettings.NAMESPACE_SYSTEM;
 
 import android.content.ContentResolver;
 import android.content.Context;
@@ -57,6 +58,9 @@ public final class OneTimeSettingsListener extends ContentObserver {
                 break;
             case NAMESPACE_GLOBAL:
                 uri = Settings.Global.getUriFor(key);
+                break;
+            case NAMESPACE_SYSTEM:
+                uri = Settings.System.getUriFor(key);
                 break;
             default:
                 throw new IllegalArgumentException("invalid namespace: " + namespace);

@@ -17,6 +17,8 @@
 #include "instruction_set.h"
 
 #include "android-base/logging.h"
+#include "android-base/properties.h"
+#include "android-base/stringprintf.h"
 #include "base/bit_utils.h"
 #include "base/globals.h"
 
@@ -27,6 +29,7 @@ void InstructionSetAbort(InstructionSet isa) {
     case InstructionSet::kArm:
     case InstructionSet::kThumb2:
     case InstructionSet::kArm64:
+    case InstructionSet::kRiscv64:
     case InstructionSet::kX86:
     case InstructionSet::kX86_64:
     case InstructionSet::kNone:
@@ -44,6 +47,8 @@ const char* GetInstructionSetString(InstructionSet isa) {
       return "arm";
     case InstructionSet::kArm64:
       return "arm64";
+    case InstructionSet::kRiscv64:
+      return "riscv64";
     case InstructionSet::kX86:
       return "x86";
     case InstructionSet::kX86_64:
@@ -62,6 +67,8 @@ InstructionSet GetInstructionSetFromString(const char* isa_str) {
     return InstructionSet::kArm;
   } else if (strcmp("arm64", isa_str) == 0) {
     return InstructionSet::kArm64;
+  } else if (strcmp("riscv64", isa_str) == 0) {
+    return InstructionSet::kRiscv64;
   } else if (strcmp("x86", isa_str) == 0) {
     return InstructionSet::kX86;
   } else if (strcmp("x86_64", isa_str) == 0) {
@@ -71,30 +78,53 @@ InstructionSet GetInstructionSetFromString(const char* isa_str) {
   return InstructionSet::kNone;
 }
 
-size_t GetInstructionSetAlignment(InstructionSet isa) {
-  switch (isa) {
-    case InstructionSet::kArm:
-      // Fall-through.
-    case InstructionSet::kThumb2:
-      return kArmAlignment;
-    case InstructionSet::kArm64:
-      return kArm64Alignment;
-    case InstructionSet::kX86:
-      // Fall-through.
-    case InstructionSet::kX86_64:
-      return kX86Alignment;
-    case InstructionSet::kNone:
-      LOG(FATAL) << "ISA kNone does not have alignment.";
-      UNREACHABLE();
+std::vector<InstructionSet> GetSupportedInstructionSets(std::string* error_msg) {
+  std::string zygote_kinds = android::base::GetProperty("ro.zygote", {});
+  if (zygote_kinds.empty()) {
+    *error_msg = "Unable to get Zygote kinds";
+    return {};
   }
-  LOG(FATAL) << "Unknown ISA " << isa;
-  UNREACHABLE();
+
+  switch (kRuntimeISA) {
+    case InstructionSet::kArm:
+    case InstructionSet::kArm64:
+      if (zygote_kinds == "zygote64_32" || zygote_kinds == "zygote32_64") {
+        return {InstructionSet::kArm64, InstructionSet::kArm};
+      } else if (zygote_kinds == "zygote64") {
+        return {InstructionSet::kArm64};
+      } else if (zygote_kinds == "zygote32") {
+        return {InstructionSet::kArm};
+      } else {
+        *error_msg = android::base::StringPrintf("Unknown Zygote kinds '%s'", zygote_kinds.c_str());
+        return {};
+      }
+    case InstructionSet::kRiscv64:
+      return {InstructionSet::kRiscv64};
+    case InstructionSet::kX86:
+    case InstructionSet::kX86_64:
+      if (zygote_kinds == "zygote64_32" || zygote_kinds == "zygote32_64") {
+        return {InstructionSet::kX86_64, InstructionSet::kX86};
+      } else if (zygote_kinds == "zygote64") {
+        return {InstructionSet::kX86_64};
+      } else if (zygote_kinds == "zygote32") {
+        return {InstructionSet::kX86};
+      } else {
+        *error_msg = android::base::StringPrintf("Unknown Zygote kinds '%s'", zygote_kinds.c_str());
+        return {};
+      }
+    default:
+      *error_msg = android::base::StringPrintf("Unknown runtime ISA '%s'",
+                                               GetInstructionSetString(kRuntimeISA));
+      return {};
+  }
 }
 
 namespace instruction_set_details {
 
 static_assert(IsAligned<kPageSize>(kArmStackOverflowReservedBytes), "ARM gap not page aligned");
 static_assert(IsAligned<kPageSize>(kArm64StackOverflowReservedBytes), "ARM64 gap not page aligned");
+static_assert(IsAligned<kPageSize>(kRiscv64StackOverflowReservedBytes),
+              "RISCV64 gap not page aligned");
 static_assert(IsAligned<kPageSize>(kX86StackOverflowReservedBytes), "X86 gap not page aligned");
 static_assert(IsAligned<kPageSize>(kX86_64StackOverflowReservedBytes),
               "X86_64 gap not page aligned");
@@ -106,6 +136,8 @@ static_assert(IsAligned<kPageSize>(kX86_64StackOverflowReservedBytes),
 // TODO: Should we require an extra page (RoundUp(SIZE) + kPageSize)?
 static_assert(ART_FRAME_SIZE_LIMIT < kArmStackOverflowReservedBytes, "Frame size limit too large");
 static_assert(ART_FRAME_SIZE_LIMIT < kArm64StackOverflowReservedBytes,
+              "Frame size limit too large");
+static_assert(ART_FRAME_SIZE_LIMIT < kRiscv64StackOverflowReservedBytes,
               "Frame size limit too large");
 static_assert(ART_FRAME_SIZE_LIMIT < kX86StackOverflowReservedBytes,
               "Frame size limit too large");

@@ -27,7 +27,7 @@ android_test_helper_app {
     static_libs: [
         "androidx.test.rules",
         "compatibility-device-util-axt",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
     srcs: ["src/**/*.java"],
     // tag this module as a cts test artifact

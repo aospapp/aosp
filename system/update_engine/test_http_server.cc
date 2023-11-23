@@ -112,7 +112,7 @@ bool ParseRequest(int fd, HttpRequest* request) {
   LOG(INFO) << "URL: " << request->url;
 
   // Decode remaining lines.
-  size_t i;
+  size_t i{};
   for (i = 1; i < lines.size(); i++) {
     terms = base::SplitString(lines[i],
                               base::kWhitespaceASCII,
@@ -184,7 +184,7 @@ ssize_t WriteHeaders(int fd,
                      const off_t start_offset,
                      const off_t end_offset,
                      HttpResponseCode return_code) {
-  ssize_t written = 0, ret;
+  ssize_t written = 0, ret{};
 
   ret = WriteString(fd,
                     string("HTTP/1.1 ") + Itoa(return_code) + " " +
@@ -239,7 +239,7 @@ size_t WritePayload(int fd,
   string line;
   line.reserve(line_len);
   char byte = first_byte;
-  size_t i;
+  size_t i{};
   for (i = 0; i < line_len; i++)
     line += byte++;
 
@@ -299,7 +299,7 @@ ssize_t HandleGet(int fd,
                   const size_t truncate_length,
                   const int sleep_every,
                   const int sleep_secs) {
-  ssize_t ret;
+  ssize_t ret{};
   size_t written = 0;
 
   // Obtain start offset, make sure it is within total payload length.
@@ -403,7 +403,7 @@ void HandleRedirect(int fd, const HttpRequest& request) {
   LOG(INFO) << "Code: " << code << " " << status;
   LOG(INFO) << "New URL: " << url;
 
-  ssize_t ret;
+  ssize_t ret{};
   if ((ret = WriteString(fd, "HTTP/1.1 " + Itoa(code) + " " + status + EOL)) <
       0)
     return;
@@ -416,7 +416,7 @@ void HandleRedirect(int fd, const HttpRequest& request) {
 ssize_t HandleError(int fd, const HttpRequest& request) {
   LOG(INFO) << "Generating error HTTP response";
 
-  ssize_t ret;
+  ssize_t ret{};
   size_t written = 0;
 
   const string data("This is an error page.");
@@ -444,7 +444,7 @@ ssize_t HandleErrorIfOffset(int fd,
   if (request.start_offset > 0 && num_fails < max_fails) {
     LOG(INFO) << "Generating error HTTP response";
 
-    ssize_t ret;
+    ssize_t ret{};
     size_t written = 0;
 
     const string data("This is an error page.");
@@ -475,7 +475,7 @@ void HandleEchoHeaders(int fd, const HttpRequest& request) {
 
 void HandleHang(int fd) {
   LOG(INFO) << "Hanging until the other side of the connection is closed.";
-  char c;
+  char c{};
   while (HANDLE_EINTR(read(fd, &c, 1)) > 0) {
   }
 }
@@ -484,7 +484,7 @@ void HandleDefault(int fd, const HttpRequest& request) {
   const off_t start_offset = request.start_offset;
   const string data("unhandled path");
   const size_t size = data.size();
-  ssize_t ret;
+  ssize_t ret{};
 
   if ((ret = WriteHeaders(fd, start_offset, size, request.return_code)) < 0)
     return;

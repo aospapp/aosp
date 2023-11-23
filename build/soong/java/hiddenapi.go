@@ -20,10 +20,17 @@ import (
 	"android/soong/android"
 )
 
-var hiddenAPIGenerateCSVRule = pctx.AndroidStaticRule("hiddenAPIGenerateCSV", blueprint.RuleParams{
-	Command:     "${config.Class2NonSdkList} --stub-api-flags ${stubAPIFlags} $in $outFlag $out",
-	CommandDeps: []string{"${config.Class2NonSdkList}"},
-}, "outFlag", "stubAPIFlags")
+var (
+	hiddenAPIGenerateCSVRule = pctx.AndroidStaticRule("hiddenAPIGenerateCSV", blueprint.RuleParams{
+		Command:     "${config.Class2NonSdkList} --stub-api-flags ${stubAPIFlags} $in $outFlag $out",
+		CommandDeps: []string{"${config.Class2NonSdkList}"},
+	}, "outFlag", "stubAPIFlags")
+
+	hiddenAPIGenerateIndexRule = pctx.AndroidStaticRule("hiddenAPIGenerateIndex", blueprint.RuleParams{
+		Command:     "${config.MergeCsvCommand} --zip_input --key_field signature --output=$out $in",
+		CommandDeps: []string{"${config.MergeCsvCommand}"},
+	})
+)
 
 type hiddenAPI struct {
 	// True if the module containing this structure contributes to the hiddenapi information or has
@@ -66,7 +73,7 @@ type hiddenAPIModule interface {
 	android.Module
 	hiddenAPIIntf
 
-	MinSdkVersion(ctx android.EarlyModuleContext) android.SdkSpec
+	MinSdkVersion(ctx android.EarlyModuleContext) android.ApiLevel
 }
 
 type hiddenAPIIntf interface {
@@ -150,7 +157,7 @@ func (h *hiddenAPI) hiddenAPIEncodeDex(ctx android.ModuleContext, dexJar android
 	// Create a copy of the dex jar which has been encoded with hiddenapi flags.
 	flagsCSV := hiddenAPISingletonPaths(ctx).flags
 	outputDir := android.PathForModuleOut(ctx, "hiddenapi").OutputPath
-	encodedDex := hiddenAPIEncodeDex(ctx, dexJar, flagsCSV, uncompressDex, android.SdkSpecNone, outputDir)
+	encodedDex := hiddenAPIEncodeDex(ctx, dexJar, flagsCSV, uncompressDex, android.NoneApiLevel, outputDir)
 
 	// Use the encoded dex jar from here onwards.
 	return encodedDex
@@ -216,14 +223,12 @@ func buildRuleToGenerateMetadata(ctx android.ModuleContext, desc string, classes
 // created by the unsupported app usage annotation processor during compilation of the class
 // implementation jar.
 func buildRuleToGenerateIndex(ctx android.ModuleContext, desc string, classesJars android.Paths, indexCSV android.WritablePath) {
-	rule := android.NewRuleBuilder(pctx, ctx)
-	rule.Command().
-		BuiltTool("merge_csv").
-		Flag("--zip_input").
-		Flag("--key_field signature").
-		FlagWithOutput("--output=", indexCSV).
-		Inputs(classesJars)
-	rule.Build(desc, desc)
+	ctx.Build(pctx, android.BuildParams{
+		Rule:        hiddenAPIGenerateIndexRule,
+		Description: desc,
+		Inputs:      classesJars,
+		Output:      indexCSV,
+	})
 }
 
 var hiddenAPIEncodeDexRule = pctx.AndroidStaticRule("hiddenAPIEncodeDex", blueprint.RuleParams{
@@ -248,7 +253,7 @@ var hiddenAPIEncodeDexRule = pctx.AndroidStaticRule("hiddenAPIEncodeDex", bluepr
 // The encode dex rule requires unzipping, encoding and rezipping the classes.dex files along with
 // all the resources from the input jar. It also ensures that if it was uncompressed in the input
 // it stays uncompressed in the output.
-func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Path, uncompressDex bool, minSdkVersion android.SdkSpec, outputDir android.OutputPath) android.OutputPath {
+func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Path, uncompressDex bool, minSdkVersion android.ApiLevel, outputDir android.OutputPath) android.OutputPath {
 
 	// The output file has the same name as the input file and is in the output directory.
 	output := outputDir.Join(ctx, dexInput.Base())
@@ -278,7 +283,7 @@ func hiddenAPIEncodeDex(ctx android.ModuleContext, dexInput, flagsCSV android.Pa
 
 	// If the library is targeted for Q and/or R then make sure that they do not
 	// have any S+ flags encoded as that will break the runtime.
-	minApiLevel := minSdkVersion.ApiLevel
+	minApiLevel := minSdkVersion
 	if !minApiLevel.IsNone() {
 		if minApiLevel.LessThanOrEqualTo(android.ApiLevelOrPanic(ctx, "R")) {
 			hiddenapiFlags = hiddenapiFlags + " --max-hiddenapi-level=max-target-r"

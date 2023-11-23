@@ -26,20 +26,25 @@ import org.junit.runner.Description;
 
 /** This rule opens apps then goes to home before a test class. */
 public class QuickstepPressureRule extends TestWatcher {
-    private static final long MIN_CRASH_WAIT_TIMEOUT = 2500;
+    // TODO: b/243991517 Replace static sleep with process not crashing verification.
+    private static final long MIN_CRASH_WAIT_TIMEOUT = 500;
     private static final long UI_RESPONSE_TIMEOUT_MSECS = 10000;
+    @VisibleForTesting static final String PACKAGES_OPTION = "quickstep-packages";
 
-    private final String[] mPackages;
+    private String[] mPackages;
 
     public QuickstepPressureRule(String... packages) {
-        if (packages.length == 0) {
-            throw new IllegalArgumentException("Must supply an application to open.");
-        }
         mPackages = packages;
     }
 
     @Override
     protected void starting(Description description) {
+        String packageOption = getArguments().getString(PACKAGES_OPTION);
+        mPackages = packageOption == null ? mPackages : packageOption.split(",");
+        if (mPackages.length == 0) {
+            throw new IllegalArgumentException("Must supply an application to open.");
+        }
+
         // Start each app in sequence.
         for (String pkg : mPackages) {
             startActivity(pkg);

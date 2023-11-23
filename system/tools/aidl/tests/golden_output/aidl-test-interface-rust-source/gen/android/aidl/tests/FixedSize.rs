@@ -1,15 +1,15 @@
 #![forbid(unsafe_code)]
 #![rustfmt::skip]
 #[derive(Debug)]
-pub struct FixedSize {
+pub struct r#FixedSize {
 }
-impl Default for FixedSize {
+impl Default for r#FixedSize {
   fn default() -> Self {
     Self {
     }
   }
 }
-impl binder::Parcelable for FixedSize {
+impl binder::Parcelable for r#FixedSize {
   fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
     parcel.sized_write(|subparcel| {
       Ok(())
@@ -21,96 +21,96 @@ impl binder::Parcelable for FixedSize {
     })
   }
 }
-binder::impl_serialize_for_parcelable!(FixedSize);
-binder::impl_deserialize_for_parcelable!(FixedSize);
-impl binder::binder_impl::ParcelableMetadata for FixedSize {
+binder::impl_serialize_for_parcelable!(r#FixedSize);
+binder::impl_deserialize_for_parcelable!(r#FixedSize);
+impl binder::binder_impl::ParcelableMetadata for r#FixedSize {
   fn get_descriptor() -> &'static str { "android.aidl.tests.FixedSize" }
 }
-pub mod FixedParcelable {
+pub mod r#FixedParcelable {
   #[derive(Debug)]
-  pub struct FixedParcelable {
-    pub booleanValue: bool,
-    pub byteValue: i8,
-    pub charValue: u16,
-    pub intValue: i32,
-    pub longValue: i64,
-    pub floatValue: f32,
-    pub doubleValue: f64,
-    pub enumValue: crate::mangled::_7_android_4_aidl_5_tests_8_LongEnum,
-    pub parcelableValue: crate::mangled::_7_android_4_aidl_5_tests_9_FixedSize_10_FixedUnion,
+  pub struct r#FixedParcelable {
+    pub r#booleanValue: bool,
+    pub r#byteValue: i8,
+    pub r#charValue: u16,
+    pub r#intValue: i32,
+    pub r#longValue: i64,
+    pub r#floatValue: f32,
+    pub r#doubleValue: f64,
+    pub r#enumValue: crate::mangled::_7_android_4_aidl_5_tests_8_LongEnum,
+    pub r#parcelableValue: crate::mangled::_7_android_4_aidl_5_tests_9_FixedSize_10_FixedUnion,
   }
-  impl Default for FixedParcelable {
+  impl Default for r#FixedParcelable {
     fn default() -> Self {
       Self {
-        booleanValue: false,
-        byteValue: 0,
-        charValue: '\0' as u16,
-        intValue: 0,
-        longValue: 0,
-        floatValue: 0.000000f32,
-        doubleValue: 0.000000f64,
-        enumValue: crate::mangled::_7_android_4_aidl_5_tests_8_LongEnum::FOO,
-        parcelableValue: Default::default(),
+        r#booleanValue: false,
+        r#byteValue: 0,
+        r#charValue: '\0' as u16,
+        r#intValue: 0,
+        r#longValue: 0,
+        r#floatValue: 0.000000f32,
+        r#doubleValue: 0.000000f64,
+        r#enumValue: crate::mangled::_7_android_4_aidl_5_tests_8_LongEnum::FOO,
+        r#parcelableValue: Default::default(),
       }
     }
   }
-  impl binder::Parcelable for FixedParcelable {
+  impl binder::Parcelable for r#FixedParcelable {
     fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
       parcel.sized_write(|subparcel| {
-        subparcel.write(&self.booleanValue)?;
-        subparcel.write(&self.byteValue)?;
-        subparcel.write(&self.charValue)?;
-        subparcel.write(&self.intValue)?;
-        subparcel.write(&self.longValue)?;
-        subparcel.write(&self.floatValue)?;
-        subparcel.write(&self.doubleValue)?;
-        subparcel.write(&self.enumValue)?;
-        subparcel.write(&self.parcelableValue)?;
+        subparcel.write(&self.r#booleanValue)?;
+        subparcel.write(&self.r#byteValue)?;
+        subparcel.write(&self.r#charValue)?;
+        subparcel.write(&self.r#intValue)?;
+        subparcel.write(&self.r#longValue)?;
+        subparcel.write(&self.r#floatValue)?;
+        subparcel.write(&self.r#doubleValue)?;
+        subparcel.write(&self.r#enumValue)?;
+        subparcel.write(&self.r#parcelableValue)?;
         Ok(())
       })
     }
     fn read_from_parcel(&mut self, parcel: &binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
       parcel.sized_read(|subparcel| {
         if subparcel.has_more_data() {
-          self.booleanValue = subparcel.read()?;
+          self.r#booleanValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.byteValue = subparcel.read()?;
+          self.r#byteValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.charValue = subparcel.read()?;
+          self.r#charValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.intValue = subparcel.read()?;
+          self.r#intValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.longValue = subparcel.read()?;
+          self.r#longValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.floatValue = subparcel.read()?;
+          self.r#floatValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.doubleValue = subparcel.read()?;
+          self.r#doubleValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.enumValue = subparcel.read()?;
+          self.r#enumValue = subparcel.read()?;
         }
         if subparcel.has_more_data() {
-          self.parcelableValue = subparcel.read()?;
+          self.r#parcelableValue = subparcel.read()?;
         }
         Ok(())
       })
     }
   }
-  binder::impl_serialize_for_parcelable!(FixedParcelable);
-  binder::impl_deserialize_for_parcelable!(FixedParcelable);
-  impl binder::binder_impl::ParcelableMetadata for FixedParcelable {
+  binder::impl_serialize_for_parcelable!(r#FixedParcelable);
+  binder::impl_deserialize_for_parcelable!(r#FixedParcelable);
+  impl binder::binder_impl::ParcelableMetadata for r#FixedParcelable {
     fn get_descriptor() -> &'static str { "android.aidl.tests.FixedSize.FixedParcelable" }
   }
 }
-pub mod FixedUnion {
+pub mod r#FixedUnion {
   #[derive(Debug)]
-  pub enum FixedUnion {
+  pub enum r#FixedUnion {
     BooleanValue(bool),
     ByteValue(i8),
     CharValue(u16),
@@ -120,12 +120,12 @@ pub mod FixedUnion {
     DoubleValue(f64),
     EnumValue(crate::mangled::_7_android_4_aidl_5_tests_8_LongEnum),
   }
-  impl Default for FixedUnion {
+  impl Default for r#FixedUnion {
     fn default() -> Self {
       Self::BooleanValue(false)
     }
   }
-  impl binder::Parcelable for FixedUnion {
+  impl binder::Parcelable for r#FixedUnion {
     fn write_to_parcel(&self, parcel: &mut binder::binder_impl::BorrowedParcel) -> std::result::Result<(), binder::StatusCode> {
       match self {
         Self::BooleanValue(v) => {
@@ -211,31 +211,31 @@ pub mod FixedUnion {
       }
     }
   }
-  binder::impl_serialize_for_parcelable!(FixedUnion);
-  binder::impl_deserialize_for_parcelable!(FixedUnion);
-  impl binder::binder_impl::ParcelableMetadata for FixedUnion {
+  binder::impl_serialize_for_parcelable!(r#FixedUnion);
+  binder::impl_deserialize_for_parcelable!(r#FixedUnion);
+  impl binder::binder_impl::ParcelableMetadata for r#FixedUnion {
     fn get_descriptor() -> &'static str { "android.aidl.tests.FixedSize.FixedUnion" }
   }
-  pub mod Tag {
+  pub mod r#Tag {
     #![allow(non_upper_case_globals)]
     use binder::declare_binder_enum;
     declare_binder_enum! {
-      Tag : [i8; 8] {
-        booleanValue = 0,
-        byteValue = 1,
-        charValue = 2,
-        intValue = 3,
-        longValue = 4,
-        floatValue = 5,
-        doubleValue = 6,
-        enumValue = 7,
+      r#Tag : [i8; 8] {
+        r#booleanValue = 0,
+        r#byteValue = 1,
+        r#charValue = 2,
+        r#intValue = 3,
+        r#longValue = 4,
+        r#floatValue = 5,
+        r#doubleValue = 6,
+        r#enumValue = 7,
       }
     }
   }
 }
 pub(crate) mod mangled {
- pub use super::FixedSize as _7_android_4_aidl_5_tests_9_FixedSize;
- pub use super::FixedParcelable::FixedParcelable as _7_android_4_aidl_5_tests_9_FixedSize_15_FixedParcelable;
- pub use super::FixedUnion::FixedUnion as _7_android_4_aidl_5_tests_9_FixedSize_10_FixedUnion;
- pub use super::FixedUnion::Tag::Tag as _7_android_4_aidl_5_tests_9_FixedSize_10_FixedUnion_3_Tag;
+ pub use super::r#FixedSize as _7_android_4_aidl_5_tests_9_FixedSize;
+ pub use super::r#FixedParcelable::r#FixedParcelable as _7_android_4_aidl_5_tests_9_FixedSize_15_FixedParcelable;
+ pub use super::r#FixedUnion::r#FixedUnion as _7_android_4_aidl_5_tests_9_FixedSize_10_FixedUnion;
+ pub use super::r#FixedUnion::r#Tag::r#Tag as _7_android_4_aidl_5_tests_9_FixedSize_10_FixedUnion_3_Tag;
 }

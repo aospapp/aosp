@@ -39,7 +39,8 @@ tradefed_binary_host {
     static_libs: [
         "cts-tradefed-harness",
         "catbox-common",
-        "catbox-preparer-lib"
+        "catbox-preparer-lib",
+        "catbox-test-runner-lib"
     ],
     required: [
         "compatibility-host-util",

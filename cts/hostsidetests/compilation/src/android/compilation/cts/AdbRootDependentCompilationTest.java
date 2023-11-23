@@ -20,34 +20,19 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
 
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
-import com.android.tradefed.device.NativeDevice;
-import com.android.tradefed.device.TestDeviceState;
-import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
-import com.android.tradefed.util.CommandResult;
-import com.android.tradefed.util.FileUtil;
-
-import com.google.common.io.ByteStreams;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -57,23 +42,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 /**
  * Various integration tests for dex to oat compilation, with or without profiles.
- * When changing this test, make sure it still passes in each of the following
- * configurations:
- * <ul>
- *     <li>On a 'user' build</li>
- *     <li>On a 'userdebug' build with system property 'dalvik.vm.usejitprofiles' set to false</li>
- *     <li>On a 'userdebug' build with system property 'dalvik.vm.usejitprofiles' set to true</li>
- * </ul>
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
-    private static final int ADB_ROOT_RETRY_ATTEMPTS = 3;
-    private static final String TEMP_DIR = "/data/local/tmp/AdbRootDependentCompilationTest";
     private static final String APPLICATION_PACKAGE = "android.compilation.cts";
     private static final String APP_USED_BY_OTHER_APP_PACKAGE =
             "android.compilation.cts.appusedbyotherapp";
@@ -102,47 +76,21 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
     }
 
     private ITestDevice mDevice;
-    private File mCtsCompilationAppApkFile;
-    private File mAppUsedByOtherAppApkFile;
-    private File mAppUsedByOtherAppDmFile;
-    private File mAppUsingOtherAppApkFile;
-    private boolean mWasAdbRoot = false;
-    private boolean mAdbRootEnabled = false;
+    private Utils mUtils;
 
     @Before
     public void setUp() throws Exception {
         mDevice = getDevice();
+        mUtils = new Utils(getTestInformation());
 
-        mWasAdbRoot = mDevice.isAdbRoot();
-        mAdbRootEnabled = mWasAdbRoot || enableAdbRoot();
-
-        assumeTrue("The device does not allow root access", mAdbRootEnabled);
-
-        mCtsCompilationAppApkFile = copyResourceToFile(
-                "/CtsCompilationApp.apk", File.createTempFile("CtsCompilationApp", ".apk"));
-        mDevice.uninstallPackage(APPLICATION_PACKAGE); // in case it's still installed
-        String error = mDevice.installPackage(mCtsCompilationAppApkFile, false);
-        assertNull("Got install error: " + error, error);
-
-        mDevice.executeShellV2Command("rm -rf " + TEMP_DIR);  // Make sure we have a clean state.
-        assertCommandSucceeds("mkdir", "-p", TEMP_DIR);
+        mUtils.installFromResources(getAbi(), "/CtsCompilationApp.apk");
     }
 
     @After
     public void tearDown() throws Exception {
-        mDevice.executeShellV2Command("rm -rf " + TEMP_DIR);
-
-        FileUtil.deleteFile(mCtsCompilationAppApkFile);
-        FileUtil.deleteFile(mAppUsedByOtherAppApkFile);
-        FileUtil.deleteFile(mAppUsedByOtherAppDmFile);
-        FileUtil.deleteFile(mAppUsingOtherAppApkFile);
         mDevice.uninstallPackage(APPLICATION_PACKAGE);
         mDevice.uninstallPackage(APP_USED_BY_OTHER_APP_PACKAGE);
         mDevice.uninstallPackage(APP_USING_OTHER_APP_PACKAGE);
-
-        if (!mWasAdbRoot && mAdbRootEnabled) {
-            mDevice.disableAdbRoot();
-        }
     }
 
     /**
@@ -155,7 +103,8 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
         // Copy the profile to the reference location so that the bg-dexopt
         // can actually do work if it's configured to speed-profile.
         for (ProfileLocation profileLocation : EnumSet.of(ProfileLocation.REF)) {
-            writeSystemManagedProfile("/primary.prof.txt", profileLocation, APPLICATION_PACKAGE);
+            writeSystemManagedProfile(
+                    "/CtsCompilationApp.prof", profileLocation, APPLICATION_PACKAGE);
         }
 
         // Usually "speed-profile"
@@ -228,21 +177,8 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
      */
     @Test
     public void testCompile_usedByOtherApps() throws Exception {
-        mAppUsedByOtherAppApkFile = copyResourceToFile(
-                "/AppUsedByOtherApp.apk", File.createTempFile("AppUsedByOtherApp", ".apk"));
-        mAppUsedByOtherAppDmFile = constructDmFile(
-                "/app_used_by_other_app_1.prof.txt", mAppUsedByOtherAppApkFile);
-        // We cannot use `mDevice.installPackage` here because it doesn't support DM file.
-        String result = mDevice.executeAdbCommand(
-                "install-multiple",
-                mAppUsedByOtherAppApkFile.getAbsolutePath(),
-                mAppUsedByOtherAppDmFile.getAbsolutePath());
-        assertWithMessage("Failed to install AppUsedByOtherApp").that(result).isNotNull();
-
-        mAppUsingOtherAppApkFile = copyResourceToFile(
-                "/AppUsingOtherApp.apk", File.createTempFile("AppUsingOtherApp", ".apk"));
-        result = mDevice.installPackage(mAppUsingOtherAppApkFile, false /* reinstall */);
-        assertWithMessage(result).that(result).isNull();
+        mUtils.installFromResources(getAbi(), "/AppUsedByOtherApp.apk", "/AppUsedByOtherApp_1.dm");
+        mUtils.installFromResources(getAbi(), "/AppUsingOtherApp.apk");
 
         String odexFilePath = getOdexFilePath(APP_USED_BY_OTHER_APP_PACKAGE);
         // Initially, the app should be compiled with the cloud profile, and the odex file should be
@@ -254,8 +190,8 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
 
         // Simulate that the app profile has changed.
         resetProfileState(APP_USED_BY_OTHER_APP_PACKAGE);
-        writeSystemManagedProfile("/app_used_by_other_app_2.prof.txt", ProfileLocation.REF,
-                APP_USED_BY_OTHER_APP_PACKAGE);
+        writeSystemManagedProfile(
+                "/AppUsedByOtherApp_2.prof", ProfileLocation.REF, APP_USED_BY_OTHER_APP_PACKAGE);
 
         executeCompile(APP_USED_BY_OTHER_APP_PACKAGE, "-m", "speed-profile", "-f");
         // Right now, the app hasn't been used by any other app yet. It should be compiled with the
@@ -291,10 +227,6 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
      */
     private void compileWithProfilesAndCheckFilter(boolean expectOdexChange,
             Set<ProfileLocation> profileLocations) throws Exception {
-        if (!profileLocations.isEmpty()) {
-            checkProfileSupport();
-        }
-
         resetProfileState(APPLICATION_PACKAGE);
 
         executeCompile(APPLICATION_PACKAGE, "-m", "speed-profile", "-f");
@@ -305,7 +237,8 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
                 .isGreaterThan(0);
 
         for (ProfileLocation profileLocation : profileLocations) {
-            writeSystemManagedProfile("/primary.prof.txt", profileLocation, APPLICATION_PACKAGE);
+            writeSystemManagedProfile(
+                    "/CtsCompilationApp.prof", profileLocation, APPLICATION_PACKAGE);
         }
         executeCompile(APPLICATION_PACKAGE, "-m", "speed-profile");
 
@@ -343,7 +276,7 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
         command.addAll(Arrays.asList(compileOptions));
         command.add(packageName);
         String[] commandArray = command.toArray(new String[0]);
-        assertCommandSucceeds(commandArray);
+        mUtils.assertCommandSucceeds(commandArray);
     }
 
     /**
@@ -359,83 +292,22 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
         // In format group:user so we can directly pass it to chown.
         String owner = assertCommandOutputsLines(1, "stat", "-c", "%U:%g", targetDir)[0];
 
-        String dexLocation = assertCommandOutputsLines(1, "pm", "path", packageName)[0];
-        dexLocation = dexLocation.replace("package:", "");
-        assertTrue("Failed to find APK " + dexLocation, mDevice.doesFileExist(dexLocation));
+        mUtils.pushFromResource(profileResourceName, targetPath);
 
-        writeProfile(profileResourceName, dexLocation, targetPath);
-
-        // Verify that the file was written successfully.
-        assertTrue("Failed to create profile file", mDevice.doesFileExist(targetPath));
-        String result = assertCommandOutputsLines(1, "stat", "-c", "%s", targetPath)[0];
-        assertWithMessage("profile " + targetPath + " is " + Integer.parseInt(result) + " bytes")
-                .that(Integer.parseInt(result)).isGreaterThan(0);
-
-        assertCommandSucceeds("chown", owner, targetPath);
-    }
-
-    private File constructDmFile(String profileResourceName, File apkFile) throws Exception {
-        File binaryProfileFile = File.createTempFile("primary", ".prof");
-        String binaryProfileFileOnDevice = TEMP_DIR + "/primary.prof";
-        // When constructing a DM file, we don't have the real dex location because the app is not
-        // yet installed. We can use an arbitrary location. This is okay because installd will
-        // rewrite the dex location in the profile when the app is being installed.
-        String dexLocation = TEMP_DIR + "/app.apk";
-
-        try {
-            assertTrue(mDevice.pushFile(apkFile, dexLocation));
-            writeProfile(profileResourceName, dexLocation, binaryProfileFileOnDevice);
-            assertTrue(mDevice.pullFile(binaryProfileFileOnDevice, binaryProfileFile));
-
-            // Construct the DM file from the binary profile file. The stem of the APK file and the
-            // DM file must match.
-            File dmFile = new File(apkFile.getAbsolutePath().replaceAll("\\.apk$", ".dm"));
-            try (ZipOutputStream outputStream =
-                            new ZipOutputStream(new FileOutputStream(dmFile));
-                    InputStream inputStream = new FileInputStream(binaryProfileFile)) {
-                outputStream.putNextEntry(new ZipEntry("primary.prof"));
-                ByteStreams.copy(inputStream, outputStream);
-                outputStream.closeEntry();
-            }
-            return dmFile;
-        } finally {
-            mDevice.executeShellV2Command("rm " + binaryProfileFileOnDevice);
-            mDevice.executeShellV2Command("rm " + dexLocation);
-            FileUtil.deleteFile(binaryProfileFile);
-        }
-    }
-
-    /**
-     * Writes the given profile in binary format on the device.
-     */
-    private void writeProfile(String profileResourceName, String dexLocation, String pathOnDevice)
-            throws Exception {
-        File textProfileFile = File.createTempFile("primary", ".prof.txt");
-        String textProfileFileOnDevice = TEMP_DIR + "/primary.prof.txt";
-
-        try {
-            copyResourceToFile(profileResourceName, textProfileFile);
-            assertTrue(mDevice.pushFile(textProfileFile, textProfileFileOnDevice));
-
-            assertCommandSucceeds(
-                    "profman",
-                    "--create-profile-from=" + textProfileFileOnDevice,
-                    "--apk=" + dexLocation,
-                    "--dex-location=" + dexLocation,
-                    "--reference-profile-file=" + pathOnDevice);
-        } finally {
-            mDevice.executeShellV2Command("rm " + textProfileFileOnDevice);
-            FileUtil.deleteFile(textProfileFile);
-        }
+        // System managed profiles are by default private, unless created from an external profile
+        // such as a cloud profile.
+        mUtils.assertCommandSucceeds("chmod", "640", targetPath);
+        mUtils.assertCommandSucceeds("chown", owner, targetPath);
     }
 
     /**
      * Parses the value for the key "compiler-filter" out of the output from
      * {@code oatdump --header-only}.
      */
-    private String getCompilerFilter(String odexFilePath) throws DeviceNotAvailableException {
-        String[] response = assertCommandSucceeds(
-                "oatdump", "--header-only", "--oat-file=" + odexFilePath).split("\n");
+    private String getCompilerFilter(String odexFilePath) throws Exception {
+        String[] response = mUtils.assertCommandSucceeds(
+                                          "oatdump", "--header-only", "--oat-file=" + odexFilePath)
+                                    .split("\n");
         String prefix = "compiler-filter =";
         for (String line : response) {
             line = line.trim();
@@ -450,8 +322,7 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
     /**
      * Returns a list of methods that have native code in the odex file.
      */
-    private List<String> getCompiledMethods(String odexFilePath)
-            throws DeviceNotAvailableException {
+    private List<String> getCompiledMethods(String odexFilePath) throws Exception {
         // Matches "    CODE: (code_offset=0x000010e0 size=198)...".
         Pattern codePattern = Pattern.compile("^\\s*CODE:.*size=(\\d+)");
 
@@ -460,8 +331,8 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
         Pattern methodPattern =
                 Pattern.compile("((?:\\w+\\.)+[<>\\w]+\\(.*?\\)).*dex_method_idx=\\d+");
 
-        String[] response = assertCommandSucceeds("oatdump", "--oat-file=" + odexFilePath)
-                .split("\n");
+        String[] response =
+                mUtils.assertCommandSucceeds("oatdump", "--oat-file=" + odexFilePath).split("\n");
         ArrayList<String> compiledMethods = new ArrayList<>();
         String currentMethod = null;
         int currentMethodIndent = -1;
@@ -508,7 +379,7 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
      * Returns the path to the application's base.odex file that should have
      * been created by the compiler.
      */
-    private String getOdexFilePath(String packageName) throws DeviceNotAvailableException {
+    private String getOdexFilePath(String packageName) throws Exception {
         // Something like "package:/data/app/android.compilation.cts-1/base.apk"
         String pathSpec = assertCommandOutputsLines(1, "pm", "path", packageName)[0];
         Matcher matcher = Pattern.compile("^package:(.+/)base\\.apk$").matcher(pathSpec);
@@ -521,20 +392,9 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
         return result;
     }
 
-    /**
-     * Skips the test if it does not use JIT profiles.
-     */
-    private void checkProfileSupport() throws Exception {
-        assumeTrue("The device does not use JIT profiles", isUseJitProfiles());
-    }
-
-    private boolean isUseJitProfiles() throws Exception {
-        return Boolean.parseBoolean(assertCommandSucceeds("getprop", "dalvik.vm.usejitprofiles"));
-    }
-
     private String[] assertCommandOutputsLines(int numLinesOutputExpected, String... command)
-            throws DeviceNotAvailableException {
-        String output = assertCommandSucceeds(command);
+            throws Exception {
+        String output = mUtils.assertCommandSucceeds(command);
         // "".split() returns { "" }, but we want an empty array
         String[] lines = output.equals("") ? new String[0] : output.split("\n");
         assertEquals(
@@ -543,72 +403,6 @@ public class AdbRootDependentCompilationTest extends BaseHostJUnit4Test {
                         Arrays.toString(lines)),
                 numLinesOutputExpected, lines.length);
         return lines;
-    }
-
-    private String assertCommandSucceeds(String... command) throws DeviceNotAvailableException {
-        CommandResult result = mDevice.executeShellV2Command(String.join(" ", command));
-        assertWithMessage(result.toString()).that(result.getExitCode()).isEqualTo(0);
-        // Remove trailing \n's.
-        return result.getStdout().trim();
-    }
-
-    private File copyResourceToFile(String resourceName, File file) throws Exception {
-        try (OutputStream outputStream = new FileOutputStream(file);
-                InputStream inputStream = getClass().getResourceAsStream(resourceName)) {
-            assertThat(ByteStreams.copy(inputStream, outputStream)).isGreaterThan(0);
-        }
-        return file;
-    }
-
-    /**
-     * Turns on adb root. Returns true if successful.
-     *
-     * This is a workaround to run the test as root in CTS on userdebug/eng builds. We have to keep
-     * this test in CTS because it's the only integration test we have to verify platform's dexopt
-     * behavior. We cannot use `mDevice.enableAdbRoot()` because it does not allow enabling root in
-     * CTS, even on userdebug/eng builds.
-     *
-     * The implementation below is copied from {@link NativeDevice#enableAdbRoot()}.
-     */
-    private boolean enableAdbRoot() throws DeviceNotAvailableException {
-        // adb root is a relatively intensive command, so do a brief check first to see
-        // if its necessary or not
-        if (mDevice.isAdbRoot()) {
-            CLog.i("adb is already running as root for AdbRootDependentCompilationTest on %s",
-                    mDevice.getSerialNumber());
-            // Still check for online, in some case we could see the root, but device could be
-            // very early in its cycle.
-            mDevice.waitForDeviceOnline();
-            return true;
-        }
-        CLog.i("adb root for AdbRootDependentCompilationTest on device %s",
-                mDevice.getSerialNumber());
-        int attempts = ADB_ROOT_RETRY_ATTEMPTS;
-        for (int i = 1; i <= attempts; i++) {
-            String output = mDevice.executeAdbCommand("root");
-            // wait for device to disappear from adb
-            boolean res = mDevice.waitForDeviceNotAvailable(2 * 1000);
-            if (!res && TestDeviceState.ONLINE.equals(mDevice.getDeviceState())) {
-                if (mDevice.isAdbRoot()) {
-                    return true;
-                }
-            }
-
-            if (mDevice instanceof NativeDevice) {
-                ((NativeDevice) mDevice).postAdbRootAction();
-            }
-
-            // wait for device to be back online
-            mDevice.waitForDeviceOnline();
-
-            if (mDevice.isAdbRoot()) {
-                return true;
-            }
-            CLog.w("'adb root' for AdbRootDependentCompilationTest on %s unsuccessful on attempt "
-                            + "%d of %d. Output: '%s'",
-                    mDevice.getSerialNumber(), i, attempts, output);
-        }
-        return false;
     }
 
     private void assertFileIsPublic(String path) throws Exception {

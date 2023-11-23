@@ -209,17 +209,17 @@ def parse_gpstool_ttfflog_to_df(filename):
         configs=CONFIG_GPSTTFFLOG,
     )
     ttff_df = parsed_data['ttff_info']
-
-    # Data Conversion
-    ttff_df['loop'] = ttff_df['loop'].astype(int)
-    ttff_df['start_datetime'] = pds.to_datetime(ttff_df['start_datetime'])
-    ttff_df['stop_datetime'] = pds.to_datetime(ttff_df['stop_datetime'])
-    ttff_df['ttff_time'] = ttff_df['ttff'].astype(float)
-    ttff_df['ant_avg_top4_cn0'] = ttff_df['ant_avg_top4_cn0'].astype(float)
-    ttff_df['ant_avg_cn0'] = ttff_df['ant_avg_cn0'].astype(float)
-    ttff_df['bb_avg_top4_cn0'] = ttff_df['bb_avg_top4_cn0'].astype(float)
-    ttff_df['bb_avg_cn0'] = ttff_df['bb_avg_cn0'].astype(float)
-    ttff_df['satnum_for_fix'] = ttff_df['satnum_for_fix'].astype(int)
+    if not ttff_df.empty:
+        # Data Conversion
+        ttff_df['loop'] = ttff_df['loop'].astype(int)
+        ttff_df['start_datetime'] = pds.to_datetime(ttff_df['start_datetime'])
+        ttff_df['stop_datetime'] = pds.to_datetime(ttff_df['stop_datetime'])
+        ttff_df['ttff_time'] = ttff_df['ttff'].astype(float)
+        ttff_df['ant_avg_top4_cn0'] = ttff_df['ant_avg_top4_cn0'].astype(float)
+        ttff_df['ant_avg_cn0'] = ttff_df['ant_avg_cn0'].astype(float)
+        ttff_df['bb_avg_top4_cn0'] = ttff_df['bb_avg_top4_cn0'].astype(float)
+        ttff_df['bb_avg_cn0'] = ttff_df['bb_avg_cn0'].astype(float)
+        ttff_df['satnum_for_fix'] = ttff_df['satnum_for_fix'].astype(int)
 
     # return ttff dataframe
     return ttff_df

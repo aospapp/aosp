@@ -24,7 +24,8 @@
         <service android:name=".CtsInputMethod2"
              android:label="@string/ime_name"
              android:permission="android.permission.BIND_INPUT_METHOD"
-             android:exported="true">
+             android:exported="true"
+             android:visibleToInstantApps="true">
             <intent-filter>
                 <action android:name="android.view.InputMethod"/>
             </intent-filter>

@@ -16,8 +16,9 @@
 
 <voice-interaction-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:sessionService="android.voiceinteraction.service.MainInteractionSessionService"
-    android:recognitionService="android.voiceinteraction.service.MainRecognitionService"
+    android:recognitionService="android.voiceinteraction.cts.services.MainRecognitionService"
     android:hotwordDetectionService="android.voiceinteraction.service.MainHotwordDetectionService"
+    android:visualQueryDetectionService="android.voiceinteraction.service.MainVisualQueryDetectionService"
     android:settingsActivity=""
     android:supportsAssist="false"
     android:supportsLocalInteraction="true" />

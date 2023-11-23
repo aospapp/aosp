@@ -176,7 +176,7 @@ void AidlHelper::emitAidl(
     interface.emitDocComment(out);
     if (interface.superType() && interface.superType()->fqName() != gIBaseFqName) {
         out << "// Interface inherits from " << interface.superType()->fqName().string()
-            << " but AIDL does not support interface inheritance.\n";
+            << " but AIDL does not support interface inheritance (methods have been flattened).\n";
     }
 
     out << "@VintfStability\n";

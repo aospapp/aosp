@@ -30,3 +30,27 @@ android_test_helper_app {
     v4_signature: true,
     package_splits: ["pl"],
 }
+
+android_test_helper_app {
+    name: "CtsStatsdAtomEmptyAppV2",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    v4_signature: true,
+    manifest: "AndroidManifestV2.xml",
+}
+
+android_test_helper_app {
+    name: "CtsStatsdAtomStaticSharedLibProviderV1",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    v4_signature: true,
+    manifest: "AndroidManifestStaticSharedLibProviderV1.xml",
+}
+
+android_test_helper_app {
+    name: "CtsStatsdAtomStaticSharedLibProviderV2",
+    defaults: ["cts_defaults"],
+    sdk_version: "current",
+    v4_signature: true,
+    manifest: "AndroidManifestStaticSharedLibProviderV2.xml",
+}

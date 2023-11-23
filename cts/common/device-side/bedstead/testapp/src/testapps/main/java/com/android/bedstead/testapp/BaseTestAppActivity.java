@@ -17,6 +17,7 @@
 package com.android.bedstead.testapp;
 
 import android.app.Activity;
+import android.content.Context;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 
@@ -43,13 +44,14 @@ public class BaseTestAppActivity extends EventLibActivity {
      *
      * <p>This method is thread-safe
      */
-    public static BaseTestAppActivity findActivity(String activityClassName) {
+    public static BaseTestAppActivity findActivity(Context context, String activityClassName) {
         return Poll.forValue("activity for className", () -> {
             synchronized (BaseTestAppActivity.class) {
                 return sActivities.get(activityClassName);
             }
         }).toNotBeNull()
-                .errorOnFail("No existing activity named " + activityClassName)
+                .errorOnFail("No existing activity named " + activityClassName
+                        + " in package " + context.getPackageName() + ". ")
                 .await();
     }
 

@@ -17,70 +17,124 @@
 package com.android.bedstead.harrier;
 
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
-import static android.app.ActivityManager.STOP_USER_ON_SWITCH_DEFAULT;
-import static android.app.ActivityManager.STOP_USER_ON_SWITCH_FALSE;
+import static android.content.pm.PackageManager.FEATURE_MANAGED_USERS;
 import static android.os.Build.VERSION.SDK_INT;
 
+import static com.android.bedstead.harrier.AnnotationExecutorUtil.checkFailOrSkip;
+import static com.android.bedstead.harrier.AnnotationExecutorUtil.failOrSkip;
 import static com.android.bedstead.harrier.Defaults.DEFAULT_PASSWORD;
-import static com.android.bedstead.harrier.annotations.EnsureTestAppInstalled.DEFAULT_TEST_APP_KEY;
+import static com.android.bedstead.harrier.annotations.EnsureHasAccount.DEFAULT_ACCOUNT_KEY;
+import static com.android.bedstead.harrier.annotations.EnsureTestAppInstalled.DEFAULT_KEY;
+import static com.android.bedstead.harrier.annotations.enterprise.EnsureHasDelegate.DELEGATE_KEY;
+import static com.android.bedstead.nene.flags.CommonFlags.DevicePolicyManager.ENABLE_DEVICE_POLICY_ENGINE_FLAG;
+import static com.android.bedstead.nene.flags.CommonFlags.DevicePolicyManager.PERMISSION_BASED_ACCESS_EXPERIMENT_FLAG;
+import static com.android.bedstead.nene.flags.CommonFlags.NAMESPACE_DEVICE_POLICY_MANAGER;
+import static com.android.bedstead.nene.userrestrictions.CommonUserRestrictions.DISALLOW_ADD_CLONE_PROFILE;
+import static com.android.bedstead.nene.userrestrictions.CommonUserRestrictions.DISALLOW_ADD_MANAGED_PROFILE;
+import static com.android.bedstead.nene.userrestrictions.CommonUserRestrictions.DISALLOW_ADD_USER;
+import static com.android.bedstead.nene.userrestrictions.CommonUserRestrictions.DISALLOW_BLUETOOTH;
 import static com.android.bedstead.nene.users.UserType.MANAGED_PROFILE_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SECONDARY_USER_TYPE_NAME;
+import static com.android.bedstead.nene.utils.Versions.T;
 import static com.android.bedstead.nene.utils.Versions.meetsSdkVersionRequirements;
-
-import static com.google.common.truth.Truth.assertWithMessage;
+import static com.android.bedstead.remoteaccountauthenticator.RemoteAccountAuthenticator.REMOTE_ACCOUNT_AUTHENTICATOR_TEST_APP;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.ActivityManager;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.os.Build;
+import android.os.UserManager;
+import android.service.quicksettings.TileService;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
-import androidx.test.core.app.ApplicationProvider;
 
 import com.android.bedstead.harrier.annotations.AfterClass;
 import com.android.bedstead.harrier.annotations.BeforeClass;
 import com.android.bedstead.harrier.annotations.EnsureBluetoothDisabled;
 import com.android.bedstead.harrier.annotations.EnsureBluetoothEnabled;
+import com.android.bedstead.harrier.annotations.EnsureCanAddUser;
 import com.android.bedstead.harrier.annotations.EnsureCanGetPermission;
+import com.android.bedstead.harrier.annotations.EnsureDefaultContentSuggestionsServiceDisabled;
+import com.android.bedstead.harrier.annotations.EnsureDefaultContentSuggestionsServiceEnabled;
 import com.android.bedstead.harrier.annotations.EnsureDoesNotHaveAppOp;
 import com.android.bedstead.harrier.annotations.EnsureDoesNotHavePermission;
+import com.android.bedstead.harrier.annotations.EnsureDoesNotHaveUserRestriction;
+import com.android.bedstead.harrier.annotations.EnsureFeatureFlagEnabled;
+import com.android.bedstead.harrier.annotations.EnsureFeatureFlagNotEnabled;
+import com.android.bedstead.harrier.annotations.EnsureFeatureFlagValue;
 import com.android.bedstead.harrier.annotations.EnsureGlobalSettingSet;
+import com.android.bedstead.harrier.annotations.EnsureHasAccount;
+import com.android.bedstead.harrier.annotations.EnsureHasAccountAuthenticator;
+import com.android.bedstead.harrier.annotations.EnsureHasAccounts;
+import com.android.bedstead.harrier.annotations.EnsureHasAdditionalUser;
 import com.android.bedstead.harrier.annotations.EnsureHasAppOp;
+import com.android.bedstead.harrier.annotations.EnsureHasNoAccounts;
+import com.android.bedstead.harrier.annotations.EnsureHasNoAdditionalUser;
 import com.android.bedstead.harrier.annotations.EnsureHasPermission;
+import com.android.bedstead.harrier.annotations.EnsureHasTestContentSuggestionsService;
+import com.android.bedstead.harrier.annotations.EnsureHasUserRestriction;
 import com.android.bedstead.harrier.annotations.EnsurePackageNotInstalled;
 import com.android.bedstead.harrier.annotations.EnsurePasswordNotSet;
 import com.android.bedstead.harrier.annotations.EnsurePasswordSet;
 import com.android.bedstead.harrier.annotations.EnsureScreenIsOn;
+import com.android.bedstead.harrier.annotations.EnsureSecureSettingSet;
+import com.android.bedstead.harrier.annotations.EnsureTestAppDoesNotHavePermission;
 import com.android.bedstead.harrier.annotations.EnsureTestAppHasAppOp;
 import com.android.bedstead.harrier.annotations.EnsureTestAppHasPermission;
 import com.android.bedstead.harrier.annotations.EnsureTestAppInstalled;
 import com.android.bedstead.harrier.annotations.EnsureUnlocked;
+import com.android.bedstead.harrier.annotations.EnsureWifiDisabled;
+import com.android.bedstead.harrier.annotations.EnsureWifiEnabled;
 import com.android.bedstead.harrier.annotations.FailureMode;
 import com.android.bedstead.harrier.annotations.OtherUser;
 import com.android.bedstead.harrier.annotations.RequireDoesNotHaveFeature;
 import com.android.bedstead.harrier.annotations.RequireFeature;
+import com.android.bedstead.harrier.annotations.RequireFeatureFlagEnabled;
+import com.android.bedstead.harrier.annotations.RequireFeatureFlagNotEnabled;
+import com.android.bedstead.harrier.annotations.RequireFeatureFlagValue;
 import com.android.bedstead.harrier.annotations.RequireHeadlessSystemUserMode;
+import com.android.bedstead.harrier.annotations.RequireInstantApp;
 import com.android.bedstead.harrier.annotations.RequireLowRamDevice;
+import com.android.bedstead.harrier.annotations.RequireMultiUserSupport;
 import com.android.bedstead.harrier.annotations.RequireNotHeadlessSystemUserMode;
+import com.android.bedstead.harrier.annotations.RequireNotInstantApp;
 import com.android.bedstead.harrier.annotations.RequireNotLowRamDevice;
+import com.android.bedstead.harrier.annotations.RequireNotVisibleBackgroundUsers;
+import com.android.bedstead.harrier.annotations.RequireNotVisibleBackgroundUsersOnDefaultDisplay;
 import com.android.bedstead.harrier.annotations.RequirePackageInstalled;
 import com.android.bedstead.harrier.annotations.RequirePackageNotInstalled;
+import com.android.bedstead.harrier.annotations.RequireQuickSettingsSupport;
+import com.android.bedstead.harrier.annotations.RequireRunNotOnVisibleBackgroundNonProfileUser;
+import com.android.bedstead.harrier.annotations.RequireRunOnAdditionalUser;
+import com.android.bedstead.harrier.annotations.RequireRunOnVisibleBackgroundNonProfileUser;
 import com.android.bedstead.harrier.annotations.RequireSdkVersion;
+import com.android.bedstead.harrier.annotations.RequireSystemServiceAvailable;
 import com.android.bedstead.harrier.annotations.RequireTargetSdkVersion;
+import com.android.bedstead.harrier.annotations.RequireTelephonySupport;
 import com.android.bedstead.harrier.annotations.RequireUserSupported;
+import com.android.bedstead.harrier.annotations.RequireVisibleBackgroundUsers;
+import com.android.bedstead.harrier.annotations.RequireVisibleBackgroundUsersOnDefaultDisplay;
 import com.android.bedstead.harrier.annotations.TestTag;
+import com.android.bedstead.harrier.annotations.UsesAnnotationExecutor;
+import com.android.bedstead.harrier.annotations.enterprise.AdditionalQueryParameters;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasDelegate;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasDeviceOwner;
+import com.android.bedstead.harrier.annotations.enterprise.EnsureHasDevicePolicyManagerRoleHolder;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDelegate;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDeviceOwner;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoProfileOwner;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasProfileOwner;
+import com.android.bedstead.harrier.annotations.enterprise.EnterprisePolicy;
+import com.android.bedstead.harrier.annotations.enterprise.MostImportantCoexistenceTest;
+import com.android.bedstead.harrier.annotations.enterprise.MostRestrictiveCoexistenceTest;
+import com.android.bedstead.harrier.annotations.enterprise.RequireHasPolicyExemptApps;
 import com.android.bedstead.harrier.annotations.meta.EnsureHasNoProfileAnnotation;
 import com.android.bedstead.harrier.annotations.meta.EnsureHasNoUserAnnotation;
 import com.android.bedstead.harrier.annotations.meta.EnsureHasProfileAnnotation;
@@ -90,20 +144,29 @@ import com.android.bedstead.harrier.annotations.meta.RequireRunOnProfileAnnotati
 import com.android.bedstead.harrier.annotations.meta.RequireRunOnUserAnnotation;
 import com.android.bedstead.harrier.annotations.meta.RequiresBedsteadJUnit4;
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.accounts.AccountReference;
 import com.android.bedstead.nene.devicepolicy.DeviceOwner;
+import com.android.bedstead.nene.devicepolicy.DeviceOwnerType;
 import com.android.bedstead.nene.devicepolicy.DevicePolicyController;
 import com.android.bedstead.nene.devicepolicy.ProfileOwner;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.NeneException;
+import com.android.bedstead.nene.flags.Flags;
+import com.android.bedstead.nene.logcat.SystemServerException;
+import com.android.bedstead.nene.packages.ComponentReference;
 import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.permissions.PermissionContextImpl;
+import com.android.bedstead.nene.types.OptionalBoolean;
 import com.android.bedstead.nene.users.UserBuilder;
 import com.android.bedstead.nene.users.UserReference;
+import com.android.bedstead.nene.utils.Poll;
 import com.android.bedstead.nene.utils.ShellCommand;
 import com.android.bedstead.nene.utils.Tags;
 import com.android.bedstead.nene.utils.Versions;
+import com.android.bedstead.remoteaccountauthenticator.RemoteAccountAuthenticator;
 import com.android.bedstead.remotedpc.RemoteDelegate;
+import com.android.bedstead.remotedpc.RemoteDevicePolicyManagerRoleHolder;
 import com.android.bedstead.remotedpc.RemoteDpc;
 import com.android.bedstead.remotedpc.RemoteDpcUsingParentInstance;
 import com.android.bedstead.remotedpc.RemotePolicyManager;
@@ -111,13 +174,16 @@ import com.android.bedstead.remotedpc.RemoteTestApp;
 import com.android.bedstead.testapp.TestApp;
 import com.android.bedstead.testapp.TestAppInstance;
 import com.android.bedstead.testapp.TestAppProvider;
+import com.android.bedstead.testapp.TestAppQueryBuilder;
 import com.android.compatibility.common.util.BlockingBroadcastReceiver;
 import com.android.eventlib.EventLogs;
+import com.android.queryable.annotations.Query;
 
 import com.google.common.base.Objects;
 
 import junit.framework.AssertionFailedError;
 
+import org.junit.Assume;
 import org.junit.AssumptionViolatedException;
 import org.junit.runner.Description;
 import org.junit.runners.model.FrameworkMethod;
@@ -138,6 +204,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -146,7 +213,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
-
+import java.util.stream.Collectors;
 
 /**
  * A Junit rule which exposes methods for efficiently changing and querying device state.
@@ -160,18 +227,16 @@ import java.util.function.Function;
  * {@code assumeTrue} will be used, so tests which do not meet preconditions will be skipped.
  */
 public final class DeviceState extends HarrierRule {
-
-    private static final ComponentName REMOTE_DPC_COMPONENT_NAME = RemoteDpc.DPC_COMPONENT_NAME;
-
     private static final String SWITCHED_TO_USER = "switchedToUser";
     private static final String SWITCHED_TO_PARENT_USER = "switchedToParentUser";
     public static final String INSTALL_INSTRUMENTED_APP = "installInstrumentedApp";
+    private static final String IS_QUIET_MODE_ENABLED = "isQuietModeEnabled";
     public static final String FOR_USER = "forUser";
     public static final String DPC_IS_PRIMARY = "dpcIsPrimary";
     public static final String AFFILIATION_IDS = "affiliationIds";
     private static final String USE_PARENT_INSTANCE_OF_DPC = "useParentInstanceOfDpc";
 
-    private final Context mContext = ApplicationProvider.getApplicationContext();
+    private final Context mContext = TestApis.context().instrumentedContext();
     private static final String SKIP_TEST_TEARDOWN_KEY = "skip-test-teardown";
     private static final String SKIP_CLASS_TEARDOWN_KEY = "skip-class-teardown";
     private static final String SKIP_TESTS_REASON_KEY = "skip-tests-reason";
@@ -188,8 +253,7 @@ public final class DeviceState extends HarrierRule {
     // The minimum version supported by tests, defaults to current version
     private int mMinSdkVersion;
     private int mMinSdkVersionCurrentTest;
-    private @Nullable
-    String mPermissionsInstrumentationPackage;
+    private @Nullable String mPermissionsInstrumentationPackage;
     private final Set<String> mPermissionsInstrumentationPackagePermissions = new HashSet<>();
 
     // Marks if the conditions for requiring running under permission instrumentation have been set
@@ -198,16 +262,47 @@ public final class DeviceState extends HarrierRule {
     private boolean mHasRequirePermissionInstrumentation = false;
 
     private static final String TV_PROFILE_TYPE_NAME = "com.android.tv.profile";
+    private static final String CLONE_PROFILE_TYPE_NAME = "android.os.usertype.profile.CLONE";
+
 
     // We timeout 10 seconds before the infra would timeout
     private static final Duration MAX_TEST_DURATION =
             Duration.ofMillis(
                     Long.parseLong(TestApis.instrumentation().arguments().getString(
                             "timeout_msec", "600000")) - 2000);
+
+    // We allow overriding the limit on a class-by-class basis
+    private final Duration mMaxTestDuration;
+
     private final ExecutorService mTestExecutor = Executors.newSingleThreadExecutor();
     private Thread mTestThread;
 
-    public DeviceState() {
+    private PackageManager mPackageManager = sContext.getPackageManager();
+
+    public static final class Builder {
+
+        private Duration mMaxTestDuration = MAX_TEST_DURATION;
+
+        private Builder() {
+
+        }
+
+        public Builder maxTestDuration(Duration maxTestDuration) {
+            mMaxTestDuration = maxTestDuration;
+            return this;
+        }
+
+        public DeviceState build() {
+            return new DeviceState(mMaxTestDuration);
+        }
+    }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public DeviceState(Duration maxTestDuration) {
+        mMaxTestDuration = maxTestDuration;
         Future<Thread> testThreadFuture = mTestExecutor.submit(Thread::currentThread);
 
         mSkipTestTeardown = TestApis.instrumentation().arguments().getBoolean(
@@ -234,6 +329,10 @@ public final class DeviceState extends HarrierRule {
             throw new AssertionError(
                     "Error setting up DeviceState. Interrupted getting test thread", e);
         }
+    }
+
+    public DeviceState() {
+        this(MAX_TEST_DURATION);
     }
 
     @Override
@@ -269,11 +368,9 @@ public final class DeviceState extends HarrierRule {
                     }
                 });
 
+                Throwable t;
                 try {
-                    Throwable t = future.get(MAX_TEST_DURATION.getSeconds(), TimeUnit.SECONDS);
-                    if (t != null) {
-                        throw t;
-                    }
+                    t = future.get(mMaxTestDuration.getSeconds(), TimeUnit.SECONDS);
                 } catch (TimeoutException e) {
                     StackTraceElement[] stack = mTestThread.getStackTrace();
                     future.cancel(true);
@@ -283,6 +380,18 @@ public final class DeviceState extends HarrierRule {
                                     + " after " + MAX_TEST_DURATION);
                     assertionError.setStackTrace(stack);
                     throw assertionError;
+                }
+                if (t != null) {
+                    if (t.getStackTrace().length > 0) {
+                        if (t.getStackTrace()[0].getMethodName().equals("createExceptionOrNull")) {
+                            SystemServerException s = TestApis.logcat().findSystemServerException(t);
+                            if (s != null) {
+                                throw s;
+                            }
+                        }
+                    }
+
+                    throw t;
                 }
             }
         };
@@ -294,6 +403,9 @@ public final class DeviceState extends HarrierRule {
         try {
             Log.d(LOG_TAG, "Preparing state for test " + testName);
 
+            if (mOriginalSwitchedUser == null) {
+                mOriginalSwitchedUser = TestApis.users().current();
+            }
             testApps().snapshot();
             Tags.clearTags();
             Tags.addTag(Tags.USES_DEVICESTATE);
@@ -303,9 +415,20 @@ public final class DeviceState extends HarrierRule {
             // Ensure that tests only see events from the current test
             EventLogs.resetLogs();
 
+            // Avoid cached activities on screen
+            TestApis.activities().clearAllActivities();
+
             mMinSdkVersionCurrentTest = mMinSdkVersion;
             List<Annotation> annotations = getAnnotations(description);
             applyAnnotations(annotations, /* isTest= */ true);
+            String coexistenceOption = TestApis.instrumentation().arguments().getString("COEXISTENCE", "?");
+            if (coexistenceOption.equals("true")) {
+                ensureFeatureFlagEnabled(NAMESPACE_DEVICE_POLICY_MANAGER, PERMISSION_BASED_ACCESS_EXPERIMENT_FLAG);
+                ensureFeatureFlagEnabled(NAMESPACE_DEVICE_POLICY_MANAGER, ENABLE_DEVICE_POLICY_ENGINE_FLAG);
+            } else if (coexistenceOption.equals("false")) {
+                ensureFeatureFlagNotEnabled(NAMESPACE_DEVICE_POLICY_MANAGER, PERMISSION_BASED_ACCESS_EXPERIMENT_FLAG);
+                ensureFeatureFlagNotEnabled(NAMESPACE_DEVICE_POLICY_MANAGER, ENABLE_DEVICE_POLICY_ENGINE_FLAG);
+            }
 
             Log.d(LOG_TAG, "Finished preparing state for test " + testName);
 
@@ -322,9 +445,9 @@ public final class DeviceState extends HarrierRule {
 
     private void applyAnnotations(List<Annotation> annotations, boolean isTest)
             throws Throwable {
-        Log.i(LOG_TAG, "Applying annotations: " + annotations);
+        Log.d(LOG_TAG, "Applying annotations: " + annotations);
         for (Annotation annotation : annotations) {
-            Log.i(LOG_TAG, "Applying annotation " + annotation);
+            Log.v(LOG_TAG, "Applying annotation " + annotation);
 
             Class<? extends Annotation> annotationType = annotation.annotationType();
 
@@ -346,9 +469,24 @@ public final class DeviceState extends HarrierRule {
                         annotation.annotationType()
                                 .getMethod(INSTALL_INSTRUMENTED_APP).invoke(annotation);
 
+                OptionalBoolean isQuietModeEnabled = OptionalBoolean.ANY;
+
+                try {
+                    isQuietModeEnabled = (OptionalBoolean)
+                            annotation.annotationType().getMethod(
+                                    IS_QUIET_MODE_ENABLED).invoke(annotation);
+                } catch (NoSuchMethodException e) {
+                    // Expected, we default to ANY
+                }
+
                 boolean dpcIsPrimary = false;
                 boolean useParentInstance = false;
+                TestAppQueryBuilder dpcQuery = null;
                 if (ensureHasProfileAnnotation.hasProfileOwner()) {
+                    // TODO(b/206441366): Add instant app support
+                    requireNotInstantApp(
+                            "Instant Apps cannot run Enterprise Tests", FailureMode.SKIP);
+
                     dpcIsPrimary = (boolean)
                             annotation.annotationType()
                                     .getMethod(DPC_IS_PRIMARY).invoke(annotation);
@@ -360,6 +498,8 @@ public final class DeviceState extends HarrierRule {
                                                 annotation);
 
                     }
+
+                    dpcQuery = getDpcQueryFromAnnotation(annotation);
                 }
 
                 OptionalBoolean switchedToParentUser = (OptionalBoolean)
@@ -369,7 +509,19 @@ public final class DeviceState extends HarrierRule {
                 ensureHasProfile(
                         ensureHasProfileAnnotation.value(), installInstrumentedApp,
                         forUser, ensureHasProfileAnnotation.hasProfileOwner(),
-                        dpcIsPrimary, useParentInstance, switchedToParentUser);
+                        dpcIsPrimary, useParentInstance, switchedToParentUser, isQuietModeEnabled,
+                        getDpcKeyFromAnnotation(annotation, "dpcKey"), dpcQuery);
+
+                if (ensureHasProfileAnnotation.hasProfileOwner()) {
+                    if (isOrganizationOwned(annotation)) {
+                        ensureHasNoDeviceOwner(); // It doesn't make sense to have COPE + DO
+                    }
+
+                    ((ProfileOwner) profileOwner(
+                            workProfile(forUser)).devicePolicyController()).setIsOrganizationOwned(
+                            isOrganizationOwned(annotation));
+                }
+
                 continue;
             }
 
@@ -392,6 +544,61 @@ public final class DeviceState extends HarrierRule {
                 ensureHasUser(
                         ensureHasUserAnnotation.value(), installInstrumentedApp,
                         switchedToUser);
+                continue;
+            }
+
+            if (annotation instanceof EnsureDefaultContentSuggestionsServiceEnabled) {
+                EnsureDefaultContentSuggestionsServiceEnabled
+                        ensureDefaultContentSuggestionsServiceEnabledAnnotation =
+                        (EnsureDefaultContentSuggestionsServiceEnabled) annotation;
+
+                ensureDefaultContentSuggestionsServiceEnabled(
+                        ensureDefaultContentSuggestionsServiceEnabledAnnotation.onUser(),
+                        /* enabled= */ true
+                );
+                continue;
+            }
+
+            if (annotation instanceof EnsureDefaultContentSuggestionsServiceDisabled) {
+                EnsureDefaultContentSuggestionsServiceDisabled
+                        ensureDefaultContentSuggestionsServiceDisabledAnnotation =
+                        (EnsureDefaultContentSuggestionsServiceDisabled) annotation;
+
+                ensureDefaultContentSuggestionsServiceEnabled(
+                        ensureDefaultContentSuggestionsServiceDisabledAnnotation.onUser(),
+                        /* enabled= */ false
+                );
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasTestContentSuggestionsService) {
+                EnsureHasTestContentSuggestionsService
+                        ensureHasTestContentSuggestionsServiceAnnotation =
+                        (EnsureHasTestContentSuggestionsService) annotation;
+                ensureHasTestContentSuggestionsService(
+                        ensureHasTestContentSuggestionsServiceAnnotation.onUser());
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasAdditionalUser) {
+                EnsureHasAdditionalUser ensureHasAdditionalUserAnnotation =
+                        (EnsureHasAdditionalUser) annotation;
+                ensureHasAdditionalUser(
+                        ensureHasAdditionalUserAnnotation.installInstrumentedApp(),
+                        ensureHasAdditionalUserAnnotation.switchedToUser());
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasNoAdditionalUser) {
+                ensureHasNoAdditionalUser();
+                continue;
+            }
+
+            if (annotation instanceof RequireRunOnAdditionalUser) {
+                RequireRunOnAdditionalUser requireRunOnAdditionalUserAnnotation =
+                        (RequireRunOnAdditionalUser) annotation;
+                requireRunOnAdditionalUser(
+                        requireRunOnAdditionalUserAnnotation.switchedToUser());
                 continue;
             }
 
@@ -425,6 +632,7 @@ public final class DeviceState extends HarrierRule {
 
                 boolean dpcIsPrimary = false;
                 Set<String> affiliationIds = null;
+                TestAppQueryBuilder dpcQuery = null;
                 if (requireRunOnProfileAnnotation.hasProfileOwner()) {
                     dpcIsPrimary = (boolean)
                             annotation.annotationType()
@@ -432,14 +640,35 @@ public final class DeviceState extends HarrierRule {
                     affiliationIds = new HashSet<>(Arrays.asList((String[])
                             annotation.annotationType()
                                     .getMethod(AFFILIATION_IDS).invoke(annotation)));
+                    dpcQuery = getDpcQueryFromAnnotation(annotation);
                 }
 
                 requireRunOnProfile(requireRunOnProfileAnnotation.value(),
                         installInstrumentedAppInParent,
                         requireRunOnProfileAnnotation.hasProfileOwner(),
                         dpcIsPrimary, /* useParentInstance= */ false,
-                        switchedToParentUser, affiliationIds);
+                        switchedToParentUser, affiliationIds,
+                        getDpcKeyFromAnnotation(annotation, "dpcKey"), dpcQuery);
+
+                if (requireRunOnProfileAnnotation.hasProfileOwner()) {
+                    if (isOrganizationOwned(annotation)) {
+                        ensureHasNoDeviceOwner(); // It doesn't make sense to have COPE + DO
+                    }
+
+                    ((ProfileOwner) profileOwner(
+                            workProfile()).devicePolicyController()).setIsOrganizationOwned(
+                            isOrganizationOwned(annotation));
+                }
+
                 continue;
+            }
+
+            if (annotation instanceof AdditionalQueryParameters) {
+                AdditionalQueryParameters additionalQueryParametersAnnotation =
+                        (AdditionalQueryParameters) annotation;
+                mAdditionalQueryParameters.put(
+                        additionalQueryParametersAnnotation.forTestApp(),
+                        additionalQueryParametersAnnotation.query());
             }
 
             if (annotation instanceof EnsureTestAppInstalled) {
@@ -447,7 +676,7 @@ public final class DeviceState extends HarrierRule {
                         (EnsureTestAppInstalled) annotation;
                 ensureTestAppInstalled(
                         ensureTestAppInstalledAnnotation.key(),
-                        ensureTestAppInstalledAnnotation.packageName(),
+                        ensureTestAppInstalledAnnotation.query(),
                         ensureTestAppInstalledAnnotation.onUser(),
                         ensureTestAppInstalledAnnotation.isPrimary()
                 );
@@ -461,7 +690,19 @@ public final class DeviceState extends HarrierRule {
                         ensureTestAppHasPermissionAnnotation.testAppKey(),
                         ensureTestAppHasPermissionAnnotation.value(),
                         ensureTestAppHasPermissionAnnotation.minVersion(),
-                        ensureTestAppHasPermissionAnnotation.maxVersion()
+                        ensureTestAppHasPermissionAnnotation.maxVersion(),
+                        ensureTestAppHasPermissionAnnotation.failureMode()
+                );
+                continue;
+            }
+
+            if (annotation instanceof EnsureTestAppDoesNotHavePermission) {
+                EnsureTestAppDoesNotHavePermission ensureTestAppDoesNotHavePermissionAnnotation =
+                        (EnsureTestAppDoesNotHavePermission) annotation;
+                ensureTestAppDoesNotHavePermission(
+                        ensureTestAppDoesNotHavePermissionAnnotation.testAppKey(),
+                        ensureTestAppDoesNotHavePermissionAnnotation.value(),
+                        ensureTestAppDoesNotHavePermissionAnnotation.failureMode()
                 );
                 continue;
             }
@@ -488,15 +729,28 @@ public final class DeviceState extends HarrierRule {
                 continue;
             }
 
+            if (annotation instanceof EnsureHasDevicePolicyManagerRoleHolder) {
+                EnsureHasDevicePolicyManagerRoleHolder ensureHasDevicePolicyManagerRoleHolder =
+                        (EnsureHasDevicePolicyManagerRoleHolder) annotation;
+                ensureHasDevicePolicyManagerRoleHolder(
+                        ensureHasDevicePolicyManagerRoleHolder.onUser(),
+                        ensureHasDevicePolicyManagerRoleHolder.isPrimary());
+            }
+
 
             if (annotation instanceof EnsureHasDeviceOwner) {
                 EnsureHasDeviceOwner ensureHasDeviceOwnerAnnotation =
                         (EnsureHasDeviceOwner) annotation;
+
                 ensureHasDeviceOwner(ensureHasDeviceOwnerAnnotation.failureMode(),
                         ensureHasDeviceOwnerAnnotation.isPrimary(),
+                        ensureHasDeviceOwnerAnnotation.headlessDeviceOwnerType(),
                         new HashSet<>(
                                 Arrays.asList(
-                                        ensureHasDeviceOwnerAnnotation.affiliationIds())));
+                                        ensureHasDeviceOwnerAnnotation.affiliationIds())),
+                        ensureHasDeviceOwnerAnnotation.type(),
+                        getDpcKeyFromAnnotation(annotation, "key"),
+                        getDpcQueryFromAnnotation(annotation));
                 continue;
             }
 
@@ -536,7 +790,9 @@ public final class DeviceState extends HarrierRule {
                         ensureHasProfileOwnerAnnotation.isPrimary(),
                         ensureHasProfileOwnerAnnotation.useParentInstance(),
                         new HashSet<>(Arrays.asList(
-                                ensureHasProfileOwnerAnnotation.affiliationIds())));
+                                ensureHasProfileOwnerAnnotation.affiliationIds())),
+                        ensureHasProfileOwnerAnnotation.key(),
+                        getDpcQueryFromAnnotation(annotation));
                 continue;
             }
 
@@ -569,6 +825,62 @@ public final class DeviceState extends HarrierRule {
                         (RequireNotLowRamDevice) annotation;
                 requireNotLowRamDevice(requireNotLowRamDeviceAnnotation.reason(),
                         requireNotLowRamDeviceAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireVisibleBackgroundUsers) {
+                RequireVisibleBackgroundUsers castedAnnotation =
+                        (RequireVisibleBackgroundUsers) annotation;
+                requireVisibleBackgroundUsersSupported(castedAnnotation.reason(),
+                        castedAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireNotVisibleBackgroundUsers) {
+                RequireNotVisibleBackgroundUsers castedAnnotation =
+                        (RequireNotVisibleBackgroundUsers) annotation;
+                requireVisibleBackgroundUsersNotSupported(castedAnnotation.reason(),
+                        castedAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireVisibleBackgroundUsersOnDefaultDisplay) {
+                RequireVisibleBackgroundUsersOnDefaultDisplay castedAnnotation =
+                        (RequireVisibleBackgroundUsersOnDefaultDisplay) annotation;
+                requireVisibleBackgroundUsersOnDefaultDisplaySupported(castedAnnotation.reason(),
+                        castedAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireNotVisibleBackgroundUsersOnDefaultDisplay) {
+                RequireNotVisibleBackgroundUsersOnDefaultDisplay castedAnnotation =
+                        (RequireNotVisibleBackgroundUsersOnDefaultDisplay) annotation;
+                requireVisibleBackgroundUsersOnDefaultDisplayNotSupported(castedAnnotation.reason(),
+                        castedAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireRunOnVisibleBackgroundNonProfileUser) {
+                if (!isNonProfileUserRunningVisibleOnBackground()) {
+                    failOrSkip("Test only runs non-profile user that's running visible in the "
+                            + "background", FailureMode.SKIP);
+                }
+                continue;
+            }
+
+            if (annotation instanceof RequireRunNotOnVisibleBackgroundNonProfileUser) {
+                if (isNonProfileUserRunningVisibleOnBackground()) {
+                    failOrSkip("Test cannot run on non-profile user that's running visible in the "
+                            + "background", FailureMode.SKIP);
+                }
+                continue;
+            }
+
+            if (annotation instanceof RequireSystemServiceAvailable) {
+                RequireSystemServiceAvailable requireSystemServiceAvailableAnnotation =
+                        (RequireSystemServiceAvailable) annotation;
+                requireSystemServiceAvailable(requireSystemServiceAvailableAnnotation.value(),
+                        requireSystemServiceAvailableAnnotation.failureMode());
                 continue;
             }
 
@@ -636,12 +948,17 @@ public final class DeviceState extends HarrierRule {
             }
 
             if (annotation instanceof RequireNotHeadlessSystemUserMode) {
-                requireNotHeadlessSystemUserMode();
+                RequireNotHeadlessSystemUserMode requireNotHeadlessSystemUserModeAnnotation =
+                        (RequireNotHeadlessSystemUserMode) annotation;
+                requireNotHeadlessSystemUserMode(
+                        requireNotHeadlessSystemUserModeAnnotation.reason());
                 continue;
             }
 
             if (annotation instanceof RequireHeadlessSystemUserMode) {
-                requireHeadlessSystemUserMode();
+                RequireHeadlessSystemUserMode requireHeadlessSystemUserModeAnnotation =
+                        (RequireHeadlessSystemUserMode) annotation;
+                requireHeadlessSystemUserMode(requireHeadlessSystemUserModeAnnotation.reason());
                 continue;
             }
 
@@ -780,12 +1097,255 @@ public final class DeviceState extends HarrierRule {
                 continue;
             }
 
+            if (annotation instanceof EnsureWifiEnabled) {
+                ensureWifiEnabled();
+                continue;
+            }
+
+            if (annotation instanceof EnsureWifiDisabled) {
+                ensureWifiDisabled();
+                continue;
+            }
+
+            if (annotation instanceof EnsureSecureSettingSet) {
+                EnsureSecureSettingSet ensureSecureSettingSetAnnotation =
+                        (EnsureSecureSettingSet) annotation;
+                ensureSecureSettingSet(
+                        ensureSecureSettingSetAnnotation.onUser(),
+                        ensureSecureSettingSetAnnotation.key(),
+                        ensureSecureSettingSetAnnotation.value());
+                continue;
+            }
+
             if (annotation instanceof EnsureGlobalSettingSet) {
                 EnsureGlobalSettingSet ensureGlobalSettingSetAnnotation =
                         (EnsureGlobalSettingSet) annotation;
                 ensureGlobalSettingSet(
                         ensureGlobalSettingSetAnnotation.key(),
                         ensureGlobalSettingSetAnnotation.value());
+                continue;
+            }
+
+            if (annotation instanceof RequireMultiUserSupport) {
+                RequireMultiUserSupport requireMultiUserSupportAnnotation =
+                        (RequireMultiUserSupport) annotation;
+                requireMultiUserSupport(requireMultiUserSupportAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireHasPolicyExemptApps) {
+                RequireHasPolicyExemptApps requireHasPolicyExemptAppsAnnotation =
+                        (RequireHasPolicyExemptApps) annotation;
+                requireHasPolicyExemptApps(requireHasPolicyExemptAppsAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireInstantApp) {
+                RequireInstantApp requireInstantAppAnnotation =
+                        (RequireInstantApp) annotation;
+                requireInstantApp(requireInstantAppAnnotation.reason(),
+                        requireInstantAppAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireNotInstantApp) {
+                RequireNotInstantApp requireNotInstantAppAnnotation =
+                        (RequireNotInstantApp) annotation;
+                requireNotInstantApp(requireNotInstantAppAnnotation.reason(),
+                        requireNotInstantAppAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof EnsureCanAddUser) {
+                EnsureCanAddUser ensureCanAddUserAnnotation = (EnsureCanAddUser) annotation;
+                ensureCanAddUser(
+                        ensureCanAddUserAnnotation.number(),
+                        ensureCanAddUserAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireFeatureFlagEnabled) {
+                RequireFeatureFlagEnabled requireFeatureFlagEnabledAnnotation =
+                        (RequireFeatureFlagEnabled) annotation;
+                requireFeatureFlagEnabled(
+                        requireFeatureFlagEnabledAnnotation.namespace(),
+                        requireFeatureFlagEnabledAnnotation.key(),
+                        requireFeatureFlagEnabledAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof EnsureFeatureFlagEnabled) {
+                EnsureFeatureFlagEnabled ensureFeatureFlagEnabledAnnotation =
+                        (EnsureFeatureFlagEnabled) annotation;
+                ensureFeatureFlagEnabled(
+                        ensureFeatureFlagEnabledAnnotation.namespace(),
+                        ensureFeatureFlagEnabledAnnotation.key());
+                continue;
+            }
+
+            if (annotation instanceof RequireFeatureFlagNotEnabled) {
+                RequireFeatureFlagNotEnabled requireFeatureFlagNotEnabledAnnotation =
+                        (RequireFeatureFlagNotEnabled) annotation;
+                requireFeatureFlagNotEnabled(
+                        requireFeatureFlagNotEnabledAnnotation.namespace(),
+                        requireFeatureFlagNotEnabledAnnotation.key(),
+                        requireFeatureFlagNotEnabledAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof EnsureFeatureFlagNotEnabled) {
+                EnsureFeatureFlagNotEnabled ensureFeatureFlagNotEnabledAnnotation =
+                        (EnsureFeatureFlagNotEnabled) annotation;
+                ensureFeatureFlagNotEnabled(
+                        ensureFeatureFlagNotEnabledAnnotation.namespace(),
+                        ensureFeatureFlagNotEnabledAnnotation.key());
+                continue;
+            }
+
+            if (annotation instanceof RequireFeatureFlagValue) {
+                RequireFeatureFlagValue requireFeatureFlagValueAnnotation =
+                        (RequireFeatureFlagValue) annotation;
+                requireFeatureFlagValue(
+                        requireFeatureFlagValueAnnotation.namespace(),
+                        requireFeatureFlagValueAnnotation.key(),
+                        requireFeatureFlagValueAnnotation.value(),
+                        requireFeatureFlagValueAnnotation.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof EnsureFeatureFlagValue) {
+                EnsureFeatureFlagValue ensureFeatureFlagValueAnnotation =
+                        (EnsureFeatureFlagValue) annotation;
+                ensureFeatureFlagValue(
+                        ensureFeatureFlagValueAnnotation.namespace(),
+                        ensureFeatureFlagValueAnnotation.key(),
+                        ensureFeatureFlagValueAnnotation.value());
+                continue;
+            }
+
+            UsesAnnotationExecutor usesAnnotationExecutorAnnotation =
+                    annotationType.getAnnotation(UsesAnnotationExecutor.class);
+            if (usesAnnotationExecutorAnnotation != null) {
+                AnnotationExecutor executor =
+                        getAnnotationExecutor(usesAnnotationExecutorAnnotation.value());
+                executor.applyAnnotation(annotation);
+                continue;
+            }
+
+
+            if (annotation instanceof EnsureHasAccountAuthenticator) {
+                EnsureHasAccountAuthenticator ensureHasAccountAuthenticatorAnnotation =
+                        (EnsureHasAccountAuthenticator) annotation;
+                ensureHasAccountAuthenticator(ensureHasAccountAuthenticatorAnnotation.onUser());
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasAccount) {
+                EnsureHasAccount ensureHasAccountAnnotation =
+                        (EnsureHasAccount) annotation;
+                ensureHasAccount(
+                        ensureHasAccountAnnotation.onUser(),
+                        ensureHasAccountAnnotation.key(),
+                        ensureHasAccountAnnotation.features());
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasAccounts) {
+                EnsureHasAccounts ensureHasAccountsAnnotation =
+                        (EnsureHasAccounts) annotation;
+                ensureHasAccounts(ensureHasAccountsAnnotation.value());
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasNoAccounts) {
+                EnsureHasNoAccounts ensureHasNoAccountsAnnotation =
+                        (EnsureHasNoAccounts) annotation;
+                ensureHasNoAccounts(ensureHasNoAccountsAnnotation.onUser());
+                continue;
+            }
+
+            if (annotation instanceof EnsureHasUserRestriction) {
+                EnsureHasUserRestriction ensureHasUserRestrictionAnnotation =
+                        (EnsureHasUserRestriction) annotation;
+                ensureHasUserRestriction(
+                        ensureHasUserRestrictionAnnotation.value(),
+                        ensureHasUserRestrictionAnnotation.onUser());
+                continue;
+            }
+
+            if (annotation instanceof EnsureDoesNotHaveUserRestriction) {
+                EnsureDoesNotHaveUserRestriction ensureDoesNotHaveUserRestrictionAnnotation =
+                        (EnsureDoesNotHaveUserRestriction) annotation;
+                ensureDoesNotHaveUserRestriction(
+                        ensureDoesNotHaveUserRestrictionAnnotation.value(),
+                        ensureDoesNotHaveUserRestrictionAnnotation.onUser());
+                continue;
+            }
+
+            if (annotation instanceof RequireQuickSettingsSupport) {
+                RequireQuickSettingsSupport requireQuickSettingsSupport =
+                        (RequireQuickSettingsSupport) annotation;
+                checkFailOrSkip("Device does not have quick settings",
+                        TileService.isQuickSettingsSupported(),
+                        requireQuickSettingsSupport.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof RequireTelephonySupport) {
+                RequireTelephonySupport requireTelephonySupport =
+                        (RequireTelephonySupport) annotation;
+                checkFailOrSkip("Device does not have telephony support",
+                        mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
+                        requireTelephonySupport.failureMode());
+                continue;
+            }
+
+            if (annotation instanceof MostImportantCoexistenceTest) {
+                mTestApps.put(MostImportantCoexistenceTest.MORE_IMPORTANT, deviceOwner());
+
+                MostImportantCoexistenceTest mostImportantCoexistenceTestAnnotation =
+                        (MostImportantCoexistenceTest) annotation;
+                EnterprisePolicy[] policies =
+                        mostImportantCoexistenceTestAnnotation.policy()
+                                .getAnnotationsByType(EnterprisePolicy.class);
+
+                if (policies[0].permissions().length != 1) {
+                    throw new IllegalStateException(
+                            "Cannot use MostImportantCoexistenceTest for policies which have"
+                                    + " 0 or 2+ permissions");
+                }
+
+                String[] permission = new String[]{policies[0].permissions()[0].appliedWith()};
+
+                ensureTestAppHasPermission(MostImportantCoexistenceTest.MORE_IMPORTANT, permission,
+                        0, Integer.MAX_VALUE, FailureMode.SKIP);
+                ensureTestAppHasPermission(MostImportantCoexistenceTest.LESS_IMPORTANT, permission,
+                        0, Integer.MAX_VALUE, FailureMode.SKIP);
+
+                continue;
+            }
+
+            if (annotation instanceof MostRestrictiveCoexistenceTest) {
+                MostRestrictiveCoexistenceTest mostRestrictiveCoexistenceTestAnnotation =
+                        (MostRestrictiveCoexistenceTest) annotation;
+                EnterprisePolicy[] policies =
+                        mostRestrictiveCoexistenceTestAnnotation.policy()
+                                .getAnnotationsByType(EnterprisePolicy.class);
+
+                if (policies[0].permissions().length != 1) {
+                    throw new IllegalStateException(
+                            "Cannot use MostRestrictiveCoexistenceTest for policies which have "
+                                    + "0 or 2+ permissions");
+                }
+
+                String[] permission = new String[]{policies[0].permissions()[0].appliedWith()};
+
+                ensureTestAppHasPermission(MostRestrictiveCoexistenceTest.DPC_1, permission,
+                        0, Integer.MAX_VALUE, FailureMode.SKIP);
+                ensureTestAppHasPermission(MostRestrictiveCoexistenceTest.DPC_2, permission,
+                        0, Integer.MAX_VALUE, FailureMode.SKIP);
+
+                continue;
             }
         }
 
@@ -795,6 +1355,36 @@ public final class DeviceState extends HarrierRule {
         if (isTest && mPermissionsInstrumentationPackage != null
                 && !mHasRequirePermissionInstrumentation) {
             requireNoPermissionsInstrumentation("No reason to use instrumentation");
+        }
+    }
+
+    private static TestAppQueryBuilder defaultDpcQuery() {
+        return new TestAppProvider().query()
+                .wherePackageName().isEqualTo(RemoteDpc.REMOTE_DPC_APP_PACKAGE_NAME_OR_PREFIX);
+    }
+
+    private static TestAppQueryBuilder getDpcQueryFromAnnotation(Annotation annotation) {
+        try {
+            Method queryMethod = annotation.annotationType().getMethod("dpc");
+            Query query = (Query) queryMethod.invoke(annotation);
+            TestAppQueryBuilder queryBuilder = new TestAppProvider().query(query);
+
+            return queryBuilder;
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            Log.i(LOG_TAG, "Unable to get dpc query value for "
+                    + annotation.annotationType().getName(), e);
+        }
+        return new TestAppProvider().query(); // No dpc specified - use any
+    }
+
+    private static String getDpcKeyFromAnnotation(Annotation annotation, String keyName) {
+        try {
+            Method keyMethod = annotation.annotationType().getMethod(keyName);
+            return (String) keyMethod.invoke(annotation);
+        } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+            Log.i(LOG_TAG, "Unable to get dpc key (" + keyName + ") value for "
+                    + annotation.annotationType().getName(), e);
+            return null;
         }
     }
 
@@ -817,7 +1407,7 @@ public final class DeviceState extends HarrierRule {
 
         checkAnnotations(annotations);
 
-        BedsteadJUnit4.resolveRecursiveAnnotations(annotations,
+        BedsteadJUnit4.resolveRecursiveAnnotations(this, annotations,
                 /* parameterizedAnnotation= */ null);
 
         checkAnnotations(annotations);
@@ -826,6 +1416,9 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void checkAnnotations(Collection<Annotation> annotations) {
+        if (mUsingBedsteadJUnit4) {
+            return;
+        }
         for (Annotation annotation : annotations) {
             if (annotation.annotationType().getAnnotation(RequiresBedsteadJUnit4.class) != null
                     || annotation.annotationType().getAnnotation(
@@ -848,8 +1441,12 @@ public final class DeviceState extends HarrierRule {
                 PermissionContextImpl permissionContext = null;
 
                 if (mSkipTests || mFailTests) {
-                    Log.d(LOG_TAG, "Skipping suite setup and teardown due to skipTests: "
-                            + mSkipTests + ", failTests: " + mFailTests);
+                    Log.d(
+                            LOG_TAG,
+                            "Skipping suite setup and teardown due to skipTests: "
+                                    + mSkipTests
+                                    + ", failTests: "
+                                    + mFailTests);
                     base.evaluate();
                     return;
                 }
@@ -862,17 +1459,21 @@ public final class DeviceState extends HarrierRule {
                     Tags.addTag(Tags.INSTANT_APP);
                 }
 
+                boolean originalFlagSyncEnabled = TestApis.flags().getFlagSyncEnabled();
+
                 try {
                     TestApis.device().keepScreenOn(true);
+                    if (Versions.meetsMinimumSdkVersionRequirement(T)) {
+                        TestApis.flags().setFlagSyncEnabled(false);
+                    }
 
                     if (!Tags.hasTag(Tags.INSTANT_APP)) {
                         TestApis.device().setKeyguardEnabled(false);
                     }
-                    TestApis.users().setStopBgUsersOnSwitch(STOP_USER_ON_SWITCH_FALSE);
+                    TestApis.users().setStopBgUsersOnSwitch(OptionalBoolean.FALSE);
 
                     try {
-                        List<Annotation> annotations =
-                                new ArrayList<>(getAnnotations(description));
+                        List<Annotation> annotations = new ArrayList<>(getAnnotations(description));
                         applyAnnotations(annotations, /* isTest= */ false);
                     } catch (AssumptionViolatedException e) {
                         Log.i(LOG_TAG, "Assumption failed during class setup", e);
@@ -884,9 +1485,9 @@ public final class DeviceState extends HarrierRule {
                         mFailTestsReason = e.getMessage();
                     }
 
-                    Log.d(LOG_TAG,
-                            "Finished preparing state for suite "
-                                    + description.getClassName());
+                    Log.d(
+                            LOG_TAG,
+                            "Finished preparing state for suite " + description.getClassName());
 
                     if (!mSkipTests && !mFailTests) {
                         // Tests may be skipped during the class setup
@@ -908,8 +1509,12 @@ public final class DeviceState extends HarrierRule {
                     if (!Tags.hasTag(Tags.INSTANT_APP)) {
                         TestApis.device().setKeyguardEnabled(true);
                     }
-                    TestApis.device().keepScreenOn(false);
-                    TestApis.users().setStopBgUsersOnSwitch(STOP_USER_ON_SWITCH_DEFAULT);
+                    // TODO(b/249710985): Reset to the default for the device or the previous value
+                    // TestApis.device().keepScreenOn(false);
+                    TestApis.users().setStopBgUsersOnSwitch(OptionalBoolean.ANY);
+                    if (Versions.meetsMinimumSdkVersionRequirement(T)) {
+                        TestApis.flags().setFlagSyncEnabled(originalFlagSyncEnabled);
+                    }
                 }
             }
         };
@@ -982,6 +1587,17 @@ public final class DeviceState extends HarrierRule {
         }
     }
 
+    private void requireRunOnAdditionalUser(OptionalBoolean switchedToUser) {
+        requireRunOnUser(new String[]{SECONDARY_USER_TYPE_NAME}, switchedToUser);
+
+        if (TestApis.users().isHeadlessSystemUserMode()) {
+            if (TestApis.users().instrumented().equals(TestApis.users().initial())) {
+                throw new AssumptionViolatedException(
+                        "This test requires running on an additional secondary user");
+            }
+        }
+    }
+
     private void requireRunOnUser(String[] userTypes, OptionalBoolean switchedToUser) {
         UserReference instrumentedUser = TestApis.users().instrumented();
 
@@ -991,13 +1607,33 @@ public final class DeviceState extends HarrierRule {
 
         mUsers.put(instrumentedUser.type(), instrumentedUser);
 
+        if (switchedToUser == OptionalBoolean.ANY) {
+            if (!mAnnotationHasSwitchedUser && instrumentedUser.canBeSwitchedTo()) {
+                switchedToUser = OptionalBoolean.TRUE;
+            }
+        }
+
+        if (switchedToUser == OptionalBoolean.TRUE && !instrumentedUser.canBeSwitchedTo()) {
+            if (TestApis.users().isHeadlessSystemUserMode()
+                    && instrumentedUser.equals(TestApis.users().system())) {
+                throw new IllegalStateException(
+                        "Cannot switch to system user on headless devices. "
+                                + "Either add @RequireNotHeadlessSystemUserMode, or specify "
+                                + "switchedToUser=ANY");
+            } else {
+                throw new IllegalStateException(
+                        "Not permitted to switch to user " + instrumentedUser + "(" + instrumentedUser.getSwitchToUserError() + ")");
+            }
+        }
+
         ensureSwitchedToUser(switchedToUser, instrumentedUser);
     }
 
     private void requireRunOnProfile(String userType,
             OptionalBoolean installInstrumentedAppInParent,
             boolean hasProfileOwner, boolean dpcIsPrimary, boolean useParentInstance,
-            OptionalBoolean switchedToParentUser, Set<String> affiliationIds) {
+            OptionalBoolean switchedToParentUser, Set<String> affiliationIds,
+            String dpcKey, TestAppQueryBuilder dpcQuery) {
         UserReference instrumentedUser = TestApis.users().instrumented();
 
         assumeTrue("This test only runs on users of type " + userType,
@@ -1020,7 +1656,7 @@ public final class DeviceState extends HarrierRule {
 
         if (hasProfileOwner) {
             ensureHasProfileOwner(
-                    instrumentedUser, dpcIsPrimary, useParentInstance, affiliationIds);
+                    instrumentedUser, dpcIsPrimary, useParentInstance, affiliationIds, dpcKey, dpcQuery);
         } else {
             ensureHasNoProfileOwner(instrumentedUser);
         }
@@ -1030,8 +1666,10 @@ public final class DeviceState extends HarrierRule {
 
     private void ensureSwitchedToUser(OptionalBoolean switchedtoUser, UserReference user) {
         if (switchedtoUser.equals(OptionalBoolean.TRUE)) {
+            mAnnotationHasSwitchedUser = true;
             switchToUser(user);
         } else if (switchedtoUser.equals(OptionalBoolean.FALSE)) {
+            mAnnotationHasSwitchedUser = true;
             switchFromUser(user);
         }
     }
@@ -1115,26 +1753,6 @@ public final class DeviceState extends HarrierRule {
         return resolvedUserType;
     }
 
-    private void checkFailOrSkip(String message, boolean value, FailureMode failureMode) {
-        if (failureMode.equals(FailureMode.FAIL)) {
-            assertWithMessage(message).that(value).isTrue();
-        } else if (failureMode.equals(FailureMode.SKIP)) {
-            assumeTrue(message, value);
-        } else {
-            throw new IllegalStateException("Unknown failure mode: " + failureMode);
-        }
-    }
-
-    private void failOrSkip(String message, FailureMode failureMode) {
-        if (failureMode.equals(FailureMode.FAIL)) {
-            throw new AssertionError(message);
-        } else if (failureMode.equals(FailureMode.SKIP)) {
-            throw new AssumptionViolatedException(message);
-        } else {
-            throw new IllegalStateException("Unknown failure mode: " + failureMode);
-        }
-    }
-
     private static final String LOG_TAG = "DeviceState";
 
     private static final Context sContext = TestApis.context().instrumentedContext();
@@ -1147,21 +1765,39 @@ public final class DeviceState extends HarrierRule {
     private Map<UserReference, DevicePolicyController> mProfileOwners = new HashMap<>();
     private RemotePolicyManager mDelegateDpc;
     private RemotePolicyManager mPrimaryPolicyManager;
+    private RemoteDevicePolicyManagerRoleHolder mDevicePolicyManagerRoleHolder;
     private UserType mOtherUserType;
 
     private PermissionContextImpl mPermissionContext = null;
+    private Map<UserReference, Set<String>> mAddedUserRestrictions = new HashMap<>();
+    private Map<UserReference, Set<String>> mRemovedUserRestrictions = new HashMap<>();
     private final List<UserReference> mCreatedUsers = new ArrayList<>();
     private final List<RemovedUser> mRemovedUsers = new ArrayList<>();
     private final List<UserReference> mUsersSetPasswords = new ArrayList<>();
     private final List<BlockingBroadcastReceiver> mRegisteredBroadcastReceivers = new ArrayList<>();
     private boolean mHasChangedDeviceOwner = false;
     private DevicePolicyController mOriginalDeviceOwner;
+    private Integer mOriginalDeviceOwnerType;
+    private boolean mHasChangedDeviceOwnerType;
     private Map<UserReference, DevicePolicyController> mChangedProfileOwners = new HashMap<>();
     private UserReference mOriginalSwitchedUser;
     private Boolean mOriginalBluetoothEnabled;
+    private Boolean mOriginalWifiEnabled;
+    private Map<String, Map<String, String>> mOriginalFlagValues = new HashMap<>();
     private TestAppProvider mTestAppProvider = new TestAppProvider();
     private Map<String, TestAppInstance> mTestApps = new HashMap<>();
     private final Map<String, String> mOriginalGlobalSettings = new HashMap<>();
+    private Map<String, Query> mAdditionalQueryParameters = new HashMap<>();
+    private final Map<UserReference, Boolean> mOriginalDefaultContentSuggestionsServiceEnabled =
+            new HashMap<>();
+    private final Set<UserReference> mTemporaryContentSuggestionsServiceSet =
+            new HashSet<>();
+    private final Map<UserReference, Map<String, String>> mOriginalSecureSettings = new HashMap<>();
+    private boolean mAnnotationHasSwitchedUser = false;
+    private final Set<AccountReference> mCreatedAccounts = new HashSet<>();
+    private Map<String, AccountReference> mAccounts = new HashMap<>();
+    private final Map<UserReference, RemoteAccountAuthenticator> mAccountAuthenticators =
+            new HashMap<>();
 
     private static final class RemovedUser {
         // Store the user builder so we can recreate the user later
@@ -1178,7 +1814,7 @@ public final class DeviceState extends HarrierRule {
     }
 
     /**
-     * Get the {@link UserReference} of the work profile for the primary user.
+     * Get the {@link UserReference} of the work profile for the initial user.
      *
      * <p>If the current user is a work profile, then the current user will be returned.
      *
@@ -1188,8 +1824,7 @@ public final class DeviceState extends HarrierRule {
      * @throws IllegalStateException if there is no harrier-managed work profile
      */
     public UserReference workProfile() {
-        // Work profiles are currently only supported on the primary user
-        return workProfile(/* forUser= */ UserType.PRIMARY_USER);
+        return workProfile(/* forUser= */ UserType.INITIAL_USER);
     }
 
     /**
@@ -1333,8 +1968,56 @@ public final class DeviceState extends HarrierRule {
     }
 
     /**
-     * Get the user ID of the first human user on the device.
+     * Get the {@link UserReference} of the clone profile for the current user
+     *
+     * <p>This should only be used to get clone profiles managed by Harrier (using either the
+     * annotations or calls to the {@link DeviceState} class.
+     *
+     * @throws IllegalStateException if there is no harrier-managed clone profile
      */
+    public UserReference cloneProfile() {
+        return cloneProfile(/* forUser= */ UserType.INITIAL_USER);
+    }
+
+    /**
+     * Get the {@link UserReference} of the clone profile.
+     *
+     * <p>This should only be used to get clone profiles managed by Harrier (using either the
+     * annotations or calls to the {@link DeviceState} class.
+     *
+     * @throws IllegalStateException if there is no harrier-managed clone profile
+     */
+    public UserReference cloneProfile(UserType forUser) {
+        return cloneProfile(resolveUserTypeToUser(forUser));
+    }
+
+    /**
+     * Get the {@link UserReference} of the clone profile.
+     *
+     * <p>This should only be used to get clone profiles managed by Harrier (using either the
+     * annotations or calls to the {@link DeviceState} class.
+     *
+     * @throws IllegalStateException if there is no harrier-managed clone profile
+     */
+    public UserReference cloneProfile(UserReference forUser) {
+        return profile(CLONE_PROFILE_TYPE_NAME, forUser);
+    }
+
+    /**
+     * Gets the user ID of the initial user.
+     */
+    // TODO(b/249047658): cache the initial user at the start of the run.
+    public UserReference initialUser() {
+        return TestApis.users().initial();
+    }
+
+    /**
+     * Gets the user ID of the first human user on the device.
+     *
+     * @deprecated Use {@link #initialUser()} to ensure compatibility with Headless System User
+     * Mode devices.
+     */
+    @Deprecated
     public UserReference primaryUser() {
         return TestApis.users().all()
                 .stream().filter(UserReference::isPrimary).findFirst()
@@ -1354,7 +2037,7 @@ public final class DeviceState extends HarrierRule {
     }
 
     /**
-     * Get the user marked as "other" by use of the {@code @OtherUser} annotation.
+     * Gets the user marked as "other" by use of the {@code @OtherUser} annotation.
      *
      * @throws IllegalStateException if there is no "other" user
      */
@@ -1403,7 +2086,7 @@ public final class DeviceState extends HarrierRule {
             throw new IllegalStateException(
                     "No harrier-managed user of type " + userType
                             + ". This method should only be"
-                            + "used when Harrier has been used to create the user.");
+                            + " used when Harrier has been used to create the user.");
         }
 
         return mUsers.get(userType);
@@ -1416,7 +2099,10 @@ public final class DeviceState extends HarrierRule {
             boolean hasProfileOwner,
             boolean profileOwnerIsPrimary,
             boolean useParentInstance,
-            OptionalBoolean switchedToParentUser) {
+            OptionalBoolean switchedToParentUser,
+            OptionalBoolean isQuietModeEnabled,
+            String dpcKey,
+            TestAppQueryBuilder dpcQuery) {
         com.android.bedstead.nene.users.UserType resolvedUserType =
                 requireUserSupported(profileType, FailureMode.SKIP);
 
@@ -1426,14 +2112,26 @@ public final class DeviceState extends HarrierRule {
                 TestApis.users().findProfileOfType(resolvedUserType, forUserReference);
         if (profile == null) {
             if (profileType.equals(MANAGED_PROFILE_TYPE_NAME)) {
+                // TODO(b/239961027): either remove this check (once tests on UserManagerTest /
+                // MultipleUsersOnMultipleDisplaysTest uses non-work profiles) or add a unit test
+                // for it on DeviceStateTest
+                requireFeature(FEATURE_MANAGED_USERS, FailureMode.SKIP);
+
                 // DO + work profile isn't a valid state
                 ensureHasNoDeviceOwner();
+                ensureDoesNotHaveUserRestriction(DISALLOW_ADD_MANAGED_PROFILE, forUserReference);
             }
 
             profile = createProfile(resolvedUserType, forUserReference);
         }
 
         profile.start();
+
+        if (isQuietModeEnabled == OptionalBoolean.TRUE) {
+            profile.setQuietMode(true);
+        } else if (isQuietModeEnabled == OptionalBoolean.FALSE) {
+            profile.setQuietMode(false);
+        }
 
         if (installInstrumentedApp.equals(OptionalBoolean.TRUE)) {
             TestApis.packages().find(sContext.getPackageName()).installExisting(
@@ -1451,8 +2149,10 @@ public final class DeviceState extends HarrierRule {
         if (hasProfileOwner) {
             ensureHasProfileOwner(
                     profile, profileOwnerIsPrimary,
-                    useParentInstance, /* affiliationIds= */
-                    null);
+                    useParentInstance,
+                    /* affiliationIds= */ null,
+                    dpcKey,
+                    dpcQuery);
         }
 
         ensureSwitchedToUser(switchedToParentUser, forUserReference);
@@ -1475,6 +2175,12 @@ public final class DeviceState extends HarrierRule {
                         resolvedProfileType,
                         forUserReference);
         if (profile != null) {
+            // We can't remove an organization owned profile
+            ProfileOwner profileOwner = TestApis.devicePolicy().getProfileOwner(profile);
+            if (profileOwner != null && profileOwner.isOrganizationOwned()) {
+                profileOwner.setIsOrganizationOwned(false);
+            }
+
             removeAndRecordUser(profile);
         }
     }
@@ -1501,6 +2207,46 @@ public final class DeviceState extends HarrierRule {
         ensureSwitchedToUser(switchedToUser, user);
 
         mUsers.put(resolvedUserType, user);
+    }
+
+    private void ensureHasNoAdditionalUser() {
+        UserReference additionalUser = additionalUserOrNull();
+        while (additionalUser != null) {
+            if (TestApis.users().instrumented().equals(additionalUser)) {
+                throw new AssumptionViolatedException("Tests with @EnsureHasNoAdditionalUser cannot"
+                        + "run on an additional user");
+            }
+            ensureSwitchedToUser(OptionalBoolean.FALSE, additionalUser);
+
+            additionalUser.remove();
+
+            additionalUser = additionalUserOrNull();
+        }
+    }
+
+    private void ensureHasAdditionalUser(
+            OptionalBoolean installInstrumentedApp, OptionalBoolean switchedToUser) {
+        if (TestApis.users().isHeadlessSystemUserMode()) {
+            com.android.bedstead.nene.users.UserType resolvedUserType =
+                    requireUserSupported(SECONDARY_USER_TYPE_NAME, FailureMode.SKIP);
+
+            Collection<UserReference> users = TestApis.users().findUsersOfType(resolvedUserType);
+            if (users.size() < 2) {
+                createUser(resolvedUserType);
+            }
+
+            UserReference user = additionalUser();
+
+            if (installInstrumentedApp.equals(OptionalBoolean.TRUE)) {
+                TestApis.packages().find(sContext.getPackageName()).installExisting(user);
+            } else if (installInstrumentedApp.equals(OptionalBoolean.FALSE)) {
+                TestApis.packages().find(sContext.getPackageName()).uninstall(user);
+            }
+
+            ensureSwitchedToUser(switchedToUser, user);
+        } else {
+            ensureHasUser(SECONDARY_USER_TYPE_NAME, installInstrumentedApp, switchedToUser);
+        }
     }
 
     /**
@@ -1546,13 +2292,35 @@ public final class DeviceState extends HarrierRule {
         userReference.remove();
     }
 
-    public void requireCanSupportAdditionalUser() {
+    private void ensureCanAddUser() {
+        ensureCanAddUser(1, FailureMode.SKIP);
+    }
+
+    private void ensureCanAddUser(int number, FailureMode failureMode) {
         int maxUsers = getMaxNumberOfUsersSupported();
         int currentUsers = TestApis.users().all().size();
 
-        assumeTrue("The device does not have space for an additional user ("
-                        + currentUsers + " current users, " + maxUsers + " max users)",
-                currentUsers + 1 <= maxUsers);
+        // TODO(scottjonathan): Try to remove users until we have space - this will have to take
+        // into account other users which have been added during the setup of this test.
+
+        checkFailOrSkip(
+                "The device does not have space for "
+                        + number
+                        + " additional "
+                        + "user(s) ("
+                        + currentUsers
+                        + " current users, "
+                        + maxUsers
+                        + " max users)",
+                currentUsers + number <= maxUsers,
+                failureMode);
+    }
+
+    private void ensureCanAddProfile(
+            com.android.bedstead.nene.users.UserType userType, FailureMode failureMode) {
+        checkFailOrSkip("the device cannot add more profiles of type " + userType,
+                TestApis.users().canCreateProfile(userType),
+                failureMode);
     }
 
     /**
@@ -1561,6 +2329,14 @@ public final class DeviceState extends HarrierRule {
      */
     public BlockingBroadcastReceiver registerBroadcastReceiver(String action) {
         return registerBroadcastReceiver(action, /* checker= */ null);
+    }
+
+    /**
+     * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
+     * test has run.
+     */
+    public BlockingBroadcastReceiver registerBroadcastReceiver(IntentFilter intentFilter) {
+        return registerBroadcastReceiver(intentFilter, /* checker= */ null);
     }
 
     /**
@@ -1581,9 +2357,32 @@ public final class DeviceState extends HarrierRule {
      * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
      * test has run.
      */
+    public BlockingBroadcastReceiver registerBroadcastReceiver(
+            IntentFilter intentfilter, Function<Intent, Boolean> checker) {
+        BlockingBroadcastReceiver broadcastReceiver =
+                new BlockingBroadcastReceiver(mContext, intentfilter, checker);
+        broadcastReceiver.register();
+        mRegisteredBroadcastReceivers.add(broadcastReceiver);
+
+        return broadcastReceiver;
+    }
+
+    /**
+     * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
+     * test has run.
+     */
     public BlockingBroadcastReceiver registerBroadcastReceiverForUser(
             UserReference user, String action) {
         return registerBroadcastReceiverForUser(user, action, /* checker= */ null);
+    }
+
+    /**
+     * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
+     * test has run.
+     */
+    public BlockingBroadcastReceiver registerBroadcastReceiverForUser(
+            UserReference user, IntentFilter intentFilter) {
+        return registerBroadcastReceiverForUser(user, intentFilter, /* checker= */ null);
     }
 
     /**
@@ -1608,6 +2407,24 @@ public final class DeviceState extends HarrierRule {
      * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
      * test has run.
      */
+    public BlockingBroadcastReceiver registerBroadcastReceiverForUser(
+            UserReference user, IntentFilter intentFilter, Function<Intent, Boolean> checker) {
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+            BlockingBroadcastReceiver broadcastReceiver =
+                    new BlockingBroadcastReceiver(
+                            TestApis.context().androidContextAsUser(user), intentFilter, checker);
+            broadcastReceiver.register();
+            mRegisteredBroadcastReceivers.add(broadcastReceiver);
+
+            return broadcastReceiver;
+        }
+    }
+
+    /**
+     * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
+     * test has run.
+     */
     public BlockingBroadcastReceiver registerBroadcastReceiverForAllUsers(String action) {
         return registerBroadcastReceiverForAllUsers(action, /* checker= */ null);
     }
@@ -1616,12 +2433,38 @@ public final class DeviceState extends HarrierRule {
      * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
      * test has run.
      */
+    public BlockingBroadcastReceiver registerBroadcastReceiverForAllUsers(IntentFilter intentFilter) {
+        return registerBroadcastReceiverForAllUsers(intentFilter, /* checker= */ null);
+    }
+
+    /**
+     * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
+     * test has run.
+     */
     public BlockingBroadcastReceiver registerBroadcastReceiverForAllUsers(
             String action, Function<Intent, Boolean> checker) {
+            try (PermissionContext p =
+                         TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
+                BlockingBroadcastReceiver broadcastReceiver =
+                        new BlockingBroadcastReceiver(mContext, action, checker);
+                broadcastReceiver.registerForAllUsers();
+
+                mRegisteredBroadcastReceivers.add(broadcastReceiver);
+
+                return broadcastReceiver;
+            }
+    }
+
+    /**
+     * Create and register a {@link BlockingBroadcastReceiver} which will be unregistered after the
+     * test has run.
+     */
+    public BlockingBroadcastReceiver registerBroadcastReceiverForAllUsers(
+            IntentFilter intentFilter, Function<Intent, Boolean> checker) {
         try (PermissionContext p =
                      TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
             BlockingBroadcastReceiver broadcastReceiver =
-                    new BlockingBroadcastReceiver(mContext, action, checker);
+                    new BlockingBroadcastReceiver(mContext, intentFilter, checker);
             broadcastReceiver.registerForAllUsers();
 
             mRegisteredBroadcastReceivers.add(broadcastReceiver);
@@ -1648,6 +2491,18 @@ public final class DeviceState extends HarrierRule {
                 return tvProfile();
             case DPC_USER:
                 return dpc().user();
+            case INITIAL_USER:
+                return TestApis.users().initial();
+            case ADDITIONAL_USER:
+                return additionalUser();
+            case CLONE_PROFILE:
+                return cloneProfile();
+            case ADMIN_USER:
+                return TestApis.users().all().stream().sorted(
+                        Comparator.comparing(UserReference::id))
+                        .filter(UserReference::isAdmin)
+                        .findFirst().orElseThrow(
+                                () -> new IllegalStateException("No admin user on device"));
             case ANY:
                 throw new IllegalStateException("ANY UserType can not be used here");
             default:
@@ -1655,9 +2510,52 @@ public final class DeviceState extends HarrierRule {
         }
     }
 
+    public UserReference additionalUser() {
+        UserReference additionalUser = additionalUserOrNull();
+
+        if (additionalUser == null) {
+            throw new IllegalStateException(
+                    "No additional user found. Ensure the correct annotations "
+                            + "have been used to declare use of additional user.");
+        }
+
+        return additionalUser;
+    }
+
+    private UserReference additionalUserOrNull() {
+        // TODO: Cache additional user at start of test
+        return TestApis.users()
+                .findUsersOfType(TestApis.users().supportedType(SECONDARY_USER_TYPE_NAME))
+                .stream()
+                .sorted(Comparator.comparing(UserReference::id))
+                .skip(TestApis.users().isHeadlessSystemUserMode() ? 1 : 0)
+                .findFirst()
+                .orElse(null);
+    }
+
     private void teardownNonShareableState() {
+        mAdditionalQueryParameters.clear();
         mProfiles.clear();
         mUsers.clear();
+        mAnnotationHasSwitchedUser = false;
+
+        for (Map.Entry<UserReference, Set<String>> userRestrictions
+                : mAddedUserRestrictions.entrySet()) {
+            for (String restriction : userRestrictions.getValue()) {
+                ensureDoesNotHaveUserRestriction(restriction, userRestrictions.getKey());
+            }
+        }
+
+        for (Map.Entry<UserReference, Set<String>> userRestrictions
+                : mRemovedUserRestrictions.entrySet()) {
+            for (String restriction : userRestrictions.getValue()) {
+                ensureHasUserRestriction(restriction, userRestrictions.getKey());
+            }
+        }
+
+        mAddedUserRestrictions.clear();
+        mRemovedUserRestrictions.clear();
+
 
         for (BlockingBroadcastReceiver broadcastReceiver : mRegisteredBroadcastReceivers) {
             broadcastReceiver.unregisterQuietly();
@@ -1667,18 +2565,35 @@ public final class DeviceState extends HarrierRule {
         mPrimaryPolicyManager = null;
         mOtherUserType = null;
         mTestApps.clear();
+        mAccounts.clear();
+        mAccountAuthenticators.clear();
 
         mTestAppProvider.restore();
         if (mPermissionContext != null) {
             mPermissionContext.close();
             mPermissionContext = null;
         }
+
+        for (Map.Entry<String, Map<String, String>> namespace : mOriginalFlagValues.entrySet()) {
+            for (Map.Entry<String, String> key : namespace.getValue().entrySet()) {
+                TestApis.flags().set(namespace.getKey(), key.getKey(), key.getValue());
+            }
+        }
+        mOriginalFlagValues.clear();
+
+        mAnnotationExecutors.values().forEach(AnnotationExecutor::teardownNonShareableState);
     }
 
     private Set<TestAppInstance> mInstalledTestApps = new HashSet<>();
     private Set<TestAppInstance> mUninstalledTestApps = new HashSet<>();
 
     private void teardownShareableState() {
+        if (!mCreatedAccounts.isEmpty()) {
+            mCreatedAccounts.forEach(AccountReference::remove);
+
+            TestApis.devicePolicy().calculateHasIncompatibleAccounts();
+        }
+
         if (mHasChangedDeviceOwner) {
             if (mOriginalDeviceOwner == null) {
                 if (mDeviceOwner != null) {
@@ -1688,11 +2603,29 @@ public final class DeviceState extends HarrierRule {
                 if (mDeviceOwner != null) {
                     mDeviceOwner.remove();
                 }
+
+                ensureHasNoProfileOwner(TestApis.users().system());
                 TestApis.devicePolicy().setDeviceOwner(
                         mOriginalDeviceOwner.componentName());
             }
+
+            if (mOriginalDeviceOwner != null && mOriginalDeviceOwnerType != null) {
+                ((DeviceOwner) mOriginalDeviceOwner).setType(mOriginalDeviceOwnerType);
+            }
+
             mHasChangedDeviceOwner = false;
             mOriginalDeviceOwner = null;
+
+            mHasChangedDeviceOwnerType = false;
+            mOriginalDeviceOwnerType = null;
+        } else {
+            // Device owner type changed but the device owner is the same.
+            if (mHasChangedDeviceOwnerType) {
+                ((DeviceOwner) mDeviceOwner).setType(mOriginalDeviceOwnerType);
+
+                mHasChangedDeviceOwnerType = false;
+                mOriginalDeviceOwnerType = null;
+            }
         }
 
         for (Map.Entry<UserReference, DevicePolicyController> originalProfileOwner :
@@ -1714,6 +2647,12 @@ public final class DeviceState extends HarrierRule {
             }
         }
         mChangedProfileOwners.clear();
+        if (mDevicePolicyManagerRoleHolder != null) {
+            TestApis.devicePolicy().unsetDevicePolicyManagementRoleHolder(
+                    mDevicePolicyManagerRoleHolder.testApp().pkg(),
+                    mDevicePolicyManagerRoleHolder.user());
+            mDevicePolicyManagerRoleHolder = null;
+        }
 
         for (UserReference user : mUsersSetPasswords) {
             if (mCreatedUsers.contains(user)) {
@@ -1724,8 +2663,24 @@ public final class DeviceState extends HarrierRule {
 
         mUsersSetPasswords.clear();
 
+        UserReference ephemeralUser = null;
+        UserReference currentUser = TestApis.users().current();
         for (UserReference user : mCreatedUsers) {
-            user.remove();
+            try {
+                if (user.equals(currentUser)) {
+                    // user will be removed after switching to mOriginalSwitchedUser below.
+                    user.removeWhenPossible();
+                    ephemeralUser = user;
+                } else {
+                    user.remove();
+                }
+            } catch (NeneException e) {
+                if (user.exists()) {
+                    // Otherwise it's probably just already removed
+                    throw new NeneException("Could not remove user", e);
+                }
+            }
+
         }
 
         mCreatedUsers.clear();
@@ -1752,6 +2707,15 @@ public final class DeviceState extends HarrierRule {
                 mOriginalSwitchedUser.switchTo();
             }
             mOriginalSwitchedUser = null;
+
+            // wait for ephemeral user to be removed after being switched away
+            if (ephemeralUser != null) {
+                Poll.forValue("Ephemeral user exists", ephemeralUser::exists)
+                        .toBeEqualTo(false)
+                        .timeout(Duration.ofMinutes(1))
+                        .errorOnFail()
+                        .await();
+            }
         }
 
         for (TestAppInstance installedTestApp : mInstalledTestApps) {
@@ -1769,15 +2733,48 @@ public final class DeviceState extends HarrierRule {
             mOriginalBluetoothEnabled = null;
         }
 
+        if (mOriginalWifiEnabled != null) {
+            TestApis.wifi().setEnabled(mOriginalWifiEnabled);
+            mOriginalWifiEnabled = null;
+        }
+
+        for (Map.Entry<UserReference, Boolean> s
+                : mOriginalDefaultContentSuggestionsServiceEnabled.entrySet()) {
+            TestApis.content().suggestions().setDefaultServiceEnabled(s.getKey(), s.getValue());
+        }
+        mOriginalDefaultContentSuggestionsServiceEnabled.clear();
+
+        for (UserReference u : mTemporaryContentSuggestionsServiceSet) {
+            TestApis.content().suggestions().clearTemporaryService(u);
+        }
+        mTemporaryContentSuggestionsServiceSet.clear();
+
         for (Map.Entry<String, String> s : mOriginalGlobalSettings.entrySet()) {
             TestApis.settings().global().putString(s.getKey(), s.getValue());
         }
         mOriginalGlobalSettings.clear();
+
+        for (Map.Entry<UserReference, Map<String, String>> s : mOriginalSecureSettings.entrySet()) {
+            for (Map.Entry<String, String> s2 : s.getValue().entrySet()) {
+                TestApis.settings().secure().putString(s.getKey(), s2.getKey(), s2.getValue());
+            }
+        }
+        mOriginalSecureSettings.clear();
+
+        TestApis.activities().clearAllActivities();
+        mAnnotationExecutors.values().forEach(AnnotationExecutor::teardownShareableState);
     }
 
     private UserReference createProfile(
             com.android.bedstead.nene.users.UserType profileType, UserReference parent) {
-        requireCanSupportAdditionalUser();
+        ensureCanAddUser();
+        ensureCanAddProfile(profileType, FailureMode.SKIP);
+
+        if (profileType.name().equals("android.os.usertype.profile.CLONE")) {
+            // Special case - we can't create a clone profile if this is set
+            ensureDoesNotHaveUserRestriction(DISALLOW_ADD_CLONE_PROFILE, parent);
+        }
+
         try {
             UserReference user = TestApis.users().createUser()
                     .parent(parent)
@@ -1791,7 +2788,8 @@ public final class DeviceState extends HarrierRule {
     }
 
     private UserReference createUser(com.android.bedstead.nene.users.UserType userType) {
-        requireCanSupportAdditionalUser();
+        ensureDoesNotHaveUserRestriction(UserManager.DISALLOW_ADD_USER, UserType.ANY);
+        ensureCanAddUser();
         try {
             UserReference user = TestApis.users().createUser()
                     .type(userType)
@@ -1815,6 +2813,33 @@ public final class DeviceState extends HarrierRule {
         }
     }
 
+    private void ensureHasDevicePolicyManagerRoleHolder(UserType onUser, boolean isPrimary) {
+        UserReference user = resolveUserTypeToUser(onUser);
+
+        if (!user.equals(TestApis.users().instrumented())) {
+            // INTERACT_ACROSS_USERS_FULL is required for RemoteDPC
+            ensureCanGetPermission(INTERACT_ACROSS_USERS_FULL);
+        }
+
+        ensureHasNoAccounts(UserType.ANY);
+        ensureTestAppInstalled(RemoteDevicePolicyManagerRoleHolder.sTestApp, user);
+        TestApis.devicePolicy().setDevicePolicyManagementRoleHolder(
+                RemoteDevicePolicyManagerRoleHolder.sTestApp.pkg(), user);
+
+        mDevicePolicyManagerRoleHolder =
+                new RemoteDevicePolicyManagerRoleHolder(
+                        RemoteDevicePolicyManagerRoleHolder.sTestApp, user);
+
+        if (isPrimary) {
+            // We will override the existing primary
+            if (mPrimaryPolicyManager != null) {
+                Log.i(LOG_TAG, "Overriding primary policy manager "
+                        + mPrimaryPolicyManager + " with " + mDevicePolicyManagerRoleHolder);
+            }
+            mPrimaryPolicyManager = mDevicePolicyManagerRoleHolder;
+        }
+    }
+
     private void ensureHasDelegate(
             EnsureHasDelegate.AdminType adminType, List<String> scopes, boolean isPrimary) {
         RemotePolicyManager dpc = getDeviceAdmin(adminType);
@@ -1835,7 +2860,7 @@ public final class DeviceState extends HarrierRule {
             ensureCanGetPermission(INTERACT_ACROSS_USERS_FULL);
         }
 
-        ensureTestAppInstalled(RemoteDelegate.sTestApp, dpc.user());
+        ensureTestAppInstalled(DELEGATE_KEY, RemoteDelegate.sTestApp, dpc.user());
         RemoteDelegate delegate = new RemoteDelegate(RemoteDelegate.sTestApp, dpc().user());
         dpc.devicePolicyManager().setDelegatedScopes(
                 dpc.componentName(), delegate.packageName(), scopes);
@@ -1867,15 +2892,13 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void ensureTestAppInstalled(
-            String key, String packageName, UserType onUser, boolean isPrimary) {
-        TestApp testApp = mTestAppProvider.query()
-                .wherePackageName().isEqualTo(packageName)
-                .get();
+            String key, Query query, UserType onUser, boolean isPrimary) {
+        TestApp testApp =
+                mTestAppProvider.query(query).applyAnnotation(
+                        mAdditionalQueryParameters.getOrDefault(key, null)).get();
 
         TestAppInstance testAppInstance = ensureTestAppInstalled(
-                testApp, resolveUserTypeToUser(onUser));
-
-        mTestApps.put(key, testAppInstance);
+                key, testApp, resolveUserTypeToUser(onUser));
 
         if (isPrimary) {
             if (mPrimaryPolicyManager != null) {
@@ -1889,11 +2912,35 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void ensureTestAppHasPermission(
-            String testAppKey, String[] permissions, int minVersion, int maxVersion) {
+            String testAppKey, String[] permissions, int minVersion, int maxVersion,
+            FailureMode failureMode) {
         checkTestAppExistsWithKey(testAppKey);
 
-        mTestApps.get(testAppKey).permissions()
-                .withPermissionOnVersionBetween(minVersion, maxVersion, permissions);
+        try {
+            mTestApps.get(testAppKey).permissions()
+                    .withPermissionOnVersionBetween(minVersion, maxVersion, permissions);
+        } catch (NeneException e) {
+            if (failureMode.equals(FailureMode.SKIP) && e.getMessage().contains("Cannot grant")) {
+                failOrSkip(e.getMessage(), FailureMode.SKIP);
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    private void ensureTestAppDoesNotHavePermission(
+            String testAppKey, String[] permissions, FailureMode failureMode) {
+        checkTestAppExistsWithKey(testAppKey);
+
+        try {
+            mTestApps.get(testAppKey).permissions().withoutPermission(permissions);
+        } catch (NeneException e) {
+            if (failureMode.equals(FailureMode.SKIP) && e.getMessage().contains("Cannot deny")) {
+                failOrSkip(e.getMessage(), FailureMode.SKIP);
+            } else {
+                throw e;
+            }
+        }
     }
 
     private void ensureTestAppHasAppOp(
@@ -1908,7 +2955,7 @@ public final class DeviceState extends HarrierRule {
         if (!mTestApps.containsKey(testAppKey)) {
             throw new NeneException(
                     "No testapp with key " + testAppKey + ". Use @EnsureTestAppInstalled."
-                            + "Valid Test apps: " + mTestApps);
+                            + " Valid Test apps: " + mTestApps);
         }
     }
 
@@ -1926,14 +2973,30 @@ public final class DeviceState extends HarrierRule {
     }
 
     private TestAppInstance ensureTestAppInstalled(TestApp testApp, UserReference user) {
-        Package pkg = TestApis.packages().find(testApp.packageName());
-        if (pkg != null && TestApis.packages().find(testApp.packageName()).installedOnUser(
-                user)) {
-            return testApp.instance(user);
+        return ensureTestAppInstalled(/* key= */ null, testApp, user);
+    }
+
+    private TestAppInstance ensureTestAppInstalled(String key, TestApp testApp, UserReference user) {
+        if (!mAdditionalQueryParameters.isEmpty()) {
+            assumeFalse("b/276740719 - we don't support custom delegates",
+                    DELEGATE_KEY.equals(key));
         }
 
-        TestAppInstance testAppInstance = testApp.install(user);
-        mInstalledTestApps.add(testAppInstance);
+        Package pkg = TestApis.packages().find(testApp.packageName());
+        TestAppInstance testAppInstance = null;
+        if (pkg != null && TestApis.packages().find(testApp.packageName()).installedOnUser(
+                user)) {
+            testAppInstance = testApp.instance(user);
+        } else {
+            // TODO: Consider if we want to record that we've started it so we can stop it after if needed?
+            user.start();
+
+            testAppInstance = testApp.install(user);
+            mInstalledTestApps.add(testAppInstance);
+        }
+        if (key != null) {
+            mTestApps.put(key, testAppInstance);
+        }
         return testAppInstance;
     }
 
@@ -1956,8 +3019,21 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void ensureHasDeviceOwner(FailureMode failureMode, boolean isPrimary,
-            Set<String> affiliationIds) {
+            EnsureHasDeviceOwner.HeadlessDeviceOwnerType headlessDeviceOwnerType, Set<String> affiliationIds, int type,
+            String key, TestAppQueryBuilder dpcQuery) {
+
         // TODO(scottjonathan): Should support non-remotedpc device owner (default to remotedpc)
+
+        dpcQuery.applyAnnotation(mAdditionalQueryParameters.getOrDefault(key, null));
+
+        if (dpcQuery.isEmptyQuery()) {
+            dpcQuery = defaultDpcQuery();
+        }
+
+        if (headlessDeviceOwnerType == EnsureHasDeviceOwner.HeadlessDeviceOwnerType.AFFILIATED
+                && TestApis.users().isHeadlessSystemUserMode()) {
+            affiliationIds.add("DEFAULT_AFFILIATED"); // To ensure headless PO + DO are affiliated
+        }
 
         UserReference userReference = TestApis.users().system();
 
@@ -1974,10 +3050,11 @@ public final class DeviceState extends HarrierRule {
 
         DeviceOwner currentDeviceOwner = TestApis.devicePolicy().getDeviceOwner();
 
-        if (currentDeviceOwner != null
-                && currentDeviceOwner.componentName().equals(RemoteDpc.DPC_COMPONENT_NAME)) {
+        // if current device owner matches query, keep it as it is
+        if (RemoteDpc.matchesRemoteDpcQuery(currentDeviceOwner, dpcQuery)) {
             mDeviceOwner = currentDeviceOwner;
         } else {
+            // if there is no device owner, or current device owner is not a remote dpc
             UserReference instrumentedUser = TestApis.users().instrumented();
 
             if (!Versions.meetsMinimumSdkVersionRequirement(Build.VERSION_CODES.S)) {
@@ -2006,37 +3083,131 @@ public final class DeviceState extends HarrierRule {
                 }
             }
 
-            // TODO(scottjonathan): Remove accounts
+            // We must remove all non-test users on all devices though
+            // (except for the first 1 if headless and always the system user)
+            int allowedNonTestUsers = TestApis.users().isHeadlessSystemUserMode() ? 1 : 0;
+
+            UserReference instrumented = TestApis.users().instrumented();
+
+            for (UserReference u : TestApis.users().all().stream()
+                    .sorted(Comparator.comparing(u -> u.equals(instrumented)).reversed())
+                    .collect(Collectors.toList())) {
+                if (u.isSystem()) {
+                    continue;
+                }
+                if (u.isForTesting()) {
+                    continue;
+                }
+
+                if (allowedNonTestUsers > 0) {
+                    allowedNonTestUsers--;
+                    continue;
+                }
+
+                if (u.equals(instrumented)) {
+                    throw new IllegalStateException(
+                            "Cannot set Device Owner when running on a "
+                                    + "non-for-testing secondary user (" + u + ")");
+                }
+
+                try {
+                    removeAndRecordUser(u);
+                } catch (NeneException e) {
+                    failOrSkip(
+                            "Error removing user to prepare for DeviceOwner: "
+                                    + e.toString(),
+                            failureMode);
+                }
+            }
+
+            if (Versions.meetsMinimumSdkVersionRequirement(Versions.U)) {
+                ensureHasNoAccounts(UserType.ANY);
+            } else {
+                // Prior to U this only checked the system user
+                ensureHasNoAccounts(UserType.SYSTEM_USER);
+            }
             ensureHasNoProfileOwner(userReference);
 
             if (!mHasChangedDeviceOwner) {
-                mOriginalDeviceOwner = currentDeviceOwner;
+                recordDeviceOwner();
                 mHasChangedDeviceOwner = true;
+                mHasChangedDeviceOwnerType = true;
             }
 
-            mDeviceOwner = RemoteDpc.setAsDeviceOwner().devicePolicyController();
+            mDeviceOwner = RemoteDpc.setAsDeviceOwner(dpcQuery).devicePolicyController();
         }
 
         if (isPrimary) {
             mPrimaryPolicyManager = RemoteDpc.forDevicePolicyController(mDeviceOwner);
         }
 
-        RemoteDpc.forDevicePolicyController(mDeviceOwner)
-                .devicePolicyManager()
-                .setAffiliationIds(REMOTE_DPC_COMPONENT_NAME, affiliationIds);
+        int deviceOwnerType = ((DeviceOwner) mDeviceOwner).getType();
+        if (deviceOwnerType != type) {
+            if (!mHasChangedDeviceOwnerType) {
+                mOriginalDeviceOwnerType = deviceOwnerType;
+                mHasChangedDeviceOwnerType = true;
+            }
+
+            ((DeviceOwner) mDeviceOwner).setType(type);
+        }
+
+        if (type != DeviceOwnerType.FINANCED) {
+            // API is not allowed to be called by a financed device owner.
+            RemoteDpc remoteDpcForDeviceOwner = RemoteDpc.forDevicePolicyController(mDeviceOwner);
+
+            remoteDpcForDeviceOwner.devicePolicyManager()
+                    .setAffiliationIds(
+                            remoteDpcForDeviceOwner.componentName(),
+                            affiliationIds);
+        }
+
+        if (headlessDeviceOwnerType == EnsureHasDeviceOwner.HeadlessDeviceOwnerType.AFFILIATED
+                && TestApis.users().isHeadlessSystemUserMode()) {
+            // To simulate "affiliated" headless mode - we must also set the profile owner on the
+            // initial user
+
+            ensureHasProfileOwner(TestApis.users().initial(),
+                    /* isPrimary= */ false, /* useParentInstance= */ false,
+                    affiliationIds, key, dpcQuery,
+                    RemoteDpc.forDevicePolicyController(mDeviceOwner).testApp());
+        }
+    }
+
+    private void recordDeviceOwner() {
+        mOriginalDeviceOwner = TestApis.devicePolicy().getDeviceOwner();
+        mOriginalDeviceOwnerType =
+                mOriginalDeviceOwner != null ? ((DeviceOwner) mOriginalDeviceOwner).getType()
+                        : null;
     }
 
     private void ensureHasProfileOwner(UserType onUser, boolean isPrimary,
-            boolean useParentInstance, Set<String> affiliationIds) {
+            boolean useParentInstance, Set<String> affiliationIds, String key,
+            TestAppQueryBuilder dpcQuery) {
         // TODO(scottjonathan): Should support non-remotedpc profile owner
         //  (default to remotedpc)
         UserReference user = resolveUserTypeToUser(onUser);
-        ensureHasProfileOwner(user, isPrimary, useParentInstance, affiliationIds);
+
+        ensureHasProfileOwner(user, isPrimary, useParentInstance, affiliationIds, key, dpcQuery);
     }
 
     private void ensureHasProfileOwner(
             UserReference user, boolean isPrimary, boolean useParentInstance,
-            Set<String> affiliationIds) {
+            Set<String> affiliationIds, String key, TestAppQueryBuilder dpcQuery) {
+        ensureHasProfileOwner(user, isPrimary, useParentInstance, affiliationIds, key, dpcQuery,
+                /* resolvedDpcTestApp= */ null);
+    }
+
+    private void ensureHasProfileOwner(
+            UserReference user, boolean isPrimary, boolean useParentInstance,
+            Set<String> affiliationIds, String key,
+            TestAppQueryBuilder dpcQuery, TestApp resolvedDpcTestApp) {
+
+        dpcQuery.applyAnnotation(mAdditionalQueryParameters.getOrDefault(key, null));
+
+        if (dpcQuery.isEmptyQuery()) {
+            dpcQuery = defaultDpcQuery();
+        }
+
         if (isPrimary && mPrimaryPolicyManager != null
                 && !user.equals(mPrimaryPolicyManager.user())) {
             throw new IllegalStateException(
@@ -2048,8 +3219,7 @@ public final class DeviceState extends HarrierRule {
             ensureCanGetPermission(INTERACT_ACROSS_USERS_FULL);
         }
 
-        ProfileOwner currentProfileOwner = TestApis.devicePolicy().getProfileOwner(
-                user);
+        ProfileOwner currentProfileOwner = TestApis.devicePolicy().getProfileOwner(user);
         DeviceOwner currentDeviceOwner = TestApis.devicePolicy().getDeviceOwner();
 
         if (currentDeviceOwner != null && currentDeviceOwner.user().equals(user)) {
@@ -2057,23 +3227,40 @@ public final class DeviceState extends HarrierRule {
             ensureHasNoDeviceOwner();
         }
 
-        if (currentProfileOwner != null && currentProfileOwner.componentName()
-                .equals(RemoteDpc.DPC_COMPONENT_NAME)) {
+        if (RemoteDpc.matchesRemoteDpcQuery(currentProfileOwner, dpcQuery)) {
             mProfileOwners.put(user, currentProfileOwner);
         } else {
+            if (user.parent() != null) {
+                ensureDoesNotHaveUserRestriction(DISALLOW_ADD_MANAGED_PROFILE, user.parent());
+            }
+
             if (!mChangedProfileOwners.containsKey(user)) {
                 mChangedProfileOwners.put(user, currentProfileOwner);
             }
 
-            mProfileOwners.put(user,
-                    RemoteDpc.setAsProfileOwner(user).devicePolicyController());
+            ensureHasNoAccounts(user);
+
+            if (resolvedDpcTestApp != null) {
+                mProfileOwners.put(user,
+                        RemoteDpc.setAsProfileOwner(user, resolvedDpcTestApp)
+                                .devicePolicyController());
+            } else {
+                mProfileOwners.put(user,
+                        RemoteDpc.setAsProfileOwner(user, dpcQuery).devicePolicyController());
+            }
+        }
+
+        if (Versions.meetsMinimumSdkVersionRequirement(Versions.U)) {
+            ensureHasNoAccounts(user);
+        } else {
+            // Prior to U this incorrectly checked the system user
+            ensureHasNoAccounts(UserType.SYSTEM_USER);
         }
 
         if (isPrimary) {
             if (useParentInstance) {
                 mPrimaryPolicyManager = new RemoteDpcUsingParentInstance(
-                        RemoteDpc.forDevicePolicyController(
-                                mProfileOwners.get(user)).devicePolicyController());
+                        RemoteDpc.forDevicePolicyController(mProfileOwners.get(user)));
             } else {
                 mPrimaryPolicyManager =
                         RemoteDpc.forDevicePolicyController(mProfileOwners.get(user));
@@ -2083,7 +3270,7 @@ public final class DeviceState extends HarrierRule {
         if (affiliationIds != null) {
             RemoteDpc profileOwner = profileOwner(user);
             profileOwner.devicePolicyManager()
-                    .setAffiliationIds(REMOTE_DPC_COMPONENT_NAME, affiliationIds);
+                    .setAffiliationIds(profileOwner.componentName(), affiliationIds);
         }
     }
 
@@ -2095,8 +3282,9 @@ public final class DeviceState extends HarrierRule {
         }
 
         if (!mHasChangedDeviceOwner) {
-            mOriginalDeviceOwner = deviceOwner;
+            recordDeviceOwner();
             mHasChangedDeviceOwner = true;
+            mHasChangedDeviceOwnerType = true;
         }
 
         mDeviceOwner = null;
@@ -2137,7 +3325,7 @@ public final class DeviceState extends HarrierRule {
                     "No Harrier-managed device owner. This method should "
                             + "only be used when Harrier was used to set the Device Owner.");
         }
-        if (!mDeviceOwner.componentName().equals(REMOTE_DPC_COMPONENT_NAME)) {
+        if (!RemoteDpc.isRemoteDpc(mDeviceOwner)) {
             throw new IllegalStateException("The device owner is not a RemoteDPC."
                     + " You must use Nene to query for this device owner.");
         }
@@ -2191,7 +3379,7 @@ public final class DeviceState extends HarrierRule {
 
         DevicePolicyController profileOwner = mProfileOwners.get(onUser);
 
-        if (!profileOwner.componentName().equals(REMOTE_DPC_COMPONENT_NAME)) {
+        if (!RemoteDpc.isRemoteDpc(profileOwner)) {
             throw new IllegalStateException("The profile owner is not a RemoteDPC."
                     + " You must use Nene to query for this profile owner.");
         }
@@ -2283,19 +3471,33 @@ public final class DeviceState extends HarrierRule {
                     mProfileOwners.get(TestApis.users().instrumented());
 
 
-            if (profileOwner.componentName().equals(REMOTE_DPC_COMPONENT_NAME)) {
+            if (RemoteDpc.isRemoteDpc(profileOwner)) {
                 return RemoteDpc.forDevicePolicyController(profileOwner);
             }
         }
 
         if (mDeviceOwner != null) {
-            if (mDeviceOwner.componentName().equals(REMOTE_DPC_COMPONENT_NAME)) {
+            if (RemoteDpc.isRemoteDpc(mDeviceOwner)) {
                 return RemoteDpc.forDevicePolicyController(mDeviceOwner);
             }
 
         }
 
-        throw new IllegalStateException("No Harrier-managed profile owner or device owner.");
+        throw new IllegalStateException("No Harrier-managed profile owner or device owner. "
+                + "Ensure you have set up the DPC using bedstead annotations.");
+    }
+
+
+    /**
+     * Get the Device Policy Management Role Holder.
+     */
+    public RemoteDevicePolicyManagerRoleHolder dpmRoleHolder() {
+        if (mDevicePolicyManagerRoleHolder == null) {
+            throw new IllegalStateException(
+                    "No Harrier-managed device policy manager role holder.");
+        }
+
+        return mDevicePolicyManagerRoleHolder;
     }
 
     /**
@@ -2312,7 +3514,7 @@ public final class DeviceState extends HarrierRule {
      * Get a test app installed with @EnsureTestAppInstalled with no key.
      */
     public TestAppInstance testApp() {
-        return testApp(DEFAULT_TEST_APP_KEY);
+        return testApp(DEFAULT_KEY);
     }
 
     /**
@@ -2370,6 +3572,7 @@ public final class DeviceState extends HarrierRule {
             if (mOriginalSwitchedUser == null) {
                 mOriginalSwitchedUser = currentUser;
             }
+
             user.switchTo();
         }
     }
@@ -2398,24 +3601,26 @@ public final class DeviceState extends HarrierRule {
                 continue;
             }
 
+            if (!otherUser.canBeSwitchedTo()) {
+                continue;
+            }
+
             switchToUser(otherUser);
             return;
         }
 
-        // There are no users to switch to so we'll create one
-        ensureHasUser(SECONDARY_USER_TYPE_NAME,
-                /* installInstrumentedApp= */ OptionalBoolean.ANY,
+        // There are no users to switch to so we'll create one.
+        // In HSUM, an additional user needs to be created to switch from the existing user.
+        ensureHasAdditionalUser(/* installInstrumentedApp= */ OptionalBoolean.ANY,
                 /* switchedToUser= */ OptionalBoolean.TRUE);
     }
 
-    private void requireNotHeadlessSystemUserMode() {
-        assumeFalse("This test is not supported on headless system user devices",
-                TestApis.users().isHeadlessSystemUserMode());
+    private void requireNotHeadlessSystemUserMode(String reason) {
+        assumeFalse(reason, TestApis.users().isHeadlessSystemUserMode());
     }
 
-    private void requireHeadlessSystemUserMode() {
-        assumeTrue("This test is only supported on headless system user devices",
-                TestApis.users().isHeadlessSystemUserMode());
+    private void requireHeadlessSystemUserMode(String reason) {
+        assumeTrue(reason, TestApis.users().isHeadlessSystemUserMode());
     }
 
     private void requireLowRamDevice(String reason, FailureMode failureMode) {
@@ -2434,6 +3639,47 @@ public final class DeviceState extends HarrierRule {
                 failureMode);
     }
 
+    private void requireVisibleBackgroundUsersSupported(String reason, FailureMode failureMode) {
+        if (!TestApis.users().isVisibleBackgroundUsersSupported()) {
+            String message = "Device does not support visible background users, but test requires "
+                    + "it. Reason: " + reason;
+            failOrSkip(message, failureMode);
+        }
+    }
+
+    private void requireVisibleBackgroundUsersNotSupported(String reason, FailureMode failureMode) {
+        if (TestApis.users().isVisibleBackgroundUsersSupported()) {
+            String message = "Device supports visible background users, but test requires that it "
+                    + "doesn't. Reason: " + reason;
+            failOrSkip(message, failureMode);
+        }
+    }
+
+    private void requireVisibleBackgroundUsersOnDefaultDisplaySupported(String reason,
+            FailureMode failureMode) {
+        if (!TestApis.users().isVisibleBackgroundUsersOnDefaultDisplaySupported()) {
+            String message = "Device does not support visible background users on default display, "
+                    + "but test requires it. Reason: " + reason;
+            failOrSkip(message, failureMode);
+        }
+    }
+
+    private void requireVisibleBackgroundUsersOnDefaultDisplayNotSupported(String reason,
+            FailureMode failureMode) {
+        if (TestApis.users().isVisibleBackgroundUsersOnDefaultDisplaySupported()) {
+            String message = "Device supports visible background users on default display, but test"
+                    + " requires that it doesn't. Reason: " + reason;
+            failOrSkip(message, failureMode);
+        }
+    }
+
+    private boolean isNonProfileUserRunningVisibleOnBackground() {
+        UserReference user = TestApis.users().instrumented();
+        boolean isIt = user.isVisibleBagroundNonProfileUser();
+        Log.d(LOG_TAG, "isNonProfileUserRunningVisibleOnBackground(" + user + "): " + isIt);
+        return isIt;
+    }
+
     private void ensureScreenIsOn() {
         TestApis.device().wakeUp();
     }
@@ -2445,7 +3691,7 @@ public final class DeviceState extends HarrierRule {
     private void ensurePasswordSet(UserType forUser, String password) {
         UserReference user = resolveUserTypeToUser(forUser);
 
-        if (user.hasPassword()) {
+        if (user.hasLockCredential()) {
             return;
         }
 
@@ -2461,7 +3707,7 @@ public final class DeviceState extends HarrierRule {
     private void ensurePasswordNotSet(UserType forUser) {
         UserReference user = resolveUserTypeToUser(forUser);
 
-        if (!user.hasPassword()) {
+        if (!user.hasLockCredential()) {
             return;
         }
 
@@ -2477,6 +3723,12 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void ensureBluetoothEnabled() {
+        // TODO(b/220306133): bluetooth from background
+        Assume.assumeTrue("Can only configure bluetooth from foreground",
+                TestApis.users().instrumented().isForeground());
+
+        ensureDoesNotHaveUserRestriction(DISALLOW_BLUETOOTH, UserType.ANY);
+
         if (mOriginalBluetoothEnabled == null) {
             mOriginalBluetoothEnabled = TestApis.bluetooth().isEnabled();
         }
@@ -2484,10 +3736,41 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void ensureBluetoothDisabled() {
+        Assume.assumeTrue("Can only configure bluetooth from foreground",
+                TestApis.users().instrumented().isForeground());
+
         if (mOriginalBluetoothEnabled == null) {
             mOriginalBluetoothEnabled = TestApis.bluetooth().isEnabled();
         }
         TestApis.bluetooth().setEnabled(false);
+    }
+
+    private void ensureWifiEnabled() {
+        if (mOriginalWifiEnabled == null) {
+            mOriginalWifiEnabled = TestApis.wifi().isEnabled();
+        }
+        TestApis.wifi().setEnabled(true);
+    }
+
+    private void ensureWifiDisabled() {
+        if (mOriginalWifiEnabled == null) {
+            mOriginalWifiEnabled = TestApis.wifi().isEnabled();
+        }
+        TestApis.wifi().setEnabled(false);
+    }
+
+    private boolean isOrganizationOwned(Annotation annotation)
+            throws InvocationTargetException, IllegalAccessException {
+        Method isOrganizationOwnedMethod;
+
+        try {
+            isOrganizationOwnedMethod = annotation.annotationType().getMethod(
+                    "isOrganizationOwned");
+        } catch (NoSuchMethodException ignored) {
+            return false;
+        }
+
+        return (boolean) isOrganizationOwnedMethod.invoke(annotation);
     }
 
     private void withAppOp(String... appOp) {
@@ -2515,6 +3798,8 @@ public final class DeviceState extends HarrierRule {
     }
 
     private void withoutPermission(String... permission) {
+        requireNotInstantApp("Uses withoutPermission", FailureMode.SKIP);
+
         if (mPermissionContext == null) {
             mPermissionContext = TestApis.permissions().withoutPermission(permission);
         } else {
@@ -2522,10 +3807,484 @@ public final class DeviceState extends HarrierRule {
         }
     }
 
-    private void ensureGlobalSettingSet(String key, String value) {
+    private void ensureGlobalSettingSet(String key, String value){
         if (!mOriginalGlobalSettings.containsKey(key)) {
             mOriginalGlobalSettings.put(key, TestApis.settings().global().getString(value));
         }
+
         TestApis.settings().global().putString(key, value);
+    }
+
+    private void ensureSecureSettingSet(UserType user, String key, String value) {
+        ensureSecureSettingSet(resolveUserTypeToUser(user), key, value);
+    }
+
+    private void ensureSecureSettingSet(UserReference user, String key, String value) {
+        if (!mOriginalSecureSettings.containsKey(user)) {
+            mOriginalSecureSettings.put(user, new HashMap<>());
+        }
+        if (!mOriginalSecureSettings.get(user).containsKey(key)) {
+            mOriginalSecureSettings.get(user)
+                    .put(key, TestApis.settings().secure().getString(user, value));
+        }
+
+        TestApis.settings().secure().putString(user, key, value);
+    }
+
+    private void ensureDefaultContentSuggestionsServiceEnabled(UserType user, boolean enabled) {
+        ensureDefaultContentSuggestionsServiceEnabled(resolveUserTypeToUser(user), enabled);
+    }
+
+    private void ensureDefaultContentSuggestionsServiceEnabled(UserReference user, boolean enabled) {
+        boolean currentValue = TestApis.content().suggestions().defaultServiceEnabled(user);
+
+        if (currentValue == enabled) {
+            return;
+        }
+
+        if (!mOriginalDefaultContentSuggestionsServiceEnabled.containsKey(user)) {
+            mOriginalDefaultContentSuggestionsServiceEnabled.put(user, currentValue);
+        }
+
+        TestApis.content().suggestions().setDefaultServiceEnabled(enabled);
+    }
+
+    private final TestApp mContentTestApp = testApps().query().wherePackageName()
+            .isEqualTo("com.android.ContentTestApp").get();
+    // TODO: Use queries
+    private final ComponentReference mContentSuggestionsService =
+            ComponentReference.unflattenFromString(
+                    "com.android.ContentTestApp/.ContentSuggestionsService");
+
+    private void ensureHasTestContentSuggestionsService(UserType user) {
+        ensureHasTestContentSuggestionsService(resolveUserTypeToUser(user));
+    }
+
+    private void ensureHasTestContentSuggestionsService(UserReference user) {
+        ensureDefaultContentSuggestionsServiceEnabled(user, /* enabled= */ false);
+        TestAppInstance contentTestApp =
+                ensureTestAppInstalled("content", mContentTestApp, user);
+
+        if (!mTemporaryContentSuggestionsServiceSet.contains(user)) {
+            mTemporaryContentSuggestionsServiceSet.add(user);
+        }
+
+        TestApis.content().suggestions().setTemporaryService(user, mContentSuggestionsService);
+    }
+
+    private void requireMultiUserSupport(FailureMode failureMode) {
+        checkFailOrSkip("This test is only supported on multi user devices",
+                TestApis.users().supportsMultipleUsers(), failureMode);
+    }
+
+    private void requireHasPolicyExemptApps(FailureMode failureMode) {
+        checkFailOrSkip("OEM does not define any policy-exempt apps",
+                !TestApis.devicePolicy().getPolicyExemptApps().isEmpty(), failureMode);
+    }
+
+    private void requireInstantApp(String reason, FailureMode failureMode) {
+        checkFailOrSkip("Test only runs as an instant-app: " + reason,
+                TestApis.packages().instrumented().isInstantApp(), failureMode);
+    }
+
+    private void requireNotInstantApp(String reason, FailureMode failureMode) {
+        checkFailOrSkip("Test does not run as an instant-app: " + reason,
+                !TestApis.packages().instrumented().isInstantApp(), failureMode);
+    }
+
+    private void requireFeatureFlagEnabled(String namespace, String key, FailureMode failureMode) {
+        //TODO(b/274439760): Get rid of this special case when tidying up permission stuff.
+        String coexistenceOption = TestApis.instrumentation().arguments()
+                .getString("COEXISTENCE", "?");
+        // This is to allow for forcing the coexistence flags on in btest.
+        if (namespace == NAMESPACE_DEVICE_POLICY_MANAGER
+                && (key == PERMISSION_BASED_ACCESS_EXPERIMENT_FLAG
+                    || key == ENABLE_DEVICE_POLICY_ENGINE_FLAG)) {
+            if (coexistenceOption.equals("true")) {
+                // Forcing the flags on will happen later, so we should skip the check below.
+                return;
+            } else if (coexistenceOption.equals("false")) {
+                // Definitely fail or skip if the coexistence flags are being forced off.
+                failOrSkip("Feature flag " + namespace + ":" + key + " must be enabled",
+                        failureMode);
+            }
+        }
+        checkFailOrSkip("Feature flag " + namespace + ":" + key + " must be enabled",
+                TestApis.flags().isEnabled(namespace, key), failureMode);
+    }
+
+    private void ensureFeatureFlagEnabled(String namespace, String key) {
+        ensureFeatureFlagValue(namespace, key, Flags.ENABLED_VALUE);
+    }
+
+    private void requireFeatureFlagNotEnabled(
+            String namespace, String key, FailureMode failureMode) {
+        //TODO(b/274439760): Get rid of this special case when tidying up permission stuff.
+        String coexistenceOption = TestApis.instrumentation().arguments()
+                .getString("COEXISTENCE", "?");
+        if (namespace == NAMESPACE_DEVICE_POLICY_MANAGER
+                && (key == PERMISSION_BASED_ACCESS_EXPERIMENT_FLAG
+                || key == ENABLE_DEVICE_POLICY_ENGINE_FLAG)) {
+            if (coexistenceOption.equals("false")) {
+                // Forcing the flags off will happen later, so we should skip the check below.
+                return;
+            } else if (coexistenceOption.equals("true")) {
+                // Definitely fail or skip if the coexistence flags are being forced on.
+                failOrSkip("Feature flag " + namespace + ":" + key + " must be enabled",
+                        failureMode);
+            }
+        }
+        checkFailOrSkip("Feature flag " + namespace + ":" + key + " must not be enabled",
+                !TestApis.flags().isEnabled(namespace, key), failureMode);
+    }
+
+    private void ensureFeatureFlagNotEnabled(String namespace, String key) {
+        ensureFeatureFlagValue(namespace, key, Flags.DISABLED_VALUE);
+    }
+
+    private void requireFeatureFlagValue(
+            String namespace, String key, String value, FailureMode failureMode) {
+        checkFailOrSkip("Feature flag " + namespace + ":" + key + " must be enabled",
+                Objects.equal(value, TestApis.flags().get(namespace, key)), failureMode);
+    }
+
+    private void ensureFeatureFlagValue(String namespace, String key, String value) {
+        Map<String, String> originalNamespace =
+                mOriginalFlagValues.computeIfAbsent(namespace, k -> new HashMap<>());
+        if (!originalNamespace.containsKey(key)) {
+            originalNamespace.put(key, TestApis.flags().get(namespace, key));
+        }
+
+        TestApis.flags().set(namespace, key, value);
+    }
+
+    /**
+     * Access harrier-managed accounts on the instrumented user.
+     */
+    public RemoteAccountAuthenticator accounts() {
+        return accounts(TestApis.users().instrumented());
+    }
+
+    /**
+     * Access harrier-managed accounts on the given user.
+     */
+    public RemoteAccountAuthenticator accounts(UserType user) {
+        return accounts(resolveUserTypeToUser(user));
+    }
+
+    /**
+     * Access harrier-managed accounts on the given user.
+     */
+    public RemoteAccountAuthenticator accounts(UserReference user) {
+        if (!mAccountAuthenticators.containsKey(user)) {
+            throw new IllegalStateException("No Harrier-Managed account authenticator on user "
+                    + user + ". Did you use @EnsureHasAccountAuthenticator or @EnsureHasAccount?");
+        }
+
+        return mAccountAuthenticators.get(user);
+    }
+
+    private void ensureHasAccountAuthenticator(UserType onUser) {
+        UserReference user = resolveUserTypeToUser(onUser);
+        // We don't use .install() so we can rely on the default testapp sharing/uninstall logic
+        ensureTestAppInstalled(REMOTE_ACCOUNT_AUTHENTICATOR_TEST_APP,
+                user);
+
+        mAccountAuthenticators.put(user, RemoteAccountAuthenticator.install(user));
+    }
+
+    private void ensureHasAccount(UserType onUser, String key, String[] features) {
+        ensureHasAccount(onUser, key, features, new HashSet<>());
+    }
+
+
+    private AccountReference ensureHasAccount(UserType onUser, String key, String[] features,
+            Set<AccountReference> ignoredAccounts) {
+        ensureHasAccountAuthenticator(onUser);
+
+        Optional<AccountReference> account =
+                accounts(onUser).allAccounts().stream().filter(i -> !ignoredAccounts.contains(i))
+                        .findFirst();
+
+        if (account.isPresent()) {
+            accounts(onUser).setFeatures(account.get(), Set.of(features));
+            mAccounts.put(key, account.get());
+            TestApis.devicePolicy().calculateHasIncompatibleAccounts();
+            return account.get();
+        }
+
+        AccountReference createdAccount = accounts(onUser).addAccount()
+                .features(Set.of(features))
+                .add();
+        mCreatedAccounts.add(createdAccount);
+        mAccounts.put(key, createdAccount);
+        TestApis.devicePolicy().calculateHasIncompatibleAccounts();
+        return createdAccount;
+    }
+
+    private void ensureHasAccounts(EnsureHasAccount[] accounts) {
+        Set<AccountReference> ignoredAccounts = new HashSet<>();
+
+        for (EnsureHasAccount account : accounts) {
+            ignoredAccounts.add(ensureHasAccount(
+                    account.onUser(), account.key(), account.features(), ignoredAccounts));
+        }
+    }
+
+    private void ensureHasNoAccounts(UserType userType) {
+        if (userType == UserType.ANY) {
+            TestApis.users().all().forEach(this::ensureHasNoAccounts);
+        } else {
+            ensureHasNoAccounts(resolveUserTypeToUser(userType));
+        }
+    }
+
+    private void ensureHasNoAccounts(UserReference user) {
+        if (REMOTE_ACCOUNT_AUTHENTICATOR_TEST_APP.pkg().installedOnUser(user)) {
+            user.start(); // The user has to be started to remove accounts
+
+            RemoteAccountAuthenticator.install(user).allAccounts()
+                    .forEach(AccountReference::remove);
+        }
+
+        if (!TestApis.accounts().all(user).isEmpty()) {
+            throw new NeneException("Expected no accounts on user " + user
+                    + " but there was some that could not be removed");
+        }
+
+        TestApis.devicePolicy().calculateHasIncompatibleAccounts();
+    }
+
+    /**
+     * Get the default account defined with {@link EnsureHasAccount}.
+     */
+    public AccountReference account() {
+        return account(DEFAULT_ACCOUNT_KEY);
+    }
+
+    /**
+     * Get the account defined with {@link EnsureHasAccount} with a given key.
+     */
+    public AccountReference account(String key) {
+        if (!mAccounts.containsKey(key)) {
+            throw new IllegalStateException("No account for key " + key);
+        }
+
+        return mAccounts.get(key);
+    }
+
+    @Override
+    boolean isHeadlessSystemUserMode() {
+        return TestApis.users().isHeadlessSystemUserMode();
+    }
+
+    private final Map<Class<? extends AnnotationExecutor>, AnnotationExecutor> mAnnotationExecutors = new HashMap<>();
+
+    private AnnotationExecutor getAnnotationExecutor(Class<? extends AnnotationExecutor> annotationExecutorClass) {
+        if (!mAnnotationExecutors.containsKey(annotationExecutorClass)) {
+            try {
+                mAnnotationExecutors.put(
+                        annotationExecutorClass, annotationExecutorClass.newInstance());
+            } catch (Exception e) {
+                throw new RuntimeException("Error creating annotation executor", e);
+            }
+        }
+        return mAnnotationExecutors.get(annotationExecutorClass);
+    }
+
+    private void ensureHasUserRestriction(String restriction, UserType onUser) {
+        ensureHasUserRestriction(restriction, resolveUserTypeToUser(onUser));
+    }
+
+    private void ensureHasUserRestriction(String restriction, UserReference onUser) {
+        if (TestApis.devicePolicy().userRestrictions(onUser).isSet(restriction)) {
+            return;
+        }
+
+        boolean hasSet = false;
+
+        if (onUser.equals(TestApis.users().system())) {
+            hasSet = trySetUserRestrictionWithDeviceOwner(restriction);
+        }
+
+        if (!hasSet) {
+            hasSet = trySetUserRestrictionWithProfileOwner(onUser, restriction);
+        }
+
+        if (!hasSet && !onUser.equals(TestApis.users().system())) {
+            hasSet = trySetUserRestrictionWithDeviceOwner(restriction);
+        }
+
+        if (!hasSet) {
+            throw new AssumptionViolatedException(
+                    "Infra cannot set user restriction " + restriction);
+        }
+
+        if (mRemovedUserRestrictions.containsKey(onUser)
+                && mRemovedUserRestrictions.get(onUser).contains(restriction)) {
+            mRemovedUserRestrictions.get(onUser).remove(restriction);
+        } else {
+            if (!mAddedUserRestrictions.containsKey(onUser)) {
+                mAddedUserRestrictions.put(onUser, new HashSet<>());
+            }
+
+            mAddedUserRestrictions.get(onUser).add(restriction);
+        }
+
+        if (!TestApis.devicePolicy().userRestrictions(onUser).isSet(restriction)) {
+            throw new NeneException("Error setting user restriction " + restriction);
+        }
+    }
+
+    private boolean trySetUserRestrictionWithDeviceOwner(String restriction) {
+        ensureHasDeviceOwner(FailureMode.FAIL,
+                /* isPrimary= */ false, EnsureHasDeviceOwner.HeadlessDeviceOwnerType.NONE,
+                /* affiliationIds= */ Set.of(), /* type= */ DeviceOwnerType.DEFAULT,
+                EnsureHasDeviceOwner.DEFAULT_KEY, new TestAppProvider().query());
+
+        RemotePolicyManager dpc = deviceOwner();
+        try {
+            dpc.devicePolicyManager().addUserRestriction(dpc.componentName(), restriction);
+        } catch (SecurityException e) {
+            if (e.getMessage().contains("cannot set user restriction")) {
+                return false;
+            }
+            throw e;
+        }
+        return true;
+    }
+
+    private boolean trySetUserRestrictionWithProfileOwner(UserReference onUser, String restriction) {
+        ensureHasProfileOwner(onUser,
+                /* isPrimary= */ false, /* isParentInstance= */ false,
+                /* affiliationIds= */ Set.of(), EnsureHasProfileOwner.DEFAULT_KEY,
+                new TestAppProvider().query());
+
+        RemotePolicyManager dpc = profileOwner(onUser);
+        try {
+            dpc.devicePolicyManager().addUserRestriction(dpc.componentName(), restriction);
+        } catch (SecurityException e) {
+            if (e.getMessage().contains("cannot set user restriction")) {
+                return false;
+            }
+            throw e;
+        }
+        return true;
+    }
+
+    private boolean tryClearUserRestrictionWithDeviceOwner(String restriction) {
+        ensureHasDeviceOwner(FailureMode.FAIL,
+                /* isPrimary= */ false, EnsureHasDeviceOwner.HeadlessDeviceOwnerType.NONE,
+                /* affiliationIds= */ Set.of(), /* type= */ DeviceOwnerType.DEFAULT,
+                EnsureHasDeviceOwner.DEFAULT_KEY, new TestAppProvider().query());
+
+        RemotePolicyManager dpc = deviceOwner();
+        try {
+            dpc.devicePolicyManager().clearUserRestriction(dpc.componentName(), restriction);
+        } catch (SecurityException e) {
+            if (e.getMessage().contains("cannot set user restriction")) {
+                return false;
+            }
+            throw e;
+        }
+        return true;
+    }
+
+    private boolean tryClearUserRestrictionWithProfileOwner(UserReference onUser, String restriction) {
+        ensureHasProfileOwner(onUser,
+                /* isPrimary= */ false, /* isParentInstance= */ false,
+                /* affiliationIds= */ Set.of(), EnsureHasProfileOwner.DEFAULT_KEY,
+                new TestAppProvider().query());
+
+        RemotePolicyManager dpc = profileOwner(onUser);
+        try {
+            dpc.devicePolicyManager().clearUserRestriction(dpc.componentName(), restriction);
+        } catch (SecurityException e) {
+            if (e.getMessage().contains("cannot set user restriction")) {
+                return false;
+            }
+            throw e;
+        }
+        return true;
+    }
+
+    private void ensureDoesNotHaveUserRestriction(String restriction, UserType onUser) {
+        if (onUser == UserType.ANY) {
+            for (UserReference userReference : TestApis.users().all()) {
+                ensureDoesNotHaveUserRestriction(restriction, userReference);
+            }
+            return;
+        }
+
+        ensureDoesNotHaveUserRestriction(restriction, resolveUserTypeToUser(onUser));
+    }
+
+    private void ensureDoesNotHaveUserRestriction(String restriction, UserReference onUser) {
+        if (!TestApis.devicePolicy().userRestrictions(onUser).isSet(restriction)) {
+            return;
+        }
+
+        if (restriction.equals(DISALLOW_ADD_MANAGED_PROFILE)) {
+            // Special case - set by the system whenever there is a Device Owner
+            ensureHasNoDeviceOwner();
+        } else if (restriction.equals(DISALLOW_ADD_CLONE_PROFILE)) {
+            // Special case - set by the system whenever there is a Device Owner
+            ensureHasNoDeviceOwner();
+        } else if (restriction.equals(DISALLOW_ADD_USER)) {
+            // Special case - set by the system whenever there is a Device Owner or
+            // organization-owned profile owner
+            ensureHasNoDeviceOwner();
+
+            ProfileOwner orgOwnedProfileOwner =
+                    TestApis.devicePolicy().getOrganizationOwnedProfileOwner();
+            if (orgOwnedProfileOwner != null) {
+                ensureHasNoProfileOwner(orgOwnedProfileOwner.user());
+                return;
+            }
+        }
+
+        boolean hasCleared = !TestApis.devicePolicy().userRestrictions(onUser).isSet(restriction);
+
+        if (!hasCleared && onUser.equals(TestApis.users().system())) {
+            hasCleared = tryClearUserRestrictionWithDeviceOwner(restriction);
+        }
+
+        if (!hasCleared) {
+            hasCleared = tryClearUserRestrictionWithProfileOwner(onUser, restriction);
+        }
+
+        if (!hasCleared && !onUser.equals(TestApis.users().system())) {
+            hasCleared = tryClearUserRestrictionWithDeviceOwner(restriction);
+        }
+
+        if (!hasCleared && !onUser.equals(TestApis.users().system())) {
+            hasCleared = tryClearUserRestrictionWithDeviceOwner(restriction);
+        }
+
+        if (!hasCleared) {
+            throw new AssumptionViolatedException(
+                    "Infra cannot clear user restriction " + restriction);
+        }
+
+        if (TestApis.devicePolicy().userRestrictions(onUser).isSet(restriction)) {
+            throw new AssumptionViolatedException("Error removing user restriction " + restriction + ". "
+                    + "It's possible this is set by the system and cannot be removed");
+        }
+
+        if (mAddedUserRestrictions.containsKey(onUser)
+                && mAddedUserRestrictions.get(onUser).contains(restriction)) {
+            mAddedUserRestrictions.get(onUser).remove(restriction);
+        } else {
+            if (!mRemovedUserRestrictions.containsKey(onUser)) {
+                mRemovedUserRestrictions.put(onUser, new HashSet<>());
+            }
+
+            mRemovedUserRestrictions.get(onUser).add(restriction);
+        }
+    }
+
+    private void requireSystemServiceAvailable(Class<?> serviceClass, FailureMode failureMode) {
+        checkFailOrSkip("Requires " + serviceClass + " to be available",
+                TestApis.services().serviceIsAvailable(serviceClass), failureMode);
     }
 }

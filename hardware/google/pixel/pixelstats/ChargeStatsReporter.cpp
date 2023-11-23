@@ -39,27 +39,35 @@ using android::base::WriteStringToFile;
 using android::hardware::google::pixel::PixelAtoms::ChargeStats;
 using android::hardware::google::pixel::PixelAtoms::VoltageTierStats;
 
+#define DURATION_FILTER_SECS 15
+
 ChargeStatsReporter::ChargeStatsReporter() {}
+
+int64_t ChargeStatsReporter::getTimeSecs(void) {
+    return nanoseconds_to_seconds(systemTime(SYSTEM_TIME_BOOTTIME));
+}
 
 void ChargeStatsReporter::ReportChargeStats(const std::shared_ptr<IStats> &stats_client,
                                             const std::string line, const std::string wline_at,
                                             const std::string wline_ac,
                                             const std::string pca_line) {
-    int charge_stats_fields[] = {ChargeStats::kAdapterTypeFieldNumber,
-                                 ChargeStats::kAdapterVoltageFieldNumber,
-                                 ChargeStats::kAdapterAmperageFieldNumber,
-                                 ChargeStats::kSsocInFieldNumber,
-                                 ChargeStats::kVoltageInFieldNumber,
-                                 ChargeStats::kSsocOutFieldNumber,
-                                 ChargeStats::kVoltageOutFieldNumber,
-                                 ChargeStats::kAdapterCapabilities0FieldNumber,
-                                 ChargeStats::kAdapterCapabilities1FieldNumber,
-                                 ChargeStats::kAdapterCapabilities2FieldNumber,
-                                 ChargeStats::kAdapterCapabilities3FieldNumber,
-                                 ChargeStats::kAdapterCapabilities4FieldNumber,
-                                 ChargeStats::kReceiverState0FieldNumber,
-                                 ChargeStats::kReceiverState1FieldNumber,
-                                 ChargeStats::kChargeCapacityFieldNumber};
+    int charge_stats_fields[] = {
+            ChargeStats::kAdapterTypeFieldNumber,
+            ChargeStats::kAdapterVoltageFieldNumber,
+            ChargeStats::kAdapterAmperageFieldNumber,
+            ChargeStats::kSsocInFieldNumber,
+            ChargeStats::kVoltageInFieldNumber,
+            ChargeStats::kSsocOutFieldNumber,
+            ChargeStats::kVoltageOutFieldNumber,
+            ChargeStats::kChargeCapacityFieldNumber,
+            ChargeStats::kAdapterCapabilities0FieldNumber,
+            ChargeStats::kAdapterCapabilities1FieldNumber,
+            ChargeStats::kAdapterCapabilities2FieldNumber,
+            ChargeStats::kAdapterCapabilities3FieldNumber,
+            ChargeStats::kAdapterCapabilities4FieldNumber,
+            ChargeStats::kReceiverState0FieldNumber,
+            ChargeStats::kReceiverState1FieldNumber,
+    };
     const int32_t chg_fields_size = std::size(charge_stats_fields);
     static_assert(chg_fields_size == 15, "Unexpected charge stats fields size");
     const int32_t wlc_fields_size = 7;
@@ -70,7 +78,7 @@ void ChargeStatsReporter::ReportChargeStats(const std::shared_ptr<IStats> &stats
 
     ALOGD("processing %s", line.c_str());
     if (sscanf(line.c_str(), "%d,%d,%d, %d,%d,%d,%d %d", &tmp[0], &tmp[1], &tmp[2], &tmp[3],
-               &tmp[4], &tmp[5], &tmp[6], &tmp[14]) == 8) {
+               &tmp[4], &tmp[5], &tmp[6], &tmp[7]) == 8) {
         /* Age Adjusted Charge Rate (AACR) logs an additional battery capacity in order to determine
          * the charge curve needed to minimize battery cycle life degradation, while also minimizing
          * impact to the user.
@@ -89,8 +97,8 @@ void ChargeStatsReporter::ReportChargeStats(const std::shared_ptr<IStats> &stats
         } else {
             tmp[0] = wireless_charge_stats_.TranslateSysModeToAtomValue(ssoc_tmp);
             ALOGD("wlc: processing %s", wline_ac.c_str());
-            if (sscanf(wline_ac.c_str(), "D:%x,%x,%x,%x,%x, %x,%x", &tmp[7], &tmp[8], &tmp[9],
-                       &tmp[10], &tmp[11], &tmp[12], &tmp[13]) != 7)
+            if (sscanf(wline_ac.c_str(), "D:%x,%x,%x,%x,%x, %x,%x", &tmp[8], &tmp[9], &tmp[10],
+                       &tmp[11], &tmp[12], &tmp[13], &tmp[14]) != 7)
                 ALOGE("Couldn't process %s", wline_ac.c_str());
             else
                 fields_size = chg_fields_size; /* include wlc stats */
@@ -104,14 +112,14 @@ void ChargeStatsReporter::ReportChargeStats(const std::shared_ptr<IStats> &stats
             ALOGE("Couldn't process %s", pca_line.c_str());
         } else {
             fields_size = chg_fields_size; /* include pca stats */
-            tmp[9] = pca_rs[2];
-            tmp[10] = pca_rs[3];
-            tmp[11] = pca_rs[4];
-            tmp[13] = pca_rs[1];
+            tmp[10] = pca_rs[2];
+            tmp[11] = pca_rs[3];
+            tmp[12] = pca_rs[4];
+            tmp[14] = pca_rs[1];
             if (wline_at.empty()) {
-                tmp[7] = pca_ac[0];
-                tmp[8] = pca_ac[1];
-                tmp[12] = pca_rs[0];
+                tmp[8] = pca_ac[0];
+                tmp[9] = pca_ac[1];
+                tmp[13] = pca_rs[0];
             }
         }
     }
@@ -198,14 +206,38 @@ void ChargeStatsReporter::ReportVoltageTierStats(const std::shared_ptr<IStats> &
         ALOGE("Unable to report VoltageTierStats to Stats service");
 }
 
+/**
+ * b/223664185
+ * Adds a rolling window filter to charge stats. If the time has expired, there will be a new log
+ * event.
+ *
+ * This helps ensure that we throttle stats even if there is an intermittent disconnect, while still
+ * retaining some stats on the disconnect.
+ */
+bool ChargeStatsReporter::shouldReportEvent(void) {
+    const int64_t current_time = getTimeSecs();
+    if (current_time == 0) {
+        ALOGE("Current boot time is zero!");
+        return false;
+    }
+
+    if (log_event_time_secs_ == 0 || log_event_time_secs_ + DURATION_FILTER_SECS < current_time) {
+        log_event_time_secs_ = current_time;
+        return true;
+    }
+
+    return false;
+}
+
 void ChargeStatsReporter::checkAndReport(const std::shared_ptr<IStats> &stats_client,
                                          const std::string &path) {
     std::string file_contents, line, wfile_contents, wline_at, wline_ac, pca_file_contents,
-            pca_line, thermal_file_contents;
+            pca_line, thermal_file_contents, gcharger_file_contents;
     std::istringstream ss;
     bool has_wireless = wireless_charge_stats_.CheckWirelessContentsAndAck(&wfile_contents);
     bool has_pca = pca_charge_stats_.CheckPcaContentsAndAck(&pca_file_contents);
-    bool has_thermal = checkThermalContentsAndAck(&thermal_file_contents);
+    bool has_thermal = checkContentsAndAck(&thermal_file_contents, kThermalChargeMetricsPath);
+    bool has_gcharger = checkContentsAndAck(&gcharger_file_contents, kGChargerMetricsPath);
 
     if (!ReadFileToString(path.c_str(), &file_contents)) {
         ALOGE("Unable to read %s - %s", path.c_str(), strerror(errno));
@@ -221,6 +253,11 @@ void ChargeStatsReporter::checkAndReport(const std::shared_ptr<IStats> &stats_cl
 
     if (!WriteStringToFile("0", path.c_str())) {
         ALOGE("Couldn't clear %s - %s", path.c_str(), strerror(errno));
+    }
+
+    if (!shouldReportEvent()) {
+        ALOGW("Too many log events; event ignored.");
+        return;
     }
 
     if (has_pca) {
@@ -255,15 +292,23 @@ void ChargeStatsReporter::checkAndReport(const std::shared_ptr<IStats> &stats_cl
             ReportVoltageTierStats(stats_client, line.c_str());
         }
     }
+
+    if (has_gcharger) {
+        std::istringstream wss;
+        wss.str(gcharger_file_contents);
+        while (std::getline(wss, line)) {
+            ReportVoltageTierStats(stats_client, line.c_str());
+        }
+    }
 }
 
-bool ChargeStatsReporter::checkThermalContentsAndAck(std::string *file_contents) {
-    if (!ReadFileToString(kThermalChargeMetricsPath.c_str(), file_contents)) {
+bool ChargeStatsReporter::checkContentsAndAck(std::string *file_contents, const std::string &path) {
+    if (!ReadFileToString(path.c_str(), file_contents)) {
         return false;
     }
 
-    if (!WriteStringToFile("0", kThermalChargeMetricsPath.c_str())) {
-        ALOGE("Couldn't clear %s - %s", kThermalChargeMetricsPath.c_str(), strerror(errno));
+    if (!WriteStringToFile("0", path.c_str())) {
+        ALOGE("Couldn't clear %s - %s", path.c_str(), strerror(errno));
         return false;
     }
     return true;

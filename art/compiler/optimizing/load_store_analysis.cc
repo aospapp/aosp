@@ -19,7 +19,7 @@
 #include "base/scoped_arena_allocator.h"
 #include "optimizing/escape.h"
 
-namespace art {
+namespace art HIDDEN {
 
 // A cap for the number of heap locations to prevent pathological time/space consumption.
 // The number of heap locations for most of the methods stays below this threshold.
@@ -283,14 +283,6 @@ bool LoadStoreAnalysis::Run() {
     heap_location_collector_.CleanUp();
     return false;
   }
-  if (heap_location_collector_.HasVolatile() || heap_location_collector_.HasMonitorOps()) {
-    // Don't do load/store elimination if the method has volatile field accesses or
-    // monitor operations, for now.
-    // TODO: do it right.
-    heap_location_collector_.CleanUp();
-    return false;
-  }
-
   heap_location_collector_.BuildAliasingMatrix();
   heap_location_collector_.DumpReferenceStats(stats_);
   return true;

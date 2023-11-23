@@ -17,14 +17,18 @@
 
 package android.security.cts;
 
+import static org.junit.Assume.assumeFalse;
+
 import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import org.junit.runner.RunWith;
+
 import org.junit.Test;
-import static org.junit.Assume.*;
+import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0650 extends SecurityTestCase {
+public class CVE_2021_0650 extends NonRootSecurityTestCase {
 
     /**
      * b/190286685

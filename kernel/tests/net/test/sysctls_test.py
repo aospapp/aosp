@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2021 The Android Open Source Project
 #
@@ -22,19 +22,23 @@ import net_test
 class SysctlsTest(net_test.NetworkTest):
 
   def check(self, f):
-    algs = open(f).readline().strip().split(' ')
+    with open(f) as algs_file:
+      algs = algs_file.readline().strip().split(' ')
     bad_algs = [a for a in algs if a not in ['cubic', 'reno']]
     msg = ("Obsolete TCP congestion control algorithm found. These "
            "algorithms will decrease real-world networking performance for "
            "users and must be disabled. Found: %s" % bad_algs)
     self.assertEqual(bad_algs, [], msg)
 
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (5, 7, 0), "not yet namespaced")
   def testAllowedCongestionControl(self):
     self.check('/proc/sys/net/ipv4/tcp_allowed_congestion_control')
 
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (5, 7, 0), "not yet namespaced")
   def testAvailableCongestionControl(self):
     self.check('/proc/sys/net/ipv4/tcp_available_congestion_control')
 
+  @unittest.skipUnless(net_test.LINUX_VERSION >= (4, 15, 0), "not yet namespaced")
   def testCongestionControl(self):
     self.check('/proc/sys/net/ipv4/tcp_congestion_control')
 

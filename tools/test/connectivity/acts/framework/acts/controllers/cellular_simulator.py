@@ -45,11 +45,12 @@ class AbstractCellularSimulator:
         """ Configures the equipment for an LTE simulation. """
         raise NotImplementedError()
 
-    def set_band_combination(self, bands):
-        """ Prepares the test equipment for the indicated CA combination.
+    def set_band_combination(self, bands, mimo_modes):
+        """ Prepares the test equipment for the indicated band/mimo combination.
 
         Args:
             bands: a list of bands represented as ints or strings
+            mimo_modes: a list of LteSimulation.MimoMode to use for each antenna
         """
         raise NotImplementedError()
 
@@ -63,6 +64,13 @@ class AbstractCellularSimulator:
             bts_index: the base station number.
         """
 
+        config_vars = vars(config)
+        config_dict = {
+            key: config_vars[key]
+            for key in config_vars if config_vars[key]
+        }
+        self.log.info('The config for {} is {}'.format(bts_index, config_dict))
+
         if config.output_power:
             self.set_output_power(bts_index, config.output_power)
 
@@ -71,6 +79,9 @@ class AbstractCellularSimulator:
 
         if isinstance(config, cellular_lib.LteCellConfig.LteCellConfig):
             self.configure_lte_bts(config, bts_index)
+
+        if isinstance(config, cellular_lib.NrCellConfig.NrCellConfig):
+            self.configure_nr_bts(config, bts_index)
 
     def configure_lte_bts(self, config, bts_index=0):
         """ Commands the equipment to setup an LTE base station with the
@@ -111,8 +122,8 @@ class AbstractCellularSimulator:
 
         if config.scheduling_mode:
 
-            if (config.scheduling_mode ==
-                    cellular_lib.LteSimulation.SchedulingMode.STATIC
+            if (config.scheduling_mode
+                    == cellular_lib.LteSimulation.SchedulingMode.STATIC
                     and not (config.dl_rbs and config.ul_rbs and config.dl_mcs
                              and config.ul_mcs)):
                 raise ValueError('When the scheduling mode is set to manual, '
@@ -159,6 +170,43 @@ class AbstractCellularSimulator:
             if config.drx_long_cycle_offset is not None:
                 self.set_drx_long_cycle_offset(bts_index,
                                                config.drx_long_cycle_offset)
+
+    def configure_nr_bts(self, config, bts_index=1):
+        """ Commands the equipment to setup an LTE base station with the
+        required configuration.
+
+        Args:
+            config: an LteSimulation.BtsConfig object.
+            bts_index: the base station number.
+        """
+        if config.band:
+            self.set_band(bts_index, config.band)
+
+        if config.nr_arfcn:
+            self.set_downlink_channel_number(bts_index, config.nr_arfcn)
+
+        if config.bandwidth:
+            self.set_bandwidth(bts_index, config.bandwidth)
+
+        if config.mimo_mode:
+            self.set_mimo_mode(bts_index, config.mimo_mode)
+
+        if config.scheduling_mode:
+
+            if (config.scheduling_mode
+                    == cellular_lib.LteSimulation.SchedulingMode.STATIC
+                    and not (config.dl_rbs and config.ul_rbs and config.dl_mcs
+                             and config.ul_mcs)):
+                raise ValueError('When the scheduling mode is set to manual, '
+                                 'the RB and MCS parameters are required.')
+
+            # If scheduling mode is set to Dynamic, the RB and MCS parameters
+            # will be ignored by set_scheduling_mode.
+            self.set_scheduling_mode(bts_index, config.scheduling_mode,
+                                     config.dl_mcs, config.ul_mcs,
+                                     config.dl_rbs, config.ul_rbs)
+        if config.mac_padding is not None:
+            self.set_mac_padding(bts_index, config.mac_padding)
 
     def set_lte_rrc_state_change_timer(self, enabled, time=10):
         """ Configures the LTE RRC state change timer.
@@ -380,6 +428,30 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
+    def set_apn(self, apn):
+        """ Configures the callbox network Access Point Name.
+
+        Args:
+            apn: the APN name
+        """
+        raise NotImplementedError()
+
+    def set_ip_type(self, ip_type):
+        """ Configures the callbox network IP type.
+
+        Args:
+            ip_type: the network type to use.
+        """
+        raise NotImplementedError()
+
+    def set_mtu(self, mtu):
+        """ Configures the callbox network Maximum Transmission Unit.
+
+        Args:
+            mtu: the MTU size.
+        """
+        raise NotImplementedError()
+
     def lte_attach_secondary_carriers(self, ue_capability_enquiry):
         """ Activates the secondary carriers for CA. Requires the DUT to be
         attached to the primary carrier first.
@@ -417,6 +489,15 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
+    def wait_until_quiet(self, timeout=120):
+        """Waits for all pending operations to finish on the simulator.
+
+        Args:
+            timeout: after this amount of time the method will raise a
+                CellularSimulatorError exception. Default is 120 seconds.
+        """
+        raise NotImplementedError()
+
     def detach(self):
         """ Turns off all the base stations so the DUT loose connection."""
         raise NotImplementedError()
@@ -442,8 +523,15 @@ class AbstractCellularSimulator:
         """
         raise NotImplementedError()
 
+    def send_sms(self, message):
+        """ Sends an SMS message to the DUT.
+
+        Args:
+            message: the SMS message to send.
+        """
+        raise NotImplementedError()
+
 
 class CellularSimulatorError(Exception):
     """ Exceptions thrown when the cellular equipment is unreachable or it
     returns an error after receiving a command. """
-    pass

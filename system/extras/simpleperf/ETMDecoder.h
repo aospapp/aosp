@@ -61,10 +61,19 @@ struct ETMBranchList {
   std::vector<bool> branch;
 };
 
+// ThreadTree interface used by ETMDecoder
+class ETMThreadTree {
+ public:
+  virtual ~ETMThreadTree() {}
+  virtual void DisableThreadExitRecords() = 0;
+  virtual const ThreadEntry* FindThread(int tid) = 0;
+  virtual const MapSet& GetKernelMaps() = 0;
+};
+
 class ETMDecoder {
  public:
   static std::unique_ptr<ETMDecoder> Create(const AuxTraceInfoRecord& auxtrace_info,
-                                            ThreadTree& thread_tree);
+                                            ETMThreadTree& thread_tree);
   virtual ~ETMDecoder() {}
   virtual void EnableDump(const ETMDumpOption& option) = 0;
 

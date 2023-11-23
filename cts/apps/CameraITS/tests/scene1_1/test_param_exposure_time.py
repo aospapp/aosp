@@ -27,20 +27,20 @@ import image_processing_utils
 import its_session_utils
 import target_exposure_utils
 
-COLORS = ['R', 'G', 'B']
-EXP_MULT_FACTORS = [0.8, 0.9, 1.0, 1.1, 1.2]  # vary exposure +/- 20%
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-PATCH_H = 0.1  # center 10%
-PATCH_W = 0.1
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
+_COLORS = ('R', 'G', 'B')
+_EXP_MULT_FACTORS = (0.8, 0.9, 1.0, 1.1, 1.2)  # vary exposure +/- 20%
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_PATCH_H = 0.1  # center 10%
+_PATCH_W = 0.1
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
 
 
 class ParamExposureTimeTest(its_base_test.ItsBaseTest):
   """Test that the android.sensor.exposureTime parameter is applied."""
 
   def test_param_exposure_time(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     exp_times = []
     r_means = []
     g_means = []
@@ -52,6 +52,7 @@ class ParamExposureTimeTest(its_base_test.ItsBaseTest):
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
       log_path = self.log_path
+      name_with_log_path = os.path.join(log_path, _NAME)
 
       # check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -59,28 +60,29 @@ class ParamExposureTimeTest(its_base_test.ItsBaseTest):
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Create requests
       sync_latency = camera_properties_utils.sync_latency(props)
       largest_yuv = capture_request_utils.get_largest_yuv_format(props)
       match_ar = (largest_yuv['width'], largest_yuv['height'])
-      fmt = capture_request_utils.get_smallest_yuv_format(
+      fmt = capture_request_utils.get_near_vga_yuv_format(
           props, match_ar=match_ar)
       e, s = target_exposure_utils.get_target_exposure_combos(
           log_path, cam)['midExposureTime']
 
       # Do captures & process images
-      for i, e_mult in enumerate(EXP_MULT_FACTORS):
+      for i, e_mult in enumerate(_EXP_MULT_FACTORS):
         req = capture_request_utils.manual_capture_request(
             s, e * e_mult, 0.0, True, props)
         cap = its_session_utils.do_capture_with_latency(
             cam, req, sync_latency, fmt)
         img = image_processing_utils.convert_capture_to_rgb_image(cap)
         image_processing_utils.write_image(
-            img, '%s_frame%d.jpg' % (os.path.join(log_path, NAME), i))
+            img, f'{name_with_log_path}_frame{i}.jpg')
         patch = image_processing_utils.get_image_patch(
-            img, PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+            img, _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
         rgb_means = image_processing_utils.compute_image_means(patch)
         logging.debug('RGB means: %s', str(rgb_means))
         exp_times.append(e * e_mult)
@@ -89,23 +91,22 @@ class ParamExposureTimeTest(its_base_test.ItsBaseTest):
         b_means.append(rgb_means[2])
 
     # Draw plot
-    pylab.figure(NAME)
+    pylab.figure(_NAME)
     for ch, means in enumerate([r_means, g_means, b_means]):
       pylab.plot(exp_times, means, '-'+'rgb'[ch]+'o')
     pylab.ylim([0, 1])
-    pylab.title(NAME)
+    pylab.title(_NAME)
     pylab.xlabel('Exposure times (ns)')
     pylab.ylabel('RGB means')
-    plot_name = '%s_plot_means.png' % os.path.join(log_path, NAME)
-    matplotlib.pyplot.savefig(plot_name)
+    matplotlib.pyplot.savefig(f'{name_with_log_path}_plot_means.png')
 
     # Assert each shot is brighter than previous.
     for ch, means in enumerate([r_means, g_means, b_means]):
-      for i in range(len(EXP_MULT_FACTORS)-1):
+      for i in range(len(_EXP_MULT_FACTORS)-1):
         if means[i+1] <= means[i]:
-          raise AssertionError(f'{COLORS[ch]} not increasing in brightness! '
-                               f'{COLORS[ch]}[i+1]: {means[i+1]:.4f}, '
-                               f'{COLORS[ch]}[i]: {means[i]:.4f}')
+          raise AssertionError(f'{_COLORS[ch]} not increasing in brightness! '
+                               f'{_COLORS[ch]}[i+1]: {means[i+1]:.4f}, '
+                               f'{_COLORS[ch]}[i]: {means[i]:.4f}')
 
 if __name__ == '__main__':
   test_runner.main()

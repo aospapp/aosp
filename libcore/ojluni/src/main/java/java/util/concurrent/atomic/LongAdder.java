@@ -85,11 +85,12 @@ public class LongAdder extends Striped64 implements Serializable {
     public void add(long x) {
         Cell[] cs; long b, v; int m; Cell c;
         if ((cs = cells) != null || !casBase(b = base, b + x)) {
+            int index = getProbe();
             boolean uncontended = true;
             if (cs == null || (m = cs.length - 1) < 0 ||
-                (c = cs[getProbe() & m]) == null ||
+                (c = cs[index & m]) == null ||
                 !(uncontended = c.cas(v = c.value, v + x)))
-                longAccumulate(x, null, uncontended);
+                longAccumulate(x, null, uncontended, index);
         }
     }
 
@@ -241,7 +242,7 @@ public class LongAdder extends Striped64 implements Serializable {
 
     /**
      * Returns a
-     * <a href="../../../../serialized-form.html#java.util.concurrent.atomic.LongAdder.SerializationProxy">
+     * <a href="{@docRoot}/serialized-form.html#java.util.concurrent.atomic.LongAdder.SerializationProxy">
      * SerializationProxy</a>
      * representing the state of this instance.
      *

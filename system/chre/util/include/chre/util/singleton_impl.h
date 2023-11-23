@@ -55,13 +55,13 @@ bool Singleton<ObjectType>::isInitialized() {
 
 template <typename ObjectType>
 ObjectType *Singleton<ObjectType>::get() {
-  return reinterpret_cast<ObjectType *>(&sObject);
+  return std::launder(reinterpret_cast<ObjectType *>(&sObject));
 }
 
 template <typename ObjectType>
 ObjectType *Singleton<ObjectType>::safeGet() {
   if (sIsInitialized) {
-    return reinterpret_cast<ObjectType *>(&sObject);
+    return std::launder(reinterpret_cast<ObjectType *>(&sObject));
   } else {
     return nullptr;
   }

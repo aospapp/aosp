@@ -30,6 +30,7 @@ import android.content.pm.PackageManager;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -230,21 +231,6 @@ public class CrossProfileTest extends BaseManagedProfileTest {
 
         mDevicePolicyManager.setCrossProfilePackages(
                 ADMIN_RECEIVER_COMPONENT, ALL_BUT_ONE_CROSS_PROFILE_PACKAGES);
-    }
-
-    /**
-     * Assumes that the host-side test performs the assertion of the broadcast itself. The broadcast
-     * should be sent to packages {@link #DIFF_CROSS_PROFILE_PACKAGES} and not to packages {@link
-     * #SUBLIST_CROSS_PROFILE_PACKAGES}.
-     */
-    public void testSetCrossProfilePackages_sendsBroadcastWhenResettingAppOps_noAsserts()
-            throws Exception {
-        mDevicePolicyManager.setCrossProfilePackages(
-                ADMIN_RECEIVER_COMPONENT, ALL_CROSS_PROFILE_PACKAGES);
-        explicitlySetInteractAcrossProfilesAppOps(MODE_ALLOWED);
-
-        mDevicePolicyManager.setCrossProfilePackages(
-                ADMIN_RECEIVER_COMPONENT, SUBLIST_CROSS_PROFILE_PACKAGES);
     }
 
     private void explicitlySetInteractAcrossProfilesAppOps(int mode) throws Exception {

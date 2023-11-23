@@ -55,7 +55,7 @@ cc_binary_host {
 
 //##################################################
 python_binary_host {
-    name: "mkdtboimg.py",
+    name: "mkdtboimg",
     main: "mkdtboimg.py",
     srcs: ["mkdtboimg.py"],
     version: {
@@ -63,11 +63,4 @@ python_binary_host {
             embedded_launcher: true,
         },
     },
-}
-
-//##################################################
-// TODO(b/153848038): Remove once we can use python binary as data for java_test_host
-filegroup {
-    name: "mkdtboimg",
-    srcs: ["mkdtboimg.py"],
 }

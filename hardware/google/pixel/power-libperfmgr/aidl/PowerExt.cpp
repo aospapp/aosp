@@ -52,11 +52,6 @@ ndk::ScopedAStatus PowerExt::setMode(const std::string &mode, bool enabled) {
         PowerSessionManager::getInstance()->updateHintMode(mode, enabled);
     }
 
-    if (mode == AdaptiveCpu::HINT_NAME) {
-        LOG(DEBUG) << "AdaptiveCpu intercepted hint";
-        mAdaptiveCpu->HintReceived(enabled);
-    }
-
     return ndk::ScopedAStatus::ok();
 }
 

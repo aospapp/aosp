@@ -40,6 +40,8 @@ type ContextImpl struct {
 
 	Thread tracer.Thread
 	Tracer tracer.Tracer
+
+	CriticalPath *status.CriticalPath
 }
 
 // BeginTrace starts a new Duration Event.
@@ -48,7 +50,7 @@ func (c ContextImpl) BeginTrace(name, desc string) {
 		c.Tracer.Begin(desc, c.Thread)
 	}
 	if c.Metrics != nil {
-		c.Metrics.EventTracer.Begin(name, desc, c.Thread)
+		c.Metrics.EventTracer.Begin(name, desc)
 	}
 }
 
@@ -58,7 +60,7 @@ func (c ContextImpl) EndTrace() {
 		c.Tracer.End(c.Thread)
 	}
 	if c.Metrics != nil {
-		c.Metrics.SetTimeMetrics(c.Metrics.EventTracer.End(c.Thread))
+		c.Metrics.SetTimeMetrics(c.Metrics.EventTracer.End())
 	}
 }
 

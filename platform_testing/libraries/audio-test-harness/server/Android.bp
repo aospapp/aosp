@@ -151,7 +151,7 @@ java_test_host {
         "grpc-java-netty-shaded",
     ],
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }
 
@@ -172,7 +172,7 @@ java_test_host {
         "objenesis",
     ],
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }
 
@@ -194,7 +194,7 @@ java_test_host {
         "objenesis",
     ],
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }
 
@@ -208,6 +208,6 @@ java_test_host {
         "junit",
     ],
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }

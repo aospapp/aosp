@@ -27,10 +27,14 @@ import android.hdmicec.cts.RemoteControlPassthrough;
 
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.RuleChain;
 import org.junit.runner.RunWith;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /** HDMI CEC 2.0 general protocol tests */
 @RunWith(DeviceJUnit4ClassRunner.class)
@@ -51,30 +55,34 @@ public final class HdmiCecGeneralProtocolTest extends BaseHdmiCecCtsTest {
     @Test
     public void cect_4_2_2_ignoreMessagesFromAddressF() throws Exception {
         setCec20();
-        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_TUNER_DEVICE_STATUS, "01");
+        // get cec reinit messages
+        hdmiCecClient.getAllMessages(mDutLogicalAddresses,
+                HdmiCecConstants.TIMEOUT_CEC_REINIT_SECONDS);
+
+        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_TUNER_DEVICE_STATUS, ":01");
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.RECORD_ON);
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.RECORD_OFF);
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.RECORD_TV_SCREEN);
-        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_DECK_STATUS, "01");
+        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_DECK_STATUS, ":01");
         sendMessageAndVerifyNoMessageSentFromDevice(
-                CecOperand.CLEAR_ANALOG_TIMER, "02:02:02:02:02:02:00:00:00:02:00");
+                CecOperand.CLEAR_ANALOG_TIMER, ":02:02:02:02:02:02:00:00:00:02:00");
         sendMessageAndVerifyNoMessageSentFromDevice(
-                CecOperand.SET_ANALOG_TIMER, "02:02:02:02:02:02:00:00:00:02:00");
-        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.PLAY, "05");
-        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.DECK_CONTROL, "01");
+                CecOperand.SET_ANALOG_TIMER, ":02:02:02:02:02:02:00:00:00:02:00");
+        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.PLAY, ":05");
+        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.DECK_CONTROL, ":01");
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_OSD_NAME);
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_AUDIO_STATUS);
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_SYSTEM_AUDIO_MODE_STATUS);
-        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.VENDOR_COMMAND, "00:01");
-        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.MENU_REQUEST, "00");
+        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.VENDOR_COMMAND, ":00:01");
+        sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.MENU_REQUEST, ":00");
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GIVE_POWER_STATUS);
         sendMessageAndVerifyNoMessageSentFromDevice(
-                CecOperand.SET_DIGITAL_TIMER, "02:02:02:02:02:02:00:00:00:02:00");
+                CecOperand.SET_DIGITAL_TIMER, ":02:02:02:02:02:02:00:00:00:02:00");
         sendMessageAndVerifyNoMessageSentFromDevice(
-                CecOperand.CLEAR_DIGITAL_TIMER, "02:02:02:02:02:02:00:00:00:02:00");
+                CecOperand.CLEAR_DIGITAL_TIMER, ":02:02:02:02:02:02:00:00:00:02:00");
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.GET_CEC_VERSION);
         sendMessageAndVerifyNoMessageSentFromDevice(
-                CecOperand.CLEAR_EXTERNAL_TIMER, "02:02:02:02:02:02:00:10:02");
+                CecOperand.CLEAR_EXTERNAL_TIMER, ":02:02:02:02:02:02:00:10:02");
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.REQUEST_SHORT_AUDIO_DESCRIPTOR);
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.INITIATE_ARC);
         sendMessageAndVerifyNoMessageSentFromDevice(CecOperand.REQUEST_ARC_INITIATION);
@@ -85,10 +93,19 @@ public final class HdmiCecGeneralProtocolTest extends BaseHdmiCecCtsTest {
 
     public void sendMessageAndVerifyNoMessageSentFromDevice(CecOperand message, String params)
             throws Exception {
+        // DeviceDiscoveryAction will send GIVE_OSD_NAME and GIVE_DEVICE_VENDOR_ID
+        // HotplugDetectionAction will send GIVE_PHYSICAL_ADDRESS
+        // PowerStatusMonitorAction will send GIVE_POWER_STATUS
+        List<CecOperand> excludeOperands = new ArrayList<>();
+        excludeOperands.add(CecOperand.GIVE_PHYSICAL_ADDRESS);
+        excludeOperands.add(CecOperand.GIVE_DEVICE_VENDOR_ID);
+        excludeOperands.add(CecOperand.GIVE_OSD_NAME);
+        excludeOperands.add(CecOperand.GIVE_POWER_STATUS);
+
         hdmiCecClient.sendCecMessage(message, params);
         // Default timeout for the incoming command to arrive in response to a request is 2 secs
         // Thus test ensures no messages are sent from DUT for a spacing of 3 secs
-        hdmiCecClient.checkNoMessagesSentFromDevice(3000);
+        hdmiCecClient.checkNoMessagesSentFromDevice(3000, excludeOperands);
     }
 
     public void sendMessageAndVerifyNoMessageSentFromDevice(CecOperand message) throws Exception {
@@ -105,6 +122,16 @@ public final class HdmiCecGeneralProtocolTest extends BaseHdmiCecCtsTest {
      * ignore the last byte of the parameter and treat it as {@code <UCP>[KEYCODE_DPAD_UP]}
      */
     @Test
+    @Ignore("b/259002142, b/264510905")
+    /**
+     * TODO: b/259002142, b/264510905
+     *
+     * 1. implement the behavior that the current test is testing
+     * (i.e. ignore additional parameters in <User Control Pressed> messages)
+     *
+     * 2. implement the tests as they are proposed by the HDMI forum and validate that they are
+     * passing with the current implementation of the behavior
+     */
     public void cect_hf_ignoreAdditionalParams() throws Exception {
         setCec20();
         RemoteControlPassthrough.checkUserControlPressAndReleaseWithAdditionalParams(

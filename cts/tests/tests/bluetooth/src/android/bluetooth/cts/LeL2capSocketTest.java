@@ -15,27 +15,46 @@
  */
 package android.bluetooth.cts;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
-import android.test.AndroidTestCase;
-import android.test.suitebuilder.annotation.SmallTest;
+import android.content.Context;
+import android.os.Build;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.After;
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.IOException;
 
-public class LeL2capSocketTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class LeL2capSocketTest {
 
     private static final int NUM_ITERATIONS_FOR_REPEATED_TEST = 100;
 
+    private Context mContext;
+
     private BluetoothAdapter mAdapter = null;
 
-    @Override
+    @Before
     public void setUp() throws Exception {
-        super.setUp();
-        if (!TestUtils.isBleSupported(getContext())) {
-            return;
-        }
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
+
+        Assume.assumeTrue(ApiLevelUtil.isAtLeast(Build.VERSION_CODES.TIRAMISU));
+        Assume.assumeTrue(TestUtils.isBleSupported(mContext));
+
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
             .adoptShellPermissionIdentity(android.Manifest.permission.BLUETOOTH_CONNECT);
         mAdapter = BluetoothAdapter.getDefaultAdapter();
@@ -46,26 +65,17 @@ public class LeL2capSocketTest extends AndroidTestCase {
         }
     }
 
-    @Override
+    @After
     public void tearDown() throws Exception {
-        if (!TestUtils.isBleSupported(getContext())) {
-            return;
-        }
-        if (mAdapter != null) {
-            assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
-        }
         mAdapter = null;
         InstrumentationRegistry.getInstrumentation().getUiAutomation()
             .dropShellPermissionIdentity();
-        super.tearDown();
     }
 
-
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testOpenInsecureLeL2capServerSocketOnce() {
-        if (!TestUtils.isBleSupported(getContext())) {
-            return;
-        }
         assertTrue("Bluetooth is not enabled", mAdapter.isEnabled());
         try {
             final BluetoothServerSocket serverSocket = mAdapter.listenUsingInsecureL2capChannel();
@@ -76,11 +86,10 @@ public class LeL2capSocketTest extends AndroidTestCase {
         }
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testOpenInsecureLeL2capServerSocketRepeatedly() {
-        if (!TestUtils.isBleSupported(getContext())) {
-            return;
-        }
         assertTrue("Bluetooth is not enabled", mAdapter.isEnabled());
         try {
             for (int i = 0; i < NUM_ITERATIONS_FOR_REPEATED_TEST; i++) {
@@ -94,11 +103,10 @@ public class LeL2capSocketTest extends AndroidTestCase {
         }
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testOpenSecureLeL2capServerSocketOnce() {
-        if (!TestUtils.isBleSupported(getContext())) {
-            return;
-        }
         assertTrue("Bluetooth is not enabled", mAdapter.isEnabled());
         try {
             final BluetoothServerSocket serverSocket = mAdapter.listenUsingL2capChannel();
@@ -109,11 +117,10 @@ public class LeL2capSocketTest extends AndroidTestCase {
         }
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testOpenSecureLeL2capServerSocketRepeatedly() {
-        if (!TestUtils.isBleSupported(getContext())) {
-            return;
-        }
         assertTrue("Bluetooth is not enabled", mAdapter.isEnabled());
         try {
             for (int i = 0; i < NUM_ITERATIONS_FOR_REPEATED_TEST; i++) {

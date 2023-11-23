@@ -1,6 +1,7 @@
-# Bug component: 324112
+# Bug component: 78010
+# Internal-only bug component: 324112
+joshtrask@google.com
+mrenouf@google.com
+mrcasey@google.com
 digman@google.com
-asc@google.com
-dsandler@google.com
-mpietal@google.com
-arangelov@google.com
+file:platform/frameworks/base:/packages/SystemUI/OWNERS

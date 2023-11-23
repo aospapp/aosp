@@ -26,6 +26,7 @@ import static java.util.Collections.singletonList;
 
 import android.app.slice.Slice;
 import android.app.slice.SliceSpec;
+import android.autofillservice.cts.testcore.Helper;
 import android.content.ClipData;
 import android.content.Intent;
 import android.content.IntentSender;
@@ -38,6 +39,7 @@ import android.service.autofill.InlinePresentation;
 import android.service.autofill.Presentations;
 import android.util.Size;
 import android.view.autofill.AutofillId;
+import android.view.autofill.AutofillManager;
 import android.view.autofill.AutofillValue;
 import android.widget.RemoteViews;
 import android.widget.inline.InlinePresentationSpec;
@@ -274,12 +276,30 @@ public class DatasetTest {
     public void testPresentations_noPresentation() {
         assertThrows(IllegalStateException.class, () -> new Presentations.Builder().build());
     }
+    @Test
+    public void testBuilder_setField() {
+        final Field.Builder builder = new Field.Builder();
+        final Presentations presentations =
+                new Presentations.Builder().setMenuPresentation(mPresentation).build();
+        final Field field1 = builder.setValue(mValue)
+                .setFilter(mFilter)
+                .setPresentations(presentations)
+                .build();
+        Dataset dataset = new Dataset.Builder().setField(mId, field1).build();
+
+        assertThat(dataset).isNotNull();
+        assertThat(dataset.getFieldIds().get(0)).isEqualTo(mId);
+        assertThat(dataset.getFieldPresentation(0)).isEqualTo(mPresentation);
+        assertThat(dataset.getFilter(0).getPattern().pattern()).isEqualTo(mFilter.pattern());
+        assertThat(dataset.getFieldValues().get(0)).isEqualTo(mValue);
+    }
 
     @Test
     public void testBuilder_setFieldNullId() {
         final Dataset.Builder builder = new Dataset.Builder(mPresentation);
+        AutofillId nullId = null;
         assertThrows(NullPointerException.class,
-                () -> builder.setField(null, new Field.Builder().build()));
+                () -> builder.setField(nullId, new Field.Builder().build()));
     }
 
     @Test
@@ -292,6 +312,45 @@ public class DatasetTest {
     public void testBuilder_setFieldWithEmptyField() {
         // Just assert that it builds without throwing an exception.
         assertThat(new Dataset.Builder().setField(mId, new Field.Builder().build())).isNotNull();
+    }
+
+    @Test
+    public void testBuilder_setFieldForAllHints() {
+        Dataset dataset = new Dataset.Builder().setFieldForAllHints(new Field.Builder().build())
+                .build();
+        assertThat(dataset).isNotNull();
+        assertThat(dataset.getAutofillDatatypes().get(0)).isEqualTo(AutofillManager.ANY_HINT);
+    }
+
+    @Test
+    public void testBuilder_setFieldWithType() {
+        Dataset dataset = new Dataset.Builder().setField("username",
+                new Field.Builder().build()).build();
+        assertThat(dataset).isNotNull();
+        assertThat(dataset.getAutofillDatatypes().contains("username")).isTrue();
+    }
+
+    @Test
+    public void testBuilder_setFieldWithTypeAndIds() {
+        final Presentations presentations =
+                new Presentations.Builder().setMenuPresentation(mPresentation).build();
+        final Field field1 = new Field.Builder()
+                .setValue(mValue)
+                .setFilter(mFilter)
+                .setPresentations(presentations)
+                .build();
+        Dataset dataset = new Dataset.Builder()
+                .setField(mId, field1)
+                .setField("username", field1)
+                .build();
+
+        assertThat(dataset).isNotNull();
+        assertThat(dataset.getFieldIds().get(0)).isEqualTo(mId);
+        assertThat(dataset.getFieldValues().size()).isEqualTo(1);
+        assertThat(dataset.getFieldPresentation(0)).isEqualTo(mPresentation);
+        assertThat(dataset.getFilter(0).getPattern().pattern()).isEqualTo(mFilter.pattern());
+        assertThat(dataset.getFieldValues().get(0)).isEqualTo(mValue);
+        assertThat(dataset.getAutofillDatatypes().get(0)).isEqualTo("username");
     }
 
     @Test
@@ -419,5 +478,36 @@ public class DatasetTest {
         assertThat(result.getFieldIds()).isEqualTo(singletonList(mId));
         assertThat(result.getFieldContent().getItemCount()).isEqualTo(mContent.getItemCount());
         assertThat(dataset.getFieldValues()).isEqualTo(singletonList(null));
+    }
+
+    @Test
+    public void testWriteToParcel_bothAutofillIdAndTypeSet() throws Exception {
+        final Presentations presentations = new Presentations.Builder()
+                .setMenuPresentation(Helper.createPresentation("presentation"))
+                .build();
+        final Field field1 = new Field.Builder().setValue(mValue)
+                .setFilter(mFilter)
+                .setPresentations(presentations)
+                .build();
+        final Field field2 = new Field.Builder().setValue(mValue)
+                .setFilter(mFilter)
+                .setPresentations(presentations)
+                .build();
+        String username = "username";
+        Dataset dataset = new Dataset.Builder()
+                .setField(mId, field1)
+                .setField(username, field1)
+                .setFieldForAllHints(field2)
+                .setId("test-dataset-id")
+                .build();
+        Parcel parcel = Parcel.obtain();
+        dataset.writeToParcel(parcel, 0);
+        parcel.setDataPosition(0);
+
+        Dataset result = Dataset.CREATOR.createFromParcel(parcel);
+        assertThat(result.getId()).isEqualTo(dataset.getId());
+        assertThat(result.getFieldIds()).contains(mId);
+        assertThat(result.getAutofillDatatypes())
+                .containsAtLeast(username, AutofillManager.ANY_HINT);
     }
 }

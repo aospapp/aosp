@@ -21,8 +21,10 @@ import android.aidl.fixedsizearray.FixedSizeArrayExample.IntParcelable;
 import android.aidl.tests.BackendType;
 import android.aidl.tests.BadParcelable;
 import android.aidl.tests.ByteEnum;
+import android.aidl.tests.CircularParcelable;
 import android.aidl.tests.ConstantExpressionEnum;
 import android.aidl.tests.GenericStructuredParcelable;
+import android.aidl.tests.ICircular;
 import android.aidl.tests.ICppJavaTests;
 import android.aidl.tests.INamedCallback;
 import android.aidl.tests.INewName;
@@ -59,6 +61,13 @@ import java.util.List;
 
 public class TestServiceServer extends ITestService.Stub {
   public static void main(String[] args) {
+    // b/235006086: test with debug stack trace parceling feature
+    // which has been broken in the past. This does mean that we
+    // lose Java coverage for when this is false, but we do have
+    // other tests which cover this including CtsNdkBinderTestCases
+    // and other language-specific exception/Status unit tests.
+    Parcel.setStackTraceParceling(true);
+
     TestServiceServer myServer = new TestServiceServer();
     ServiceManager.addService(ITestService.class.getName(), myServer);
 
@@ -94,11 +103,11 @@ public class TestServiceServer extends ITestService.Stub {
     }
     @Override
     public final int getInterfaceVersion() {
-      return IFooInterface.VERSION;
+      return super.VERSION;
     }
     @Override
     public final String getInterfaceHash() {
-      return IFooInterface.HASH;
+      return super.HASH;
     }
   }
 
@@ -298,10 +307,27 @@ public class TestServiceServer extends ITestService.Stub {
 
   @Override
   public INamedCallback GetOtherTestService(String name) throws RemoteException {
-    if (!mNamedCallbacks.containsKey(name)) {
-      mNamedCallbacks.put(name, new MyNamedCallback(name));
+    synchronized (mNamedCallbacks) {
+      if (!mNamedCallbacks.containsKey(name)) {
+        mNamedCallbacks.put(name, new MyNamedCallback(name));
+      }
+      return mNamedCallbacks.get(name);
     }
-    return mNamedCallbacks.get(name);
+  }
+  @Override
+  public boolean SetOtherTestService(String name, INamedCallback service) throws RemoteException {
+    synchronized (mNamedCallbacks) {
+      if (mNamedCallbacks.containsKey(name) && mNamedCallbacks.get(name) == service) {
+        return true;
+      }
+      try {
+        // This restricts the client to only setting services that it gets from this server.
+        mNamedCallbacks.put(name, (MyNamedCallback) service);
+      } catch (Exception e) {
+        Log.i("TestServiceServer", "Failed to cast service");
+      }
+      return false;
+    }
   }
   @Override
   public boolean VerifyName(INamedCallback service, String name) throws RemoteException {
@@ -757,5 +783,22 @@ public class TestServiceServer extends ITestService.Stub {
   @Override
   public byte getBackendType() throws RemoteException {
     return BackendType.JAVA;
+  }
+
+  private static class MyCircular extends ICircular.Stub {
+    private ITestService mSrv;
+
+    MyCircular(ITestService srv) { mSrv = srv; }
+
+    @Override
+    public ITestService GetTestService() {
+      return mSrv;
+    }
+  }
+
+  @Override
+  public ICircular GetCircular(CircularParcelable cp) throws RemoteException {
+    cp.testService = this;
+    return new MyCircular(this);
   }
 }

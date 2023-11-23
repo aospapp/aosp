@@ -22,12 +22,10 @@ import static android.mediapc.cts.CodecTestBase.selectHardwareCodecs;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeFalse;
-import static org.junit.Assume.assumeTrue;
 
 import android.media.MediaFormat;
 import android.mediapc.cts.common.Utils;
 import android.os.Build;
-import android.util.Log;
 import android.view.Surface;
 
 import androidx.test.rule.ActivityTestRule;
@@ -79,6 +77,7 @@ public class FrameDropTestBase {
     static Map<String, String> m1080p30FpsTestFiles = new HashMap<>();
     static Map<String, String> m540p60FpsTestFiles = new HashMap<>();
     static Map<String, String> m1080p60FpsTestFiles = new HashMap<>();
+    static Map<String, String> m2160p60FpsTestFiles = new HashMap<>();
     static {
         m540p60FpsTestFiles.put(AVC, "bbb_960x540_3mbps_60fps_avc.mp4");
         m540p60FpsTestFiles.put(HEVC, "bbb_960x540_3mbps_60fps_hevc.mp4");
@@ -91,6 +90,12 @@ public class FrameDropTestBase {
         m1080p60FpsTestFiles.put(VP8, "bbb_1920x1080_8mbps_60fps_vp8.webm");
         m1080p60FpsTestFiles.put(VP9, "bbb_1920x1080_6mbps_60fps_vp9.webm");
         m1080p60FpsTestFiles.put(AV1, "bbb_1920x1080_6mbps_60fps_av1.mp4");
+
+        m2160p60FpsTestFiles.put(AVC, "bbb_3840x2160_24mbps_60fps_avc.mp4");
+        m2160p60FpsTestFiles.put(HEVC, "bbb_3840x2160_18mbps_60fps_hevc.mkv");
+        m2160p60FpsTestFiles.put(VP8, "bbb_3840x2160_24mbps_60fps_vp8.webm");
+        m2160p60FpsTestFiles.put(VP9, "bbb_3840x2160_18mbps_60fps_vp9.webm");
+        m2160p60FpsTestFiles.put(AV1, "bbb_3840x2160_18mbps_60fps_av1.mp4");
 
         m540p30FpsTestFiles.put(AVC, "bbb_960x540_2mbps_30fps_avc.mp4");
         m540p30FpsTestFiles.put(HEVC, "bbb_960x540_2mbps_30fps_hevc.mp4");

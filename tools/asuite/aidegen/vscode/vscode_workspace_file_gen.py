@@ -83,7 +83,7 @@ def _create_code_workspace_file_content(workspace_dict):
 
 
 def _get_unique_project_name(abs_path, root_dir):
-    """Gets an unique project name from the project absolute path.
+    """Gets a unique project name from the project absolute path.
 
     If it's the whole Android source case, replace the relative path '.' with
     the root folder name.
@@ -93,7 +93,7 @@ def _get_unique_project_name(abs_path, root_dir):
         root_dir: A string of the absolute Android root path.
 
     Returns:
-        A string of an unique project name.
+        A string of a unique project name.
     """
     unique_name = os.path.relpath(abs_path, root_dir).replace(os.sep, '.')
     if unique_name == '.':

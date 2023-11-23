@@ -121,11 +121,13 @@ public:
 
     [[nodiscard]] static int addInterfaceToPhysicalNetwork(unsigned netId, const char* interface,
                                                            Permission permission,
-                                                           const UidRangeMap& uidRangeMap);
+                                                           const UidRangeMap& uidRangeMap,
+                                                           bool local);
     [[nodiscard]] static int removeInterfaceFromPhysicalNetwork(unsigned netId,
                                                                 const char* interface,
                                                                 Permission permission,
-                                                                const UidRangeMap& uidRangeMap);
+                                                                const UidRangeMap& uidRangeMap,
+                                                                bool local);
 
     [[nodiscard]] static int addInterfaceToVirtualNetwork(unsigned netId, const char* interface,
                                                           bool secure,
@@ -138,7 +140,7 @@ public:
 
     [[nodiscard]] static int modifyPhysicalNetworkPermission(unsigned netId, const char* interface,
                                                              Permission oldPermission,
-                                                             Permission newPermission);
+                                                             Permission newPermission, bool local);
 
     [[nodiscard]] static int addUsersToVirtualNetwork(unsigned netId, const char* interface,
                                                       bool secure, const UidRangeMap& uidRangeMap,
@@ -179,10 +181,11 @@ public:
                                                              Permission permission);
 
     [[nodiscard]] static int addUsersToPhysicalNetwork(unsigned netId, const char* interface,
-                                                       const UidRangeMap& uidRangeMap);
+                                                       const UidRangeMap& uidRangeMap, bool local);
 
     [[nodiscard]] static int removeUsersFromPhysicalNetwork(unsigned netId, const char* interface,
-                                                            const UidRangeMap& uidRangeMap);
+                                                            const UidRangeMap& uidRangeMap,
+                                                            bool local);
 
     [[nodiscard]] static int addUsersToUnreachableNetwork(unsigned netId,
                                                           const UidRangeMap& uidRangeMap);
@@ -197,6 +200,14 @@ public:
 
   private:
     friend class RouteControllerTest;
+
+    // An expandable array for fixed local prefix though it's only one element now.
+    static constexpr const char* V4_FIXED_LOCAL_PREFIXES[] = {
+            // The multicast range is 224.0.0.0/4 but only limit it to 224.0.0.0/24 since the IPv4
+            // definitions are not as precise as for IPv6, it is the only range that the standards
+            // (RFC 2365 and RFC 5771) specify is link-local and must not be forwarded.
+            "224.0.0.0/24"  // Link-local multicast; non-internet routable
+    };
 
     static std::mutex sInterfaceToTableLock;
     static std::map<std::string, uint32_t> sInterfaceToTable GUARDED_BY(sInterfaceToTableLock);
@@ -213,7 +224,7 @@ public:
     static int modifyDefaultNetwork(uint16_t action, const char* interface, Permission permission);
     static int modifyPhysicalNetwork(unsigned netId, const char* interface,
                                      const UidRangeMap& uidRangeMap, Permission permission,
-                                     bool add, bool modifyNonUidBasedRules);
+                                     bool add, bool modifyNonUidBasedRules, bool local);
     static int modifyUnreachableNetwork(unsigned netId, const UidRangeMap& uidRangeMap, bool add);
     static int modifyRoute(uint16_t action, uint16_t flags, const char* interface,
                            const char* destination, const char* nexthop, TableType tableType,
@@ -230,8 +241,9 @@ public:
 
     static int modifyUidLocalNetworkRule(const char* interface, uid_t uidStart, uid_t uidEnd,
                                          bool add);
-    static bool isLocalAddress(TableType tableType, const char* destination, const char* nexthop);
-    static bool isTargetV4LocalRange(const char* addrstr);
+    static bool isLocalRoute(TableType tableType, const char* destination, const char* nexthop);
+    static bool isWithinIpv4LocalPrefix(const char* addrstr);
+    static int addFixedLocalRoutes(const char* interface);
 };
 
 // Public because they are called by by RouteControllerTest.cpp.

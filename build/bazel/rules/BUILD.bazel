@@ -1,1 +1,50 @@
+load(":gensrcs_test.bzl", "gensrcs_tests_suite")
+load(":linker_config_test.bzl", "linker_config_test_suite")
+load(":prebuilt_file_test.bzl", "prebuilt_file_test_suite")
+load(":prebuilt_xml_test.bzl", "prebuilt_xml_test_suite")
+
 exports_files(["lunch.bzl"])
+
+gensrcs_tests_suite(name = "gensrcs_tests")
+
+py_binary(
+    name = "staging_dir_builder",
+    srcs = ["staging_dir_builder.py"],
+    visibility = ["//visibility:public"],
+)
+
+sh_test(
+    name = "staging_dir_builder_test",
+    srcs = ["staging_dir_builder_test.sh"],
+    data = [
+        "test.pem",
+        ":staging_dir_builder",
+        "//external/avb:avbtool",
+        "//external/e2fsprogs/contrib/android:e2fsdroid",
+        "//external/e2fsprogs/debugfs",
+        "//external/e2fsprogs/misc:blkid",
+        "//external/e2fsprogs/misc:mke2fs",
+        "//external/e2fsprogs/resize:resize2fs",
+        "//external/erofs-utils:fsck.erofs",
+        "//external/selinux/libselinux:sefcontext_compile",
+        "//frameworks/base/tools/aapt2",
+        "//prebuilts/build-tools:linux-x86/bin/soong_zip",
+        "//prebuilts/sdk/current:public/android.jar",
+        "//system/apex/apexer",
+        "//system/apex/apexer:conv_apex_manifest",
+        "//system/apex/tools:apex_compression_tool",
+        "//system/apex/tools:deapexer",
+    ],
+    # This is a host test.
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:linux": [],
+        "//conditions:default": ["@platforms//:incompatible"],
+    }),
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+linker_config_test_suite(name = "linker_config_tests")
+
+prebuilt_xml_test_suite(name = "prebuilt_xml_tests")
+
+prebuilt_file_test_suite(name = "prebuilt_file_tests")

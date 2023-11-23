@@ -26,12 +26,6 @@
 
 #include "LogStatistics.h"
 
-#define EXPIRE_HOUR_THRESHOLD 24  // Only expire chatty UID logs to preserve
-                                  // non-chatty UIDs less than this age in hours
-#define EXPIRE_THRESHOLD 10       // A smaller expire count is considered too
-                                  // chatty for the temporal expire messages
-#define EXPIRE_RATELIMIT 10  // maximum rate in seconds to report expiration
-
 class __attribute__((packed)) LogBufferElement {
   public:
     LogBufferElement(log_id_t log_id, log_time realtime, uid_t uid, pid_t pid, pid_t tid,
@@ -41,9 +35,8 @@ class __attribute__((packed)) LogBufferElement {
     ~LogBufferElement();
 
     uint32_t GetTag() const;
-    uint16_t SetDropped(uint16_t value);
 
-    bool FlushTo(LogWriter* writer, LogStatistics* parent, bool lastSame);
+    bool FlushTo(LogWriter* writer);
 
     LogStatisticsElement ToLogStatisticsElement() const;
 
@@ -51,30 +44,19 @@ class __attribute__((packed)) LogBufferElement {
     uid_t uid() const { return uid_; }
     pid_t pid() const { return pid_; }
     pid_t tid() const { return tid_; }
-    uint16_t msg_len() const { return dropped_ ? 0 : msg_len_; }
-    const char* msg() const { return dropped_ ? nullptr : msg_; }
+    uint16_t msg_len() const { return msg_len_; }
+    const char* msg() const { return msg_; }
     uint64_t sequence() const { return sequence_; }
     log_time realtime() const { return realtime_; }
-    uint16_t dropped_count() const { return dropped_ ? dropped_count_ : 0; }
 
   private:
-    // assumption: mDropped == true
-    size_t PopulateDroppedMessage(char*& buffer, LogStatistics* parent, bool lastSame);
-
     // sized to match reality of incoming log packets
     const uint32_t uid_;
     const uint32_t pid_;
     const uint32_t tid_;
     uint64_t sequence_;
     log_time realtime_;
-    union {
-        char* msg_;    // mDropped == false
-        int32_t tag_;  // mDropped == true
-    };
-    union {
-        const uint16_t msg_len_;  // mDropped == false
-        uint16_t dropped_count_;  // mDropped == true
-    };
+    char* msg_;
+    const uint16_t msg_len_;
     const uint8_t log_id_;
-    bool dropped_;
 };

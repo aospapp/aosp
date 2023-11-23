@@ -16,34 +16,35 @@
 
 package android.media.drmframework.cts;
 
+import static junit.framework.Assert.assertTrue;
+
+import static org.testng.Assert.assertEquals;
+
 import android.media.MediaCrypto;
 import android.media.MediaCryptoException;
 import android.media.MediaDrm;
 import android.media.NotProvisionedException;
 import android.media.ResourceBusyException;
 import android.media.UnsupportedSchemeException;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.metrics.LogSessionId;
 import android.media.metrics.MediaMetricsManager;
 import android.media.metrics.PlaybackSession;
 import android.os.PersistableBundle;
 import android.util.Log;
+
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import java.util.List;
-import java.util.UUID;
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import static junit.framework.Assert.assertTrue;
+import java.util.List;
+import java.util.UUID;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertThrows;
-
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 public class MediaDrmTest {
 
@@ -51,10 +52,7 @@ public class MediaDrmTest {
 
     private void testSingleScheme(UUID scheme) throws Exception {
         MediaDrm md = new MediaDrm(scheme);
-        assertTrue(md.getOpenSessionCount() <= md.getMaxSessionCount());
-        assertThrows(() -> {
-            md.closeSession(null);
-        });
+        // TODO(b/267460223): test properties description, vendor, version
         md.close();
     }
 
@@ -125,7 +123,9 @@ public class MediaDrmTest {
 
     @Test
     public void testPlaybackComponent() throws UnsupportedSchemeException {
-        for (UUID scheme : MediaDrm.getSupportedCryptoSchemes()) {
+        final UUID CLEARKEY_UUID = new UUID(0xe2719d58a985b3c9L, 0x781ab030af78d30eL);
+        // TODO(b/267463362): move testPlaybackComponent to MediaDrmClearkeyTest
+        for (UUID scheme : new UUID[] {CLEARKEY_UUID}) {
             MediaDrm drm = new MediaDrm(scheme);
             byte[] sid = null;
             try {

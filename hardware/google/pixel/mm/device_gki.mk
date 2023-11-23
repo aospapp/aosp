@@ -1,7 +1,15 @@
 PRODUCT_COPY_FILES += \
       hardware/google/pixel/mm/pixel-mm-gki.rc:$(TARGET_COPY_OUT_VENDOR)/etc/init/pixel-mm-gki.rc \
       hardware/google/pixel/mm/fstab.zram.2g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.2g \
-      hardware/google/pixel/mm/fstab.zram.3g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.3g
+      hardware/google/pixel/mm/fstab.zram.3g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.3g \
+      hardware/google/pixel/mm/fstab.zram.4g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.4g \
+      hardware/google/pixel/mm/fstab.zram.5g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.5g \
+      hardware/google/pixel/mm/fstab.zram.6g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.6g \
+      hardware/google/pixel/mm/fstab.zram.40p:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.40p \
+      hardware/google/pixel/mm/fstab.zram.50p:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.50p \
+      hardware/google/pixel/mm/fstab.zram.60p:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.60p \
+      hardware/google/pixel/mm/fstab.zram.50p-1g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.50p-1g \
+      hardware/google/pixel/mm/fstab.zram.50p-2g:$(TARGET_COPY_OUT_VENDOR)/etc/fstab.zram.50p-2g
 
 ifneq (,$(filter userdebug eng, $(TARGET_BUILD_VARIANT)))
 PRODUCT_PACKAGES += \

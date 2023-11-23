@@ -17,18 +17,22 @@
 package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.*;
+
 import static com.android.compatibility.common.util.BlockedNumberUtil.deleteBlockedNumber;
 import static com.android.compatibility.common.util.BlockedNumberUtil.insertBlockedNumber;
 
 import android.app.UiModeManager;
-import android.content.ContentValues;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
-import android.telecom.CallAudioState;
+import android.os.OutcomeReceiver;
+import android.os.ParcelUuid;
 import android.telecom.Call;
+import android.telecom.CallAudioState;
+import android.telecom.CallEndpoint;
+import android.telecom.CallEndpointException;
 import android.telecom.CallScreeningService;
 import android.telecom.Connection;
 import android.telecom.ConnectionService;
@@ -38,6 +42,8 @@ import android.telecom.VideoProfile;
 import android.telephony.TelephonyManager;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.Executor;
 
 /**
  * Extended suite of tests that use {@link CtsConnectionService} and {@link MockInCallService} to
@@ -51,6 +57,11 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
         if (mShouldTestTelecom) {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
     }
 
     public void testAddNewOutgoingCallAndThenDisconnect() {
@@ -88,10 +99,14 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
 
         assertMuteState(connection, true);
         assertMuteState(inCallService, true);
+        assertMuteEndpoint(connection, true);
+        assertMuteEndpoint(inCallService, true);
 
         inCallService.setMuted(false);
         assertMuteState(connection, false);
         assertMuteState(inCallService, false);
+        assertMuteEndpoint(connection, false);
+        assertMuteEndpoint(inCallService, false);
     }
 
     public void testSwitchAudioRoutes() {
@@ -378,13 +393,17 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
             cleanupCalls();
             // Set device back to normal
             manager.disableCarMode(0);
-            // Make sure the UI mode has been set back
-            assertUiMode(Configuration.UI_MODE_TYPE_NORMAL);
+            if (!TestUtils.hasAutomotiveFeature()) {
+                // Make sure the UI mode has been set back
+                assertUiMode(Configuration.UI_MODE_TYPE_NORMAL);
+            } else {
+                assertUiMode(Configuration.UI_MODE_TYPE_CAR);
+            }
         }
     }
 
     public void testIncomingCallFromBlockedNumber_IsRejected() throws Exception {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -460,6 +479,81 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
             MockCallScreeningService.disableService(mContext);
             TestUtils.clearSystemDialerOverride(getInstrumentation());
         }
+    }
+
+    public void testSwitchCallEndpoint() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+
+        placeAndVerifyCall();
+        final MockConnection connection = verifyConnectionForOutgoingCall();
+
+        final MockInCallService inCallService = mInCallCallbacks.getService();
+
+        final Call call = inCallService.getLastCall();
+        assertCallState(call, Call.STATE_DIALING);
+
+        final int currentInvokeCount = mOnCallEndpointChangedCounter.getInvokeCount();
+        mOnCallEndpointChangedCounter.waitForCount(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        CallEndpoint currentEndpoint = (CallEndpoint) mOnCallEndpointChangedCounter.getArgs(0)[0];
+        int currentEndpointType = currentEndpoint.getEndpointType();
+
+        mOnAvailableEndpointsChangedCounter.waitForCount(WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        List<CallEndpoint> availableEndpoints =
+                (List<CallEndpoint>) mOnAvailableEndpointsChangedCounter.getArgs(0)[0];
+        CallEndpoint anotherEndpoint = null;
+        for (CallEndpoint endpoint : availableEndpoints) {
+            if (endpoint.getEndpointType() != currentEndpointType) {
+                anotherEndpoint = endpoint;
+                break;
+            }
+        }
+
+        Executor executor = mContext.getMainExecutor();
+        if (anotherEndpoint != null) {
+            final int anotherEndpointType = anotherEndpoint.getEndpointType();
+            ((InCallService) inCallService).requestCallEndpointChange(anotherEndpoint, executor,
+                    new OutcomeReceiver<>() {
+                        @Override
+                        public void onResult(Void result) {}
+                        @Override
+                        public void onError(CallEndpointException exception) {}
+                    });
+            mOnCallEndpointChangedCounter.waitForCount(currentInvokeCount + 1,
+                    WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+            assertEndpointType(connection, anotherEndpointType);
+            assertEndpointType(inCallService, anotherEndpointType);
+
+            inCallService.requestCallEndpointChange(currentEndpoint, executor,
+                    new OutcomeReceiver<>() {
+                        @Override
+                        public void onResult(Void result) {}
+                        @Override
+                        public void onError(CallEndpointException exception) {}
+                    });
+            mOnCallEndpointChangedCounter.waitForCount(currentInvokeCount + 1,
+                    WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+            assertEndpointType(connection, currentEndpointType);
+            assertEndpointType(inCallService, currentEndpointType);
+        }
+
+        CharSequence name = "unavailableCallEndpoint";
+        ParcelUuid identifier = new ParcelUuid(UUID.randomUUID());
+        CallEndpoint cep = new CallEndpoint(name, CallEndpoint.TYPE_BLUETOOTH, identifier);
+        CallEndpointException expected = new CallEndpointException(
+                "Requested CallEndpoint does not exist",
+                CallEndpointException.ERROR_ENDPOINT_DOES_NOT_EXIST);
+        inCallService.requestCallEndpointChange(cep, executor,
+                new OutcomeReceiver<>() {
+                    @Override
+                    public void onResult(Void result) {}
+                    @Override
+                    public void onError(CallEndpointException exception) {
+                        assertEquals(expected.getCode(), exception.getCode());
+                        assertEquals(expected.getMessage(), exception.getMessage());
+                    }
+                });
     }
 
     private Uri blockNumber(Uri phoneNumberUri) {
@@ -609,7 +703,7 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testCanAddCall_CanAddForExistingActiveCall() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom  || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
 
@@ -627,6 +721,28 @@ public class ExtendedInCallServiceTest extends BaseTelecomTestWithMockServices {
 
         assertCanAddCall(inCallService, true,
                 "Should be able to add call with only one active call");
+    }
+
+    public void testCanAddCall_CanAddForExistingActiveCallWithoutHoldCapability() {
+        if (!mShouldTestTelecom  || !TestUtils.hasTelephonyFeature(mContext)) {
+            return;
+        }
+
+        placeAndVerifyCall();
+        final MockConnection connection = verifyConnectionForOutgoingCall();
+        final int capabilities = connection.getConnectionCapabilities();
+        connection.setConnectionCapabilities(capabilities & ~Connection.CAPABILITY_SUPPORT_HOLD);
+        connection.setConnectionCapabilities(capabilities & ~Connection.CAPABILITY_HOLD);
+
+        final MockInCallService inCallService = mInCallCallbacks.getService();
+
+        final Call call = inCallService.getLastCall();
+        assertCallState(call, Call.STATE_DIALING);
+        connection.setActive();
+        assertCallState(call, Call.STATE_ACTIVE);
+
+        assertCanAddCall(inCallService, true,
+                "Should be able to add call with only one active call without hold capability");
     }
 
     public void testCanAddCall_CannotAddIfTooManyCalls() {

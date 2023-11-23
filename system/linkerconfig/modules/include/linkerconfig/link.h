@@ -29,9 +29,9 @@ class Link {
   Link(std::string origin_namespace, std::string target_namespace)
       : origin_namespace_(std::move(origin_namespace)),
         target_namespace_(std::move(target_namespace)) {
-    allow_all_shared_libs_ = false;
   }
   Link(const Link&) = delete;
+  Link& operator=(const Link&) = delete;
   Link(Link&&) = default;
   Link& operator=(Link&&) = default;
 
@@ -57,10 +57,10 @@ class Link {
   }
 
  private:
-  const std::string origin_namespace_;
-  const std::string target_namespace_;
+  std::string origin_namespace_;
+  std::string target_namespace_;
   std::vector<std::string> shared_libs_;
-  bool allow_all_shared_libs_;
+  bool allow_all_shared_libs_ = false;
 };
 
 template <typename... Args>

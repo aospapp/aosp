@@ -32,9 +32,6 @@ int mali_gralloc_ion_sync_end(const private_handle_t * const hnd,
                               const bool read, const bool write);
 int mali_gralloc_ion_map(private_handle_t *hnd);
 void mali_gralloc_ion_unmap(private_handle_t *hnd);
-void mali_gralloc_ion_close(void);
 int mali_gralloc_attr_allocate(void);
-int import_exynos_ion_handles(private_handle_t *hnd);
-void free_exynos_ion_handles(private_handle_t *hnd);
 
 #endif /* MALI_GRALLOC_ION_H_ */

@@ -15,6 +15,7 @@
 
 
 import logging
+import math
 import os
 from mobly import test_runner
 import numpy as np
@@ -27,14 +28,14 @@ import its_session_utils
 import opencv_processing_utils
 
 
-FRAME_ATOL_MS = 10
-MIN_AF_FD_TOL = 1.2  # AF value must < 1.2*min
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-NUM_FRAMES_PER_FD = 12
-POSITION_RTOL = 0.10  # 10%
-SHARPNESS_RTOL = 0.10  # 10%
-START_FRAME = 1  # start on second frame
-VGA_WIDTH, VGA_HEIGHT = 640, 480
+_FRAME_ATOL_MS = 10
+_MIN_AF_FD_TOL = 1.2  # AF value must < 1.2*min
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_NUM_FRAMES_PER_FD = 12
+_POSITION_RTOL = 0.10  # 10%
+_SHARPNESS_RTOL = 0.10  # 10%
+_START_FRAME = 1  # start on second frame
+_VGA_WIDTH, _VGA_HEIGHT = 640, 480
 
 
 def take_caps_and_determine_sharpness(
@@ -63,15 +64,15 @@ def take_caps_and_determine_sharpness(
   data_set = {}
   white_level = int(props['android.sensor.info.whiteLevel'])
   min_fd = props['android.lens.info.minimumFocusDistance']
-  fds = [af_fd] * NUM_FRAMES_PER_FD + [min_fd] * NUM_FRAMES_PER_FD
+  fds = [af_fd] * _NUM_FRAMES_PER_FD + [min_fd] * _NUM_FRAMES_PER_FD
   reqs = []
   for i, fd in enumerate(fds):
     reqs.append(capture_request_utils.manual_capture_request(gain, exp))
     reqs[i]['android.lens.focusDistance'] = fd
   caps = cam.do_capture(reqs, fmt)
-  caps = caps[START_FRAME:]
+  caps = caps[_START_FRAME:]
   for i, cap in enumerate(caps):
-    data = {'fd': fds[i+START_FRAME]}
+    data = {'fd': fds[i+_START_FRAME]}
     data['loc'] = cap['metadata']['android.lens.focusDistance']
     data['lens_moving'] = (cap['metadata']['android.lens.state']
                            == 1)
@@ -84,8 +85,8 @@ def take_caps_and_determine_sharpness(
     chart.img = image_processing_utils.normalize_img(
         image_processing_utils.get_image_patch(
             y, chart.xnorm, chart.ynorm, chart.wnorm, chart.hnorm))
-    img_name = '%s_i=%d.jpg' % (os.path.join(log_path, NAME), i)
-    image_processing_utils.write_image(chart.img, img_name)
+    image_processing_utils.write_image(
+        chart.img, f'{os.path.join(log_path, _NAME)}_i={i}.jpg')
     data['sharpness'] = (
         white_level * image_processing_utils.compute_image_sharpness(chart.img))
     data_set[i] = data
@@ -99,7 +100,7 @@ class LensMovementReportingTest(its_base_test.ItsBaseTest):
   """
 
   def test_lens_movement_reporting(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
 
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
@@ -119,14 +120,15 @@ class LensMovementReportingTest(its_base_test.ItsBaseTest):
           cam, props, self.scene, self.tablet, self.chart_distance)
 
       # Initialize chart class and locate chart in scene
-      chart = opencv_processing_utils.Chart(cam, props, self.log_path)
+      chart = opencv_processing_utils.Chart(
+          cam, props, self.log_path, distance=self.chart_distance)
 
       # Get proper sensitivity, exposure time, and focus distance with 3A.
       mono_camera = camera_properties_utils.mono_camera(props)
       s, e, _, _, af_fd = cam.do_3a(get_results=True, mono_camera=mono_camera)
 
       # Get sharpness for each focal distance
-      fmt = {'format': 'yuv', 'width': VGA_WIDTH, 'height': VGA_HEIGHT}
+      fmt = {'format': 'yuv', 'width': _VGA_WIDTH, 'height': _VGA_HEIGHT}
       d = take_caps_and_determine_sharpness(
           cam, props, fmt, s, e, af_fd, chart, self.log_path)
       for k in sorted(d):
@@ -139,9 +141,9 @@ class LensMovementReportingTest(its_base_test.ItsBaseTest):
       # Assert frames are consecutive
       frame_diffs = np.gradient([v['timestamp'] for v in d.values()])
       delta_diffs = np.amax(frame_diffs) - np.amin(frame_diffs)
-      if not np.isclose(delta_diffs, 0, atol=FRAME_ATOL_MS):
+      if not math.isclose(delta_diffs, 0, abs_tol=_FRAME_ATOL_MS):
         raise AssertionError(f'Timestamp gradient(ms): {delta_diffs:.1f}, '
-                             f'ATOL: {FRAME_ATOL_MS}')
+                             f'ATOL: {_FRAME_ATOL_MS}')
 
       # Remove data when lens is moving
       for k in sorted(d):
@@ -160,52 +162,52 @@ class LensMovementReportingTest(its_base_test.ItsBaseTest):
       logging.debug('Assert reported locs are close for af_fd captures')
       min_loc = min([v['loc'] for v in d_af_fd.values()])
       max_loc = max([v['loc'] for v in d_af_fd.values()])
-      if not np.isclose(min_loc, max_loc, rtol=POSITION_RTOL):
+      if not math.isclose(min_loc, max_loc, rel_tol=_POSITION_RTOL):
         raise AssertionError(f'af_fd[loc] min: {min_loc:.3f}, max: '
-                             f'{max_loc:.3f}, RTOL: {POSITION_RTOL}')
+                             f'{max_loc:.3f}, RTOL: {_POSITION_RTOL}')
 
       logging.debug('Assert reported sharpness is close at af_fd')
       min_sharp = min([v['sharpness'] for v in d_af_fd.values()])
       max_sharp = max([v['sharpness'] for v in d_af_fd.values()])
-      if not np.isclose(min_sharp, max_sharp, rtol=SHARPNESS_RTOL):
+      if not math.isclose(min_sharp, max_sharp, rel_tol=_SHARPNESS_RTOL):
         raise AssertionError(f'af_fd[sharpness] min: {min_sharp:.3f}, '
-                             f'max: {max_sharp:.3f}, RTOL: {SHARPNESS_RTOL}')
+                             f'max: {max_sharp:.3f}, RTOL: {_SHARPNESS_RTOL}')
 
       logging.debug('Assert reported loc is close to assign loc for af_fd')
       first_key = min(d_af_fd.keys())  # find 1st non-moving frame
       loc = d_af_fd[first_key]['loc']
       fd = d_af_fd[first_key]['fd']
-      if not np.isclose(loc, fd, rtol=POSITION_RTOL):
+      if not math.isclose(loc, fd, rel_tol=_POSITION_RTOL):
         raise AssertionError(f'af_fd[loc]: {loc:.3f}, af_fd[fd]: {fd:.3f}, '
-                             f'RTOL: {POSITION_RTOL}')
+                             f'RTOL: {_POSITION_RTOL}')
 
       logging.debug('Assert reported locs are close for min_fd captures')
       min_loc = min([v['loc'] for v in d_min_fd.values()])
       max_loc = max([v['loc'] for v in d_min_fd.values()])
-      if not np.isclose(min_loc, max_loc, rtol=POSITION_RTOL):
+      if not math.isclose(min_loc, max_loc, rel_tol=_POSITION_RTOL):
         raise AssertionError(f'min_fd[loc] min: {min_loc:.3f}, max: '
-                             f'{max_loc:.3f}, RTOL: {POSITION_RTOL}')
+                             f'{max_loc:.3f}, RTOL: {_POSITION_RTOL}')
 
       logging.debug('Assert reported sharpness is close at min_fd')
       min_sharp = min([v['sharpness'] for v in d_min_fd.values()])
       max_sharp = max([v['sharpness'] for v in d_min_fd.values()])
-      if not np.isclose(min_sharp, max_sharp, rtol=SHARPNESS_RTOL):
+      if not math.isclose(min_sharp, max_sharp, rel_tol=_SHARPNESS_RTOL):
         raise AssertionError(f'min_fd[sharpness] min: {min_sharp:.3f}, '
-                             f'max: {max_sharp:.3f}, RTOL: {SHARPNESS_RTOL}')
+                             f'max: {max_sharp:.3f}, RTOL: {_SHARPNESS_RTOL}')
 
       logging.debug('Assert reported loc is close to assigned loc for min_fd')
       last_key = max(d_min_fd.keys())  # find last (non-moving) frame
       loc = d_min_fd[last_key]['loc']
       fd = d_min_fd[last_key]['fd']
-      if not np.isclose(loc, fd, rtol=POSITION_RTOL):
+      if not math.isclose(loc, fd, rel_tol=_POSITION_RTOL):
         raise AssertionError(f'min_fd[loc]: {loc:.3f}, min_fd[fd]: {fd:.3f}, '
-                             f'RTOL: {POSITION_RTOL}')
+                             f'RTOL: {_POSITION_RTOL}')
 
       logging.debug('Assert AF focus distance > minimum focus distance')
       min_fd = d_min_fd[last_key]['fd']
-      if af_fd > min_fd * MIN_AF_FD_TOL:
+      if af_fd > min_fd * _MIN_AF_FD_TOL:
         raise AssertionError(f'AF focus distance > min focus distance! af: '
-                             f'{af_fd}, min: {min_fd}, TOL: {MIN_AF_FD_TOL}')
+                             f'{af_fd}, min: {min_fd}, TOL: {_MIN_AF_FD_TOL}')
 
 if __name__ == '__main__':
   test_runner.main()

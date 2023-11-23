@@ -37,6 +37,12 @@ JIT_DEBUG_REGISTER_CODE_LDFLAGS = [
 libart_cc_defaults {
     name: "libart_nativeunwind_defaults",
     target: {
+        host: {
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
+        },
         android_arm: {
             // Arm 32 bit does not produce complete exidx unwind information
             // so keep the .debug_frame which is relatively small and does
@@ -49,6 +55,11 @@ libart_cc_defaults {
         // For all other architectures, leave the symbols in the shared library
         // so that stack unwinders can produce meaningful name resolution.
         android_arm64: {
+            strip: {
+                keep_symbols: true,
+            },
+        },
+        android_riscv64: {
             strip: {
                 keep_symbols: true,
             },
@@ -110,6 +121,7 @@ libart_cc_defaults {
         "art_method.cc",
         "backtrace_helper.cc",
         "barrier.cc",
+        "base/gc_visited_arena_pool.cc",
         "base/locks.cc",
         "base/mem_map_arena_pool.cc",
         "base/mutex.cc",
@@ -130,7 +142,7 @@ libart_cc_defaults {
         "exec_utils.cc",
         "fault_handler.cc",
         "gc/allocation_record.cc",
-        "gc/allocator/dlmalloc.cc",
+        "gc/allocator/art-dlmalloc.cc",
         "gc/allocator/rosalloc.cc",
         "gc/accounting/bitmap.cc",
         "gc/accounting/card_table.cc",
@@ -142,6 +154,7 @@ libart_cc_defaults {
         "gc/collector/garbage_collector.cc",
         "gc/collector/immune_region.cc",
         "gc/collector/immune_spaces.cc",
+        "gc/collector/mark_compact.cc",
         "gc/collector/mark_sweep.cc",
         "gc/collector/partial_mark_sweep.cc",
         "gc/collector/semi_space.cc",
@@ -173,11 +186,8 @@ libart_cc_defaults {
         "interpreter/interpreter.cc",
         "interpreter/interpreter_cache.cc",
         "interpreter/interpreter_common.cc",
-        "interpreter/interpreter_intrinsics.cc",
         "interpreter/interpreter_switch_impl0.cc",
         "interpreter/interpreter_switch_impl1.cc",
-        "interpreter/interpreter_switch_impl2.cc",
-        "interpreter/interpreter_switch_impl3.cc",
         "interpreter/lock_count_data.cc",
         "interpreter/shadow_frame.cc",
         "interpreter/unstarted_runtime.cc",
@@ -194,7 +204,7 @@ libart_cc_defaults {
         "jni/jni_env_ext.cc",
         "jni/jni_id_manager.cc",
         "jni/jni_internal.cc",
-        "linear_alloc.cc",
+        "jni/local_reference_table.cc",
         "method_handles.cc",
         "metrics/reporter.cc",
         "mirror/array.cc",
@@ -209,6 +219,7 @@ libart_cc_defaults {
         "mirror/method_handles_lookup.cc",
         "mirror/method_type.cc",
         "mirror/object.cc",
+        "mirror/stack_frame_info.cc",
         "mirror/stack_trace_element.cc",
         "mirror/string.cc",
         "mirror/throwable.cc",
@@ -225,6 +236,7 @@ libart_cc_defaults {
         "native/dalvik_system_ZygoteHooks.cc",
         "native/java_lang_Class.cc",
         "native/java_lang_Object.cc",
+        "native/java_lang_StackStreamFactory.cc",
         "native/java_lang_String.cc",
         "native/java_lang_StringFactory.cc",
         "native/java_lang_System.cc",
@@ -254,6 +266,7 @@ libart_cc_defaults {
         "oat.cc",
         "oat_file.cc",
         "oat_file_assistant.cc",
+        "oat_file_assistant_context.cc",
         "oat_file_manager.cc",
         "oat_quick_method_header.cc",
         "object_lock.cc",
@@ -269,12 +282,14 @@ libart_cc_defaults {
         "runtime.cc",
         "runtime_callbacks.cc",
         "runtime_common.cc",
+        "runtime_image.cc",
         "runtime_intrinsics.cc",
         "runtime_options.cc",
         "scoped_thread_state_change.cc",
         "signal_catcher.cc",
         "stack.cc",
         "stack_map.cc",
+        "startup_completed_task.cc",
         "string_builder_append.cc",
         "thread.cc",
         "thread_list.cc",
@@ -301,6 +316,8 @@ libart_cc_defaults {
         "arch/arm/registers_arm.cc",
         "arch/arm64/instruction_set_features_arm64.cc",
         "arch/arm64/registers_arm64.cc",
+        "arch/riscv64/instruction_set_features_riscv64.cc",
+        "arch/riscv64/registers_riscv64.cc",
         "arch/x86/instruction_set_features_x86.cc",
         "arch/x86/registers_x86.cc",
         "arch/x86_64/registers_x86_64.cc",
@@ -327,6 +344,7 @@ libart_cc_defaults {
         arm: {
             srcs: [
                 "interpreter/mterp/nterp.cc",
+                "interpreter/mterp/nterp_impl.cc",
                 ":libart_mterp.armng",
                 "arch/arm/context_arm.cc",
                 "arch/arm/entrypoints_init_arm.cc",
@@ -342,6 +360,7 @@ libart_cc_defaults {
         arm64: {
             srcs: [
                 "interpreter/mterp/nterp.cc",
+                "interpreter/mterp/nterp_impl.cc",
                 ":libart_mterp.arm64ng",
                 "arch/arm64/context_arm64.cc",
                 "arch/arm64/entrypoints_init_arm64.cc",
@@ -353,9 +372,24 @@ libart_cc_defaults {
                 "arch/arm64/fault_handler_arm64.cc",
             ],
         },
+        riscv64: {
+            srcs: [
+                ":libart_mterp.riscv64",
+                "arch/riscv64/context_riscv64.cc",
+                "arch/riscv64/entrypoints_init_riscv64.cc",
+                "arch/riscv64/fault_handler_riscv64.cc",
+                "arch/riscv64/jni_entrypoints_riscv64.S",
+                "arch/riscv64/quick_entrypoints_riscv64.S",
+                "arch/riscv64/thread_riscv64.cc",
+                "interpreter/mterp/nterp.cc",
+                "interpreter/mterp/nterp_impl.cc",
+                "monitor_pool.cc",
+            ],
+        },
         x86: {
             srcs: [
                 "interpreter/mterp/nterp.cc",
+                "interpreter/mterp/nterp_impl.cc",
                 ":libart_mterp.x86ng",
                 "arch/x86/context_x86.cc",
                 "arch/x86/entrypoints_init_x86.cc",
@@ -377,6 +411,7 @@ libart_cc_defaults {
                 // Note that the fault_handler_x86.cc is not a mistake.  This file is
                 // shared between the x86 and x86_64 architectures.
                 "interpreter/mterp/nterp.cc",
+                "interpreter/mterp/nterp_impl.cc",
                 ":libart_mterp.x86_64ng",
                 "arch/x86_64/context_x86_64.cc",
                 "arch/x86_64/entrypoints_init_x86_64.cc",
@@ -415,11 +450,12 @@ libart_cc_defaults {
             ],
             static_libs: [
                 "libstatslog_art",
-                "libtinyxml2",
             ],
             generated_sources: [
                 "apex-info-list-tinyxml",
+                "art-apex-cache-info",
             ],
+            tidy_disabled_srcs: [":art-apex-cache-info"],
         },
         android_arm: {
             ldflags: JIT_DEBUG_REGISTER_CODE_LDFLAGS,
@@ -439,6 +475,10 @@ libart_cc_defaults {
                 "runtime_linux.cc",
                 "thread_linux.cc",
             ],
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
             shared_libs: [
                 "libz", // For adler32.
             ],
@@ -456,17 +496,20 @@ libart_cc_defaults {
     header_libs: [
         "art_cmdlineparser_headers",
         "cpp-define-generator-definitions",
+        "dlmalloc",
         "jni_platform_headers",
         "libart_headers",
         "libnativehelper_header_only",
     ],
-    export_header_lib_headers: ["libart_headers"],
+    export_header_lib_headers: [
+        "dlmalloc",
+        "libart_headers",
+    ],
     whole_static_libs: [
         "libcpu_features",
     ],
     shared_libs: [
         "libartpalette",
-        "libbacktrace",
         "libbase", // For common macros.
         "liblog",
         "liblz4",
@@ -496,7 +539,6 @@ libart_static_cc_defaults {
     name: "libart_static_base_defaults",
     whole_static_libs: [
         "libartpalette",
-        "libbacktrace",
         "libbase",
         "liblog",
         "liblz4",
@@ -509,6 +551,12 @@ libart_static_cc_defaults {
         "libz",
     ],
     target: {
+        host: {
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
+        },
         bionic: {
             whole_static_libs: [
                 "libasync_safe", // libunwindstack dependency on Bionic.
@@ -561,6 +609,7 @@ gensrcs {
         "gc/allocator/rosalloc.h",
         "gc/collector_type.h",
         "gc/collector/gc_type.h",
+        "gc/collector/mark_compact.h",
         "gc/space/region_space.h",
         "gc/space/space.h",
         "gc/weak_root_state.h",
@@ -569,7 +618,9 @@ gensrcs {
         "indirect_reference_table.h",
         "jdwp_provider.h",
         "jni_id_type.h",
+        "linear_alloc.h",
         "lock_word.h",
+        "oat.h",
         "oat_file.h",
         "process_state.h",
         "reflective_value_visitor.h",
@@ -623,6 +674,12 @@ art_cc_library {
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
+        // libart doesn't go into test_broken_com.android.art, but the libart-broken
+        // needs to have the same apex_available list as its dependencies in order
+        // to compile against their sources. Then that change comes back up to affect
+        // libart as well, because it also needs to have the same apex_available as its
+        // dependencies.
+        "test_broken_com.android.art",
     ],
     afdo: true,
 }
@@ -635,6 +692,11 @@ art_cc_test_library {
     gtest: false,
     cflags: ["-DART_CRASH_RUNTIME_DELIBERATELY"],
     apex_available: [
+        // libart-broken only goes into test_broken_com.android.art, but the libart-broken
+        // needs to have the same apex_available list as its dependencies in order
+        // to compile against their sources.
+        "com.android.art",
+        "com.android.art.debug",
         "test_broken_com.android.art",
     ],
 }
@@ -665,11 +727,20 @@ art_cc_library {
         // apex_available lists need to be the same for internal libs to avoid
         // stubs, and this depends on libsigchain.
         "com.android.art",
+        "test_broken_com.android.art",
     ],
 }
 
 art_cc_defaults {
     name: "libart-runtime-gtest-defaults",
+    target: {
+        host: {
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
+        },
+    },
     tidy_timeout_srcs: [
         "common_runtime_test.cc",
     ],
@@ -679,9 +750,11 @@ art_cc_defaults {
     ],
     shared_libs: [
         "libbase",
+        "libz", // libziparchive dependency; must be repeated here since it's a static lib.
     ],
     static_libs: [
         "libprocinfo",
+        "libziparchive",
     ],
     header_libs: [
         "libnativehelper_header_only",
@@ -714,6 +787,14 @@ art_cc_library {
 
 art_cc_defaults {
     name: "art_runtime_tests_defaults",
+    target: {
+        host: {
+            cflags: [
+                "-fsanitize-address-use-after-return=never",
+                "-Wno-unused-command-line-argument",
+            ],
+        },
+    },
     data: [
         ":art-gtest-jars-AllFields",
         ":art-gtest-jars-ErroneousA",
@@ -741,6 +822,7 @@ art_cc_defaults {
         ":art-gtest-jars-MyClass",
         ":art-gtest-jars-MyClassNatives",
         ":art-gtest-jars-Nested",
+        ":art-gtest-jars-NonStaticLeafMethods",
         ":art-gtest-jars-Packages",
         ":art-gtest-jars-ProfileTestMultiDex",
         ":art-gtest-jars-ProtoCompare",
@@ -773,13 +855,15 @@ art_cc_defaults {
     srcs: [
         "app_info_test.cc",
         "arch/arch_test.cc",
+        "arch/arm/instruction_set_features_arm_test.cc",
+        "arch/arm64/instruction_set_features_arm64_test.cc",
         "arch/instruction_set_features_test.cc",
         "arch/memcmp16_test.cc",
         "arch/stub_test.cc",
-        "arch/arm/instruction_set_features_arm_test.cc",
-        "arch/arm64/instruction_set_features_arm64_test.cc",
+        "arch/riscv64/instruction_set_features_riscv64_test.cc",
         "arch/x86/instruction_set_features_x86_test.cc",
         "arch/x86_64/instruction_set_features_x86_64_test.cc",
+        "art_method_test.cc",
         "barrier_test.cc",
         "base/message_queue_test.cc",
         "base/mutex_test.cc",
@@ -799,12 +883,12 @@ art_cc_defaults {
         "gc/heap_test.cc",
         "gc/heap_verification_test.cc",
         "gc/reference_queue_test.cc",
-        "gc/space/dlmalloc_space_static_test.cc",
         "gc/space/dlmalloc_space_random_test.cc",
+        "gc/space/dlmalloc_space_static_test.cc",
         "gc/space/image_space_test.cc",
         "gc/space/large_object_space_test.cc",
-        "gc/space/rosalloc_space_static_test.cc",
         "gc/space/rosalloc_space_random_test.cc",
+        "gc/space/rosalloc_space_static_test.cc",
         "gc/space/space_create_test.cc",
         "gc/system_weak_test.cc",
         "gc/task_processor_test.cc",
@@ -817,11 +901,13 @@ art_cc_defaults {
         "intern_table_test.cc",
         "interpreter/safe_math_test.cc",
         "interpreter/unstarted_runtime_test.cc",
+        "jit/jit_load_test.cc",
         "jit/jit_memory_region_test.cc",
         "jit/profile_saver_test.cc",
         "jit/profiling_info_test.cc",
         "jni/java_vm_ext_test.cc",
         "jni/jni_internal_test.cc",
+        "jni/local_reference_table_test.cc",
         "method_handles_test.cc",
         "metrics/reporter_test.cc",
         "mirror/dex_cache_test.cc",
@@ -830,12 +916,14 @@ art_cc_defaults {
         "mirror/var_handle_test.cc",
         "monitor_pool_test.cc",
         "monitor_test.cc",
-        "oat_file_test.cc",
+        "native_stack_dump_test.cc",
         "oat_file_assistant_test.cc",
+        "oat_file_test.cc",
         "parsed_options_test.cc",
         "prebuilt_tools_test.cc",
         "proxy_test.cc",
         "reference_table_test.cc",
+        "reflection_test.cc",
         "runtime_callbacks_test.cc",
         "runtime_test.cc",
         "subtype_check_info_test.cc",
@@ -848,7 +936,12 @@ art_cc_defaults {
         "verifier/reg_type_test.cc",
     ],
     shared_libs: [
-        "libbacktrace",
+        "libunwindstack",
+        "libz", // libziparchive dependency; must be repeated here since it's a static lib.
+    ],
+    static_libs: [
+        "libgmock",
+        "libziparchive",
     ],
     header_libs: [
         "art_cmdlineparser_headers", // For parsed_options_test.
@@ -877,6 +970,7 @@ art_cc_test {
         "art_standalone_gtest_defaults",
         "art_runtime_tests_defaults",
     ],
+    data: [":generate-boot-image"],
     target: {
         host: {
             required: ["dex2oat"],
@@ -887,58 +981,6 @@ art_cc_test {
     // `art_standalone_runtime_tests` to filter them out for now.
     // TODO(b/204649079): Investigate these failures and re-enable these tests.
     test_config: "art_standalone_runtime_tests.xml",
-}
-
-art_cc_defaults {
-    name: "art_runtime_compiler_tests_defaults",
-    tidy_timeout_srcs: [
-        "reflection_test.cc",
-    ],
-    srcs: [
-        "reflection_test.cc",
-    ],
-    data: [
-        ":art-gtest-jars-Main",
-        ":art-gtest-jars-NonStaticLeafMethods",
-        ":art-gtest-jars-StaticLeafMethods",
-    ],
-}
-
-// Version of ART gtest `art_runtime_compiler_tests` bundled with the ART APEX on target.
-// TODO(b/192274705): Remove this module when the migration to standalone ART gtests is complete.
-art_cc_test {
-    name: "art_runtime_compiler_tests",
-    defaults: [
-        "art_gtest_defaults",
-        "art_runtime_compiler_tests_defaults",
-    ],
-    shared_libs: [
-        "libartd-compiler",
-    ],
-    target: {
-        host: {
-            required: ["dex2oatd"],
-        },
-    },
-}
-
-// Standalone version of ART gtest `art_runtime_compiler_tests`, not bundled with the ART APEX on
-// target.
-art_cc_test {
-    name: "art_standalone_runtime_compiler_tests",
-    defaults: [
-        "art_standalone_gtest_defaults",
-        "art_runtime_compiler_tests_defaults",
-    ],
-    shared_libs: [
-        "libart-compiler",
-    ],
-    target: {
-        host: {
-            required: ["dex2oat"],
-        },
-    },
-    test_config: "art_standalone_runtime_compiler_tests.xml",
 }
 
 genrule {
@@ -988,6 +1030,20 @@ genrule {
     out: ["mterp_armng.S"],
     srcs: [
         "interpreter/mterp/armng/*.S",
+    ],
+    tool_files: [
+        "interpreter/mterp/gen_mterp.py",
+        "interpreter/mterp/common/gen_setup.py",
+        ":art_libdexfile_dex_instruction_list_header",
+    ],
+    cmd: "$(location interpreter/mterp/gen_mterp.py) $(out) $(in)",
+}
+
+genrule {
+    name: "libart_mterp.riscv64",
+    out: ["mterp_riscv64.S"],
+    srcs: [
+        "interpreter/mterp/riscv64/*.S",
     ],
     tool_files: [
         "interpreter/mterp/gen_mterp.py",

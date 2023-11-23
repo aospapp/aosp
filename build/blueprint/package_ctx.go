@@ -31,35 +31,35 @@ import (
 // passed to all calls to define module- or singleton-specific Ninja
 // definitions.  For example:
 //
-//     package blah
+//	package blah
 //
-//     import (
-//         "blueprint"
-//     )
+//	import (
+//	    "blueprint"
+//	)
 //
-//     var (
-//         pctx = NewPackageContext("path/to/blah")
+//	var (
+//	    pctx = NewPackageContext("path/to/blah")
 //
-//         myPrivateVar = pctx.StaticVariable("myPrivateVar", "abcdef")
-//         MyExportedVar = pctx.StaticVariable("MyExportedVar", "$myPrivateVar 123456!")
+//	    myPrivateVar = pctx.StaticVariable("myPrivateVar", "abcdef")
+//	    MyExportedVar = pctx.StaticVariable("MyExportedVar", "$myPrivateVar 123456!")
 //
-//         SomeRule = pctx.StaticRule(...)
-//     )
+//	    SomeRule = pctx.StaticRule(...)
+//	)
 //
-//     // ...
+//	// ...
 //
-//     func (m *MyModule) GenerateBuildActions(ctx blueprint.Module) {
-//         ctx.Build(pctx, blueprint.BuildParams{
-//             Rule:    SomeRule,
-//             Outputs: []string{"$myPrivateVar"},
-//         })
-//     }
+//	func (m *MyModule) GenerateBuildActions(ctx blueprint.Module) {
+//	    ctx.Build(pctx, blueprint.BuildParams{
+//	        Rule:    SomeRule,
+//	        Outputs: []string{"$myPrivateVar"},
+//	    })
+//	}
 type PackageContext interface {
 	Import(pkgPath string)
 	ImportAs(as, pkgPath string)
 
 	StaticVariable(name, value string) Variable
-	VariableFunc(name string, f func(config interface{}) (string, error)) Variable
+	VariableFunc(name string, f func(ctx VariableFuncContext, config interface{}) (string, error)) Variable
 	VariableConfigMethod(name string, method interface{}) Variable
 
 	StaticPool(name string, params PoolParams) Pool
@@ -190,25 +190,25 @@ func pkgPathToName(pkgPath string) string {
 // "${pkg.Variable}", while the imported rules can simply be accessed as
 // exported Go variables from the package.  For example:
 //
-//     import (
-//         "blueprint"
-//         "foo/bar"
-//     )
+//	import (
+//	    "blueprint"
+//	    "foo/bar"
+//	)
 //
-//     var pctx = NewPackagePath("blah")
+//	var pctx = NewPackagePath("blah")
 //
-//     func init() {
-//         pctx.Import("foo/bar")
-//     }
+//	func init() {
+//	    pctx.Import("foo/bar")
+//	}
 //
-//     ...
+//	...
 //
-//     func (m *MyModule) GenerateBuildActions(ctx blueprint.Module) {
-//         ctx.Build(pctx, blueprint.BuildParams{
-//             Rule:    bar.SomeRule,
-//             Outputs: []string{"${bar.SomeVariable}"},
-//         })
-//     }
+//	func (m *MyModule) GenerateBuildActions(ctx blueprint.Module) {
+//	    ctx.Build(pctx, blueprint.BuildParams{
+//	        Rule:    bar.SomeRule,
+//	        Outputs: []string{"${bar.SomeVariable}"},
+//	    })
+//	}
 //
 // Note that the local name used to refer to the package in Ninja variable names
 // is derived from pkgPath by extracting the last path component.  This differs
@@ -304,7 +304,7 @@ func (v *staticVariable) memoizeFullName(pkgNames map[*packageContext]string) {
 	v.fullName_ = v.fullName(pkgNames)
 }
 
-func (v *staticVariable) value(interface{}) (ninjaString, error) {
+func (v *staticVariable) value(VariableFuncContext, interface{}) (ninjaString, error) {
 	ninjaStr, err := parseNinjaString(v.pctx.scope, v.value_)
 	if err != nil {
 		err = fmt.Errorf("error parsing variable %s value: %s", v, err)
@@ -320,8 +320,28 @@ func (v *staticVariable) String() string {
 type variableFunc struct {
 	pctx      *packageContext
 	name_     string
-	value_    func(interface{}) (string, error)
+	value_    func(VariableFuncContext, interface{}) (string, error)
 	fullName_ string
+}
+
+// VariableFuncContext is passed to VariableFunc functions.
+type VariableFuncContext interface {
+	// GlobWithDeps returns a list of files and directories that match the
+	// specified pattern but do not match any of the patterns in excludes.
+	// Any directories will have a '/' suffix.  It also adds efficient
+	// dependencies to rerun the primary builder whenever a file matching
+	// the pattern as added or removed, without rerunning if a file that
+	// does not match the pattern is added to a searched directory.
+	GlobWithDeps(globPattern string, excludes []string) ([]string, error)
+}
+
+type variableFuncContext struct {
+	context *Context
+}
+
+func (v *variableFuncContext) GlobWithDeps(pattern string,
+	excludes []string) ([]string, error) {
+	return v.context.glob(pattern, excludes)
 }
 
 // VariableFunc returns a Variable whose value is determined by a function that
@@ -336,7 +356,7 @@ type variableFunc struct {
 // reference other Ninja variables that are visible within the calling Go
 // package.
 func (p *packageContext) VariableFunc(name string,
-	f func(config interface{}) (string, error)) Variable {
+	f func(ctx VariableFuncContext, config interface{}) (string, error)) Variable {
 
 	checkCalledFromInit()
 
@@ -382,7 +402,7 @@ func (p *packageContext) VariableConfigMethod(name string,
 	methodValue := reflect.ValueOf(method)
 	validateVariableMethod(name, methodValue)
 
-	fun := func(config interface{}) (string, error) {
+	fun := func(ctx VariableFuncContext, config interface{}) (string, error) {
 		result := methodValue.Call([]reflect.Value{reflect.ValueOf(config)})
 		resultStr := result[0].Interface().(string)
 		return resultStr, nil
@@ -420,8 +440,8 @@ func (v *variableFunc) memoizeFullName(pkgNames map[*packageContext]string) {
 	v.fullName_ = v.fullName(pkgNames)
 }
 
-func (v *variableFunc) value(config interface{}) (ninjaString, error) {
-	value, err := v.value_(config)
+func (v *variableFunc) value(ctx VariableFuncContext, config interface{}) (ninjaString, error) {
+	value, err := v.value_(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -484,7 +504,7 @@ func (v *argVariable) memoizeFullName(pkgNames map[*packageContext]string) {
 	// Nothing to do, full name is known at initialization.
 }
 
-func (v *argVariable) value(config interface{}) (ninjaString, error) {
+func (v *argVariable) value(ctx VariableFuncContext, config interface{}) (ninjaString, error) {
 	return nil, errVariableIsArg
 }
 

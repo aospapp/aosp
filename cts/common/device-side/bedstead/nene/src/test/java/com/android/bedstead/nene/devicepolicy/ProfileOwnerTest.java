@@ -18,7 +18,7 @@ package com.android.bedstead.nene.devicepolicy;
 
 import static android.os.Build.VERSION_CODES.TIRAMISU;
 
-import static com.android.bedstead.nene.permissions.CommonPermissions.MANAGE_PROFILE_AND_DEVICE_OWNERS;
+import static com.android.bedstead.harrier.UserType.SECONDARY_USER;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -26,11 +26,10 @@ import android.content.ComponentName;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
-import com.android.bedstead.harrier.annotations.EnsureHasPermission;
-import com.android.bedstead.harrier.annotations.EnsureHasNoWorkProfile;
+import com.android.bedstead.harrier.UserType;
 import com.android.bedstead.harrier.annotations.EnsureHasSecondaryUser;
 import com.android.bedstead.harrier.annotations.RequireRunNotOnSecondaryUser;
-import com.android.bedstead.harrier.annotations.RequireRunOnPrimaryUser;
+import com.android.bedstead.harrier.annotations.RequireRunOnInitialUser;
 import com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile;
 import com.android.bedstead.harrier.annotations.RequireSdkVersion;
 import com.android.bedstead.harrier.annotations.enterprise.EnsureHasNoDpc;
@@ -54,7 +53,10 @@ public class ProfileOwnerTest {
     @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
-    private static final ComponentName DPC_COMPONENT_NAME = RemoteDpc.DPC_COMPONENT_NAME;
+    private static final ComponentName DPC_COMPONENT_NAME = new ComponentName(
+            RemoteDpc.REMOTE_DPC_APP_PACKAGE_NAME_OR_PREFIX,
+            "com.android.bedstead.testapp.BaseTestAppDeviceAdminReceiver"
+    );
     private static final TestApp sNonTestOnlyDpc = sDeviceState.testApps().query()
             .whereIsDeviceAdmin().isTrue()
             .whereTestOnly().isFalse()
@@ -116,8 +118,7 @@ public class ProfileOwnerTest {
 
     @Test
     @EnsureHasNoDpc
-    @EnsureHasNoWorkProfile
-    @RequireRunOnPrimaryUser
+    @RequireRunOnInitialUser
     public void setAndRemoveProfileOwnerRepeatedly_doesNotThrowError() {
         try (UserReference profile = TestApis.users().createUser().createAndStart()) {
             try (TestAppInstance dpc = sNonTestOnlyDpc.install()) {
@@ -133,16 +134,12 @@ public class ProfileOwnerTest {
     @Test
     @EnsureHasSecondaryUser
     @RequireRunNotOnSecondaryUser
+    @EnsureHasProfileOwner(onUser = SECONDARY_USER)
     public void remove_onOtherUser_removesProfileOwner() {
-        try (TestAppInstance dpc = sNonTestOnlyDpc.install(sDeviceState.secondaryUser())) {
-            ProfileOwner profileOwner = TestApis.devicePolicy().setProfileOwner(
-                    sDeviceState.secondaryUser(), NON_TEST_ONLY_DPC_COMPONENT_NAME);
-
-            profileOwner.remove();
+            TestApis.devicePolicy().getProfileOwner(sDeviceState.secondaryUser()).remove();
 
             assertThat(TestApis.devicePolicy().getProfileOwner(sDeviceState.secondaryUser()))
                     .isNull();
-        }
     }
 
     @Test
@@ -156,7 +153,6 @@ public class ProfileOwnerTest {
     @Test
     @RequireSdkVersion(min = TIRAMISU)
     @RequireRunOnWorkProfile
-    @EnsureHasPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)
     public void setIsOrganizationOwned_becomesOrganizationOwned() {
         ProfileOwner profileOwner = (ProfileOwner) sDeviceState.profileOwner(
                 sDeviceState.workProfile()).devicePolicyController();
@@ -169,7 +165,6 @@ public class ProfileOwnerTest {
     @Test
     @RequireSdkVersion(min = TIRAMISU)
     @RequireRunOnWorkProfile
-    @EnsureHasPermission(MANAGE_PROFILE_AND_DEVICE_OWNERS)
     public void unsetIsOrganizationOwned_becomesNotOrganizationOwned() {
         ProfileOwner profileOwner = (ProfileOwner) sDeviceState.profileOwner(
                 sDeviceState.workProfile()).devicePolicyController();

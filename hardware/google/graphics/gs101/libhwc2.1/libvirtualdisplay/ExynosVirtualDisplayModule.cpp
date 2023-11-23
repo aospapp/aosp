@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 #undef LOG_TAG
-#define LOG_TAG "virtualdisplaymodule"
+#define LOG_TAG "hwc-virt-display"
 
 #include "ExynosVirtualDisplayModule.h"
 
 using namespace gs101;
 
-ExynosVirtualDisplayModule::ExynosVirtualDisplayModule(uint32_t index, ExynosDevice *device)
-    :   ExynosVirtualDisplay(index, device)
-{
+ExynosVirtualDisplayModule::ExynosVirtualDisplayModule(uint32_t index, ExynosDevice* device,
+                                                       const std::string& displayName)
+      : ExynosVirtualDisplay(index, device, displayName) {
     mGLESFormat = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M;
 
     if (device == NULL) {

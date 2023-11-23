@@ -45,6 +45,8 @@
     <uses-permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"/>
     <uses-permission android:name="android.permission.WRITE_EMBEDDED_SUBSCRIPTIONS" />
     <uses-permission android:name="android.permission.USE_ICC_AUTH_WITH_DEVICE_IDENTIFIER" />
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.SATELLITE_COMMUNICATION"/>
 
     <permission android:name="android.telephony.embms.cts.permission.TEST_BROADCAST"
          android:protectionLevel="signature"/>
@@ -195,6 +197,33 @@
             </intent-filter>
         </service>
 
+        <service android:name="android.telephony.satellite.cts.MockSatelliteService"
+             android:directBootAware="true"
+             android:persistent="true"
+             android:permission="android.permission.BIND_SATELLITE_SERVICE"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.telephony.satellite.SatelliteService"/>
+            </intent-filter>
+        </service>
+
+        <service android:name="android.telephony.satellite.cts.MockSatelliteGatewayService"
+             android:directBootAware="true"
+             android:persistent="true"
+             android:permission="android.permission.BIND_SATELLITE_GATEWAY_SERVICE"
+             android:exported="true">
+            <intent-filter>
+                <action android:name="android.telephony.satellite.SatelliteGatewayService"/>
+            </intent-filter>
+        </service>
+
+        <activity android:name="android.telephony.satellite.cts.MockPointingUiActivity"
+             android:exported="true">
+            <intent-filter>
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
         <activity android:name="android.telephony.cts.StubDialerActvity"
              android:exported="true">
             <intent-filter>
@@ -231,6 +260,21 @@
         <activity android:name="android.telephony.euicc.cts.EuiccTestResolutionActivity"/>
 
         <activity android:name="android.telephony.euicc.cts.EuiccResolutionActivity"/>
+
+        <activity android:name="android.telephony.euicc.cts.EuiccTestServiceActionResolutionActivity"
+                  android:screenOrientation="behind"
+                  android:exported="true"
+                  android:theme="@android:style/Theme.NoDisplay"
+                  android:permission="android.permission.BIND_EUICC_SERVICE">
+            <intent-filter android:priority="100">
+                <action android:name="android.service.euicc.action.PROVISION_EMBEDDED_SUBSCRIPTION" />
+                <action android:name="android.service.euicc.action.MANAGE_EMBEDDED_SUBSCRIPTIONS"/>
+                <action android:name="android.service.euicc.action.TRANSFER_EMBEDDED_SUBSCRIPTIONS"/>
+                <action android:name="android.service.euicc.action.CONVERT_TO_EMBEDDED_SUBSCRIPTION"/>
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.service.euicc.category.EUICC_UI" />
+            </intent-filter>
+        </activity>
 
         <uses-library android:name="android.test.runner"/>
 
@@ -271,5 +315,15 @@
         <intent>
             <action android:name="android.service.carrier.CarrierMessagingService" />
         </intent>
+        <intent>
+            <action android:name="android.telephony.cts.embmstestapp.ACTION_CONTROL_MIDDLEWARE" />
+        </intent>
+        <intent>
+            <action android:name="android.telephony.cts.locationaccessingapp.ACTION_CONTROL" />
+        </intent>
+        <package android:name="android.telephony.cts.financialsms" />
+        <package android:name="android.telephony.cts.sms" />
+        <package android:name="android.telephony.cts.sms23" />
+        <package android:name="android.telephony.cts.externalimsservice" />
     </queries>
 </manifest>

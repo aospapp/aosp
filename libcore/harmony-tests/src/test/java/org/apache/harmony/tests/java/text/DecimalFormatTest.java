@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -27,6 +27,7 @@ import java.text.DecimalFormatSymbols;
 import java.text.FieldPosition;
 import java.text.NumberFormat;
 import java.text.ParsePosition;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Currency;
 import java.util.List;
@@ -53,7 +54,7 @@ public class DecimalFormatTest extends TestCase {
     public void testAttributedCharacterIterator() throws Exception {
         // Regression for http://issues.apache.org/jira/browse/HARMONY-333
         AttributedCharacterIterator iterator = new DecimalFormat().formatToCharacterIterator(
-                new Integer(1));
+                Integer.valueOf(1));
         assertNotNull(iterator);
         assertFalse("attributes should exist", iterator.getAttributes().isEmpty());
     }
@@ -124,7 +125,7 @@ public class DecimalFormatTest extends TestCase {
 
         number = form.parse("-0.0", new ParsePosition(0));
         assertTrue(number instanceof Long);
-        assertTrue(new Long(0).equals(number));
+        assertTrue(Long.valueOf(0).equals(number));
 
         // The last integers representable by long.
         number = form.parse("9223372036854775807.00", new ParsePosition(0));
@@ -535,14 +536,14 @@ public class DecimalFormatTest extends TestCase {
         // When StringBuffer == null || FieldPosition == null
         // NullPointerException will be thrown out.
         try {
-            form.format(new Double(1.9), null, new FieldPosition(0));
+            form.format(Double.valueOf(1.9), null, new FieldPosition(0));
             fail("Should throw NPE");
         } catch (NullPointerException e) {
             // expected
         }
 
         try {
-            form.format(new Double(1.3), new StringBuffer(), null);
+            form.format(Double.valueOf(1.3), new StringBuffer(), null);
             fail("Should throw NPE");
         } catch (NullPointerException e) {
             // expected
@@ -560,12 +561,12 @@ public class DecimalFormatTest extends TestCase {
 
         // format maxLong
         FieldPosition pos = new FieldPosition(0);
-        StringBuffer out = format.format(new Long(Long.MAX_VALUE), new StringBuffer(), pos);
+        StringBuffer out = format.format(Long.valueOf(Long.MAX_VALUE), new StringBuffer(), pos);
         assertTrue("Wrong result L1: " + out, out.toString().equals("9,223,372,036,854,775,807"));
 
         // format minLong
         pos = new FieldPosition(0);
-        out = format.format(new Long(Long.MIN_VALUE), new StringBuffer(), pos);
+        out = format.format(Long.valueOf(Long.MIN_VALUE), new StringBuffer(), pos);
         assertTrue("Wrong result L2: " + out, out.toString().equals("-9,223,372,036,854,775,808"));
 
         // format maxLong of type BigInteger
@@ -758,15 +759,15 @@ public class DecimalFormatTest extends TestCase {
 
         StringBuffer buf = new StringBuffer();
         format.setGroupingUsed(false);
-        format.format(new Long(1970), buf, new FieldPosition(0));
+        format.format(Long.valueOf(1970), buf, new FieldPosition(0));
         assertEquals("1970", buf.toString());
         assertFalse(format.isGroupingUsed());
-        format.format(new Long(1970), buf, new FieldPosition(0));
+        format.format(Long.valueOf(1970), buf, new FieldPosition(0));
         assertEquals("19701970", buf.toString());
         assertFalse(format.isGroupingUsed());
 
         format.setGroupingUsed(true);
-        format.format(new Long(1970), buf, new FieldPosition(0));
+        format.format(Long.valueOf(1970), buf, new FieldPosition(0));
         assertEquals("197019701,970", buf.toString());
         assertTrue(format.isGroupingUsed());
     }
@@ -1931,6 +1932,17 @@ public class DecimalFormatTest extends TestCase {
     }
 
     public void testSerializationSelf() throws Exception {
+        // b/229200521 Temporary waiver for serialization test.
+        final String [] SKIP_LOCALES = {
+            "as", "as_IN", "bn", "bn_BD", "bn_IN", "brx", "brx_IN", "ccp", "ccp_BD", "ccp_IN", "dz",
+            "dz_BT", "en_IN", "gu", "gu_IN", "hi", "hi_IN", "ks", "ks__#Arab", "ks_IN_#Arab", "ml",
+            "ml_IN", "mr", "mr_IN", "ne", "ne_IN", "ne_NP", "or", "or_IN", "pa", "pa__#Guru",
+            "pa_IN_#Guru", "sa", "sa_IN", "ta", "ta_IN", "ta_LK", "te", "te_IN"
+        };
+        final String ls = Locale.getDefault().toString();
+        if (Arrays.asList(SKIP_LOCALES).contains(ls)) {
+            return;
+        }
         SerializationTest.verifySelf(new DecimalFormat());
     }
 
@@ -2138,7 +2150,7 @@ public class DecimalFormatTest extends TestCase {
         try {
             // when rounding is needed, but RoundingMode is set to RoundingMode.UNNECESSARY,
             // throw ArithmeticException
-            decimalFormat.formatToCharacterIterator(new Double(1.5));
+            decimalFormat.formatToCharacterIterator(Double.valueOf(1.5));
             fail("ArithmeticException expected");
         } catch (ArithmeticException e) {
             // expected

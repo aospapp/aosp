@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003, 2007, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2003, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -64,43 +64,44 @@ public final class MathContext implements Serializable {
     private static final int MIN_DIGITS = 0;
 
     // Serialization version
+    @java.io.Serial
     private static final long serialVersionUID = 5579720004786848255L;
 
     /* ----- Public Properties ----- */
     /**
-     *  A {@code MathContext} object whose settings have the values
-     *  required for unlimited precision arithmetic.
-     *  The values of the settings are:
-     *  <code>
-     *  precision=0 roundingMode=HALF_UP
-     *  </code>
+     * A {@code MathContext} object whose settings have the values
+     * required for unlimited precision arithmetic.
+     * The values of the settings are: {@code precision=0 roundingMode=HALF_UP}
      */
     public static final MathContext UNLIMITED =
         new MathContext(0, RoundingMode.HALF_UP);
 
     /**
-     *  A {@code MathContext} object with a precision setting
-     *  matching the IEEE 754R Decimal32 format, 7 digits, and a
-     *  rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}, the
-     *  IEEE 754R default.
+     * A {@code MathContext} object with a precision setting
+     * matching the precision of the IEEE 754-2019 decimal32 format, 7 digits, and a
+     * rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}.
+     * Note the exponent range of decimal32 is <em>not</em> used for
+     * rounding.
      */
     public static final MathContext DECIMAL32 =
         new MathContext(7, RoundingMode.HALF_EVEN);
 
     /**
-     *  A {@code MathContext} object with a precision setting
-     *  matching the IEEE 754R Decimal64 format, 16 digits, and a
-     *  rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}, the
-     *  IEEE 754R default.
+     * A {@code MathContext} object with a precision setting
+     * matching the precision of the IEEE 754-2019 decimal64 format, 16 digits, and a
+     * rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}.
+     * Note the exponent range of decimal64 is <em>not</em> used for
+     * rounding.
      */
     public static final MathContext DECIMAL64 =
         new MathContext(16, RoundingMode.HALF_EVEN);
 
     /**
-     *  A {@code MathContext} object with a precision setting
-     *  matching the IEEE 754R Decimal128 format, 34 digits, and a
-     *  rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}, the
-     *  IEEE 754R default.
+     * A {@code MathContext} object with a precision setting
+     * matching the precision of the IEEE 754-2019 decimal128 format, 34 digits, and a
+     * rounding mode of {@link RoundingMode#HALF_EVEN HALF_EVEN}.
+     * Note the exponent range of decimal64 is <em>not</em> used for
+     * rounding.
      */
     public static final MathContext DECIMAL128 =
         new MathContext(34, RoundingMode.HALF_EVEN);
@@ -247,10 +248,8 @@ public final class MathContext implements Serializable {
      *         settings as this object
      */
     public boolean equals(Object x){
-        MathContext mc;
-        if (!(x instanceof MathContext))
+        if (!(x instanceof MathContext mc))
             return false;
-        mc = (MathContext) x;
         return mc.precision == this.precision
             && mc.roundingMode == this.roundingMode; // no need for .equals()
     }
@@ -307,8 +306,11 @@ public final class MathContext implements Serializable {
      * Reconstitute the {@code MathContext} instance from a stream (that is,
      * deserialize it).
      *
-     * @param s the stream being read.
+     * @param  s the stream being read.
+     * @throws IOException if an I/O error occurs
+     * @throws ClassNotFoundException if a serialized class cannot be loaded
      */
+    @java.io.Serial
     private void readObject(java.io.ObjectInputStream s)
         throws java.io.IOException, ClassNotFoundException {
         s.defaultReadObject();     // read in all fields

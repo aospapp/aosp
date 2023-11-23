@@ -23,58 +23,179 @@ package {
     default_applicable_licenses: ["art_license"],
 }
 
+// A native library that goes into /system or /system_ext and that depends on
+// a non-public library that is linked from the system namespace.
 cc_library {
-    name: "libfoo.oem1",
-    srcs: ["test.cpp"],
-    cflags: ["-DLIBNAME=\"libfoo.oem1.so\""],
-    shared_libs: [
-        "libbase",
+    name: "libsystem_testlib",
+    min_sdk_version: "31",
+    stl: "libc++_static",
+    shared_libs: ["liblog"],
+    // It's difficult to add a shared_lib dependency on a non-public library
+    // here, so it dlopens one instead.
+    srcs: ["libsystem_testlib.cc"],
+}
+
+// A native library that goes into /product.
+cc_library {
+    name: "libproduct_testlib",
+    min_sdk_version: "31",
+    stl: "none",
+    srcs: [],
+}
+
+// A native library that goes into /vendor.
+cc_library {
+    name: "libvendor_testlib",
+    min_sdk_version: "31",
+    stl: "none",
+    srcs: [],
+}
+
+// This app is just an intermediate container to be able to include the .so
+// library in the host test. It's not actually installed or started.
+android_test_helper_app {
+    name: "library_container_app",
+    defaults: ["art_module_source_build_java_defaults"],
+    min_sdk_version: "31",
+    manifest: "library_container_app_manifest.xml",
+    compile_multilib: "both",
+    jni_libs: [
+        "libsystem_testlib",
+        "libproduct_testlib",
+        "libvendor_testlib",
     ],
 }
 
-cc_library {
-    name: "libbar.oem1",
-    srcs: ["test.cpp"],
-    cflags: ["-DLIBNAME=\"libbar.oem1.so\""],
-    shared_libs: [
-        "libbase",
+java_library {
+    name: "loadlibrarytest_test_utils",
+    sdk_version: "31",
+    static_libs: [
+        "androidx.test.ext.junit",
+        "androidx.test.ext.truth",
     ],
+    srcs: ["src/android/test/lib/TestUtils.java"],
 }
 
-cc_library {
-    name: "libfoo.oem2",
-    srcs: ["test.cpp"],
-    cflags: ["-DLIBNAME=\"libfoo.oem2.so\""],
-    shared_libs: [
-        "libbase",
-    ],
+// Test fixture that represents a shared library in /system/framework.
+java_library {
+    name: "libnativeloader_system_shared_lib",
+    sdk_version: "31",
+    installable: true,
+    srcs: ["src/android/test/systemsharedlib/SystemSharedLib.java"],
 }
 
-cc_library {
-    name: "libbar.oem2",
-    srcs: ["test.cpp"],
-    cflags: ["-DLIBNAME=\"libbar.oem2.so\""],
-    shared_libs: [
-        "libbase",
-    ],
+// Test fixture that represents a shared library in /system_ext/framework.
+java_library {
+    name: "libnativeloader_system_ext_shared_lib",
+    sdk_version: "31",
+    installable: true,
+    srcs: ["src/android/test/systemextsharedlib/SystemExtSharedLib.java"],
 }
 
-cc_library {
-    name: "libfoo.product1",
-    srcs: ["test.cpp"],
-    cflags: ["-DLIBNAME=\"libfoo.product1.so\""],
+// Test fixture that represents a shared library in /product/framework.
+java_library {
+    name: "libnativeloader_product_shared_lib",
     product_specific: true,
-    shared_libs: [
-        "libbase",
+    sdk_version: "31",
+    installable: true,
+    srcs: ["src/android/test/productsharedlib/ProductSharedLib.java"],
+}
+
+// Test fixture that represents a shared library in /vendor/framework.
+java_library {
+    name: "libnativeloader_vendor_shared_lib",
+    vendor: true,
+    sdk_version: "31",
+    installable: true,
+    srcs: ["src/android/test/vendorsharedlib/VendorSharedLib.java"],
+}
+
+java_defaults {
+    name: "loadlibrarytest_app_defaults",
+    defaults: ["art_module_source_build_java_defaults"],
+    sdk_version: "31",
+    static_libs: [
+        "androidx.test.ext.junit",
+        "androidx.test.rules",
+        "loadlibrarytest_test_utils",
+    ],
+    libs: [
+        "libnativeloader_system_shared_lib",
+        "libnativeloader_system_ext_shared_lib",
+        "libnativeloader_product_shared_lib",
+        "libnativeloader_vendor_shared_lib",
     ],
 }
 
-cc_library {
-    name: "libbar.product1",
-    srcs: ["test.cpp"],
-    cflags: ["-DLIBNAME=\"libbar.product1.so\""],
+android_test_helper_app {
+    name: "loadlibrarytest_system_priv_app",
+    defaults: ["loadlibrarytest_app_defaults"],
+    manifest: "loadlibrarytest_system_priv_app_manifest.xml",
+    // /system/priv-app currently reuses the same test as /system/app.
+    srcs: ["src/android/test/app/SystemAppTest.java"],
+}
+
+android_test_helper_app {
+    name: "loadlibrarytest_system_app",
+    defaults: ["loadlibrarytest_app_defaults"],
+    manifest: "loadlibrarytest_system_app_manifest.xml",
+    srcs: ["src/android/test/app/SystemAppTest.java"],
+}
+
+android_test_helper_app {
+    name: "loadlibrarytest_system_ext_app",
+    defaults: ["loadlibrarytest_app_defaults"],
+    system_ext_specific: true,
+    manifest: "loadlibrarytest_system_ext_app_manifest.xml",
+    // /system_ext should behave the same as /system, so use the same test class there.
+    srcs: ["src/android/test/app/SystemAppTest.java"],
+}
+
+android_test_helper_app {
+    name: "loadlibrarytest_product_app",
+    defaults: ["loadlibrarytest_app_defaults"],
     product_specific: true,
-    shared_libs: [
-        "libbase",
+    manifest: "loadlibrarytest_product_app_manifest.xml",
+    srcs: ["src/android/test/app/ProductAppTest.java"],
+}
+
+android_test_helper_app {
+    name: "loadlibrarytest_vendor_app",
+    defaults: ["loadlibrarytest_app_defaults"],
+    vendor: true,
+    manifest: "loadlibrarytest_vendor_app_manifest.xml",
+    srcs: ["src/android/test/app/VendorAppTest.java"],
+}
+
+// A normal app installed in /data.
+android_test_helper_app {
+    name: "loadlibrarytest_data_app",
+    defaults: ["loadlibrarytest_app_defaults"],
+    manifest: "loadlibrarytest_data_app_manifest.xml",
+    srcs: ["src/android/test/app/DataAppTest.java"],
+}
+
+java_test_host {
+    name: "libnativeloader_e2e_tests",
+    defaults: ["art_module_source_build_java_defaults"],
+    srcs: ["src/android/test/hostside/*.java"],
+    libs: [
+        "compatibility-tradefed",
+        "tradefed",
     ],
+    data: [
+        ":library_container_app",
+        ":libnativeloader_system_shared_lib",
+        ":libnativeloader_system_ext_shared_lib",
+        ":libnativeloader_product_shared_lib",
+        ":libnativeloader_vendor_shared_lib",
+        ":loadlibrarytest_system_priv_app",
+        ":loadlibrarytest_system_app",
+        ":loadlibrarytest_system_ext_app",
+        ":loadlibrarytest_product_app",
+        ":loadlibrarytest_vendor_app",
+        ":loadlibrarytest_data_app",
+    ],
+    test_config: "libnativeloader_e2e_tests.xml",
+    test_suites: ["general-tests"],
 }

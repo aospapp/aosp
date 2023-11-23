@@ -33,7 +33,6 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -82,16 +81,16 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
+import androidx.test.core.app.ActivityScenario;
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.MediumTest;
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CTSResult;
+import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.Before;
 import org.junit.Ignore;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.InOrder;
@@ -101,6 +100,7 @@ import java.util.ArrayList;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class ViewGroupTest implements CTSResult {
+    public static final long TOUCH_MODE_PROPAGATION_TIMEOUT_MILLIS = 5_000L;
     private Context mContext;
     private MotionEvent mMotionEvent;
     private int mResultCode;
@@ -109,11 +109,8 @@ public class ViewGroupTest implements CTSResult {
     private TextView mTextView;
     private MockTextView mMockTextView;
 
-    @Rule
-    public ActivityTestRule<CtsActivity> mCtsActivityRule =
-            new ActivityTestRule<>(CtsActivity.class, false, false);
-
     private final Sync mSync = new Sync();
+
     private static class Sync {
         boolean mHasNotify;
     }
@@ -832,7 +829,7 @@ public class ViewGroupTest implements CTSResult {
 
     @UiThreadTest
     @Test
-    public void testGenerateDefaultLayoutParams(){
+    public void testGenerateDefaultLayoutParams() {
         LayoutParams lp = mMockViewGroup.generateDefaultLayoutParams();
 
         assertEquals(LayoutParams.WRAP_CONTENT, lp.width);
@@ -1179,17 +1176,14 @@ public class ViewGroupTest implements CTSResult {
 
     @Test
     public void testOnDescendantInvalidated() throws Throwable {
-        Activity activity = null;
-        try {
-            activity = mCtsActivityRule.launchActivity(new Intent());
-
-            mCtsActivityRule.runOnUiThread(() -> {
+        try (ActivityScenario<CtsActivity> scenario = ActivityScenario.launch(CtsActivity.class)) {
+            scenario.onActivity(activity -> {
                 View child = mTextView;
                 MockViewGroup parent = mMockViewGroup;
                 MockViewGroup grandParent = new MockViewGroup(mContext);
                 parent.addView(child);
                 grandParent.addView(parent);
-                mCtsActivityRule.getActivity().setContentView(grandParent);
+                activity.setContentView(grandParent);
 
                 parent.isOnDescendantInvalidatedCalled = false;
                 grandParent.isOnDescendantInvalidatedCalled = false;
@@ -1207,19 +1201,17 @@ public class ViewGroupTest implements CTSResult {
                 assertFalse(parent.isOnDescendantInvalidatedCalled);
                 assertTrue(grandParent.isOnDescendantInvalidatedCalled);
             });
-        } finally {
-            if (activity != null) {
-                activity.finish();
-            }
         }
     }
 
     private void waitForResult() {
         synchronized (mSync) {
-            while(!mSync.mHasNotify) {
+            while (!mSync.mHasNotify) {
                 try {
                     mSync.wait();
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted thread", e);
                 }
             }
         }
@@ -1395,8 +1387,8 @@ public class ViewGroupTest implements CTSResult {
 
         @Override
         public boolean getTransformation(long currentTime, Transformation outTransformation) {
-           super.getTransformation(currentTime, outTransformation);
-           return false;
+            super.getTransformation(currentTime, outTransformation);
+            return false;
         }
     }
 
@@ -1694,9 +1686,11 @@ public class ViewGroupTest implements CTSResult {
         public MockViewGroup nestedGroup = new MockViewGroup(mContext);
         public Button c2view1 = new Button(mContext);
         public Button c2view2 = new Button(mContext);
+
         TestClusterHier() {
             this(true);
         }
+
         TestClusterHier(boolean inTouchMode) {
             for (Button bt : new Button[]{c1view1, c1view2, c2view1, c2view2}) {
                 // Otherwise this test won't work during suite-run.
@@ -1966,58 +1960,74 @@ public class ViewGroupTest implements CTSResult {
         assertSame(h.c1view1, h.top.findFocus());
     }
 
-    @UiThreadTest
     @Test
     public void testTouchscreenBlocksFocus() {
         if (!mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) {
             return;
         }
-        InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
 
-        // Can't focus/default-focus an element in touchscreenBlocksFocus
-        TestClusterHier h = new TestClusterHier(false);
-        h.cluster1.setTouchscreenBlocksFocus(true);
-        h.c1view2.setFocusedByDefault(true);
-        h.top.restoreDefaultFocus();
-        assertSame(h.c2view1, h.top.findFocus());
-        ArrayList<View> views = new ArrayList<>();
-        h.top.addFocusables(views, View.FOCUS_DOWN);
-        for (View v : views) {
-            assertFalse(v.getParent() == h.cluster1);
+        final ArrayList<View> views = new ArrayList<>();
+        try (ActivityScenario<CtsActivity> scenario = ActivityScenario.launch(CtsActivity.class)) {
+
+            // Can't focus/default-focus an element in touchscreenBlocksFocus
+            final TestClusterHier h = new TestClusterHier(/* inTouchMode= */ false);
+            // Attach top view group, so touch mode gets affected when set to false
+            scenario.onActivity(a -> a.setContentView(h.top));
+            InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+            PollingCheck.waitFor(5_000L, () -> !h.top.isInTouchMode());
+
+            scenario.onActivity(a -> {
+                h.cluster1.setTouchscreenBlocksFocus(true);
+                h.c1view2.setFocusedByDefault(true);
+                h.top.restoreDefaultFocus();
+                assertSame(h.c2view1, h.top.findFocus());
+                h.top.addFocusables(views, View.FOCUS_DOWN);
+                for (View v : views) {
+                    assertFalse(v.getParent() == h.cluster1);
+                }
+                views.clear();
+
+                // Can cluster navigate into it though
+                h.top.addKeyboardNavigationClusters(views, View.FOCUS_DOWN);
+                assertTrue(views.contains(h.cluster1));
+                views.clear();
+                h.cluster1.restoreFocusInCluster(View.FOCUS_DOWN);
+                assertSame(h.c1view2, h.top.findFocus());
+                // can normal-navigate around once inside
+                h.top.addFocusables(views, View.FOCUS_DOWN);
+                assertTrue(views.contains(h.c1view1));
+                views.clear();
+                h.c1view1.requestFocus();
+                assertSame(h.c1view1, h.top.findFocus());
+                // focus loops within cluster (doesn't leave)
+                h.c1view2.requestFocus();
+                View next = h.top.focusSearch(h.c1view2, View.FOCUS_FORWARD);
+                assertSame(h.c1view1, next);
+                // but once outside, can no-longer navigate in.
+                h.c2view2.requestFocus();
+                h.c1view1.requestFocus();
+                assertSame(h.c2view2, h.top.findFocus());
+            });
+
+            final TestClusterHier h2 = new TestClusterHier(/* inTouchMode = */ false);
+            // Attach top view group, so touch mode gets affected when set to false
+            scenario.onActivity(a -> a.setContentView(h2.top));
+            InstrumentationRegistry.getInstrumentation().setInTouchMode(false);
+            PollingCheck.waitFor(TOUCH_MODE_PROPAGATION_TIMEOUT_MILLIS,
+                    () -> !h2.top.isInTouchMode());
+
+            scenario.onActivity(a -> {
+                h2.c1view1.requestFocus();
+                h2.nestedGroup.setKeyboardNavigationCluster(true);
+                h2.nestedGroup.setTouchscreenBlocksFocus(true);
+                // since cluster is nested, it should ignore its touchscreenBlocksFocus behavior.
+                h2.c2view2.requestFocus();
+                assertSame(h2.c2view2, h2.top.findFocus());
+                h2.top.addFocusables(views, View.FOCUS_DOWN);
+                assertTrue(views.contains(h2.c2view2));
+                views.clear();
+            });
         }
-        views.clear();
-
-        // Can cluster navigate into it though
-        h.top.addKeyboardNavigationClusters(views, View.FOCUS_DOWN);
-        assertTrue(views.contains(h.cluster1));
-        views.clear();
-        h.cluster1.restoreFocusInCluster(View.FOCUS_DOWN);
-        assertSame(h.c1view2, h.top.findFocus());
-        // can normal-navigate around once inside
-        h.top.addFocusables(views, View.FOCUS_DOWN);
-        assertTrue(views.contains(h.c1view1));
-        views.clear();
-        h.c1view1.requestFocus();
-        assertSame(h.c1view1, h.top.findFocus());
-        // focus loops within cluster (doesn't leave)
-        h.c1view2.requestFocus();
-        View next = h.top.focusSearch(h.c1view2, View.FOCUS_FORWARD);
-        assertSame(h.c1view1, next);
-        // but once outside, can no-longer navigate in.
-        h.c2view2.requestFocus();
-        h.c1view1.requestFocus();
-        assertSame(h.c2view2, h.top.findFocus());
-
-        h = new TestClusterHier(false);
-        h.c1view1.requestFocus();
-        h.nestedGroup.setKeyboardNavigationCluster(true);
-        h.nestedGroup.setTouchscreenBlocksFocus(true);
-        // since cluster is nested, it should ignore its touchscreenBlocksFocus behavior.
-        h.c2view2.requestFocus();
-        assertSame(h.c2view2, h.top.findFocus());
-        h.top.addFocusables(views, View.FOCUS_DOWN);
-        assertTrue(views.contains(h.c2view2));
-        views.clear();
     }
 
     @UiThreadTest
@@ -3102,6 +3112,7 @@ public class ViewGroupTest implements CTSResult {
         public void detachViewFromParent(View child) {
             super.detachViewFromParent(child);
         }
+
         @Override
 
         public void detachViewsFromParent(int start, int count) {
@@ -3486,9 +3497,7 @@ public class ViewGroupTest implements CTSResult {
         }
 
         @Override
-        protected void onLayout(boolean changed, int l, int t, int r, int b) {
-
-        }
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {}
 
         @Override
         public boolean awakenScrollBars() {

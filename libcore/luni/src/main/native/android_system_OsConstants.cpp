@@ -267,8 +267,14 @@ static void OsConstants_initConstants(JNIEnv* env, jclass c) {
 #if defined(IFA_F_HOMEADDRESS)
     initConstant(env, c, "IFA_F_HOMEADDRESS", IFA_F_HOMEADDRESS);
 #endif
+#if defined(IFA_F_MANAGETEMPADDR)
+    initConstant(env, c, "IFA_F_MANAGETEMPADDR", IFA_F_MANAGETEMPADDR);
+#endif
 #if defined(IFA_F_NODAD)
     initConstant(env, c, "IFA_F_NODAD", IFA_F_NODAD);
+#endif
+#if defined(IFA_F_NOPREFIXROUTE)
+    initConstant(env, c, "IFA_F_NOPREFIXROUTE", IFA_F_NOPREFIXROUTE);
 #endif
 #if defined(IFA_F_OPTIMISTIC)
     initConstant(env, c, "IFA_F_OPTIMISTIC", IFA_F_OPTIMISTIC);

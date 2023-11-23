@@ -168,17 +168,26 @@ def main():
         else:
           return_string = 'FAIL'
 
+      with open(run_all_tests.MOBLY_TEST_SUMMARY_TXT_FILE, 'r') as file:
+        content = file.read()
+        lines = content.splitlines()
+        for one_line in lines:
+          if 'root_output_path:' in one_line:
+            root_output_path = one_line.split(':')[1].strip()
+        file.close()
+
         os.remove(run_all_tests.MOBLY_TEST_SUMMARY_TXT_FILE)
-        file_name = os.path.join(
-            mobly_scene_output_logs_path, _TEST_BED_SENSOR_FUSION, 'latest',
-            'test_log.DEBUG')
+        file_name = os.path.join(root_output_path, 'test_log.DEBUG')
         time_shift = find_time_shift(file_name)
-        logging.info('%s time_shift: %.4f ms, corr: %.6f', return_string,
-                     time_shift['time_shift'], time_shift['corr'])
-        if time_shift['corr'] < _CORR_DIST_THRESH_MAX:
-          time_shifts.append(time_shift)
+        if time_shift is not None:
+          logging.info('%s time_shift: %.4f ms, corr: %.6f', return_string,
+                       time_shift['time_shift'], time_shift['corr'])
+          if time_shift['corr'] < _CORR_DIST_THRESH_MAX:
+            time_shifts.append(time_shift)
+          else:
+            logging.info('Correlation distance too large. Not used for stats.')
         else:
-          logging.info('Correlation distance too large. Not used for stats.')
+          logging.info('time_shift not found')
 
     # Summarize results with stats
     times = [t['time_shift'] for t in time_shifts]

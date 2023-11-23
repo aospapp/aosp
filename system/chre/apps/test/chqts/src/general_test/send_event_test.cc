@@ -22,7 +22,7 @@
 #include <shared/array_length.h>
 #include <shared/send_message.h>
 
-#include <chre.h>
+#include "chre_api/chre.h"
 
 using nanoapp_testing::sendFatalFailureToHost;
 using nanoapp_testing::sendSuccessToHost;

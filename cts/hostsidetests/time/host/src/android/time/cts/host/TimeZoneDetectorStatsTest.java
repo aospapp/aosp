@@ -16,6 +16,7 @@
 
 package android.time.cts.host;
 
+import com.android.tradefed.util.RunUtil;
 import static android.app.time.cts.shell.DeviceConfigKeys.NAMESPACE_SYSTEM_TIME;
 import static android.app.time.cts.shell.DeviceConfigShellHelper.SYNC_DISABLED_MODE_UNTIL_REBOOT;
 
@@ -78,11 +79,11 @@ public class TimeZoneDetectorStatsTest extends BaseHostJUnit4Test {
         // Enable the atom.
         ConfigUtils.uploadConfigForPulledAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 AtomsProto.Atom.TIME_ZONE_DETECTOR_STATE_FIELD_NUMBER);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // This should trigger a pull.
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         // Extract and assert about TimeZoneDetectorState.
         List<AtomsProto.Atom> atoms = ReportUtils.getGaugeMetricAtoms(getDevice());
@@ -119,23 +120,32 @@ public class TimeZoneDetectorStatsTest extends BaseHostJUnit4Test {
                 boolean noAutoDetectionSupported =
                         !(telephonyDetectionSupportedFromShell || geoDetectionSupportedFromShell);
                 // The atom reports the functional state for "detection mode", which is derived from
-                // device config and settings. This logic basically repeats the logic used on the
-                // device.
+                // device config and settings. This test logic basically repeats the logic we expect
+                // to be used on the device.
                 DetectionMode expectedDetectionMode;
-                if (noAutoDetectionSupported || !autoDetectionEnabledFromShell) {
-                    expectedDetectionMode = DetectionMode.MANUAL;
-                } else {
-                    boolean geoDetectionSettingEnabledFromShell =
-                            mTimeZoneDetectorShellHelper.isGeoDetectionEnabled();
-                    boolean expectedGeoDetectionEnabled =
-                            geoDetectionSupportedFromShell
-                                    && locationEnabledForCurrentUserFromShell
-                                    && geoDetectionSettingEnabledFromShell;
-                    if (expectedGeoDetectionEnabled) {
-                        expectedDetectionMode = DetectionMode.GEO;
-                    } else {
+                if (autoDetectionEnabledFromShell) {
+                    if (telephonyDetectionSupportedFromShell && geoDetectionSupportedFromShell) {
+                        boolean geoDetectionSettingEnabledFromShell =
+                                mTimeZoneDetectorShellHelper.isGeoDetectionEnabled();
+                        if (locationEnabledForCurrentUserFromShell
+                                && geoDetectionSettingEnabledFromShell) {
+                            expectedDetectionMode = DetectionMode.GEO;
+                        } else {
+                            expectedDetectionMode = DetectionMode.TELEPHONY;
+                        }
+                    } else if (telephonyDetectionSupportedFromShell) {
                         expectedDetectionMode = DetectionMode.TELEPHONY;
+                    } else if (geoDetectionSupportedFromShell) {
+                        if (locationEnabledForCurrentUserFromShell) {
+                            expectedDetectionMode = DetectionMode.GEO;
+                        } else {
+                            expectedDetectionMode = DetectionMode.UNKNOWN;
+                        }
+                    } else {
+                        expectedDetectionMode = DetectionMode.MANUAL;
                     }
+                } else {
+                    expectedDetectionMode = DetectionMode.MANUAL;
                 }
                 assertThat(state.getDetectionMode()).isEqualTo(expectedDetectionMode);
 

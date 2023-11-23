@@ -16,17 +16,23 @@
 
 package android.photopicker.cts;
 
-import static android.os.SystemProperties.getBoolean;
+import static android.photopicker.cts.PhotoPickerCloudUtils.enableCloudMediaAndSetAllowedCloudProviders;
 import static android.photopicker.cts.PickerProviderMediaGenerator.setCloudProvider;
 import static android.photopicker.cts.PickerProviderMediaGenerator.syncCloudProvider;
 import static android.photopicker.cts.util.PhotoPickerFilesUtils.deleteMedia;
 import static android.photopicker.cts.util.PhotoPickerUiUtils.REGEX_PACKAGE_NAME;
+import static android.photopicker.cts.util.PhotoPickerUiUtils.SHORT_TIMEOUT;
+import static android.photopicker.cts.util.PhotoPickerUiUtils.clickAndWait;
 import static android.photopicker.cts.util.PhotoPickerUiUtils.findAddButton;
 import static android.photopicker.cts.util.PhotoPickerUiUtils.findItemList;
 import static android.photopicker.cts.util.PhotoPickerUiUtils.findPreviewAddButton;
+import static android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_BUFFERING;
+import static android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_PERMANENT_FAILURE;
+import static android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE;
 import static android.provider.CloudMediaProvider.CloudMediaSurfaceStateChangedCallback.PLAYBACK_STATE_READY;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -35,18 +41,19 @@ import static org.mockito.ArgumentMatchers.eq;
 import android.content.Intent;
 import android.graphics.PixelFormat;
 import android.net.Uri;
+import android.os.Build;
 import android.photopicker.cts.PickerProviderMediaGenerator.MediaGenerator;
 import android.photopicker.cts.cloudproviders.CloudProviderPrimary;
 import android.photopicker.cts.cloudproviders.CloudProviderPrimary.CloudMediaSurfaceControllerImpl;
 import android.provider.MediaStore;
 import android.util.Pair;
 
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 import androidx.test.uiautomator.UiObject;
 import androidx.test.uiautomator.UiSelector;
 
 import org.junit.After;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -63,6 +70,7 @@ import java.util.List;
  * End-to-end coverage for video preview controls is present in {@link PhotoPickerTest}
  */
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.S)
 public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
 
     private MediaGenerator mCloudPrimaryMediaGenerator;
@@ -84,15 +92,14 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
     public void setUp() throws Exception {
         super.setUp();
 
-        Assume.assumeTrue(getBoolean("sys.photopicker.pickerdb.enabled", true));
-
-        mDevice.executeShellCommand("setprop sys.photopicker.remote_preview true");
-        Assume.assumeTrue(getBoolean("sys.photopicker.remote_preview", true));
-
         mCloudPrimaryMediaGenerator = PickerProviderMediaGenerator.getMediaGenerator(
                 mContext, CloudProviderPrimary.AUTHORITY);
         mCloudPrimaryMediaGenerator.resetAll();
         mCloudPrimaryMediaGenerator.setMediaCollectionId(COLLECTION_1);
+
+        // This is a self-instrumentation test, so both "target" package name and "own" package name
+        // should be the same (android.photopicker.cts).
+        enableCloudMediaAndSetAllowedCloudProviders(sTargetPackageName);
 
         setCloudProvider(mContext, CloudProviderPrimary.AUTHORITY);
         assertThat(MediaStore.isCurrentCloudMediaProviderAuthority(mContext.getContentResolver(),
@@ -108,8 +115,12 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
             deleteMedia(uri, mContext);
         }
         mUriList.clear();
-        mActivity.finish();
-        setCloudProvider(mContext, null);
+        if (mActivity != null) {
+            mActivity.finish();
+        }
+        if (mCloudPrimaryMediaGenerator != null) {
+            setCloudProvider(mContext, null);
+        }
     }
 
     @Test
@@ -128,7 +139,7 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
         // TODO(b/215187981): Add test for onMediaPause()
 
         // Exit preview mode
-        mDevice.pressBack();
+        sDevice.pressBack();
 
         // Remote Preview calls onSurfaceDestroyed, check if the id is the same (as the
         // CloudMediaProvider is only rendering to one surface id)
@@ -164,16 +175,14 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
 
         // Remote Preview calls onSurfaceCreated with monotonically increasing surfaceIds
         final int surfaceIdForSecondVideoPreview = 1;
-        verifyAdjacentVideoSwipe(surfaceIdForFirstVideoPreview, surfaceIdForSecondVideoPreview,
-                CLOUD_ID1);
+        verifyAdjacentVideoSwipe(surfaceIdForSecondVideoPreview, CLOUD_ID1);
 
         // Swipe right in preview mode and go to first video, but the surface id will have
         // increased monotonically
         swipeRightAndWait();
 
         final int surfaceIdForThirdVideoPreview = 2;
-        verifyAdjacentVideoSwipe(surfaceIdForSecondVideoPreview, surfaceIdForThirdVideoPreview,
-                CLOUD_ID2);
+        verifyAdjacentVideoSwipe(surfaceIdForThirdVideoPreview, CLOUD_ID2);
 
         final UiObject addButton = findPreviewAddButton();
         addButton.click();
@@ -219,22 +228,55 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
         // test the remote preview APIs
     }
 
+    @Test
+    public void testVideoPreviewProgressIndicator() throws Exception {
+        initCloudProviderWithVideo(Arrays.asList(Pair.create(null, CLOUD_ID1)));
+        launchPreviewMultiple(/* count */ 1);
+
+        // Remote Preview displays circular progress indicator when playback state is
+        // PLAYBACK_STATE_BUFFERING.
+        verifyProgressIndicatorShowsWhenBuffering(/* surfaceId */ 0);
+    }
+
+    @Test
+    public void testVideoPreviewPermanentError() throws Exception {
+        initCloudProviderWithVideo(Arrays.asList(Pair.create(null, CLOUD_ID1)));
+        launchPreviewMultiple(/* count */ 1);
+
+        // Remote Preview displays Snackbar to notify the user of an error when playback state is
+        // PLAYBACK_STATE_ERROR_PERMANENT_FAILURE.
+        verifySnackbarShowsWhenPermanentError(/* surfaceId */ 0);
+    }
+
+    @Test
+    public void testVideoPreviewRetriableError() throws Exception {
+        initCloudProviderWithVideo(Arrays.asList(Pair.create(null, CLOUD_ID1)));
+        final int surfaceId = 0;
+        launchPreviewMultiple(/* count */ 1);
+
+        // Remote Preview displays an AlertDialog to notify the user of an error when playback state
+        // is PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE.
+        verifyAlertDialogShowsWhenRetriableError(surfaceId);
+
+        // Remote Preview calls onMediaPlay when user clicks the retry button in the retriable error
+        // AlertDialog.
+        verifyAlertDialogRetry(surfaceId);
+    }
+
     /**
      * Verify surface controller interactions on swiping from one video to another.
      * Note: This test assumes that the first video is in playing state.
      *
-     * @param oldSurfaceId the Surface ID which we are swiping away from
      * @param newSurfaceId the Surface ID to which we are swiping
      * @param newMediaId   the media ID of the video we are swiping to
      */
-    private void verifyAdjacentVideoSwipe(int oldSurfaceId, int newSurfaceId, String newMediaId)
+    private void verifyAdjacentVideoSwipe(int newSurfaceId, String newMediaId)
             throws Exception {
+        // We cannot be sure of the order of onSurfaceDestroyed(oldSurfaceId) and
+        // onSurfaceCreated(newSurfaceId) calls since the Surface lifecycle is not in our control,
+        // hence we cannot verify the two calls were made using InOrder mock.
         mAssertInOrder.verify(mSurfaceControllerListener).onSurfaceCreated(eq(newSurfaceId),
                 any(), eq(newMediaId));
-
-        // The surface for the first video is destroyed when it is no longer visible on the screen
-        // (swipe is complete).
-        mAssertInOrder.verify(mSurfaceControllerListener).onSurfaceDestroyed(eq(oldSurfaceId));
 
         verifyPlaybackStartedWhenPlayerReady(newSurfaceId);
     }
@@ -266,6 +308,54 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
         CloudProviderPrimary.setPlaybackState(surfaceId, PLAYBACK_STATE_READY);
         // Wait for photo picker to receive the event and invoke media play via binder calls.
         MediaStore.waitForIdle(mContext.getContentResolver());
+        mAssertInOrder.verify(mSurfaceControllerListener).onMediaPlay(eq(surfaceId));
+    }
+
+    private void verifyProgressIndicatorShowsWhenBuffering(int surfaceId) throws Exception {
+        CloudProviderPrimary.setPlaybackState(surfaceId, PLAYBACK_STATE_BUFFERING);
+        // Wait for photo picker to receive the event and invoke media play via binder calls.
+        MediaStore.waitForIdle(mContext.getContentResolver());
+        assertWithMessage("Expected circular progress indicator to be visible when state is "
+                + "buffering").that(findPreviewProgressIndicator().waitForExists(SHORT_TIMEOUT))
+                .isTrue();
+    }
+
+    private void verifySnackbarShowsWhenPermanentError(int surfaceId) throws Exception {
+        CloudProviderPrimary.setPlaybackState(surfaceId, PLAYBACK_STATE_ERROR_PERMANENT_FAILURE);
+        // Wait for photo picker to receive the event and invoke media play via binder calls.
+        MediaStore.waitForIdle(mContext.getContentResolver());
+        assertWithMessage("Expected snackbar to be visible when state is permanent error")
+                .that(findPreviewErrorSnackbar().waitForExists(SHORT_TIMEOUT)).isTrue();
+    }
+
+    private void verifyAlertDialogShowsWhenRetriableError(int surfaceId) throws Exception {
+        CloudProviderPrimary.setPlaybackState(surfaceId, PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE);
+        // Wait for photo picker to receive the event and invoke media play via binder calls.
+        MediaStore.waitForIdle(mContext.getContentResolver());
+
+        assertWithMessage("Expected alert dialog with title to be visible when state is retriable "
+                + "error").that(findPreviewErrorAlertDialogTitle().waitForExists(SHORT_TIMEOUT))
+                .isTrue();
+        assertWithMessage("Expected alert dialog with text body to be visible when state is "
+                + "retriable error").that(findPreviewErrorAlertDialogBody().exists()).isTrue();
+        assertWithMessage("Expected alert dialog with retry button to be visible when state is "
+                + "retriable error").that(findPreviewErrorAlertDialogRetryButton().exists())
+                .isTrue();
+        assertWithMessage("Expected alert dialog with cancel button to be visible when state is "
+                + "retriable error").that(findPreviewErrorAlertDialogCancelButton().exists())
+                .isTrue();
+    }
+
+    private void verifyAlertDialogRetry(int surfaceId) throws Exception {
+        CloudProviderPrimary.setPlaybackState(surfaceId, PLAYBACK_STATE_ERROR_RETRIABLE_FAILURE);
+        // Wait for photo picker to receive the event and invoke media play via binder calls.
+        MediaStore.waitForIdle(mContext.getContentResolver());
+
+        assertWithMessage("Expected alert dialog with retry button to be visible when state is "
+                + "retriable error")
+                .that(findPreviewErrorAlertDialogRetryButton().waitForExists(SHORT_TIMEOUT))
+                .isTrue();
+        clickAndWait(sDevice, findPreviewErrorAlertDialogRetryButton());
         mAssertInOrder.verify(mSurfaceControllerListener).onMediaPlay(eq(surfaceId));
     }
 
@@ -313,12 +403,12 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
 
         for (final UiObject item : itemList) {
             item.click();
-            mDevice.waitForIdle();
+            sDevice.waitForIdle();
         }
 
         final UiObject viewSelectedButton = findViewSelectedButton();
         viewSelectedButton.click();
-        mDevice.waitForIdle();
+        sDevice.waitForIdle();
 
         // Wait for CloudMediaProvider binder calls to finish.
         MediaStore.waitForIdle(mContext.getContentResolver());
@@ -330,22 +420,47 @@ public class RemoteVideoPreviewTest extends PhotoPickerBaseTest {
     }
 
     private void swipeLeftAndWait() throws Exception {
-        final int width = mDevice.getDisplayWidth();
-        final int height = mDevice.getDisplayHeight();
-        mDevice.swipe(width / 2, height / 2, width / 4, height / 2, 10);
-        mDevice.waitForIdle();
+        final int width = sDevice.getDisplayWidth();
+        final int height = sDevice.getDisplayHeight();
+        sDevice.swipe(width / 2, height / 2, width / 4, height / 2, 10);
+        sDevice.waitForIdle();
 
         // Wait for CloudMediaProvider binder calls to finish.
         MediaStore.waitForIdle(mContext.getContentResolver());
     }
 
     private void swipeRightAndWait() throws Exception {
-        final int width = mDevice.getDisplayWidth();
-        final int height = mDevice.getDisplayHeight();
-        mDevice.swipe(width / 4, height / 2, width / 2, height / 2, 10);
-        mDevice.waitForIdle();
+        final int width = sDevice.getDisplayWidth();
+        final int height = sDevice.getDisplayHeight();
+        sDevice.swipe(width / 4, height / 2, width / 2, height / 2, 10);
+        sDevice.waitForIdle();
 
         // Wait for CloudMediaProvider binder calls to finish.
         MediaStore.waitForIdle(mContext.getContentResolver());
+    }
+
+    private static UiObject findPreviewProgressIndicator() {
+        return new UiObject(new UiSelector().resourceIdMatches(
+                REGEX_PACKAGE_NAME + ":id/preview_progress_indicator"));
+    }
+
+    private static UiObject findPreviewErrorAlertDialogTitle() {
+        return new UiObject(new UiSelector().text("Trouble playing video"));
+    }
+
+    private static UiObject findPreviewErrorAlertDialogBody() {
+        return new UiObject(new UiSelector().text("Check your internet connection and try again"));
+    }
+
+    private static UiObject findPreviewErrorAlertDialogRetryButton() {
+        return new UiObject(new UiSelector().textMatches("R(etry|ETRY)"));
+    }
+
+    private static UiObject findPreviewErrorAlertDialogCancelButton() {
+        return new UiObject(new UiSelector().textMatches("C(ancel|ANCEL)"));
+    }
+
+    private static UiObject findPreviewErrorSnackbar() {
+        return new UiObject(new UiSelector().text("Can't play video"));
     }
 }

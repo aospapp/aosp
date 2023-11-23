@@ -69,7 +69,7 @@ public final class OldAndroidHashMapTest extends TestCase {
         assertNull(map.get(null));
         assertNull(map.get("one"));
         assertFalse(map.containsKey("one"));
-        assertFalse(map.containsValue(new Integer(1)));
+        assertFalse(map.containsValue(Integer.valueOf(1)));
         assertNull(map.remove(null));
         assertNull(map.remove("one"));
 
@@ -89,10 +89,10 @@ public final class OldAndroidHashMapTest extends TestCase {
         assertTrue(map.containsKey("two"));
         assertTrue(map.containsKey("three"));
 
-        assertTrue(map.containsValue(new Integer(0)));
-        assertTrue(map.containsValue(new Integer(1)));
-        assertTrue(map.containsValue(new Integer(2)));
-        assertTrue(map.containsValue(new Integer(3)));
+        assertTrue(map.containsValue(Integer.valueOf(0)));
+        assertTrue(map.containsValue(Integer.valueOf(1)));
+        assertTrue(map.containsValue(Integer.valueOf(2)));
+        assertTrue(map.containsValue(Integer.valueOf(3)));
 
         assertEquals(0, map.remove(null).intValue());
         assertEquals(1, map.remove("one").intValue());
@@ -104,7 +104,7 @@ public final class OldAndroidHashMapTest extends TestCase {
         assertNull(map.get(null));
         assertNull(map.get("one"));
         assertFalse(map.containsKey("one"));
-        assertFalse(map.containsValue(new Integer(1)));
+        assertFalse(map.containsValue(Integer.valueOf(1)));
         assertNull(map.remove(null));
         assertNull(map.remove("one"));
     }

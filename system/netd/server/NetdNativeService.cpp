@@ -272,7 +272,8 @@ binder::Status NetdNativeService::bandwidthRemoveNiceApp(int32_t) {
 // tests.
 binder::Status NetdNativeService::networkCreatePhysical(int32_t netId, int32_t permission) {
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    int ret = gCtls->netCtrl.createPhysicalNetwork(netId, convertPermission(permission));
+    int ret = gCtls->netCtrl.createPhysicalNetwork(netId, convertPermission(permission),
+                                                   false /* local */);
     return statusFromErrcode(ret);
 }
 
@@ -292,8 +293,11 @@ binder::Status NetdNativeService::networkCreate(const NativeNetworkConfig& confi
     ENFORCE_NETWORK_STACK_PERMISSIONS();
     int ret = -EINVAL;
     if (config.networkType == NativeNetworkType::PHYSICAL) {
-        ret = gCtls->netCtrl.createPhysicalNetwork(config.netId,
-                                                   convertPermission(config.permission));
+        ret = gCtls->netCtrl.createPhysicalNetwork(
+                config.netId, convertPermission(config.permission), false /* isLocalNetwork */);
+    } else if (config.networkType == NativeNetworkType::PHYSICAL_LOCAL) {
+        ret = gCtls->netCtrl.createPhysicalNetwork(
+                config.netId, convertPermission(config.permission), true /* isLocalNetwork */);
     } else if (config.networkType == NativeNetworkType::VIRTUAL) {
         ret = gCtls->netCtrl.createVirtualNetwork(config.netId, config.secure, config.vpnType,
                                                   config.excludeLocalRoutes);
@@ -664,9 +668,8 @@ binder::Status NetdNativeService::ipSecAddTunnelInterface(const std::string& dev
                                                           int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    netdutils::Status result = gCtls->xfrmCtrl.ipSecAddTunnelInterface(
-            deviceName, localAddress, remoteAddress, iKey, oKey, interfaceId, false);
-    return binder::Status::ok();
+    return asBinderStatus(gCtls->xfrmCtrl.ipSecAddTunnelInterface(
+            deviceName, localAddress, remoteAddress, iKey, oKey, interfaceId, false));
 }
 
 binder::Status NetdNativeService::ipSecUpdateTunnelInterface(const std::string& deviceName,
@@ -676,16 +679,24 @@ binder::Status NetdNativeService::ipSecUpdateTunnelInterface(const std::string& 
                                                              int32_t interfaceId) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    netdutils::Status result = gCtls->xfrmCtrl.ipSecAddTunnelInterface(
-            deviceName, localAddress, remoteAddress, iKey, oKey, interfaceId, true);
-    return binder::Status::ok();
+    return asBinderStatus(gCtls->xfrmCtrl.ipSecAddTunnelInterface(
+            deviceName, localAddress, remoteAddress, iKey, oKey, interfaceId, true));
 }
 
 binder::Status NetdNativeService::ipSecRemoveTunnelInterface(const std::string& deviceName) {
     // Necessary locking done in IpSecService and kernel
     ENFORCE_NETWORK_STACK_PERMISSIONS();
-    netdutils::Status result = gCtls->xfrmCtrl.ipSecRemoveTunnelInterface(deviceName);
-    return binder::Status::ok();
+    return asBinderStatus(gCtls->xfrmCtrl.ipSecRemoveTunnelInterface(deviceName));
+}
+
+binder::Status NetdNativeService::ipSecMigrate(const IpSecMigrateInfoParcel& migrateInfo) {
+    // Necessary locking done in IpSecService and kernel
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    return asBinderStatus(gCtls->xfrmCtrl.ipSecMigrate(
+            migrateInfo.requestId, migrateInfo.selAddrFamily, migrateInfo.direction,
+            migrateInfo.oldSourceAddress, migrateInfo.oldDestinationAddress,
+            migrateInfo.newSourceAddress, migrateInfo.newDestinationAddress,
+            migrateInfo.interfaceId));
 }
 
 binder::Status NetdNativeService::setIPv6AddrGenMode(const std::string& ifName,
@@ -1234,6 +1245,12 @@ binder::Status NetdNativeService::tetherOffloadGetAndClearStats(
     // deprecated
     NETD_LOCKING_RPC(gCtls->tetherCtrl.lock, PERM_NETWORK_STACK, PERM_MAINLINE_NETWORK_STACK);
     return binder::Status::fromExceptionCode(binder::Status::EX_UNSUPPORTED_OPERATION);
+}
+
+binder::Status NetdNativeService::setNetworkAllowlist(
+        const std::vector<NativeUidRangeConfig>& rangeConfigs) {
+    ENFORCE_NETWORK_STACK_PERMISSIONS();
+    return statusFromErrcode(gCtls->netCtrl.setNetworkAllowlist(rangeConfigs));
 }
 
 }  // namespace net

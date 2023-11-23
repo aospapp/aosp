@@ -77,9 +77,10 @@ class RawSensitivityBurstTest(its_base_test.ItsBaseTest):
           camera_properties_utils.per_frame_control(props) and
           not camera_properties_utils.mono_camera(props))
 
-      # Load chart for scene (chart_distance=0 for no chart scaling)
+      # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, chart_distance=0)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Find sensitivity range and create capture requests
       sens_min, _ = props['android.sensor.info.sensitivityRange']
@@ -126,7 +127,7 @@ class RawSensitivityBurstTest(its_base_test.ItsBaseTest):
       pylab.ylabel('Image Center Patch Variance')
       pylab.title(_NAME)
       matplotlib.pyplot.savefig(
-          '%s_variances.png' % os.path.join(self.log_path, _NAME))
+          f'{os.path.join(self.log_path, _NAME)}_variances.png')
 
       # Asserts that each shot is noisier than previous
       for i in x[0:-1]:

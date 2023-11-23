@@ -23,6 +23,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 
 import java.util.Objects;
 
@@ -31,8 +32,27 @@ public final class BooleanQueryHelper<E extends Queryable> implements BooleanQue
     private final transient E mQuery;
     private Boolean mTargetValue = null;
 
-    BooleanQueryHelper() {
-        mQuery = (E) this;
+    public static final class BooleanQueryBase extends
+            QueryableBaseWithMatch<Boolean, BooleanQueryHelper<BooleanQueryBase>> {
+        BooleanQueryBase() {
+            super();
+            setQuery(new BooleanQueryHelper<>(this));
+        }
+
+        BooleanQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<BooleanQueryHelper.BooleanQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public BooleanQueryHelper.BooleanQueryBase createFromParcel(Parcel in) {
+                        return new BooleanQueryHelper.BooleanQueryBase(in);
+                    }
+
+                    public BooleanQueryHelper.BooleanQueryBase[] newArray(int size) {
+                        return new BooleanQueryHelper.BooleanQueryBase[size];
+                    }
+                };
     }
 
     public BooleanQueryHelper(E query) {
@@ -75,6 +95,11 @@ public final class BooleanQueryHelper<E extends Queryable> implements BooleanQue
         mTargetValue = value;
 
         return mQuery;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return mTargetValue == null;
     }
 
     @Override

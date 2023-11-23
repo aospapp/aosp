@@ -16,7 +16,7 @@
 
 package android.telephony.cts;
 
-import static android.telephony.cts.TelephonyUtils.hexStringToByteArray;
+import static android.telephony.cts.util.TelephonyUtils.hexStringToByteArray;
 
 import static androidx.test.InstrumentationRegistry.getContext;
 
@@ -35,6 +35,7 @@ import android.telephony.SmsManager;
 import android.telephony.SmsMessage;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
+import android.telephony.cts.util.TelephonyUtils;
 
 import org.junit.Before;
 import org.junit.Test;

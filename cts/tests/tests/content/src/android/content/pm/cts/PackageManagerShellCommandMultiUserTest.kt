@@ -38,6 +38,7 @@ import com.android.bedstead.nene.permissions.CommonPermissions.INTERACT_ACROSS_U
 import com.android.bedstead.nene.users.UserReference
 import com.android.compatibility.common.util.SystemUtil
 import com.google.common.truth.Truth.assertThat
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,8 +48,10 @@ import org.junit.Before
 import org.junit.ClassRule
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
+import org.junit.runner.Description
 import org.junit.runner.RunWith
-import java.io.File
+import org.junit.runners.model.Statement
 
 @EnsureHasSecondaryUser
 @RunWith(BedsteadJUnit4::class)
@@ -61,13 +64,31 @@ class PackageManagerShellCommandMultiUserTest {
         private const val TEST_HW5 = PackageManagerShellCommandTest.TEST_HW5
 
         @JvmField
-        @ClassRule
+        @ClassRule(order = 0)
         @Rule
         val deviceState = DeviceState()
 
         @JvmField
-        @ClassRule
+        @ClassRule(order = 1)
         var mAbandonSessionsRule = AbandonAllPackageSessionsRule()
+
+        @JvmField
+        @ClassRule(order = 2)
+        var mBroadcastBarrierRule = object : TestRule {
+            override fun apply(base: Statement, description: Description): Statement {
+                return object : Statement() {
+                    override fun evaluate() {
+                        if (description.isSuite()) {
+                            // Run "wait-for-broadcast-idle" to clear any
+                            // pending broadcasts in the System so that they do not have any
+                            // impact on the tests.
+                            SystemUtil.runShellCommand("am wait-for-broadcast-idle")
+                        }
+                        base.evaluate()
+                    }
+                }
+            }
+        }
 
         private val context: Context = InstrumentationRegistry.getContext()
         private val uiAutomation: UiAutomation =
@@ -128,7 +149,7 @@ class PackageManagerShellCommandMultiUserTest {
         // Set the test override to invalid.
         setSystemProperty("debug.pm.uses_sdk_library_default_cert_digest", "invalid")
         setSystemProperty("debug.pm.prune_unused_shared_libraries_delay", "invalid")
-        setSystemProperty("debug.pm.adb_verifier_override_package", "invalid")
+        setSystemProperty("debug.pm.adb_verifier_override_packages", "invalid")
     }
 
     @Test

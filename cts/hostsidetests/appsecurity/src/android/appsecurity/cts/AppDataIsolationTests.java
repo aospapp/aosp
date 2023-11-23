@@ -16,11 +16,11 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static android.appsecurity.cts.Utils.waitForBootCompleted;
 
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeThat;
 import static org.junit.Assume.assumeTrue;
 
@@ -75,9 +75,6 @@ public class AppDataIsolationTests extends BaseAppSecurityTest {
             "com.android.cts.appdataisolation.appb.AppBTests";
     private static final String APPB_METHOD_CAN_NOT_ACCESS_APPA_DIR = "testCanNotAccessAppADataDir";
     private static final String APPB_METHOD_CAN_ACCESS_APPA_DIR = "testCanAccessAppADataDir";
-
-    private static final String FBE_MODE_NATIVE = "native";
-    private static final String FBE_MODE_EMULATED = "emulated";
 
     private static final String APPA_METHOD_CREATE_EXTERNAL_DIRS = "testCreateExternalDirs";
     private static final String APPA_METHOD_TEST_ISOLATED_PROCESS = "testIsolatedProcess";
@@ -206,32 +203,21 @@ public class AppDataIsolationTests extends BaseAppSecurityTest {
 
         try {
             // Setup screenlock
-            getDevice().executeShellCommand("settings put global require_password_to_decrypt 0");
             getDevice().executeShellCommand("locksettings set-disabled false");
             String response = getDevice().executeShellCommand("locksettings set-pin 1234");
             if (!response.contains("1234")) {
                 // This seems to fail occasionally. Try again once, then give up.
-                Thread.sleep(500);
+                RunUtil.getDefault().sleep(500);
                 response = getDevice().executeShellCommand("locksettings set-pin 1234");
                 assumeTrue("Test requires setting a pin, which failed: " + response,
                         response.contains("1234"));
             }
 
             // Give enough time for vold to update keys
-            Thread.sleep(15000);
+            RunUtil.getDefault().sleep(15000);
 
             // Follow DirectBootHostTest, reboot system into known state with keys ejected
-            if (isFbeModeEmulated()) {
-                final String res = getDevice().executeShellCommand("sm set-emulate-fbe true");
-                if (res != null && res.contains("Emulation not supported")) {
-                    LogUtil.CLog.i("FBE emulation is not supported, skipping test");
-                    return;
-                }
-                getDevice().waitForDeviceNotAvailable(30000);
-                getDevice().waitForDeviceOnline(120000);
-            } else {
-                getDevice().rebootUntilOnline();
-            }
+            getDevice().rebootUntilOnline();
             waitForBootCompleted(getDevice());
 
             // Verify DE data is still readable and writeable, while CE and external data are not
@@ -264,17 +250,9 @@ public class AppDataIsolationTests extends BaseAppSecurityTest {
                 } catch (Exception e) {}
                 getDevice().executeShellCommand("locksettings clear --old 1234");
                 getDevice().executeShellCommand("locksettings set-disabled true");
-                getDevice().executeShellCommand(
-                        "settings delete global require_password_to_decrypt");
             } finally {
                 // Get ourselves back into a known-good state
-                if (isFbeModeEmulated()) {
-                    getDevice().executeShellCommand("sm set-emulate-fbe false");
-                    getDevice().waitForDeviceNotAvailable(30000);
-                    getDevice().waitForDeviceOnline();
-                } else {
-                    getDevice().rebootUntilOnline();
-                }
+                getDevice().rebootUntilOnline();
                 getDevice().waitForDeviceAvailable();
             }
         }
@@ -422,16 +400,5 @@ public class AppDataIsolationTests extends BaseAppSecurityTest {
         assumeThat(device.executeShellCommand(
                 "getprop persist.sys.vold_app_data_isolation_enabled").trim(),
                 is("true"));
-    }
-
-    private boolean isFbeModeEmulated() throws Exception {
-        String mode = getDevice().executeShellCommand("sm get-fbe-mode").trim();
-        if (mode.equals(FBE_MODE_EMULATED)) {
-            return true;
-        } else if (mode.equals(FBE_MODE_NATIVE)) {
-            return false;
-        }
-        fail("Unknown FBE mode: " + mode);
-        return false;
     }
 }

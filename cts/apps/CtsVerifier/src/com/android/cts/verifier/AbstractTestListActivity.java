@@ -27,6 +27,7 @@ import android.view.View;
 import android.view.Window;
 import android.widget.ListView;
 
+import com.android.cts.verifier.TestListActivity.DisplayMode;
 import com.android.cts.verifier.TestListAdapter.TestListItem;
 
 /** {@link ListActivity} that displays a list of manual tests. */
@@ -63,6 +64,12 @@ public abstract class AbstractTestListActivity extends ListActivity {
         return item.intent;
     }
 
+    private void setTestResult(TestResult testResult) {
+        testResult.getHistoryCollection().add(
+                testResult.getName(), mStartTime, mEndTime, mIsAutomated);
+        mAdapter.setTestResult(testResult);
+    }
+
     @Override
     protected final void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -93,19 +100,31 @@ public abstract class AbstractTestListActivity extends ListActivity {
 
     protected void handleLaunchTestResult(int resultCode, Intent data) {
         // The mStartTime can be the initial 0 if this Activity has been recreated.
-        if (mStartTime == 0 && data.hasExtra(TestResult.TEST_START_TIME)) {
+        if (mStartTime == 0 && data != null && data.hasExtra(TestResult.TEST_START_TIME)) {
             mStartTime = data.getLongExtra(TestResult.TEST_START_TIME, 0);
         }
 
         if (resultCode == RESULT_OK) {
+            if (data == null) {
+                // Better fail now than throwing a NPE later...
+                throw new IllegalStateException("Received RESULT_OK without an Intent");
+            }
             // If subtest didn't set end time, set current time
             if (mEndTime == 0) {
                 mEndTime = System.currentTimeMillis();
             }
             TestResult testResult = TestResult.fromActivityResult(resultCode, data);
-            testResult.getHistoryCollection().add(
-                testResult.getName(), mStartTime, mEndTime, mIsAutomated);
-            mAdapter.setTestResult(testResult);
+            // Set the same result in both folded and unfolded mode if the test pass mode is set to
+            // either_mode.
+            TestListItem testListItem = mAdapter.getItemByName(testResult.getName());
+            if (testListItem != null && testListItem.passInEitherMode) {
+                setTestResult(TestResult.fromActivityResultWithDisplayMode(
+                        resultCode, data, DisplayMode.FOLDED.toString()));
+                setTestResult(TestResult.fromActivityResultWithDisplayMode(
+                        resultCode, data, DisplayMode.UNFOLDED.toString()));
+            } else {
+                setTestResult(testResult);
+            }
         }
         // Reset end time to avoid keeping same end time in retry.
         mEndTime = 0;

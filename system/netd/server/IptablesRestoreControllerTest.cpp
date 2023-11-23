@@ -32,10 +32,10 @@
 #include <android-base/strings.h>
 #include <log/log.h>
 #include <netdutils/MockSyscalls.h>
+#include <netdutils/NetNativeTestBase.h>
 #include <netdutils/Stopwatch.h>
 
 #include "NetdConstants.h"
-#include "bpf/BpfUtils.h"
 
 #define XT_LOCK_NAME "/system/etc/xtables.lock"
 #define XT_LOCK_ATTEMPTS 10
@@ -55,7 +55,7 @@ using android::netdutils::Stopwatch;
 using testing::Return;
 using testing::StrictMock;
 
-class IptablesRestoreControllerTest : public ::testing::Test {
+class IptablesRestoreControllerTest : public NetNativeTestBase {
 public:
   IptablesRestoreController con;
   int mDefaultMaxRetries = con.MAX_RETRIES;

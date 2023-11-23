@@ -20,8 +20,8 @@ import fnmatch
 import os
 import re
 
-import atest_utils
-import constants
+from atest import atest_utils
+from atest import constants
 
 TEST_MAPPING = 'TEST_MAPPING'
 

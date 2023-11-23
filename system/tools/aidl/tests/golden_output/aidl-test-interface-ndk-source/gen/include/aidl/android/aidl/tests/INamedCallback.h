@@ -14,8 +14,11 @@ namespace aidl {
 namespace android {
 namespace aidl {
 namespace tests {
+class INamedCallbackDelegator;
+
 class INamedCallback : public ::ndk::ICInterface {
 public:
+  typedef INamedCallbackDelegator DefaultDelegator;
   static const char* descriptor;
   INamedCallback();
   virtual ~INamedCallback();

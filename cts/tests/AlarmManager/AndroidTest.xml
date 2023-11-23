@@ -20,7 +20,9 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user_on_secondary_display" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -33,6 +35,8 @@
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command" value="settings put global activity_manager_constants background_settle_time=0" />
+        <!-- TODO(b/254155965): Design a mechanism to finally remove this command. -->
+        <option name="run-command" value="settings put global device_config_sync_disabled 0" />
         <option name="teardown-command" value="settings delete global activity_manager_constants" />
     </target_preparer>
 

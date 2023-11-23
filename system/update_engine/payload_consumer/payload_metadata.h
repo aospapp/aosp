@@ -26,7 +26,6 @@
 #include <brillo/secure_blob.h>
 
 #include "update_engine/common/error_code.h"
-#include "update_engine/common/platform_constants.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
 #include "update_engine/update_metadata.pb.h"
 

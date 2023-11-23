@@ -19,16 +19,6 @@ package {
 python_defaults {
     name: "plugin_default",
     pkg_path: "plugin_lib",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
 }
 
 python_library_host {

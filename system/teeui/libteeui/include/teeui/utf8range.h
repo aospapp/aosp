@@ -61,7 +61,7 @@ template <typename CharIterator> class UTF8Range {
             return c;
         } else {
             // multi byte
-            unsigned long result = c & ~(0xff << (8 - byte_count));
+            unsigned long result = c & ~(0xffu << (8 - byte_count));
             ++begin;
             for (size_t i = 1; i < byte_count; ++i) {
                 result <<= 6;

@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.lang;
@@ -75,7 +75,7 @@ public class SystemTest extends junit.framework.TestCase {
         Integer b[] = new Integer[20];
         int i = 0;
         while (i < a.length) {
-            a[i] = new Integer(i);
+            a[i] = Integer.valueOf(i);
             ++i;
         }
         System.arraycopy(a, 0, b, 0, a.length);
@@ -317,7 +317,7 @@ public class SystemTest extends junit.framework.TestCase {
         }
 
         try {
-            map.containsKey(new Integer(10));
+            map.containsKey(Integer.valueOf(10));
             fail("Should throw ClassCastException.");
         } catch (ClassCastException e) {
             // expected
@@ -331,7 +331,7 @@ public class SystemTest extends junit.framework.TestCase {
         }
 
         try {
-            map.containsValue(new Integer(10));
+            map.containsValue(Integer.valueOf(10));
             fail("Should throw ClassCastException.");
         } catch (ClassCastException e) {
             // expected
@@ -345,7 +345,7 @@ public class SystemTest extends junit.framework.TestCase {
         }
 
         try {
-            map.get(new Integer(10));
+            map.get(Integer.valueOf(10));
             fail("Should throw ClassCastException.");
         } catch (ClassCastException e) {
             // expected
@@ -359,7 +359,7 @@ public class SystemTest extends junit.framework.TestCase {
         }
 
         try {
-            map.put("AAA", new Integer(10));
+            map.put("AAA", Integer.valueOf(10));
             fail("Should throw UnsupportedOperationException.");
         } catch (UnsupportedOperationException e) {
             // expected

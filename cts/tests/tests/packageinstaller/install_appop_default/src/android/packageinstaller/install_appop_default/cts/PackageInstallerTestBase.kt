@@ -111,7 +111,7 @@ open class PackageInstallerTestBase {
 
     @Before
     fun registerInstallResultReceiver() {
-        context.registerReceiver(receiver, IntentFilter(INSTALL_ACTION_CB))
+        context.registerReceiver(receiver, IntentFilter(INSTALL_ACTION_CB), Context.RECEIVER_EXPORTED)
     }
 
     @Before
@@ -145,7 +145,9 @@ open class PackageInstallerTestBase {
 
         // Commit session
         val dialog = FutureResultActivity.doAndAwaitStart {
-            val pendingIntent = PendingIntent.getBroadcast(context, 0, Intent(INSTALL_ACTION_CB),
+            val pendingIntent = PendingIntent.getBroadcast(context, 0,
+                    Intent(INSTALL_ACTION_CB).setPackage(context.packageName)
+                            .addFlags(Intent.FLAG_RECEIVER_FOREGROUND),
                     FLAG_UPDATE_CURRENT)
             session.commit(pendingIntent.intentSender)
         }

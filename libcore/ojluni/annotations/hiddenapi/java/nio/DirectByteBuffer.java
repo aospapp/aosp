@@ -84,11 +84,18 @@ public class DirectByteBuffer extends java.nio.MappedByteBuffer implements sun.n
         throw new RuntimeException("Stub!");
     }
 
-    public final java.nio.ByteBuffer slice() {
+    @Override
+    public final java.nio.MappedByteBuffer slice() {
         throw new RuntimeException("Stub!");
     }
 
-    public final java.nio.ByteBuffer duplicate() {
+    @Override
+    public final java.nio.MappedByteBuffer slice(int index, int length) {
+        throw new RuntimeException("Stub!");
+    }
+
+    @Override
+    public final java.nio.MappedByteBuffer duplicate() {
         throw new RuntimeException("Stub!");
     }
 

@@ -72,16 +72,6 @@ public final class CharsetUtils {
     @FastNative
     public static native void asciiBytesToChars(byte[] bytes, int offset, int length, char[] chars);
 
-    /**
-     * Decodes the given ISO-8859-1 bytes into the given char[]. Equivalent to but faster than:
-     *
-     * for (int i = 0; i < count; ++i) {
-     *     value[i] = (char) (data[start++] & 0xff);
-     * }
-     */
-    @FastNative
-    public static native void isoLatin1BytesToChars(byte[] bytes, int offset, int length, char[] chars);
-
     private CharsetUtils() {
     }
 }

@@ -22,7 +22,6 @@ from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts_contrib.test_utils.tel.tel_test_utils import toggle_airplane_mode_by_adb
-from queue import Empty
 import time
 
 

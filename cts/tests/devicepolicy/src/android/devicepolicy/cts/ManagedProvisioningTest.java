@@ -43,4 +43,11 @@ public final class ManagedProvisioningTest {
     public void managedProvisioning_isInstalledInSystemImage() throws Exception {
         assertThat(TestApis.packages().find(MANAGED_PROVISIONING_PKG).hasSystemFlag()).isTrue();
     }
+
+    @Test
+    @RequireFeature(FEATURE_DEVICE_ADMIN)
+    public void managedProvisioning_hasLaunchDeviceManagerSetupPermission() {
+        assertThat(TestApis.packages().find(MANAGED_PROVISIONING_PKG)
+                .hasPermission(android.Manifest.permission.LAUNCH_DEVICE_MANAGER_SETUP)).isTrue();
+    }
 }

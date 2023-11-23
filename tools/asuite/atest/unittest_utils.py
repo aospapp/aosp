@@ -18,8 +18,8 @@
 
 import os
 
-import constants
-import unittest_constants as uc
+from atest import constants
+from atest import unittest_constants as uc
 
 def assert_strict_equal(test_class, first, second):
     """Check for strict equality and strict equality of nametuple elements.

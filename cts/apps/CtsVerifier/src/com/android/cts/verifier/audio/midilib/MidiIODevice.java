@@ -25,6 +25,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import java.io.IOException;
+import java.util.Collection;
 
 /**
  * A class to hold the MidiIODevice and ports objects associated with a MIDI I/O peripheral.
@@ -38,6 +39,7 @@ public class MidiIODevice {
     public MidiDeviceInfo mSendDevInfo;
     public MidiDeviceInfo mReceiveDevInfo;
 
+    public MidiDevice      mMidiDevice;
     public MidiInputPort   mSendPort;
     public MidiOutputPort  mReceivePort;
 
@@ -45,7 +47,13 @@ public class MidiIODevice {
         mDeviceType = deviceType;
     }
 
-    public void scanDevices(MidiDeviceInfo[] devInfos) {
+    /**
+     * Sets MidiDevice and info about sender and receiver ports from a collection of
+     * MidiDeviceInfo. It uses mDeviceType to match the device.
+     *
+     * @param devInfos the set of devices to check
+     */
+    public void scanDevices(Collection<MidiDeviceInfo> devInfos) {
         if (DEBUG) {
             Log.i(TAG, "---- scanDevices() typeID: " + mDeviceType);
         }
@@ -53,6 +61,7 @@ public class MidiIODevice {
         mReceiveDevInfo = null;
         mSendPort = null;
         mReceivePort = null;
+        mMidiDevice = null;
 
         for(MidiDeviceInfo devInfo : devInfos) {
             Bundle devBundle = devInfo.getProperties();
@@ -122,6 +131,7 @@ public class MidiIODevice {
         if (numInputs != 0) {
             mSendPort = device.openInputPort(0);
         }
+        mMidiDevice = device;
 
         if (DEBUG) {
             Log.i(TAG, "---- mSendPort:" + mSendPort);
@@ -140,6 +150,10 @@ public class MidiIODevice {
             if (mReceivePort != null) {
                 mReceivePort.close();
                 mReceivePort = null;
+            }
+            if (mMidiDevice != null) {
+                mMidiDevice.close();
+                mMidiDevice = null;
             }
         } catch (IOException ex) {
             Log.e(TAG, "IOException Closing MIDI ports: " + ex);

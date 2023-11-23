@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import logging
 import time
 
 import acts.signals as signals
@@ -44,6 +43,7 @@ class WifiNetworkSelectorTest(WifiBaseTest):
     """These tests verify the behavior of the Android Wi-Fi Network Selector
     feature.
     """
+
     def __init__(self, configs):
         super().__init__(configs)
         self.enable_packet_log = True
@@ -58,8 +58,7 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         self.ap2_2g_attn = 2
         self.ap2_5g_attn = 3
         if "AccessPoint" in self.user_params:
-            self.legacy_configure_ap_and_start(mirror_ap=False,
-                                               ap_count=2)
+            self.legacy_configure_ap_and_start(mirror_ap=False, ap_count=2)
         elif "OpenWrtAP" in self.user_params:
             self.configure_openwrt_ap_and_start(open_network=True,
                                                 wpa_network=True,
@@ -164,8 +163,10 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             3. Verify the DUT is connected to the 5G BSSID.
         """
         # add a saved network with both 2G and 5G BSSIDs to DUT
-        networks = [self.reference_networks[AP_1]['2g'],
-                    self.reference_networks[AP_1]['5g']]
+        networks = [
+            self.reference_networks[AP_1]['2g'],
+            self.reference_networks[AP_1]['5g']
+        ]
         self.add_networks(self.dut, networks)
 
         # Move DUT in range
@@ -188,8 +189,10 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             3. Verify the DUT is connected to the SSID with stronger RSSI.
         """
         # add a 2G and a 5G saved network to DUT
-        networks = [self.reference_networks[AP_1]['2g'],
-                    self.reference_networks[AP_2]['2g']]
+        networks = [
+            self.reference_networks[AP_1]['2g'],
+            self.reference_networks[AP_2]['2g']
+        ]
         self.add_networks(self.dut, networks)
 
         # move the DUT in range
@@ -212,8 +215,9 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             3. Verify the DUT is connected to the secure network that uses WPA2.
         """
         # add a open network and a secure saved network to DUT
-        networks = [self.open_network[AP_1]['5g'],
-                    self.reference_networks[AP_1]['5g']]
+        networks = [
+            self.open_network[AP_1]['5g'], self.reference_networks[AP_1]['5g']
+        ]
         self.add_networks(self.dut, networks)
 
         # Move DUT in range
@@ -270,23 +274,23 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         """
         #add two saved networks to DUT
         networks = [
-            self.reference_networks[AP_1]['2g'], self.reference_networks[AP_2][
-                '2g']
+            self.reference_networks[AP_1]['2g'],
+            self.reference_networks[AP_2]['2g']
         ]
         self.add_networks(self.dut, networks)
         #make AP_1 2G in range
         self.attenuators[AP_1_2G_ATTENUATOR].set_atten(0)
         #verify
-        self.connect_and_verify_connected_bssid(self.reference_networks[AP_1][
-            '2g']['bssid'])
+        self.connect_and_verify_connected_bssid(
+            self.reference_networks[AP_1]['2g']['bssid'])
         #make both AP_1 and AP_2 5G in range with similar RSSI
         self.attenuators[AP_1_5G_ATTENUATOR].set_atten(0)
         self.attenuators[AP_2_5G_ATTENUATOR].set_atten(0)
         #ensure the time gap between two network selections
         time.sleep(NETWORK_SELECTION_TIME_GAP)
         #verify
-        self.connect_and_verify_connected_bssid(self.reference_networks[AP_1][
-            '5g']['bssid'])
+        self.connect_and_verify_connected_bssid(
+            self.reference_networks[AP_1]['5g']['bssid'])
 
     @test_tracker_info(uuid="c1243cf4-d96e-427e-869e-3d640bee3f28")
     def network_selector_2g_to_5g_different_ssid(self):
@@ -300,8 +304,10 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             4. Verify the DUT switches to SSID_B's 5G.
         """
         # add two saved networks to DUT
-        networks = [self.reference_networks[AP_1]['2g'],
-                    self.reference_networks[AP_2]['2g']]
+        networks = [
+            self.reference_networks[AP_1]['2g'],
+            self.reference_networks[AP_2]['2g']
+        ]
         self.add_networks(self.dut, networks)
 
         # make both AP_1 2G and AP_2 5G in range, and AP_1 2G
@@ -309,16 +315,16 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         self.attenuators[AP_1_2G_ATTENUATOR].set_atten(0)
         self.attenuators[AP_2_5G_ATTENUATOR].set_atten(20)
         #verify
-        self.connect_and_verify_connected_bssid(self.reference_networks[AP_1][
-            '2g']['bssid'])
+        self.connect_and_verify_connected_bssid(
+            self.reference_networks[AP_1]['2g']['bssid'])
         #bump up AP_2 5G RSSI and reduce AP_1 2G RSSI
         self.attenuators[AP_1_2G_ATTENUATOR].set_atten(40)
         self.attenuators[AP_2_5G_ATTENUATOR].set_atten(0)
         #ensure the time gap between two network selections
         time.sleep(NETWORK_SELECTION_TIME_GAP)
         #verify
-        self.connect_and_verify_connected_bssid(self.reference_networks[AP_2][
-            '5g']['bssid'])
+        self.connect_and_verify_connected_bssid(
+            self.reference_networks[AP_2]['5g']['bssid'])
 
     @test_tracker_info(uuid="10da95df-83ed-4447-89f8-735b08dbe2eb")
     def network_selector_5g_to_2g_same_ssid(self):
@@ -337,16 +343,16 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         self.attenuators[AP_1_5G_ATTENUATOR].set_atten(0)
         self.attenuators[AP_1_2G_ATTENUATOR].set_atten(50)
         #verify
-        self.connect_and_verify_connected_bssid(self.reference_networks[AP_1][
-            '5g']['bssid'])
+        self.connect_and_verify_connected_bssid(
+            self.reference_networks[AP_1]['5g']['bssid'])
         #bump up AP_1 2G RSSI and reduce AP_1 5G RSSI
         self.attenuators[AP_1_2G_ATTENUATOR].set_atten(0)
         self.attenuators[AP_1_5G_ATTENUATOR].set_atten(30)
         #ensure the time gap between two network selections
         time.sleep(NETWORK_SELECTION_TIME_GAP)
         #verify
-        self.connect_and_verify_connected_bssid(self.reference_networks[AP_1][
-            '2g']['bssid'])
+        self.connect_and_verify_connected_bssid(
+            self.reference_networks[AP_1]['2g']['bssid'])
 
     @test_tracker_info(uuid="ead78ae0-27ab-4bb8-ae77-0b9fe588436a")
     def test_network_selector_stay_on_sufficient_network(self):
@@ -358,8 +364,10 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             4. Verify the DUT stays on X.
         """
         # add two saved networks to DUT
-        networks = [self.reference_networks[AP_1]['5g'],
-                    self.reference_networks[AP_2]['5g']]
+        networks = [
+            self.reference_networks[AP_1]['5g'],
+            self.reference_networks[AP_2]['5g']
+        ]
         self.add_networks(self.dut, networks)
 
         # make both AP_1 5G and AP_2 5G in range, and AP_1 5G
@@ -397,8 +405,8 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         time.sleep(ATTN_SLEEP)
 
         # connect to AP_1 via user selection and add, save AP_2
-        wutils.connect_to_wifi_network(
-            self.dut, self.reference_networks[AP_1]['5g'])
+        wutils.connect_to_wifi_network(self.dut,
+                                       self.reference_networks[AP_1]['5g'])
         networks = [self.reference_networks[AP_2]['5g']]
         self.add_networks(self.dut, networks)
 
@@ -421,8 +429,10 @@ class WifiNetworkSelectorTest(WifiBaseTest):
             5. Verify the DUT reselect and connect to Y.
         """
         # add two networks to DUT
-        networks = [self.reference_networks[AP_1]['5g'],
-                    self.reference_networks[AP_2]['5g']]
+        networks = [
+            self.reference_networks[AP_1]['5g'],
+            self.reference_networks[AP_2]['5g']
+        ]
         self.add_networks(self.dut, networks)
 
         # make both AP_1 5G and AP_2 5G in range. AP_1 5G has stronger
@@ -438,8 +448,8 @@ class WifiNetworkSelectorTest(WifiBaseTest):
         self.connect_and_verify_connected_bssid(network)
 
         # forget AP_1
-        wutils.wifi_forget_network(
-            self.dut, self.reference_networks[AP_1]['5g']['SSID'])
+        wutils.wifi_forget_network(self.dut,
+                                   self.reference_networks[AP_1]['5g']['SSID'])
 
         # verify DUT connected to AP2
         network = self.reference_networks[AP_2]['5g'].copy()

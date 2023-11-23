@@ -47,6 +47,9 @@ android_test {
         // which provides assertThrows
         "testng",
         "bluetooth-test-util-lib",
+        "CtsAccessibilityCommon",
+        "safety-center-internal-data",
+        "sts-device-util",
     ],
     jni_libs: [
         "libctspermission_jni",
@@ -77,6 +80,7 @@ android_test {
         ":CtsAppThatDefinesPermissionInPlatformGroup",
         ":CtsAppThatDefinesPermissionWithInvalidGroup",
         ":CtsAppThatDefinesPermissionWithInvalidGroup30",
+        ":CtsAppThatHasNotificationListener",
         ":CtsAppThatRequestsBluetoothPermission30",
         ":CtsAppThatRequestsCalendarContactsBodySensorCustomPermission",
         ":CtsAppThatRequestsBluetoothPermission31",
@@ -111,6 +115,10 @@ android_test {
         ":CtsStorageEscalationApp29Full",
         ":CtsStorageEscalationApp29Scoped",
         ":CtsVictimPermissionDefinerApp",
+        ":CtsAppThatRequestsMultiplePermissionsWithMinMaxSdk",
+        ":CtsAppThatRequestsSystemAlertWindow22",
+        ":CtsAppThatRequestsSystemAlertWindow23",
+        ":CtsAppThatRequestCustomCameraPermission",
     ],
     per_testcase_directory: true,
 }

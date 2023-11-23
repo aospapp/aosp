@@ -21,11 +21,13 @@ import android.content.pm.PackageManager
 import android.hardware.SensorPrivacyManager.Sensors.MICROPHONE
 import android.net.Uri
 import android.telecom.TelecomManager
+import com.android.compatibility.common.util.CddTest
 import com.android.compatibility.common.util.SystemUtil
 import org.junit.Assume
 import org.junit.Ignore
 import org.junit.Test
 
+@CddTest(requirement = "9.8.13/C-1-1,C-1-2")
 class SensorPrivacyMicrophoneTest : SensorPrivacyBaseTest(
         MICROPHONE,
         USE_MIC_EXTRA

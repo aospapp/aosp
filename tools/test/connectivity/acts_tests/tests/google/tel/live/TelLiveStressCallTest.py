@@ -21,6 +21,7 @@ import collections
 import time
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.tel.TelephonyBaseTest import TelephonyBaseTest
+from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_CELLULAR_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WFC_MODE_WIFI_PREFERRED
 from acts_contrib.test_utils.tel.tel_defines import WAIT_TIME_IN_CALL
 from acts_contrib.test_utils.tel.tel_ims_utils import set_wfc_mode
@@ -72,7 +73,7 @@ class TelLiveStressCallTest(TelephonyBaseTest):
     def on_fail(self, test_name, begin_time):
         pass
 
-    def _setup_wfc(self):
+    def _setup_wfc(self, wfc_mode):
         for ad in self.android_devices:
             if not ensure_wifi_connected(
                     ad.log,
@@ -83,7 +84,7 @@ class TelLiveStressCallTest(TelephonyBaseTest):
                 ad.log.error("Phone Wifi connection fails.")
                 return False
             ad.log.info("Phone WIFI is connected successfully.")
-            if not set_wfc_mode(self.log, ad, WFC_MODE_WIFI_PREFERRED):
+            if not set_wfc_mode(self.log, ad, wfc_mode):
                 ad.log.error("Phone failed to enable Wifi-Calling.")
                 return False
             ad.log.info("Phone is set in Wifi-Calling successfully.")
@@ -93,19 +94,19 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             ad.log.info("Phone is in WFC enabled state.")
         return True
 
-    def _setup_wfc_apm(self):
+    def _setup_wfc_apm(self, wfc_mode):
         for ad in self.android_devices:
-            toggle_airplane_mode(ad.log, ad, True)
             if not ensure_wifi_connected(
                     ad.log,
                     ad,
                     self.wifi_network_ssid,
                     self.wifi_network_pass,
-                    retries=3):
+                    retries=3,
+                    apm=True):
                 ad.log.error("Phone Wifi connection fails.")
                 return False
             ad.log.info("Phone WIFI is connected successfully.")
-            if not set_wfc_mode(self.log, ad, WFC_MODE_WIFI_PREFERRED):
+            if not set_wfc_mode(self.log, ad, wfc_mode):
                 ad.log.error("Phone failed to enable Wifi-Calling.")
                 return False
             ad.log.info("Phone is set in Wifi-Calling successfully.")
@@ -115,7 +116,8 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             ad.log.info("Phone is in WFC enabled state.")
         return True
 
-    def _setup_vt(self):
+    def _setup_vt(self, *args):
+        del args
         ads = self.android_devices
         tasks = [(phone_setup_video, (self.log, ads[0])), (phone_setup_video,
                                                            (self.log, ads[1]))]
@@ -124,7 +126,8 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             return False
         return True
 
-    def _setup_lte_volte_enabled(self):
+    def _setup_lte_volte_enabled(self, *args):
+        del args
         for ad in self.android_devices:
             if not phone_setup_volte(self.log, ad):
                 ad.log.error("Phone failed to enable VoLTE.")
@@ -132,7 +135,8 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             ad.log.info("Phone VOLTE is enabled successfully.")
         return True
 
-    def _setup_lte_volte_disabled(self):
+    def _setup_lte_volte_disabled(self, *args):
+        del args
         for ad in self.android_devices:
             if not phone_setup_csfb(self.log, ad):
                 ad.log.error("Phone failed to setup CSFB.")
@@ -140,7 +144,8 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             ad.log.info("Phone VOLTE is disabled successfully.")
         return True
 
-    def _setup_3g(self):
+    def _setup_3g(self, *args):
+        del args
         for ad in self.android_devices:
             if not phone_setup_voice_3g(self.log, ad):
                 ad.log.error("Phone failed to setup 3g.")
@@ -148,7 +153,8 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             ad.log.info("Phone RAT 3G is enabled successfully.")
         return True
 
-    def _setup_2g(self):
+    def _setup_2g(self, *args):
+        del args
         for ad in self.android_devices:
             if not phone_setup_voice_2g(self.log, ad):
                 ad.log.error("Phone failed to setup 2g.")
@@ -179,6 +185,7 @@ class TelLiveStressCallTest(TelephonyBaseTest):
 
     def stress_test(self,
                     setup_func=None,
+                    setup_arg=WFC_MODE_WIFI_PREFERRED,
                     network_check_func=None,
                     test_sms=False,
                     test_video=False):
@@ -186,8 +193,12 @@ class TelLiveStressCallTest(TelephonyBaseTest):
             #check for sim and service
             ensure_phone_subscription(self.log, ad)
 
-        if setup_func and not setup_func():
+        setup_begin_time = get_current_epoch_time()
+        if setup_func and not setup_func(setup_arg):
             self.log.error("Test setup %s failed", setup_func.__name__)
+            self._take_bug_report(
+                "%s_%s" % (self.test_name, setup_func.__name__),
+                setup_begin_time)
             return False
         fail_count = collections.defaultdict(int)
         for i in range(1, self.phone_call_iteration + 1):
@@ -363,11 +374,12 @@ class TelLiveStressCallTest(TelephonyBaseTest):
 
     @test_tracker_info(uuid="be45c620-b45b-4a06-8424-b17d744d0735")
     @TelephonyBaseTest.tel_test_wrap
-    def test_call_wifi_calling_stress_apm(self):
+    def test_call_wifi_calling_wifi_preferred_stress_apm(self):
         """ Wifi calling in AirPlaneMode call stress test
 
         Steps:
-        1. Make Sure PhoneA and PhoneB in WFC On + APM ON + Wifi Connected
+        1. Make Sure PhoneA and PhoneB in WFC On(wifi preferred) +
+            APM ON + Wifi Connected
         2. Call from PhoneA to PhoneB, hang up on PhoneA.
         3, Repeat 2 around N times based on the config setup
 
@@ -381,6 +393,30 @@ class TelLiveStressCallTest(TelephonyBaseTest):
         """
         return self.stress_test(
             setup_func=self._setup_wfc_apm,
+            network_check_func=is_phone_in_call_iwlan)
+
+    @test_tracker_info(uuid="d0e52109-b359-4efa-bbaa-ca758428b654")
+    @TelephonyBaseTest.tel_test_wrap
+    def test_call_wifi_calling_cellular_preferred_stress_apm(self):
+        """ Wifi calling in AirPlaneMode call stress test
+
+        Steps:
+        1. Make Sure PhoneA and PhoneB in WFC On(cellular preferred) +
+            APM ON + Wifi Connected
+        2. Call from PhoneA to PhoneB, hang up on PhoneA.
+        3, Repeat 2 around N times based on the config setup
+
+        Expected Results:
+        1, Verify phone is at IDLE state
+        2, Verify the phone is at ACTIVE, if it is in dialing, then we retry
+        3, Verify the phone is IDLE after hung up
+
+        Returns:
+            True if pass; False if fail.
+        """
+        return self.stress_test(
+            setup_func=self._setup_wfc_apm,
+            setup_arg=WFC_MODE_CELLULAR_PREFERRED,
             network_check_func=is_phone_in_call_iwlan)
 
     @test_tracker_info(uuid="8af0454b-b4db-46d8-b5cc-e13ec5bc59ab")

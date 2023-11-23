@@ -58,7 +58,7 @@ public class CtsVideoQualityFloorHostTest implements IAbiReceiver, IBuildReceive
 
     public static final String TAG = CtsVideoQualityFloorHostTest.class.getSimpleName();
     String BASE_URL =
-              "https://storage.googleapis.com/android_media/cts/hostsidetests/videoqualityfloor/";
+              "https://dl.google.com/android/xts/cts/hostsidetests/videoqualityfloor/";
     String[] testClips = {
         "Fireworks.mp4",
         "Motorcycle.mp4",
@@ -148,7 +148,7 @@ public class CtsVideoQualityFloorHostTest implements IAbiReceiver, IBuildReceive
 
         /*
          *
-         * https://storage.googleapis.com/android_media/cts/hostsidetests/videoqualityfloor/
+         * https://dl.google.com/android/xts/cts/hostsidetests/videoqualityfloor/
          * + the name of the file
          *
          * turning the filename into the appropriate URL is done within downloadFile()

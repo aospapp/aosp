@@ -44,12 +44,22 @@ public final class Arguments {
 
     /** Gets boolean instrumentation arg. */
     public boolean getBoolean(String key) {
-        return mArguments.getBoolean(key);
+        String stringValue = getString(key);
+        if (stringValue == null) {
+            return mArguments.getBoolean(key);
+        }
+
+        return stringValue.equalsIgnoreCase("true");
     }
 
     /** Gets boolean instrumentation arg. */
     public boolean getBoolean(String key, boolean defaultValue) {
-        return mArguments.getBoolean(key, defaultValue);
+        String stringValue = getString(key);
+        if (stringValue == null) {
+            return mArguments.getBoolean(key, defaultValue);
+        }
+
+        return stringValue.equalsIgnoreCase("true");
     }
 
     /** Gets string instrumentation arg. */

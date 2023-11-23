@@ -52,16 +52,17 @@ import android.os.Process;
 import android.os.RemoteCallback;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
-import android.support.test.uiautomator.UiDevice;
 import android.util.ArrayMap;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.AppOpsUtils;
 import com.android.compatibility.common.util.DeviceConfigStateHelper;
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.TestUtils;
 
 import org.junit.After;
 import org.junit.AfterClass;
@@ -78,6 +79,7 @@ import java.util.concurrent.TimeUnit;
 
 @RunWith(UsageStatsTestRunner.class)
 public class BroadcastResponseStatsTest {
+    private static final String TAG = "BroadcastResponseStatsTest";
 
     private static final String TEST_APP3_PKG = "android.app.usage.cts.test3";
     private static final String TEST_APP4_PKG = "android.app.usage.cts.test4";
@@ -102,6 +104,10 @@ public class BroadcastResponseStatsTest {
     // to ensure the event doesn't really occur. Otherwise, we cannot be sure if the event didn't
     // occur or the verification was done too early before the event occurred.
     private static final int WAIT_TIME_FOR_NEGATIVE_TESTS_MS = 500;
+
+    private static final long BROADCAST_SESSIONS_DURATION_MS = 2_000;
+    private static final long BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS = 2_000;
+    private static final long BROADCAST_RESPONSE_WINDOW_DURATION_MS = 8_000;
 
     // TODO: Define these constants in UsageStatsManager as @TestApis to avoid hardcoding here.
     private static final String KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS =
@@ -135,6 +141,7 @@ public class BroadcastResponseStatsTest {
                 AppOpsManager.OPSTR_GET_USAGE_STATS);
         AppOpsUtils.setOpMode(sTargetPackage, AppOpsManager.OPSTR_GET_USAGE_STATS,
                 AppOpsManager.MODE_IGNORED);
+        SystemUtil.runShellCommand("am wait-for-broadcast-barrier");
     }
 
     @AfterClass
@@ -150,6 +157,11 @@ public class BroadcastResponseStatsTest {
         mUiAutomation = InstrumentationRegistry.getInstrumentation()
                 .getUiAutomation();
         mUiAutomation.grantRuntimePermission(sTargetPackage, ACCESS_BROADCAST_RESPONSE_STATS);
+
+        // Make sure all procstats are reset by killing test apps
+        SystemUtil.runShellCommand("am force-stop " + TEST_APP_PKG);
+        SystemUtil.runShellCommand("am force-stop " + TEST_APP3_PKG);
+        SystemUtil.runShellCommand("am force-stop " + TEST_APP4_PKG);
     }
 
     @After
@@ -770,12 +782,9 @@ public class BroadcastResponseStatsTest {
     @MediumTest
     @Test
     public void testBroadcastResponseStats_changeResponseWindowDuration() throws Exception {
-        final long broadcastResponseWindowDurationMs = TimeUnit.MINUTES.toMillis(2);
         try (DeviceConfigStateHelper deviceConfigStateHelper =
                      new DeviceConfigStateHelper(NAMESPACE_APP_STANDBY)) {
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS,
-                    String.valueOf(broadcastResponseWindowDurationMs));
+            updateFlagsWithDefaultDelays(deviceConfigStateHelper);
 
             assertResponseStats(TEST_APP_PKG, TEST_RESPONSE_STATS_ID_1,
                     0 /* broadcastCount */,
@@ -837,7 +846,7 @@ public class BroadcastResponseStatsTest {
 
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
-                SystemClock.sleep(broadcastResponseWindowDurationMs);
+                SystemClock.sleep(BROADCAST_RESPONSE_WINDOW_DURATION_MS);
 
                 // Trigger a notification from test app but verify counts do not get
                 // incremented as the notification is posted after the window durations is expired.
@@ -1508,16 +1517,9 @@ public class BroadcastResponseStatsTest {
     @MediumTest
     @Test
     public void testBroadcastResponseStats_broadcastSession() throws Exception {
-        final long broadcastSessionDurationMs = TimeUnit.MINUTES.toMillis(1);
-        final long broadcastResponseWindowDurationMs = TimeUnit.MINUTES.toMillis(1);
         try (DeviceConfigStateHelper deviceConfigStateHelper =
                 new DeviceConfigStateHelper(NAMESPACE_APP_STANDBY)) {
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_SESSIONS_DURATION_MS,
-                    String.valueOf(broadcastSessionDurationMs));
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS,
-                    String.valueOf(broadcastResponseWindowDurationMs));
+            updateFlagsWithDefaultDelays(deviceConfigStateHelper);
 
             assertResponseStats(TEST_APP_PKG, TEST_RESPONSE_STATS_ID_1,
                     0 /* broadcastCount */,
@@ -1548,12 +1550,12 @@ public class BroadcastResponseStatsTest {
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Now wait for a while and send the broadcast again.
-                SystemClock.sleep(broadcastSessionDurationMs);
+                SystemClock.sleep(BROADCAST_SESSIONS_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Now wait until the broadcast response duration is elapsed and send the
                 // broadcast again.
-                SystemClock.sleep(broadcastResponseWindowDurationMs);
+                SystemClock.sleep(BROADCAST_RESPONSE_WINDOW_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Verify that total broadcasts are considered as only 2 even though they
@@ -1579,16 +1581,9 @@ public class BroadcastResponseStatsTest {
     @Test
     public void testBroadcastResponseStats_broadcastSession_withLateNotification()
             throws Exception {
-        final long broadcastSessionDurationMs = TimeUnit.MINUTES.toMillis(1);
-        final long broadcastResponseWindowDurationMs = TimeUnit.MINUTES.toMillis(1);
         try (DeviceConfigStateHelper deviceConfigStateHelper =
                      new DeviceConfigStateHelper(NAMESPACE_APP_STANDBY)) {
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_SESSIONS_DURATION_MS,
-                    String.valueOf(broadcastSessionDurationMs));
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS,
-                    String.valueOf(broadcastResponseWindowDurationMs));
+            updateFlagsWithDefaultDelays(deviceConfigStateHelper);
 
             assertResponseStats(TEST_APP_PKG, TEST_RESPONSE_STATS_ID_1,
                     0 /* broadcastCount */,
@@ -1619,12 +1614,12 @@ public class BroadcastResponseStatsTest {
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Now wait for a while and send the broadcast again.
-                SystemClock.sleep(broadcastSessionDurationMs);
+                SystemClock.sleep(BROADCAST_SESSIONS_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Now wait until the broadcast response duration is elapsed and post a
                 // notification.
-                SystemClock.sleep(broadcastResponseWindowDurationMs);
+                SystemClock.sleep(BROADCAST_RESPONSE_WINDOW_DURATION_MS);
                 testReceiver.createNotificationChannel(TEST_NOTIFICATION_CHANNEL_ID,
                         TEST_NOTIFICATION_CHANNEL_NAME,
                         TEST_NOTIFICATION_CHANNEL_DESC);
@@ -1654,16 +1649,9 @@ public class BroadcastResponseStatsTest {
     @MediumTest
     @Test
     public void testBroadcastResponseStats_broadcastSessionWithResponse() throws Exception {
-        final long broadcastSessionWithResponseDurationMs = TimeUnit.MINUTES.toMillis(1);
-        final long broadcastResponseWindowDurationMs = TimeUnit.MINUTES.toMillis(4);
         try (DeviceConfigStateHelper deviceConfigStateHelper =
                      new DeviceConfigStateHelper(NAMESPACE_APP_STANDBY)) {
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS,
-                    String.valueOf(broadcastSessionWithResponseDurationMs));
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS,
-                    String.valueOf(broadcastResponseWindowDurationMs));
+            updateFlagsWithDefaultDelays(deviceConfigStateHelper);
 
             assertResponseStats(TEST_APP_PKG, TEST_RESPONSE_STATS_ID_1,
                     0 /* broadcastCount */,
@@ -1694,11 +1682,11 @@ public class BroadcastResponseStatsTest {
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Now wait for a while and send the broadcast again.
-                SystemClock.sleep(broadcastSessionWithResponseDurationMs);
+                SystemClock.sleep(BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Repeat the previous step - wait for a while and send the broadcast again.
-                SystemClock.sleep(broadcastSessionWithResponseDurationMs);
+                SystemClock.sleep(BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Trigger a notification from test app and verify notification-posted count gets
@@ -1733,20 +1721,9 @@ public class BroadcastResponseStatsTest {
     @Test
     public void testBroadcastResponseStats_broadcastSessionWithResponse_recordOnlyOne()
             throws Exception {
-        final long broadcastSessionDurationMs = TimeUnit.SECONDS.toMillis(30);
-        final long broadcastSessionWithResponseDurationMs = broadcastSessionDurationMs;
-        final long broadcastResponseWindowDurationMs = TimeUnit.MINUTES.toMillis(2);
         try (DeviceConfigStateHelper deviceConfigStateHelper =
                      new DeviceConfigStateHelper(NAMESPACE_APP_STANDBY)) {
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_SESSIONS_DURATION_MS,
-                    String.valueOf(broadcastSessionDurationMs));
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS,
-                    String.valueOf(broadcastSessionWithResponseDurationMs));
-            updateFlagWithDelay(deviceConfigStateHelper,
-                    KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS,
-                    String.valueOf(broadcastResponseWindowDurationMs));
+            updateFlagsWithDefaultDelays(deviceConfigStateHelper);
             updateFlagWithDelay(deviceConfigStateHelper,
                     KEY_NOTE_RESPONSE_EVENT_FOR_ALL_BROADCAST_SESSIONS,
                     String.valueOf(false));
@@ -1780,11 +1757,11 @@ public class BroadcastResponseStatsTest {
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Now wait for a while and send the broadcast again.
-                SystemClock.sleep(broadcastSessionWithResponseDurationMs);
+                SystemClock.sleep(BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Repeat the previous step - wait for a while and send the broadcast again.
-                SystemClock.sleep(broadcastSessionWithResponseDurationMs);
+                SystemClock.sleep(BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS);
                 sendBroadcastAndWaitForReceipt(intent, options.toBundle());
 
                 // Trigger a notification from test app and verify notification-posted count gets
@@ -1811,7 +1788,7 @@ public class BroadcastResponseStatsTest {
 
                 // Wait until the broadcast response window duration is elapsed and verify that
                 // previously sent broadcasts are recorded correctly.
-                SystemClock.sleep(broadcastResponseWindowDurationMs);
+                SystemClock.sleep(BROADCAST_RESPONSE_WINDOW_DURATION_MS);
 
                 testReceiver.cancelNotification(TEST_NOTIFICATION_ID_1);
 
@@ -2032,6 +2009,18 @@ public class BroadcastResponseStatsTest {
         }
     }
 
+    private void updateFlagsWithDefaultDelays(DeviceConfigStateHelper deviceConfigStateHelper) {
+        updateFlagWithDelay(deviceConfigStateHelper,
+                KEY_BROADCAST_SESSIONS_DURATION_MS,
+                String.valueOf(BROADCAST_SESSIONS_DURATION_MS));
+        updateFlagWithDelay(deviceConfigStateHelper,
+                KEY_BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS,
+                String.valueOf(BROADCAST_SESSIONS_WITH_RESPONSE_DURATION_MS));
+        updateFlagWithDelay(deviceConfigStateHelper,
+                KEY_BROADCAST_RESPONSE_WINDOW_DURATION_MS,
+                String.valueOf(BROADCAST_RESPONSE_WINDOW_DURATION_MS));
+    }
+
     private void updateFlagWithDelay(DeviceConfigStateHelper deviceConfigStateHelper,
             String key, String value) {
         deviceConfigStateHelper.set(key, value);
@@ -2082,6 +2071,7 @@ public class BroadcastResponseStatsTest {
         final CountDownLatch latch = new CountDownLatch(1);
         intent.putExtra(EXTRA_REMOTE_CALLBACK, new RemoteCallback(result -> latch.countDown()));
         sContext.sendBroadcast(intent, null /* receiverPermission */, options);
+        SystemUtil.runShellCommand("am wait-for-broadcast-barrier");
         if (!latch.await(DEFAULT_TIMEOUT_MS, TimeUnit.SECONDS)) {
             fail("Timed out waiting for the test app to receive the broadcast");
         }
@@ -2191,12 +2181,22 @@ public class BroadcastResponseStatsTest {
         final String cmd = String.format("cmd role add-role-holder "
                 + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
         SystemUtil.runShellCommand(cmd);
+        TestUtils.waitUntil(cmd + " failed", DEFAULT_TIMEOUT_MS,
+                () -> isAssistantRoleHolder(pkgName, userId));
     }
 
     protected void removeAssistRoleHolder(String pkgName, int userId) throws Exception {
         final String cmd = String.format("cmd role remove-role-holder "
                 + "--user %d android.app.role.ASSISTANT %s", userId, pkgName);
         SystemUtil.runShellCommand(cmd);
+        TestUtils.waitUntil(cmd + " failed", DEFAULT_TIMEOUT_MS,
+                () -> !isAssistantRoleHolder(pkgName, userId));
+    }
+
+    protected boolean isAssistantRoleHolder(String pkgName, int userId) {
+        final String cmd = String.format(
+                "cmd role get-role-holders --user %d android.app.role.ASSISTANT", userId);
+        return SystemUtil.runShellCommand(cmd).contains(pkgName);
     }
 
     private void wakeUpAndDismissKeyguard() throws Exception {

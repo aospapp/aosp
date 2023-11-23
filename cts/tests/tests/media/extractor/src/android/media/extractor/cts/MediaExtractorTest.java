@@ -16,6 +16,13 @@
 
 package android.media.extractor.cts;
 
+import static android.media.MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.Context;
 import android.content.res.AssetFileDescriptor;
 import android.hardware.display.DisplayManager;
@@ -27,16 +34,8 @@ import android.media.MediaCodecInfo;
 import android.media.MediaDataSource;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
-import android.media.cts.Preconditions;
-import android.media.cts.TestMediaDataSource;
 import android.media.cts.StreamUtils;
-import static android.media.MediaFormat.MIMETYPE_VIDEO_DOLBY_VISION;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-
+import android.media.cts.TestMediaDataSource;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.os.PersistableBundle;
@@ -51,24 +50,20 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
-import java.io.StreamTokenizer;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -82,7 +77,9 @@ import java.util.TreeMap;
 public class MediaExtractorTest {
     private static final String TAG = "MediaExtractorTest";
     private static final boolean IS_AT_LEAST_S = ApiLevelUtil.isAtLeast(Build.VERSION_CODES.S);
-
+    //TODO(b/248315681) Remove codenameEquals() check once devices return correct version for U
+    public static final boolean IS_AT_LEAST_U = ApiLevelUtil.isAfter(Build.VERSION_CODES.TIRAMISU)
+            || ApiLevelUtil.codenameEquals("UpsideDownCake");
     static final String mInpPrefix = WorkDir.getMediaDirString();
     protected MediaExtractor mExtractor;
 
@@ -376,10 +373,7 @@ public class MediaExtractorTest {
     //MPEG-H 3D Audio single stream (mha1)
     @Test
     public void testMpegh3dAudioMediaExtractorMha1() throws Exception {
-        // TODO(b/186267251) move file to cloud storage.
-        AssetFileDescriptor afd = getContext().getResources()
-            .openRawResourceFd(R.raw.sample_mpegh_mha1);
-        mExtractor.setDataSource(afd);
+        TestMediaDataSource dataSource = setDataSource("sample_mpegh_mha1.mp4");
         assertEquals(1, mExtractor.getTrackCount());
 
         // The following values below require API Build.VERSION_CODES.S
@@ -399,10 +393,7 @@ public class MediaExtractorTest {
     //MPEG-H 3D Audio single stream encapsulated in MHAS (mhm1)
     @Test
     public void testMpegh3dAudioMediaExtractorMhm1() throws Exception {
-        // TODO(b/186267251) move file to cloud storage.
-        AssetFileDescriptor afd = getContext().getResources()
-            .openRawResourceFd(R.raw.sample_mpegh_mhm1);
-        mExtractor.setDataSource(afd);
+        TestMediaDataSource dataSource = setDataSource("sample_mpegh_mhm1.mp4");
         assertEquals(1, mExtractor.getTrackCount());
 
         // The following values below require API Build.VERSION_CODES.S
@@ -863,6 +854,55 @@ public class MediaExtractorTest {
         do {
             mExtractor.readSampleData(buf, 0);
         } while (mExtractor.advance());
+    }
+
+    @Test
+    @ApiTest(apis = {"android.media.MediaFormat#MIMETYPE_AUDIO_DTS"})
+    public void testDtsInMpeg2ts() throws Exception {
+        setDataSource("sample_dts.ts");
+        assertEquals(1, mExtractor.getTrackCount());
+
+        // The following values below require API Build.VERSION_CODES.U
+        if (IS_AT_LEAST_U) {
+            MediaFormat trackFormat = mExtractor.getTrackFormat(0);
+            final String mediaType = trackFormat.getString(MediaFormat.KEY_MIME);
+            assertEquals(MediaFormat.MIMETYPE_AUDIO_DTS, mediaType);
+        }
+        readAllData();
+    }
+
+    @Test
+    @ApiTest(apis = {"android.media.MediaFormat#MIMETYPE_AUDIO_DTS_HD"})
+    public void testDtsHdInMpeg2ts() throws Exception {
+        setDataSource("sample_dts_hd.ts");
+        assertEquals(1, mExtractor.getTrackCount());
+
+        // The following values below require API Build.VERSION_CODES.U
+        if (IS_AT_LEAST_U) {
+            MediaFormat trackFormat = mExtractor.getTrackFormat(0);
+            final String mediaType = trackFormat.getString(MediaFormat.KEY_MIME);
+            assertEquals(MediaFormat.MIMETYPE_AUDIO_DTS_HD, mediaType);
+            int mediaProfile = trackFormat.getInteger(MediaFormat.KEY_PROFILE);
+            assertEquals(MediaCodecInfo.CodecProfileLevel.DTS_HDProfileLBR, mediaProfile);
+        }
+        readAllData();
+    }
+
+    @Test
+    @ApiTest(apis = {"android.media.MediaFormat#MIMETYPE_AUDIO_DTS_UHD"})
+    public void testDtsUhdInMpeg2ts() throws Exception {
+        setDataSource("sample_dts_uhd.ts");
+        assertEquals(1, mExtractor.getTrackCount());
+
+        // The following values below require API Build.VERSION_CODES.U
+        if (IS_AT_LEAST_U) {
+            MediaFormat trackFormat = mExtractor.getTrackFormat(0);
+            final String mediaType = trackFormat.getString(MediaFormat.KEY_MIME);
+            assertEquals(MediaFormat.MIMETYPE_AUDIO_DTS_UHD, mediaType);
+            int mediaProfile = trackFormat.getInteger(MediaFormat.KEY_PROFILE);
+            assertEquals(MediaCodecInfo.CodecProfileLevel.DTS_UHDProfileP2, mediaProfile);
+        }
+        readAllData();
     }
 
     @Test

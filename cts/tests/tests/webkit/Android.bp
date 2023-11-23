@@ -16,24 +16,40 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-android_test {
-    name: "CtsWebkitTestCases",
+android_library {
+    name: "CtsWebkitTestCasesSharedWithSdk",
     defaults: ["cts_defaults"],
+    manifest: "shared/AndroidManifest.xml",
+    resource_dirs: ["shared/res"],
     libs: [
         "android.test.runner",
         "org.apache.http.legacy",
         "android.test.base",
     ],
     static_libs: [
+        "androidx.test.core",
         "compatibility-device-util-axt",
         "ctsdeviceutillegacy-axt",
         "ctstestserver",
         "ctstestrunner-axt",
         "hamcrest-library",
+        "ctswebkitsharedenv",
     ],
     srcs: [
         "src/**/*.java",
         "src/**/*.aidl",
+    ],
+    // uncomment when dalvik.annotation.Test* are removed or part of SDK
+    //sdk_version: "current"
+    platform_apis: true,
+}
+
+android_test {
+    name: "CtsWebkitTestCases",
+    defaults: ["cts_defaults"],
+    resource_dirs: ["res"],
+    static_libs: [
+        "CtsWebkitTestCasesSharedWithSdk",
     ],
     // Tag this module as a cts test artifact
     test_suites: [

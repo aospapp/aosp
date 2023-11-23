@@ -30,10 +30,16 @@ import dateutil.tz
 from acloud.internal import constants
 from acloud.internal.lib import cvd_runtime_config
 from acloud.internal.lib import driver_test_lib
+from acloud.internal.lib import gcompute_client
 from acloud.internal.lib import utils
 from acloud.internal.lib.adb_tools import AdbTools
 from acloud.list import instance
 
+
+ForwardedPorts = collections.namedtuple("ForwardedPorts",
+                                        [constants.VNC_PORT,
+                                         constants.ADB_PORT,
+                                         constants.FASTBOOT_PORT])
 
 class InstanceTest(driver_test_lib.BaseDriverTest):
     """Test instance."""
@@ -41,7 +47,7 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
                      "/fake_ps_2 --fake arg \n"
                      "/usr/bin/ssh -i ~/.ssh/acloud_rsa "
                      "-o UserKnownHostsFile=/dev/null "
-                     "-o StrictHostKeyChecking=no -L 54321:127.0.0.1:6520 "
+                     "-o StrictHostKeyChecking=no -L 54321:127.0.0.1:6520 -L 6789:127.0.0.1:7520"
                      "-L 12345:127.0.0.1:6444 -N -f -l user 1.1.1.1").encode()
     GCE_INSTANCE = {
         constants.INS_KEY_NAME: "fake_ins_name",
@@ -65,15 +71,15 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         """Create a mock CvdRuntimeConfig."""
         return mock.MagicMock(
             instance_id=2,
-            x_res=1080,
-            y_res=1920,
-            dpi=480,
+            display_configs=[{'dpi': 480, 'x_res': 1080, 'y_res': 1920}],
             instance_dir="fake_instance_dir",
             adb_port=6521,
             vnc_port=6445,
             adb_ip_port="127.0.0.1:6521",
             cvd_tools_path="fake_cvd_tools_path",
             config_path="fake_config_path",
+            instances={},
+            root_dir="/tmp/acloud_cvd_temp/local-instance-2/cuttlefish_runtime"
         )
 
     @mock.patch("acloud.list.instance.AdbTools")
@@ -84,15 +90,16 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         mock_adb_tools.return_value = mock_adb_tools_object
         self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
                    return_value=self._MockCvdRuntimeConfig())
-        self.Patch(instance.LocalInstance, "GetDevidInfoFromCvdFleet",
+        self.Patch(instance.LocalInstance, "_GetDevidInfoFromCvdStatus",
                    return_value=None)
         local_instance = instance.LocalInstance("fake_config_path")
 
         self.assertEqual("local-instance-2", local_instance.name)
         self.assertEqual(True, local_instance.islocal)
-        self.assertEqual("1080x1920 (480)", local_instance.display)
-        expected_full_name = ("device serial: 0.0.0.0:%s (%s) elapsed time: %s"
+        self.assertEqual(["1080x1920 (480)"], local_instance.display)
+        expected_full_name = ("device serial: 0.0.0.0:%s %s (%s) elapsed time: %s"
                               % ("6521",
+                                 "cvd-2",
                                  "local-instance-2",
                                  "None"))
         self.assertEqual(expected_full_name, local_instance.fullname)
@@ -151,7 +158,7 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         mock_adb_tools.return_value = mock_adb_tools_object
         self.Patch(utils, "AddUserGroupsToCmd",
                    side_effect=lambda cmd, groups: cmd)
-        self.Patch(instance.LocalInstance, "GetDevidInfoFromCvdFleet",
+        self.Patch(instance.LocalInstance, "_GetDevidInfoFromCvdStatus",
                    return_value=None)
         mock_check_call = self.Patch(subprocess, "check_call")
         mock_check_output = self.Patch(
@@ -166,6 +173,7 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             "CUTTLEFISH_INSTANCE": "2",
             "HOME": "/tmp/acloud_cvd_temp/local-instance-2",
             "CUTTLEFISH_CONFIG_FILE": "fake_config_path",
+            "ANDROID_HOST_OUT": "",
             "ANDROID_SOONG_HOST_OUT": "",
         }
         mock_check_output.assert_called_with(
@@ -248,36 +256,46 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             datetime.timedelta(hours=2), instance._GetElapsedTime(start_time))
 
     # pylint: disable=protected-access
-    def testGetAdbVncPortFromSSHTunnel(self):
+    def testGetForwardedPortsFromSSHTunnel(self):
         """"Test Get forwarding adb and vnc port from ssh tunnel."""
         self.Patch(subprocess, "check_output", return_value=self.PS_SSH_TUNNEL)
         self.Patch(instance, "_GetElapsedTime", return_value="fake_time")
         self.Patch(instance.RemoteInstance, "_GetZoneName", return_value="fake_zone")
+        self.Patch(instance.RemoteInstance,
+                   "_GetProjectName",
+                   return_value="fake_project")
+        self.Patch(gcompute_client, "GetGCEHostName", return_value="fake_hostname")
         forwarded_ports = instance.RemoteInstance(
-            mock.MagicMock()).GetAdbVncPortFromSSHTunnel(
-                "1.1.1.1", constants.TYPE_CF)
+            mock.MagicMock()).GetForwardedPortsFromSSHTunnel(
+                "1.1.1.1", "fake_hostname", constants.TYPE_CF)
         self.assertEqual(54321, forwarded_ports.adb_port)
+        self.assertEqual(6789, forwarded_ports.fastboot_port)
         self.assertEqual(12345, forwarded_ports.vnc_port)
 
         # If avd_type is undefined in utils.AVD_PORT_DICT.
         forwarded_ports = instance.RemoteInstance(
-            mock.MagicMock()).GetAdbVncPortFromSSHTunnel(
-                "1.1.1.1", "undefined_avd_type")
+            mock.MagicMock()).GetForwardedPortsFromSSHTunnel(
+                "1.1.1.1", "fake_hostname", "undefined_avd_type")
         self.assertEqual(None, forwarded_ports.adb_port)
+        self.assertEqual(None, forwarded_ports.fastboot_port)
         self.assertEqual(None, forwarded_ports.vnc_port)
 
     # pylint: disable=protected-access
     def testProcessGceInstance(self):
         """"Test process instance detail."""
         fake_adb = 123456
+        fake_fastboot = 654321
         fake_vnc = 654321
-        forwarded_ports = collections.namedtuple("ForwardedPorts",
-                                                 [constants.VNC_PORT,
-                                                  constants.ADB_PORT])
+
+        self.Patch(instance.RemoteInstance,
+                   "_GetProjectName",
+                   return_value="fake_project")
         self.Patch(
             instance.RemoteInstance,
-            "GetAdbVncPortFromSSHTunnel",
-            return_value=forwarded_ports(vnc_port=fake_vnc, adb_port=fake_adb))
+            "GetForwardedPortsFromSSHTunnel",
+            return_value=ForwardedPorts(vnc_port=fake_vnc,
+                                        adb_port=fake_adb,
+                                        fastboot_port=fake_fastboot))
         self.Patch(utils, "GetWebrtcPortFromSSHTunnel",
                    return_value="fake_webrtc_port")
         self.Patch(instance, "_GetElapsedTime", return_value="fake_time")
@@ -307,8 +325,8 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         # test ssh_tunnel_is_connected will be false if ssh tunnel connection is not found
         self.Patch(
             instance.RemoteInstance,
-            "GetAdbVncPortFromSSHTunnel",
-            return_value=forwarded_ports(vnc_port=None, adb_port=None))
+            "GetForwardedPortsFromSSHTunnel",
+            return_value=ForwardedPorts(vnc_port=None, adb_port=None, fastboot_port=None))
         instance_info = instance.RemoteInstance(self.GCE_INSTANCE)
         self.assertFalse(instance_info.ssh_tunnel_is_connected)
         expected_full_name = "device serial: not connected (%s) elapsed time: %s" % (
@@ -318,14 +336,17 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
     def testInstanceSummary(self):
         """Test instance summary."""
         fake_adb = 123456
+        fake_fastboot = 654321
         fake_vnc = 654321
-        forwarded_ports = collections.namedtuple("ForwardedPorts",
-                                                 [constants.VNC_PORT,
-                                                  constants.ADB_PORT])
+        self.Patch(instance.RemoteInstance,
+                   "_GetProjectName",
+                   return_value="fake_project")
         self.Patch(
             instance.RemoteInstance,
-            "GetAdbVncPortFromSSHTunnel",
-            return_value=forwarded_ports(vnc_port=fake_vnc, adb_port=fake_adb))
+            "GetForwardedPortsFromSSHTunnel",
+            return_value=ForwardedPorts(vnc_port=fake_vnc,
+                                        adb_port=fake_adb,
+                                        fastboot_port=fake_fastboot))
         self.Patch(utils, "GetWebrtcPortFromSSHTunnel", return_value=8443)
         self.Patch(instance, "_GetElapsedTime", return_value="fake_time")
         self.Patch(AdbTools, "IsAdbConnected", return_value=True)
@@ -351,8 +372,8 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
 
         self.Patch(
             instance.RemoteInstance,
-            "GetAdbVncPortFromSSHTunnel",
-            return_value=forwarded_ports(vnc_port=None, adb_port=None))
+            "GetForwardedPortsFromSSHTunnel",
+            return_value=ForwardedPorts(vnc_port=None, adb_port=None, fastboot_port=None))
         self.Patch(instance, "_GetElapsedTime", return_value="fake_time")
         self.Patch(AdbTools, "IsAdbConnected", return_value=False)
         remote_instance = instance.RemoteInstance(self.GCE_INSTANCE)
@@ -381,6 +402,13 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         zone_info = "v1/projects/project/us-central1-c"
         self.assertEqual(instance.RemoteInstance._GetZoneName(zone_info), None)
 
+    def testGetProjectName(self):
+        """Test GetProjectName."""
+        zone_info = "v1/projects/fake_project/zones/us-central1-c"
+        expected_result = "fake_project"
+        self.assertEqual(instance.RemoteInstance._GetProjectName(zone_info),
+                         expected_result)
+
     def testGetLocalInstanceConfig(self):
         """Test GetLocalInstanceConfig."""
         self.Patch(instance, "GetLocalInstanceHomeDir",
@@ -394,18 +422,6 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
         expected_result = "ins_home/cuttlefish_assembly/cuttlefish_config.json"
         self.assertEqual(
             instance.GetLocalInstanceConfig(instance_id), expected_result)
-
-    def testGetLocalInstanceLogDir(self):
-        """Test GetLocalInstanceLogDir."""
-        self.Patch(instance, "GetLocalInstanceRuntimeDir",
-                   return_value="ins_runtime_dir")
-        self.Patch(os.path, "isdir", return_value=False)
-        self.assertEqual(instance.GetLocalInstanceLogDir(1), "ins_runtime_dir")
-
-        expected_path = "ins_runtime_dir/instances/cvd-1/logs"
-        self.Patch(os.path, "isdir",
-                   side_effect=lambda path: path == expected_path)
-        self.assertEqual(instance.GetLocalInstanceLogDir(1), expected_path)
 
     def testGetAutoConnect(self):
         """Test GetAutoConnect."""
@@ -425,8 +441,39 @@ class InstanceTest(driver_test_lib.BaseDriverTest):
             name, fullname, display, ip, adb_port=6666)
         self.assertEqual(ins_webrtc._GetAutoConnect(), constants.INS_KEY_ADB)
 
+        ins_webrtc = instance.Instance(
+            name, fullname, display, ip, fastboot_port=6666)
+        self.assertEqual(ins_webrtc._GetAutoConnect(), constants.INS_KEY_FASTBOOT)
+
         ins_webrtc = instance.Instance(name, fullname, display, ip)
         self.assertEqual(ins_webrtc._GetAutoConnect(), None)
+
+    @mock.patch("acloud.list.instance.LocalInstance")
+    def testGetCuttleFishLocalInstances(self, mock_local_instance):
+        """Test GetCuttleFishLocalInstances."""
+        self.Patch(cvd_runtime_config, "CvdRuntimeConfig",
+                   return_value=mock.MagicMock(instance_ids=["2", "3"]))
+        instance.GetCuttleFishLocalInstances("fake_config_path")
+        self.assertEqual(mock_local_instance.call_count, 2)
+
+    def testGetDeviceFullName(self):
+        """Test GetDeviceFullName."""
+        device_serial = "0.0.0.0:6520"
+        webrtc_device_id = "codelab"
+        instance_name = "local-instance-1"
+        elapsed_time = "10:10:24"
+
+        expected_result = ("device serial: 0.0.0.0:6520 codelab "
+                           "(local-instance-1) elapsed time: 10:10:24")
+        self.assertEqual(expected_result, instance._GetDeviceFullName(
+            device_serial, instance_name, elapsed_time, webrtc_device_id))
+
+        # Test with no webrtc_device_id
+        webrtc_device_id = None
+        expected_result = ("device serial: 0.0.0.0:6520 (local-instance-1) "
+                           "elapsed time: 10:10:24")
+        self.assertEqual(expected_result, instance._GetDeviceFullName(
+            device_serial, instance_name, elapsed_time, webrtc_device_id))
 
 
 if __name__ == "__main__":

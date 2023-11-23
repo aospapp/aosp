@@ -21,6 +21,7 @@
 
 class CEndianessChecker {
     bool __little;
+
 public:
     CEndianessChecker();
     operator bool() { return __little; }
@@ -30,8 +31,7 @@ extern CEndianessChecker __LITTLE_ENDIAN__;
 #endif
 
 template <typename T>
-char *WriteDataInBig(char *p, T val)
-{
+char *WriteDataInBig(char *p, T val) {
     if (sizeof(val) == 1) {
         *p++ = val;
     } else if (__LITTLE_ENDIAN__) {
@@ -50,7 +50,7 @@ char *WriteDataInBig(char *p, T val)
     } else {
         switch (sizeof(val)) {
             case 2:
-                *p++  = static_cast<char>(val & 0xFF);
+                *p++ = static_cast<char>(val & 0xFF);
                 *p++ = static_cast<char>((val >> 8) & 0xFF);
                 break;
             case 4:
@@ -66,11 +66,9 @@ char *WriteDataInBig(char *p, T val)
 }
 
 template <typename T>
-char *WriteData(char *p, T val)
-{
+char *WriteData(char *p, T val) {
     const char *pt = reinterpret_cast<char *>(&val);
-    for (size_t i = 0; i < sizeof(val); i++)
-        *p++ = *pt++;
+    for (size_t i = 0; i < sizeof(val); i++) *p++ = *pt++;
     return p;
 }
 
@@ -107,13 +105,14 @@ class CIFDWriter {
 
         m_nTags--;
     }
+
 public:
     CIFDWriter(char *offset_base, char *ifdbase, uint16_t tagcount) {
         m_nTags = tagcount;
         m_pBase = offset_base;
         m_pIFDBase = ifdbase;
-        m_pValue = m_pIFDBase + IFD_FIELDCOUNT_SIZE +
-                   IFD_FIELD_SIZE * tagcount + IFD_NEXTIFDOFFSET_SIZE;
+        m_pValue = m_pIFDBase + IFD_FIELDCOUNT_SIZE + IFD_FIELD_SIZE * tagcount +
+                IFD_NEXTIFDOFFSET_SIZE;
 
         // COUNT field of IFD
         const char *pval = reinterpret_cast<char *>(&m_nTags);
@@ -136,8 +135,7 @@ public:
                 *m_pValue++ = static_cast<char>(value[i]);
             }
         } else {
-            for (uint32_t i = 0; i < count; i++)
-                *m_pIFDBase++ = static_cast<char>(value[i]);
+            for (uint32_t i = 0; i < count; i++) *m_pIFDBase++ = static_cast<char>(value[i]);
             m_pIFDBase += IFD_VALOFF_SIZE - count;
         }
     }
@@ -192,8 +190,7 @@ public:
             m_pValue[count - 1] = '\0';
             m_pValue += count;
         } else {
-            for (uint32_t i = 0; i < count; i++)
-                *m_pIFDBase++ = value[i];
+            for (uint32_t i = 0; i < count; i++) *m_pIFDBase++ = value[i];
             *(m_pIFDBase - 1) = '\0';
             m_pIFDBase += IFD_VALOFF_SIZE - count;
         }
@@ -212,11 +209,9 @@ public:
         } else {
             uint32_t i;
 
-            for (i = 0; (i < (count - 1)) && (string[i] != '\0'); i++)
-                *m_pIFDBase++ = string[i];
+            for (i = 0; (i < (count - 1)) && (string[i] != '\0'); i++) *m_pIFDBase++ = string[i];
 
-            while (i++ < count)
-                *m_pIFDBase++ = '\0';
+            while (i++ < count) *m_pIFDBase++ = '\0';
 
             m_pIFDBase += IFD_VALOFF_SIZE - count;
         }
@@ -250,8 +245,7 @@ public:
         m_pIFDBase = WriteOffset(m_pIFDBase, m_pValue);
 
         const char *pt = reinterpret_cast<const char *>(value);
-        for (uint32_t i = 0; i < sizeof(srational_t) * count; i++)
-            *m_pValue++ = *pt++;
+        for (uint32_t i = 0; i < sizeof(srational_t) * count; i++) *m_pValue++ = *pt++;
     }
 
     void WriteUndef(uint16_t tag, uint32_t count, const unsigned char *value) {
@@ -263,8 +257,7 @@ public:
             memcpy(m_pValue, value, count);
             m_pValue += count;
         } else {
-            for (uint32_t i = 0; i < count; i++)
-                *m_pIFDBase++ = static_cast<char>(value[i]);
+            for (uint32_t i = 0; i < count; i++) *m_pIFDBase++ = static_cast<char>(value[i]);
             m_pIFDBase += IFD_VALOFF_SIZE - count;
         }
     }

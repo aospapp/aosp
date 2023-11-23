@@ -23,16 +23,21 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 
 import android.app.Instrumentation;
-import android.app.UiAutomation;
 import android.os.SystemClock;
 import android.view.InputDevice;
 import android.view.MotionEvent;
 import android.view.View;
 
+import androidx.test.InstrumentationRegistry;
+
 import org.mockito.ArgumentMatcher;
 import org.mockito.InOrder;
 
 public final class CtsMouseUtil {
+
+    // TODO(b/272376728): make it an instance object instead
+    private static final UserHelper sUserHelper = new UserHelper(
+            InstrumentationRegistry.getInstrumentation().getTargetContext());
 
     private CtsMouseUtil() {}
 
@@ -61,6 +66,7 @@ public final class CtsMouseUtil {
         final int x = screenPos[0] + offsetX;
         final int y = screenPos[1] + offsetY;
         MotionEvent event = MotionEvent.obtain(eventTime, eventTime, action, x, y, 0);
+        sUserHelper.injectDisplayIdIfNeeded(event);
         event.setSource(InputDevice.SOURCE_MOUSE);
         return event;
     }
@@ -77,21 +83,20 @@ public final class CtsMouseUtil {
     public static void emulateHoverOnView(Instrumentation instrumentation, View anchor, int offsetX,
             int offsetY) {
         final long downTime = SystemClock.uptimeMillis();
-        final UiAutomation uiAutomation = instrumentation.getUiAutomation();
         final int[] screenPos = new int[2];
         anchor.getLocationOnScreen(screenPos);
         final int x = screenPos[0] + offsetX;
         final int y = screenPos[1] + offsetY;
-
-        injectHoverEvent(uiAutomation, downTime, x, y);
+        injectHoverEvent(instrumentation, downTime, x, y);
     }
 
-    private static void injectHoverEvent(UiAutomation uiAutomation, long downTime, int xOnScreen,
-            int yOnScreen) {
+    private static void injectHoverEvent(Instrumentation instrumentation, long downTime,
+            int xOnScreen, int yOnScreen) {
         MotionEvent event = MotionEvent.obtain(downTime, downTime, MotionEvent.ACTION_HOVER_MOVE,
                 xOnScreen, yOnScreen, 0);
+        sUserHelper.injectDisplayIdIfNeeded(event);
         event.setSource(InputDevice.SOURCE_MOUSE);
-        uiAutomation.injectInputEvent(event, true);
+        instrumentation.sendPointerSync(event);
         event.recycle();
     }
 
@@ -126,8 +131,8 @@ public final class CtsMouseUtil {
         @Override
         public boolean matches(MotionEvent actual) {
             return super.matches(actual)
-                    && ((int) actual.getX()) == mX
-                    && ((int) actual.getY()) == mY;
+                    && Math.round(actual.getX()) == mX
+                    && Math.round(actual.getY()) == mY;
         }
 
         @Override

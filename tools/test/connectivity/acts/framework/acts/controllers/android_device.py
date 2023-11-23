@@ -559,6 +559,17 @@ class AndroidDevice:
         }
         return info
 
+    def add_device_info(self, name, info):
+        """Add custom device info to the user_added_info section.
+
+        Adding the same info name the second time will override existing info.
+
+        Args:
+          name: string, name of this info.
+          info: serializable, content of the info.
+        """
+        self._user_added_device_info.update({name: info})
+
     def sdk_api_level(self):
         if self._sdk_api_level is not None:
             return self._sdk_api_level
@@ -971,11 +982,11 @@ class AndroidDevice:
         Returns:
         Linux UID for the apk.
         """
-        output = self.adb.shell("dumpsys package %s | grep userId=" % apk_name,
+        output = self.adb.shell("dumpsys package %s | grep -e userId= -e appId=" % apk_name,
                                 ignore_status=True)
-        result = re.search(r"userId=(\d+)", output)
+        result = re.search(r"userId=(\d+)|appId=(\d+)", output)
         if result:
-            return result.group(1)
+            return result.group(1) if result.group(1) else result.group(2)
         else:
             None
 
@@ -1387,7 +1398,7 @@ class AndroidDevice:
             try:
                 completed = self.adb.getprop("sys.boot_completed")
                 if completed == '1':
-                    self.log.debug("devie has rebooted")
+                    self.log.debug("Device has rebooted")
                     return
             except AdbError:
                 # adb shell calls may fail during certain period of booting

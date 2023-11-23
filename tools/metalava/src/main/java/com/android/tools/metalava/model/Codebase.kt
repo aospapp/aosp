@@ -57,9 +57,6 @@ interface Codebase {
      */
     var location: File
 
-    /** The API level of this codebase, or -1 if not known */
-    var apiLevel: Int
-
     /** The packages in the codebase (may include packages that are not included in the API) */
     fun getPackages(): PackageList
 
@@ -269,7 +266,6 @@ abstract class DefaultCodebase(override var location: File) : Codebase {
     private var minSdkVersion: MinSdkVersion? = null
     override var original: Codebase? = null
     override var units: List<PsiFile> = emptyList()
-    override var apiLevel: Int = -1
     @Suppress("LeakingThis")
     override val printer = CodePrinter(this)
     @Suppress("LeakingThis")

@@ -23,6 +23,8 @@
 #include "adbconnection/client.h"
 #include "android-base/endian.h"
 #include "android-base/stringprintf.h"
+#include "art_field-inl.h"
+#include "art_method-alloc-inl.h"
 #include "base/file_utils.h"
 #include "base/globals.h"
 #include "base/logging.h"
@@ -32,6 +34,7 @@
 #include "debugger.h"
 #include "jni/java_vm_ext.h"
 #include "jni/jni_env_ext.h"
+#include "mirror/class-alloc-inl.h"
 #include "mirror/throwable.h"
 #include "nativehelper/scoped_local_ref.h"
 #include "runtime-inl.h"
@@ -180,21 +183,25 @@ AdbConnectionState::~AdbConnectionState() {
   }
 }
 
-static jobject CreateAdbConnectionThread(art::Thread* thr) {
-  JNIEnv* env = thr->GetJniEnv();
-  // Move to native state to talk with the jnienv api.
-  art::ScopedThreadStateChange stsc(thr, art::ThreadState::kNative);
-  ScopedLocalRef<jstring> thr_name(env, env->NewStringUTF(kAdbConnectionThreadName));
-  ScopedLocalRef<jobject> thr_group(
-      env,
-      env->GetStaticObjectField(art::WellKnownClasses::java_lang_ThreadGroup,
-                                art::WellKnownClasses::java_lang_ThreadGroup_systemThreadGroup));
-  return env->NewObject(art::WellKnownClasses::java_lang_Thread,
-                        art::WellKnownClasses::java_lang_Thread_init,
-                        thr_group.get(),
-                        thr_name.get(),
-                        /*Priority=*/ 0,
-                        /*Daemon=*/ true);
+static art::ObjPtr<art::mirror::Object> CreateAdbConnectionThread(art::Thread* self)
+    REQUIRES_SHARED(art::Locks::mutator_lock_) {
+  art::StackHandleScope<3u> hs(self);
+  art::Handle<art::mirror::String> thr_name =
+      hs.NewHandle(art::mirror::String::AllocFromModifiedUtf8(self, kAdbConnectionThreadName));
+  if (thr_name == nullptr) {
+    DCHECK(self->IsExceptionPending());
+    return nullptr;
+  }
+  art::ArtField* system_thread_group_field =
+      art::WellKnownClasses::java_lang_ThreadGroup_systemThreadGroup;
+  DCHECK(system_thread_group_field->GetDeclaringClass()->IsInitialized());
+  // Avoid using `ArtField::GetObject` as it requires linking against `libdexfile` for
+  // `operator<<(std::ostream&, Primitive::Type)`.
+  art::Handle<art::mirror::Object> system_thread_group = hs.NewHandle(
+      system_thread_group_field->GetDeclaringClass()->GetFieldObject<art::mirror::Object>(
+          system_thread_group_field->GetOffset()));
+  return art::WellKnownClasses::java_lang_Thread_init->NewObject<'L', 'L', 'I', 'Z'>(
+      hs, self, system_thread_group, thr_name, /*priority=*/ 0, /*daemon=*/ true).Get();
 }
 
 struct CallbackData {
@@ -274,10 +281,14 @@ void AdbConnectionState::StartDebuggerThreads() {
     }
     runtime->StartThreadBirth();
   }
-  ScopedLocalRef<jobject> thr(soa.Env(), CreateAdbConnectionThread(soa.Self()));
+  jobject thr = soa.Env()->GetVm()->AddGlobalRef(self, CreateAdbConnectionThread(soa.Self()));
+  if (thr == nullptr) {
+    LOG(ERROR) << "Failed to create debugger thread!";
+    return;
+  }
   // Note: Using pthreads instead of std::thread to not abort when the thread cannot be
   //       created (exception support required).
-  std::unique_ptr<CallbackData> data(new CallbackData { this, soa.Env()->NewGlobalRef(thr.get()) });
+  std::unique_ptr<CallbackData> data(new CallbackData { this, thr });
   started_debugger_threads_ = true;
   gPthread.emplace();
   int pthread_create_result = pthread_create(&gPthread.value(),
@@ -289,7 +300,7 @@ void AdbConnectionState::StartDebuggerThreads() {
     started_debugger_threads_ = false;
     // If the create succeeded the other thread will call EndThreadBirth.
     art::Runtime* runtime = art::Runtime::Current();
-    soa.Env()->DeleteGlobalRef(data->thr_);
+    soa.Env()->DeleteGlobalRef(thr);
     LOG(ERROR) << "Failed to create thread for adb-jdwp connection manager!";
     art::MutexLock mu(art::Thread::Current(), *art::Locks::runtime_shutdown_lock_);
     runtime->EndThreadBirth();
@@ -810,8 +821,12 @@ void AdbConnectionState::PerformHandshake() {
 void AdbConnectionState::AttachJdwpAgent(art::Thread* self) {
   art::Runtime* runtime = art::Runtime::Current();
   self->AssertNoPendingException();
+
+  std::string args = MakeAgentArg();
+  VLOG(jdwp) << "Attaching JDWP agent with args '" << args << "'";
+
   runtime->AttachAgent(/* env= */ nullptr,
-                       MakeAgentArg(),
+                       args,
                        /* class_loader= */ nullptr);
   if (self->IsExceptionPending()) {
     LOG(ERROR) << "Failed to load agent " << agent_name_;

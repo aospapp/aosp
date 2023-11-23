@@ -29,8 +29,8 @@ from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
 from acts_contrib.test_utils.abstract_devices import wmm_transceiver
 from acts_contrib.test_utils.fuchsia import wmm_test_cases
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 
 DEFAULT_N_CAPABILITIES_20_MHZ = [
     hostapd_constants.N_CAPABILITY_LDPC, hostapd_constants.N_CAPABILITY_SGI20,
@@ -102,7 +102,7 @@ def eval_operator(operator_string,
     return error <= accepted_error
 
 
-class WlanWmmTest(AbstractDeviceWlanDeviceBaseTest):
+class WlanWmmTest(WifiBaseTest):
     """Tests WMM QoS Functionality (Station only)
 
     Testbed Requirements:
@@ -112,6 +112,7 @@ class WlanWmmTest(AbstractDeviceWlanDeviceBaseTest):
 
     For accurate results, must be performed in an RF isolated environment.
     """
+
     def setup_class(self):
         super().setup_class()
 
@@ -659,6 +660,7 @@ class WlanWmmTest(AbstractDeviceWlanDeviceBaseTest):
 # External Traffic Differentiation
 
     """Single station, STAUT transmits high priority"""
+
     def test_external_traffic_diff_staut_VO_ap_VI(self):
         self.run_wmm_test(
             wmm_test_cases.test_external_traffic_diff_staut_VO_ap_VI)
@@ -770,6 +772,7 @@ class WlanWmmTest(AbstractDeviceWlanDeviceBaseTest):
 # WFA Test Plan Tests
 
     """Traffic Differentiation in Single BSS (Single Station)"""
+
     def test_wfa_traffic_diff_single_station_staut_BE_ap_VI_BE(self):
         self.run_wmm_test(
             wmm_test_cases.

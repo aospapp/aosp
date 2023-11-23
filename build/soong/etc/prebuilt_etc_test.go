@@ -140,6 +140,7 @@ func TestPrebuiltEtcAndroidMk(t *testing.T) {
 		"LOCAL_REQUIRED_MODULES":        {"modA", "moduleB"},
 		"LOCAL_HOST_REQUIRED_MODULES":   {"hostModA", "hostModB"},
 		"LOCAL_TARGET_REQUIRED_MODULES": {"targetModA"},
+		"LOCAL_SOONG_MODULE_TYPE":       {"prebuilt_etc"},
 	}
 
 	mod := result.Module("foo", "android_arm64_armv8-a").(*PrebuiltEtc)
@@ -193,6 +194,30 @@ func TestPrebuiltEtcHost(t *testing.T) {
 	if !p.Host() {
 		t.Errorf("host bit is not set for a prebuilt_etc_host module.")
 	}
+}
+
+func TestPrebuiltEtcAllowMissingDependencies(t *testing.T) {
+	result := android.GroupFixturePreparers(
+		prepareForPrebuiltEtcTest,
+		android.PrepareForTestDisallowNonExistentPaths,
+		android.FixtureModifyConfig(
+			func(config android.Config) {
+				config.TestProductVariables.Allow_missing_dependencies = proptools.BoolPtr(true)
+			}),
+	).RunTestWithBp(t, `
+		prebuilt_etc {
+			name: "foo.conf",
+			filename_from_src: true,
+			arch: {
+				x86: {
+					src: "x86.conf",
+				},
+			},
+		}
+	`)
+
+	android.AssertStringEquals(t, "expected error rule", "android/soong/android.Error",
+		result.ModuleForTests("foo.conf", "android_arm64_armv8-a").Output("foo.conf").Rule.String())
 }
 
 func TestPrebuiltRootInstallDirPath(t *testing.T) {

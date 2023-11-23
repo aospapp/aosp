@@ -15,15 +15,21 @@
  */
 
 package android.security.cts;
+
 import static org.junit.Assume.assumeFalse;
 
 import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.RunUtil;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Bug_187957589 extends SecurityTestCase {
+public class Bug_187957589 extends NonRootSecurityTestCase {
     /**
      * b/187957589
      * Vulnerability Behaviour: out of bounds write in noteAtomLogged for negative atom ids.
@@ -32,9 +38,11 @@ public class Bug_187957589 extends SecurityTestCase {
     @AsbSecurityTest(cveBugId = 187957589)
     public void testPocBug_187957589() throws Exception {
         assumeFalse(moduleIsPlayManaged("com.google.android.os.statsd"));
-        AdbUtils.runPoc("Bug-187957589", getDevice());
-        // Sleep to ensure statsd was able to process the injected event.
-        Thread.sleep(5_000);
-        AdbUtils.assertNoCrashes(getDevice(), "statsd");
+        TombstoneUtils.Config config = new TombstoneUtils.Config().setProcessPatterns("statsd");
+        try (AutoCloseable a = TombstoneUtils.withAssertNoSecurityCrashes(getDevice(), config)) {
+            AdbUtils.runPoc("Bug-187957589", getDevice());
+            // Sleep to ensure statsd was able to process the injected event.
+            RunUtil.getDefault().sleep(5_000);
+        }
     }
 }

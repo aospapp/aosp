@@ -41,7 +41,7 @@ android_test {
         "mockito-target-minus-junit4",
         "platform-test-annotations",
         "platformprotosnano",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
     srcs: ["src/**/*.java"],
     data: [
@@ -63,6 +63,10 @@ java_test_helper_library {
 
     srcs: [
         "src/android/server/biometrics/BiometricCallbackHelper.java",
+        "src/android/server/biometrics/BiometricServiceState.java",
+        "src/android/server/biometrics/SensorStates.java",
+        "src/android/server/biometrics/TestSessionList.java",
+        "src/android/server/biometrics/Utils.java",
         "src/android/server/biometrics/fingerprint/FingerprintCallbackHelper.java",
     ],
 }

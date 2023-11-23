@@ -29,12 +29,14 @@ public class CpuFeatures {
     /** Machine architecture, determined from the "machine" value returned by uname() */
     private enum Arch {
         // 64bit ARM can return armv8 or aarch64.
-        // 32bit ARM should return armv7 or armv7a
+        // 32bit ARM should return armv7 or armv7a.
         ARM("^aarch.*|^arm.*"),
-        // 64bit Android and Linux generally return x86_64.
-        // 32bit Android and Linux generally return i686
+        // 64bit Linux returns x86_64.
+        // 32bit Linux returns i686.
         // Other host architectures can potentially return x86 or i386.
-        X86("^x86.*|i386|i686");
+        X86("^x86.*|i386|i686"),
+        // There is no 32bit riscv Android.
+        RISCV("^riscv64$");
 
         private final String machineRegex;
 
@@ -61,7 +63,8 @@ public class CpuFeatures {
         ARM_32(Arch.ARM, "arm"),
         ARM_64(Arch.ARM, "arm64"),
         X86_32(Arch.X86, "x86"),
-        X86_64(Arch.X86, "x86_64");
+        X86_64(Arch.X86, "x86_64"),
+        RISCV_64(Arch.RISCV, "riscv64");
 
         private final Arch arch;
         private final String name;

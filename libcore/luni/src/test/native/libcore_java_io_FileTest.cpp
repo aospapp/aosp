@@ -60,7 +60,7 @@ extern "C" int Java_libcore_java_io_FileTest_installSeccompFilter(JNIEnv* , jcla
     struct sock_filter filter[] = {
         BPF_STMT(BPF_LD|BPF_W|BPF_ABS, offsetof(struct seccomp_data, nr)),
 
-// for arm, mips, x86.
+// for arm, x86.
 #ifdef __NR_fstatat64
         BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, __NR_fstatat64, 0, 1),
 #else

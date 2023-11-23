@@ -20,9 +20,12 @@ import static android.inputmethodservice.cts.common.BusyWaitUtils.pollingCheck;
 
 import static org.junit.Assert.assertFalse;
 
+import android.Manifest;
+import android.content.Context;
 import android.inputmethodservice.cts.common.Ime1Constants;
 import android.inputmethodservice.cts.common.Ime2Constants;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -30,6 +33,8 @@ import android.view.inputmethod.InputMethodSubtype;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -47,14 +52,15 @@ public class InputMethodManagerDeviceTest {
     private static final long EXPECTED_TIMEOUT = TimeUnit.SECONDS.toMillis(2);
 
     private InputMethodManager mImm;
+    private Context mContext;
 
     /**
      * Set up {@link #mImm} from the target {@link Context}.
      */
     @Before
     public void setUpInputMethodManager() {
-        mImm = InstrumentationRegistry.getInstrumentation().getTargetContext()
-                .getSystemService(InputMethodManager.class);
+        mContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        mImm = mContext.getSystemService(InputMethodManager.class);
     }
 
     /**
@@ -74,6 +80,60 @@ public class InputMethodManagerDeviceTest {
         pollingCheck(() -> mImm.getInputMethodList().stream().anyMatch(
                 imi -> TextUtils.equals(imi.getId(), Ime1Constants.IME_ID)),
                 TIMEOUT, "Ime1 must exist.");
+    }
+
+    /**
+     * Make sure {@link InputMethodManager#getCurrentInputMethodInfo()} contains
+     * {@link Ime1Constants#IME_ID}.
+     */
+    @Test
+    public void testIme1InCurrentInputMethodInfo() throws Throwable {
+        pollingCheck(() -> TextUtils.equals(
+                mImm.getCurrentInputMethodInfo().getId(), Ime1Constants.IME_ID),
+                TIMEOUT, "Ime1 must be the current IME. Found "
+                        + mImm.getCurrentInputMethodInfo().getId());
+    }
+
+    /**
+     * Make sure {@link InputMethodManager#getCurrentInputMethodInfo()} does not contain
+     * {@link Ime1Constants#IME_ID}.
+     */
+    @Test
+    public void testIme1NotCurrentInputMethodInfo() throws Throwable {
+        pollingCheck(() -> {
+            final InputMethodInfo info  = mImm.getCurrentInputMethodInfo();
+            if (info == null) {
+                return true;
+            }
+            return !TextUtils.equals(info.getId(), Ime1Constants.IME_ID);
+        }, TIMEOUT, "Ime1 must not be the current IME.");
+    }
+
+    /**
+     * Make sure {@link InputMethodManager#getCurrentInputMethodInfo()} contains
+     * {@link Ime2Constants#IME_ID}.
+     */
+    @Test
+    public void testIme2InCurrentInputMethodInfo() throws Throwable {
+        pollingCheck(() -> TextUtils.equals(
+                        mImm.getCurrentInputMethodInfo().getId(), Ime2Constants.IME_ID),
+                TIMEOUT, "Ime2 must be the current IME. Found "
+                        + mImm.getCurrentInputMethodInfo().getId());
+    }
+
+    /**
+     * Make sure {@link InputMethodManager#getCurrentInputMethodInfo()} does not contain
+     * {@link Ime2Constants#IME_ID}.
+     */
+    @Test
+    public void testIme2NotCurrentInputMethodInfo() throws Throwable {
+        pollingCheck(() -> {
+            final InputMethodInfo info  = mImm.getCurrentInputMethodInfo();
+            if (info == null) {
+                return true;
+            }
+            return !TextUtils.equals(info.getId(), Ime2Constants.IME_ID);
+        }, TIMEOUT, "Ime2 must not be the current IME.");
     }
 
     /**
@@ -179,5 +239,22 @@ public class InputMethodManagerDeviceTest {
                 .filter(imi -> TextUtils.equals(imi.getId(), Ime1Constants.IME_ID))
                 .flatMap(imi -> mImm.getEnabledInputMethodSubtypeList(imi, true).stream())
                 .anyMatch(InputMethodSubtype::overridesImplicitlyEnabledSubtype));
+    }
+
+    /**
+     * Make sure {@link InputMethodManager#isStylusHandwritingAvailable()} returns result accurately
+     * for profile user
+     */
+    @Test
+    public void testIsStylusHandwritingAvailableForProfile() throws Throwable {
+        // Turn stylus handwriting pref OFF for profile user.
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            Settings.Secure.putInt(mContext.getContentResolver(),
+                    Settings.Secure.STYLUS_HANDWRITING_ENABLED, 0);
+        }, Manifest.permission.WRITE_SECURE_SETTINGS);
+
+        // Stylus pref should still be picked from parent profile i.e. default true.
+        pollingCheck(() -> mImm.isStylusHandwritingAvailable(), TIMEOUT,
+                "Handwriting should be enabled on profile user as primary user has it enabled.");
     }
 }

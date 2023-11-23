@@ -21,14 +21,14 @@ import android.platform.test.annotations.AsbSecurityTest;
 
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_39702 extends StsExtraBusinessLogicHostTestBase {
+public class CVE_2021_39702 extends NonRootSecurityTestCase {
     private static final String TEST_PKG = "android.security.cts.CVE_2021_39702";
     private static final String TEST_CLASS = TEST_PKG + "." + "DeviceTest";
     private static final String TEST_APP = "CVE-2021-39702.apk";

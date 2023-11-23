@@ -49,6 +49,7 @@ public:
                                           const VsyncPeriodChangeTimeline& timeline) override;
           void onVsyncIdle(int64_t display) override;
           void onSeamlessPossible(int64_t display) override;
+          void onRefreshRateChangedDebug(const RefreshRateChangedDebugData& data) override;
 
       private:
         void cleanDisplayResources(int64_t display);
@@ -92,6 +93,7 @@ public:
     ndk::ScopedAStatus getDisplayPhysicalOrientation(int64_t display,
                                                      common::Transform* orientation) override;
     ndk::ScopedAStatus getHdrCapabilities(int64_t display, HdrCapabilities* caps) override;
+    ndk::ScopedAStatus getOverlaySupport(OverlayProperties* caps) override;
     ndk::ScopedAStatus getMaxVirtualDisplayCount(int32_t* count) override;
     ndk::ScopedAStatus getPerFrameMetadataKeys(int64_t display,
                                                std::vector<PerFrameMetadataKey>* keys) override;
@@ -114,6 +116,10 @@ public:
     ndk::ScopedAStatus setBootDisplayConfig(int64_t display, int32_t config) override;
     ndk::ScopedAStatus clearBootDisplayConfig(int64_t display) override;
     ndk::ScopedAStatus getPreferredBootDisplayConfig(int64_t display, int32_t* config) override;
+    ndk::ScopedAStatus getHdrConversionCapabilities(
+            std::vector<common::HdrConversionCapability>*) override;
+    ndk::ScopedAStatus setHdrConversionStrategy(const common::HdrConversionStrategy&,
+                                                common::Hdr* preferredHdrOutputType) override;
     ndk::ScopedAStatus setAutoLowLatencyMode(int64_t display, bool on) override;
     ndk::ScopedAStatus setClientTargetSlotCount(int64_t display, int32_t count) override;
     ndk::ScopedAStatus setColorMode(int64_t display, ColorMode mode, RenderIntent intent) override;
@@ -126,6 +132,8 @@ public:
                                          const ndk::ScopedFileDescriptor& releaseFence) override;
     ndk::ScopedAStatus setVsyncEnabled(int64_t display, bool enabled) override;
     ndk::ScopedAStatus setIdleTimerEnabled(int64_t display, int32_t timeout) override;
+    ndk::ScopedAStatus setRefreshRateChangedCallbackDebugEnabled(int64_t /* display */,
+                                                                 bool /* enabled */) override;
 
 protected:
     ::ndk::SpAIBinder createBinder() override;
@@ -135,7 +143,6 @@ private:
 
     IComposerHal* mHal;
     std::unique_ptr<IResourceManager> mResources;
-    std::unique_ptr<ComposerCommandEngine> mCommandEngine;
     std::function<void()> mOnClientDestroyed;
     std::unique_ptr<HalEventCallback> mHalEventCallback;
 };

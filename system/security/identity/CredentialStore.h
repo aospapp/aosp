@@ -22,7 +22,6 @@
 
 #include <android/hardware/identity/IIdentityCredentialStore.h>
 #include <android/security/identity/BnCredentialStore.h>
-#include <android/security/remoteprovisioning/IRemotelyProvisionedKeyPool.h>
 
 namespace android {
 namespace security {
@@ -39,7 +38,7 @@ using ::android::hardware::identity::HardwareInformation;
 using ::android::hardware::identity::IIdentityCredentialStore;
 using ::android::hardware::identity::IPresentationSession;
 using ::android::hardware::identity::IWritableIdentityCredential;
-using ::android::security::remoteprovisioning::IRemotelyProvisionedKeyPool;
+using ::android::hardware::security::keymint::IRemotelyProvisionedComponent;
 
 class CredentialStore : public BnCredentialStore {
   public:
@@ -73,9 +72,9 @@ class CredentialStore : public BnCredentialStore {
     sp<IIdentityCredentialStore> hal_;
     int halApiVersion_;
 
-    sp<IRemotelyProvisionedKeyPool> keyPool_;
-
     HardwareInformation hwInfo_;
+
+    sp<IRemotelyProvisionedComponent> rpc_;
 };
 
 }  // namespace identity

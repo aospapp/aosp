@@ -24,6 +24,7 @@
 #include <linux/inet_diag.h>
 
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
 #include "Fwmark.h"
 #include "NetdConstants.h"
@@ -33,7 +34,7 @@
 namespace android {
 namespace net {
 
-class SockDiagTest : public ::testing::Test {
+class SockDiagTest : public NetNativeTestBase {
 protected:
     static bool isLoopbackSocket(const inet_diag_msg *msg) {
         return SockDiag::isLoopbackSocket(msg);

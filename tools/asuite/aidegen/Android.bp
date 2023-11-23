@@ -16,27 +16,12 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-python_defaults {
-    name: "aidegen_default",
-    pkg_path: "aidegen",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
 python_binary_host {
     name: "aidegen",
     // Make aidegen's built name to aidegen-dev
     suffix: "-dev",
-    defaults: ["aidegen_default"],
     main: "aidegen_main.py",
+    pkg_path: "aidegen",
     srcs: [
         "**/*.py",
     ],
@@ -52,7 +37,7 @@ python_binary_host {
 
 python_library_host {
     name: "aidegen_lib",
-    defaults: ["aidegen_default"],
+    pkg_path: "aidegen",
     srcs: [
         "**/*.py",
     ],
@@ -64,7 +49,7 @@ python_library_host {
 
 python_library_host {
     name: "aidegen_lib_common_util",
-    defaults: ["aidegen_default"],
+    pkg_path: "aidegen",
     srcs: [
         "lib/common_util.py",
         "lib/config.py",
@@ -94,7 +79,6 @@ python_test_host {
     ],
     test_config: "aidegen_unittests.xml",
     test_suites: ["null-suite"],
-    defaults: ["aidegen_default"],
     test_options:{
         unit_test: false,
     },

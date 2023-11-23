@@ -23,9 +23,9 @@ import its_base_test
 import camera_properties_utils
 import its_session_utils
 
-AWB_GAINS_LENGTH = 4
-AWB_XFORM_LENGTH = 9
-NAME = os.path.splitext(os.path.basename(__file__))[0]
+_AWB_GAINS_LENGTH = 4
+_AWB_XFORM_LENGTH = 9
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
 
 
 def assert_is_number(x):
@@ -40,7 +40,7 @@ class ThreeATest(its_base_test.ItsBaseTest):
   """
 
   def test_3a(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -62,12 +62,12 @@ class ThreeATest(its_base_test.ItsBaseTest):
       logging.debug('AE: sensitivity %d, exposure %dns', s, e)
       logging.debug('AF: distance %.3f', focus)
 
-      if len(awb_gains) != AWB_GAINS_LENGTH:
+      if len(awb_gains) != _AWB_GAINS_LENGTH:
         raise AssertionError(
             f'AWB gains has unexpected # of terms! {awb_gains}')
       for g in awb_gains:
         assert_is_number(g)
-      if len(awb_xform) != AWB_XFORM_LENGTH:
+      if len(awb_xform) != _AWB_XFORM_LENGTH:
         raise AssertionError(
             f'AWB transform has unexpected # of terms! {awb_xform}')
       for x in awb_xform:

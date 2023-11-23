@@ -16,12 +16,25 @@
 
 package android.webkit.cts;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
-import android.test.AndroidTestCase;
-import android.test.MoreAsserts;
 import android.webkit.URLUtil;
 
-public class URLUtilTest extends AndroidTestCase {
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.SmallTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+@SmallTest
+@RunWith(AndroidJUnit4.class)
+public class URLUtilTest extends SharedWebViewTest {
     private final String VALID_HTTP_URL = "http://www.google.com";
     private final String VALID_HTTPS_URL = "https://www.google.com";
     private final String VALID_ASSET_URL = "file:///android_asset/test";
@@ -34,18 +47,26 @@ public class URLUtilTest extends AndroidTestCase {
     private final String VALID_FTP_URL = "ftp://www.domain.com";
     private final String FILE_URL_NO_SLASH = "file:test";
 
+    @Override
+    protected SharedWebViewTestEnvironment createTestEnvironment() {
+        return new SharedWebViewTestEnvironment.Builder().build();
+    }
+
+    @Test
     public void testIsAssetUrl() {
         assertFalse(URLUtil.isAssetUrl(null));
         assertFalse(URLUtil.isAssetUrl(VALID_HTTP_URL));
         assertTrue(URLUtil.isAssetUrl(VALID_ASSET_URL));
     }
 
+    @Test
     public void testIsAboutUrl() {
         assertFalse(URLUtil.isAboutUrl(null));
         assertFalse(URLUtil.isAboutUrl(VALID_DATA_URL));
         assertTrue(URLUtil.isAboutUrl(VALID_ABOUT_URL));
     }
 
+    @Test
     public void testIsContentUrl() {
         assertFalse(URLUtil.isContentUrl(null));
         assertFalse(URLUtil.isContentUrl(VALID_DATA_URL));
@@ -53,18 +74,21 @@ public class URLUtilTest extends AndroidTestCase {
     }
 
     @SuppressWarnings("deprecation")
+    @Test
     public void testIsCookielessProxyUrl() {
         assertFalse(URLUtil.isCookielessProxyUrl(null));
         assertFalse(URLUtil.isCookielessProxyUrl(VALID_HTTP_URL));
         assertTrue(URLUtil.isCookielessProxyUrl(VALID_PROXY_URL));
     }
 
+    @Test
     public void testIsDataUrl() {
         assertFalse(URLUtil.isDataUrl(null));
         assertFalse(URLUtil.isDataUrl(VALID_CONTENT_URL));
         assertTrue(URLUtil.isDataUrl(VALID_DATA_URL));
     }
 
+    @Test
     public void testIsFileUrl() {
         assertFalse(URLUtil.isFileUrl(null));
         assertFalse(URLUtil.isFileUrl(VALID_CONTENT_URL));
@@ -76,24 +100,28 @@ public class URLUtilTest extends AndroidTestCase {
         assertTrue(URLUtil.isFileUrl(FILE_URL_NO_SLASH));
     }
 
+    @Test
     public void testIsHttpsUrl() {
         assertFalse(URLUtil.isHttpsUrl(null));
         assertFalse(URLUtil.isHttpsUrl(VALID_HTTP_URL));
         assertTrue(URLUtil.isHttpsUrl(VALID_HTTPS_URL));
     }
 
+    @Test
     public void testIsHttpUrl() {
         assertFalse(URLUtil.isHttpUrl(null));
         assertFalse(URLUtil.isHttpUrl(VALID_FTP_URL));
         assertTrue(URLUtil.isHttpUrl(VALID_HTTP_URL));
     }
 
+    @Test
     public void testIsJavaScriptUrl() {
         assertFalse(URLUtil.isJavaScriptUrl(null));
         assertFalse(URLUtil.isJavaScriptUrl(VALID_FTP_URL));
         assertTrue(URLUtil.isJavaScriptUrl(VALID_JAVASCRIPT_URL));
     }
 
+    @Test
     public void testIsNetworkUrl() {
         assertFalse(URLUtil.isNetworkUrl(null));
         assertFalse(URLUtil.isNetworkUrl(""));
@@ -102,6 +130,7 @@ public class URLUtilTest extends AndroidTestCase {
         assertTrue(URLUtil.isNetworkUrl(VALID_HTTPS_URL));
     }
 
+    @Test
     public void testIsValidUrl() {
         assertFalse(URLUtil.isValidUrl(null));
         assertFalse(URLUtil.isValidUrl(""));
@@ -115,6 +144,7 @@ public class URLUtilTest extends AndroidTestCase {
         assertTrue(URLUtil.isValidUrl(VALID_CONTENT_URL));
     }
 
+    @Test
     public void testComposeSearchUrl() {
         assertNull(URLUtil.composeSearchUrl("", "template", "no such holder"));
 
@@ -125,6 +155,7 @@ public class URLUtilTest extends AndroidTestCase {
         assertEquals(expected, URLUtil.composeSearchUrl("query", "file://holder/test", "holder"));
     }
 
+    @Test
     public void testDecode() {
         byte[] url = new byte[0];
         byte[] result = URLUtil.decode(url);
@@ -135,17 +166,17 @@ public class URLUtilTest extends AndroidTestCase {
         result = URLUtil.decode(url);
         byte[] expected = new byte[] { 'w', 'w', 'w', '.', 'n', 'a', 'm', 'e', '.', 'c', 'o', 'm',
                 '/', ' ', 'E', '/' };
-        MoreAsserts.assertEquals(expected, result);
+        assertThat(result, is(expected));
 
-        url = new byte[] { 'w', 'w', 'w', '.', 'n', 'a', 'm', 'e', '.', 'c', 'o', 'm', '/',
-                '%', '2', '0', '%', '4' };
-        try {
-            result = URLUtil.decode(url);
-            fail("should throw IllegalArgumentException.");
-        } catch (IllegalArgumentException e) {
-        }
+        // '%4' is an incomplete sequence and should trigger an Invalid format error.
+        final byte[] urlWithIncompletePercentSequence = new byte[] { 'w', 'w', 'w', '.',
+            'n', 'a', 'm', 'e', '.', 'c', 'o', 'm', '/', '%', '2', '0', '%', '4' };
+        assertThrows(IllegalArgumentException.class, () -> {
+            URLUtil.decode(urlWithIncompletePercentSequence);
+        });
     }
 
+    @Test
     public void testGuessFileName() {
         String url = "ftp://example.url/test";
         assertEquals("test.jpg", URLUtil.guessFileName(url, null, "image/jpeg"));
@@ -153,6 +184,7 @@ public class URLUtilTest extends AndroidTestCase {
         assertEquals("test.bin", URLUtil.guessFileName(url, null, "application/octet-stream"));
     }
 
+    @Test
     public void testGuessUrl() {
         assertEquals(VALID_FILE_URL, URLUtil.guessUrl(VALID_FILE_URL));
         assertEquals(VALID_ABOUT_URL, URLUtil.guessUrl(VALID_ABOUT_URL));
@@ -162,13 +194,12 @@ public class URLUtilTest extends AndroidTestCase {
         String url = "domainName";
         assertEquals("http://www.domainName.com/", URLUtil.guessUrl(url));
 
-        try {
+        assertThrows(NullPointerException.class, () -> {
             URLUtil.guessUrl(null);
-            fail("should throw NullPointerException.");
-        } catch (NullPointerException e) {
-        }
+        });
     }
 
+    @Test
     public void testStripAnchor() {
         assertEquals(VALID_HTTP_URL, URLUtil.stripAnchor(VALID_HTTP_URL));
 

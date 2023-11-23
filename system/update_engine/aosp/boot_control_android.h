@@ -21,12 +21,12 @@
 #include <memory>
 #include <string>
 
-#include <android/hardware/boot/1.0/IBootControl.h>
 #include <liblp/builder.h>
 #include <gtest/gtest_prod.h>
+#include <BootControlClient.h>
 
 #include "update_engine/aosp/dynamic_partition_control_android.h"
-#include "update_engine/common/boot_control.h"
+#include "update_engine/common/boot_control_interface.h"
 #include "update_engine/common/dynamic_partition_control_interface.h"
 
 namespace chromeos_update_engine {
@@ -67,7 +67,7 @@ class BootControlAndroid final : public BootControlInterface {
   DynamicPartitionControlInterface* GetDynamicPartitionControl() override;
 
  private:
-  ::android::sp<::android::hardware::boot::V1_0::IBootControl> module_;
+  std::unique_ptr<android::hal::BootControlClient> module_;
   std::unique_ptr<DynamicPartitionControlAndroid> dynamic_control_;
 
   friend class BootControlAndroidTest;

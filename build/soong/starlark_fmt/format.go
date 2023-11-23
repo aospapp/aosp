@@ -17,6 +17,7 @@ package starlark_fmt
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -34,7 +35,11 @@ func Indention(level int) string {
 
 // PrintBool returns a Starlark compatible bool string.
 func PrintBool(item bool) string {
-	return strings.Title(fmt.Sprintf("%t", item))
+	if item {
+		return "True"
+	} else {
+		return "False"
+	}
 }
 
 // PrintsStringList returns a Starlark-compatible string of a list of Strings/Labels.
@@ -82,6 +87,16 @@ func PrintBoolDict(dict map[string]bool, indentLevel int) string {
 		formattedValueDict[k] = PrintBool(v)
 	}
 	return PrintDict(formattedValueDict, indentLevel)
+}
+
+// PrintStringIntDict returns a Starlark-compatible string formatted as dictionary with
+// string keys and int values.
+func PrintStringIntDict(dict map[string]int, indentLevel int) string {
+	valDict := make(map[string]string, len(dict))
+	for k, v := range dict {
+		valDict[k] = strconv.Itoa(v)
+	}
+	return PrintDict(valDict, indentLevel)
 }
 
 // PrintDict returns a starlark-compatible string containing a dictionary with string keys and

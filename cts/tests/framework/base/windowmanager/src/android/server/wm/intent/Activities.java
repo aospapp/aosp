@@ -17,6 +17,7 @@
 package android.server.wm.intent;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 
 /**
@@ -40,6 +41,13 @@ public class Activities {
     }
 
     public static class RegularActivity extends BaseActivity {
+        public boolean mIsOnNewIntentCalled = false;
+
+        @Override
+        protected void onNewIntent(Intent intent) {
+            super.onNewIntent(intent);
+            mIsOnNewIntentCalled = true;
+        }
     }
 
     public static class SingleTopActivity extends BaseActivity {
@@ -67,6 +75,9 @@ public class Activities {
     }
 
     public static class TaskAffinity1Activity2 extends BaseActivity {
+    }
+
+    public static class TaskAffinity1SingleTopActivity extends BaseActivity {
     }
 
     public static class TaskAffinity2Activity extends BaseActivity {

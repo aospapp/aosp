@@ -30,6 +30,7 @@ import java.lang.ref.Cleaner.Cleanable;
 import java.lang.ref.ReferenceQueue;
 import java.security.AccessController;
 import java.security.PrivilegedAction;
+import java.util.Objects;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
@@ -95,6 +96,14 @@ public final class CleanerImpl implements Runnable {
     }
 
     /**
+     * @hide
+     */
+    public CleanerImpl(ReferenceQueue<Object> queue) {
+        this.queue = queue;
+        this.phantomCleanableList = new PhantomCleanableRef();
+    }
+
+    /**
      * Starts the Cleaner implementation.
      * Ensure this is the CleanerImpl for the Cleaner.
      * When started waits for Cleanables to be queued.
@@ -119,6 +128,19 @@ public final class CleanerImpl implements Runnable {
         Thread thread = threadFactory.newThread(this);
         thread.setDaemon(true);
         thread.start();
+    }
+
+    // Android-added: start system cleaner which does not need a thread factory.
+    /**
+     * Starts the Cleaner implementation. Does not need a thread factory as it
+     * should be used in the system cleaner only.
+     * @param cleaner the cleaner
+     * @hide
+     */
+    public void start(Cleaner cleaner) {
+        if (getCleanerImpl(cleaner) != this) {
+            throw new AssertionError("wrong cleaner");
+        }
     }
 
     /**

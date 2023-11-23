@@ -20,15 +20,15 @@ import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
-import android.media.cts.NonMediaMainlineTest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.android.compatibility.common.util.NonMainlineTest
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4::class)
 class AudioDevicesForAttributesTest {
     /**

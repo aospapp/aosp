@@ -45,12 +45,20 @@ public class LightBarBaseActivity extends Activity {
         return mContent.getWindowSystemUiVisibility();
     }
 
+    public int getLeft() {
+        return mContent.getLocationOnScreen()[0];
+    }
+
     public int getTop() {
         return mContent.getLocationOnScreen()[1];
     }
 
     public int getBottom() {
         return mContent.getLocationOnScreen()[1] + mContent.getHeight();
+    }
+
+    public int getRight() {
+        return mContent.getLocationOnScreen()[0] + mContent.getWidth();
     }
 
     public int getWidth() {

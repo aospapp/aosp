@@ -15,6 +15,7 @@
  */
 
 #include "base/arena_allocator.h"
+#include "base/macros.h"
 #include "builder.h"
 #include "dex/dex_instruction.h"
 #include "nodes.h"
@@ -22,9 +23,9 @@
 
 #include "gtest/gtest.h"
 
-namespace art {
+namespace art HIDDEN {
 
-class OptimizerTest : public OptimizingUnitTest {
+class OptimizerTest : public CommonCompilerTest, public OptimizingUnitTestHelper {
  protected:
   void TestCode(const std::vector<uint16_t>& data, const uint32_t* blocks, size_t blocks_length);
 };

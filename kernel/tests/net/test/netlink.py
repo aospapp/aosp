@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2014 The Android Open Source Project
 #
@@ -57,6 +57,11 @@ NLA_ALIGNTO = 4
 # These can appear more than once but don't seem to contain any data.
 DUP_ATTRS_OK = ["INET_DIAG_NONE", "IFLA_PAD"]
 
+
+def MakeConstantPrefixes(prefixes):
+  return sorted(prefixes, key=len, reverse=True)
+
+
 class NetlinkSocket(object):
   """A basic netlink socket object."""
 
@@ -70,9 +75,10 @@ class NetlinkSocket(object):
       print(s)
 
   def _NlAttr(self, nla_type, data):
+    assert isinstance(data, bytes)
     datalen = len(data)
     # Pad the data if it's not a multiple of NLA_ALIGNTO bytes long.
-    padding = "\x00" * util.GetPadLength(NLA_ALIGNTO, datalen)
+    padding = b"\x00" * util.GetPadLength(NLA_ALIGNTO, datalen)
     nla_len = datalen + len(NLAttr)
     return NLAttr((nla_len, nla_type)).Pack() + data + padding
 
@@ -86,18 +92,33 @@ class NetlinkSocket(object):
   def _NlAttrU32(self, nla_type, value):
     return self._NlAttr(nla_type, struct.pack("=I", value))
 
-  def _GetConstantName(self, module, value, prefix):
+  @staticmethod
+  def _GetConstantName(module, value, prefix):
+
+    def FirstMatching(name, prefixlist):
+      for prefix in prefixlist:
+        if name.startswith(prefix):
+         return prefix
+      return None
+
     thismodule = sys.modules[module]
+    constant_prefixes = getattr(thismodule, "CONSTANT_PREFIXES", [])
     for name in dir(thismodule):
-      if name.startswith("INET_DIAG_BC"):
+      if value != getattr(thismodule, name) or not name.isupper():
         continue
-      if (name.startswith(prefix) and
-          not name.startswith(prefix + "F_") and
-          name.isupper() and getattr(thismodule, name) == value):
-          return name
+      # If the module explicitly specifies prefixes, only return this name if
+      # the passed-in prefix is the longest prefix that matches the name.
+      # This ensures, for example, that passing in a prefix of "IFA_" and a
+      # value of 1 returns "IFA_ADDRESS" instead of "IFA_F_SECONDARY".
+      # The longest matching prefix is always the first matching prefix because
+      # CONSTANT_PREFIXES must be sorted longest first.
+      if constant_prefixes and prefix != FirstMatching(name, constant_prefixes):
+        continue
+      if name.startswith(prefix):
+        return name
     return value
 
-  def _Decode(self, command, msg, nla_type, nla_data):
+  def _Decode(self, command, msg, nla_type, nla_data, nested):
     """No-op, nonspecific version of decode."""
     return nla_type, nla_data
 
@@ -112,7 +133,7 @@ class NetlinkSocket(object):
 
     return nla, nla_data, data
 
-  def _ParseAttributes(self, command, msg, data, nested=0):
+  def _ParseAttributes(self, command, msg, data, nested):
     """Parses and decodes netlink attributes.
 
     Takes a block of NLAttr data structures, decodes them using Decode, and
@@ -122,7 +143,8 @@ class NetlinkSocket(object):
       command: An integer, the rtnetlink command being carried out.
       msg: A Struct, the type of the data after the netlink header.
       data: A byte string containing a sequence of NLAttr data structures.
-      nested: An integer, how deep we're currently nested.
+      nested: A list, outermost first, of each of the attributes the NLAttrs are
+              nested inside. Empty for non-nested attributes.
 
     Returns:
       A dictionary mapping attribute types (integers) to decoded values.
@@ -135,7 +157,7 @@ class NetlinkSocket(object):
       nla, nla_data, data = self._ReadNlAttr(data)
 
       # If it's an attribute we know about, try to decode it.
-      nla_name, nla_data = self._Decode(command, msg, nla.nla_type, nla_data)
+      nla_name, nla_data = self._Decode(command, msg, nla.nla_type, nla_data, nested)
 
       if nla_name in attributes and nla_name not in DUP_ATTRS_OK:
         raise ValueError("Duplicate attribute %s" % nla_name)
@@ -158,6 +180,14 @@ class NetlinkSocket(object):
     self.seq = 0
     self.sock = self._OpenNetlinkSocket(family, groups)
     self.pid = self.sock.getsockname()[1]
+
+  def close(self):
+    self.sock.close()
+    self.sock = None
+
+  def __del__(self):
+    if self.sock:
+      self.close()
 
   def MaybeDebugCommand(self, command, flags, data):
     # Default no-op implementation to be overridden by subclasses.
@@ -183,9 +213,9 @@ class NetlinkSocket(object):
     # Find the error code.
     hdr, data = cstruct.Read(response, NLMsgHdr)
     if hdr.type == NLMSG_ERROR:
-      error = NLMsgErr(data).error
+      error = -NLMsgErr(data).error
       if error:
-        raise IOError(-error, os.strerror(-error))
+        raise IOError(error, os.strerror(error))
     else:
       raise ValueError("Expected ACK, got type %d" % hdr.type)
 
@@ -220,7 +250,7 @@ class NetlinkSocket(object):
 
     # Parse the attributes in the nlmsg.
     attrlen = nlmsghdr.length - len(nlmsghdr) - len(nlmsg)
-    attributes = self._ParseAttributes(nlmsghdr.type, nlmsg, data[:attrlen])
+    attributes = self._ParseAttributes(nlmsghdr.type, nlmsg, data[:attrlen], [])
     data = data[attrlen:]
     return (nlmsg, attributes), data
 
@@ -241,7 +271,7 @@ class NetlinkSocket(object):
       self._ExpectDone()
     return out
 
-  def _Dump(self, command, msg, msgtype, attrs):
+  def _Dump(self, command, msg, msgtype, attrs=b""):
     """Sends a dump request and returns a list of decoded messages.
 
     Args:
@@ -256,7 +286,7 @@ class NetlinkSocket(object):
     """
     # Create a netlink dump request containing the msg.
     flags = NLM_F_DUMP | NLM_F_REQUEST
-    msg = "" if msg is None else msg.Pack()
+    msg = b"" if msg is None else msg.Pack()
     length = len(NLMsgHdr) + len(msg) + len(attrs)
     nlmsghdr = NLMsgHdr((length, command, flags, self.seq, self.pid))
 

@@ -340,6 +340,8 @@ void MarkSweep::ReclaimPhase() {
   Thread* const self = Thread::Current();
   // Process the references concurrently.
   ProcessReferences(self);
+  // There is no need to sweep interpreter caches as this GC doesn't move
+  // objects and hence would be a nop.
   SweepSystemWeaks(self);
   Runtime* const runtime = Runtime::Current();
   runtime->AllowNewSystemWeaks();
@@ -1127,7 +1129,8 @@ void MarkSweep::VerifySystemWeaks() {
   TimingLogger::ScopedTiming t(__FUNCTION__, GetTimings());
   // Verify system weaks, uses a special object visitor which returns the input object.
   VerifySystemWeakVisitor visitor(this);
-  Runtime::Current()->SweepSystemWeaks(&visitor);
+  Runtime* runtime = Runtime::Current();
+  runtime->SweepSystemWeaks(&visitor);
 }
 
 class MarkSweep::CheckpointMarkThreadRoots : public Closure, public RootVisitor {
@@ -1455,6 +1458,8 @@ inline mirror::Object* MarkSweep::IsMarked(mirror::Object* object) {
   if (current_space_bitmap_->HasAddress(object)) {
     return current_space_bitmap_->Test(object) ? object : nullptr;
   }
+  // This function returns nullptr for objects allocated after marking phase as
+  // they are not marked in the bitmap.
   return mark_bitmap_->Test(object) ? object : nullptr;
 }
 

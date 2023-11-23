@@ -17,6 +17,7 @@
 #ifndef CHRE_TEST_SHARED_SEND_MESSAGE_H_
 #define CHRE_TEST_SHARED_SEND_MESSAGE_H_
 
+#include <pb_encode.h>
 #include <cinttypes>
 
 namespace chre {
@@ -52,6 +53,17 @@ void sendTestResultWithMsgToHost(uint16_t hostEndpointId, uint32_t messageType,
  * @param messageType The message type.
  */
 void sendEmptyMessageToHost(uint16_t hostEndpointId, uint32_t messageType);
+
+/**
+ * Sends a message to the host.
+ *
+ * @param hostEndpointId The endpoint Id of the host to send the message to.
+ * @param message The proto message struct pointer.
+ * @param fields The fields descriptor of the proto message to encode.
+ * @param messageType The message type of the message.
+ */
+void sendMessageToHost(uint16_t hostEndpointId, const void *message,
+                       const pb_field_t *fields, uint32_t messageType);
 
 }  // namespace test_shared
 

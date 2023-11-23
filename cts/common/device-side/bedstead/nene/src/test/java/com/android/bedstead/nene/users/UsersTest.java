@@ -16,13 +16,11 @@
 
 package com.android.bedstead.nene.users;
 
-import static android.app.ActivityManager.STOP_USER_ON_SWITCH_DEFAULT;
-import static android.app.ActivityManager.STOP_USER_ON_SWITCH_FALSE;
-import static android.app.ActivityManager.STOP_USER_ON_SWITCH_TRUE;
 import static android.os.Build.VERSION.SDK_INT;
 
-import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
-import static com.android.bedstead.harrier.UserType.SYSTEM_USER;
+import static com.android.bedstead.nene.types.OptionalBoolean.ANY;
+import static com.android.bedstead.nene.types.OptionalBoolean.FALSE;
+import static com.android.bedstead.nene.types.OptionalBoolean.TRUE;
 import static com.android.bedstead.nene.users.UserType.MANAGED_PROFILE_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SECONDARY_USER_TYPE_NAME;
 import static com.android.bedstead.nene.users.UserType.SYSTEM_USER_TYPE_NAME;
@@ -37,6 +35,7 @@ import android.os.UserHandle;
 
 import com.android.bedstead.harrier.BedsteadJUnit4;
 import com.android.bedstead.harrier.DeviceState;
+import com.android.bedstead.harrier.annotations.EnsureCanAddUser;
 import com.android.bedstead.harrier.annotations.EnsureHasNoSecondaryUser;
 import com.android.bedstead.harrier.annotations.EnsureHasNoWorkProfile;
 import com.android.bedstead.harrier.annotations.EnsureHasSecondaryUser;
@@ -56,10 +55,13 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-@RunWith(BedsteadJUnit4.class)
-public class UsersTest {
+import java.util.Iterator;
+import java.util.Set;
 
-    private static final int MAX_SYSTEM_USERS = UserType.UNLIMITED;
+@RunWith(BedsteadJUnit4.class)
+public final class UsersTest {
+
+    private static final int MAX_SYSTEM_USERS = 1;
     private static final int MAX_SYSTEM_USERS_PER_PARENT = UserType.UNLIMITED;
     private static final String INVALID_TYPE_NAME = "invalidTypeName";
     private static final int MAX_MANAGED_PROFILES = UserType.UNLIMITED;
@@ -125,6 +127,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void all_containsCreatedUser() {
         UserReference user = TestApis.users().createUser().create();
 
@@ -136,6 +139,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser(number = 2)
     public void all_userAddedSinceLastCallToUsers_containsNewUser() {
         UserReference user = TestApis.users().createUser().create();
         TestApis.users().all();
@@ -150,6 +154,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void all_userRemovedSinceLastCallToUsers_doesNotContainRemovedUser() {
         UserReference user = TestApis.users().createUser().create();
         TestApis.users().all();
@@ -159,6 +164,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void find_userExists_returnsUserReference() {
         UserReference user = TestApis.users().createUser().create();
         try {
@@ -184,7 +190,8 @@ public class UsersTest {
     }
 
     @Test
-    public void createUser_additionalSystemUser_throwsException()  {
+    @EnsureCanAddUser
+    public void createUser_additionalSystemUser_throwsException() {
         assertThrows(NeneException.class, () ->
                 TestApis.users().createUser()
                         .type(TestApis.users().supportedType(SYSTEM_USER_TYPE_NAME))
@@ -192,7 +199,8 @@ public class UsersTest {
     }
 
     @Test
-    public void createUser_userIsCreated()  {
+    @EnsureCanAddUser
+    public void createUser_userIsCreated() {
         UserReference user = TestApis.users().createUser().create();
 
         try {
@@ -203,6 +211,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void createUser_createdUserHasCorrectName() {
         UserReference userReference = TestApis.users().createUser()
                 .name(USER_NAME)
@@ -216,6 +225,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void createUser_createdUserHasCorrectTypeName() {
         UserReference userReference = TestApis.users().createUser()
                 .type(mSecondaryUserType)
@@ -229,13 +239,23 @@ public class UsersTest {
     }
 
     @Test
-    public void createUser_specifiesNullUserType_throwsException() {
+    @EnsureCanAddUser
+    public void createUser_specifiesNullStringUserType_throwsException() {
         UserBuilder userBuilder = TestApis.users().createUser();
 
-        assertThrows(NullPointerException.class, () -> userBuilder.type(null));
+        assertThrows(NullPointerException.class, () -> userBuilder.type((String) null));
     }
 
     @Test
+    @EnsureCanAddUser
+    public void createUser_specifiesNullUserType_throwsException() {
+        UserBuilder userBuilder = TestApis.users().createUser();
+
+        assertThrows(NullPointerException.class, () -> userBuilder.type((UserType) null));
+    }
+
+    @Test
+    @EnsureCanAddUser
     public void createUser_specifiesSystemUserType_throwsException() {
         UserType type = TestApis.users().supportedType(SYSTEM_USER_TYPE_NAME);
         UserBuilder userBuilder = TestApis.users().createUser()
@@ -245,6 +265,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void createUser_specifiesSecondaryUserType_createsUser() {
         UserReference user = TestApis.users().createUser().type(mSecondaryUserType).create();
 
@@ -257,11 +278,16 @@ public class UsersTest {
 
     @Test
     @EnsureHasNoDeviceOwner // Device Owners can disable managed profiles
-    @EnsureHasNoWorkProfile(forUser = SYSTEM_USER)
+    @EnsureHasNoWorkProfile
+    @EnsureCanAddUser
     public void createUser_specifiesManagedProfileUserType_createsUser() {
-        UserReference systemUser = TestApis.users().system();
-        UserReference user = TestApis.users().createUser()
-                .type(mManagedProfileType).parent(systemUser).create();
+        UserReference personalUser = TestApis.users().instrumented();
+        UserReference user =
+                TestApis.users()
+                        .createUser()
+                        .type(mManagedProfileType)
+                        .parent(personalUser)
+                        .create();
 
         try {
             assertThat(user.exists()).isTrue();
@@ -271,20 +297,26 @@ public class UsersTest {
     }
 
     @Test
-    @EnsureHasNoWorkProfile(forUser = SYSTEM_USER)
+    @EnsureHasNoWorkProfile
+    @EnsureCanAddUser
     public void createUser_createsProfile_parentIsSet() {
-        UserReference systemUser = TestApis.users().system();
-        UserReference user = TestApis.users().createUser()
-                .type(mManagedProfileType).parent(systemUser).create();
+        UserReference personalUser = TestApis.users().instrumented();
+        UserReference user =
+                TestApis.users()
+                        .createUser()
+                        .type(mManagedProfileType)
+                        .parent(personalUser)
+                        .create();
 
         try {
-            assertThat(user.parent()).isEqualTo(TestApis.users().system());
+            assertThat(user.parent()).isEqualTo(TestApis.users().instrumented());
         } finally {
             user.remove();
         }
     }
 
     @Test
+    @EnsureCanAddUser
     public void createUser_specifiesParentOnNonProfileType_throwsException() {
         UserReference systemUser = TestApis.users().system();
         UserBuilder userBuilder = TestApis.users().createUser()
@@ -294,6 +326,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void createUser_specifiesProfileTypeWithoutParent_throwsException() {
         UserBuilder userBuilder = TestApis.users().createUser()
                 .type(mManagedProfileType);
@@ -302,6 +335,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void createUser_androidLessThanS_createsManagedProfileNotOnSystemUser_throwsException() {
         assumeTrue("After Android S, managed profiles may be a profile of a non-system user",
                 SDK_INT < Build.VERSION_CODES.S);
@@ -320,6 +354,7 @@ public class UsersTest {
     }
 
     @Test
+    @EnsureCanAddUser
     public void createAndStart_isStarted() {
         UserReference user = null;
 
@@ -358,8 +393,10 @@ public class UsersTest {
 
     @Test
     @EnsureHasSecondaryUser
-    @Ignore("TODO: Re-enable when harrier .secondaryUser() only"
-            + " returns the harrier-managed secondary user")
+    @Ignore(
+            "TODO: Re-enable when harrier .secondaryUser() only"
+                    + " returns the harrier-managed secondary user")
+    @EnsureCanAddUser
     public void findUsersOfType_returnsUsers() {
         try (UserReference additionalUser = TestApis.users().createUser().create()) {
             assertThat(TestApis.users().findUsersOfType(mSecondaryUserType))
@@ -387,6 +424,7 @@ public class UsersTest {
 
     @Test
     @EnsureHasSecondaryUser
+    @EnsureCanAddUser
     public void findUserOfType_multipleMatchingUsers_throwsException() {
         try (UserReference additionalUser = TestApis.users().createUser().create()) {
             assertThrows(NeneException.class,
@@ -395,8 +433,15 @@ public class UsersTest {
     }
 
     @Test
-    @EnsureHasSecondaryUser // TODO(scottjonathan): This should have a way of specifying exactly 1
+    @EnsureHasSecondaryUser
     public void findUserOfType_oneMatchingUser_returnsUser() {
+        Set<UserReference> users = TestApis.users().findUsersOfType(mSecondaryUserType);
+        Iterator<UserReference> i = users.iterator();
+        i.next(); // Skip the first one so we leave one
+        while (i.hasNext()) {
+            i.next().remove();
+        }
+
         assertThat(TestApis.users().findUserOfType(mSecondaryUserType)).isNotNull();
     }
 
@@ -489,10 +534,11 @@ public class UsersTest {
     @Test
     @RequireRunNotOnSecondaryUser
     @EnsureHasSecondaryUser
-    @RequireHeadlessSystemUserMode
+    @RequireHeadlessSystemUserMode(reason = "stopBgUsersOnSwitch is only for headless")
     public void switch_hasSetStopBgUsersOnSwitch_stopsUser() throws Exception {
         try {
-            TestApis.users().setStopBgUsersOnSwitch(STOP_USER_ON_SWITCH_TRUE);
+            sDeviceState.secondaryUser().switchTo();
+            TestApis.users().setStopBgUsersOnSwitch(TRUE);
             TestApis.users().system().switchTo();
 
             Poll.forValue("Secondary user running",
@@ -504,7 +550,7 @@ public class UsersTest {
             assertThat(sDeviceState.secondaryUser().isRunning()).isFalse();
         } finally {
             sDeviceState.secondaryUser().start();
-            TestApis.users().setStopBgUsersOnSwitch(STOP_USER_ON_SWITCH_DEFAULT);
+            TestApis.users().setStopBgUsersOnSwitch(ANY);
         }
     }
 
@@ -512,12 +558,12 @@ public class UsersTest {
     @RequireRunOnSecondaryUser
     public void switch_hasSetStopBgUsersOnSwitchFalse_doesNotStopUser() {
         try {
-            TestApis.users().setStopBgUsersOnSwitch(STOP_USER_ON_SWITCH_FALSE);
+            TestApis.users().setStopBgUsersOnSwitch(FALSE);
             TestApis.users().system().switchTo();
 
             assertThat(sDeviceState.secondaryUser().isRunning()).isTrue();
         } finally {
-            TestApis.users().setStopBgUsersOnSwitch(STOP_USER_ON_SWITCH_DEFAULT);
+            TestApis.users().setStopBgUsersOnSwitch(ANY);
             sDeviceState.secondaryUser().start();
             sDeviceState.secondaryUser().switchTo();
         }

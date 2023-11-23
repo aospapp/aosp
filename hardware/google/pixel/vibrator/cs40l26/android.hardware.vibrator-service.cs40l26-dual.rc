@@ -1,25 +1,3 @@
-on boot && property:vendor.all.modules.ready=1
-    wait /sys/bus/i2c/devices/i2c-cs40l26a-dual/calibration/redc_cal_time_ms
-
-    mkdir /mnt/vendor/persist/haptics 0770 system system
-    chmod 770 /mnt/vendor/persist/haptics
-    chmod 440 /mnt/vendor/persist/haptics/cs40l26_dual.cal
-    chown system system /mnt/vendor/persist/haptics
-    chown system system /mnt/vendor/persist/haptics/cs40l26_dual.cal
-
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/calibration/f0_stored
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/calibration/q_stored
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/calibration/redc_stored
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/vibe_state
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/num_waves
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/f0_offset
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/owt_free_space
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/f0_comp_enable
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/redc_comp_enable
-    chown system system /sys/bus/i2c/devices/i2c-cs40l26a-dual/default/delay_before_stop_playback_us
-
-    enable vendor.vibrator.cs40l26-dual
-
 service vendor.vibrator.cs40l26-dual /vendor/bin/hw/android.hardware.vibrator-service.cs40l26-dual
     class hal
     user system
@@ -29,7 +7,6 @@ service vendor.vibrator.cs40l26-dual /vendor/bin/hw/android.hardware.vibrator-se
     setenv PROPERTY_PREFIX ro.vendor.vibrator.hal.
     setenv CALIBRATION_FILEPATH /mnt/vendor/persist/haptics/cs40l26_dual.cal
 
-    setenv HWAPI_PATH_PREFIX /sys/bus/i2c/devices/i2c-cs40l26a-dual/
     setenv HWAPI_DEBUG_PATHS "
         calibration/f0_stored
         calibration/redc_stored
@@ -42,5 +19,7 @@ service vendor.vibrator.cs40l26-dual /vendor/bin/hw/android.hardware.vibrator-se
         default/redc_comp_enable
         default/delay_before_stop_playback_us
         "
+
+    setenv STATS_INSTANCE default
 
     disabled

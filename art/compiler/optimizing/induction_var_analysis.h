@@ -21,11 +21,12 @@
 
 #include "base/arena_containers.h"
 #include "base/array_ref.h"
+#include "base/macros.h"
 #include "base/scoped_arena_containers.h"
 #include "nodes.h"
 #include "optimization.h"
 
-namespace art {
+namespace art HIDDEN {
 
 /**
  * Induction variable analysis. This class does not have a direct public API.
@@ -38,7 +39,9 @@ namespace art {
  */
 class HInductionVarAnalysis : public HOptimization {
  public:
-  explicit HInductionVarAnalysis(HGraph* graph, const char* name = kInductionPassName);
+  explicit HInductionVarAnalysis(HGraph* graph,
+                                 OptimizingCompilerStats* stats = nullptr,
+                                 const char* name = kInductionPassName);
 
   bool Run() override;
 
@@ -306,6 +309,15 @@ class HInductionVarAnalysis : public HOptimization {
   static bool InductionEqual(InductionInfo* info1, InductionInfo* info2);
   static std::string FetchToString(HInstruction* fetch);
   static std::string InductionToString(InductionInfo* info);
+
+  // Returns true if we have a pathological case we don't want to analyze.
+  bool IsPathologicalCase();
+  // Starting with initial_phi, it calculates how many loop header phis in a row we have. To do
+  // this, we count the loop header phi which are used as an input of other loop header phis. It
+  // uses `cached_values` to avoid recomputing results.
+  void CalculateLoopHeaderPhisInARow(HPhi* initial_phi,
+                                     ScopedArenaSafeMap<HPhi*, int>& cached_values,
+                                     ScopedArenaAllocator& allocator);
 
   /**
    * Maintains the results of the analysis as a mapping from loops to a mapping from instructions

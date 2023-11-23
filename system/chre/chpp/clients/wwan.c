@@ -20,6 +20,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "chpp/app.h"
 #include "chpp/clients/discovery.h"
@@ -528,6 +529,7 @@ static void chppWwanClientReleaseCellInfoResult(
  ***********************************************/
 
 void chppRegisterWwanClient(struct ChppAppState *appContext) {
+  memset(&gWwanClientContext, 0, sizeof(gWwanClientContext));
   chppRegisterClient(appContext, (void *)&gWwanClientContext,
                      &gWwanClientContext.client, gWwanClientContext.rRState,
                      &kWwanClientConfig);

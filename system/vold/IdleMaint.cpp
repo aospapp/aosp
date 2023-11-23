@@ -86,7 +86,6 @@ static const int DIRTY_SEGMENTS_THRESHOLD = 100;
 static const int GC_TIMEOUT_SEC = 420;
 static const int DEVGC_TIMEOUT_SEC = 120;
 static const int KBYTES_IN_SEGMENT = 2048;
-static const int MIN_GC_URGENT_SLEEP_TIME = 500;
 static const int ONE_MINUTE_IN_MS = 60000;
 static const int GC_NORMAL_MODE = 0;
 static const int GC_URGENT_MID_MODE = 3;
@@ -509,9 +508,10 @@ int32_t GetStorageLifeTime() {
 }
 
 void SetGCUrgentPace(int32_t neededSegments, int32_t minSegmentThreshold, float dirtyReclaimRate,
-                     float reclaimWeight, int32_t gcPeriod) {
+                     float reclaimWeight, int32_t gcPeriod, int32_t minGCSleepTime,
+                     int32_t targetDirtyRatio) {
     std::list<std::string> paths;
-    bool needGC = true;
+    bool needGC = false;
     int32_t sleepTime;
 
     addFromFstab(&paths, PathTypes::kBlkDevice, true);
@@ -554,25 +554,36 @@ void SetGCUrgentPace(int32_t neededSegments, int32_t minSegmentThreshold, float 
     int32_t reservedBlocks = std::stoi(ovpSegmentsStr) + std::stoi(reservedBlocksStr);
 
     freeSegments = freeSegments > reservedBlocks ? freeSegments - reservedBlocks : 0;
-    neededSegments *= reclaimWeight;
-    if (freeSegments >= neededSegments) {
-        LOG(INFO) << "Enough free segments: " << freeSegments
-                   << ", needed segments: " << neededSegments;
-        needGC = false;
-    } else if (freeSegments + dirtySegments < minSegmentThreshold) {
+    int32_t totalSegments = freeSegments + dirtySegments;
+    int32_t finalTargetSegments = 0;
+
+    if (totalSegments < minSegmentThreshold) {
         LOG(INFO) << "The sum of free segments: " << freeSegments
-                   << ", dirty segments: " << dirtySegments << " is under " << minSegmentThreshold;
-        needGC = false;
+                  << ", dirty segments: " << dirtySegments << " is under " << minSegmentThreshold;
     } else {
-        neededSegments -= freeSegments;
-        neededSegments = std::min(neededSegments, (int32_t)(dirtySegments * dirtyReclaimRate));
-        if (neededSegments == 0) {
-            LOG(INFO) << "Low dirty segments: " << dirtySegments;
-            needGC = false;
+        int32_t dirtyRatio = dirtySegments * 100 / totalSegments;
+        int32_t neededForTargetRatio =
+                (dirtyRatio > targetDirtyRatio)
+                        ? totalSegments * (dirtyRatio - targetDirtyRatio) / 100
+                        : 0;
+        neededSegments *= reclaimWeight;
+        neededSegments = (neededSegments > freeSegments) ? neededSegments - freeSegments : 0;
+
+        finalTargetSegments = std::max(neededSegments, neededForTargetRatio);
+        if (finalTargetSegments == 0) {
+            LOG(INFO) << "Enough free segments: " << freeSegments;
         } else {
-            sleepTime = gcPeriod * ONE_MINUTE_IN_MS / neededSegments;
-            if (sleepTime < MIN_GC_URGENT_SLEEP_TIME) {
-                sleepTime = MIN_GC_URGENT_SLEEP_TIME;
+            finalTargetSegments =
+                    std::min(finalTargetSegments, (int32_t)(dirtySegments * dirtyReclaimRate));
+            if (finalTargetSegments == 0) {
+                LOG(INFO) << "Low dirty segments: " << dirtySegments;
+            } else if (neededSegments >= neededForTargetRatio) {
+                LOG(INFO) << "Trigger GC, because of needed segments exceeding free segments";
+                needGC = true;
+            } else {
+                LOG(INFO) << "Trigger GC for target dirty ratio diff of: "
+                          << dirtyRatio - targetDirtyRatio;
+                needGC = true;
             }
         }
     }
@@ -582,6 +593,11 @@ void SetGCUrgentPace(int32_t neededSegments, int32_t minSegmentThreshold, float 
             PLOG(WARNING) << "Writing failed in " << gcUrgentModePath;
         }
         return;
+    }
+
+    sleepTime = gcPeriod * ONE_MINUTE_IN_MS / finalTargetSegments;
+    if (sleepTime < minGCSleepTime) {
+        sleepTime = minGCSleepTime;
     }
 
     if (!WriteStringToFile(std::to_string(sleepTime), gcSleepTimePath)) {
@@ -595,8 +611,8 @@ void SetGCUrgentPace(int32_t neededSegments, int32_t minSegmentThreshold, float 
     }
 
     LOG(INFO) << "Successfully set gc urgent mode: "
-               << "free segments: " << freeSegments << ", reclaim target: " << neededSegments
-               << ", sleep time: " << sleepTime;
+              << "free segments: " << freeSegments << ", reclaim target: " << finalTargetSegments
+              << ", sleep time: " << sleepTime;
 }
 
 static int32_t getLifeTimeWrite() {
@@ -614,7 +630,12 @@ static int32_t getLifeTimeWrite() {
         return -1;
     }
 
-    long long writeBytes = std::stoll(writeKbytesStr);
+    unsigned long long writeBytes = std::strtoull(writeKbytesStr.c_str(), NULL, 0);
+    /* Careful: values > LLONG_MAX can appear in the file due to a kernel bug. */
+    if (writeBytes / KBYTES_IN_SEGMENT > INT32_MAX) {
+        LOG(WARNING) << "Bad lifetime_write_kbytes: " << writeKbytesStr;
+        return -1;
+    }
     return writeBytes / KBYTES_IN_SEGMENT;
 }
 

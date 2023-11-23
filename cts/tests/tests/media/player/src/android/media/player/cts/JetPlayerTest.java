@@ -16,17 +16,27 @@
 
 package android.media.player.cts;
 
-import android.media.player.cts.R;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
-import android.content.res.AssetFileDescriptor;
+import android.content.Context;
 import android.media.JetPlayer;
 import android.media.JetPlayer.OnJetEventListener;
-import android.media.cts.NonMediaMainlineTest;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Looper;
 import android.platform.test.annotations.AppModeFull;
-import android.test.AndroidTestCase;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -34,8 +44,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-@NonMediaMainlineTest
-public class JetPlayerTest extends AndroidTestCase {
+@NonMainlineTest
+@RunWith(AndroidJUnit4.class)
+public class JetPlayerTest {
     private OnJetEventListener mOnJetEventListener;
     private boolean mOnJetUserIdUpdateCalled;
     private boolean mOnJetPauseUpdateCalled;
@@ -46,17 +57,19 @@ public class JetPlayerTest extends AndroidTestCase {
     private Handler mHandler = new Handler(Looper.getMainLooper());
     private final JetPlayer mJetPlayer = JetPlayer.getJetPlayer();
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
+    private Context mContext;
+
+    @Before
+    public void setUp() throws Exception {
+        mContext = InstrumentationRegistry.getInstrumentation().getContext();
         mOnJetEventListener  = new MockOnJetEventListener();
         mJetFile =
             new File(Environment.getExternalStorageDirectory(), "test.jet").getAbsolutePath();
         assertTrue(JetPlayer.getMaxTracks() > 0);
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         // Prevent tests from failing with EAS_ERROR_FILE_ALREADY_OPEN
         // after a previous test fails.
         mJetPlayer.closeJetFile();
@@ -65,9 +78,10 @@ public class JetPlayerTest extends AndroidTestCase {
         if (jetFile.exists()) {
             jetFile.delete();
         }
-        super.tearDown();
+        mContext = null;
     }
 
+    @Test
     @AppModeFull(reason = "Instant apps cannot access the SD card")
     public void testLoadJetFromPath() throws Throwable {
         assertTrue(mJetPlayer.clearQueue());
@@ -77,6 +91,7 @@ public class JetPlayerTest extends AndroidTestCase {
         runJet();
     }
 
+    @Test
     public void testLoadJetFromFd() throws Throwable {
         assertTrue(mJetPlayer.clearQueue());
         mJetPlayer.setEventListener(mOnJetEventListener, mHandler);
@@ -84,6 +99,7 @@ public class JetPlayerTest extends AndroidTestCase {
         runJet();
     }
 
+    @Test
     public void testQueueJetSegmentMuteArray() throws Throwable {
         assertTrue(mJetPlayer.clearQueue());
         mJetPlayer.setEventListener(mOnJetEventListener, mHandler);
@@ -169,6 +185,7 @@ public class JetPlayerTest extends AndroidTestCase {
         assertTrue(mOnJetUserIdUpdateCalled);
     }
 
+    @Test
     public void testClone() throws Exception {
         try {
             mJetPlayer.clone();

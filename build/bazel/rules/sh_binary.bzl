@@ -11,6 +11,7 @@ def sh_binary(
         srcs,
         sub_dir = None,
         filename = None,
+        tags = [],
         **kwargs):
     "Bazel macro to correspond with the sh_binary Soong module."
 
@@ -18,6 +19,7 @@ def sh_binary(
     native.sh_binary(
         name = internal_name,
         srcs = srcs,
+        tags = ["manual"],
         **kwargs
     )
 
@@ -28,6 +30,7 @@ def sh_binary(
         sub_dir = sub_dir,
         filename = filename,
         dep = internal_name,
+        tags = tags,
     )
 
 def _sh_binary_combiner_impl(ctx):

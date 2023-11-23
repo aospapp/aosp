@@ -25,15 +25,20 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Configuration;
+import android.graphics.Paint;
+import android.graphics.Typeface;
 import android.os.Bundle;
 import android.theme.app.modifiers.AbstractLayoutModifier;
 import android.util.Log;
+import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager.LayoutParams;
 import android.widget.DatePicker;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * A activity which display various UI elements with non-modifiable themes.
@@ -56,9 +61,23 @@ public class ThemeDeviceActivity extends Activity {
     private int mLayoutIndex;
     private boolean mIsRunning;
 
+    private Pair<List<Typeface>, List<Typeface>> mOldFontFamilies;
+
     @Override
     protected void onCreate(Bundle icicle) {
         super.onCreate(icicle);
+
+        File fontFile = TypefaceTestUtil.getFirstFont("abc", new Paint());
+        if (!fontFile.getName().startsWith("Roboto")) {
+            Typeface robotoRegular = TypefaceTestUtil.getRobotoTypeface(400, false);
+            Typeface robotoBold = Typeface.create(robotoRegular, 700, false);
+            Typeface robotoItalic = Typeface.create(robotoRegular, 400, true);
+            Typeface robotoBoldItalic = Typeface.create(robotoRegular, 700, true);
+
+            mOldFontFamilies = Typeface.changeDefaultFontForTest(
+                    Arrays.asList(robotoRegular, robotoBold, robotoItalic, robotoBoldItalic),
+                    Arrays.asList(robotoRegular, Typeface.SERIF, Typeface.MONOSPACE));
+        }
 
         final Intent intent = getIntent();
         final int themeIndex = intent.getIntExtra(EXTRA_THEME, -1);
@@ -129,6 +148,10 @@ public class ThemeDeviceActivity extends Activity {
     protected void onDestroy() {
         if (mLayoutIndex < LAYOUTS.length) {
             finish("Only rendered " + mLayoutIndex + "/" + LAYOUTS.length + " layouts", false);
+        }
+
+        if (mOldFontFamilies != null) {
+            Typeface.changeDefaultFontForTest(mOldFontFamilies.first, mOldFontFamilies.second);
         }
 
         super.onDestroy();

@@ -22,7 +22,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/google/blueprint"
 	"github.com/google/blueprint/parser"
 	"github.com/google/blueprint/proptools"
 
@@ -241,12 +240,7 @@ type SoongConfigDefinition struct {
 // string vars, bool vars and value vars created by every
 // soong_config_module_type in this build.
 type Bp2BuildSoongConfigDefinitions struct {
-	// varCache contains a cache of string variables namespace + property
-	// The same variable may be used in multiple module types (for example, if need support
-	// for cc_default and java_default), only need to process once
-	varCache map[string]bool
-
-	StringVars map[string][]string
+	StringVars map[string]map[string]bool
 	BoolVars   map[string]bool
 	ValueVars  map[string]bool
 }
@@ -256,7 +250,7 @@ var bp2buildSoongConfigVarsLock sync.Mutex
 // SoongConfigVariablesForBp2build extracts information from a
 // SoongConfigDefinition that bp2build needs to generate constraint settings and
 // values for, in order to migrate soong_config_module_type usages to Bazel.
-func (defs *Bp2BuildSoongConfigDefinitions) AddVars(mtDef SoongConfigDefinition) {
+func (defs *Bp2BuildSoongConfigDefinitions) AddVars(mtDef *SoongConfigDefinition) {
 	// In bp2build mode, this method is called concurrently in goroutines from
 	// loadhooks while parsing soong_config_module_type, so add a mutex to
 	// prevent concurrent map writes. See b/207572723
@@ -264,7 +258,7 @@ func (defs *Bp2BuildSoongConfigDefinitions) AddVars(mtDef SoongConfigDefinition)
 	defer bp2buildSoongConfigVarsLock.Unlock()
 
 	if defs.StringVars == nil {
-		defs.StringVars = make(map[string][]string)
+		defs.StringVars = make(map[string]map[string]bool)
 	}
 	if defs.BoolVars == nil {
 		defs.BoolVars = make(map[string]bool)
@@ -272,24 +266,29 @@ func (defs *Bp2BuildSoongConfigDefinitions) AddVars(mtDef SoongConfigDefinition)
 	if defs.ValueVars == nil {
 		defs.ValueVars = make(map[string]bool)
 	}
-	if defs.varCache == nil {
-		defs.varCache = make(map[string]bool)
-	}
+	// varCache contains a cache of string variables namespace + property
+	// The same variable may be used in multiple module types (for example, if need support
+	// for cc_default and java_default), only need to process once
+	varCache := map[string]bool{}
+
 	for _, moduleType := range mtDef.ModuleTypes {
 		for _, v := range moduleType.Variables {
 			key := strings.Join([]string{moduleType.ConfigNamespace, v.variableProperty()}, "__")
 
 			// The same variable may be used in multiple module types (for example, if need support
 			// for cc_default and java_default), only need to process once
-			if _, keyInCache := defs.varCache[key]; keyInCache {
+			if _, keyInCache := varCache[key]; keyInCache {
 				continue
 			} else {
-				defs.varCache[key] = true
+				varCache[key] = true
 			}
 
 			if strVar, ok := v.(*stringVariable); ok {
+				if _, ok := defs.StringVars[key]; !ok {
+					defs.StringVars[key] = make(map[string]bool, len(strVar.values))
+				}
 				for _, value := range strVar.values {
-					defs.StringVars[key] = append(defs.StringVars[key], value)
+					defs.StringVars[key][value] = true
 				}
 			} else if _, ok := v.(*boolVariable); ok {
 				defs.BoolVars[key] = true
@@ -330,8 +329,13 @@ func (defs Bp2BuildSoongConfigDefinitions) String() string {
 	ret += starlark_fmt.PrintBoolDict(defs.ValueVars, 0)
 	ret += "\n\n"
 
+	stringVars := make(map[string][]string, len(defs.StringVars))
+	for k, v := range defs.StringVars {
+		stringVars[k] = sortedStringKeys(v)
+	}
+
 	ret += "soong_config_string_variables = "
-	ret += starlark_fmt.PrintStringListDict(defs.StringVars, 0)
+	ret += starlark_fmt.PrintStringListDict(stringVars, 0)
 
 	return ret
 }
@@ -343,27 +347,29 @@ func (defs Bp2BuildSoongConfigDefinitions) String() string {
 //
 // For example, the acme_cc_defaults example above would
 // produce a reflect.Value whose type is:
-// *struct {
-//     Soong_config_variables struct {
-//         Board struct {
-//             Soc_a interface{}
-//             Soc_b interface{}
-//         }
-//     }
-// }
+//
+//	*struct {
+//	    Soong_config_variables struct {
+//	        Board struct {
+//	            Soc_a interface{}
+//	            Soc_b interface{}
+//	        }
+//	    }
+//	}
+//
 // And whose value is:
-// &{
-//     Soong_config_variables: {
-//         Board: {
-//             Soc_a: (*struct{ Cflags []string })(nil),
-//             Soc_b: (*struct{ Cflags []string })(nil),
-//         },
-//     },
-// }
-func CreateProperties(factory blueprint.ModuleFactory, moduleType *ModuleType) reflect.Value {
+//
+//	&{
+//	    Soong_config_variables: {
+//	        Board: {
+//	            Soc_a: (*struct{ Cflags []string })(nil),
+//	            Soc_b: (*struct{ Cflags []string })(nil),
+//	        },
+//	    },
+//	}
+func CreateProperties(factoryProps []interface{}, moduleType *ModuleType) reflect.Value {
 	var fields []reflect.StructField
 
-	_, factoryProps := factory()
 	affectablePropertiesType := createAffectablePropertiesType(moduleType.affectableProperties, factoryProps)
 	if affectablePropertiesType == nil {
 		return reflect.Value{}
@@ -639,9 +645,13 @@ func (s *stringVariable) initializeProperties(v reflect.Value, typ reflect.Type)
 // Extracts an interface from values containing the properties to apply based on config.
 // If config does not match a value with a non-nil property set, the default value will be returned.
 func (s *stringVariable) PropertiesToApply(config SoongConfig, values reflect.Value) (interface{}, error) {
+	configValue := config.String(s.variable)
+	if configValue != "" && !InList(configValue, s.values) {
+		return nil, fmt.Errorf("Soong config property %q must be one of %v, found %q", s.variable, s.values, configValue)
+	}
 	for j, v := range s.values {
 		f := values.Field(j)
-		if config.String(s.variable) == v && !f.Elem().IsNil() {
+		if configValue == v && !f.Elem().IsNil() {
 			return f.Interface(), nil
 		}
 	}
@@ -858,3 +868,13 @@ type emptyInterfaceStruct struct {
 }
 
 var emptyInterfaceType = reflect.TypeOf(emptyInterfaceStruct{}).Field(0).Type
+
+// InList checks if the string belongs to the list
+func InList(s string, list []string) bool {
+	for _, s2 := range list {
+		if s2 == s {
+			return true
+		}
+	}
+	return false
+}

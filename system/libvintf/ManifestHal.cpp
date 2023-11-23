@@ -26,8 +26,6 @@
 namespace android {
 namespace vintf {
 
-using details::canConvertToFqInstance;
-
 bool ManifestHal::isValid(std::string* error) const {
     if (error) {
         error->clear();
@@ -44,20 +42,6 @@ bool ManifestHal::isValid(std::string* error) const {
         if (error) {
             *error += "Duplicated major version: " + to_string(v) + " vs. " +
                       to_string(it->second) + ".\n";
-        }
-    }
-
-    // Check legacy instances (i.e. <version> + <interface> + <instance>) can be
-    // converted into FqInstance because forEachInstance relies on FqInstance.
-    for (const auto& v : versions) {
-        for (const auto& intf : iterateValues(interfaces)) {
-            intf.forEachInstance(
-                [&](const auto& interface, const auto& instance, bool /* isRegex */) {
-                    if (!canConvertToFqInstance(getName(), v, interface, instance, format, error)) {
-                        success = false;
-                    }
-                    return true;  // continue
-                });
         }
     }
 
@@ -78,35 +62,14 @@ bool ManifestHal::operator==(const ManifestHal &other) const {
     if (versions != other.versions)
         return false;
     if (!(transportArch == other.transportArch)) return false;
-    if (interfaces != other.interfaces) return false;
     if (isOverride() != other.isOverride()) return false;
     if (updatableViaApex() != other.updatableViaApex()) return false;
-    if (mAdditionalInstances != other.mAdditionalInstances) return false;
+    if (mManifestInstances != other.mManifestInstances) return false;
     return true;
 }
 
 bool ManifestHal::forEachInstance(const std::function<bool(const ManifestInstance&)>& func) const {
-    for (const auto& v : versions) {
-        for (const auto& intf : iterateValues(interfaces)) {
-            bool cont = intf.forEachInstance([&](const auto& interface, const auto& instance,
-                                                 bool /* isRegex */) {
-                // TODO(b/73556059): Store ManifestInstance as well to avoid creating temps
-                FqInstance fqInstance;
-                if (fqInstance.setTo(getName(), v.majorVer, v.minorVer, interface, instance)) {
-                    if (!func(ManifestInstance(std::move(fqInstance), TransportArch{transportArch},
-                                               format, updatableViaApex()))) {
-                        return false;
-                    }
-                }
-                return true;
-            });
-            if (!cont) {
-                return false;
-            }
-        }
-    }
-
-    for (const auto& manifestInstance : mAdditionalInstances) {
+    for (const auto& manifestInstance : mManifestInstances) {
         // For AIDL HALs, <version> tag is mangled with <fqname>. Note that if there's no
         // <version> tag, libvintf will create one by default, so each <fqname> is executed
         // at least once.
@@ -156,7 +119,7 @@ bool ManifestHal::verifyInstance(const FqInstance& fqInstance, std::string* erro
         if (error) *error = "Should specify version: \"" + fqInstance.string() + "\"";
         return false;
     }
-    if (!fqInstance.hasInterface()) {
+    if (!fqInstance.hasInterface() && format != HalFormat::NATIVE) {
         if (error) *error = "Should specify interface: \"" + fqInstance.string() + "\"";
         return false;
     }
@@ -167,26 +130,38 @@ bool ManifestHal::verifyInstance(const FqInstance& fqInstance, std::string* erro
     return true;
 }
 
-bool ManifestHal::insertInstances(const std::set<FqInstance>& fqInstances, std::string* error) {
+bool ManifestHal::insertInstances(const std::set<FqInstance>& fqInstances,
+                                  bool allowDupMajorVersion, std::string* error) {
     for (const FqInstance& e : fqInstances) {
-        if (!insertInstance(e, error)) {
+        if (!insertInstance(e, allowDupMajorVersion, error)) {
             return false;
         }
     }
     return true;
 }
 
-bool ManifestHal::insertInstance(const FqInstance& e, std::string* error) {
+bool ManifestHal::insertInstance(const FqInstance& e, bool allowDupMajorVersion,
+                                 std::string* error) {
     if (!verifyInstance(e, error)) {
         return false;
     }
 
     size_t minorVer = e.getMinorVersion();
-    for (auto it = mAdditionalInstances.begin(); it != mAdditionalInstances.end();) {
+    for (auto it = mManifestInstances.begin(); it != mManifestInstances.end();) {
         if (it->version().majorVer == e.getMajorVersion() && it->interface() == e.getInterface() &&
             it->instance() == e.getInstance()) {
+            if (!allowDupMajorVersion) {
+                if (format == HalFormat::AIDL) {
+                    *error = "Duplicated HAL version: " + to_string(it->version().minorVer) +
+                             " vs " + to_string(e.getMinorVersion());
+                } else {
+                    *error = "Duplicated major version: " + to_string(it->version()) + " vs " +
+                             to_string(Version(e.getMajorVersion(), e.getMinorVersion()));
+                }
+                return false;
+            }
             minorVer = std::max(minorVer, it->version().minorVer);
-            it = mAdditionalInstances.erase(it);
+            it = mManifestInstances.erase(it);
         } else {
             ++it;
         }
@@ -203,8 +178,8 @@ bool ManifestHal::insertInstance(const FqInstance& e, std::string* error) {
         return false;
     }
 
-    mAdditionalInstances.emplace(std::move(toAdd), this->transportArch, this->format,
-                                 this->updatableViaApex());
+    mManifestInstances.emplace(std::move(toAdd), this->transportArch, this->format,
+                               this->updatableViaApex());
     return true;
 }
 

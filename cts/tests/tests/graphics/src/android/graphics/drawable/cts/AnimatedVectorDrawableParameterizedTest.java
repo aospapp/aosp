@@ -40,6 +40,7 @@ import androidx.test.filters.LargeTest;
 import androidx.test.filters.SmallTest;
 import androidx.test.rule.ActivityTestRule;
 
+import com.android.compatibility.common.util.OverrideAnimationScaleRule;
 import com.android.compatibility.common.util.SynchronousPixelCopy;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.compatibility.common.util.WidgetTestUtils;
@@ -62,6 +63,12 @@ public class AnimatedVectorDrawableParameterizedTest {
     @Rule
     public ActivityTestRule<DrawableStubActivity> mActivityRule =
             new ActivityTestRule<>(DrawableStubActivity.class);
+
+    // Some of these tests require animations to work normally, which may not be the case
+    // depending on the current state of the test device
+    @Rule
+    public final OverrideAnimationScaleRule animationScaleRule =
+            new OverrideAnimationScaleRule(1f);
 
     private static final int IMAGE_WIDTH = 64;
     private static final int IMAGE_HEIGHT = 64;

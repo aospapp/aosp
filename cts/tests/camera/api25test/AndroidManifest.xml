@@ -23,6 +23,8 @@
 
     <application android:largeHeap="true">
         <uses-library android:name="android.test.runner" />
+        <property android:name="android.camera.PROPERTY_COMPAT_OVERRIDE_LANDSCAPE_TO_PORTRAIT"
+                  android:value="false" />
         <activity android:name="android.camera.cts.api25test.EnableZslTestActivity"
             android:label="EnableZslTestActivity">
         </activity>

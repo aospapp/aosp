@@ -47,6 +47,9 @@ abstract class AudioWiredDeviceBaseActivity extends PassFailButtons.Activity {
     protected static final String KEY_ROUTING_RECEIVED = "routing_received";
     protected static final String KEY_CONNECTED_PERIPHERAL = "routing_connected_peripheral";
 
+    AudioWiredDeviceBaseActivity() {
+    }
+
     private void recordWiredPortFound(boolean found) {
         getReportLog().addValue(
                 "User Reported Wired Port",
@@ -82,7 +85,22 @@ abstract class AudioWiredDeviceBaseActivity extends PassFailButtons.Activity {
         }
     }
 
-    protected void storeTestResults() {
+    //
+    // PassFailButtons Overrides
+    //
+    @Override
+    public boolean requiresReportLog() {
+        return true;
+    }
+
+    @Override
+    public String getReportFileName() {
+        return PassFailButtons.AUDIO_TESTS_REPORT_LOG_NAME;
+    }
+
+    @Override
+    public void recordTestResults() {
+        // Subclasses should submit after adding their data
         CtsVerifierReportLog reportLog = getReportLog();
         reportLog.addValue(
                 KEY_WIRED_PORT_SUPPORTED,
@@ -95,20 +113,5 @@ abstract class AudioWiredDeviceBaseActivity extends PassFailButtons.Activity {
                 mConnectedPeripheralName,
                 ResultType.NEUTRAL,
                 ResultUnit.NONE);
-    }
-
-    //
-    // PassFailButtons Overrides
-    //
-    @Override
-    public String getReportFileName() {
-        return PassFailButtons.AUDIO_TESTS_REPORT_LOG_NAME;
-    }
-
-    @Override
-    public void recordTestResults() {
-        storeTestResults();
-
-        getReportLog().submit();
     }
 }

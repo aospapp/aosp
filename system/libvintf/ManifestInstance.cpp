@@ -63,7 +63,7 @@ Version ManifestInstance::version() const {
     return mFqInstance.getVersion();
 }
 
-const std::string& ManifestInstance::interface() const {
+std::string ManifestInstance::interface() const {
     return mFqInstance.getInterface();
 }
 

@@ -50,6 +50,7 @@ cc_defaults {
     compile_multilib: "both",
 
     shared_libs: [
+        "libartpalette",
         "libbase",
         "liblog",
     ],
@@ -68,6 +69,12 @@ cc_defaults {
     header_libs: [
         "libnativehelper_header_only",
     ],
+    // FIXME: Workaround LTO build breakage
+    // http://b/241700157
+    lto: {
+        never: true,
+    },
+
 }
 
 art_cc_library {
@@ -81,6 +88,7 @@ art_cc_library {
     apex_available: [
         "com.android.art",
         "com.android.art.debug",
+        "test_broken_com.android.art",
     ],
 }
 

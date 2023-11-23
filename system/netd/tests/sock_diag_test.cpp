@@ -21,6 +21,7 @@
 #include <linux/inet_diag.h>
 
 #include <gtest/gtest.h>
+#include <netdutils/NetNativeTestBase.h>
 
 #include "NetdConstants.h"
 #include "SockDiag.h"
@@ -29,7 +30,7 @@
 #define NUM_SOCKETS 500
 
 
-class SockDiagTest : public ::testing::Test {
+class SockDiagTest : public NetNativeTestBase {
 };
 
 uint16_t bindAndListen(int s) {

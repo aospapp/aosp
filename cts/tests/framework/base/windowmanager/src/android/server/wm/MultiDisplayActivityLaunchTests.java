@@ -34,6 +34,7 @@ import static android.server.wm.ActivityLauncher.KEY_USE_APPLICATION_CONTEXT;
 import static android.server.wm.CliIntentExtra.extraBool;
 import static android.server.wm.CliIntentExtra.extraString;
 import static android.server.wm.ComponentNameUtils.getActivityName;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
 import static android.server.wm.UiDeviceUtils.pressHomeButton;
 import static android.server.wm.WindowManagerState.STATE_DESTROYED;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
@@ -77,8 +78,8 @@ import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.CommandSession.ActivitySession;
 import android.server.wm.CommandSession.SizeInfo;
-import android.server.wm.WindowManagerState.Task;
 import android.server.wm.WindowManagerState.DisplayContent;
+import android.server.wm.WindowManagerState.Task;
 import android.view.SurfaceView;
 
 import org.junit.Before;
@@ -207,10 +208,8 @@ public class MultiDisplayActivityLaunchTests extends MultiDisplayTestBase {
      */
     @Test
     public void testLaunchExternalDisplayActivityWhilePrimaryOff() {
-        if (isOperatorTierDevice()) {
-            // This test is not applicable for the device who uses launch_after_boot configuration
-            return;
-        }
+        // Leanback devices may launch a live broadcast app during screen off-on cycles.
+        final boolean mayLaunchActivityOnScreenOff = isLeanBack();
 
         // Launch something on the primary display so we know there is a resumed activity there
         launchActivity(RESIZEABLE_ACTIVITY);
@@ -223,10 +222,12 @@ public class MultiDisplayActivityLaunchTests extends MultiDisplayTestBase {
         displayStateSession.turnScreenOff();
 
         // Make sure there is no resumed activity when the primary display is off
-        waitAndAssertActivityState(RESIZEABLE_ACTIVITY, STATE_STOPPED,
-                "Activity launched on primary display must be stopped after turning off");
-        assertEquals("Unexpected resumed activity",
-                0, mWmState.getResumedActivitiesCount());
+        if (!mayLaunchActivityOnScreenOff) {
+            waitAndAssertActivityState(RESIZEABLE_ACTIVITY, STATE_STOPPED,
+                    "Activity launched on primary display must be stopped after turning off");
+            assertEquals("Unexpected resumed activity",
+                    0, mWmState.getResumedActivitiesCount());
+        }
 
         final DisplayContent newDisplay = externalDisplaySession
                 .setCanShowWithInsecureKeyguard(true).createVirtualDisplay();
@@ -236,8 +237,10 @@ public class MultiDisplayActivityLaunchTests extends MultiDisplayTestBase {
         // Check that the test activity is resumed on the external display
         waitAndAssertActivityStateOnDisplay(TEST_ACTIVITY, STATE_RESUMED, newDisplay.mId,
                 "Activity launched on external display must be resumed");
-        mWmState.assertFocusedAppOnDisplay("App on default display must still be focused",
-                RESIZEABLE_ACTIVITY, DEFAULT_DISPLAY);
+        if (!mayLaunchActivityOnScreenOff) {
+            mWmState.assertFocusedAppOnDisplay("App on default display must still be focused",
+                    RESIZEABLE_ACTIVITY, DEFAULT_DISPLAY);
+        }
     }
 
     /**

@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.lang;
@@ -163,7 +163,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#copySign(double, double)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_copySign_DD() {
         for (int i = 0; i < COPYSIGN_DD_CASES.length; i++) {
             final double magnitude = COPYSIGN_DD_CASES[i];
@@ -235,7 +235,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#copySign(float, float)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_copySign_FF() {
         for (int i = 0; i < COPYSIGN_FF_CASES.length; i++) {
             final float magnitude = COPYSIGN_FF_CASES[i];
@@ -429,7 +429,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#getExponent(double)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_getExponent_D() {
         for (int i = 0; i < GETEXPONENT_D_CASES.length; i++) {
             final double number = GETEXPONENT_D_CASES[i];
@@ -473,7 +473,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#getExponent(float)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_getExponent_F() {
         for (int i = 0; i < GETEXPONENT_F_CASES.length; i++) {
             final float number = GETEXPONENT_F_CASES[i];
@@ -842,7 +842,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#nextAfter(double, double)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_nextAfter_DD() {
         // test for most cases without exception
         for (int i = 0; i < NEXTAFTER_DD_START_CASES.length; i++) {
@@ -931,7 +931,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#nextAfter(float, double)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_nextAfter_FD() {
         // test for most cases without exception
         for (int i = 0; i < NEXTAFTER_FD_START_CASES.length; i++) {
@@ -998,7 +998,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#nextUp(double)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_nextUp_D() {
         // This method is semantically equivalent to nextAfter(d,
         // Double.POSITIVE_INFINITY),
@@ -1029,7 +1029,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#nextUp(float)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_nextUp_F() {
         // This method is semantically equivalent to nextAfter(f,
         // Float.POSITIVE_INFINITY),
@@ -1060,7 +1060,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#nextDown(double)}
      * @since 1.8
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_nextDown_D() {
         // This method is semantically equivalent to nextAfter(d,
         // Double.NEGATIVE_INFINITY),
@@ -1091,7 +1091,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#nextDown(float)}
      * @since 1.8
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_nextDown_F() {
         // This method is semantically equivalent to nextAfter(f,
         // Float.NEGATIVE_INFINITY),
@@ -1428,7 +1428,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#scalb(double, int)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_scalb_DI() {
         // result is normal
         assertEquals(4.1422946304E7, Math.scalb(1.2345, 25));
@@ -1581,7 +1581,7 @@ public class MathTest extends junit.framework.TestCase {
      * {@link java.lang.Math#scalb(float, int)}
      * @since 1.6
      */
-    @SuppressWarnings("boxing")
+    @SuppressWarnings({"boxing", "NullArgumentForNonNullParameter"})
     public void test_scalb_FI() {
         // result is normal
         assertEquals(4.1422946304E7f, Math.scalb(1.2345f, 25));

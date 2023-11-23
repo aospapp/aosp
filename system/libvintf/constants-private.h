@@ -32,6 +32,8 @@ static constexpr VersionRange kDefaultAidlVersionRange{kFakeAidlMajorVersion,
                                                        kDefaultAidlMinorVersion};
 static constexpr Version kDefaultAidlVersion = kDefaultAidlVersionRange.minVer();
 
+#define VINTF_SUB_DIR "etc/vintf/"
+constexpr const char* kVintfSubDir = VINTF_SUB_DIR;
 #define SYSTEM_VINTF_DIR "/system/etc/vintf/"
 constexpr const char* kSystemVintfDir = SYSTEM_VINTF_DIR;
 #define VENDOR_VINTF_DIR "/vendor/etc/vintf/"
@@ -64,6 +66,8 @@ constexpr const char* kSystemLegacyMatrix = "/system/compatibility_matrix.xml";
 #define ODM_LEGACY_VINTF_DIR "/odm/etc/"
 constexpr const char* kOdmLegacyVintfDir = ODM_LEGACY_VINTF_DIR;
 constexpr const char* kOdmLegacyManifest = ODM_LEGACY_VINTF_DIR "manifest.xml";
+
+constexpr const char* kApexInfoFile = "/apex/apex-info-list.xml";
 
 #undef SYSTEM_VINTF_DIR
 #undef VENDOR_VINTF_DIR

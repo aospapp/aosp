@@ -17,8 +17,6 @@
 from acts.controllers.sl4a_lib.rpc_connection import RpcConnection
 import json
 import os
-import socket
-import threading
 
 HOST = os.environ.get('AP_HOST', None)
 PORT = os.environ.get('AP_PORT', 9999)

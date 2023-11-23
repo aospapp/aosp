@@ -17,9 +17,6 @@
 This test script exercises different scan filters with different screen states.
 """
 
-import concurrent
-import json
-import pprint
 import time
 
 from queue import Empty
@@ -56,8 +53,9 @@ class BleScanScreenStateTest(BluetoothBaseTest):
             ble_advertise_settings_modes['low_latency'])
         self.advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
-        self.adv_ad.droid.bleStartBleAdvertising(
-            self.advertise_callback, advertise_data, advertise_settings)
+        self.adv_ad.droid.bleStartBleAdvertising(self.advertise_callback,
+                                                 advertise_data,
+                                                 advertise_settings)
         try:
             self.adv_ad.ed.pop_event(adv_succ.format(self.advertise_callback))
         except Empty:
@@ -73,8 +71,8 @@ class BleScanScreenStateTest(BluetoothBaseTest):
 
     def _scan_found_results(self):
         try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(self.scan_callback), bt_default_timeout)
+            self.scn_ad.ed.pop_event(scan_result.format(self.scan_callback),
+                                     bt_default_timeout)
             self.log.info("Found an advertisement.")
         except Empty:
             self.log.info("Did not find an advertisement.")
@@ -432,8 +430,8 @@ class BleScanScreenStateTest(BluetoothBaseTest):
         time.sleep(2)
 
         # Step 3
-        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
-            'opportunistic'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(
+            ble_scan_settings_modes['opportunistic'])
         filter_list, scan_settings, scan_callback = generate_ble_scan_objects(
             self.scn_ad.droid)
         self.scn_ad.droid.bleStartBleScan(filter_list, scan_settings,
@@ -447,15 +445,15 @@ class BleScanScreenStateTest(BluetoothBaseTest):
 
         # Step 5
         try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(scan_callback), self.shorter_scan_timeout)
+            self.scn_ad.ed.pop_event(scan_result.format(scan_callback),
+                                     self.shorter_scan_timeout)
             self.log.error("Found an advertisement on opportunistic scan.")
             return False
         except Empty:
             self.log.info("Did not find an advertisement.")
         try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(scan_callback2), self.shorter_scan_timeout)
+            self.scn_ad.ed.pop_event(scan_result.format(scan_callback2),
+                                     self.shorter_scan_timeout)
             self.log.error("Found an advertisement on scan instance.")
             return False
         except Empty:
@@ -466,16 +464,16 @@ class BleScanScreenStateTest(BluetoothBaseTest):
 
         # Step 7
         try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(scan_callback), self.shorter_scan_timeout)
+            self.scn_ad.ed.pop_event(scan_result.format(scan_callback),
+                                     self.shorter_scan_timeout)
             self.log.info("Found an advertisement on opportunistic scan.")
         except Empty:
             self.log.error(
                 "Did not find an advertisement on opportunistic scan.")
             return False
         try:
-            self.scn_ad.ed.pop_event(
-                scan_result.format(scan_callback2), self.shorter_scan_timeout)
+            self.scn_ad.ed.pop_event(scan_result.format(scan_callback2),
+                                     self.shorter_scan_timeout)
             self.log.info("Found an advertisement on scan instance.")
         except Empty:
             self.log.info("Did not find an advertisement.")
@@ -545,8 +543,8 @@ class BleScanScreenStateTest(BluetoothBaseTest):
         # Step 5
         for callback in scan_callback_list:
             try:
-                self.scn_ad.ed.pop_event(
-                    scan_result.format(callback), self.shorter_scan_timeout)
+                self.scn_ad.ed.pop_event(scan_result.format(callback),
+                                         self.shorter_scan_timeout)
                 self.log.info("Found an advertisement.")
             except Empty:
                 self.log.info("Did not find an advertisement.")

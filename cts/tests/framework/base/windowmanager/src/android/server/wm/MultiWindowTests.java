@@ -37,6 +37,7 @@ import static android.server.wm.app27.Components.SDK_27_SEPARATE_PROCESS_ACTIVIT
 import static android.server.wm.app27.Components.SDK_27_TEST_ACTIVITY;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
@@ -45,6 +46,7 @@ import android.content.ComponentName;
 import android.content.res.Resources;
 import android.platform.test.annotations.Presubmit;
 import android.server.wm.CommandSession.ActivityCallback;
+import android.view.WindowManager;
 import android.window.WindowContainerToken;
 import android.window.WindowContainerTransaction;
 
@@ -119,19 +121,9 @@ public class MultiWindowTests extends ActivityManagerTestBase {
                 assertActivitySupportedInSplitScreen(NON_RESIZEABLE_ACTIVITY);
                 break;
             case 0:
-                final int configLargeScreenSmallestScreenWidthDp;
-                try {
-                    configLargeScreenSmallestScreenWidthDp =
-                            resources.getInteger(resources.getIdentifier(
-                                    "config_largeScreenSmallestScreenWidthDp",
-                                    "integer", "android"));
-                } catch (Resources.NotFoundException e) {
-                    fail("Device must define config_largeScreenSmallestScreenWidthDp");
-                    return;
-                }
                 final int smallestScreenWidthDp = mWmState.getHomeTask()
                         .mFullConfiguration.smallestScreenWidthDp;
-                if (smallestScreenWidthDp >= configLargeScreenSmallestScreenWidthDp) {
+                if (smallestScreenWidthDp >= WindowManager.LARGE_SCREEN_SMALLEST_SCREEN_WIDTH_DP) {
                     assertActivitySupportedInSplitScreen(NON_RESIZEABLE_ACTIVITY);
                 } else {
                     assertActivityNotSupportedInSplitScreen(NON_RESIZEABLE_ACTIVITY);
@@ -273,6 +265,9 @@ public class MultiWindowTests extends ActivityManagerTestBase {
 
         mWmState.assertFocusedActivity("Launched to side activity must be in front.",
                 TEST_ACTIVITY);
+
+        // Set secondary split as launch root
+        mTaskOrganizer.setLaunchRoot(mTaskOrganizer.getSecondarySplitTaskId());
 
         // Launch another activity to side to cover first one.
         launchActivityInSecondarySplit(NO_RELAUNCH_ACTIVITY);
@@ -457,20 +452,16 @@ public class MultiWindowTests extends ActivityManagerTestBase {
                     mAm.getLockTaskModeState() != LOCK_TASK_MODE_NONE);
 
             // Verify specifying non-fullscreen windowing mode will fail.
-            boolean exceptionThrown = false;
-            try {
-                runWithShellPermission(() -> {
-                    final WindowContainerTransaction wct = new WindowContainerTransaction()
-                            .setWindowingMode(
-                                    mTaskOrganizer.getTaskInfo(task.mTaskId).getToken(),
-                                    WINDOWING_MODE_MULTI_WINDOW);
-                    mTaskOrganizer.applyTransaction(wct);
-                });
-            } catch (UnsupportedOperationException e) {
-                exceptionThrown = true;
-            }
-            assertTrue("Not allowed to specify windowing mode while in locked task mode.",
-                    exceptionThrown);
+            runWithShellPermission(() -> {
+                final WindowContainerTransaction wct = new WindowContainerTransaction()
+                        .setWindowingMode(
+                                mTaskOrganizer.getTaskInfo(task.mTaskId).getToken(),
+                                WINDOWING_MODE_MULTI_WINDOW);
+                mTaskOrganizer.applyTransaction(wct);
+            });
+            mWmState.computeState(TEST_ACTIVITY);
+            assertEquals(WINDOWING_MODE_FULLSCREEN,
+                    mWmState.getWindowState(TEST_ACTIVITY).getWindowingMode());
         } finally {
             runWithShellPermission(() -> {
                 mAtm.stopSystemLockTaskMode();
@@ -479,7 +470,7 @@ public class MultiWindowTests extends ActivityManagerTestBase {
     }
 
     @Test
-    public void testDisallowHierarchyOperationWhenInLockedTask() {
+    public void testDisallowReparentOperationWhenInLockedTask() {
         launchActivity(TEST_ACTIVITY, WINDOWING_MODE_FULLSCREEN);
         launchActivity(LAUNCHING_ACTIVITY, WINDOWING_MODE_MULTI_WINDOW);
         final WindowManagerState.Task task = mWmState
@@ -562,5 +553,53 @@ public class MultiWindowTests extends ActivityManagerTestBase {
         mWmState.computeState(new WaitForValidActivityState(TRANSLUCENT_TEST_ACTIVITY));
         mWmState.assertVisibility(TRANSLUCENT_TEST_ACTIVITY, true);
         mWmState.assertVisibility(TEST_ACTIVITY_WITH_SAME_AFFINITY, true);
+    }
+
+    /**
+     * Ensure that the hierarchy operation : reorder is not allowed if the target task is violated
+     * the lock-task policy.
+     */
+    @Test
+    public void testDisallowReOrderOperationWhenInLockedTask() {
+        // Start LaunchingActivity and testActivity in two separate tasks.
+        launchActivity(LAUNCHING_ACTIVITY, WINDOWING_MODE_FULLSCREEN);
+        launchActivity(TEST_ACTIVITY, WINDOWING_MODE_FULLSCREEN);
+        waitAndAssertResumedActivity(TEST_ACTIVITY, "Activity must be resumed");
+
+        final int taskId = mWmState.getTaskByActivity(TEST_ACTIVITY).mTaskId;
+        final int taskId2 = mWmState.getTaskByActivity(LAUNCHING_ACTIVITY).mTaskId;
+        // Make sure the launching activity and the test activity are not in the same task.
+        assertNotEquals("Activity must be in different task.", taskId, taskId2);
+
+        try {
+            runWithShellPermission(() -> {
+                mAtm.startSystemLockTaskMode(taskId);
+            });
+            waitForOrFail("Fail to enter locked task mode", () ->
+                    mAm.getLockTaskModeState() != LOCK_TASK_MODE_NONE);
+
+            boolean gotAssertionError = false;
+            try {
+                runWithShellPermission(() -> {
+                    final WindowContainerToken token =
+                            mTaskOrganizer.getTaskInfo(taskId2).getToken();
+
+                    // Verify performing reorder operation is no operation.
+                    final WindowContainerTransaction wct = new WindowContainerTransaction()
+                            .reorder(token, true /* onTop */);
+                    mTaskOrganizer.applyTransaction(wct);
+                    waitForOrFail("Fail to reorder", () ->
+                            mTaskOrganizer.getTaskInfo(taskId2).isVisible());
+                });
+            } catch (AssertionError e) {
+                gotAssertionError = true;
+            }
+            assertTrue("Not allowed to perform reorder operation while in locked task mode.",
+                    gotAssertionError);
+        } finally {
+            runWithShellPermission(() -> {
+                mAtm.stopSystemLockTaskMode();
+            });
+        }
     }
 }

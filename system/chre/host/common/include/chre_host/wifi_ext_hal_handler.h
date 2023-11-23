@@ -25,10 +25,13 @@
 #include <condition_variable>
 #include <cstdint>
 #include <mutex>
+#include <string>
 #include <thread>
 
-#include <vendor/google/wifi_ext/1.3/IWifiExt.h>
-#include <vendor/google/wifi_ext/1.3/IWifiExtChreCallback.h>
+#include <aidl/android/hardware/wifi/WifiStatusCode.h>
+#include <aidl/vendor/google/wifi_ext/BnWifiExtChreCallback.h>
+#include <aidl/vendor/google/wifi_ext/IWifiExt.h>
+#include <android/binder_manager.h>
 
 #include "chre_host/log.h"
 
@@ -41,15 +44,12 @@ namespace chre {
  */
 class WifiExtHalHandler {
  public:
-  using hidl_death_recipient = hardware::hidl_death_recipient;
-  using WifiStatus = hardware::wifi::V1_0::WifiStatus;
-  using WifiStatusCode = hardware::wifi::V1_0::WifiStatusCode;
-  using IBase = hidl::base::V1_0::IBase;
-  using IWifiExt = ::vendor::google::wifi_ext::V1_3::IWifiExt;
-  using IWifiExtChreNanCallback =
-      ::vendor::google::wifi_ext::V1_3::IWifiExtChreCallback;
+  using WifiStatusCode = aidl::android::hardware::wifi::WifiStatusCode;
+  using IWifiExt = aidl::vendor::google::wifi_ext::IWifiExt;
+  using BnWifiExtChreNanCallback =
+      aidl::vendor::google::wifi_ext::BnWifiExtChreCallback;
   using WifiChreNanRttState =
-      ::vendor::google::wifi_ext::V1_3::WifiChreNanRttState;
+      aidl::vendor::google::wifi_ext::WifiChreNanRttState;
 
   ~WifiExtHalHandler();
 
@@ -73,14 +73,14 @@ class WifiExtHalHandler {
 
  private:
   //! CHRE NAN availability status change handler.
-  class WifiExtCallback : public IWifiExtChreNanCallback {
+  class WifiExtCallback : public BnWifiExtChreNanCallback {
    public:
     WifiExtCallback(std::function<void(bool)> cb) : mCallback(cb) {}
 
-    hardware::Return<void> onChreNanRttStateChanged(WifiChreNanRttState state) {
+    ndk::ScopedAStatus onChreNanRttStateChanged(WifiChreNanRttState state) {
       bool enabled = (state == WifiChreNanRttState::CHRE_AVAILABLE);
       onStatusChanged(enabled);
-      return hardware::Void();
+      return ndk::ScopedAStatus::ok();
     }
 
     void onStatusChanged(bool enabled) {
@@ -89,22 +89,6 @@ class WifiExtHalHandler {
 
    private:
     std::function<void(bool)> mCallback;
-  };
-
-  //! Handler for when a connected Wifi ext HAL service dies.
-  class WifiExtHalDeathRecipient : public hidl_death_recipient {
-   public:
-    WifiExtHalDeathRecipient() = delete;
-    explicit WifiExtHalDeathRecipient(std::function<void()> cb)
-        : mCallback(cb) {}
-
-    virtual void serviceDied(uint64_t /*cookie*/,
-                             const wp<IBase> & /*who*/) override {
-      mCallback();
-    }
-
-   private:
-    std::function<void()> mCallback;
   };
 
   bool mThreadRunning = true;
@@ -116,9 +100,9 @@ class WifiExtHalHandler {
   //! true, 'disable' otherwise) if it has a value.
   std::optional<bool> mEnableConfig;
 
-  sp<WifiExtHalDeathRecipient> mDeathRecipient;
-  sp<IWifiExt> mService;
-  sp<WifiExtCallback> mCallback;
+  AIBinder_DeathRecipient *mDeathRecipient;
+  std::shared_ptr<IWifiExt> mService;
+  std::shared_ptr<WifiExtCallback> mCallback;
 
   /**
    * Entry point for the thread that handles all interactions with the WiFi ext
@@ -144,7 +128,7 @@ class WifiExtHalHandler {
   /**
    * Invoked by the HAL service death callback.
    */
-  void onWifiExtHalServiceDeath();
+  static void onWifiExtHalServiceDeath(void *cookie);
 
   /**
    * Dispatch a configuration request to the WiFi Ext HAL.

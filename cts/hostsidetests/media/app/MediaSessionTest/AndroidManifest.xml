@@ -18,9 +18,13 @@
      package="android.media.session.cts"
      android:targetSandboxVersion="2">
 
-    <uses-sdk android:minSdkVersion="26"/>
+    <!-- Target sdk version needed for testing compat change gated in U (SDK level 34).  -->
+    <uses-sdk android:minSdkVersion="26"
+         android:targetSdkVersion="33" />
 
-    <application android:testOnly="true">
+    <!-- android:debuggable flag is needed to override compat changes in user builds. -->
+    <application android:testOnly="true"
+         android:debuggable="true">
         <uses-library android:name="android.test.runner"/>
 
         <service android:name=".MediaSessionManagerTest"

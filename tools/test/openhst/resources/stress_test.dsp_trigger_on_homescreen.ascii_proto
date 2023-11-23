@@ -6,7 +6,10 @@ step {
   audio_file_sample_rate : 24000
   delay_after : 3
 }
-
+step {
+  command: "shell 'dumpsys window | grep mCurrentFocus'"
+  delay_after: 3
+}
 step {
   command: "shell input keyevent 3"
   delay_after : 3

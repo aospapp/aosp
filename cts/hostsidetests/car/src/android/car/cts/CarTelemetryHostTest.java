@@ -145,7 +145,9 @@ public class CarTelemetryHostTest extends CarHostJUnit4TestCase {
 
         // verify data is saved across reboot
         assertThat(dumpTelemetryService()).contains(scriptOutput1);
-        String result = executeCommand("cmd car_service telemetry get-result %s", CONFIG_NAME_2);
+        String result = executeCommand(
+                "cmd car_service telemetry get-result --config %s --result-count 1"
+                + " --timeout 20 --print-results", CONFIG_NAME_2);
         assertThat(result).contains(scriptOutput2);
     }
 

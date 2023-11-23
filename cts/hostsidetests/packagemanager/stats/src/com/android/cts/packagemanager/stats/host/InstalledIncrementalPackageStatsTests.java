@@ -22,6 +22,9 @@ import android.cts.statsdatom.lib.DeviceUtils;
 import android.cts.statsdatom.lib.ReportUtils;
 
 import com.android.os.AtomsProto;
+import com.android.tradefed.util.RunUtil;
+
+import com.google.common.truth.Truth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,6 +51,7 @@ public class InstalledIncrementalPackageStatsTests extends PackageManagerStatsTe
         }
         ConfigUtils.uploadConfigForPulledAtom(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 AtomsProto.Atom.INSTALLED_INCREMENTAL_PACKAGE_FIELD_NUMBER);
+        long currentEpochTimeSeconds = Math.floorDiv(getDevice().getDeviceDate(), 1000);
         installPackageUsingIncremental(new String[]{TEST_INSTALL_APK});
         assertTrue(getDevice().isPackageInstalled(TEST_INSTALL_PACKAGE,
                 String.valueOf(getDevice().getCurrentUser())));
@@ -55,7 +59,7 @@ public class InstalledIncrementalPackageStatsTests extends PackageManagerStatsTe
         assertTrue(getDevice().isPackageInstalled(TEST_INSTALL_PACKAGE2,
                 String.valueOf(getDevice().getCurrentUser())));
         AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
 
         List<AtomsProto.Atom> data = ReportUtils.getGaugeMetricAtoms(getDevice());
         assertEquals(2, data.size());
@@ -63,6 +67,9 @@ public class InstalledIncrementalPackageStatsTests extends PackageManagerStatsTe
         List<Integer> uidsReported = new ArrayList<>();
         for (AtomsProto.Atom atom : data) {
             uidsReported.add(atom.getInstalledIncrementalPackage().getUid());
+            assertFalse(atom.getInstalledIncrementalPackage().getIsLoading());
+            Truth.assertThat(atom.getInstalledIncrementalPackage().getLoadingCompletedTimestamp()
+                    ).isGreaterThan(currentEpochTimeSeconds);
         }
         assertTrue(uidsReported.contains(getAppUid(TEST_INSTALL_PACKAGE)));
         assertTrue(uidsReported.contains(getAppUid(TEST_INSTALL_PACKAGE2)));

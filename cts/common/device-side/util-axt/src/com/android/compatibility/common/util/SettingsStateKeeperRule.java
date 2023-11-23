@@ -18,8 +18,6 @@ package com.android.compatibility.common.util;
 import android.content.Context;
 import android.provider.Settings;
 
-import androidx.annotation.NonNull;
-
 /**
  * JUnit rule used to restore a {@link Settings} preference after the test is run.
  *
@@ -31,9 +29,9 @@ public class SettingsStateKeeperRule extends StateKeeperRule<String> {
      * Default constructor.
      *
      * @param context context used to retrieve the {@link Settings} provider.
-     * @param key prefence key.
+     * @param key preference key.
      */
-    public SettingsStateKeeperRule(@NonNull Context context, @NonNull String key) {
-        super(new SettingsStateManager(context, SettingsUtils.NAMESPACE_SECURE, key));
+    public SettingsStateKeeperRule(Context context, String key) {
+        super(new SettingsStateManager(context, key));
     }
 }

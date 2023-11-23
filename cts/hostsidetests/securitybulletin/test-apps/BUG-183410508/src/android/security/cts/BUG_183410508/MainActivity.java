@@ -44,7 +44,8 @@ public final class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        registerReceiver(mReceiver, new IntentFilter(Constants.ACTION_START_TAPJACKING));
+        registerReceiver(mReceiver, new IntentFilter(Constants.ACTION_START_TAPJACKING),
+                Context.RECEIVER_NOT_EXPORTED);
 
         btnStart = (Button) findViewById(R.id.btnStart);
         btnStart.setOnClickListener(v -> startTapjacking());

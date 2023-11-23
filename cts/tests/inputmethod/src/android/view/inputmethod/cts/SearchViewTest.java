@@ -44,7 +44,6 @@ import androidx.test.filters.MediumTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.compatibility.common.util.CtsTouchUtils;
 import com.android.cts.mockime.ImeEventStream;
 import com.android.cts.mockime.ImeSettings;
 import com.android.cts.mockime.MockImeSession;
@@ -129,7 +128,7 @@ public class SearchViewTest extends EndToEndImeTestBase {
             final SearchView searchView = launchTestActivity(false /* requestFocus */);
 
             // Emulate tap event on SearchView
-            CtsTouchUtils.emulateTapOnViewCenter(
+            mCtsTouchUtils.emulateTapOnViewCenter(
                     InstrumentationRegistry.getInstrumentation(), null, searchView);
 
             // Expect input to bind since EditText is focused.
@@ -189,7 +188,7 @@ public class SearchViewTest extends EndToEndImeTestBase {
             final SearchView searchView = launchTestActivityWithListView(true /* requestFocus */);
 
             // Emulate tap event on SearchView
-            CtsTouchUtils.emulateTapOnViewCenter(
+            mCtsTouchUtils.emulateTapOnViewCenter(
                     InstrumentationRegistry.getInstrumentation(), null, searchView);
 
             // Expect input to bind since EditText is focused.

@@ -103,7 +103,8 @@ public class PreferenceActivityLegacyFlowTest {
     }
 
     private void assertScreenshotsAreEqual(Bitmap before, Bitmap after) {
-        assertTrue("Screenshots do not match!", BitmapUtils.compareBitmaps(before, after));
+        // TODO(b/227553681): remove the precision=0.99 arg so it does a pixel-by-pixel check
+        assertTrue("Screenshots do not match!", BitmapUtils.compareBitmaps(before, after, 0.99));
     }
 
     private void assertTextShown(String text) {

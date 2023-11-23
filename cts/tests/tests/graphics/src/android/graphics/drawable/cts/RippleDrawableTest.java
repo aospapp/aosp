@@ -17,6 +17,7 @@
 package android.graphics.drawable.cts;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -149,5 +150,15 @@ public class RippleDrawableTest {
 
         dr.setColor(ColorStateList.valueOf(Color.BLACK));
         verify(cb, times(1)).invalidateDrawable(dr);
+    }
+
+    @Test
+    public void testWindowFocusChanged() {
+        RippleDrawable dr = new RippleDrawable(ColorStateList.valueOf(Color.RED), null, null);
+        dr.setBackgroundActive(false, true, false, true);
+        float bgOpacity = dr.getTargetBackgroundOpacity();
+        dr.setBackgroundActive(false, true, false, false);
+        assertTrue("Background opacity should reduce once window loses focus",
+                bgOpacity > dr.getTargetBackgroundOpacity());
     }
 }

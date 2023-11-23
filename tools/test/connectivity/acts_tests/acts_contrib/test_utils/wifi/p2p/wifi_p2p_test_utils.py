@@ -14,11 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import logging
-import os
 import time
-
-from queue import Empty
 
 from acts import asserts
 from acts import utils
@@ -135,6 +131,7 @@ def p2p_get_current_group(ad):
          ad_group_info_event['data']['Interface']))
     return ad_group_info_event['data']
 
+
 def is_ongoing_peer_ready(peerConfig, waitForPin):
     """Check whether the peer config is ready
 
@@ -151,9 +148,10 @@ def is_ongoing_peer_ready(peerConfig, waitForPin):
     if not waitForPin:
         return True
     if WifiP2PEnums.WpsInfo.WPS_PIN_KEY in peerConfig['data'][
-        WifiP2PEnums.WifiP2pConfig.WPSINFO_KEY]:
+            WifiP2PEnums.WifiP2pConfig.WPSINFO_KEY]:
         return True
     return False
+
 
 def wait_for_ongoing_peer_ready(ad, waitForPin, maxPollingCount):
     """wait for the ongoing peer data ready
@@ -166,8 +164,8 @@ def wait_for_ongoing_peer_ready(ad, waitForPin, maxPollingCount):
         the ongoing peer config
     """
     ad_peerConfig = None
-    ad.log.debug("%s is waiting for the ongoing peer, max polling count %s"
-        % (ad.name, maxPollingCount))
+    ad.log.debug("%s is waiting for the ongoing peer, max polling count %s" %
+                 (ad.name, maxPollingCount))
     while maxPollingCount > 0:
         ad.droid.requestP2pPeerConfigure()
         ad_peerConfig = ad.ed.pop_event(
@@ -183,6 +181,7 @@ def wait_for_ongoing_peer_ready(ad, waitForPin, maxPollingCount):
         "DUT %s does not receive the request." % (ad.name))
     ad.log.debug(ad_peerConfig['data'])
     return ad_peerConfig
+
 
 #trigger p2p connect to ad2 from ad1
 def p2p_connect(ad1,
@@ -226,12 +225,12 @@ def p2p_connect(ad1,
                      p2pconsts.DEFAULT_TIMEOUT)
     if not isReconnect:
         # ad1 is the initiator, it should be ready soon.
-        ad1_peerConfig = wait_for_ongoing_peer_ready(ad1,
-            wpsSetup == WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_DISPLAY, 6)
+        ad1_peerConfig = wait_for_ongoing_peer_ready(
+            ad1, wpsSetup == WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_DISPLAY, 6)
         # auto-join tries 10 times to find groups, and
         # one round takes 2 - 3 seconds.
-        ad2_peerConfig = wait_for_ongoing_peer_ready(ad2,
-            wpsSetup == WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_KEYPAD, 31)
+        ad2_peerConfig = wait_for_ongoing_peer_ready(
+            ad2, wpsSetup == WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_KEYPAD, 31)
         if wpsSetup == WifiP2PEnums.WpsInfo.WIFI_WPS_INFO_DISPLAY:
             asserts.assert_true(
                 WifiP2PEnums.WpsInfo.WPS_PIN_KEY in ad1_peerConfig['data'][
@@ -340,7 +339,6 @@ def find_p2p_group_owner(ad1, ad2):
     while not p2p_find_result:
         ad2.droid.wifiP2pStopPeerDiscovery()
         ad1.droid.wifiP2pStopPeerDiscovery()
-        ad2.droid.wifiP2pDiscoverPeers()
         ad1.droid.wifiP2pDiscoverPeers()
         ad1_event = ad1.ed.pop_event(p2pconsts.PEER_AVAILABLE_EVENT,
                                      p2pconsts.P2P_FIND_TIMEOUT)

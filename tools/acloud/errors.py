@@ -219,6 +219,10 @@ class LaunchCVDFail(CreateError):
     """Cuttlefish AVD launch failed."""
 
 
+class SshConnectFail(CreateError):
+    """Ssh connect to GCE instance failed."""
+
+
 class SubprocessFail(CreateError):
     """Subprocess failed."""
 

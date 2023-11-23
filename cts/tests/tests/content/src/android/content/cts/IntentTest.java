@@ -16,12 +16,18 @@
 
 package android.content.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertArrayEquals;
 
+import android.app.PendingIntent;
+import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.content.cts.util.XmlUtils;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
@@ -1376,14 +1382,57 @@ public class IntentTest extends AndroidTestCase {
     public void testCreateChooser() {
         Intent target = Intent.createChooser(mIntent, null);
         assertEquals(Intent.ACTION_CHOOSER, target.getAction());
-        Intent returnIntent = (Intent) target.getParcelableExtra(Intent.EXTRA_INTENT);
+        Intent returnIntent = target.getParcelableExtra(Intent.EXTRA_INTENT);
         assertEquals(mIntent.toString(), returnIntent.toString());
         assertEquals(mIntent.toURI(), returnIntent.toURI());
         assertNull(returnIntent.getStringExtra(Intent.EXTRA_INTENT));
+
         final String title = "title String";
         target = Intent.createChooser(mIntent, title);
         assertEquals(title, target.getStringExtra(Intent.EXTRA_TITLE));
         assertNotNull(target.resolveActivity(mPm));
+
+        IntentSender sender = PendingIntent.getActivity(
+                mContext, 0, mIntent, PendingIntent.FLAG_IMMUTABLE).getIntentSender();
+        target = Intent.createChooser(mIntent, null, sender);
+        assertEquals(sender, target.getParcelableExtra(
+                Intent.EXTRA_CHOSEN_COMPONENT_INTENT_SENDER, IntentSender.class));
+
+        // Asser that setting the data URI *without* a permission granting flag *doesn't* copy
+        // anything to ClipData.
+        Uri data = Uri.parse("some://uri");
+        mIntent.setData(data);
+        target = Intent.createChooser(mIntent, null);
+        assertNull(target.getClipData());
+
+        // Now add the flag and verify that ClipData is written.
+        mIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        target = Intent.createChooser(mIntent, null);
+        ClipData clipData = target.getClipData();
+        assertEquals(1, clipData.getItemCount());
+        assertEquals(data, clipData.getItemAt(0).getUri());
+        assertEquals(0, clipData.getDescription().getMimeTypeCount());
+        // Ensure flag is propagated.
+        assertEquals(Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                target.getFlags() & Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        // Add a MIME type, check for it in the ClipData
+        final String mimeType = "image/png";
+        mIntent.setDataAndType(data, mimeType);
+        target = Intent.createChooser(mIntent, null);
+        clipData = target.getClipData();
+        assertEquals(1, clipData.getDescription().getMimeTypeCount());
+        assertEquals(mimeType, clipData.getDescription().getMimeType(0));
+
+        // Ensure that ClipData that is already set is overwritten.
+        Uri anotherUri = Uri.parse("another://uri");
+        ClipData anotherClipData = new ClipData(
+                new ClipDescription("desc", new String[0]), new ClipData.Item(anotherUri));
+        mIntent.setClipData(anotherClipData);
+        target = Intent.createChooser(mIntent, null);
+        clipData = target.getClipData();
+        assertEquals(1, clipData.getItemCount());
+        assertEquals(anotherUri, clipData.getItemAt(0).getUri());
     }
 
     public void testGetFloatArrayExtra() {
@@ -1928,6 +1977,49 @@ public class IntentTest extends AndroidTestCase {
         assertEquals("text/plain", Intent.normalizeMimeType("text/plain; charset=UTF-8"));
         assertEquals("text/x-vcard", Intent.normalizeMimeType("text/x-vCard"));
         assertEquals("foo/bar", Intent.normalizeMimeType("   foo/bar    "));
+    }
+
+    public void testEncoding() throws URISyntaxException {
+        // This doesn't validate setPackage, as it's not possible to have both an explicit package
+        // and a selector but the inner selector Intent later on will cover setPackage
+        var intent = new Intent("action#base")
+                .setClassName("com.example.test.app", "com.example.test.app.IntendedActivity")
+                .addCategory("category#base")
+                .setType("type#base")
+                .setIdentifier("identifier#base")
+                .setComponent(ComponentName.createRelative("package.sub#base", ".Class#Base"))
+                .putExtra("extraKey#base", "extraValue#base");
+
+        // Insert malicious scheme to be encoded to avoid deserialization errors (b/261858325)
+        var badUri = Uri.fromParts(new Intent()
+                        .setClassName("com.example.malicious.app",
+                                "com.example.malicious.app.MaliciousActivity")
+                        .toUri(Intent.URI_INTENT_SCHEME),
+                "", null);
+        var selectorIntent = new Intent().setData(badUri)
+                .addCategory("category#selector")
+                .setType("type#selector")
+                .setIdentifier("identifier#selector")
+                .setPackage("package#selector")
+                .setComponent(
+                        ComponentName.createRelative("package.sub#selector", ".Class#Selector"))
+                .putExtra("extraKey#selector", "extraValue#selector");
+        intent.setSelector(selectorIntent);
+
+        var uriString = intent.toUri(Intent.URI_INTENT_SCHEME);
+        var deserialized = Intent.parseUri(uriString, Intent.URI_INTENT_SCHEME);
+
+        assertThat(uriString).isEqualTo(
+                "intent:#Intent;action=action%23base;category=category%23base;type=type%23base;"
+                        + "identifier=identifier%23base;component=package.sub%23base/"
+                        + ".Class%23Base;S.extraKey%23base=extraValue%23base;SEL;"
+                        + "category=category%23selector;type=type%23selector;"
+                        + "identifier=identifier%23selector;package=package%23selector;"
+                        + "component=package.sub%23selector/.Class%23Selector;S"
+                        + ".extraKey%23selector=extraValue%23selector;end");
+
+        assertThat(deserialized.toInsecureString())
+                .isEqualTo(intent.toInsecureString());
     }
 
     private void roundtrip() {

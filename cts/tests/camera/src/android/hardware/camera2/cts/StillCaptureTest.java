@@ -17,7 +17,6 @@
 package android.hardware.camera2.cts;
 
 import static android.hardware.camera2.cts.CameraTestUtils.*;
-import static android.hardware.camera2.cts.helpers.AssertHelpers.assertArrayContains;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -29,6 +28,8 @@ import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.DngCreator;
+import android.hardware.camera2.params.DynamicRangeProfiles;
+import android.hardware.camera2.params.OutputConfiguration;
 import android.location.Location;
 import android.location.LocationManager;
 import android.media.ImageReader;
@@ -54,6 +55,7 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 
 import junit.framework.Assert;
 
@@ -180,6 +182,93 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
                 closeDevice();
                 closeImageReader();
             }
+        }
+    }
+
+    /**
+     * Test Jpeg/R capture along with preview for each camera.
+     */
+    @Test
+    public void testJpegRCapture() throws Exception {
+        for (int i = 0; i < mCameraIdsUnderTest.length; i++) {
+            try {
+                Log.i(TAG, "Testing Jpeg/R for Camera " + mCameraIdsUnderTest[i]);
+                if (!mAllStaticInfo.get(mCameraIdsUnderTest[i]).isColorOutputSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support color outputs, skipping");
+                    continue;
+                }
+                if (!mAllStaticInfo.get(mCameraIdsUnderTest[i]).isJpegRSupported()) {
+                    Log.i(TAG, "Camera " + mCameraIdsUnderTest[i] +
+                            " does not support Jpeg/R, skipping");
+                    continue;
+                }
+
+                openDevice(mCameraIdsUnderTest[i]);
+
+                // Check the maximum supported size.
+                List<Size> orderedJpegRSizes = CameraTestUtils.getSortedSizesForFormat(
+                        mCameraIdsUnderTest[i], mCameraManager, ImageFormat.JPEG_R, null/*bound*/);
+                Size maxJpegRSize = orderedJpegRSizes.get(0);
+                stillJpegRTestByCamera(ImageFormat.JPEG_R, maxJpegRSize);
+            } finally {
+                closeDevice();
+                closeImageReader();
+            }
+        }
+    }
+
+    /**
+     * Issue a still capture and validate the Jpeg/R output.
+     */
+    private void stillJpegRTestByCamera(int format, Size stillSize) throws Exception {
+        assertTrue(format == ImageFormat.JPEG_R);
+
+        Size maxPreviewSz = mOrderedPreviewSizes.get(0);
+        if (VERBOSE) {
+            Log.v(TAG, "Testing Jpeg/R with size " + stillSize.toString()
+                    + ", preview size " + maxPreviewSz);
+        }
+
+        // prepare capture and start preview.
+        CaptureRequest.Builder previewBuilder =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+        CaptureRequest.Builder stillBuilder =
+                mCamera.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+        SimpleCaptureCallback resultListener = new SimpleCaptureCallback();
+        SimpleImageReaderListener imageListener = new SimpleImageReaderListener();
+
+        updatePreviewSurface(maxPreviewSz);
+        createImageReader(stillSize, format, MAX_READER_IMAGES, imageListener);
+
+        List<OutputConfiguration> outputConfigs = new ArrayList<>();
+        OutputConfiguration previewConfig = new OutputConfiguration(mPreviewSurface);
+        previewConfig.setDynamicRangeProfile(DynamicRangeProfiles.HLG10);
+        outputConfigs.add(previewConfig);
+        outputConfigs.add(new OutputConfiguration(mReaderSurface));
+        mSessionListener = new BlockingSessionCallback();
+        mSession = configureCameraSessionWithConfig(mCamera, outputConfigs, mSessionListener,
+                mHandler);
+
+        previewBuilder.addTarget(mPreviewSurface);
+        stillBuilder.addTarget(mReaderSurface);
+
+        // Start preview.
+        mSession.setRepeatingRequest(previewBuilder.build(), resultListener, mHandler);
+
+        // Capture a few Jpeg/R images and check whether they are valid jpegs.
+        for (int i = 0; i < MAX_READER_IMAGES; i++) {
+            CaptureRequest request = stillBuilder.build();
+            mSession.capture(request, resultListener, mHandler);
+            assertNotNull(resultListener.getCaptureResultForRequest(request,
+                    NUM_RESULTS_WAIT_TIMEOUT));
+            Image image = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
+            assertNotNull("Unable to acquire next image", image);
+            CameraTestUtils.validateImage(image, stillSize.getWidth(), stillSize.getHeight(),
+                    format, null /*filePath*/);
+
+            // Free image resources
+            image.close();
         }
     }
 
@@ -670,25 +759,42 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             waitForResultValue(resultListener, CaptureResult.LENS_STATE,
                     CaptureResult.LENS_STATE_STATIONARY, NUM_RESULTS_WAIT_TIMEOUT);
             result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
-            mCollector.expectEquals("Focal length in preview result and request should be the same",
-                    previewRequest.get(CaptureRequest.LENS_FOCAL_LENGTH),
-                    result.get(CaptureResult.LENS_FOCAL_LENGTH));
+            Float focalLengthInResult = result.get(CaptureResult.LENS_FOCAL_LENGTH);
+            Set<Float> validFocalLengths = getAvailableFocalLengthsForResult(
+                    result, mStaticInfo, mAllStaticInfo);
+            if (focalLengths.length > 1) {
+                mCollector.expectEquals(
+                        "Focal length in preview result and request should be the same",
+                        previewRequest.get(CaptureRequest.LENS_FOCAL_LENGTH),
+                        focalLengthInResult);
+            } else {
+                mCollector.expectTrue(
+                        "Focal length in preview result should be a supported value",
+                        validFocalLengths.contains(focalLengthInResult));
+            }
 
             stillRequest.set(CaptureRequest.LENS_FOCAL_LENGTH, focalLength);
             CaptureRequest request = stillRequest.build();
             resultListener = new SimpleCaptureCallback();
             mSession.capture(request, resultListener, mHandler);
             result = resultListener.getCaptureResult(WAIT_FOR_RESULT_TIMEOUT_MS);
-            mCollector.expectEquals(
-                    "Focal length in still capture result and request should be the same",
-                    stillRequest.get(CaptureRequest.LENS_FOCAL_LENGTH),
-                    result.get(CaptureResult.LENS_FOCAL_LENGTH));
+            focalLengthInResult = result.get(CaptureResult.LENS_FOCAL_LENGTH);
+            if (focalLengths.length > 1) {
+                mCollector.expectEquals(
+                        "Focal length in still capture result and request should be the same",
+                        stillRequest.get(CaptureRequest.LENS_FOCAL_LENGTH),
+                        result.get(CaptureResult.LENS_FOCAL_LENGTH));
+            } else {
+                mCollector.expectTrue(
+                        "Focal length in still capture result should be a supported value",
+                        validFocalLengths.contains(focalLengthInResult));
+            }
 
             Image image = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
 
             validateJpegCapture(image, maxStillSz);
             verifyJpegKeys(image, result, maxStillSz, thumbnailSize, exifTestData,
-                    mStaticInfo, mCollector, mDebugFileNameBase, ImageFormat.JPEG);
+                    mStaticInfo, mAllStaticInfo, mCollector, mDebugFileNameBase, ImageFormat.JPEG);
         }
     }
 
@@ -1327,11 +1433,17 @@ public class StillCaptureTest extends Camera2SurfaceViewTestCase {
             Image image = imageListener.getImage(CAPTURE_IMAGE_TIMEOUT_MS);
 
             verifyJpegKeys(image, stillResult, stillSize, testThumbnailSizes[i], EXIF_TEST_DATA[i],
-                    mStaticInfo, mCollector, mDebugFileNameBase, format);
+                    mStaticInfo, mAllStaticInfo, mCollector, mDebugFileNameBase, format);
 
             // Free image resources
             image.close();
         }
+
+        // Check that after clearing JPEG_GPS_LOCATION with null,
+        // the value reflects the null value.
+        stillBuilder.set(CaptureRequest.JPEG_GPS_LOCATION, null);
+        Assert.assertNull("JPEG_GPS_LOCATION value should be null if set to null",
+                stillBuilder.get(CaptureRequest.JPEG_GPS_LOCATION));
     }
 
     /**

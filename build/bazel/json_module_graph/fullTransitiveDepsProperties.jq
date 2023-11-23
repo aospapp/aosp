@@ -1,9 +1,9 @@
-# CMD: Returns the properties of module types in the transitive closure of module $arg
+# CMD: Returns the properties (including defaults) grouped by module type of modules in the transitive closure of module(s) $arg, splits on ","
 
 include "library";
 
 [((moduleGraphNoVariants | removeSelfEdges) as $m |
-  [$arg] |
+  $arg | split(",") |
   transitiveDeps($m)) as $names |
   .[] |
   select (IN(.Name; $names | .[]))] |

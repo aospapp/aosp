@@ -18,6 +18,9 @@ package {
 
 cc_test {
     name: "vts_kernel_loopconfig_test",
+    defaults: [
+        "libvintf_static_user_defaults",
+    ],
     srcs: ["vts_kernel_loopconfig_test.cpp"],
     cflags: [
         "-Wall",
@@ -28,6 +31,7 @@ cc_test {
     ],
     static_libs: [
         "libgmock",
+	"libvintf",
     ],
     test_suites: [
         "general-tests",

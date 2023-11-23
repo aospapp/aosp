@@ -35,6 +35,8 @@ import java.util.Optional;
 public class StsExtraBusinessLogicHostTestBase extends ExtraBusinessLogicHostTestBase
         implements StsLogic {
 
+    private static final String LOG_TAG = StsExtraBusinessLogicHostTestBase.class.getSimpleName();
+
     private LocalDate deviceSpl = null;
     @Rule public DescriptionProvider descriptionProvider = new DescriptionProvider();
 
@@ -47,6 +49,10 @@ public class StsExtraBusinessLogicHostTestBase extends ExtraBusinessLogicHostTes
     public List<String> getExtraBusinessLogics() {
         // set in test/sts/tools/sts-tradefed/res/config/sts-base-dynamic-*.xml
         String stsDynamicPlan = getBuild().getBuildAttributes().get("sts-dynamic-plan");
+        if (stsDynamicPlan == null) {
+            Log.w(LOG_TAG, "cannot get STS dynamic plan; this likely isn't run in STS");
+            return List.of();
+        }
         return StsLogic.getExtraBusinessLogicForPlan(stsDynamicPlan);
     }
 
@@ -82,6 +88,12 @@ public class StsExtraBusinessLogicHostTestBase extends ExtraBusinessLogicHostTes
         // set in test/sts/tools/sts-tradefed/res/config/sts-base-use-kernel-spl.xml
         String useKernelSplString = getBuild().getBuildAttributes().get("sts-use-kernel-spl");
         return Boolean.parseBoolean(useKernelSplString);
+    }
+
+    @Override
+    public boolean shouldSkipMainlineTests() {
+        return Boolean.parseBoolean(
+                getBuild().getBuildAttributes().get("sts-should-skip-mainline"));
     }
 
     /**

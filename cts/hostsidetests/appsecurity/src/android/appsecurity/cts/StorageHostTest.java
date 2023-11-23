@@ -26,11 +26,18 @@ import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
+import com.android.tradefed.util.CommandResult;
+import com.android.tradefed.util.CommandStatus;
+import com.android.tradefed.util.RunInterruptedException;
+import com.android.tradefed.util.RunUtil;
+
+import com.google.common.truth.Truth;
 
 import junit.framework.AssertionFailedError;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -44,15 +51,15 @@ public class StorageHostTest extends BaseHostJUnit4Test {
     private static final String PKG_STATS = "com.android.cts.storagestatsapp";
     private static final String PKG_A = "com.android.cts.storageapp_a";
     private static final String PKG_B = "com.android.cts.storageapp_b";
-    private static  final String PKG_NO_APP_STORAGE = "com.android.cts.noappstorage";
     private static final String APK_STATS = "CtsStorageStatsApp.apk";
     private static final String APK_A = "CtsStorageAppA.apk";
     private static final String APK_B = "CtsStorageAppB.apk";
-    private static final String APK_NO_APP_STORAGE = "CtsNoAppDataStorageApp.apk";
     private static final String CLASS_STATS = "com.android.cts.storagestatsapp.StorageStatsTest";
     private static final String CLASS = "com.android.cts.storageapp.StorageTest";
-    private static final String CLASS_NO_APP_STORAGE =
-            "com.android.cts.noappstorage.NoAppDataStorageTest";
+    private static final String EXTERNAL_STORAGE_PATH = "/storage/emulated/%d/";
+    private static final String ERROR_MESSAGE_TAG = "[ERROR]";
+
+    private static final int CLONE_PROFILE_DIRECTORY_CREATION_TIMEOUT_MS = 20000;
 
     private int[] mUsers;
 
@@ -63,7 +70,6 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         installPackage(APK_STATS);
         installPackage(APK_A);
         installPackage(APK_B);
-        installPackage(APK_NO_APP_STORAGE);
 
         for (int user : mUsers) {
             getDevice().executeShellCommand("appops set --user " + user + " " + PKG_STATS
@@ -78,7 +84,6 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         getDevice().uninstallPackage(PKG_STATS);
         getDevice().uninstallPackage(PKG_A);
         getDevice().uninstallPackage(PKG_B);
-        getDevice().uninstallPackage(PKG_NO_APP_STORAGE);
     }
 
     @Test
@@ -93,7 +98,7 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         }
 
         // for fuse file system
-        Thread.sleep(10000);
+        RunUtil.getDefault().sleep(10000);
 
         // TODO: remove this once 34723223 is fixed
         getDevice().executeShellCommand("sync");
@@ -151,6 +156,13 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         for (int user : mUsers) {
             runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifyStatsExternal", user, true);
         }
+    }
+
+    @Ignore("b/279718458")
+    // Equivalent test for clone profile added in AppCloningStorageHostTest
+    public void testVerifyStatsExternalForClonedUser() throws Exception {
+        int mCloneUserIdInt = createCloneUserAndInstallDeviceTestApk();
+        runDeviceTests(PKG_STATS, CLASS_STATS, "testVerifyStatsExternal", mCloneUserIdInt, true);
     }
 
     @Test
@@ -228,28 +240,11 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         }
     }
 
-    @Test
-    public void testNoInternalAppStorage() throws Exception {
-        for (int user : mUsers) {
-            runDeviceTests(
-                    PKG_NO_APP_STORAGE, CLASS_NO_APP_STORAGE, "testNoInternalCeStorage", user);
-            runDeviceTests(
-                    PKG_NO_APP_STORAGE, CLASS_NO_APP_STORAGE, "testNoInternalDeStorage", user);
-        }
-    }
-
-    @Test
-    public void testNoExternalAppStorage() throws Exception {
-        for (int user : mUsers) {
-            runDeviceTests(PKG_NO_APP_STORAGE, CLASS_NO_APP_STORAGE, "testNoExternalStorage", user);
-        }
-    }
-
     public void waitForIdle() throws Exception {
         // Try getting all pending events flushed out
         for (int i = 0; i < 4; i++) {
             getDevice().executeShellCommand("am wait-for-broadcast-idle");
-            Thread.sleep(500);
+            RunUtil.getDefault().sleep(500);
         }
     }
 
@@ -292,5 +287,61 @@ public class StorageHostTest extends BaseHostJUnit4Test {
         } catch (DeviceNotAvailableException e) {
             return false;
         }
+    }
+
+    private int createCloneUserAndInstallDeviceTestApk() throws Exception {
+        // Create clone user.
+        String output = getDevice().executeShellCommand(
+                "pm create-user --profileOf 0 --user-type android.os.usertype.profile.CLONE "
+                        + "testUser");
+        String sCloneUserId = output.substring(output.lastIndexOf(' ') + 1).replaceAll("[^0-9]",
+                "");
+        Truth.assertThat(sCloneUserId).isNotEmpty();
+        // Start clone user.
+        CommandResult out = getDevice().executeShellV2Command("am start-user -w " + sCloneUserId);
+        Truth.assertThat(isSuccessful(out)).isTrue();
+
+        Integer mCloneUserIdInt = Integer.parseInt(sCloneUserId);
+        String sCloneUserStoragePath = String.format(EXTERNAL_STORAGE_PATH,
+                Integer.parseInt(sCloneUserId));
+        // Check that the clone user directories have been created
+        eventually(() -> getDevice().doesFileExist(sCloneUserStoragePath, mCloneUserIdInt),
+                CLONE_PROFILE_DIRECTORY_CREATION_TIMEOUT_MS);
+        // Install the DeviceTest APK for Clone User.
+        installPackage(APK_STATS, "--user all");
+        return mCloneUserIdInt;
+    }
+
+    private void eventually(ThrowingRunnable r, long timeoutMillis) {
+        long start = System.currentTimeMillis();
+
+        while (true) {
+            try {
+                r.run();
+                return;
+            } catch (Throwable e) {
+                if (System.currentTimeMillis() - start < timeoutMillis) {
+                    try {
+                        RunUtil.getDefault().sleep(100);
+                    } catch (RunInterruptedException ignored) {
+                        throw new RuntimeException(e);
+                    }
+                } else {
+                    throw new RuntimeException(e);
+                }
+            }
+        }
+    }
+
+    private boolean isSuccessful(CommandResult result) {
+        if (!CommandStatus.SUCCESS.equals(result.getStatus())) {
+            return false;
+        }
+        String stdout = result.getStdout();
+        if (stdout.contains(ERROR_MESSAGE_TAG)) {
+            return false;
+        }
+        String stderr = result.getStderr();
+        return (stderr == null || stderr.trim().isEmpty());
     }
 }

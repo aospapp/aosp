@@ -16,9 +16,10 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.EARLY;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.FIRST;
 
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
@@ -26,16 +27,18 @@ import java.lang.annotation.Target;
 /**
  * Mark that a test method should run only when the device does not have a given feature.
  *
- * <p>You can guarantee that these methods do not run on devices with the feature by
- * using {@code DeviceState}.
+ * <p>You can guarantee that these methods do not run on devices with the feature by using {@code
+ * DeviceState}.
  *
- * <p>By default the test will be skipped if the feature is available. If you'd rather the test
- * fail then use {@code failureMode = FailureMode.FAIL}.
+ * <p>By default the test will be skipped if the feature is available. If you'd rather the test fail
+ * then use {@code failureMode = FailureMode.FAIL}.
  */
 @Target({ElementType.METHOD, ElementType.ANNOTATION_TYPE, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
+@Repeatable(RequireDoesNotHaveFeatureGroup.class)
 public @interface RequireDoesNotHaveFeature {
     String value();
+
     FailureMode failureMode() default FailureMode.SKIP;
 
     /**
@@ -48,5 +51,5 @@ public @interface RequireDoesNotHaveFeature {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default EARLY;
+    int weight() default FIRST;
 }

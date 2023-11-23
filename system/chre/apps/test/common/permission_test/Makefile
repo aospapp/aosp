@@ -22,6 +22,7 @@ NANOAPP_VERSION = 0x00000001
 NANOAPP_PATH = $(CHRE_PREFIX)/apps/test/common/permission_test
 TEST_SHARED_PATH = $(CHRE_PREFIX)/apps/test/common/shared
 
+
 # Protobuf Sources #############################################################
 
 NANOPB_EXTENSION = nanopb
@@ -40,6 +41,7 @@ COMMON_SRCS += $(CHRE_PREFIX)/util/nanoapp/callbacks.cc
 
 # Defines
 COMMON_CFLAGS += -DNANOAPP_MINIMUM_LOG_LEVEL=CHRE_LOG_LEVEL_INFO
+COMMON_CFLAGS += -DCHRE_ASSERTIONS_ENABLED
 
 # Includes
 COMMON_CFLAGS += -I$(TEST_SHARED_PATH)/inc

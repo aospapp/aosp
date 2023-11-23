@@ -30,6 +30,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -132,6 +133,55 @@ public class ImportWrappedKeyTest {
         c.init(Cipher.DECRYPT_MODE, key);
 
         assertEquals(new String(c.doFinal(encrypted)), "hello, world");
+    }
+
+    @Test
+    public void testKeyStore_ImportIncorrectWrappedKey() throws Exception {
+        testKeyStore_ImportIncorrectWrappedKey(false);
+    }
+
+    @Test
+    public void testKeyStore_ImportIncorrectWrappedKey_StrongBox() throws Exception {
+        testKeyStore_ImportIncorrectWrappedKey(true);
+    }
+
+    private void testKeyStore_ImportIncorrectWrappedKey(boolean isStrongBox) throws Exception {
+        if (isStrongBox) {
+            TestUtils.assumeStrongBox();
+        }
+        random.setSeed(0);
+
+        byte[] keyMaterial = new byte[32];
+        random.nextBytes(keyMaterial);
+        byte[] mask = new byte[32]; // Zero mask
+
+        KeyPair kp;
+        try {
+            kp = genKeyPair(WRAPPING_KEY_ALIAS, isStrongBox);
+        } catch (SecureKeyImportUnavailableException e) {
+            return;
+        }
+
+        KeyStoreException exception = null;
+        try {
+            importWrappedKey(wrapKey(
+                    kp.getPublic(),
+                    keyMaterial,
+                    mask,
+                    makeAuthList(keyMaterial.length * 8, KM_ALGORITHM_AES),
+                    false /* incorrect wrapping required*/));
+        } catch (SecureKeyImportUnavailableException e) {
+            return;
+        } catch (KeyStoreException e) {
+            exception = e;
+        }
+        assertWithMessage("Did not hit a failure but expected one").that(exception).isNotNull();
+        assertThat(exception.getCause()).isInstanceOf(android.security.KeyStoreException.class);
+        android.security.KeyStoreException ksException =
+                (android.security.KeyStoreException) exception.getCause();
+        assertFalse("Importing incorrectly wrapped key should not cause transient failure in"
+                    + " Key{Mint/Master}. That means performing same operation will fail always.",
+                        ksException.isTransientFailure());
     }
 
     @Test
@@ -319,7 +369,12 @@ public class ImportWrappedKeyTest {
     }
 
     public byte[] wrapKey(PublicKey publicKey, byte[] keyMaterial, byte[] mask,
-            DERSequence authorizationList)
+                          DERSequence authorizationList) throws Exception {
+        return wrapKey(publicKey, keyMaterial, mask, authorizationList, true);
+    }
+
+    public byte[] wrapKey(PublicKey publicKey, byte[] keyMaterial, byte[] mask,
+            DERSequence authorizationList, boolean correctWrappingRequired)
             throws Exception {
         // Build description
         DEREncodableVector descriptionItems = new DEREncodableVector();
@@ -338,7 +393,13 @@ public class ImportWrappedKeyTest {
         // Encrypt ephemeral keys
         OAEPParameterSpec spec = new OAEPParameterSpec("SHA-256", "MGF1", MGF1ParameterSpec.SHA1, PSource.PSpecified.DEFAULT);
         Cipher pkCipher = Cipher.getInstance("RSA/ECB/OAEPPadding");
-        pkCipher.init(Cipher.ENCRYPT_MODE, publicKey, spec);
+        if (correctWrappingRequired) {
+            pkCipher.init(Cipher.ENCRYPT_MODE, publicKey, spec);
+        } else {
+            // Use incorrect OAEPParameters while initializing cipher. By default, main digest and
+            // MGF1 digest are SHA-1 here.
+            pkCipher.init(Cipher.ENCRYPT_MODE, publicKey);
+        }
         byte[] encryptedEphemeralKeys = pkCipher.doFinal(aesKeyBytes);
 
         // Encrypt secure key

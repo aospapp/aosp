@@ -12,9 +12,8 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
-#include <cpu-features.h>
+
 #include <jni.h>
 #include <string.h>
 #include <sys/auxv.h>
@@ -24,26 +23,47 @@
 
 jboolean android_cts_CpuFeatures_isArmCpu(JNIEnv* env, jobject thiz)
 {
-    AndroidCpuFamily cpuFamily = android_getCpuFamily();
-    return cpuFamily == ANDROID_CPU_FAMILY_ARM;
+#if defined(__arm__)
+  return JNI_TRUE;
+#else
+  return JNI_FALSE;
+#endif
 }
 
 jboolean android_cts_CpuFeatures_isX86Cpu(JNIEnv* env, jobject thiz)
 {
-    AndroidCpuFamily cpuFamily = android_getCpuFamily();
-    return cpuFamily == ANDROID_CPU_FAMILY_X86;
+#if defined(__i386__)
+  return JNI_TRUE;
+#else
+  return JNI_FALSE;
+#endif
 }
 
 jboolean android_cts_CpuFeatures_isArm64Cpu(JNIEnv* env, jobject thiz)
 {
-    AndroidCpuFamily cpuFamily = android_getCpuFamily();
-    return cpuFamily == ANDROID_CPU_FAMILY_ARM64;
+#if defined(__aarch64__)
+  return JNI_TRUE;
+#else
+  return JNI_FALSE;
+#endif
+}
+
+jboolean android_cts_CpuFeatures_isRiscv64Cpu(JNIEnv* env, jobject thiz)
+{
+#if defined(__riscv)
+  return JNI_TRUE;
+#else
+  return JNI_FALSE;
+#endif
 }
 
 jboolean android_cts_CpuFeatures_isX86_64Cpu(JNIEnv* env, jobject thiz)
 {
-    AndroidCpuFamily cpuFamily = android_getCpuFamily();
-    return cpuFamily == ANDROID_CPU_FAMILY_X86_64;
+#if defined(__x86_64__)
+  return JNI_TRUE;
+#else
+  return JNI_FALSE;
+#endif
 }
 
 jint android_cts_CpuFeatures_getHwCaps(JNIEnv*, jobject)
@@ -72,6 +92,8 @@ static JNINativeMethod gMethods[] = {
             (void *) android_cts_CpuFeatures_isX86Cpu  },
     {  "isArm64Cpu", "()Z",
             (void *) android_cts_CpuFeatures_isArm64Cpu  },
+    {  "isRiscv64Cpu", "()Z",
+            (void *) android_cts_CpuFeatures_isRiscv64Cpu  },
     {  "isX86_64Cpu", "()Z",
             (void *) android_cts_CpuFeatures_isX86_64Cpu  },
     {  "getHwCaps", "()I",

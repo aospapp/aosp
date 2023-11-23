@@ -52,17 +52,19 @@ config_files :=
 bit_suffix :=
 
 gamecore_dist_intermediates := $(call intermediates-dir-for,PACKAGING,gamecore_dist,HOST,COMMON)
+gamecore_dist_staging := $(gamecore_dist_intermediates)/staging
 gamecore_dist_zip := $(gamecore_dist_intermediates)/gamecore.zip
 $(gamecore_dist_zip) : PRIVATE_COPY_PAIRS := $(gamecore_dist_copy_pairs)
+$(gamecore_dist_zip) : PRIVATE_STAGING_DIR := $(gamecore_dist_staging)
 $(gamecore_dist_zip) : $(SOONG_ZIP) $(foreach p,$(gamecore_dist_copy_pairs),$(call word-colon,1,$(p)))
-	rm -rf $(dir $@) && mkdir -p $(dir $@)/gamecore
-	mkdir -p $(dir $@)/gamecore/bin
-	mkdir -p $(dir $@)/gamecore/testcases/$(TARGET_ARCH)
+	rm -rf $(PRIVATE_STAGING_DIR) && mkdir -p $(PRIVATE_STAGING_DIR)/gamecore
+	mkdir -p $(PRIVATE_STAGING_DIR)/gamecore/bin
+	mkdir -p $(PRIVATE_STAGING_DIR)/gamecore/testcases/$(TARGET_ARCH)
 	$(foreach p,$(PRIVATE_COPY_PAIRS), \
-	  cp -f $(call word-colon,1,$(p)) $(dir $@)/$(call word-colon,2,$(p)) &&) true
-	echo $(BUILD_NUMBER_FROM_FILE) > $(dir $@)/gamecore/version.txt
-	$(SOONG_ZIP) -o $@ -C $(dir $@) -f $(dir $@)/gamecore/version.txt \
-	  $(foreach p,$(PRIVATE_COPY_PAIRS),-f $(dir $@)/$(call word-colon,2,$(p)))
+	  cp -f $(call word-colon,1,$(p)) $(PRIVATE_STAGING_DIR)/$(call word-colon,2,$(p)) &&) true
+	echo $(BUILD_NUMBER_FROM_FILE) > $(PRIVATE_STAGING_DIR)/gamecore/version.txt
+	$(SOONG_ZIP) -o $@ -C $(PRIVATE_STAGING_DIR) -f $(PRIVATE_STAGING_DIR)/gamecore/version.txt \
+	  $(foreach p,$(PRIVATE_COPY_PAIRS),-f $(PRIVATE_STAGING_DIR)/$(call word-colon,2,$(p)))
 
 $(call declare-1p-container,$(gamecore_dist_zip),tools/test)
 $(call declare-container-license-deps,$(gamecore_dist_zip),$(filter $(OUT_DIR)/%,$(foreach p,$(gamecore_dist_copy_pairs), $(call word-colon,1,$(p)))),$(gamecore_dist_zip):)

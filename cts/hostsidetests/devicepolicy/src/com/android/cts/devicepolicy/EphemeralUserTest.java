@@ -24,7 +24,7 @@ import org.junit.Test;
 /**
  * Tests for ephemeral users and profiles.
  */
-public class EphemeralUserTest extends BaseDevicePolicyTest {
+public final class EphemeralUserTest extends BaseDevicePolicyTest {
 
     @Override
     protected void assumeTestEnabled() throws Exception {

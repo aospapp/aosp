@@ -43,6 +43,26 @@ public interface IOldName extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_RealName:
+        {
+          return "RealName";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -107,6 +127,11 @@ public interface IOldName extends android.os.IInterface
       }
     }
     static final int TRANSACTION_RealName = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 0;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$IOldName".replace('$', '.');
   public java.lang.String RealName() throws android.os.RemoteException;

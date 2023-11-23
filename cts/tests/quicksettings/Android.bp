@@ -30,6 +30,7 @@ android_test {
         "androidx.test.ext.junit",
         "androidx.test.uiautomator_uiautomator",
         "compatibility-device-util-axt",
+        "SystemUI-proto",
      ],
 
     libs: [

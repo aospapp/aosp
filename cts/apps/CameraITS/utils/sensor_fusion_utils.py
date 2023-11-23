@@ -21,7 +21,6 @@ import math
 import os
 import struct
 import time
-import unittest
 
 import cv2
 from matplotlib import pylab
@@ -44,7 +43,9 @@ ARDUINO_SERVO_SPEED_MAX = 255
 ARDUINO_SERVO_SPEED_MIN = 1
 ARDUINO_SPEED_START_BYTE = 253
 ARDUINO_START_BYTE = 255
-ARDUINO_START_NUM_TRYS = 3
+ARDUINO_START_NUM_TRYS = 5
+ARDUINO_START_TIMEOUT = 300  # seconds
+ARDUINO_STRING = 'Arduino'
 ARDUINO_TEST_CMD = (b'\x01', b'\x02', b'\x03')
 ARDUINO_VALID_CH = ('1', '2', '3', '4', '5', '6')
 ARDUINO_VIDS = (0x2341, 0x2a03)
@@ -88,6 +89,8 @@ _CV2_LK_PARAMS = dict(winSize=(15, 15),
                                 10, 0.03))  # cv2.calcOpticalFlowPyrLK params.
 _ROTATION_PER_FRAME_MIN = 0.001  # rads/s
 _GYRO_ROTATION_PER_SEC_MAX = 2.0  # rads/s
+_R_SQUARED_TOLERANCE = 0.01  # tolerance for polynomial fitting r^2
+_SHIFT_DOMAIN_RADIUS = 5  # limited domain centered around best shift
 
 # unittest constants
 _COARSE_FIT_RANGE = 20  # Range area around coarse fit to do optimization.
@@ -101,6 +104,43 @@ _SEC_TO_NSEC = int(1/_NSEC_TO_SEC)
 _RADS_TO_DEGS = 180/math.pi
 
 _NUM_GYRO_PTS_TO_AVG = 20
+
+
+def polynomial_from_coefficients(coefficients):
+  """Return a polynomial function from a coefficient list, highest power first.
+
+  Args:
+    coefficients: list of coefficients (float)
+  Returns:
+    Function in the form of a*x^n + b*x^(n - 1) + ... + constant
+  """
+  def polynomial(x):
+    n = len(coefficients)
+    return sum(coefficients[i] * x ** (n - i - 1) for i in range(n))
+  return polynomial
+
+
+def smallest_absolute_minimum_of_polynomial(coefficients):
+  """Return the smallest minimum by absolute value from a coefficient list.
+
+  Args:
+    coefficients: list of coefficients (float)
+  Returns:
+    Smallest local minimum (by absolute value) on the function (float)
+  """
+  first_derivative = np.polyder(coefficients, m=1)
+  second_derivative = np.polyder(coefficients, m=2)
+  extrema = np.roots(first_derivative)
+  smallest_absolute_minimum = None
+  for extremum in extrema:
+    if np.polyval(second_derivative, extremum) > 0:
+      if smallest_absolute_minimum is None or abs(extremum) < abs(
+          smallest_absolute_minimum):
+        smallest_absolute_minimum = extremum
+  if smallest_absolute_minimum is None:
+    raise AssertionError(
+        f'No minima were found on function described by {coefficients}.')
+  return smallest_absolute_minimum
 
 
 def serial_port_def(name):
@@ -197,8 +237,13 @@ def establish_serial_comm(port):
   trys = 1
   hex_test = convert_to_hex(ARDUINO_TEST_CMD)
   logging.debug(' test tx: %s %s %s', hex_test[0], hex_test[1], hex_test[2])
-  while trys <= ARDUINO_START_NUM_TRYS:
-    cmd_read = arduino_loopback_cmd(port, ARDUINO_TEST_CMD)
+  start = time.time()
+  while time.time() < start + ARDUINO_START_TIMEOUT:
+    try:
+      cmd_read = arduino_loopback_cmd(port, ARDUINO_TEST_CMD)
+    except serial.serialutil.SerialException as _:
+      logging.debug('Port in use, trying again...')
+      continue
     hex_read = convert_to_hex(cmd_read)
     logging.debug(' test rx: %s %s %s', hex_read[0], hex_read[1], hex_read[2])
     if cmd_read != list(ARDUINO_TEST_CMD):
@@ -206,6 +251,9 @@ def establish_serial_comm(port):
     else:
       logging.debug(' Arduino comm established after %d try(s)', trys)
       break
+  else:
+    raise AssertionError(f'Arduino comm not established after {trys} tries '
+                         f'and {ARDUINO_START_TIMEOUT} seconds')
 
 
 def convert_to_hex(cmd):
@@ -249,13 +297,12 @@ def arduino_rotate_servo(ch, angles, move_time, serial_port):
 
 
 def rotation_rig(rotate_cntl, rotate_ch, num_rotations, angles, servo_speed,
-                 move_time):
+                 move_time, arduino_serial_port):
   """Rotate the phone n times using rotate_cntl and rotate_ch defined.
 
   rotate_ch is hard wired and must be determined from physical setup.
-
-  First initialize the port and send a test string defined by ARDUINO_TEST_CMD
-  to establish communications. Then rotate servo motor to origin position.
+  If using Arduino, serial port must be initialized and communication must be
+  established before rotation.
 
   Args:
     rotate_cntl: str to identify as 'arduino' or 'canakit' controller.
@@ -264,26 +311,19 @@ def rotation_rig(rotate_cntl, rotate_ch, num_rotations, angles, servo_speed,
     angles: list of ints; servo angle to move to.
     servo_speed: int number of move speed between [1, 255].
     move_time: int time required to allow for arduino movement.
+    arduino_serial_port: optional initialized serial port object
   """
 
   logging.debug('Controller: %s, ch: %s', rotate_cntl, rotate_ch)
-  if rotate_cntl.lower() == 'arduino':
-    # identify port
-    arduino_serial_port = serial_port_def('Arduino')
-
-    # send test cmd to Arduino until cmd returns properly
-    establish_serial_comm(arduino_serial_port)
-
+  if arduino_serial_port:
     # initialize servo at origin
     logging.debug('Moving servo to origin')
     arduino_rotate_servo_to_angle(rotate_ch, 0, arduino_serial_port, 1)
 
     # set servo speed
     set_servo_speed(rotate_ch, servo_speed, arduino_serial_port, delay=0)
-
   elif rotate_cntl.lower() == 'canakit':
     canakit_serial_port = serial_port_def('Canakit')
-
   else:
     logging.info('No rotation rig defined. Manual test: rotate phone by hand.')
 
@@ -424,7 +464,8 @@ def procrustes_rotation(x, y):
   return np.dot(vt.T, u.T)
 
 
-def get_cam_rotations(frames, facing, h, file_name_stem, start_frame):
+def get_cam_rotations(frames, facing, h, file_name_stem,
+                      start_frame, stabilized_video=False):
   """Get the rotations of the camera between each pair of frames.
 
   Takes N frames and returns N-1 angular displacements corresponding to the
@@ -433,7 +474,7 @@ def get_cam_rotations(frames, facing, h, file_name_stem, start_frame):
   rolling shutter effect.
   Requires FEATURE_PTS_MIN to have enough data points for accurate measurements.
   Uses FEATURE_PARAMS for cv2 to identify features in checkerboard images.
-  Ensures camera rotates enough.
+  Ensures camera rotates enough if not calling with stabilized video.
 
   Args:
     frames: List of N images (as RGB numpy arrays).
@@ -441,6 +482,7 @@ def get_cam_rotations(frames, facing, h, file_name_stem, start_frame):
     h: Pixel height of each frame.
     file_name_stem: file name stem including location for data.
     start_frame: int; index to start at
+    stabilized_video: Boolean; if called with stabilized video
 
   Returns:
     numpy array of N-1 camera rotation measurements (rad).
@@ -517,13 +559,16 @@ def get_cam_rotations(frames, facing, h, file_name_stem, start_frame):
   rot_per_frame_max = max(abs(rotations))
   logging.debug('Max rotation in frame: %.2f degrees',
                 rot_per_frame_max*_RADS_TO_DEGS)
-  if rot_per_frame_max < _ROTATION_PER_FRAME_MIN:
+  if rot_per_frame_max < _ROTATION_PER_FRAME_MIN and not stabilized_video:
+    logging.debug('Checking camera rotations on video.')
     raise AssertionError(f'Device not moved enough: {rot_per_frame_max:.3f} '
                          f'movement. THRESH: {_ROTATION_PER_FRAME_MIN} rads.')
+  else:
+    logging.debug('Skipped camera rotation check due to stabilized video.')
   return rotations
 
 
-def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
+def get_best_alignment_offset(cam_times, cam_rots, gyro_events, degree=2):
   """Find the best offset to align the camera and gyro motion traces.
 
   This function integrates the shifted gyro data between camera samples
@@ -544,6 +589,7 @@ def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
     cam_times: Array of N camera times, one for each frame.
     cam_rots: Array of N-1 camera rotation displacements (rad).
     gyro_events: List of gyro event objects.
+    degree: Degree of polynomial
 
   Returns:
     Best alignment offset(ms), fit coefficients, candidates, and distances.
@@ -565,21 +611,68 @@ def get_best_alignment_offset(cam_times, cam_rots, gyro_events):
   coarse_best_shift = shift_candidates[spatial_distances.index(best_corr_dist)]
   logging.debug('Best shift without fitting is %.4f ms', coarse_best_shift)
 
-  # Fit a 2nd order polynomial around coarse_best_shift to extract best fit
+  # Fit a polynomial around coarse_best_shift to extract best fit
   i = spatial_distances.index(best_corr_dist)
   i_poly_fit_min = i - _COARSE_FIT_RANGE
   i_poly_fit_max = i + _COARSE_FIT_RANGE + 1
   shift_candidates = shift_candidates[i_poly_fit_min:i_poly_fit_max]
   spatial_distances = spatial_distances[i_poly_fit_min:i_poly_fit_max]
-  fit_coeffs = np.polyfit(shift_candidates, spatial_distances, 2)  # ax^2+bx+c
-  exact_best_shift = -fit_coeffs[1]/(2*fit_coeffs[0])
+  logging.debug('Polynomial degree: %d', degree)
+  fit_coeffs, residuals, _, _, _ = np.polyfit(
+      shift_candidates, spatial_distances, degree, full=True
+  )
+  logging.debug('Fit coefficients: %s', fit_coeffs)
+  logging.debug('Residuals: %s', residuals)
+  total_sum_of_squares = np.sum(
+      (spatial_distances - np.mean(spatial_distances)) ** 2
+  )
+  # Calculate r-squared on the entire domain for debugging
+  r_squared = 1 - residuals[0] / total_sum_of_squares
+  logging.debug('r^2 on the entire domain: %f', r_squared)
+
+  # Calculate r-squared near the best shift
+  domain_around_best_shift = [coarse_best_shift - _SHIFT_DOMAIN_RADIUS,
+                              coarse_best_shift + _SHIFT_DOMAIN_RADIUS]
+  logging.debug('Calculating r^2 on the limited domain of [%f, %f]',
+                domain_around_best_shift[0], domain_around_best_shift[1])
+  small_shifts_and_distances = [
+      (x, y)
+      for x, y in zip(shift_candidates, spatial_distances)
+      if domain_around_best_shift[0] <= x <= domain_around_best_shift[1]
+  ]
+  small_shift_candidates, small_spatial_distances = zip(
+      *small_shifts_and_distances
+  )
+  logging.debug('Shift candidates on limited domain: %s',
+                small_shift_candidates)
+  logging.debug('Spatial distances on limited domain: %s',
+                small_spatial_distances)
+  limited_residuals = np.sum(
+      (np.polyval(fit_coeffs, small_shift_candidates) - small_spatial_distances)
+      ** 2
+  )
+  logging.debug('Residuals on limited domain: %s', limited_residuals)
+  limited_total_sum_of_squares = np.sum(
+      (small_spatial_distances - np.mean(small_spatial_distances)) ** 2
+  )
+  limited_r_squared = 1 - limited_residuals / limited_total_sum_of_squares
+  logging.debug('r^2 on limited domain: %f', limited_r_squared)
+
+  # Calculate exact_best_shift (x where y is minimum of parabola)
+  exact_best_shift = smallest_absolute_minimum_of_polynomial(fit_coeffs)
+
   if abs(coarse_best_shift - exact_best_shift) > 2.0:
     raise AssertionError(
         f'Test failed. Bad fit to time-shift curve. Coarse best shift: '
         f'{coarse_best_shift}, Exact best shift: {exact_best_shift}.')
-  if fit_coeffs[0] <= 0 or fit_coeffs[2] <= 0:
-    raise AssertionError(
-        f'Coefficients are < 0: a: {fit_coeffs[0]}, c: {fit_coeffs[2]}.')
+
+  # Check fit of polynomial near the best shift
+  if not math.isclose(limited_r_squared, 1, abs_tol=_R_SQUARED_TOLERANCE):
+    logging.debug('r-squared on domain [%f, %f] was %f, expected 1.0, '
+                  'ATOL: %f',
+                  domain_around_best_shift[0], domain_around_best_shift[1],
+                  limited_r_squared, _R_SQUARED_TOLERANCE)
+    return None
 
   return exact_best_shift, fit_coeffs, shift_candidates, spatial_distances
 
@@ -653,7 +746,7 @@ def plot_gyro_events(gyro_events, plot_name, log_path):
   pylab.close(plot_name)
 
   z_max = max(abs(z))
-  logging.info('%.3f', z_max)
+  logging.debug('z_max: %.3f', z_max)
   if z_max > _GYRO_ROTATION_PER_SEC_MAX:
     raise AssertionError(
         f'Phone moved too rapidly! Please confirm controller firmware. '
@@ -665,7 +758,7 @@ def conv_acceleration_to_movement(gyro_events, video_delay_time):
 
   Args:
     gyro_events: sorted dict of entries with 'time', 'x', 'y', and 'z'
-    video_delay_time: time at which video starts
+    video_delay_time: time at which video starts (and the video's duration)
 
   Returns:
     'z' acceleration converted to movement for times around VIDEO playing.
@@ -686,138 +779,3 @@ def conv_acceleration_to_movement(gyro_events, video_delay_time):
       gyro_rotations.append((gyro_times[i]-gyro_times[i-1])/_SEC_TO_NSEC *
                             gyro_speed[i])
   return np.array(gyro_rotations)
-
-
-class SensorFusionUtilsTests(unittest.TestCase):
-  """Run a suite of unit tests on this module."""
-
-  _CAM_FRAME_TIME = 30 * _MSEC_TO_NSEC  # Similar to 30FPS
-  _CAM_ROT_AMPLITUDE = 0.04  # Empirical number for rotation per frame (rads/s).
-
-  def _generate_pwl_waveform(self, pts, step, amplitude):
-    """Helper function to generate piece wise linear waveform."""
-    pwl_waveform = []
-    for t in range(pts[0], pts[1], step):
-      pwl_waveform.append(0)
-    for t in range(pts[1], pts[2], step):
-      pwl_waveform.append((t-pts[1])/(pts[2]-pts[1])*amplitude)
-    for t in range(pts[2], pts[3], step):
-      pwl_waveform.append(amplitude)
-    for t in range(pts[3], pts[4], step):
-      pwl_waveform.append((pts[4]-t)/(pts[4]-pts[3])*amplitude)
-    for t in range(pts[4], pts[5], step):
-      pwl_waveform.append(0)
-    for t in range(pts[5], pts[6], step):
-      pwl_waveform.append((-1*(t-pts[5])/(pts[6]-pts[5]))*amplitude)
-    for t in range(pts[6], pts[7], step):
-      pwl_waveform.append(-1*amplitude)
-    for t in range(pts[7], pts[8], step):
-      pwl_waveform.append((t-pts[8])/(pts[8]-pts[7])*amplitude)
-    for t in range(pts[8], pts[9], step):
-      pwl_waveform.append(0)
-    return pwl_waveform
-
-  def _generate_test_waveforms(self, gyro_sampling_rate, t_offset=0):
-    """Define ideal camera/gryo behavior.
-
-    Args:
-      gyro_sampling_rate: Value in samples/sec.
-      t_offset: Value in ns for gyro/camera timing offset.
-
-    Returns:
-      cam_times: numpy array of camera times N values long.
-      cam_rots: numpy array of camera rotations N-1 values long.
-      gyro_events: list of dicts of gyro events N*gyro_sampling_rate/30 long.
-
-    Round trip for motor is ~2 seconds (~60 frames)
-            1111111111111111
-           i                i
-          i                  i
-         i                    i
-     0000                      0000                      0000
-                                   i                    i
-                                    i                  i
-                                     i                i
-                                      -1-1-1-1-1-1-1-1
-    t_0 t_1 t_2           t_3 t_4 t_5 t_6           t_7 t_8 t_9
-
-    Note gyro waveform must extend +/- _CORR_TIME_OFFSET_MAX to enable shifting
-    of camera waveform to find best correlation.
-
-    """
-
-    t_ramp = 4 * self._CAM_FRAME_TIME
-    pts = {}
-    pts[0] = 3 * self._CAM_FRAME_TIME
-    pts[1] = pts[0] + 3 * self._CAM_FRAME_TIME
-    pts[2] = pts[1] + t_ramp
-    pts[3] = pts[2] + 32 * self._CAM_FRAME_TIME
-    pts[4] = pts[3] + t_ramp
-    pts[5] = pts[4] + 4 * self._CAM_FRAME_TIME
-    pts[6] = pts[5] + t_ramp
-    pts[7] = pts[6] + 32 * self._CAM_FRAME_TIME
-    pts[8] = pts[7] + t_ramp
-    pts[9] = pts[8] + 4 * self._CAM_FRAME_TIME
-    cam_times = np.array(range(pts[0], pts[9], self._CAM_FRAME_TIME))
-    cam_rots = self._generate_pwl_waveform(
-        pts, self._CAM_FRAME_TIME, self._CAM_ROT_AMPLITUDE)
-    cam_rots.pop()  # rots is N-1 for N length times.
-    cam_rots = np.array(cam_rots)
-
-    # Generate gyro waveform.
-    gyro_step = int(round(_SEC_TO_NSEC/gyro_sampling_rate, 0))
-    gyro_pts = {k: v+t_offset+self._CAM_FRAME_TIME//2 for k, v in pts.items()}
-    gyro_pts[0] = 0  # adjust end pts to bound camera
-    gyro_pts[9] += self._CAM_FRAME_TIME*2  # adjust end pt to bound camera
-    gyro_rot_amplitude = (
-        self._CAM_ROT_AMPLITUDE / self._CAM_FRAME_TIME * _SEC_TO_NSEC)
-    gyro_rots = self._generate_pwl_waveform(
-        gyro_pts, gyro_step, gyro_rot_amplitude)
-
-    # Create gyro events list of dicts.
-    gyro_events = []
-    for i, t in enumerate(range(gyro_pts[0], gyro_pts[9], gyro_step)):
-      gyro_events.append({'time': t, 'z': gyro_rots[i]})
-
-    return cam_times, cam_rots, gyro_events
-
-  def test_get_gyro_rotations(self):
-    """Tests that gyro rotations are masked properly by camera rotations.
-
-    Note that waveform ideal waveform generation only works properly with
-    integer multiples of frame rate.
-    """
-    # Run with different sampling rates to validate.
-    for gyro_sampling_rate in [200, 1000]:  # 6x, 30x frame rate
-      cam_times, cam_rots, gyro_events = self._generate_test_waveforms(
-          gyro_sampling_rate)
-      gyro_rots = get_gyro_rotations(gyro_events, cam_times)
-      e_msg = f'gyro sampling rate = {gyro_sampling_rate}\n'
-      e_msg += f'cam_times = {list(cam_times)}\n'
-      e_msg += f'cam_rots = {list(cam_rots)}\n'
-      e_msg += f'gyro_rots = {list(gyro_rots)}'
-
-      self.assertTrue(np.allclose(
-          gyro_rots, cam_rots, atol=self._CAM_ROT_AMPLITUDE*0.10), e_msg)
-
-  def test_get_best_alignment_offset(self):
-    """Unittest for alignment offset check."""
-
-    gyro_sampling_rate = 5000
-    for t_offset_ms in [0, 1]:  # Run with different offsets to validate.
-      t_offset = int(t_offset_ms * _MSEC_TO_NSEC)
-      cam_times, cam_rots, gyro_events = self._generate_test_waveforms(
-          gyro_sampling_rate, t_offset)
-
-      best_fit_offset, coeffs, x, y = get_best_alignment_offset(
-          cam_times, cam_rots, gyro_events)
-      e_msg = f'best: {best_fit_offset} ms\n'
-      e_msg += f'coeffs: {coeffs}\n'
-      e_msg += f'x: {x}\n'
-      e_msg += f'y: {y}'
-      self.assertTrue(np.isclose(t_offset_ms, best_fit_offset, atol=0.1), e_msg)
-
-
-if __name__ == '__main__':
-  unittest.main()
-

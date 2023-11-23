@@ -15,11 +15,12 @@
  */
 
 #define LOG_TAG "GCH_AidlUtils"
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #include "aidl_utils.h"
 
 #include <aidlcommonsupport/NativeHandle.h>
 #include <log/log.h>
+#include <system/camera_metadata.h>
 
 #include <regex>
 
@@ -35,6 +36,8 @@ namespace aidl_utils {
 using AidlCameraProvider = provider::implementation::AidlCameraProvider;
 using AidlCameraDevice = device::implementation::AidlCameraDevice;
 using AidlStatus = aidl::android::hardware::camera::common::Status;
+using DynamicRangeProfile = google_camera_hal::DynamicRangeProfile;
+using ColorSpaceProfile = google_camera_hal::ColorSpaceProfile;
 
 ScopedAStatus ConvertToAidlReturn(status_t hal_status) {
   switch (hal_status) {
@@ -711,17 +714,39 @@ status_t ConvertToHalMetadata(
 
   const camera_metadata_t* metadata = nullptr;
   std::vector<int8_t> metadata_queue_settings;
+  const size_t min_camera_metadata_size =
+      calculate_camera_metadata_size(/*entry_count=*/0, /*data_count=*/0);
 
   if (message_queue_setting_size == 0) {
     // Use the settings in the request.
     if (request_settings.size() != 0) {
+      if (request_settings.size() < min_camera_metadata_size) {
+        ALOGE("%s: The size of request_settings is %zu, which is not valid",
+              __FUNCTION__, request_settings.size());
+        return BAD_VALUE;
+      }
+
       metadata =
           reinterpret_cast<const camera_metadata_t*>(request_settings.data());
+
+      size_t metadata_size = get_camera_metadata_size(metadata);
+      if (metadata_size != request_settings.size()) {
+        ALOGE(
+            "%s: Mismatch between camera metadata size (%zu) and request "
+            "setting size (%zu)",
+            __FUNCTION__, metadata_size, request_settings.size());
+        return BAD_VALUE;
+      }
     }
   } else {
     // Read the settings from request metadata queue.
     if (request_metadata_queue == nullptr) {
       ALOGE("%s: request_metadata_queue is nullptr", __FUNCTION__);
+      return BAD_VALUE;
+    }
+    if (message_queue_setting_size < min_camera_metadata_size) {
+      ALOGE("%s: invalid message queue setting size: %u", __FUNCTION__,
+            message_queue_setting_size);
       return BAD_VALUE;
     }
 
@@ -735,11 +760,30 @@ status_t ConvertToHalMetadata(
 
     metadata = reinterpret_cast<const camera_metadata_t*>(
         metadata_queue_settings.data());
+
+    size_t metadata_size = get_camera_metadata_size(metadata);
+    if (metadata_size != message_queue_setting_size) {
+      ALOGE(
+          "%s: Mismatch between camera metadata size (%zu) and message "
+          "queue setting size (%u)",
+          __FUNCTION__, metadata_size, message_queue_setting_size);
+      return BAD_VALUE;
+    }
   }
 
   if (metadata == nullptr) {
     *hal_metadata = nullptr;
     return OK;
+  }
+
+  // Validates the injected metadata structure. This prevents memory access
+  // violation that could be introduced by malformed metadata.
+  // (b/236688120) In general we trust metadata sent from Framework, but this is
+  // to defend an exploit chain that skips Framework's validation.
+  if (validate_camera_metadata_structure(metadata, /*expected_size=*/NULL) !=
+      OK) {
+    ALOGE("%s: Failed to validate the metadata structure", __FUNCTION__);
+    return BAD_VALUE;
   }
 
   *hal_metadata = google_camera_hal::HalCameraMetadata::Clone(metadata);
@@ -867,6 +911,34 @@ static bool sensorPixelModeContains(const Stream& aidl_stream, uint32_t key) {
   return false;
 }
 
+void FixSensorPixelModesInStreamConfig(
+    StreamConfiguration* out_aidl_stream_config) {
+  if (out_aidl_stream_config == nullptr) {
+    ALOGE("%s: input stream config is NULL", __FUNCTION__);
+    return;
+  }
+
+  // Get the sensor pixel modes in the stream config, do one pass and check if
+  // default is present in all.
+  using SensorPixelMode =
+      aidl::android::hardware::camera::metadata::SensorPixelMode;
+  for (const auto& stream : out_aidl_stream_config->streams) {
+    const auto& sensorPixelModes = stream.sensorPixelModesUsed;
+    if ((std::count(sensorPixelModes.begin(), sensorPixelModes.end(),
+                    static_cast<SensorPixelMode>(
+                        ANDROID_SENSOR_PIXEL_MODE_DEFAULT)) == 0)) {
+      return;
+    }
+  }
+
+  // All of them contain DEFAULT, just override them to be default only.
+  for (auto& stream : out_aidl_stream_config->streams) {
+    stream.sensorPixelModesUsed.clear();
+    stream.sensorPixelModesUsed.push_back(
+        static_cast<SensorPixelMode>(ANDROID_SENSOR_PIXEL_MODE_DEFAULT));
+  }
+}
+
 status_t ConvertToHalStreamConfig(
     const StreamConfiguration& aidl_stream_config,
     google_camera_hal::StreamConfiguration* hal_stream_config) {
@@ -909,6 +981,7 @@ status_t ConvertToHalStreamConfig(
       aidl_stream_config.streamConfigCounter;
   hal_stream_config->multi_resolution_input_image =
       aidl_stream_config.multiResolutionInputImage;
+  hal_stream_config->log_id = aidl_stream_config.logId;
 
   return OK;
 }
@@ -1007,16 +1080,17 @@ status_t ConvertToHalStream(const Stream& aidl_stream,
   hal_stream->buffer_size = aidl_stream.bufferSize;
   hal_stream->group_id = aidl_stream.groupId;
 
-  hal_stream->used_in_max_resolution_mode = sensorPixelModeContains(
+  hal_stream->intended_for_max_resolution_mode = sensorPixelModeContains(
       aidl_stream, ANDROID_SENSOR_PIXEL_MODE_MAXIMUM_RESOLUTION);
-  hal_stream->used_in_default_resolution_mode =
+  hal_stream->intended_for_default_resolution_mode =
       aidl_stream.sensorPixelModesUsed.size() > 0
           ? sensorPixelModeContains(aidl_stream,
                                     ANDROID_SENSOR_PIXEL_MODE_DEFAULT)
           : true;
-  hal_stream->dynamic_profile = static_cast<
-      camera_metadata_enum_android_request_available_dynamic_range_profiles_map>(
-      aidl_stream.dynamicRangeProfile);
+  hal_stream->dynamic_profile =
+      static_cast<DynamicRangeProfile>(aidl_stream.dynamicRangeProfile);
+  hal_stream->color_space =
+      static_cast<ColorSpaceProfile>(aidl_stream.colorSpace);
 
   hal_stream->use_case =
       static_cast<camera_metadata_enum_android_scaler_available_stream_use_cases>(

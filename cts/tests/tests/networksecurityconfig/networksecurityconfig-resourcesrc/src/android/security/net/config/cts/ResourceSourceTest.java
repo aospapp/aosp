@@ -17,8 +17,8 @@
 package android.security.net.config.cts;
 
 import android.security.net.config.cts.CtsNetSecConfigResourcesSrcTestCases.R;
-
 import android.test.MoreAsserts;
+
 import java.io.InputStream;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -26,6 +26,7 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.HashSet;
 import java.util.Set;
+
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.TrustManagerFactory;
 import javax.net.ssl.X509TrustManager;
@@ -35,12 +36,14 @@ public class ResourceSourceTest extends BaseTestCase {
     public void testSingleDerPresent() throws Exception {
         Set<X509Certificate> trusted = getTrustedCertificates();
         Set<X509Certificate> singleDer = loadCertificates(R.raw.der_single);
+        assertEquals(1, singleDer.size());
         assertContainsAll(trusted, singleDer);
     }
 
     public void testSinglePemPresent() throws Exception {
         Set<X509Certificate> trusted = getTrustedCertificates();
         Set<X509Certificate> singlePem = loadCertificates(R.raw.pem_single);
+        assertEquals(1, singlePem.size());
         assertContainsAll(trusted, singlePem);
     }
 

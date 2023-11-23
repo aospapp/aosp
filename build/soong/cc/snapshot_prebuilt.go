@@ -4,7 +4,7 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@ package cc
 // snapshot mutators and snapshot information maps which are also defined in this file.
 
 import (
+	"fmt"
 	"strings"
 
 	"android/soong/android"
@@ -263,12 +264,12 @@ type BaseSnapshotDecoratorProperties struct {
 // version, snapshot arch, etc. It also adds a special suffix to Soong module name, so it doesn't
 // collide with source modules. e.g. the following example module,
 //
-// vendor_snapshot_static {
-//     name: "libbase",
-//     arch: "arm64",
-//     version: 30,
-//     ...
-// }
+//	vendor_snapshot_static {
+//	    name: "libbase",
+//	    arch: "arm64",
+//	    version: 30,
+//	    ...
+//	}
 //
 // will be seen as "libbase.vendor_static.30.arm64" by Soong.
 type BaseSnapshotDecorator struct {
@@ -370,7 +371,6 @@ func vendorSnapshotLoadHook(ctx android.LoadHookContext, p *BaseSnapshotDecorato
 	}
 }
 
-//
 // Module definitions for snapshots of libraries (shared, static, header).
 //
 // Modules (vendor|recovery)_snapshot_(shared|static|header) are defined here. Shared libraries and
@@ -400,8 +400,10 @@ type SnapshotLibraryProperties struct {
 }
 
 type snapshotSanitizer interface {
-	isSanitizerEnabled(t SanitizerType) bool
+	isSanitizerAvailable(t SanitizerType) bool
 	setSanitizerVariation(t SanitizerType, enabled bool)
+	isSanitizerEnabled(t SanitizerType) bool
+	isUnsanitizedVariant() bool
 }
 
 type snapshotLibraryDecorator struct {
@@ -409,10 +411,13 @@ type snapshotLibraryDecorator struct {
 	*libraryDecorator
 	properties          SnapshotLibraryProperties
 	sanitizerProperties struct {
-		CfiEnabled bool `blueprint:"mutated"`
+		SanitizerVariation SanitizerType `blueprint:"mutated"`
 
 		// Library flags for cfi variant.
 		Cfi SnapshotLibraryProperties `android:"arch_variant"`
+
+		// Library flags for hwasan variant.
+		Hwasan SnapshotLibraryProperties `android:"arch_variant"`
 	}
 }
 
@@ -451,8 +456,10 @@ func (p *snapshotLibraryDecorator) link(ctx ModuleContext, flags Flags, deps Pat
 		return p.libraryDecorator.link(ctx, flags, deps, objs)
 	}
 
-	if p.sanitizerProperties.CfiEnabled {
+	if p.isSanitizerEnabled(cfi) {
 		p.properties = p.sanitizerProperties.Cfi
+	} else if p.isSanitizerEnabled(Hwasan) {
+		p.properties = p.sanitizerProperties.Hwasan
 	}
 
 	if !p.MatchesWithDevice(ctx.DeviceConfig()) {
@@ -515,25 +522,36 @@ func (p *snapshotLibraryDecorator) nativeCoverage() bool {
 	return false
 }
 
-func (p *snapshotLibraryDecorator) isSanitizerEnabled(t SanitizerType) bool {
+var _ snapshotSanitizer = (*snapshotLibraryDecorator)(nil)
+
+func (p *snapshotLibraryDecorator) isSanitizerAvailable(t SanitizerType) bool {
 	switch t {
 	case cfi:
 		return p.sanitizerProperties.Cfi.Src != nil
+	case Hwasan:
+		return p.sanitizerProperties.Hwasan.Src != nil
 	default:
 		return false
 	}
 }
 
 func (p *snapshotLibraryDecorator) setSanitizerVariation(t SanitizerType, enabled bool) {
-	if !enabled {
+	if !enabled || p.isSanitizerEnabled(t) {
 		return
 	}
-	switch t {
-	case cfi:
-		p.sanitizerProperties.CfiEnabled = true
-	default:
-		return
+	if !p.isUnsanitizedVariant() {
+		panic(fmt.Errorf("snapshot Sanitizer must be one of Cfi or Hwasan but not both"))
 	}
+	p.sanitizerProperties.SanitizerVariation = t
+}
+
+func (p *snapshotLibraryDecorator) isSanitizerEnabled(t SanitizerType) bool {
+	return p.sanitizerProperties.SanitizerVariation == t
+}
+
+func (p *snapshotLibraryDecorator) isUnsanitizedVariant() bool {
+	return !p.isSanitizerEnabled(Asan) &&
+		!p.isSanitizerEnabled(Hwasan)
 }
 
 func snapshotLibraryFactory(image SnapshotImage, moduleSuffix string) (*Module, *snapshotLibraryDecorator) {
@@ -628,9 +646,6 @@ func RecoverySnapshotHeaderFactory() android.Module {
 	return module.Init()
 }
 
-var _ snapshotSanitizer = (*snapshotLibraryDecorator)(nil)
-
-//
 // Module definitions for snapshots of executable binaries.
 //
 // Modules (vendor|recovery)_snapshot_binary are defined here. They have their prebuilt executable
@@ -728,7 +743,6 @@ func snapshotBinaryFactory(image SnapshotImage, moduleSuffix string) android.Mod
 	return module.Init()
 }
 
-//
 // Module definitions for snapshots of object files (*.o).
 //
 // Modules (vendor|recovery)_snapshot_object are defined here. They have their prebuilt object
@@ -787,6 +801,10 @@ func VendorSnapshotObjectFactory() android.Module {
 
 	prebuilt.Init(module, VendorSnapshotImageSingleton, snapshotObjectSuffix)
 	module.AddProperties(&prebuilt.properties)
+
+	// vendor_snapshot_object module does not provide sanitizer variants
+	module.sanitize.Properties.Sanitize.Never = BoolPtr(true)
+
 	return module.Init()
 }
 

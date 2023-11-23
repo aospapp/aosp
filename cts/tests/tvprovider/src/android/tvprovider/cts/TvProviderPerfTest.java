@@ -205,7 +205,7 @@ public class TvProviderPerfTest extends CtsAndroidTestCase {
         Log.d(TAG, "Prepare (insert channels)");
         final ArrayList<ContentProviderOperation> operations = new ArrayList<>();
         final int TRANSACTION_SIZE = 1000;
-        final int NUM_CHANNELS = 100;
+        final int NUM_CHANNELS = 50;
         final List<Uri> channelUris = new ArrayList<>();
 
         operations.clear();

@@ -1,0 +1,13 @@
+{
+    "id": 1,
+    "type": "uinput",
+    "command": "register",
+    "name": "Test Stylus With Buttons (BT)",
+    "vid": 0x18d1,
+    "pid": 0xabcd,
+    "bus": "bluetooth",
+    "configuration":[
+      {"type": 100, "data": [1]},             // UI_SET_EVBIT  : EV_KEY
+      {"type": 101, "data": [331, 332, 329]}  // UI_SET_KEYBIT : BTN_STYLUS, BTN_STYLUS2, BTN_STYLUS3
+    ]
+  }

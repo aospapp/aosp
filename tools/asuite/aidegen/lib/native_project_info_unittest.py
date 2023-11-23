@@ -50,15 +50,16 @@ class NativeProjectInfoUnittests(unittest.TestCase):
     def test_generate_projects(self, mock_get_inst, mock_mod_info,
                                mock_get_need, mock_batch, mock_print,
                                mock_info):
-        """Test initializing NativeProjectInfo woth different conditions."""
+        """Test initializing NativeProjectInfo with different conditions."""
         target = 'libui'
         config = mock.Mock()
         mock_get_inst.return_value = config
         config.is_skip_build = True
-        nativeInfo = native_project_info.NativeProjectInfo
-        nativeInfo.modules_info = mock.Mock()
-        nativeInfo.modules_info.is_module.return_value = [True, True]
-        nativeInfo.modules_info.is_module_need_build.return_value = [True, True]
+        native_info = native_project_info.NativeProjectInfo
+        native_info.modules_info = mock.Mock()
+        native_info.modules_info.is_module.return_value = [True, True]
+        native_info.modules_info.is_module_need_build.return_value = [True,
+                                                                      True]
         native_project_info.NativeProjectInfo.generate_projects([target])
         self.assertTrue(mock_mod_info.called)
         self.assertTrue(mock_print.called)
@@ -68,7 +69,7 @@ class NativeProjectInfoUnittests(unittest.TestCase):
         mock_print.reset_mock()
         mock_info.reset_mock()
         config.is_skip_build = False
-        nativeInfo.modules_info.is_module_need_build.return_value = [
+        native_info.modules_info.is_module_need_build.return_value = [
             False, False]
         mock_get_need.return_value = ['mod1', 'mod2']
         native_project_info.NativeProjectInfo.generate_projects([target])
@@ -81,10 +82,11 @@ class NativeProjectInfoUnittests(unittest.TestCase):
     def test_get_need_builds_without_needed_build(self):
         """Test _get_need_builds method without needed build."""
         targets = ['mod1', 'mod2']
-        nativeInfo = native_project_info.NativeProjectInfo
-        nativeInfo.modules_info = mock.Mock()
-        nativeInfo.modules_info.is_module.return_value = [True, True]
-        nativeInfo.modules_info.is_module_need_build.return_value = [True, True]
+        native_info = native_project_info.NativeProjectInfo
+        native_info.modules_info = mock.Mock()
+        native_info.modules_info.is_module.return_value = [True, True]
+        native_info.modules_info.is_module_need_build.return_value = [True,
+                                                                      True]
         self.assertEqual(
             set(targets),
             native_project_info.NativeProjectInfo._get_need_builds(targets))

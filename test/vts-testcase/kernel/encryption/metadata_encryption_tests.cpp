@@ -48,6 +48,7 @@
 //
 
 #include <android-base/file.h>
+#include <android-base/stringprintf.h>
 #include <android-base/unique_fd.h>
 #include <asm/byteorder.h>
 #include <fcntl.h>
@@ -123,9 +124,6 @@ static bool ReadBlockDevice(const std::string &blk_device, size_t count,
 }
 
 class DmDefaultKeyTest : public ::testing::Test {
-  // Name to assign to the dm-default-key test device
-  static constexpr const char *kTestDmDeviceName = "vts-test-default-key";
-
   // Filesystem whose underlying partition the test will use
   static constexpr const char *kTestMountpoint = "/data";
 
@@ -149,6 +147,7 @@ class DmDefaultKeyTest : public ::testing::Test {
                         const std::vector<uint8_t> &key, bool is_wrapped_key);
   void VerifyDecryption(const std::vector<uint8_t> &key, const Cipher &cipher);
   void DoTest(const std::string &cipher_string, const Cipher &cipher);
+  std::string test_dm_device_name_;
   bool skip_test_ = false;
   DeviceMapper *dm_ = nullptr;
   std::string raw_blk_device_;
@@ -171,15 +170,17 @@ void DmDefaultKeyTest::SetUp() {
     skip_test_ = true;
     return;
   }
+  test_dm_device_name_ =
+      android::base::StringPrintf("DmDefaultKeyTest.%d", getpid());
 
   FilesystemInfo fs_info;
   ASSERT_TRUE(GetFilesystemInfo(kTestMountpoint, &fs_info));
   raw_blk_device_ = fs_info.raw_blk_device;
 
-  dm_->DeleteDevice(kTestDmDeviceName);
+  dm_->DeleteDevice(test_dm_device_name_.c_str());
 }
 
-void DmDefaultKeyTest::TearDown() { dm_->DeleteDevice(kTestDmDeviceName); }
+void DmDefaultKeyTest::TearDown() { dm_->DeleteDevice(test_dm_device_name_); }
 
 // Creates the test dm-default-key mapping using the given key and settings.
 // If the dm device creation fails, then it is assumed the kernel doesn't
@@ -204,7 +205,7 @@ bool DmDefaultKeyTest::CreateTestDevice(const std::string &cipher,
     ADD_FAILURE() << "Device-mapper table failed to validate";
     return false;
   }
-  if (!dm_->CreateDevice(kTestDmDeviceName, table, &dm_device_path_,
+  if (!dm_->CreateDevice(test_dm_device_name_, table, &dm_device_path_,
                          std::chrono::seconds(5))) {
     GTEST_LOG_(INFO) << "Unable to create default-key mapping" << Errno()
                      << ".  Assuming that the encryption settings cipher=\""

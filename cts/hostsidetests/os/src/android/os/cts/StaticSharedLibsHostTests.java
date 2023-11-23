@@ -16,6 +16,7 @@
 
 package android.os.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -90,6 +91,8 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
             "android.os.lib.provider";
 
     private static final String STATIC_LIB_CONSUMER1_APK = "CtsStaticSharedLibConsumerApp1.apk";
+    private static final String STATIC_LIB_CONSUMER1_BAD_CERT_DIGEST_APK =
+            "CtsStaticSharedLibConsumerApp1BadCertDigest.apk";
     private static final String STATIC_LIB_CONSUMER1_PKG = "android.os.lib.consumer1";
 
     private static final String STATIC_LIB_CONSUMER2_APK = "CtsStaticSharedLibConsumerApp2.apk";
@@ -106,6 +109,8 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
     private static final String STATIC_LIB_TEST_APP_PKG = "android.os.lib.app";
     private static final String STATIC_LIB_TEST_APP_CLASS_NAME = STATIC_LIB_TEST_APP_PKG
             + ".StaticSharedLibsTests";
+    private static final String STATIC_LIB_MULTI_USER_TEST_APP_CLASS_NAME = STATIC_LIB_TEST_APP_PKG
+            + ".StaticSharedLibsMultiUserTests";
 
     private static final String SETTING_UNUSED_STATIC_SHARED_LIB_MIN_CACHE_PERIOD =
             "unused_static_shared_lib_min_cache_period";
@@ -780,7 +785,7 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
             // TODO(205779832): There's a maximum two-seconds-delay before SettingsProvider persists
             //  the settings. Waits for 3 seconds before reboot the device to ensure the setting is
             //  persisted.
-            Thread.sleep(3_000);
+            RunUtil.getDefault().sleep(3_000);
             getDevice().reboot();
 
             // Waits for the uninstallation of the unused library to ensure the job has be executed
@@ -841,6 +846,89 @@ public class StaticSharedLibsHostTests extends DeviceTestCase implements IBuildR
             // the static shared library is re-installed.
             runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_TEST_APP_CLASS_NAME,
                     "testSamegradeStaticSharedLib_killDependentApp");
+        } finally {
+            getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
+            getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+            getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+        }
+    }
+
+    @AppModeFull
+    public void testStaticSharedLibInstall_broadcastReceived() throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+        // Install library dependency
+        assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
+        runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_TEST_APP_CLASS_NAME,
+                    "testStaticSharedLibInstall_broadcastReceived");
+    }
+
+    @AppModeFull
+    public void testStaticSharedLibInstall_incorrectInstallerPkgName_broadcastNotReceived()
+            throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+        // Install library dependency
+        assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
+        runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_TEST_APP_CLASS_NAME,
+                "testStaticSharedLibInstall_incorrectInstallerPkgName_broadcastNotReceived");
+    }
+
+    @AppModeFull
+    public void testStaticSharedLibUninstall_broadcastReceived()
+            throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+        // Install library dependency
+        assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
+        runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_TEST_APP_CLASS_NAME,
+                "testStaticSharedLibUninstall_broadcastReceived");
+    }
+
+    @AppModeFull
+    public void testStaticSharedLibUninstall_incorrectInstallerPkgName_broadcastNotReceived()
+            throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+        // Install library dependency
+        assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
+        runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_TEST_APP_CLASS_NAME,
+                "testStaticSharedLibUninstall_incorrectInstallerPkgName_broadcastNotReceived");
+    }
+
+    @AppModeFull
+    public void testStaticSharedLibInstallOnSecondaryUser_broadcastReceivedByAllUsers()
+            throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+
+        runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_MULTI_USER_TEST_APP_CLASS_NAME,
+                "testStaticSharedLibInstallOnSecondaryUser_broadcastReceivedByAllUsers");
+    }
+
+    @AppModeFull
+    public void testStaticSharedLibUninstallOnAllUsers_broadcastReceivedByAllUsers()
+            throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+
+        runDeviceTests(STATIC_LIB_TEST_APP_PKG, STATIC_LIB_MULTI_USER_TEST_APP_CLASS_NAME,
+                "testStaticSharedLibUninstallOnAllUsers_broadcastReceivedByAllUsers");
+    }
+
+    @AppModeFull
+    public void testCannotInstallAppWithBadCertDigestDeclared() throws Exception {
+        getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);
+        getDevice().uninstallPackage(STATIC_LIB_PROVIDER_RECURSIVE_PKG);
+        try {
+            // Install library dependency
+            assertNull(install(STATIC_LIB_PROVIDER_RECURSIVE_APK));
+            // Install the first library
+            assertNull(install(STATIC_LIB_PROVIDER1_APK));
+            // Failed to install app with bad certificate digest
+            assertThat(install(STATIC_LIB_CONSUMER1_BAD_CERT_DIGEST_APK))
+                    .contains("INSTALL_FAILED_SHARED_LIBRARY_BAD_CERTIFICATE_DIGEST");
         } finally {
             getDevice().uninstallPackage(STATIC_LIB_CONSUMER1_PKG);
             getDevice().uninstallPackage(STATIC_LIB_PROVIDER1_PKG);

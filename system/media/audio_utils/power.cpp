@@ -130,9 +130,28 @@ inline float energyMonoRef(const void *amplitudes, size_t size)
 }
 
 template <audio_format_t FORMAT>
+inline void energyRef(const void *amplitudes, size_t size, size_t numChannels, float* out)
+{
+    const size_t framesSize = size / numChannels;
+    for (size_t i = 0; i < framesSize; ++i) {
+        for (size_t c = 0; c < numChannels; ++c) {
+            const float amplitude = convertToFloatAndIncrement<FORMAT>(&amplitudes);
+            out[c] += amplitude * amplitude;
+        }
+    }
+}
+
+template <audio_format_t FORMAT>
 inline float energyMono(const void *amplitudes, size_t size)
 {
     return energyMonoRef<FORMAT>(amplitudes, size);
+}
+
+// TODO: optimize with NEON
+template <audio_format_t FORMAT>
+inline void energy(const void *amplitudes, size_t size, size_t numChannels, float* out)
+{
+    energyRef<FORMAT>(amplitudes, size, numChannels, out);
 }
 
 // fast float power computation for ARM processors that support NEON.
@@ -259,6 +278,42 @@ float audio_utils_compute_energy_mono(const void *buffer, audio_format_t format,
 
     case AUDIO_FORMAT_PCM_FLOAT:
         return energyMono<AUDIO_FORMAT_PCM_FLOAT>(buffer, samples);
+
+    default:
+        LOG_ALWAYS_FATAL("invalid format: %#x", format);
+    }
+}
+
+void audio_utils_accumulate_energy(const void* buffer,
+                                   audio_format_t format,
+                                   size_t samples,
+                                   size_t numChannels,
+                                   float* out)
+{
+    switch (format) {
+    case AUDIO_FORMAT_PCM_8_BIT:
+        energy<AUDIO_FORMAT_PCM_8_BIT>(buffer, samples, numChannels, out);
+        break;
+
+    case AUDIO_FORMAT_PCM_16_BIT:
+        energy<AUDIO_FORMAT_PCM_16_BIT>(buffer, samples, numChannels, out);
+        break;
+
+    case AUDIO_FORMAT_PCM_24_BIT_PACKED:
+        energy<AUDIO_FORMAT_PCM_24_BIT_PACKED>(buffer, samples, numChannels, out);
+        break;
+
+    case AUDIO_FORMAT_PCM_8_24_BIT:
+        energy<AUDIO_FORMAT_PCM_8_24_BIT>(buffer, samples, numChannels, out);
+        break;
+
+    case AUDIO_FORMAT_PCM_32_BIT:
+        energy<AUDIO_FORMAT_PCM_32_BIT>(buffer, samples, numChannels, out);
+        break;
+
+    case AUDIO_FORMAT_PCM_FLOAT:
+        energy<AUDIO_FORMAT_PCM_FLOAT>(buffer, samples, numChannels, out);
+        break;
 
     default:
         LOG_ALWAYS_FATAL("invalid format: %#x", format);

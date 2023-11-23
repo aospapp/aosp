@@ -19,6 +19,12 @@
 
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"/>
 
+    <queries>
+        <package android:name="com.android.cts.blob.helper" />
+        <package android:name="com.android.cts.blob.helper2" />
+        <package android:name="com.android.cts.blob.helper3" />
+    </queries>
+
     <application android:label="CtsBlobStoreTestCases"
                  android:requestLegacyExternalStorage="true">
         <uses-library android:name="android.test.runner"/>

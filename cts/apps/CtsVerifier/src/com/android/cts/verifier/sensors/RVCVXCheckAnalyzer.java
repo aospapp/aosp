@@ -1072,10 +1072,10 @@ public class RVCVXCheckAnalyzer {
             for (int i = 0; i < extractor.getTrackCount(); i++) {
                 MediaFormat format = extractor.getTrackFormat(i);
                 String mime = format.getString(MediaFormat.KEY_MIME);
-                width = format.getInteger(MediaFormat.KEY_WIDTH);
-                height = format.getInteger(MediaFormat.KEY_HEIGHT);
 
                 if (mime.startsWith("video/")) {
+                    width = format.getInteger(MediaFormat.KEY_WIDTH);
+                    height = format.getInteger(MediaFormat.KEY_HEIGHT);
                     extractor.selectTrack(i);
                     try {
                         decoder = MediaCodec.createDecoderByType(mime);

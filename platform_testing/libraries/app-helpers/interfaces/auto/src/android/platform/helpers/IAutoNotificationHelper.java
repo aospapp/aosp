@@ -48,4 +48,18 @@ public interface IAutoNotificationHelper extends Scrollable, IAppHelper {
      * <p>Swipe down from status bar to open notifications.
      */
     void openNotification();
+
+    /**
+     * Setup expectations: Notification app is open and scrolled to the bottom.
+     *
+     * <p>Tap manange button if present.
+     */
+    void clickManageBtn();
+
+    /**
+     * Setup expectations: None.
+     *
+     * <p>Checks if notification settings page is opened.
+     */
+    boolean isNotificationSettingsOpened();
 }

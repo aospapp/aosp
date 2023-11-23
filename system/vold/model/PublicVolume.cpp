@@ -308,12 +308,14 @@ status_t PublicVolume::doUnmount() {
 }
 
 status_t PublicVolume::doFormat(const std::string& fsType) {
-    bool useVfat = vfat::IsSupported();
-    bool useExfat = exfat::IsSupported();
+    bool isVfatSup = vfat::IsSupported();
+    bool isExfatSup = exfat::IsSupported();
     status_t res = OK;
 
-    // Resolve the target filesystem type
-    if (fsType == "auto" && useVfat && useExfat) {
+    enum { NONE, VFAT, EXFAT } fsPick = NONE;
+
+    // Resolve auto requests
+    if (fsType == "auto" && isVfatSup && isExfatSup) {
         uint64_t size = 0;
 
         res = GetBlockDevSize(mDevPath, &size);
@@ -324,29 +326,34 @@ status_t PublicVolume::doFormat(const std::string& fsType) {
 
         // If both vfat & exfat are supported use exfat for SDXC (>~32GiB) cards
         if (size > 32896LL * 1024 * 1024) {
-            useVfat = false;
+            fsPick = EXFAT;
         } else {
-            useExfat = false;
+            fsPick = VFAT;
         }
-    } else if (fsType == "vfat") {
-        useExfat = false;
-    } else if (fsType == "exfat") {
-        useVfat = false;
+    } else if (fsType == "auto" && isExfatSup) {
+        fsPick = EXFAT;
+    } else if (fsType == "auto" && isVfatSup) {
+        fsPick = VFAT;
     }
 
-    if (!useVfat && !useExfat) {
-        LOG(ERROR) << "Unsupported filesystem " << fsType;
-        return -EINVAL;
+    // Resolve explicit requests
+    if (fsType == "vfat" && isVfatSup) {
+        fsPick = VFAT;
+    } else if (fsType == "exfat" && isExfatSup) {
+        fsPick = EXFAT;
     }
 
     if (WipeBlockDevice(mDevPath) != OK) {
         LOG(WARNING) << getId() << " failed to wipe";
     }
 
-    if (useVfat) {
+    if (fsPick == VFAT) {
         res = vfat::Format(mDevPath, 0);
-    } else if (useExfat) {
+    } else if (fsPick == EXFAT) {
         res = exfat::Format(mDevPath);
+    } else {
+        LOG(ERROR) << "Unsupported filesystem " << fsType;
+        return -EINVAL;
     }
 
     if (res != OK) {

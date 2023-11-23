@@ -260,7 +260,7 @@ public final class TestSSLContext extends Assert {
     public static TestSSLContext createWithAdditionalKeyManagers(
             TestKeyStore client, TestKeyStore server,
             KeyManager[] additionalClientKeyManagers, KeyManager[] additionalServerKeyManagers) {
-        String protocol = "TLSv1.2";
+        String protocol = "TLSv1.3";
         KeyManager[] clientKeyManagers = concat(client.keyManagers, additionalClientKeyManagers);
         KeyManager[] serverKeyManagers = concat(server.keyManagers, additionalServerKeyManagers);
         SSLContext clientContext =

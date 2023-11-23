@@ -71,30 +71,40 @@ _WEBRTC_OPERATOR_PATTERN = re.compile(r"(.+)(webrtc_operator )(.+)")
 _PORT_8443 = 8443
 _PORT_1443 = 1443
 PortMapping = collections.namedtuple("PortMapping", ["local", "target"])
-WEBRTC_PORTS_MAPPING = [PortMapping(15550, 15550),
-                        PortMapping(15551, 15551),
-                        PortMapping(15552, 15552)]
+# Acloud uses only part of default webrtc port range to support both local and remote.
+# The default webrtc port range is [15550, 15599].
+WEBRTC_PORT_START = 15555
+WEBRTC_PORT_END = 15579
+WEBRTC_PORTS_MAPPING = [PortMapping(port, port) for port in range(WEBRTC_PORT_START, WEBRTC_PORT_END + 1)]
 _RE_GROUP_WEBRTC = "local_webrtc_port"
 _RE_WEBRTC_SSH_TUNNEL_PATTERN = (
     r"((.*-L\s)(?P<local_webrtc_port>\d+):127.0.0.1:%s)(.+%s)")
 _ADB_CONNECT_ARGS = "connect 127.0.0.1:%(adb_port)d"
 # Store the ports that vnc/adb are forwarded to, both are integers.
 ForwardedPorts = collections.namedtuple("ForwardedPorts", [constants.VNC_PORT,
-                                                           constants.ADB_PORT])
+                                                           constants.ADB_PORT,
+                                                           constants.FASTBOOT_PORT])
 
 AVD_PORT_DICT = {
     constants.TYPE_GCE: ForwardedPorts(constants.GCE_VNC_PORT,
-                                       constants.GCE_ADB_PORT),
+                                       constants.GCE_ADB_PORT,
+                                       None),
     constants.TYPE_CF: ForwardedPorts(constants.CF_VNC_PORT,
-                                      constants.CF_ADB_PORT),
+                                      constants.CF_ADB_PORT,
+                                      constants.CF_FASTBOOT_PORT),
     constants.TYPE_GF: ForwardedPorts(constants.GF_VNC_PORT,
-                                      constants.GF_ADB_PORT),
+                                      constants.GF_ADB_PORT,
+                                      None),
     constants.TYPE_CHEEPS: ForwardedPorts(constants.CHEEPS_VNC_PORT,
-                                          constants.CHEEPS_ADB_PORT),
-    constants.TYPE_FVP: ForwardedPorts(None, constants.FVP_ADB_PORT),
+                                          constants.CHEEPS_ADB_PORT,
+                                          None),
+    constants.TYPE_FVP: ForwardedPorts(None, constants.FVP_ADB_PORT, None),
 }
 
 _VNC_BIN = "ssvnc"
+# search_dirs and the files can be symbolic links. The -H flag makes the
+# command skip the links except search_dirs. The returned files are unique.
+_CMD_FIND_FILES = "find -H %(search_dirs)s -type f"
 _CMD_KILL = ["pkill", "-9", "-f"]
 _CMD_SG = "sg "
 _CMD_START_VNC = "%(bin)s vnc://127.0.0.1:%(port)d"
@@ -839,7 +849,7 @@ def EstablishSshTunnel(ip_addr, rsa_key_file, ssh_user,
     """Create an ssh tunnel.
 
     Args:
-        ip_addr: String, use to build the adb & vnc tunnel between local
+        ip_addr: String, use to build the adb, fastboot & vnc tunnel between local
                  and remote instance.
         rsa_key_file: String, Private key file path to use when creating
                       the ssh tunnels.
@@ -873,7 +883,7 @@ def EstablishWebRTCSshTunnel(ip_addr, webrtc_local_port, rsa_key_file, ssh_user,
     the port of the webrtc operator of the remote instance.
 
     Args:
-        ip_addr: String, use to build the adb & vnc tunnel between local
+        ip_addr: String, use to build the adb, fastboot & vnc tunnel between local
                  and remote instance.
         webrtc_local_port: Integer, pick a free port as webrtc local port.
         rsa_key_file: String, Private key file path to use when creating
@@ -909,7 +919,7 @@ def GetWebRTCServerPort(ip_addr, rsa_key_file, ssh_user,
     determine the WebRTC server port is 8443 or 1443.
 
     Args:
-        ip_addr: String, use to build the adb & vnc tunnel between local
+        ip_addr: String, use to build the adb, fastboot & vnc tunnel between local
                  and remote instance.
         rsa_key_file: String, Private key file path to use when creating
                       the ssh tunnels.
@@ -965,29 +975,35 @@ def GetWebrtcPortFromSSHTunnel(ip):
     return None
 
 
-# TODO(147337696): create ssh tunnels tear down as adb and vnc.
+# TODO(147337696): create ssh tunnels tear down as adb, fastboot and vnc.
 # pylint: disable=too-many-locals
-def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port,
-                ssh_user, client_adb_port=None, extra_args_ssh_tunnel=None):
+def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port, target_fastboot_port,
+                ssh_user, client_adb_port=None, client_fastboot_port=None,
+                extra_args_ssh_tunnel=None):
     """Autoconnect to an AVD instance.
 
     Args:
-        ip_addr: String, use to build the adb & vnc tunnel between local
+        ip_addr: String, use to build the adb, fastboot & vnc tunnel between local
                  and remote instance.
         rsa_key_file: String, Private key file path to use when creating
                       the ssh tunnels.
         target_vnc_port: Integer of target vnc port number.
         target_adb_port: Integer of target adb port number.
+        target_fastboot_port: Integer of target fastboot port number.
         ssh_user: String of user login into the instance.
         client_adb_port: Integer, Specified adb port to establish connection.
+        client_fastboot_port: Integer, Specified fastboot port to establish connection.
         extra_args_ssh_tunnel: String, extra args for ssh tunnel connection.
 
     Returns:
-        NamedTuple of (vnc_port, adb_port) SSHTUNNEL of the connect, both are
+        NamedTuple of (vnc_port, adb_port, fastboot_port) SSHTUNNEL of the connect, both are
         integers.
     """
     local_adb_port = client_adb_port or PickFreePort()
     port_mapping = [(local_adb_port, target_adb_port)]
+    local_fastboot_port = client_fastboot_port or PickFreePort()
+    if target_fastboot_port:
+        port_mapping.append((local_fastboot_port, target_fastboot_port))
     local_free_vnc_port = None
     if target_vnc_port:
         local_free_vnc_port = PickFreePort()
@@ -998,7 +1014,7 @@ def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port,
     except subprocess.CalledProcessError as e:
         PrintColorString("\n%s\nFailed to create ssh tunnels, retry with '#acloud "
                          "reconnect'." % e, TextColors.FAIL)
-        return ForwardedPorts(vnc_port=None, adb_port=None)
+        return ForwardedPorts(vnc_port=None, adb_port=None, fastboot_port=None)
 
     try:
         adb_connect_args = _ADB_CONNECT_ARGS % {"adb_port": local_adb_port}
@@ -1008,7 +1024,31 @@ def AutoConnect(ip_addr, rsa_key_file, target_vnc_port, target_adb_port,
                          "'#acloud reconnect'", TextColors.FAIL)
 
     return ForwardedPorts(vnc_port=local_free_vnc_port,
-                          adb_port=local_adb_port)
+                          adb_port=local_adb_port,
+                          fastboot_port=local_fastboot_port)
+
+
+def FindRemoteFiles(ssh_obj, search_dirs):
+    """Get all files, except symbolic links, under remote directories.
+
+    Args:
+        ssh_obj: An Ssh object.
+        search_dirs: A list of strings, the remote directories.
+
+    Returns:
+        A list of strings, the file paths.
+    """
+    if not search_dirs:
+        return []
+    ssh_cmd = (ssh_obj.GetBaseCmd(constants.SSH_BIN) + " " +
+               _CMD_FIND_FILES % {"search_dirs": " ".join(search_dirs)})
+    proc = subprocess.run(ssh_cmd, shell=True, capture_output=True,
+                          check=False)
+    if proc.stderr:
+        logger.debug("`%s` stderr: %s", ssh_cmd, proc.stderr.decode())
+    if proc.stdout:
+        return proc.stdout.decode().splitlines()
+    return []
 
 
 def GetAnswerFromList(answer_list, enable_choose_all=False):
@@ -1574,7 +1614,7 @@ def GetCvdPorts():
 
 
     Returns:
-        ForwardedPorts: vnc port and adb port.
+        ForwardedPorts: vnc, adb and fastboot ports.
     """
     return AVD_PORT_DICT[constants.TYPE_CF]
 
@@ -1587,6 +1627,8 @@ def SetCvdPorts(base_instance_num):
     """
     offset = (base_instance_num or 1) - 1
     AVD_PORT_DICT[constants.TYPE_CF] = ForwardedPorts(
-        constants.CF_VNC_PORT + offset, constants.CF_ADB_PORT + offset)
+        constants.CF_VNC_PORT + offset,
+        constants.CF_ADB_PORT + offset,
+        constants.CF_FASTBOOT_PORT + offset)
 
     # TODO: adjust WebRTC ports

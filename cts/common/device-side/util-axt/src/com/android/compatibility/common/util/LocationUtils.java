@@ -35,10 +35,11 @@ public class LocationUtils {
 
     public static void registerMockLocationProvider(Instrumentation instrumentation,
             boolean enable) throws IOException {
-        SystemUtil.runShellCommand(instrumentation, "appops set "
-                + instrumentation.getContext().getPackageName()
-                + " android:mock_location "
-                + (enable ? "allow" : "deny"));
+        SystemUtil.runShellCommand(instrumentation,
+                String.format("appops set --user %d %s android:mock_location %s",
+                        instrumentation.getContext().getUserId(),
+                        instrumentation.getContext().getPackageName(),
+                        enable ? "allow" : "deny"));
     }
 
     public static Location createLocation(String provider, Random random) {

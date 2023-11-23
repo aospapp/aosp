@@ -14,13 +14,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import json
 import os
 import time
 
 from statistics import pstdev
 
-from bokeh.models import FixedTicker
 from bokeh.plotting import ColumnDataSource
 from bokeh.plotting import figure
 from bokeh.plotting import output_file
@@ -34,9 +32,8 @@ from acts.controllers.ap_lib import hostapd_config
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib.hostapd_security import Security
 from acts.controllers.iperf_server import IPerfResult
-from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
+from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
 
 N_CAPABILITIES_DEFAULT = [
     hostapd_constants.N_CAPABILITY_LDPC, hostapd_constants.N_CAPABILITY_SGI20,
@@ -76,7 +73,7 @@ def get_test_name(settings):
     return settings.get('test_name')
 
 
-class ChannelSweepTest(AbstractDeviceWlanDeviceBaseTest):
+class ChannelSweepTest(WifiBaseTest):
     """Tests channel performance and regulatory compliance..
 
     Testbed Requirement:
@@ -85,8 +82,9 @@ class ChannelSweepTest(AbstractDeviceWlanDeviceBaseTest):
     * One Linux Machine used as IPerfServer if running performance tests
     Note: Performance tests should be done in isolated testbed.
     """
+
     def __init__(self, controllers):
-        WifiBaseTest.__init__(self, controllers)
+        super().__init__(controllers)
         if 'channel_sweep_test_params' in self.user_params:
             self.time_to_wait_for_ip_addr = self.user_params[
                 'channel_sweep_test_params'].get(
@@ -186,7 +184,7 @@ class ChannelSweepTest(AbstractDeviceWlanDeviceBaseTest):
             country_code: string, the 2 character country code to set
         """
         self.log.info('Setting DUT country code to %s' % country_code)
-        country_code_response = self.dut.device.regulatory_region_lib.setRegion(
+        country_code_response = self.dut.device.sl4f.regulatory_region_lib.setRegion(
             country_code)
         if country_code_response.get('error'):
             raise EnvironmentError(
@@ -195,7 +193,7 @@ class ChannelSweepTest(AbstractDeviceWlanDeviceBaseTest):
 
         self.log.info('Verifying DUT country code was correctly set to %s.' %
                       country_code)
-        phy_ids_response = self.dut.device.wlan_lib.wlanPhyIdList()
+        phy_ids_response = self.dut.device.sl4f.wlan_lib.wlanPhyIdList()
         if phy_ids_response.get('error'):
             raise ConnectionError('Failed to get phy ids from DUT. Error: %s' %
                                   (country_code, phy_ids_response['error']))
@@ -203,7 +201,7 @@ class ChannelSweepTest(AbstractDeviceWlanDeviceBaseTest):
         end_time = time.time() + TIME_TO_WAIT_FOR_COUNTRY_CODE
         while time.time() < end_time:
             for id in phy_ids_response['result']:
-                get_country_response = self.dut.device.wlan_lib.wlanGetCountry(
+                get_country_response = self.dut.device.sl4f.wlan_lib.wlanGetCountry(
                     id)
                 if get_country_response.get('error'):
                     raise ConnectionError(

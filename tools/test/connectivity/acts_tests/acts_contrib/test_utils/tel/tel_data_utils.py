@@ -2894,7 +2894,7 @@ def check_data_stall_recovery(ad, begin_time=None,
     try:
         while (time_var < wait_time):
             time_var += 30
-            recovery = ad.search_logcat("doRecovery() cleanup all connections",
+            recovery = ad.search_logcat("doRecovery().*cleanup all connections",
                                          begin_time)
             if recovery:
                 ad.log.info("Recovery Performed here - %s",

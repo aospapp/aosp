@@ -51,34 +51,6 @@ public final class ScreenCaptureDisabledTest extends BaseDeviceAdminTest {
                 .that(mDevicePolicyManager.getScreenCaptureDisabled(/* admin= */ null)).isTrue();
     }
 
-    public void testSetScreenCaptureDisabledOnParent_false() {
-        DevicePolicyManager parentDevicePolicyManager =
-                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
-        parentDevicePolicyManager.setScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT, false);
-        assertWithMessage("parentDevicePolicyManager.getScreenCaptureDisabled(%s)",
-                ADMIN_RECEIVER_COMPONENT.flattenToShortString())
-                     .that(parentDevicePolicyManager
-                             .getScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT))
-                     .isFalse();
-        assertWithMessage("parentDpm.getScreenCaptureDisabled(null)")
-                .that(parentDevicePolicyManager.getScreenCaptureDisabled(/* admin= */ null))
-                .isFalse();
-    }
-
-    public void testSetScreenCaptureDisabledOnParent_true() {
-        DevicePolicyManager parentDevicePolicyManager =
-                mDevicePolicyManager.getParentProfileInstance(ADMIN_RECEIVER_COMPONENT);
-        parentDevicePolicyManager.setScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT, true);
-        assertWithMessage("parentDevicePolicyManager.getScreenCaptureDisabled(%s)",
-                ADMIN_RECEIVER_COMPONENT.flattenToShortString())
-                     .that(parentDevicePolicyManager
-                             .getScreenCaptureDisabled(ADMIN_RECEIVER_COMPONENT))
-                     .isTrue();
-        assertWithMessage("parentDpm.getScreenCaptureDisabled(null)")
-                .that(parentDevicePolicyManager.getScreenCaptureDisabled(/* admin= */ null))
-                .isTrue();
-    }
-
     public void testScreenCaptureImpossible() throws Exception {
         Bitmap screenshot = null;
         for (int i = 1; i <= MAX_ATTEMPTS_COUNT; i++) {

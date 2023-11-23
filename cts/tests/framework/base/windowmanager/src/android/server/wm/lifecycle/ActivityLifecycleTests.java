@@ -83,6 +83,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.platform.test.annotations.Presubmit;
+import android.server.wm.RotationSession;
 
 import androidx.test.filters.MediumTest;
 
@@ -176,9 +177,16 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         final Activity translucentActivity = new Launcher(TranslucentActivity.class)
                 .setOptions(getLaunchOptionsForFullscreen())
                 .launch();
+
+        // We need to get the translucentActivity task display area feature Id so we can launch the
+        // firstActivity on the same task display area as the translucentActivity.
+        final int translucentActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(
+                translucentActivity.getComponentName());
+        ActivityOptions activityOptions = getLaunchOptionsForFullscreen();
+        activityOptions.setLaunchTaskDisplayAreaFeatureId(translucentActivityTDAFeatureId);
         final Activity firstActivity = new Launcher(FirstActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
-                .setOptions(getLaunchOptionsForFullscreen())
+                .setOptions(activityOptions)
                 .launch();
         waitAndAssertActivityStates(state(translucentActivity, ON_STOP));
 
@@ -186,9 +194,13 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         mWmState.computeState(firstActivityName);
         int firstActivityStack = mWmState.getRootTaskIdByActivity(firstActivityName);
 
+        // We need to get the firstActivity task display area feature Id so we can move the
+        // translucentActivity on top of the same task display area as the firstActivity.
+        int firstActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(firstActivityName);
         // Move translucent activity into the stack with the first activity
         getTransitionLog().clear();
-        moveActivityToRootTaskOrOnTop(getComponentName(TranslucentActivity.class), firstActivityStack);
+        moveActivityToRootTaskOrOnTop(getComponentName(TranslucentActivity.class),
+                firstActivityStack, firstActivityTDAFeatureId);
 
         // Wait for translucent activity to resume and first activity to pause
         waitAndAssertActivityStates(state(translucentActivity, ON_RESUME),
@@ -717,9 +729,15 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         // Launch activity whose process will be killed
         builder.execute();
 
+        // Get the TaskDisplayArea feature id for the targetActivity so we could launch the
+        // testActivity into the same TDA.
+        final int targetActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(targetActivity);
+        ActivityOptions activityOptions = getLaunchOptionsForFullscreen();
+        activityOptions.setLaunchTaskDisplayAreaFeatureId(targetActivityTDAFeatureId);
+
         // Start fullscreen activity in another process to put original activity in background.
         final Activity testActivity = new Launcher(FirstActivity.class)
-                .setOptions(getLaunchOptionsForFullscreen())
+                .setOptions(activityOptions)
                 .launch();
         final boolean isTranslucent = isTranslucent(testActivity);
         mWmState.waitForActivityState(
@@ -751,10 +769,15 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         final Activity recreatingActivity = new Launcher(SingleTopActivity.class)
                 .launch();
 
+        // Retrieve the activity Task Display Area.
+        int recreatingActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(recreatingActivity
+                .getComponentName());
+        ActivityOptions activityOptions = getLaunchOptionsForFullscreen();
+        activityOptions.setLaunchTaskDisplayAreaFeatureId(recreatingActivityTDAFeatureId);
         // Launch second activity to cover and stop first
         final Activity secondActivity = new Launcher(SecondActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
-                .setOptions(getLaunchOptionsForFullscreen())
+                .setOptions(activityOptions)
                 .launch();
 
         // Wait for first activity to become occluded
@@ -811,10 +834,15 @@ public class ActivityLifecycleTests extends ActivityLifecycleClientTestBase {
         final Activity singleTopActivity = launchActivityAndWait(SingleTopActivity.class);
         assertLaunchSequence(SingleTopActivity.class, getTransitionLog());
 
+        int singleTopActivityTDAFeatureId = mWmState.getTaskDisplayAreaFeatureId(singleTopActivity
+                .getComponentName());
+        ActivityOptions activityOptions = getLaunchOptionsForFullscreen();
+        activityOptions.setLaunchTaskDisplayAreaFeatureId(singleTopActivityTDAFeatureId);
+
         // Launch something on top
         final Activity secondActivity = new Launcher(SecondActivity.class)
                 .setFlags(FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_MULTIPLE_TASK)
-                .setOptions(getLaunchOptionsForFullscreen())
+                .setOptions(activityOptions)
                 .launch();
 
         waitAndAssertActivityStates(state(singleTopActivity, ON_STOP));

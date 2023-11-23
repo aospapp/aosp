@@ -56,6 +56,24 @@ func RemoveStringFromList(list *List, s string) (modified bool) {
 	return false
 }
 
+func ReplaceStringsInList(list *List, replacements map[string]string) (replaced bool) {
+	modified := false
+	for i, v := range list.Values {
+		if v.Type() != StringType {
+			panic(fmt.Errorf("expected string in list, got %s", v.Type()))
+		}
+		if sv, ok := v.(*String); ok && replacements[sv.Value] != "" {
+			pos := list.Values[i].Pos()
+			list.Values[i] = &String{
+				LiteralPos: pos,
+				Value:      replacements[sv.Value],
+			}
+			modified = true
+		}
+	}
+	return modified
+}
+
 // A Patch represents a region of a text buffer to be replaced [Start, End) and its Replacement
 type Patch struct {
 	Start, End  int

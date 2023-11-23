@@ -71,9 +71,9 @@ public class NotTouchableWindowTestActivity extends AccessibilityTestActivity  {
 
     private BroadcastReceiver mBroadcastReceiver = new CommandReceiver();
 
-    public static final CharSequence TITLE =
+    public static final String TITLE =
             "NotTouchableWindowTestActivity";
-    public static final CharSequence NON_TOUCHABLE_WINDOW_TITLE =
+    public static final String NON_TOUCHABLE_WINDOW_TITLE =
             "android.accessibilityservice.cts.activities.NON_TOUCHABLE_WINDOW_TITLE";
 
     public static final String ADD_WINDOW =

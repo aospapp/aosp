@@ -366,6 +366,18 @@ public class CalendarTest extends junit.framework.TestCase {
         assertEquals(FakeCalendar.class.getName(), cal.getCalendarType());
     }
 
+    public void testGetInstance_withFwExtension() {
+        Locale locale = Locale.forLanguageTag("en-US-u-fw-wed");
+        Calendar cal = Calendar.getInstance(locale);
+        assertEquals(Calendar.WEDNESDAY, cal.getFirstDayOfWeek());
+    }
+
+    public void testGetInstance_withTzExtension() {
+        Locale locale = Locale.forLanguageTag("en-u-tz-usden");
+        Calendar cal = Calendar.getInstance(locale);
+        assertEquals("America/Denver", cal.getTimeZone().getID());
+    }
+
     public static class FakeCalendar extends Calendar {
 
         private int[] subclassFields;

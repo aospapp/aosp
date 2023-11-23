@@ -21,6 +21,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <linux/if.h>
+#include <net/if.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
@@ -106,6 +107,7 @@ void MDnsSdListenerDiscoverCallback(DNSServiceRef /* sdRef */, DNSServiceFlags f
                                     const char* replyDomain, void* inContext) {
     MDnsSdListener::Context *context = reinterpret_cast<MDnsSdListener::Context *>(inContext);
     int refNumber = context->mRefNumber;
+    const std::lock_guard lock(MDnsEventReporter::getInstance().mMutex);
     const auto& listeners = MDnsEventReporter::getInstance().getEventListeners();
     if (listeners.empty()) {
         ALOGI("Discover callback not sent since no IMDnsEventListener receiver is available.");
@@ -193,6 +195,7 @@ void MDnsSdListenerRegisterCallback(DNSServiceRef /* sdRef */, DNSServiceFlags /
                                     void* inContext) {
     MDnsSdListener::Context* context = reinterpret_cast<MDnsSdListener::Context*>(inContext);
     int refNumber = context->mRefNumber;
+    const std::lock_guard lock(MDnsEventReporter::getInstance().mMutex);
     const auto& listeners = MDnsEventReporter::getInstance().getEventListeners();
     if (listeners.empty()) {
         ALOGI("Register callback not sent since no IMDnsEventListener receiver is available.");
@@ -251,6 +254,7 @@ void MDnsSdListenerResolveCallback(DNSServiceRef /* sdRef */, DNSServiceFlags /*
                                    void* inContext) {
     MDnsSdListener::Context* context = reinterpret_cast<MDnsSdListener::Context*>(inContext);
     int refNumber = context->mRefNumber;
+    const std::lock_guard lock(MDnsEventReporter::getInstance().mMutex);
     const auto& listeners = MDnsEventReporter::getInstance().getEventListeners();
     if (listeners.empty()) {
         ALOGI("Resolve callback not sent since no IMDnsEventListener receiver is available.");
@@ -313,6 +317,7 @@ void MDnsSdListenerGetAddrInfoCallback(DNSServiceRef /* sdRef */, DNSServiceFlag
                                        uint32_t /* ttl */, void* inContext) {
     MDnsSdListener::Context *context = reinterpret_cast<MDnsSdListener::Context *>(inContext);
     int refNumber = context->mRefNumber;
+    const std::lock_guard lock(MDnsEventReporter::getInstance().mMutex);
     const auto& listeners = MDnsEventReporter::getInstance().getEventListeners();
     if (listeners.empty()) {
         ALOGI("Get address callback not sent since no IMDnsEventListener receiver is available.");

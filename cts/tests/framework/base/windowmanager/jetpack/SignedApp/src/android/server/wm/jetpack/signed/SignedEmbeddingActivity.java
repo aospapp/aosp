@@ -16,13 +16,13 @@
 
 package android.server.wm.jetpack.signed;
 
-import static android.server.wm.jetpack.utils.ActivityEmbeddingUtil.DEFAULT_SPLIT_RATIO;
 import static android.server.wm.jetpack.utils.ActivityEmbeddingUtil.EMBEDDED_ACTIVITY_ID;
-import static android.server.wm.jetpack.utils.ActivityEmbeddingUtil.createWildcardSplitPairRule;
+import static android.server.wm.jetpack.utils.ActivityEmbeddingUtil.createSplitPairRuleBuilder;
 import static android.server.wm.jetpack.utils.ActivityEmbeddingUtil.startActivityCrossUidInSplit;
 import static android.server.wm.jetpack.utils.ExtensionUtil.assumeExtensionSupportedDevice;
 import static android.server.wm.jetpack.utils.ExtensionUtil.getWindowExtensions;
 import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.EXTRA_EMBED_ACTIVITY;
+import static android.server.wm.jetpack.utils.WindowManagerJetpackTestBase.EXTRA_SPLIT_RATIO;
 
 import static org.junit.Assume.assumeNotNull;
 
@@ -35,6 +35,7 @@ import android.server.wm.jetpack.utils.TestValueCountConsumer;
 
 import androidx.window.extensions.WindowExtensions;
 import androidx.window.extensions.embedding.ActivityEmbeddingComponent;
+import androidx.window.extensions.embedding.SplitAttributes;
 import androidx.window.extensions.embedding.SplitInfo;
 import androidx.window.extensions.embedding.SplitPairRule;
 
@@ -84,13 +85,17 @@ public class SignedEmbeddingActivity extends Activity {
 
         TestValueCountConsumer<List<SplitInfo>> splitInfoConsumer = new TestValueCountConsumer<>();
         embeddingComponent.setSplitInfoCallback(splitInfoConsumer);
+        SplitAttributes.SplitType splitType = new SplitAttributes.SplitType.RatioSplitType(
+                getIntent().getFloatExtra(EXTRA_SPLIT_RATIO, 0.5f));
 
-        SplitPairRule splitPairRule = new SplitPairRule.Builder(
+        SplitPairRule splitPairRule = createSplitPairRuleBuilder(
                 activityActivityPair -> true /* activityActivityPredicate */,
                 activityIntentPair -> true /* activityIntentPredicate */,
                 parentWindowMetrics -> true /* parentWindowMetricsPredicate */)
-                .setSplitRatio(DEFAULT_SPLIT_RATIO).build();
-        embeddingComponent.setEmbeddingRules(Collections.singleton(createWildcardSplitPairRule()));
+                .setDefaultSplitAttributes(new SplitAttributes.Builder()
+                        .setSplitType(splitType).build())
+                .build();
+        embeddingComponent.setEmbeddingRules(Collections.singleton(splitPairRule));
 
         // Launch an activity from a different UID that recognizes this package's signature and
         // verify that it is split with this activity.

@@ -22,9 +22,9 @@ package android.hardware.graphics.common;
  * This is an enum that defines the common types of gralloc 4 buffer metadata. The comments for
  * each enum include a description of the metadata that is associated with the type.
  *
- * IMapper@4.x must support getting the following standard buffer metadata types, with the exception
- * of SMPTE 2094-10 metadata. IMapper@4.x may support setting these standard buffer metadata types
- * as well.
+ * IMapper@4.x & later must support getting the following standard buffer metadata types, with the
+ * exception of SMPTE 2094-10 and SMPTE 2094-40 metadata. IMapper@4.x & later may support setting
+ * these standard buffer metadata types as well.
  *
  * When encoding these StandardMetadataTypes into a byte stream, the associated MetadataType is
  * is first encoded followed by the StandardMetadataType value. The MetadataType is encoded by
@@ -368,4 +368,17 @@ enum StandardMetadataType {
      * If this is unset when encoded into a byte stream, the byte stream is empty.
      */
     SMPTE2094_10 = 22,
+
+    /**
+     * Can be used to get the stride in pixels of the buffer allocation. This is the number of
+     * pixels between two consecutive rows of an allocated buffer, when the concept of consecutive
+     * rows is defined. Otherwise, it has no meaning.
+     *
+     * Must match the value returned in android.hardware.graphics.allocator.AllocationResult#stride
+     *
+     * This is required metadata in mapper5 and should be read-only.
+     *
+     * The metadata type is a uint32_t.
+     */
+    STRIDE = 23,
 }

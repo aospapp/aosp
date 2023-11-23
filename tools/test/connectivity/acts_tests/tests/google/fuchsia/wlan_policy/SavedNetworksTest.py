@@ -20,14 +20,10 @@ remove through the ClientController API of WLAN policy.
 
 from acts import signals
 from acts.controllers.access_point import setup_ap
-from acts.controllers.ap_lib import hostapd_ap_preset
 from acts.controllers.ap_lib import hostapd_constants
 from acts.controllers.ap_lib import hostapd_security
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
-from acts.utils import rand_ascii_str, rand_hex_str, timeout
-import requests
-import time
-import types
+from acts.utils import rand_ascii_str, rand_hex_str
 
 PSK_LEN = 64
 TIME_WAIT_FOR_DISCONNECT = 30

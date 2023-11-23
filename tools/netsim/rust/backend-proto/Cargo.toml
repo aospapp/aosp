@@ -1,0 +1,24 @@
+[package]
+version = "0.1.0"
+edition = "2021"
+name = "backend-proto"
+# build = "build_cargo.rs"
+
+[features]
+# turn on with-serde feature and include optional crates
+default = ["with-serde"]
+with-serde = [ "serde", "serde_derive", "protobuf/with-serde"]
+
+[dependencies]
+protobuf = { version = "2.27.1" }
+serde = {version = "1.0.84", features = ["derive"], optional = true}
+serde_derive = {version = "*", optional = true}
+
+[build-dependencies]
+protoc-rust = "2.27"
+protobuf-codegen = "2.27"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["staticlib","lib"]
+doctest = false

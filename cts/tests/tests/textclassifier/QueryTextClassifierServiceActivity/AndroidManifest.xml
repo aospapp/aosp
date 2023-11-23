@@ -20,6 +20,10 @@
 
     <uses-sdk android:minSdkVersion="30" android:targetSdkVersion="31" />
 
+    <queries>
+        <package android:name="android.view.textclassifier.cts" />
+    </queries>
+
     <application>
         <uses-library android:name="android.test.runner" />
 

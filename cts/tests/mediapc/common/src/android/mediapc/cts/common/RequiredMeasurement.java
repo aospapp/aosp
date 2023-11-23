@@ -16,9 +16,10 @@
 
 package android.mediapc.cts.common;
 
-import com.android.compatibility.common.util.DeviceReportLog;
+import com.android.compatibility.common.util.ReportLog;
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 
@@ -113,7 +114,7 @@ public abstract class RequiredMeasurement<T> {
             + "\n\tExpected Values: " + this.expectedValues();
     }
 
-    public void writeValue(DeviceReportLog log) throws IllegalStateException {
+    public void writeValue(ReportLog log) throws IllegalStateException {
 
         if (!this.measuredValueSet) {
             throw new IllegalStateException("measured value not set for required measurement "
@@ -126,6 +127,8 @@ public abstract class RequiredMeasurement<T> {
             log.addValue(this.id(), (int)this.measuredValue, ResultType.NEUTRAL, ResultUnit.NONE);
         } else if (this.measuredValue instanceof Long) {
             log.addValue(this.id(), (long)this.measuredValue, ResultType.NEUTRAL, ResultUnit.NONE);
+        } else if (this.measuredValue instanceof Float) {
+            log.addValue(this.id(), (float)this.measuredValue, ResultType.NEUTRAL, ResultUnit.NONE);
         } else if (this.measuredValue instanceof Double) {
             log.addValue(this.id(), (double)this.measuredValue, ResultType.NEUTRAL,
                 ResultUnit.NONE);

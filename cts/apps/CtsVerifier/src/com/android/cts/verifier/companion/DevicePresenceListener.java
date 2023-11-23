@@ -45,7 +45,7 @@ public class DevicePresenceListener extends CompanionDeviceService {
     @Override
     public void onDeviceAppeared(AssociationInfo association) {
         NEARBY_DEVICES.add(association.getId());
-        String message = "Device appeared: " + association.getDeviceMacAddressAsString();
+        String message = "Device appeared: " + association.getDeviceMacAddress();
         Log.d(LOG_TAG, message);
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }
@@ -53,7 +53,7 @@ public class DevicePresenceListener extends CompanionDeviceService {
     @Override
     public void onDeviceDisappeared(AssociationInfo association) {
         NEARBY_DEVICES.remove(association.getId());
-        String message = "Device disappeared: " + association.getDeviceMacAddressAsString();
+        String message = "Device disappeared: " + association.getDeviceMacAddress();
         Log.d(LOG_TAG, message);
         Toast.makeText(this, message, Toast.LENGTH_LONG).show();
     }

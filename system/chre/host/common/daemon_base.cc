@@ -14,24 +14,23 @@
  * limitations under the License.
  */
 
+#include <signal.h>
 #include <cstdlib>
 #include <fstream>
 
+#include "chre_host/config_util.h"
 #include "chre_host/daemon_base.h"
+#include "chre_host/file_stream.h"
 #include "chre_host/log.h"
 #include "chre_host/napp_header.h"
 
-#include <json/json.h>
-
 #ifdef CHRE_DAEMON_METRIC_ENABLED
-#include <aidl/android/frameworks/stats/IStats.h>
-#include <android/binder_manager.h>
-#include <hardware/google/pixel/pixelstats/pixelatoms.pb.h>
+#include <chre_atoms_log.h>
+#include <system/chre/core/chre_metrics.pb.h>
 
 using ::aidl::android::frameworks::stats::IStats;
 using ::aidl::android::frameworks::stats::VendorAtom;
 using ::aidl::android::frameworks::stats::VendorAtomValue;
-namespace PixelAtoms = ::android::hardware::google::pixel::PixelAtoms;
 #endif  // CHRE_DAEMON_METRIC_ENABLED
 
 // Aliased for consistency with the way these symbols are referenced in
@@ -41,32 +40,53 @@ namespace fbs = ::chre::fbs;
 namespace android {
 namespace chre {
 
+namespace {
+
+void signalHandler(void *ctx) {
+  auto *daemon = static_cast<ChreDaemonBase *>(ctx);
+  int rc = -1;
+  sigset_t signalMask;
+  sigfillset(&signalMask);
+  sigdelset(&signalMask, SIGINT);
+  sigdelset(&signalMask, SIGTERM);
+  if (sigprocmask(SIG_SETMASK, &signalMask, NULL) != 0) {
+    LOG_ERROR("Couldn't mask all signals except INT/TERM", errno);
+  }
+
+  while (true) {
+    int signum = 0;
+    if ((rc = sigwait(&signalMask, &signum)) != 0) {
+      LOGE("Sigwait failed: %d", rc);
+    }
+    LOGI("Received signal %d", signum);
+    if (signum == SIGINT || signum == SIGTERM) {
+      daemon->onShutdown();
+      break;
+    }
+  }
+}
+
+}  // anonymous namespace
+
 ChreDaemonBase::ChreDaemonBase() : mChreShutdownRequested(false) {
   mLogger.init();
+  mSignalHandlerThread = std::thread(signalHandler, this);
 }
 
 void ChreDaemonBase::loadPreloadedNanoapps() {
-  constexpr char kPreloadedNanoappsConfigPath[] =
+  const std::string kPreloadedNanoappsConfigPath =
       "/vendor/etc/chre/preloaded_nanoapps.json";
-  std::ifstream configFileStream(kPreloadedNanoappsConfigPath);
+  std::string directory;
+  std::vector<std::string> nanoapps;
+  bool success = getPreloadedNanoappsFromConfigFile(
+      kPreloadedNanoappsConfigPath, directory, nanoapps);
+  if (!success) {
+    LOGE("Failed to parse preloaded nanoapps config file");
+    return;
+  }
 
-  Json::CharReaderBuilder builder;
-  Json::Value config;
-  if (!configFileStream) {
-    LOGE("Failed to open config file '%s': %d (%s)",
-         kPreloadedNanoappsConfigPath, errno, strerror(errno));
-  } else if (!Json::parseFromStream(builder, configFileStream, &config,
-                                    /* errorMessage = */ nullptr)) {
-    LOGE("Failed to parse nanoapp config file");
-  } else if (!config.isMember("nanoapps") || !config.isMember("source_dir")) {
-    LOGE("Malformed preloaded nanoapps config");
-  } else {
-    const Json::Value &directory = config["source_dir"];
-    for (Json::ArrayIndex i = 0; i < config["nanoapps"].size(); i++) {
-      const Json::Value &nanoapp = config["nanoapps"][i];
-      loadPreloadedNanoapp(directory.asString(), nanoapp.asString(),
-                           static_cast<uint32_t>(i));
-    }
+  for (uint32_t i = 0; i < nanoapps.size(); ++i) {
+    loadPreloadedNanoapp(directory, nanoapps[i], i);
   }
 }
 
@@ -81,7 +101,7 @@ void ChreDaemonBase::loadPreloadedNanoapp(const std::string &directory,
   // within the directory its own binary resides in.
   std::string nanoappFilename = name + ".so";
 
-  if (readFileContents(headerFile.c_str(), &headerBuffer) &&
+  if (!readFileContents(headerFile.c_str(), headerBuffer) ||
       !loadNanoapp(headerBuffer, nanoappFilename, transactionId)) {
     LOGE("Failed to load nanoapp: '%s'", name.c_str());
   }
@@ -109,49 +129,6 @@ bool ChreDaemonBase::loadNanoapp(const std::vector<uint8_t> &header,
   return success;
 }
 
-bool ChreDaemonBase::sendNanoappLoad(uint64_t appId, uint32_t appVersion,
-                                     uint32_t appTargetApiVersion,
-                                     const std::string &appBinaryName,
-                                     uint32_t transactionId) {
-  flatbuffers::FlatBufferBuilder builder;
-  HostProtocolHost::encodeLoadNanoappRequestForFile(
-      builder, transactionId, appId, appVersion, appTargetApiVersion,
-      appBinaryName.c_str());
-
-  bool success = sendMessageToChre(
-      kHostClientIdDaemon, builder.GetBufferPointer(), builder.GetSize());
-
-  if (!success) {
-    LOGE("Failed to send nanoapp filename.");
-  } else {
-    Transaction transaction = {
-        .transactionId = transactionId,
-        .nanoappId = appId,
-    };
-    mPreloadedNanoappPendingTransactions.push(transaction);
-  }
-
-  return success;
-}
-
-bool ChreDaemonBase::sendTimeSync(bool logOnError) {
-  bool success = false;
-  int64_t timeOffset = getTimeOffset(&success);
-
-  if (success) {
-    flatbuffers::FlatBufferBuilder builder(64);
-    HostProtocolHost::encodeTimeSyncMessage(builder, timeOffset);
-    success = sendMessageToChre(kHostClientIdDaemon, builder.GetBufferPointer(),
-                                builder.GetSize());
-
-    if (!success && logOnError) {
-      LOGE("Failed to deliver time sync message from host to CHRE");
-    }
-  }
-
-  return success;
-}
-
 bool ChreDaemonBase::sendTimeSyncWithRetry(size_t numRetries,
                                            useconds_t retryDelayUs,
                                            bool logOnError) {
@@ -165,145 +142,9 @@ bool ChreDaemonBase::sendTimeSyncWithRetry(size_t numRetries,
   return success;
 }
 
-bool ChreDaemonBase::sendNanConfigurationUpdate(bool nanEnabled) {
-  flatbuffers::FlatBufferBuilder builder(32);
-  HostProtocolHost::encodeNanconfigurationUpdate(builder, nanEnabled);
-  return sendMessageToChre(kHostClientIdDaemon, builder.GetBufferPointer(),
-                           builder.GetSize());
-}
-
-bool ChreDaemonBase::sendMessageToChre(uint16_t clientId, void *data,
-                                       size_t length) {
-  bool success = false;
-  if (!HostProtocolHost::mutateHostClientId(data, length, clientId)) {
-    LOGE("Couldn't set host client ID in message container!");
-  } else {
-    LOGV("Delivering message from host (size %zu)", length);
-    getLogger().dump(static_cast<const uint8_t *>(data), length);
-    success = doSendMessage(data, length);
-  }
-
-  return success;
-}
-
-void ChreDaemonBase::onMessageReceived(const unsigned char *messageBuffer,
-                                       size_t messageLen) {
-  getLogger().dump(messageBuffer, messageLen);
-
-  uint16_t hostClientId;
-  fbs::ChreMessage messageType;
-  if (!HostProtocolHost::extractHostClientIdAndType(
-          messageBuffer, messageLen, &hostClientId, &messageType)) {
-    LOGW("Failed to extract host client ID from message - sending broadcast");
-    hostClientId = ::chre::kHostClientIdUnspecified;
-  }
-
-  if (messageType == fbs::ChreMessage::LogMessage) {
-    std::unique_ptr<fbs::MessageContainerT> container =
-        fbs::UnPackMessageContainer(messageBuffer);
-    const auto *logMessage = container->message.AsLogMessage();
-    const std::vector<int8_t> &logData = logMessage->buffer;
-
-    getLogger().log(reinterpret_cast<const uint8_t *>(logData.data()),
-                    logData.size());
-  } else if (messageType == fbs::ChreMessage::LogMessageV2) {
-    std::unique_ptr<fbs::MessageContainerT> container =
-        fbs::UnPackMessageContainer(messageBuffer);
-    const auto *logMessage = container->message.AsLogMessageV2();
-    const std::vector<int8_t> &logDataBuffer = logMessage->buffer;
-    const auto *logData =
-        reinterpret_cast<const uint8_t *>(logDataBuffer.data());
-    uint32_t numLogsDropped = logMessage->num_logs_dropped;
-
-    getLogger().logV2(logData, logDataBuffer.size(), numLogsDropped);
-  } else if (messageType == fbs::ChreMessage::TimeSyncRequest) {
-    sendTimeSync(true /* logOnError */);
-  } else if (messageType == fbs::ChreMessage::LowPowerMicAccessRequest) {
-    configureLpma(true /* enabled */);
-  } else if (messageType == fbs::ChreMessage::LowPowerMicAccessRelease) {
-    configureLpma(false /* enabled */);
-  } else if (messageType == fbs::ChreMessage::MetricLog) {
-#ifdef CHRE_DAEMON_METRIC_ENABLED
-    std::unique_ptr<fbs::MessageContainerT> container =
-        fbs::UnPackMessageContainer(messageBuffer);
-    const auto *metricMsg = container->message.AsMetricLog();
-    handleMetricLog(metricMsg);
-#endif  // CHRE_DAEMON_METRIC_ENABLED
-  } else if (messageType == fbs::ChreMessage::NanConfigurationRequest) {
-    std::unique_ptr<fbs::MessageContainerT> container =
-        fbs::UnPackMessageContainer(messageBuffer);
-    configureNan(container->message.AsNanConfigurationRequest()->enable);
-  } else if (hostClientId == kHostClientIdDaemon) {
-    handleDaemonMessage(messageBuffer);
-  } else if (hostClientId == ::chre::kHostClientIdUnspecified) {
-    mServer.sendToAllClients(messageBuffer, static_cast<size_t>(messageLen));
-  } else {
-    mServer.sendToClientById(messageBuffer, static_cast<size_t>(messageLen),
-                             hostClientId);
-  }
-}
-
-bool ChreDaemonBase::readFileContents(const char *filename,
-                                      std::vector<uint8_t> *buffer) {
-  bool success = false;
-  std::ifstream file(filename, std::ios::binary | std::ios::ate);
-  if (!file) {
-    LOGE("Couldn't open file '%s': %d (%s)", filename, errno, strerror(errno));
-  } else {
-    ssize_t size = file.tellg();
-    file.seekg(0, std::ios::beg);
-
-    buffer->resize(size);
-    if (!file.read(reinterpret_cast<char *>(buffer->data()), size)) {
-      LOGE("Couldn't read from file '%s': %d (%s)", filename, errno,
-           strerror(errno));
-    } else {
-      success = true;
-    }
-  }
-
-  return success;
-}
-
-void ChreDaemonBase::handleDaemonMessage(const uint8_t *message) {
-  std::unique_ptr<fbs::MessageContainerT> container =
-      fbs::UnPackMessageContainer(message);
-  if (container->message.type != fbs::ChreMessage::LoadNanoappResponse) {
-    LOGE("Invalid message from CHRE directed to daemon");
-  } else {
-    const auto *response = container->message.AsLoadNanoappResponse();
-    if (mPreloadedNanoappPendingTransactions.empty()) {
-      LOGE("Received nanoapp load response with no pending load");
-    } else if (mPreloadedNanoappPendingTransactions.front().transactionId !=
-               response->transaction_id) {
-      LOGE("Received nanoapp load response with ID %" PRIu32
-           " expected transaction id %" PRIu32,
-           response->transaction_id,
-           mPreloadedNanoappPendingTransactions.front().transactionId);
-    } else {
-      if (!response->success) {
-        LOGE("Received unsuccessful nanoapp load response with ID %" PRIu32,
-             mPreloadedNanoappPendingTransactions.front().transactionId);
-
-#ifdef CHRE_DAEMON_METRIC_ENABLED
-        std::vector<VendorAtomValue> values(3);
-        values[0].set<VendorAtomValue::longValue>(
-            mPreloadedNanoappPendingTransactions.front().nanoappId);
-        values[1].set<VendorAtomValue::intValue>(
-            PixelAtoms::ChreHalNanoappLoadFailed::TYPE_PRELOADED);
-        values[2].set<VendorAtomValue::intValue>(
-            PixelAtoms::ChreHalNanoappLoadFailed::REASON_ERROR_GENERIC);
-        const VendorAtom atom{
-            .reverseDomainName = "",
-            .atomId = PixelAtoms::Atom::kChreHalNanoappLoadFailed,
-            .values{std::move(values)},
-        };
-        reportMetric(atom);
-#endif  // CHRE_DAEMON_METRIC_ENABLED
-      }
-      mPreloadedNanoappPendingTransactions.pop();
-    }
-  }
+void ChreDaemonBase::handleNanConfigurationRequest(
+    const ::chre::fbs::NanConfigurationRequestT * /*request*/) {
+  LOGE("NAN is unsupported on this platform");
 }
 
 #ifdef CHRE_DAEMON_METRIC_ENABLED
@@ -311,8 +152,8 @@ void ChreDaemonBase::handleMetricLog(const ::chre::fbs::MetricLogT *metricMsg) {
   const std::vector<int8_t> &encodedMetric = metricMsg->encoded_metric;
 
   switch (metricMsg->id) {
-    case PixelAtoms::Atom::kChrePalOpenFailed: {
-      PixelAtoms::ChrePalOpenFailed metric;
+    case Atoms::CHRE_PAL_OPEN_FAILED: {
+      metrics::ChrePalOpenFailed metric;
       if (!metric.ParseFromArray(encodedMetric.data(), encodedMetric.size())) {
         LOGE("Failed to parse metric data");
       } else {
@@ -320,16 +161,15 @@ void ChreDaemonBase::handleMetricLog(const ::chre::fbs::MetricLogT *metricMsg) {
         values[0].set<VendorAtomValue::intValue>(metric.pal());
         values[1].set<VendorAtomValue::intValue>(metric.type());
         const VendorAtom atom{
-            .reverseDomainName = "",
-            .atomId = PixelAtoms::Atom::kChrePalOpenFailed,
+            .atomId = Atoms::CHRE_PAL_OPEN_FAILED,
             .values{std::move(values)},
         };
         reportMetric(atom);
       }
       break;
     }
-    case PixelAtoms::Atom::kChreEventQueueSnapshotReported: {
-      PixelAtoms::ChreEventQueueSnapshotReported metric;
+    case Atoms::CHRE_EVENT_QUEUE_SNAPSHOT_REPORTED: {
+      metrics::ChreEventQueueSnapshotReported metric;
       if (!metric.ParseFromArray(encodedMetric.data(), encodedMetric.size())) {
         LOGE("Failed to parse metric data");
       } else {
@@ -348,8 +188,7 @@ void ChreDaemonBase::handleMetricLog(const ::chre::fbs::MetricLogT *metricMsg) {
         values[5].set<VendorAtomValue::intValue>(
             UINT32_MAX);  // mean_queue_delay_us
         const VendorAtom atom{
-            .reverseDomainName = "",
-            .atomId = PixelAtoms::Atom::kChreEventQueueSnapshotReported,
+            .atomId = Atoms::CHRE_EVENT_QUEUE_SNAPSHOT_REPORTED,
             .values{std::move(values)},
         };
         reportMetric(atom);
@@ -357,13 +196,15 @@ void ChreDaemonBase::handleMetricLog(const ::chre::fbs::MetricLogT *metricMsg) {
       break;
     }
     default: {
+#ifdef CHRE_LOG_ATOM_EXTENSION_ENABLED
+      handleVendorMetricLog(metricMsg);
+#else
       LOGW("Unknown metric ID %" PRIu32, metricMsg->id);
+#endif  // CHRE_LOG_ATOM_EXTENSION_ENABLED
     }
   }
 }
-#endif  // CHRE_DAEMON_METRIC_ENABLED
 
-#ifdef CHRE_DAEMON_METRIC_ENABLED
 void ChreDaemonBase::reportMetric(const VendorAtom &atom) {
   const std::string statsServiceName =
       std::string(IStats::descriptor).append("/default");
@@ -374,6 +215,10 @@ void ChreDaemonBase::reportMetric(const VendorAtom &atom) {
 
   std::shared_ptr<IStats> stats_client = IStats::fromBinder(ndk::SpAIBinder(
       AServiceManager_waitForService(statsServiceName.c_str())));
+  if (stats_client == nullptr) {
+    LOGE("Failed to get IStats service");
+    return;
+  }
 
   const ndk::ScopedAStatus ret = stats_client->reportVendorAtom(atom);
   if (!ret.isOk()) {
@@ -381,10 +226,6 @@ void ChreDaemonBase::reportMetric(const VendorAtom &atom) {
   }
 }
 #endif  // CHRE_DAEMON_METRIC_ENABLED
-
-void ChreDaemonBase::configureNan(bool /*enabled*/) {
-  LOGE("NAN not supported");
-}
 
 }  // namespace chre
 }  // namespace android

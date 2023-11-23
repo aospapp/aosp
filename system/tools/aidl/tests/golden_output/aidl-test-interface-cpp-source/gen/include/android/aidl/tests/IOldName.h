@@ -3,14 +3,18 @@
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
 #include <binder/Status.h>
+#include <binder/Trace.h>
 #include <utils/String16.h>
 #include <utils/StrongPointer.h>
 
 namespace android {
 namespace aidl {
 namespace tests {
+class IOldNameDelegator;
+
 class IOldName : public ::android::IInterface {
 public:
+  typedef IOldNameDelegator DefaultDelegator;
   DECLARE_META_INTERFACE(OldName)
   virtual ::android::binder::Status RealName(::android::String16* _aidl_return) = 0;
 };  // class IOldName

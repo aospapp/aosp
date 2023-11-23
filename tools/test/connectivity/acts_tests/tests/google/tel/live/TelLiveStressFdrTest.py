@@ -58,8 +58,8 @@ class TelLiveStressFdrTest(TelephonyBaseTest):
         TelephonyBaseTest.setup_class(self)
 
         self.user_params["telephony_auto_rerun"] = 0
-        self.stress_test_number = int(
-            self.user_params.get("stress_test_number", 100))
+        self.fdr_stress_cycle = int(
+            self.user_params.get("fdr_stress_cycle", 100))
         self.skip_reset_between_cases = False
 
         self.dut = self.android_devices[0]
@@ -338,14 +338,14 @@ class TelLiveStressFdrTest(TelephonyBaseTest):
         fail_count = collections.defaultdict(int)
         test_result = True
 
-        for i in range(1, self.stress_test_number + 1):
+        for i in range(1, self.fdr_stress_cycle + 1):
             begin_time = get_current_epoch_time()
             test_name = "%s_iteration_%s" % (self.test_name, i)
             log_msg = "[Test Case] %s" % test_name
             self.log.info("%s begin", log_msg)
             self.dut.droid.logI("%s begin" % log_msg)
             test_msg = "FDR Stress Test %s Iteration <%s> / <%s>" % (
-                self.test_name, i, self.stress_test_number)
+                self.test_name, i, self.fdr_stress_cycle)
             self.log.info(test_msg)
             fastboot_wipe(self.dut)
             self.log.info("%s wait %s secs for radio up.",
@@ -374,7 +374,7 @@ class TelLiveStressFdrTest(TelephonyBaseTest):
         for failure, count in fail_count.items():
             if count:
                 self.log.error("%s failure count = %s in total %s iterations",
-                               failure, count, self.stress_test_number)
+                               failure, count, self.fdr_stress_cycle)
                 test_result = False
         return test_result
 

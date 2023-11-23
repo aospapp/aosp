@@ -59,6 +59,6 @@ java_test_host {
         "guava",
     ],
     test_options: {
-        unit_test: true,
+        unit_test: false,
     },
 }

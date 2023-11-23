@@ -1270,7 +1270,8 @@ public class ApkSigningBlockUtils {
 
         public int minSdkVersion;
         public int maxSdkVersion;
-        public SigningCertificateLineage mSigningCertificateLineage;
+        public boolean signerTargetsDevRelease;
+        public SigningCertificateLineage signingCertificateLineage;
     }
 
     public static class Result extends ApkSigResult {

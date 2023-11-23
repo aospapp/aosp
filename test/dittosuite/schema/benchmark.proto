@@ -1,0 +1,140 @@
+syntax = "proto2";
+
+package dittosuiteproto;
+
+enum Order {
+  SEQUENTIAL = 0;
+  RANDOM = 1;
+}
+
+enum Reseeding {
+  ONCE = 0;
+  EACH_ROUND_OF_CYCLES = 1;
+  EACH_CYCLE = 2;
+}
+
+enum AccessMode {
+  READ_ONLY = 1;
+  WRITE_ONLY = 2;
+  READ_WRITE = 3;
+}
+
+message OpenFile {
+  oneof file {
+    string path_name = 1;
+    string input = 2;
+  }
+  optional string output_fd = 3;
+  optional bool create = 4 [default = true];
+  optional bool direct_io = 5 [default = false];
+  optional AccessMode access_mode = 6 [default = READ_WRITE];
+}
+
+message DeleteFile {
+  oneof file {
+    string path_name = 1;
+    string input = 2;
+  }
+}
+
+message CloseFile {
+  required string input_fd = 1;
+}
+
+message ResizeFile {
+  required string input_fd = 1;
+  required int64 size = 2;
+}
+
+message ResizeFileRandom {
+  required string input_fd = 1;
+  required int64 min = 2;
+  required int64 max = 3;
+  optional uint32 seed = 4;
+  optional Reseeding reseeding = 5 [default = ONCE];
+}
+
+message WriteFile {
+  required string input_fd = 1;
+  optional int64 size = 2 [default = -1];
+  optional int64 block_size = 3 [default = 4096];
+  optional int64 starting_offset = 4 [default = 0];
+  optional Order access_order = 5 [default = SEQUENTIAL];
+  optional uint32 seed = 6;
+  optional bool fsync = 7 [default = false];
+  optional Reseeding reseeding = 8 [default = ONCE];
+}
+
+message ReadFile {
+  enum ReadFAdvise {
+    AUTOMATIC = 0;
+    NORMAL = 1;
+    SEQUENTIAL = 2;
+    RANDOM = 3;
+  }
+  required string input_fd = 1;
+  optional int64 size = 2 [default = -1];
+  optional int64 block_size = 3 [default = 4096];
+  optional int64 starting_offset = 4 [default = 0];
+  optional Order access_order = 5 [default = SEQUENTIAL];
+  optional uint32 seed = 6;
+  optional ReadFAdvise fadvise = 7 [default = AUTOMATIC];
+  optional Reseeding reseeding = 8 [default = ONCE];
+}
+
+message ReadDirectory {
+  required string directory_name = 1;
+  required string output = 2;
+}
+
+message Thread {
+  required Instruction instruction = 1;
+  optional int32 spawn = 2 [default = 1];
+}
+
+message Multithreading {
+  repeated Thread threads = 1;
+}
+
+message InvalidateCache {}
+
+message Instruction {
+  optional int32 repeat = 1 [default = 1];
+  oneof instruction_oneof {
+    InstructionSet instruction_set = 2;
+    OpenFile open_file = 3;
+    DeleteFile delete_file = 4;
+    CloseFile close_file = 5;
+    ResizeFile resize_file = 6;
+    WriteFile write_file = 7;
+    ReadFile read_file = 8;
+    ReadDirectory read_directory = 9;
+    ResizeFileRandom resize_file_random = 10;
+    Multithreading multithreading = 11;
+    InvalidateCache invalidate_cache = 12;
+  }
+}
+
+message InstructionSet {
+  repeated Instruction instructions = 1;
+  optional InstructionSetIterate iterate_options = 2;
+}
+
+message InstructionSetIterate {
+  required string list_name = 1;
+  required string item_name = 2;
+  optional Order access_order = 3 [default = SEQUENTIAL];
+  optional Reseeding reseeding = 4 [default = ONCE];
+  optional uint32 seed = 5;
+}
+
+message Global {
+  optional string absolute_path = 1 [default = ""];
+}
+
+message Benchmark {
+  optional Instruction init = 1;
+  required Instruction main = 2;
+  optional Instruction clean_up = 3;
+  required Global global = 4;
+}

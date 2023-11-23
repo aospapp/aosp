@@ -18,6 +18,9 @@ package com.android.compatibility.common.util;
 
 import static android.content.pm.PermissionInfo.PROTECTION_DANGEROUS;
 
+import static com.android.compatibility.common.util.BaseDefaultPermissionGrantPolicyTest.UidState.FixedState.FIXED;
+import static com.android.compatibility.common.util.BaseDefaultPermissionGrantPolicyTest.UidState.FixedState.NOT_FIXED;
+import static com.android.compatibility.common.util.BaseDefaultPermissionGrantPolicyTest.UidState.FixedState.SUPER_FIXED;
 import static com.android.compatibility.common.util.SystemUtil.callWithShellPermissionIdentity;
 
 import static org.junit.Assert.fail;
@@ -102,6 +105,7 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
 
         // Ignore CTS infrastructure
         packagesToVerify.remove("android.tradefed.contentprovider");
+        packagesToVerify.remove("androidx.test.services");
 
         SparseArray<UidState> pregrantUidStates = new SparseArray<>();
 
@@ -150,14 +154,14 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
      * @param permissions the set of permissions, formatted "permission_name fixed_boolean"
      */
     public void setException(String pkg, String sha256, String... permissions) {
-        HashMap<String, Boolean> permissionsMap = new HashMap<>();
+        HashMap<String, UidState.FixedState> permissionsMap = new HashMap<>();
         for (String permissionString : permissions) {
             String[] parts = permissionString.trim().split("\\s+");
             if (parts.length != 2) {
                 Log.e(LOG_TAG, "Unable to parse remote exception permission: " + permissionString);
                 return;
             }
-            permissionsMap.put(parts[0], Boolean.valueOf(parts[1]));
+            permissionsMap.put(parts[0], Boolean.valueOf(parts[1]) ? FIXED : NOT_FIXED);
         }
         mRemoteExceptions.add(new DefaultPermissionGrantException(pkg, sha256, permissionsMap));
     }
@@ -174,14 +178,14 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
      */
     public void setExceptionWithMetadata(String company, String metadata, String pkg,
             String sha256, String... permissions) {
-        HashMap<String, Boolean> permissionsMap = new HashMap<>();
+        HashMap<String, UidState.FixedState> permissionsMap = new HashMap<>();
         for (String permissionString : permissions) {
             String[] parts = permissionString.trim().split("\\s+");
             if (parts.length != 2) {
                 Log.e(LOG_TAG, "Unable to parse remote exception permission: " + permissionString);
                 return;
             }
-            permissionsMap.put(parts[0], Boolean.valueOf(parts[1]));
+            permissionsMap.put(parts[0], Boolean.valueOf(parts[1]) ? FIXED : NOT_FIXED);
         }
         mRemoteExceptions.add(new DefaultPermissionGrantException(
                 company, metadata, pkg, sha256, permissionsMap));
@@ -341,11 +345,13 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
             return;
         }
         if (!packageInfo.applicationInfo.isSystemApp()) {
-            if (isCnBuild() && exception.hasNonBrandSha256()) {
-                // Due to CN app removability requirement, allow non-system app pregrant exceptions,
-                // as long as they specify a hash (b/121209050)
+            if (exception.hasNonBrandSha256()) {
+                // Due to CN app removability requirement (b/121209050) and EU DMA requirement
+                // (b/248964397), allow non-system app pregrant exceptions as long as they specify a
+                // hash.
             } else {
-                Log.w(LOG_TAG, "Cannot pregrant permissions to non-system package:" + packageName);
+                Log.w(LOG_TAG, "Cannot pregrant permissions to non-system package without cert"
+                        + " digest: " + packageName);
                 return;
             }
         }
@@ -378,9 +384,9 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
         }
 
         List<String> requestedPermissions = Arrays.asList(packageInfo.requestedPermissions);
-        for (Map.Entry<String, Boolean> entry : exception.permissions.entrySet()) {
+        for (Map.Entry<String, UidState.FixedState> entry : exception.permissions.entrySet()) {
             String permission = entry.getKey();
-            Boolean fixed = entry.getValue();
+            UidState.FixedState fixed = entry.getValue();
             if (!requestedPermissions.contains(permission)) {
                 Log.w(LOG_TAG, "Permission " + permission + " not requested by: " + packageName);
                 continue;
@@ -478,7 +484,7 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
         Context context = getInstrumentation().getTargetContext();
 
         for (PackageInfo pkg : packageInfos.values()) {
-            int targetSdk = pkg.applicationInfo.targetSandboxVersion;
+            int targetSdk = pkg.applicationInfo.targetSdkVersion;
             int uid = pkg.applicationInfo.uid;
 
             for (String permission : pkg.requestedPermissions) {
@@ -512,8 +518,8 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
                         }
 
                         appendPackagePregrantedPerms(pkg, "split from non-dangerous permission "
-                                        + permission, false, Collections.singleton(extendedPerm),
-                                outUidStates);
+                                        + permission, NOT_FIXED,
+                                Collections.singleton(extendedPerm), outUidStates);
                     }
                 }
             }
@@ -544,7 +550,7 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
                     }
 
                     appendPackagePregrantedPerms(pkg, "permission " + permissionToAdd
-                                    + " is granted to pre-" + targetSdk + " apps", false,
+                                    + " is granted to pre-" + targetSdk + " apps", NOT_FIXED,
                             Collections.singleton(permissionToAdd), outUidStates);
                 }
             }
@@ -553,6 +559,13 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
 
     public static void appendPackagePregrantedPerms(PackageInfo packageInfo, String reason,
             boolean fixed, Set<String> pregrantedPerms, SparseArray<UidState> outUidStates) {
+        appendPackagePregrantedPerms(packageInfo, reason, fixed ? FIXED : NOT_FIXED,
+                pregrantedPerms, outUidStates);
+    }
+
+    public static void appendPackagePregrantedPerms(PackageInfo packageInfo, String reason,
+            UidState.FixedState fixed, Set<String> pregrantedPerms,
+            SparseArray<UidState> outUidStates) {
         final int uid = packageInfo.applicationInfo.uid;
         UidState uidState = outUidStates.get(uid);
         if (uidState == null) {
@@ -561,7 +574,7 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
         }
         for (String requestedPermission : packageInfo.requestedPermissions) {
             if (pregrantedPerms.contains(requestedPermission)) {
-                uidState.addGrantedPermission(packageInfo.packageName, reason, requestedPermission,
+                uidState.addGrantedPermission(packageInfo, reason, requestedPermission,
                         fixed);
             }
         }
@@ -621,8 +634,9 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
 
                 setPermissionGrantState(packageInfo.packageName, permission, false);
 
+                UidState.FixedState fixedState = uidState.grantedPermissions.valueAt(i);
                 Boolean fixed = grantAsFixedPackageNames.contains(packageInfo.packageName)
-                        || uidState.grantedPermissions.valueAt(i);
+                        || fixedState == SUPER_FIXED || fixedState == FIXED;
 
                 // Weaker grant is fine, e.g. not-fixed instead of fixed.
                 if (!fixed && packageManager.checkPermission(permission, packageInfo.packageName)
@@ -702,9 +716,9 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
         public class GrantReason {
             public final String reason;
             public final boolean override;
-            public final Boolean fixed;
+            public final FixedState fixed;
 
-            GrantReason(String reason, boolean override, Boolean fixed) {
+            GrantReason(String reason, boolean override, FixedState fixed) {
                 this.reason = reason;
                 this.override = override;
                 this.fixed = fixed;
@@ -726,10 +740,34 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
             }
         }
 
+        /**
+         * Enum representing if a permission's pregrant condition should be fixed and how it should
+         * interact with other pregrant conditions' fixed status.
+         */
+        public enum FixedState {
+
+            /**
+             * Permission is fixed and when merging with other pregrant conditions it won't lose
+             * fixed status and will override non-fixed status.
+             */
+            SUPER_FIXED,
+
+            /**
+             * Permission is fixed and when merging with other pregrant conditions it may lose
+             * fixed status.
+             */
+            FIXED,
+
+            /**
+             * Permission is not fixed.
+             */
+            NOT_FIXED
+        }
+
         // packageName -> permission -> [reason]
         public ArrayMap<String, ArrayMap<String, ArraySet<GrantReason>>> mGrantReasons =
                 new ArrayMap<>();
-        public ArrayMap<String, Boolean> grantedPermissions = new ArrayMap<>();
+        public ArrayMap<String, FixedState> grantedPermissions = new ArrayMap<>();
 
         public void log() {
             for (String packageName : mGrantReasons.keySet()) {
@@ -780,32 +818,26 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
             }
         }
 
-        public void addGrantedPermission(String packageName, String reason, String permission,
-                Boolean fixed) {
-            Context context = getInstrumentation().getTargetContext();
+        public void addGrantedPermission(PackageInfo packageInfo, String reason, String permission,
+                FixedState fixed) {
+            String packageName = packageInfo.packageName;
+            int targetSdk = packageInfo.applicationInfo.targetSdkVersion;
 
             // Add permissions split off from the permission to granted
-            try {
-                PackageInfo info = context.getPackageManager().getPackageInfo(packageName, 0);
-                int targetSdk = info.applicationInfo.targetSdkVersion;
-
-                for (String extendedPerm : extendBySplitPermissions(permission, targetSdk)) {
-                    mergeGrantedPermission(packageName, extendedPerm.equals(permission) ? reason
-                                    : reason + " (split from " + permission + ")", extendedPerm,
-                            fixed, false);
-                }
-            } catch (PackageManager.NameNotFoundException e) {
-                // ignore
+            for (String extendedPerm : extendBySplitPermissions(permission, targetSdk)) {
+                mergeGrantedPermission(packageName, extendedPerm.equals(permission) ? reason
+                                : reason + " (split from " + permission + ")", extendedPerm,
+                        fixed, false);
             }
         }
 
         public void overrideGrantedPermission(String packageName, String reason, String permission,
-                Boolean fixed) {
+                FixedState fixed) {
             mergeGrantedPermission(packageName, reason, permission, fixed, true);
         }
 
         public void mergeGrantedPermission(String packageName, String reason, String permission,
-                Boolean fixed, boolean override) {
+                FixedState fixed, boolean override) {
             if (!mGrantReasons.containsKey(packageName)) {
                 mGrantReasons.put(packageName, new ArrayMap<>());
             }
@@ -817,18 +849,22 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
             mGrantReasons.get(packageName).get(permission).add(new GrantReason(reason, override,
                     fixed));
 
-            Boolean oldFixed = grantedPermissions.get(permission);
+            FixedState oldFixed = grantedPermissions.get(permission);
             if (oldFixed == null) {
                 grantedPermissions.put(permission, fixed);
             } else {
-                if (override) {
-                    if (oldFixed == Boolean.FALSE && fixed == Boolean.TRUE) {
+                if (oldFixed != SUPER_FIXED && fixed == SUPER_FIXED) {
+                    Log.w(LOG_TAG, "override already granted permission " + permission + "("
+                            + fixed + ") for " + packageName);
+                    grantedPermissions.put(permission, fixed);
+                } else if (override) {
+                    if (oldFixed == NOT_FIXED && fixed == FIXED) {
                         Log.w(LOG_TAG, "override already granted permission " + permission + "("
                                 + fixed + ") for " + packageName);
                         grantedPermissions.put(permission, fixed);
                     }
                 } else {
-                    if (oldFixed == Boolean.TRUE && fixed == Boolean.FALSE) {
+                    if (oldFixed == FIXED && fixed == NOT_FIXED) {
                         Log.w(LOG_TAG, "add already granted permission " + permission + "("
                                 + fixed + ") to " + packageName);
                         grantedPermissions.put(permission, fixed);
@@ -846,20 +882,20 @@ public abstract class BaseDefaultPermissionGrantPolicyTest extends BusinessLogic
         public String pkg;
         public String sha256;
         public boolean hasBrand; // in rare cases, brand will be specified instead of SHA256 hash
-        public Map<String, Boolean> permissions = new HashMap<>();
+        public Map<String, UidState.FixedState> permissions = new HashMap<>();
 
         public boolean hasNonBrandSha256() {
             return !sha256.isEmpty() && !hasBrand;
         }
 
         public DefaultPermissionGrantException(String pkg, String sha256,
-                Map<String, Boolean> permissions) {
+                Map<String, UidState.FixedState> permissions) {
             this(UNSET_PLACEHOLDER, UNSET_PLACEHOLDER, pkg, sha256, permissions);
         }
 
         public DefaultPermissionGrantException(String company, String metadata, String pkg,
                 String sha256,
-                Map<String, Boolean> permissions) {
+                Map<String, UidState.FixedState> permissions) {
             this.company = company;
             this.metadata = metadata;
             this.pkg = pkg;

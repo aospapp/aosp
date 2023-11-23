@@ -17,10 +17,17 @@
 #define CTS_MEDIA_TEST_AAUDIO_UTILS_H
 
 #include <dlfcn.h>
+#include <atomic>
 #include <map>
+#include <unordered_set>
+#include <gtest/gtest.h>
 #include <sys/system_properties.h>
 
+#include <android/binder_auto_utils.h>
+#include <android/binder_ibinder.h>
+
 #include <aaudio/AAudio.h>
+#include <system/audio.h> /* FCC_LIMIT */
 
 #include "test_aaudio.h"    // NANOS_PER_MILLISECOND
 
@@ -67,7 +74,7 @@ class StreamBuilderHelper {
             EXPECT_EQ(AAUDIO_OK, AAudioStream_waitForStateChange(stream(),
                                                                  state,
                                                                  &state,
-                                                                 500 * NANOS_PER_MILLISECOND));
+                                                                 DEFAULT_STATE_TIMEOUT));
         }
     }
 
@@ -92,12 +99,19 @@ class StreamBuilderHelper {
             StreamCommand cmd, aaudio_stream_state_t fromState, aaudio_stream_state_t toState);
 
     static const std::map<aaudio_performance_mode_t, int64_t> sMaxFramesPerBurstMs;
+    static const std::unordered_set<aaudio_format_t> sValidStreamFormats;
     const aaudio_direction_t mDirection;
     const Parameters mRequested;
     Parameters mActual;
     int32_t mFramesPerBurst;
     AAudioStreamBuilder *mBuilder;
     AAudioStream *mStream;
+
+  private:
+    const int32_t kMinValidSampleRate = 8000; // 8 kHz
+    const int32_t kMaxValidSampleRate = 2000000; // 2 MHz
+    const int32_t kMinValidChannelCount = 1;
+    const int32_t kMaxValidChannelCount = FCC_LIMIT;
 };
 
 class InputStreamBuilderHelper : public StreamBuilderHelper {
@@ -206,5 +220,39 @@ private:
     const bool   mMMapSupported;
     const bool   mMMapExclusiveSupported;
 };
+
+class AudioServerCrashMonitor {
+public:
+    static AudioServerCrashMonitor& getInstance() {
+        static AudioServerCrashMonitor instance;
+        return instance;
+    }
+    ~AudioServerCrashMonitor();
+
+    void linkToDeath();
+
+    bool isDeathRecipientLinked() const { return mDeathRecipientLinked; }
+    void onAudioServerCrash();
+
+private:
+    AudioServerCrashMonitor();
+
+    ::ndk::SpAIBinder getAudioFlinger();
+
+    ::ndk::SpAIBinder mAudioFlinger;
+    ::ndk::ScopedAIBinder_DeathRecipient mDeathRecipient;
+    bool mDeathRecipientLinked = false;
+};
+
+class AAudioCtsBase : public ::testing::Test {
+protected:
+    void SetUp() override;
+    void TearDown() override;
+
+private:
+    void checkIfAudioServerCrash();
+};
+
+bool isIEC61937Supported();
 
 #endif  // CTS_MEDIA_TEST_AAUDIO_UTILS_H

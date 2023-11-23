@@ -18,7 +18,7 @@
 
 #include "mirror/array-inl.h"
 
-namespace art {
+namespace art HIDDEN {
 
 namespace {
 
@@ -244,7 +244,7 @@ bool TryExtractArrayAccessAddress(HInstruction* access,
     // The access may require a runtime call or the original array pointer.
     return false;
   }
-  if (kEmitCompilerReadBarrier &&
+  if (gUseReadBarrier &&
       !kUseBakerReadBarrier &&
       access->IsArrayGet() &&
       access->GetType() == DataType::Type::kReference) {

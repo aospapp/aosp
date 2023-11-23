@@ -15,7 +15,6 @@
 #   limitations under the License.
 import logging
 import os
-import sys
 
 from acts.libs.proc import job
 

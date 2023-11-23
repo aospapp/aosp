@@ -114,8 +114,16 @@ void BluetoothAudioSession::ReportAudioConfigChanged(
           SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH) {
     return;
   }
+
   std::lock_guard<std::recursive_mutex> guard(mutex_);
+  if (audio_config.getTag() != AudioConfiguration::leAudioConfig) {
+    LOG(ERROR) << __func__ << " invalid audio config type for SessionType ="
+               << toString(session_type_);
+    return;
+  }
+
   audio_config_ = std::make_unique<AudioConfiguration>(audio_config);
+
   if (observers_.empty()) {
     LOG(WARNING) << __func__ << " - SessionType=" << toString(session_type_)
                  << " has NO port state observer";
@@ -274,11 +282,14 @@ bool BluetoothAudioSession::UpdateAudioConfig(
   bool is_offload_a2dp_session =
       (session_type_ == SessionType::A2DP_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
        session_type_ == SessionType::A2DP_HARDWARE_OFFLOAD_DECODING_DATAPATH);
-  bool is_offload_le_audio_session =
+  bool is_offload_le_audio_unicast_session =
       (session_type_ ==
            SessionType::LE_AUDIO_HARDWARE_OFFLOAD_ENCODING_DATAPATH ||
        session_type_ ==
            SessionType::LE_AUDIO_HARDWARE_OFFLOAD_DECODING_DATAPATH);
+  bool is_offload_le_audio_broadcast_session =
+      (session_type_ ==
+       SessionType::LE_AUDIO_BROADCAST_HARDWARE_OFFLOAD_ENCODING_DATAPATH);
   auto audio_config_tag = audio_config.getTag();
   bool is_software_audio_config =
       (is_software_session &&
@@ -286,11 +297,15 @@ bool BluetoothAudioSession::UpdateAudioConfig(
   bool is_a2dp_offload_audio_config =
       (is_offload_a2dp_session &&
        audio_config_tag == AudioConfiguration::a2dpConfig);
-  bool is_le_audio_offload_audio_config =
-      (is_offload_le_audio_session &&
+  bool is_le_audio_offload_unicast_audio_config =
+      (is_offload_le_audio_unicast_session &&
        audio_config_tag == AudioConfiguration::leAudioConfig);
+  bool is_le_audio_offload_broadcast_audio_config =
+      (is_offload_le_audio_broadcast_session &&
+       audio_config_tag == AudioConfiguration::leAudioBroadcastConfig);
   if (!is_software_audio_config && !is_a2dp_offload_audio_config &&
-      !is_le_audio_offload_audio_config) {
+      !is_le_audio_offload_unicast_audio_config &&
+      !is_le_audio_offload_broadcast_audio_config) {
     return false;
   }
   audio_config_ = std::make_unique<AudioConfiguration>(audio_config);

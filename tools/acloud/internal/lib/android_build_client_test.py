@@ -26,6 +26,7 @@ from unittest import mock
 import apiclient
 
 from acloud import errors
+from acloud.internal import constants
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import driver_test_lib
 
@@ -166,26 +167,28 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
 
     def testGetFetchBuildArgs(self):
         """Test GetFetchBuildArgs."""
-        build_id = "1234"
-        build_branch = "base_branch"
-        build_target = "base_target"
-        system_build_id = "2345"
-        system_build_branch = "system_branch"
-        system_build_target = "system_target"
-        kernel_build_id = "3456"
-        kernel_build_branch = "kernel_branch"
-        kernel_build_target = "kernel_target"
-        ota_build_id = "4567"
-        ota_build_branch = "ota_branch"
-        ota_build_target = "ota_target"
+        default_build = {constants.BUILD_ID: "1234",
+                         constants.BUILD_BRANCH: "base_branch",
+                         constants.BUILD_TARGET: "base_target"}
+        system_build = {constants.BUILD_ID: "2345",
+                        constants.BUILD_BRANCH: "system_branch",
+                        constants.BUILD_TARGET: "system_target"}
+        kernel_build = {constants.BUILD_ID: "3456",
+                        constants.BUILD_BRANCH: "kernel_branch",
+                        constants.BUILD_TARGET: "kernel_target"}
+        ota_build = {constants.BUILD_ID: "4567",
+                     constants.BUILD_BRANCH: "ota_branch",
+                     constants.BUILD_TARGET: "ota_target"}
+        boot_build = {constants.BUILD_ID: "5678",
+                      constants.BUILD_BRANCH: "boot_branch",
+                      constants.BUILD_TARGET: "boot_target",
+                      constants.BUILD_ARTIFACT: "boot-5.10.img"}
 
         # Test base image.
         expected_args = ["-default_build=1234/base_target"]
         self.assertEqual(
             expected_args,
-            self.client.GetFetchBuildArgs(
-                build_id, build_branch, build_target, None, None, None, None,
-                None, None, None, None, None, None, None, None))
+            self.client.GetFetchBuildArgs(default_build, {}, {}, {}, {}, {}))
 
         # Test base image with system image.
         expected_args = ["-default_build=1234/base_target",
@@ -193,9 +196,7 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(
             expected_args,
             self.client.GetFetchBuildArgs(
-                build_id, build_branch, build_target, system_build_id,
-                system_build_branch, system_build_target, None, None, None,
-                None, None, None, None, None, None))
+                default_build, system_build, {}, {}, {}, {}))
 
         # Test base image with kernel image.
         expected_args = ["-default_build=1234/base_target",
@@ -203,9 +204,16 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(
             expected_args,
             self.client.GetFetchBuildArgs(
-                build_id, build_branch, build_target, None, None, None,
-                kernel_build_id, kernel_build_branch, kernel_build_target,
-                None, None, None, None, None, None))
+                default_build, {}, kernel_build, {}, {}, {}))
+
+        # Test base image with boot image.
+        expected_args = ["-default_build=1234/base_target",
+                         "-boot_build=5678/boot_target",
+                         "-boot_artifact=boot-5.10.img"]
+        self.assertEqual(
+            expected_args,
+            self.client.GetFetchBuildArgs(
+                default_build, {}, {}, boot_build, {}, {}))
 
         # Test base image with otatools.
         expected_args = ["-default_build=1234/base_target",
@@ -213,9 +221,7 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
         self.assertEqual(
             expected_args,
             self.client.GetFetchBuildArgs(
-                build_id, build_branch, build_target, None, None, None,
-                None, None, None, None, None, None, ota_build_id,
-                ota_build_branch, ota_build_target))
+                default_build, {}, {}, {}, {}, ota_build))
 
     def testGetFetchCertArg(self):
         """Test GetFetchCertArg."""
@@ -239,27 +245,37 @@ class AndroidBuildClientTest(driver_test_lib.BaseDriverTest):
 
     def testProcessBuild(self):
         """Test creating "cuttlefish build" strings."""
+        build_id = constants.BUILD_ID
+        branch = constants.BUILD_BRANCH
+        build_target = constants.BUILD_TARGET
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id="123", branch="abc", build_target="def"), "123/def")
+                {build_id: "123", branch: "abc", build_target: "def"}),
+            "123/def")
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id=None, branch="abc", build_target="def"), "abc/def")
+                {build_id: None, branch: "abc", build_target: "def"}),
+            "abc/def")
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id="123", branch=None, build_target="def"), "123/def")
+                {build_id: "123", branch: None, build_target: "def"}),
+            "123/def")
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id="123", branch="abc", build_target=None), "123")
+                {build_id: "123", branch: "abc", build_target: None}),
+            "123")
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id=None, branch="abc", build_target=None), "abc")
+                {build_id: None, branch: "abc", build_target: None}),
+            "abc")
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id="123", branch=None, build_target=None), "123")
+                {build_id: "123", branch: None, build_target: None}),
+            "123")
         self.assertEqual(
             self.client.ProcessBuild(
-                build_id=None, branch=None, build_target=None), None)
+                {build_id: None, branch: None, build_target: None}),
+            None)
 
 
 if __name__ == "__main__":

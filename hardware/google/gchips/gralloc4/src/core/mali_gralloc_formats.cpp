@@ -44,19 +44,20 @@
 #define MALI_GRALLOC_PRODUCER_DPU		((uint16_t)1 << 2)
 #define MALI_GRALLOC_PRODUCER_VPU		((uint16_t)1 << 4)
 #define MALI_GRALLOC_PRODUCER_CAM		((uint16_t)1 << 5)
-#define GOOGLE_GRALLOC_PRODUCER_BO		((uint16_t)1 << 6)
+#define GOOGLE_GRALLOC_PRODUCER_BIG		((uint16_t)1 << 6)
 #define GOOGLE_GRALLOC_PRODUCER_MFC		((uint16_t)1 << 7)
-#define GOOGLE_GRALLOC_PRODUCER_VPUS_MASK	(MALI_GRALLOC_PRODUCER_VPU | GOOGLE_GRALLOC_PRODUCER_BO | GOOGLE_GRALLOC_PRODUCER_MFC)
+#define GOOGLE_GRALLOC_PRODUCER_VPUS_MASK	(MALI_GRALLOC_PRODUCER_VPU | GOOGLE_GRALLOC_PRODUCER_BIG | GOOGLE_GRALLOC_PRODUCER_MFC)
 #define GOOGLE_GRALLOC_PRODUCER_TPU		((uint16_t)1 << 8)
 
 #define MALI_GRALLOC_CONSUMER_CPU		((uint16_t)1 << 0)
 #define MALI_GRALLOC_CONSUMER_GPU		((uint16_t)1 << 1)
 #define MALI_GRALLOC_CONSUMER_DPU		((uint16_t)1 << 2)
 #define MALI_GRALLOC_CONSUMER_VPU		((uint16_t)1 << 3)
-#define GOOGLE_GRALLOC_CONSUMER_BO		((uint16_t)1 << 4)
+#define GOOGLE_GRALLOC_CONSUMER_BIG		((uint16_t)1 << 4)
 #define GOOGLE_GRALLOC_CONSUMER_MFC		((uint16_t)1 << 5)
-#define GOOGLE_GRALLOC_CONSUMER_VPUS_MASK	(MALI_GRALLOC_CONSUMER_VPU | GOOGLE_GRALLOC_CONSUMER_BO | GOOGLE_GRALLOC_CONSUMER_MFC)
+#define GOOGLE_GRALLOC_CONSUMER_VPUS_MASK	(MALI_GRALLOC_CONSUMER_VPU | GOOGLE_GRALLOC_CONSUMER_BIG | GOOGLE_GRALLOC_CONSUMER_MFC)
 #define GOOGLE_GRALLOC_CONSUMER_TPU		((uint16_t)1 << 6)
+
 
 typedef struct
 {
@@ -79,14 +80,14 @@ static uint16_t get_vpu_consumer(uint64_t usage)
 	if (!(usage & hidl_common::BufferUsage::VIDEO_ENCODER))
 		return 0;
 
-	/* When both the BO and MFC flags are present, the assumption is BO is the
+	/* When both the BIG and MFC flags are present, the assumption is BIG is the
 	   producer and MFC is the consumer. There is no use case as of now in which
-	   MFC is the producer and BO is the consumer. */
+	   MFC is the producer and BIG is the consumer. */
 	if (usage & GRALLOC_USAGE_GOOGLE_IP_MFC)
 		return GOOGLE_GRALLOC_CONSUMER_MFC;
 
-	if (usage & GRALLOC_USAGE_GOOGLE_IP_BO)
-		return GOOGLE_GRALLOC_CONSUMER_BO;
+	if (usage & GRALLOC_USAGE_GOOGLE_IP_BIG)
+		return GOOGLE_GRALLOC_CONSUMER_BIG;
 
 	// TODO(b/185896428): Support 64-bits usage version for GraphicBufferSource
 	return GOOGLE_GRALLOC_CONSUMER_MFC;
@@ -172,11 +173,11 @@ static uint16_t get_vpu_producer(uint64_t usage)
 	if (!(usage & hidl_common::BufferUsage::VIDEO_DECODER))
 		return 0;
 
-	/* When both the BO and MFC flags are present, the assumption is BO is the
+	/* When both the BIG and MFC flags are present, the assumption is BIG is the
 	   producer and MFC is the consumer. There is no use case as of now in which
-	   MFC is the producer and BO is the consumer. */
-	if (usage & GRALLOC_USAGE_GOOGLE_IP_BO)
-		return GOOGLE_GRALLOC_PRODUCER_BO;
+	   MFC is the producer and BIG is the consumer. */
+	if (usage & GRALLOC_USAGE_GOOGLE_IP_BIG)
+		return GOOGLE_GRALLOC_PRODUCER_BIG;
 
 	if (usage & GRALLOC_USAGE_GOOGLE_IP_MFC)
 		return GOOGLE_GRALLOC_PRODUCER_MFC;
@@ -292,10 +293,15 @@ static uint64_t get_consumer_caps(const uint16_t consumers)
 		consumer_caps &= vpu_runtime_caps.caps_mask;
 	}
 
-	if (consumers & GOOGLE_GRALLOC_CONSUMER_BO &&
-	    bo_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+	if (consumers & GOOGLE_GRALLOC_CONSUMER_BIG)
 	{
-		consumer_caps &= bo_runtime_caps.caps_mask;
+#ifdef SOC_ZUMA
+		if (bw_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+			consumer_caps &= bw_runtime_caps.caps_mask;
+#else
+		if (bo_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+			consumer_caps &= bo_runtime_caps.caps_mask;
+#endif
 	}
 
 	if (consumers & GOOGLE_GRALLOC_CONSUMER_MFC &&
@@ -366,10 +372,15 @@ static uint64_t get_producer_caps(const uint16_t producers)
 		producer_caps &= vpu_runtime_caps.caps_mask;
 	}
 
-	if (producers & GOOGLE_GRALLOC_PRODUCER_BO &&
-	    bo_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+	if (producers & GOOGLE_GRALLOC_PRODUCER_BIG)
 	{
-		producer_caps &= bo_runtime_caps.caps_mask;
+#ifdef SOC_ZUMA
+		if (bw_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+			producer_caps &= bw_runtime_caps.caps_mask;
+#else
+		if (bo_runtime_caps.caps_mask & MALI_GRALLOC_FORMAT_CAPABILITY_OPTIONS_PRESENT)
+			producer_caps &= bo_runtime_caps.caps_mask;
+#endif
 	}
 
 	if (producers & GOOGLE_GRALLOC_PRODUCER_MFC &&
@@ -881,7 +892,6 @@ static uint64_t get_afbc_format(const uint32_t base_format,
  * @param consumers              [in]    Consumers (flags).
  * @param producer_active_caps   [out]   Active producer capabilities (flags).
  * @param consumer_active_caps   [out]   Active consumer capabilities (flags).
- * @param buffer_size            [in]    Buffer resolution (w x h, in pixels).
  *
  * @return none.
  */
@@ -889,8 +899,7 @@ static void get_active_caps(const format_info_t format,
                             const uint16_t producers,
                             const uint16_t consumers,
                             uint64_t * const producer_active_caps,
-                            uint64_t * const consumer_active_caps,
-                            const int buffer_size)
+                            uint64_t * const consumer_active_caps)
 {
 	const uint64_t producer_caps = (producer_active_caps) ? *producer_active_caps : 0;
 	const uint64_t consumer_caps = (consumer_active_caps) ? *consumer_active_caps : 0;
@@ -943,24 +952,6 @@ static void get_active_caps(const format_info_t format,
 				consumer_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBC_SPLITBLK;
 			}
 		}
-	}
-
-	bool afbc_allowed = false;
-	afbc_allowed = buffer_size > (192 * 192);
-
-	if (consumers & MALI_GRALLOC_CONSUMER_DPU)
-	{
-		/* TODO: make this into an option in BoardConfig */
-#if GRALLOC_DISP_W != 0 && GRALLOC_DISP_H != 0
-#define GRALLOC_AFBC_MIN_SIZE 40
-		/* Disable AFBC based on buffer dimensions */
-		afbc_allowed = ((buffer_size * 100) / (GRALLOC_DISP_W * GRALLOC_DISP_H)) >= GRALLOC_AFBC_MIN_SIZE;
-#endif
-	}
-
-	if (!afbc_allowed)
-	{
-		consumer_mask &= ~MALI_GRALLOC_FORMAT_CAPABILITY_AFBCENABLE_MASK;
 	}
 
 	if (producer_active_caps)
@@ -1032,8 +1023,7 @@ bool get_supported_format(const uint32_t base_format,
 		consumer_nodpu_caps = get_consumer_caps(consumers_nodpu);
 		get_active_caps(formats[fmt_idx],
 		                producers, consumers_nodpu,
-		                NULL, &consumer_nodpu_caps,
-		                0 /* N/A without DPU consumer */);
+		                NULL, &consumer_nodpu_caps);
 
 		fmt_supported->f_flags = is_format_supported(fmt_idx,
 	                                                 ip_fmt_idx,
@@ -1392,7 +1382,7 @@ uint32_t get_base_format(const uint64_t req_format,
 
 		if ((usage & GRALLOC_USAGE_HW_TEXTURE) || (usage & GRALLOC_USAGE_HW_COMPOSER))
 		{
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M;    //NV21M narrow
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
 		}
 		else if ((producers & MALI_GRALLOC_PRODUCER_CAM) &&
 			 !(producers & MALI_GRALLOC_PRODUCER_GPU) &&
@@ -1403,48 +1393,69 @@ uint32_t get_base_format(const uint64_t req_format,
 			// 2. GPU is not one of the producers
 			// 3. MFC is the sole consumer
 			if (property_get_bool("debug.vendor.gpu.record_sbwc", true)) {
-				base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC;
+				base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_SBWC;
 			} else {
-				base_format = HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M;
+				base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
 			}
+		}
+		else if (get_consumers(usage) & GOOGLE_GRALLOC_CONSUMER_BIG)
+		{
+			base_format = HAL_PIXEL_FORMAT_GOOGLE_NV12_SP;
 		}
 		else if (usage & GRALLOC_USAGE_HW_VIDEO_ENCODER)
 		{
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M;    //NV21M narrow
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
 		}
 		else if (usage & GRALLOC_USAGE_VIDEO_PRIVATE_DATA)
 		{
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M;
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
 		}
 		else if ((usage & GRALLOC_USAGE_HW_CAMERA_READ) && (usage & GRALLOC_USAGE_HW_CAMERA_WRITE))
 		{
-			// Camera IMPLEMENTATION_DEFINED format output maps to NV21M.
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M;
+			// Camera IMPLEMENTATION_DEFINED format output maps to NV21.
+			base_format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
 		}
 		else
 		{
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M;    //NV21M narrow
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
 		}
 	}
 	else if (req_format == HAL_PIXEL_FORMAT_YCbCr_420_888)
 	{
-		if (usage & (GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_HW_VIDEO_DECODER))
+		if (get_consumers(usage) & GOOGLE_GRALLOC_CONSUMER_BIG)
 		{
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M;
+			base_format = HAL_PIXEL_FORMAT_GOOGLE_NV12_SP;
 		}
-		else if ((usage & GRALLOC_USAGE_HW_TEXTURE) && (usage & GRALLOC_USAGE_HW_CAMERA_WRITE))
+		else if (usage & (GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_HW_VIDEO_DECODER))
 		{
-			// Camera flexible YUV format output maps to NV21M.
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M;
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
 		}
-		else if (usage & (GRALLOC_USAGE_HW_RENDER | GRALLOC_USAGE_HW_TEXTURE))
+		else if (usage & GRALLOC_USAGE_HW_CAMERA_WRITE)
 		{
-			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M;
+			// Catchall for camera write. DO NOT CHANGE WITHOUT TESTING THESE SCENARIOS:
+			// 1. Camera capture and initial photo processing
+			// 2. Other major camera operations - video recording, portrait etc
+			// 3. Faceauth
+			// 4. Multi-profile user photo add
+			// 5. Capture and resize - use chat app to capture a photo
+			// Re-run these steps with GPU composition:
+			// adb shell service call SurfaceFlinger 1008 i32 1
+			base_format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
 		}
 		else
 		{
-			// Flexible framework-accessible YUV format; map to NV21 for now
-			base_format = HAL_PIXEL_FORMAT_YCrCb_420_SP;
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN;
+		}
+	}
+	else if (req_format == HAL_PIXEL_FORMAT_YCBCR_P010)
+	{
+		if (get_consumers(usage) & GOOGLE_GRALLOC_CONSUMER_BIG)
+		{
+			base_format = HAL_PIXEL_FORMAT_GOOGLE_NV12_SP_10B;
+		}
+		else if (usage & (GRALLOC_USAGE_HW_VIDEO_ENCODER | GRALLOC_USAGE_HW_VIDEO_DECODER))
+		{
+			base_format = HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_SPN;
 		}
 	}
 
@@ -1463,7 +1474,6 @@ uint32_t get_base_format(const uint64_t req_format,
  * @param req_format       [in]   Format (base + optional modifiers) requested by client.
  * @param type             [in]   Format type (public usage or internal).
  * @param usage            [in]   Buffer usage.
- * @param buffer_size      [in]   Buffer resolution (w x h, in pixels).
  *
  * @return alloc_format, format to be used in allocation;
  *         MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED, where no suitable
@@ -1471,8 +1481,7 @@ uint32_t get_base_format(const uint64_t req_format,
  */
 uint64_t mali_gralloc_select_format(const uint64_t req_format,
                                     const mali_gralloc_format_type type,
-                                    const uint64_t usage,
-                                    const int buffer_size)
+                                    const uint64_t usage)
 {
 	uint64_t alloc_format = MALI_GRALLOC_FORMAT_INTERNAL_UNDEFINED;
 
@@ -1556,8 +1565,7 @@ uint64_t mali_gralloc_select_format(const uint64_t req_format,
 
 		get_active_caps(formats[req_fmt_idx],
 		                producers, consumers,
-		                &producer_active_caps, &consumer_active_caps,
-		                buffer_size);
+		                &producer_active_caps, &consumer_active_caps);
 
 		MALI_GRALLOC_LOGV("Producer caps (active): 0x%" PRIx64 ", Consumer caps (active): 0x%" PRIx64,
 		      producer_active_caps, consumer_active_caps);
@@ -1595,6 +1603,7 @@ bool is_exynos_format(uint32_t base_format)
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN:
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_S10B:
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_S10B:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_SPN:
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_M:
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_SBWC:
 		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_10B_SBWC:
@@ -1616,5 +1625,32 @@ bool is_exynos_format(uint32_t base_format)
 	}
 
 	return false;
+}
+
+uint8_t get_exynos_fd_count(uint32_t format) {
+	switch (format)
+	{
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M_SBWC:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M_10B_SBWC:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC_L50:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_SBWC_L75:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC_L40:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC_L60:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_10B_SBWC_L80:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_TILED:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCrCb_420_SP_M_FULL:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_S10B:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_M:
+			return 2;
+		case HAL_PIXEL_FORMAT_EXYNOS_YV12_M:
+		case HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_P_M:
+			return 3;
+	}
+
+	return 1;
 }
 

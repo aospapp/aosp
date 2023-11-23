@@ -32,6 +32,7 @@ message TestCommand {
     GNSS_MEASUREMENT = 4;
     WWAN_CELL_INFO = 5;
     AUDIO = 6;
+    BLE_SCANNING = 7;
   }
 
   // The state of this feature at the system level.

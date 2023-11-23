@@ -16,14 +16,22 @@
 
 package android.telephony.ims.cts;
 
+import static android.telephony.ims.RegistrationManager.SUGGESTED_ACTION_NONE;
+import static android.telephony.ims.RegistrationManager.SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK;
+import static android.telephony.ims.RegistrationManager.SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK_WITH_TIMEOUT;
+import static android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TECH_LTE;
+import static android.telephony.ims.stub.ImsRegistrationImplBase.REGISTRATION_TECH_NONE;
+
 import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
 import android.app.UiAutomation;
@@ -31,7 +39,9 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Resources;
 import android.net.Uri;
+import android.os.Build;
 import android.os.PersistableBundle;
 import android.telecom.PhoneAccount;
 import android.telephony.AccessNetworkConstants;
@@ -43,7 +53,7 @@ import android.telephony.TelephonyManager;
 import android.telephony.cts.AsyncSmsMessageListener;
 import android.telephony.cts.CarrierCapability;
 import android.telephony.cts.SmsReceiverHelper;
-import android.telephony.cts.TelephonyUtils;
+import android.telephony.cts.util.TelephonyUtils;
 import android.telephony.ims.ImsException;
 import android.telephony.ims.ImsManager;
 import android.telephony.ims.ImsMmTelManager;
@@ -51,13 +61,16 @@ import android.telephony.ims.ImsRcsManager;
 import android.telephony.ims.ImsReasonInfo;
 import android.telephony.ims.ImsRegistrationAttributes;
 import android.telephony.ims.ImsStateCallback;
+import android.telephony.ims.MediaThreshold;
 import android.telephony.ims.ProvisioningManager;
+import android.telephony.ims.PublishAttributes;
 import android.telephony.ims.RcsClientConfiguration;
 import android.telephony.ims.RcsContactUceCapability;
 import android.telephony.ims.RcsUceAdapter;
 import android.telephony.ims.RegistrationManager;
 import android.telephony.ims.RtpHeaderExtensionType;
 import android.telephony.ims.SipDelegateManager;
+import android.telephony.ims.SipDetails;
 import android.telephony.ims.feature.ImsFeature;
 import android.telephony.ims.feature.MmTelFeature;
 import android.telephony.ims.feature.RcsFeature;
@@ -73,6 +86,7 @@ import android.util.Pair;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 
 import org.junit.After;
@@ -133,6 +147,8 @@ public class ImsServiceTest {
     private static final String SUPPORT_PROVISION_STATUS_FOR_CAPABILITY_STRING =
             "SUPPORT_PROVISION_STATUS_FOR_CAPABILITY";
 
+    private static final boolean DEBUG = !"user".equals(Build.TYPE);
+    private static final String ALLOW_MOCK_MODEM_PROPERTY = "persist.radio.allow_mock_modem";
     private static final String MSG_CONTENTS = "hi";
     private static final String EXPECTED_RECEIVED_MESSAGE = "foo5";
     private static final String DEST_NUMBER = "5555554567";
@@ -142,10 +158,13 @@ public class ImsServiceTest {
     private static final String RECEIVED_MESSAGE = "B5EhYBMDIPgEC5FhBWKFkPEAAEGQQlGDUooE5ve7Bg==";
     private static final byte[] STATUS_REPORT_PDU =
             hexStringToByteArray("0006000681214365919061800000639190618000006300");
-
+    private static final byte[] CLASS2SMPP_PDU =
+            hexStringToByteArray("07914151551512f221110A8178563412107FF20666B2996C2603");
+    private static final int EXPECTED_MESSAGEREF = 0x11;
     private static int sTestSlot = 0;
     private static int sTestSub = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
     private static boolean sDeviceUceEnabled;
+    private static boolean sSupportsImsHal = false;
 
     private static final int TEST_CONFIG_KEY = 1000;
     private static final int TEST_CONFIG_VALUE_INT = 0xDEADBEEF;
@@ -233,6 +252,9 @@ public class ImsServiceTest {
             "org.openmobilealliance:File-Transfer-HTTP";
 
     private static final int FEATURE_STATE_READY = 0;
+    private static final int TEST_PACKET_LOSS_RATE_THRESHOLD = 17;
+    private static final int TEST_JITTER_THRESHOLD = 74;
+    private static final long TEST_INACTIVITY_MILLIS = 4779;
 
     private static CarrierConfigReceiver sReceiver;
     private static SingleRegistrationCapabilityReceiver sSrcReceiver;
@@ -309,11 +331,16 @@ public class ImsServiceTest {
         if (!ImsUtils.shouldTestImsService()) {
             return;
         }
-
         TelephonyManager tm = (TelephonyManager) getContext()
                 .getSystemService(Context.TELEPHONY_SERVICE);
+        Pair<Integer, Integer> halVersion = tm.getHalVersion(TelephonyManager.HAL_SERVICE_IMS);
+        if (!(halVersion.equals(TelephonyManager.HAL_VERSION_UNKNOWN)
+                || halVersion.equals(TelephonyManager.HAL_VERSION_UNSUPPORTED))) {
+            sSupportsImsHal = true;
+        }
         sTestSub = ImsUtils.getPreferredActiveSubId();
         sTestSlot = SubscriptionManager.getSlotIndex(sTestSub);
+
         if (tm.getSimState(sTestSlot) != TelephonyManager.SIM_STATE_READY) {
             return;
         }
@@ -378,18 +405,9 @@ public class ImsServiceTest {
             fail("This test requires that there is a SIM in the device!");
         }
         // Correctness check: ensure that the subscription hasn't changed between tests.
-        int[] subs = SubscriptionManager.getSubId(sTestSlot);
-
-        if (subs == null) {
-            fail("This test requires there is an active subscription in slot " + sTestSlot);
-        }
-        boolean isFound = false;
-        for (int sub : subs) {
-            isFound |= (sTestSub == sub);
-        }
-        if (!isFound) {
-            fail("Invalid state found: the test subscription in slot " + sTestSlot + " changed "
-                    + "during this test.");
+        int subId = SubscriptionManager.getSubscriptionId(sTestSlot);
+        if (subId != sTestSub) {
+            fail("The found subId " + subId + " does not match the test sub id " + sTestSub);
         }
 
         TestAcsClient.getInstance().reset();
@@ -765,6 +783,7 @@ public class ImsServiceTest {
     }
 
     @Test
+    @ApiTest(apis = "android.telephony.SmsManager#sendTextMessage")
     public void testMmTelSendSms() throws Exception {
         if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
             return;
@@ -787,11 +806,15 @@ public class ImsServiceTest {
                         Activity.RESULT_CANCELED));
 
         // Ensure we receive correct PDU on the other side.
-        Assert.assertArrayEquals(EXPECTED_PDU, sServiceConnector.getCarrierService()
+        byte[] pduWithStatusReport = EXPECTED_PDU.clone();
+        pduWithStatusReport[1] = sServiceConnector.getCarrierService()
+                .getMmTelFeature().getSmsImplementation().sentPdu[1];
+        Assert.assertArrayEquals(pduWithStatusReport, sServiceConnector.getCarrierService()
                 .getMmTelFeature().getSmsImplementation().sentPdu);
     }
 
     @Test
+    @ApiTest(apis = "android.telephony.SmsManager#sendTextMessage")
     public void testMmTelSendSmsDeliveryReportQCompat() throws Exception {
         if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
             return;
@@ -807,15 +830,19 @@ public class ImsServiceTest {
 
         // Ensure we receive correct PDU on the other side.
         // Set TP-Status-Report-Request bit as well for this case.
+        byte messageRef = sServiceConnector.getCarrierService()
+                .getMmTelFeature().getSmsImplementation().sentPdu[1];
         byte[] pduWithStatusReport = EXPECTED_PDU.clone();
         pduWithStatusReport[0] |= 0x20;
+        pduWithStatusReport[1] = messageRef;
         Assert.assertArrayEquals(pduWithStatusReport, sServiceConnector.getCarrierService()
                 .getMmTelFeature().getSmsImplementation().sentPdu);
-
+        byte[] pduStatusReport = STATUS_REPORT_PDU.clone();
+        pduStatusReport[2] = messageRef;
         // Ensure the API works on Q as well as in R+, where it was deprecated.
         sServiceConnector.getCarrierService().getMmTelFeature().getSmsImplementation()
-                .sendReportWaitForAcknowledgeSmsReportPQ(0, SmsMessage.FORMAT_3GPP,
-                        STATUS_REPORT_PDU);
+                .sendReportWaitForAcknowledgeSmsReportPQ(messageRef, SmsMessage.FORMAT_3GPP,
+                        pduStatusReport);
 
         // Wait for delivered PendingIntent
         Intent intent = AsyncSmsMessageListener.getInstance().waitForMessageDeliveredIntent(
@@ -827,6 +854,7 @@ public class ImsServiceTest {
     }
 
     @Test
+    @ApiTest(apis = "android.telephony.SmsManager#sendTextMessage")
     public void testMmTelSendSmsDeliveryReportR() throws Exception {
         if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
             return;
@@ -842,14 +870,19 @@ public class ImsServiceTest {
 
         // Ensure we receive correct PDU on the other side.
         // Set TP-Status-Report-Request bit as well for this case.
+        byte messageRef = sServiceConnector.getCarrierService()
+                .getMmTelFeature().getSmsImplementation().sentPdu[1];
         byte[] pduWithStatusReport = EXPECTED_PDU.clone();
         pduWithStatusReport[0] |= 0x20;
+        pduWithStatusReport[1] = messageRef;
         Assert.assertArrayEquals(pduWithStatusReport, sServiceConnector.getCarrierService()
                 .getMmTelFeature().getSmsImplementation().sentPdu);
 
+        byte[] pduStatusReport = STATUS_REPORT_PDU.clone();
+        pduStatusReport[2] = messageRef;
         sServiceConnector.getCarrierService().getMmTelFeature().getSmsImplementation()
                 .sendReportWaitForAcknowledgeSmsReportR(123456789, SmsMessage.FORMAT_3GPP,
-                        STATUS_REPORT_PDU);
+                        pduStatusReport);
 
         // Wait for delivered PendingIntent
         Intent intent = AsyncSmsMessageListener.getInstance().waitForMessageDeliveredIntent(
@@ -861,6 +894,7 @@ public class ImsServiceTest {
     }
 
     @Test
+    @ApiTest(apis = "android.telephony.SmsManager#sendTextMessage")
     public void testMmTelSendSmsRSuccess() throws Exception {
         if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
             return;
@@ -882,11 +916,15 @@ public class ImsServiceTest {
                     Activity.RESULT_CANCELED));
 
         // Ensure we receive correct PDU on the other side.
-        Assert.assertArrayEquals(EXPECTED_PDU, sServiceConnector.getCarrierService()
+        byte[] pduWithStatusReport = EXPECTED_PDU.clone();
+        pduWithStatusReport[1] = sServiceConnector.getCarrierService()
+                .getMmTelFeature().getSmsImplementation().sentPdu[1];
+        Assert.assertArrayEquals(pduWithStatusReport, sServiceConnector.getCarrierService()
                 .getMmTelFeature().getSmsImplementation().sentPdu);
     }
 
     @Test
+    @ApiTest(apis = "android.telephony.SmsManager#sendTextMessage")
     public void testMmTelSendSmsNetworkError() throws Exception {
         if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
             return;
@@ -912,8 +950,52 @@ public class ImsServiceTest {
         assertEquals(41, intent.getIntExtra("errorCode", 0));
 
         // Ensure we receive correct PDU on the other side.
-        Assert.assertArrayEquals(EXPECTED_PDU, sServiceConnector.getCarrierService()
+        byte[] pduWithStatusReport = EXPECTED_PDU.clone();
+        pduWithStatusReport[1] = sServiceConnector.getCarrierService()
+                .getMmTelFeature().getSmsImplementation().sentPdu[1];
+        Assert.assertArrayEquals(pduWithStatusReport, sServiceConnector.getCarrierService()
                 .getMmTelFeature().getSmsImplementation().sentPdu);
+    }
+    @Ignore("The onMemoryAvailable and onMemoryAvailableResult Apis were moved back to @hide for"
+            + " now, so do not want to completely remove this test.")
+    @Test
+    public void testMmTelSendMemoryAvailabilityNotification() throws Exception {
+        if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
+            return;
+        }
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .adoptShellPermissionIdentity("android.permission.MODIFY_PHONE_STATE");
+        Resources mResource = Resources.getSystem();
+        boolean sendSmmaViaIms = mResource.getBoolean(
+                com.android.internal.R.bool.config_smma_notification_supported_over_ims);
+        if (!sendSmmaViaIms) {
+            return;
+        }
+        try {
+            setupImsServiceForSms();
+
+            SmsManager.getSmsManagerForSubscriptionId(sTestSub)
+                        .setStorageMonitorMemoryStatusOverride(false);
+
+            //Message received
+            sServiceConnector.getCarrierService().getMmTelFeature().getSmsImplementation()
+                    .receiveSmsWaitForAcknowledgeMemoryFull(123456789, SmsMessage.FORMAT_3GPP,
+                            Base64.decode(RECEIVED_MESSAGE, Base64.DEFAULT));
+
+            SmsManager.getSmsManagerForSubscriptionId(sTestSub)
+                        .setStorageMonitorMemoryStatusOverride(true);
+            assertTrue(sServiceConnector.getCarrierService().getMmTelFeature()
+                    .getSmsImplementation().waitForOnMemoryAvailableLatch());
+            assertTrue(sServiceConnector.getCarrierService().getMmTelFeature()
+                    .getSmsImplementation().mMemoryEventReceived);
+        } catch (SecurityException se) {
+            fail("Caller with MODIFY_PHONE_STATE should be able to call API");
+        } finally {
+            SmsManager.getSmsManagerForSubscriptionId(sTestSub)
+                        .clearStorageMonitorMemoryStatusOverride();
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
+        }
     }
 
     @Test
@@ -921,7 +1003,6 @@ public class ImsServiceTest {
         if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
             return;
         }
-
         setupImsServiceForSms();
 
         // Message received
@@ -933,6 +1014,31 @@ public class ImsServiceTest {
         String receivedMessage = AsyncSmsMessageListener.getInstance()
                 .waitForSmsMessage(ImsUtils.TEST_TIMEOUT_MS);
         assertEquals(EXPECTED_RECEIVED_MESSAGE, receivedMessage);
+    }
+
+    @Test
+    public void testMmTelReceiveSMPPClass2Sms() throws Exception {
+        if (!ImsUtils.shouldRunSmsImsTests(sTestSub)) {
+            return;
+        }
+
+        Resources mResource = Resources.getSystem();
+        boolean isViaIms = mResource.getBoolean(
+                    com.android.internal.R.bool.config_smppsim_response_via_ims);
+        if (!isViaIms) {
+            return;
+        }
+
+        setupImsServiceForSms();
+
+        // Message received
+        sServiceConnector.getCarrierService().getMmTelFeature().getSmsImplementation()
+                .receiveSmsWaitForAcknowledge(123456789, SmsMessage.FORMAT_3GPP,
+                        CLASS2SMPP_PDU);
+
+        assertEquals(EXPECTED_MESSAGEREF, sServiceConnector.getCarrierService().getMmTelFeature()
+                .getSmsImplementation().getMessageRef());
+
     }
 
     @Test
@@ -1249,14 +1355,28 @@ public class ImsServiceTest {
                     }
                 };
 
+        // Another publish register callback to verify new added API.
+        // RcsUceAdapter#removeOnPublishStateChangedListener
+        LinkedBlockingQueue<PublishAttributes> addedNewPublishStateQueue =
+                new LinkedBlockingQueue<>();
+        RcsUceAdapter.OnPublishStateChangedListener addedNewPublishStateCallback =
+                new RcsUceAdapter.OnPublishStateChangedListener() {
+                    public void onPublishStateChange(int state) {
+                    }
+                    public void onPublishStateChange(PublishAttributes attributes) {
+                        addedNewPublishStateQueue.offer(attributes);
+                    }
+                };
         final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try {
             automan.adoptShellPermissionIdentity();
-            // register two publish state callback
+            // register three publish state callback
             uceAdapter.addOnPublishStateChangedListener(getContext().getMainExecutor(),
                     publishStateCallback);
             uceAdapter.addOnPublishStateChangedListener(getContext().getMainExecutor(),
                     unregisteredPublishStateCallback);
+            uceAdapter.addOnPublishStateChangedListener(getContext().getMainExecutor(),
+                    addedNewPublishStateCallback);
         } finally {
             automan.dropShellPermissionIdentity();
         }
@@ -1266,8 +1386,13 @@ public class ImsServiceTest {
                 waitForIntResult(publishStateQueue));
         assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED,
                 waitForIntResult(unregisteredPublishStateQueue));
+        PublishAttributes attr = waitForResult(addedNewPublishStateQueue);
+        assertNull(attr.getSipDetails());
+        assertTrue(attr.getPresenceTuples().isEmpty());
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, attr.getPublishState());
         publishStateQueue.clear();
         unregisteredPublishStateQueue.clear();
+        addedNewPublishStateQueue.clear();
 
         // Verify the value of getting from the API is NOT_PUBLISHED
         try {
@@ -1325,14 +1450,32 @@ public class ImsServiceTest {
                 TestImsService.LATCH_UCE_REQUEST_PUBLISH));
 
         assertEquals(RcsUceAdapter.PUBLISH_STATE_PUBLISHING, waitForIntResult(publishStateQueue));
-        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, waitForIntResult(publishStateQueue));
-        publishStateQueue.clear();
+        attr = waitForResult(addedNewPublishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_PUBLISHING, attr.getPublishState());
+        assertNull(attr.getSipDetails());
+        assertTrue(attr.getPresenceTuples().isEmpty());
 
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, waitForIntResult(publishStateQueue));
+        attr = waitForResult(addedNewPublishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, attr.getPublishState());
+        assertNotNull(attr.getSipDetails());
+        assertEquals(200, attr.getSipDetails().getResponseCode());
+        assertTrue(attr.getSipDetails().getResponsePhrase().isEmpty());
+        publishStateQueue.clear();
+        addedNewPublishStateQueue.clear();
         // Verify the value of getting from the API is PUBLISH_STATE_OK
         try {
             automan.adoptShellPermissionIdentity();
             int publishState = uceAdapter.getUcePublishState();
             assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, publishState);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        // Unregister the publish state callback
+        try {
+            automan.adoptShellPermissionIdentity();
+            uceAdapter.removeOnPublishStateChangedListener(addedNewPublishStateCallback);
         } finally {
             automan.dropShellPermissionIdentity();
         }
@@ -1348,6 +1491,10 @@ public class ImsServiceTest {
         assertEquals(RcsUceAdapter.PUBLISH_STATE_PUBLISHING, waitForIntResult(publishStateQueue));
         assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, waitForIntResult(publishStateQueue));
         publishStateQueue.clear();
+
+        if (addedNewPublishStateQueue.poll() != null) {
+            fail("The de-registered publish callback should not be called");
+        }
 
         // ImsService triggers the unpublish notification
         eventListener.onUnpublish();
@@ -1406,6 +1553,226 @@ public class ImsServiceTest {
     }
 
     @Test
+    public void testRcsAttributesPublish() throws Exception {
+        TelephonyUtils.enableCompatCommand(InstrumentationRegistry.getInstrumentation(),
+                TelephonyUtils.CTS_APP_PACKAGE,
+                SUPPORT_PUBLISHING_STATE_STRING);
+
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+        // Trigger carrier config changed
+        PersistableBundle bundle = new PersistableBundle();
+        bundle.putBoolean(CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONED_BOOL, false);
+        bundle.putBoolean(CarrierConfigManager.Ims.KEY_ENABLE_PRESENCE_PUBLISH_BOOL, true);
+        overrideCarrierConfig(bundle);
+
+        ImsManager imsManager = getContext().getSystemService(ImsManager.class);
+        if (imsManager == null) {
+            fail("Cannot find IMS service");
+        }
+
+        ImsRcsManager imsRcsManager = imsManager.getImsRcsManager(sTestSub);
+        RcsUceAdapter uceAdapter = imsRcsManager.getUceAdapter();
+
+        // Connect to device ImsService with MmTel feature and RCS feature
+        triggerFrameworkConnectToImsServiceBindMmTelAndRcsFeature();
+
+        TestRcsCapabilityExchangeImpl capExchangeImpl = sServiceConnector.getCarrierService()
+                .getRcsFeature().getRcsCapabilityExchangeImpl();
+
+        // Register the callback to listen to the publish state changed
+        LinkedBlockingQueue<PublishAttributes> publishStateQueue = new LinkedBlockingQueue<>();
+        RcsUceAdapter.OnPublishStateChangedListener publishStateCallback =
+                new RcsUceAdapter.OnPublishStateChangedListener() {
+                    public void onPublishStateChange(int state) {
+                    }
+                    public void onPublishStateChange(PublishAttributes attributes) {
+                        publishStateQueue.offer(attributes);
+                    }
+                };
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            automan.adoptShellPermissionIdentity();
+            // register three publish state callback
+            uceAdapter.addOnPublishStateChangedListener(getContext().getMainExecutor(),
+                    publishStateCallback);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        // Verify receiving the publish state callback immediately after registering the callback.
+        PublishAttributes attr = waitForResult(publishStateQueue);
+        assertNull(attr.getSipDetails());
+        assertTrue(attr.getPresenceTuples().isEmpty());
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, attr.getPublishState());
+        publishStateQueue.clear();
+
+
+        // Verify the value of getting from the API is NOT_PUBLISHED
+        try {
+            automan.adoptShellPermissionIdentity();
+            int publishState = uceAdapter.getUcePublishState();
+            assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, publishState);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        // Setup the operation of the publish request.
+        capExchangeImpl.setPublishOperator((listener, pidfXml, cb) -> {
+            int networkResp = 200;
+            String reason = "OK";
+            cb.onNetworkResponse(new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                    .setCSeq(1).setSipResponseCode(networkResp, reason)
+                    .setCallId("TestCallId").build());
+            listener.onPublish();
+        });
+
+        // IMS registers
+        sServiceConnector.getCarrierService().getImsRegistration().onRegistered(
+                IMS_REGI_TECH_LTE);
+
+        // Framework should not trigger the device capabilities publish when the framework doesn't
+        // receive that the RcsUceAdapter.CAPABILITY_TYPE_PRESENCE_UCE is enabled.
+        if (publishStateQueue.poll() != null) {
+            fail("The publish callback should not be called because presence uce is not ready");
+        }
+
+        // Notify framework that the RCS capability status is changed and PRESENCE UCE is enabled.
+        RcsImsCapabilities capabilities =
+                new RcsImsCapabilities(RcsUceAdapter.CAPABILITY_TYPE_PRESENCE_UCE);
+        sServiceConnector.getCarrierService().getRcsFeature()
+                .notifyCapabilitiesStatusChanged(capabilities);
+
+        CapabilityExchangeEventListener eventListener =
+                sServiceConnector.getCarrierService().getRcsFeature().getEventListener();
+
+        // ImsService triggers to notify framework publish device's capabilities.
+        eventListener.onRequestPublishCapabilities(
+                RcsUceAdapter.CAPABILITY_UPDATE_TRIGGER_MOVE_TO_WLAN);
+
+        // Verify ImsService receive the publish request from framework.
+        assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_UCE_REQUEST_PUBLISH));
+
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_PUBLISHING, attr.getPublishState());
+        assertNull(attr.getSipDetails());
+
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, attr.getPublishState());
+        SipDetails details = attr.getSipDetails();
+        assertNotNull(details);
+        assertEquals(SipDetails.METHOD_PUBLISH, details.getMethod());
+        assertEquals(1, details.getCSeq());
+        assertEquals(200, details.getResponseCode());
+        assertEquals("OK", details.getResponsePhrase());
+        assertEquals(0, details.getReasonHeaderCause());
+        assertTrue(details.getReasonHeaderText().isEmpty());
+        assertEquals("TestCallId", details.getCallId());
+        publishStateQueue.clear();
+
+        // Verify the value of getting from the API is PUBLISH_STATE_OK
+        try {
+            automan.adoptShellPermissionIdentity();
+            int publishState = uceAdapter.getUcePublishState();
+            assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, publishState);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        // ImsService triggers to notify framework publish device's capabilities.
+        eventListener.onRequestPublishCapabilities(
+                RcsUceAdapter.CAPABILITY_UPDATE_TRIGGER_MOVE_TO_WLAN);
+
+        // Verify ImsService receive the publish request from framework.
+        assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_UCE_REQUEST_PUBLISH));
+
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_PUBLISHING, attr.getPublishState());
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, attr.getPublishState());
+        publishStateQueue.clear();
+
+        // ImsService triggers the unpublish notification
+        eventListener.onUnpublish();
+
+        // Verify the publish state callback will be called with the state "NOT_PUBLISHED"
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, attr.getPublishState());
+        publishStateQueue.clear();
+
+        // Verify the value of getting from the API is NOT_PUBLISHED
+        try {
+            automan.adoptShellPermissionIdentity();
+            int publishState = uceAdapter.getUcePublishState();
+            assertEquals(RcsUceAdapter.PUBLISH_STATE_NOT_PUBLISHED, publishState);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+        publishStateQueue.clear();
+
+        // ImsService triggers to notify framework publish updated.
+        int sipCode = 200;
+        String reasonPharse = "OK";
+        int cSeq = 2;
+        int reasonCause = 0;
+        String reasonText = "headerText";
+        String callId = "TestCallId1";
+        eventListener.onPublishUpdated(new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                .setCSeq(cSeq).setSipResponseCode(sipCode, reasonPharse)
+                .setSipResponseReasonHeader(reasonCause, reasonText).setCallId(callId).build());
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, attr.getPublishState());
+        details = attr.getSipDetails();
+        assertNotNull(details);
+        assertEquals(SipDetails.METHOD_PUBLISH, details.getMethod());
+        assertEquals(cSeq, details.getCSeq());
+        assertEquals(sipCode, details.getResponseCode());
+        assertEquals(reasonPharse, details.getResponsePhrase());
+        assertEquals(reasonCause, details.getReasonHeaderCause());
+        assertEquals(reasonText, details.getReasonHeaderText());
+        assertEquals(callId, details.getCallId());
+        publishStateQueue.clear();
+
+        // Setup the operation of the publish request.
+        capExchangeImpl.setPublishOperator((listener, pidfXml, cb) -> {
+            // The response code 999 means the PIDF is same as before.
+            int networkResp = 999;
+            String reason = "";
+            cb.onNetworkResponse(new SipDetails.Builder(SipDetails.METHOD_PUBLISH)
+                    .setCSeq(10).setSipResponseCode(networkResp, reason)
+                    .setCallId("TestCallId3").build());
+            listener.onPublish();
+        });
+        eventListener.onRequestPublishCapabilities(
+                RcsUceAdapter.CAPABILITY_UPDATE_TRIGGER_MOVE_TO_WLAN);
+
+        assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_UCE_REQUEST_PUBLISH));
+
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_PUBLISHING, attr.getPublishState());
+        attr = waitForResult(publishStateQueue);
+        assertEquals(RcsUceAdapter.PUBLISH_STATE_OK, attr.getPublishState());
+        // Verify that the sip info is set to null because the response code 999 is treated
+        // as a command error.
+        assertNull(attr.getSipDetails());
+        publishStateQueue.clear();
+
+        // Trigger RcsFeature is unavailable
+        sServiceConnector.getCarrierService().getRcsFeature()
+                .setFeatureState(ImsFeature.STATE_UNAVAILABLE);
+
+        // Verify the RcsCapabilityExchangeImplBase will be removed.
+        assertTrue(sServiceConnector.getCarrierService().waitForLatchCountdown(
+                TestImsService.LATCH_UCE_LISTENER_SET));
+
+        overrideCarrierConfig(null);
+    }
+
+    @Test
     public void testPublishImsReg() throws Exception {
         TelephonyUtils.enableCompatCommand(InstrumentationRegistry.getInstrumentation(),
                 TelephonyUtils.CTS_APP_PACKAGE,
@@ -1436,7 +1803,11 @@ public class ImsServiceTest {
         // Register the callback to listen to the publish state changed
         LinkedBlockingQueue<Integer> publishStateQueue = new LinkedBlockingQueue<>();
         RcsUceAdapter.OnPublishStateChangedListener publishStateCallback =
-                publishStateQueue::offer;
+                new RcsUceAdapter.OnPublishStateChangedListener() {
+                    public void onPublishStateChange(int state) {
+                        publishStateQueue.offer(state);
+                    }
+                };
 
         final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
         try {
@@ -2552,6 +2923,7 @@ public class ImsServiceTest {
                         ImsReasonInfo.CODE_UNSPECIFIED, ""));
 
         LinkedBlockingQueue<Integer> mQueue = new LinkedBlockingQueue<>();
+        LinkedBlockingQueue<SipDetails> mDeregiQueue = new LinkedBlockingQueue<>();
         RegistrationManager.RegistrationCallback callback =
                 new RegistrationManager.RegistrationCallback() {
                     @Override
@@ -2567,6 +2939,12 @@ public class ImsServiceTest {
                     @Override
                     public void onUnregistered(ImsReasonInfo info) {
                         mQueue.offer(info.getCode());
+                    }
+
+                    @Override
+                    public void onUnregistered(ImsReasonInfo info, SipDetails details) {
+                        mQueue.offer(info.getCode());
+                        mDeregiQueue.offer(details);
                     }
 
                     @Override
@@ -2591,6 +2969,7 @@ public class ImsServiceTest {
 
         // Verify it's not registered
         assertEquals(ImsReasonInfo.CODE_LOCAL_NOT_REGISTERED, waitForIntResult(mQueue));
+        assertTrue(mDeregiQueue.isEmpty());
 
         // Start registration
         sServiceConnector.getCarrierService().getImsRegistration().onRegistering(
@@ -2609,6 +2988,25 @@ public class ImsServiceTest {
                         ImsReasonInfo.CODE_UNSPECIFIED, ""));
         assertEquals(AccessNetworkConstants.TRANSPORT_TYPE_WLAN, waitForIntResult(mQueue));
         assertEquals(ImsReasonInfo.CODE_LOCAL_HO_NOT_FEASIBLE, waitForIntResult(mQueue));
+
+        int cSeq = 1;
+        int responseCode = 200;
+        String responsePhrase = "OK";
+        String callId = "testCall-Id";
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(
+                new ImsReasonInfo(ImsReasonInfo.CODE_LOCAL_NOT_REGISTERED,
+                        ImsReasonInfo.CODE_UNSPECIFIED, ""),
+                new SipDetails.Builder(SipDetails.METHOD_REGISTER)
+                                .setCSeq(cSeq).setSipResponseCode(responseCode, responsePhrase)
+                                .setCallId(callId).build()
+        );
+        assertEquals(ImsReasonInfo.CODE_LOCAL_NOT_REGISTERED, waitForIntResult(mQueue));
+        SipDetails details = waitForResult(mDeregiQueue);
+        assertEquals(SipDetails.METHOD_REGISTER, details.getMethod());
+        assertEquals(cSeq, details.getCSeq());
+        assertEquals(responseCode, details.getResponseCode());
+        assertEquals(responsePhrase, details.getResponsePhrase());
+        assertEquals(callId, details.getCallId());
 
         // Verify the unregisterImsRegistrationCallback should failure without the permission.
         try {
@@ -3532,6 +3930,8 @@ public class ImsServiceTest {
         bundle.putPersistableBundle(
                 CarrierConfigManager.Ims.KEY_MMTEL_REQUIRES_PROVISIONING_BUNDLE,
                 innerBundle);
+        bundle.putBoolean(
+                CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL, false);
         overrideCarrierConfig(bundle);
 
         triggerFrameworkConnectToCarrierImsService();
@@ -3800,7 +4200,8 @@ public class ImsServiceTest {
                 innerBundle);
         bundle.putBoolean(
                 CarrierConfigManager.KEY_CARRIER_RCS_PROVISIONING_REQUIRED_BOOL, false);
-
+        bundle.putBoolean(
+                CarrierConfigManager.KEY_CARRIER_VOLTE_PROVISIONING_REQUIRED_BOOL, false);
         overrideCarrierConfig(bundle);
 
         triggerFrameworkConnectToImsServiceBindMmTelAndRcsFeature();
@@ -4576,6 +4977,50 @@ public class ImsServiceTest {
     }
 
     @Test
+    public void testSetMediaThreshold() throws Exception {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+        sServiceConnector.setDeviceToDeviceCommunicationEnabled(true);
+        try {
+            PersistableBundle bundle = new PersistableBundle();
+            bundle.putInt(
+                    CarrierConfigManager.ImsVoice.KEY_VOICE_RTP_PACKET_LOSS_RATE_THRESHOLD_INT,
+                    TEST_PACKET_LOSS_RATE_THRESHOLD);
+            bundle.putLong(
+                    CarrierConfigManager
+                            .ImsVoice
+                            .KEY_VOICE_RTP_INACTIVITY_TIME_THRESHOLD_MILLIS_LONG,
+                    TEST_INACTIVITY_MILLIS);
+            bundle.putInt(
+                    CarrierConfigManager
+                            .ImsVoice.KEY_VOICE_RTP_JITTER_THRESHOLD_MILLIS_INT,
+                    TEST_JITTER_THRESHOLD);
+            overrideCarrierConfig(bundle);
+
+            triggerFrameworkConnectToCarrierImsService();
+
+            sServiceConnector.getCarrierService().getMmTelFeature()
+                    .getSetMediaThresholdLatch(TEST_PACKET_LOSS_RATE_THRESHOLD,
+                            TEST_JITTER_THRESHOLD, TEST_INACTIVITY_MILLIS)
+                    .await(10000, TimeUnit.MILLISECONDS);
+            MediaThreshold threshold =
+                    sServiceConnector.getCarrierService().getMmTelFeature().getSetMediaThreshold();
+
+            assertNotNull(threshold);
+            assertArrayEquals(new int[]{TEST_PACKET_LOSS_RATE_THRESHOLD},
+                    threshold.getThresholdsRtpPacketLossRate());
+            assertArrayEquals(new int[]{TEST_JITTER_THRESHOLD},
+                    threshold.getThresholdsRtpJitterMillis());
+            assertArrayEquals(new long[]{TEST_INACTIVITY_MILLIS},
+                    threshold.getThresholdsRtpInactivityTimeMillis());
+        } finally {
+            sServiceConnector.setDeviceToDeviceCommunicationEnabled(false);
+            overrideCarrierConfig(null);
+        }
+    }
+
+    @Test
     public void testImsMmTelManagerImsStateCallback() throws Exception {
         if (!ImsUtils.shouldTestImsService()) {
             return;
@@ -4836,6 +5281,173 @@ public class ImsServiceTest {
         imsSipManager.unregisterImsStateCallback(sipCallback);
     }
 
+    @Test
+    public void testUnregisteredCallbackCompatibility() throws Exception {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+
+        assumeTrue(sSupportsImsHal);
+
+        triggerFrameworkConnectToCarrierImsService();
+
+        // Start de-registered
+        ImsReasonInfo reasonInfo = new ImsReasonInfo(ImsReasonInfo.CODE_LOCAL_NETWORK_NO_SERVICE,
+                ImsReasonInfo.CODE_UNSPECIFIED, "");
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(reasonInfo);
+
+        LinkedBlockingQueue<ImsReasonInfo> mDeregQueue =
+                new LinkedBlockingQueue<>();
+        RegistrationManager.RegistrationCallback callback =
+                new RegistrationManager.RegistrationCallback() {
+            @Override
+            public void onUnregistered(ImsReasonInfo info) {
+                mDeregQueue.offer(info);
+            }
+        };
+
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            automan.adoptShellPermissionIdentity();
+            ImsManager imsManager = getContext().getSystemService(ImsManager.class);
+            ImsMmTelManager mmTelManager = imsManager.getImsMmTelManager(sTestSub);
+            mmTelManager.registerImsRegistrationCallback(getContext().getMainExecutor(), callback);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        ImsReasonInfo receivedInfo = waitForResult(mDeregQueue);
+        assertNotNull(receivedInfo);
+        assertEquals(reasonInfo, receivedInfo);
+
+        // onDeregistered with extra
+        reasonInfo = new ImsReasonInfo(ImsReasonInfo.CODE_REGISTRATION_ERROR,
+                ImsReasonInfo.CODE_UNSPECIFIED, "");
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(
+                reasonInfo, SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK, REGISTRATION_TECH_LTE);
+
+        receivedInfo = waitForResult(mDeregQueue);
+        assertNotNull(receivedInfo);
+        assertEquals(reasonInfo, receivedInfo);
+    }
+
+    @Ignore("RegistrationManager.RegistrationCallback#onUnregistered(ImsReasonInfo,int,int)"
+            + " is hidden. Internal use only.")
+    @Test
+    public void testMmTelManagerRegistrationBlock() throws Exception {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+
+        assumeTrue(sSupportsImsHal);
+
+        triggerFrameworkConnectToCarrierImsService();
+
+        ImsReasonInfo reasonInfo = new ImsReasonInfo(ImsReasonInfo.CODE_REGISTRATION_ERROR,
+                ImsReasonInfo.CODE_UNSPECIFIED, "");
+
+        // Start de-registered
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(
+                reasonInfo, SUGGESTED_ACTION_NONE, REGISTRATION_TECH_NONE);
+
+        LinkedBlockingQueue<Integer> mDeregQueue =
+                new LinkedBlockingQueue<>();
+        RegistrationManager.RegistrationCallback callback =
+                new RegistrationManager.RegistrationCallback() {
+            @Override
+            public void onUnregistered(ImsReasonInfo info, int suggestedAction,
+                    int imsRadioTech) {
+                mDeregQueue.offer(suggestedAction);
+            }
+        };
+
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            automan.adoptShellPermissionIdentity();
+            ImsManager imsManager = getContext().getSystemService(ImsManager.class);
+            ImsMmTelManager mmTelManager = imsManager.getImsMmTelManager(sTestSub);
+            mmTelManager.registerImsRegistrationCallback(getContext().getMainExecutor(), callback);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        int suggestedAction = waitForResult(mDeregQueue);
+        assertNotEquals(SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK, suggestedAction);
+        assertNotEquals(SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK_WITH_TIMEOUT, suggestedAction);
+
+        // fatal error
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(
+                reasonInfo, SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK,
+                REGISTRATION_TECH_LTE);
+
+        suggestedAction = waitForResult(mDeregQueue);
+        assertEquals(SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK, suggestedAction);
+
+        // repeated error
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(
+                reasonInfo, SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK_WITH_TIMEOUT,
+                REGISTRATION_TECH_LTE);
+
+        suggestedAction = waitForResult(mDeregQueue);
+        assertEquals(SUGGESTED_ACTION_TRIGGER_PLMN_BLOCK_WITH_TIMEOUT, suggestedAction);
+
+        // without extra
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(reasonInfo);
+
+        suggestedAction = waitForResult(mDeregQueue);
+        assertEquals(SUGGESTED_ACTION_NONE, suggestedAction);
+    }
+
+    @Ignore("RegistrationManager.RegistrationCallback#onUnregistered(ImsReasonInfo,int,int)"
+            + " is hidden. Internal use only.")
+    @Test
+    public void testMmTelManagerRegistrationDeregisteredRadioTech() throws Exception {
+        if (!ImsUtils.shouldTestImsService()) {
+            return;
+        }
+
+        assumeTrue(sSupportsImsHal);
+
+        triggerFrameworkConnectToCarrierImsService();
+
+        ImsReasonInfo reasonInfo = new ImsReasonInfo(ImsReasonInfo.CODE_REGISTRATION_ERROR,
+                ImsReasonInfo.CODE_UNSPECIFIED, "");
+
+        // Start de-registered
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(
+                reasonInfo, SUGGESTED_ACTION_NONE, REGISTRATION_TECH_LTE);
+
+        LinkedBlockingQueue<Integer> mDeregQueue =
+                new LinkedBlockingQueue<>();
+        RegistrationManager.RegistrationCallback callback =
+                new RegistrationManager.RegistrationCallback() {
+            @Override
+            public void onUnregistered(ImsReasonInfo info, int suggestedAction,
+                    int imsRadioTech) {
+                mDeregQueue.offer(imsRadioTech);
+            }
+        };
+
+        final UiAutomation automan = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+        try {
+            automan.adoptShellPermissionIdentity();
+            ImsManager imsManager = getContext().getSystemService(ImsManager.class);
+            ImsMmTelManager mmTelManager = imsManager.getImsMmTelManager(sTestSub);
+            mmTelManager.registerImsRegistrationCallback(getContext().getMainExecutor(), callback);
+        } finally {
+            automan.dropShellPermissionIdentity();
+        }
+
+        int imsRadioTech = waitForResult(mDeregQueue);
+        assertEquals(REGISTRATION_TECH_LTE, imsRadioTech);
+
+        // without extra
+        sServiceConnector.getCarrierService().getImsRegistration().onDeregistered(reasonInfo);
+
+        imsRadioTech = waitForResult(mDeregQueue);
+        assertEquals(REGISTRATION_TECH_NONE, imsRadioTech);
+    }
+
     private void verifyIntKey(ProvisioningManager pm,
             LinkedBlockingQueue<Pair<Integer, Integer>> intQueue, int key, int value)
             throws Exception {
@@ -4873,7 +5485,9 @@ public class ImsServiceTest {
                 .waitForOnReadyLatch());
         // Set Registered and SMS capable
         sServiceConnector.getCarrierService().getMmTelFeature().setCapabilities(capabilities);
-        sServiceConnector.getCarrierService().getImsService().getRegistration(0).onRegistered(1);
+        sServiceConnector.getCarrierService().getImsService()
+                .getRegistrationForSubscription(sTestSlot, sTestSub)
+                .onRegistered(IMS_REGI_TECH_IWLAN);
         sServiceConnector.getCarrierService().getMmTelFeature()
                 .notifyCapabilitiesStatusChanged(capabilities);
 

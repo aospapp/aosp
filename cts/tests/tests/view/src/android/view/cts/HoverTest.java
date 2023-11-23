@@ -99,6 +99,15 @@ public class HoverTest {
         mLayer4Right = mActivity.findViewById(R.id.layer4_right);
     }
 
+    private void injectHoverEnter(View view) {
+        injectHoverEnter(view, /*offsetX=*/0, /*offsetY=*/0);
+    }
+
+    private void injectHoverEnter(View view, int offsetX, int offsetY) {
+        mInstrumentation.sendPointerSync(
+                obtainMouseEvent(MotionEvent.ACTION_HOVER_ENTER, view, offsetX, offsetY));
+    }
+
     private void injectHoverMove(View view) {
         injectHoverMove(view, 0, 0);
     }
@@ -116,6 +125,7 @@ public class HoverTest {
     public void testHoverMove() throws Throwable {
         View.OnHoverListener listener = installHoverListener(mInner11);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
 
         clearHoverListener(mInner11);
@@ -127,6 +137,7 @@ public class HoverTest {
     public void testHoverMoveMultiple() throws Throwable {
         View.OnHoverListener listener = installHoverListener(mInner11);
 
+        injectHoverEnter(mInner11, 1, 2);
         injectHoverMove(mInner11, 1, 2);
         injectHoverMove(mInner11, 3, 4);
         injectHoverMove(mInner11, 5, 6);
@@ -152,6 +163,7 @@ public class HoverTest {
         View.OnHoverListener inner11Listener = installHoverListener(mInner11);
         View.OnHoverListener inner12Listener = installHoverListener(mInner12);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
         injectHoverMove(mInner12);
 
@@ -167,6 +179,7 @@ public class HoverTest {
         View.OnHoverListener middle1Listener = installHoverListener(mMiddle1);
         View.OnHoverListener inner11Listener = installHoverListener(mInner11);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
         remove(mInner11);
 
@@ -183,6 +196,7 @@ public class HoverTest {
         View.OnHoverListener middle1Listener = installHoverListener(mMiddle1);
         View.OnHoverListener inner11Listener = installHoverListener(mInner11);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
         remove(mMiddle1);
 
@@ -199,6 +213,7 @@ public class HoverTest {
     public void testRemoveAfterExit() throws Throwable {
         View.OnHoverListener listener = installHoverListener(mInner11);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
         injectHoverMove(mInner12);
         remove(mInner11);
@@ -218,6 +233,7 @@ public class HoverTest {
         View.OnHoverListener inner21Listener = installHoverListener(mInner21);
         View.OnHoverListener inner22Listener = installHoverListener(mInner22);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
         injectHoverMove(mInner12);
         injectHoverMove(mInner21);
@@ -248,6 +264,7 @@ public class HoverTest {
         View.OnHoverListener inner21Listener = installHoverListener(mInner21);
         View.OnHoverListener inner22Listener = installHoverListener(mInner22);
 
+        injectHoverEnter(mInner11);
         injectHoverMove(mInner11);
         injectHoverMove(mInner12);
         injectHoverMove(mInner21);
@@ -278,6 +295,7 @@ public class HoverTest {
         View.OnHoverListener listener4_left = installHoverListener(mLayer4Left, false);
         View.OnHoverListener listener4_right = installHoverListener(mLayer4Right, false);
 
+        injectHoverEnter(mLayer4Left);
         injectHoverMove(mLayer4Left);
         injectHoverMove(mLayer4Left, 1, 1);
         injectHoverMove(mLayer4Right);

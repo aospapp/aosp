@@ -16,9 +16,9 @@
 Metrics class.
 """
 
-import constants
+from atest import constants
 
-from . import metrics_base
+from atest.metrics import metrics_base
 
 class AtestStartEvent(metrics_base.MetricsBase):
     """

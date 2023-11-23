@@ -17,13 +17,14 @@
 #ifndef ART_COMPILER_OPTIMIZING_INLINER_H_
 #define ART_COMPILER_OPTIMIZING_INLINER_H_
 
+#include "base/macros.h"
 #include "dex/dex_file_types.h"
 #include "dex/invoke_type.h"
 #include "jit/profiling_info.h"
 #include "optimization.h"
 #include "profile/profile_compilation_info.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class CodeGenerator;
 class DexCompilationUnit;
@@ -42,7 +43,8 @@ class HInliner : public HOptimization {
            size_t total_number_of_dex_registers,
            size_t total_number_of_instructions,
            HInliner* parent,
-           size_t depth = 0,
+           size_t depth,
+           bool try_catch_inlining_allowed,
            const char* name = kInlinerPassName)
       : HOptimization(outer_graph, name, stats),
         outermost_graph_(outermost_graph),
@@ -54,6 +56,7 @@ class HInliner : public HOptimization {
         parent_(parent),
         depth_(depth),
         inlining_budget_(0),
+        try_catch_inlining_allowed_(try_catch_inlining_allowed),
         inline_stats_(nullptr) {}
 
   bool Run() override;
@@ -70,9 +73,7 @@ class HInliner : public HOptimization {
     kInlineCacheMissingTypes = 5
   };
 
-  // We set `did_set_always_throws` as true if we analyzed `invoke_instruction` and it always
-  // throws.
-  bool TryInline(HInvoke* invoke_instruction, /*inout*/ bool* did_set_always_throws);
+  bool TryInline(HInvoke* invoke_instruction);
 
   // Try to inline `resolved_method` in place of `invoke_instruction`. `do_rtp` is whether
   // reference type propagation can run after the inlining. If the inlining is successful, this
@@ -80,19 +81,22 @@ class HInliner : public HOptimization {
   bool TryInlineAndReplace(HInvoke* invoke_instruction,
                            ArtMethod* resolved_method,
                            ReferenceTypeInfo receiver_type,
-                           bool do_rtp)
+                           bool do_rtp,
+                           bool is_speculative)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool TryBuildAndInline(HInvoke* invoke_instruction,
                          ArtMethod* resolved_method,
                          ReferenceTypeInfo receiver_type,
-                         HInstruction** return_replacement)
+                         HInstruction** return_replacement,
+                         bool is_speculative)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
   bool TryBuildAndInlineHelper(HInvoke* invoke_instruction,
                                ArtMethod* resolved_method,
                                ReferenceTypeInfo receiver_type,
-                               HInstruction** return_replacement)
+                               HInstruction** return_replacement,
+                               bool is_speculative)
     REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Substitutes parameters in the callee graph with their values from the caller.
@@ -105,8 +109,9 @@ class HInliner : public HOptimization {
   // Run simple optimizations on `callee_graph`.
   void RunOptimizations(HGraph* callee_graph,
                         const dex::CodeItem* code_item,
-                        const DexCompilationUnit& dex_compilation_unit)
-    REQUIRES_SHARED(Locks::mutator_lock_);
+                        const DexCompilationUnit& dex_compilation_unit,
+                        bool try_catch_inlining_allowed_for_recursive_inline)
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Try to recognize known simple patterns and replace invoke call with appropriate instructions.
   bool TryPatternSubstitution(HInvoke* invoke_instruction,
@@ -129,12 +134,14 @@ class HInliner : public HOptimization {
                            const CodeItemDataAccessor& accessor) const
     REQUIRES_SHARED(Locks::mutator_lock_);
 
-  // Returns whether the inlining budget allows inlining method.
+  // Returns whether inlining is encouraged.
   //
   // For example, this checks whether the function has grown too large and
   // inlining should be prevented.
-  bool IsInliningBudgetAvailable(art::ArtMethod* method, const CodeItemDataAccessor& accessor) const
-    REQUIRES_SHARED(Locks::mutator_lock_);
+  bool IsInliningEncouraged(const HInvoke* invoke_instruction,
+                            art::ArtMethod* method,
+                            const CodeItemDataAccessor& accessor) const
+      REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Inspects the body of a method (callee_graph) and returns whether it can be
   // inlined.
@@ -142,8 +149,9 @@ class HInliner : public HOptimization {
   // This checks for instructions and constructs that we do not support
   // inlining, such as inlining a throw instruction into a try block.
   bool CanInlineBody(const HGraph* callee_graph,
-                     const HBasicBlock* target_block,
-                     size_t* out_number_of_instructions) const
+                     HInvoke* invoke,
+                     size_t* out_number_of_instructions,
+                     bool is_speculative) const
     REQUIRES_SHARED(Locks::mutator_lock_);
 
   // Create a new HInstanceFieldGet.
@@ -319,6 +327,9 @@ class HInliner : public HOptimization {
 
   // The budget left for inlining, in number of instructions.
   size_t inlining_budget_;
+
+  // States if we are allowing try catch inlining to occur at this particular instance of inlining.
+  bool try_catch_inlining_allowed_;
 
   // Used to record stats about optimizations on the inlined graph.
   // If the inlining is successful, these stats are merged to the caller graph's stats.

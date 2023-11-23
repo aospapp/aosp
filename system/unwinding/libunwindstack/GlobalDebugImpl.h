@@ -420,7 +420,8 @@ std::unique_ptr<GlobalDebugInterface<Symfile>> CreateGlobalDebugImpl(
     }
     case ARCH_ARM64:
     case ARCH_X86_64:
-    case ARCH_MIPS64: {
+    case ARCH_MIPS64:
+    case ARCH_RISCV64: {
       using Impl = GlobalDebugImpl<Symfile, uint64_t, Uint64_A>;
       static_assert(offsetof(typename Impl::JITCodeEntry, symfile_size) == 24, "layout");
       static_assert(offsetof(typename Impl::JITCodeEntry, seqlock) == 40, "layout");

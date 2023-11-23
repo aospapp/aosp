@@ -22,6 +22,7 @@ import android.server.wm.WindowManagerStateHelper;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -29,12 +30,16 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class GoogleAtvReferenceRemoteControlTest extends InputHidTestCase {
 
+    @Rule
+    public DebugInputRule mDebugInputRule = new DebugInputRule();
+
     // Exercises the Bluetooth behavior of the ATV reference remote control
     public GoogleAtvReferenceRemoteControlTest() {
         super(R.raw.google_atvreferenceremote_register);
     }
 
     @Test
+    @DebugInputRule.DebugInput(bug = 193231132)
     public void testAllKeys() {
         testInputEvents(R.raw.google_atvreferenceremote_keyeventtests);
     }

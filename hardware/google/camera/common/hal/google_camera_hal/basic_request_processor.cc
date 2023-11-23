@@ -61,6 +61,7 @@ status_t BasicRequestProcessor::ConfigureStreams(
       stream_config.stream_config_counter;
   process_block_stream_config->multi_resolution_input_image =
       stream_config.multi_resolution_input_image;
+  process_block_stream_config->log_id = stream_config.log_id;
 
   return OK;
 }

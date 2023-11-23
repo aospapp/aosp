@@ -27,6 +27,8 @@ import androidx.annotation.NonNull;
 import org.hamcrest.Description;
 import org.hamcrest.TypeSafeMatcher;
 
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.function.BiPredicate;
 
@@ -77,6 +79,69 @@ public class AccessibilityEventFilterUtils {
         return allOf(new AccessibilityEventTypeMatcher(AccessibilityEvent.TYPE_WINDOWS_CHANGED),
                 new WindowChangesMatcher(changeTypes),
                 new WindowIdMatcher(windowId))::matches;
+    }
+
+    /**
+     * Creates an {@link AccessibilityEventFilter} that returns {@code true} once all the given
+     * filters return {@code true} for any event.
+     * Each given filters are invoked on every AccessibilityEvent until it returns {@code true}.
+     * After all filters return {@code true} once, the created filter returns {@code true} forever.
+     */
+    public static AccessibilityEventFilter filterWaitForAll(AccessibilityEventFilter... filters) {
+        return new AccessibilityEventFilter() {
+            private final List<AccessibilityEventFilter> mUnresolved =
+                    new LinkedList<>(Arrays.asList(filters));
+
+            @Override
+            public boolean accept(AccessibilityEvent event) {
+                mUnresolved.removeIf(filter -> filter.accept(event));
+                return mUnresolved.isEmpty();
+            }
+        };
+    }
+
+    /**
+     * Returns a matcher for a display id from getDisplayId().
+     * @param displayId the display id to match.
+     * @return a matcher for comparing display ids.
+     */
+    public static TypeSafeMatcher<AccessibilityEvent> matcherForDisplayId(int displayId) {
+        final TypeSafeMatcher<AccessibilityEvent> matchAction =
+                new PropertyMatcher<>(
+                        displayId, "Display id",
+                        (event, expect) -> event.getDisplayId() == displayId);
+        return matchAction;
+    }
+
+    /**
+     * Returns a matcher for a class name from getClassName().
+     * @param className the class name to match.
+     * @return a matcher for comparing class names.
+     */
+    public static TypeSafeMatcher<AccessibilityEvent> matcherForClassName(CharSequence className) {
+        final TypeSafeMatcher<AccessibilityEvent> matchAction =
+                new PropertyMatcher<>(
+                        className, "Class name",
+                        (event, expect) -> event.getClassName().equals(className));
+        return matchAction;
+    }
+
+    /**
+     * Returns a matcher for the first text instance from getText().
+     * @param text the text to match.
+     * @return a matcher for comparing first text instances.
+     */
+    public static TypeSafeMatcher<AccessibilityEvent> matcherForFirstText(CharSequence text) {
+        final TypeSafeMatcher<AccessibilityEvent> matchAction =
+                new PropertyMatcher<>(
+                        text, "Text",
+                        (event, expect) -> {
+                            if (event.getText() != null && event.getText().size() > 0) {
+                                return event.getText().get(0).equals(text);
+                            }
+                            return false;
+                        });
+        return matchAction;
     }
 
     public static class AccessibilityEventTypeMatcher extends TypeSafeMatcher<AccessibilityEvent> {

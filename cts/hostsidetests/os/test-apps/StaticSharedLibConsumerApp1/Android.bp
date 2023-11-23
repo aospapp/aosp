@@ -33,3 +33,20 @@ android_test_helper_app {
         "general-tests",
     ],
 }
+
+android_test_helper_app {
+    name: "CtsStaticSharedLibConsumerApp1BadCertDigest",
+    defaults: ["cts_support_defaults"],
+    srcs: ["src/**/*.java"],
+    manifest: "AndroidManifestBadCertDigest.xml",
+    static_libs: [
+        "androidx.test.rules",
+        "compatibility-device-util-axt",
+    ],
+    libs: ["CtsStaticSharedLibProviderApp1"],
+    platform_apis: true,
+    test_suites: [
+        "cts",
+        "general-tests",
+    ],
+}

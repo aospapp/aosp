@@ -184,8 +184,9 @@ public class UserAuthTest {
 
     @Test
     public void testUserAuth() throws Exception {
-        String alias = "authbound";
+        assumeTrue("Device doesn't support lock screen", TestUtil.isLockScreenSupported());
 
+        String alias = "authbound";
         try (DeviceLockSession dl = new DeviceLockSession()) {
             Context appContext = InstrumentationRegistry.getTargetContext();
             KeyguardManager keyguardManager = (KeyguardManager)appContext

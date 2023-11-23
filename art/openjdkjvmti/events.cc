@@ -29,25 +29,24 @@
  * questions.
  */
 
-#include <android-base/thread_annotations.h>
+#include "events.h"
 
-#include "alloc_manager.h"
-#include "base/locks.h"
-#include "base/mutex.h"
-#include "events-inl.h"
+#include <sys/time.h>
 
 #include <array>
 #include <functional>
-#include <sys/time.h>
 
+#include "alloc_manager.h"
+#include "android-base/thread_annotations.h"
 #include "arch/context.h"
 #include "art_field-inl.h"
 #include "art_jvmti.h"
 #include "art_method-inl.h"
+#include "base/locks.h"
 #include "base/mutex.h"
 #include "deopt_manager.h"
 #include "dex/dex_file_types.h"
-#include "events.h"
+#include "events-inl.h"
 #include "gc/allocation_listener.h"
 #include "gc/gc_pause_listener.h"
 #include "gc/heap.h"
@@ -71,8 +70,8 @@
 #include "scoped_thread_state_change-inl.h"
 #include "scoped_thread_state_change.h"
 #include "stack.h"
-#include "thread.h"
 #include "thread-inl.h"
+#include "thread.h"
 #include "thread_list.h"
 #include "ti_phase.h"
 #include "ti_thread.h"
@@ -447,9 +446,8 @@ class JvmtiParkListener : public art::ParkCallback {
     if (handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kMonitorWait)) {
       art::Thread* self = art::Thread::Current();
       art::JNIEnvExt* jnienv = self->GetJniEnv();
-      art::ArtField* parkBlockerField = art::jni::DecodeArtField(
-          art::WellKnownClasses::java_lang_Thread_parkBlocker);
-      art::ObjPtr<art::mirror::Object> blocker_obj = parkBlockerField->GetObj(self->GetPeer());
+      art::ObjPtr<art::mirror::Object> blocker_obj =
+          art::WellKnownClasses::java_lang_Thread_parkBlocker->GetObj(self->GetPeer());
       if (blocker_obj.IsNull()) {
         blocker_obj = self->GetPeer();
       }
@@ -505,9 +503,8 @@ class JvmtiParkListener : public art::ParkCallback {
     if (handler_->IsEventEnabledAnywhere(ArtJvmtiEvent::kMonitorWaited)) {
       art::Thread* self = art::Thread::Current();
       art::JNIEnvExt* jnienv = self->GetJniEnv();
-      art::ArtField* parkBlockerField = art::jni::DecodeArtField(
-          art::WellKnownClasses::java_lang_Thread_parkBlocker);
-      art::ObjPtr<art::mirror::Object> blocker_obj = parkBlockerField->GetObj(self->GetPeer());
+      art::ObjPtr<art::mirror::Object> blocker_obj =
+          art::WellKnownClasses::java_lang_Thread_parkBlocker->GetObj(self->GetPeer());
       if (blocker_obj.IsNull()) {
         blocker_obj = self->GetPeer();
       }
@@ -741,7 +738,6 @@ class JvmtiMethodTraceListener final : public art::instrumentation::Instrumentat
   // Call-back for when a method is popped due to an exception throw. A method will either cause a
   // MethodExited call-back or a MethodUnwind call-back when its activation is removed.
   void MethodUnwind(art::Thread* self,
-                    art::Handle<art::mirror::Object> this_object ATTRIBUTE_UNUSED,
                     art::ArtMethod* method,
                     uint32_t dex_pc ATTRIBUTE_UNUSED)
       REQUIRES_SHARED(art::Locks::mutator_lock_) override {
@@ -1133,13 +1129,11 @@ static DeoptRequirement GetDeoptRequirement(ArtJvmtiEvent event, jthread thread)
   switch (event) {
     case ArtJvmtiEvent::kBreakpoint:
     case ArtJvmtiEvent::kException:
-      return DeoptRequirement::kLimited;
-    // TODO MethodEntry is needed due to inconsistencies between the interpreter and the trampoline
-    // in how to handle exceptions.
     case ArtJvmtiEvent::kMethodEntry:
+    case ArtJvmtiEvent::kMethodExit:
+      return DeoptRequirement::kLimited;
     case ArtJvmtiEvent::kExceptionCatch:
       return DeoptRequirement::kFull;
-    case ArtJvmtiEvent::kMethodExit:
     case ArtJvmtiEvent::kFieldModification:
     case ArtJvmtiEvent::kFieldAccess:
     case ArtJvmtiEvent::kSingleStep:
@@ -1256,10 +1250,10 @@ void EventHandler::HandleLocalAccessCapabilityAdded() {
       }
       for (auto& m : klass->GetMethods(art::kRuntimePointerSize)) {
         const void* code = m.GetEntryPointFromQuickCompiledCode();
-        if (m.IsNative() || m.IsProxyMethod()) {
+        if (m.IsNative() || m.IsProxyMethod() || !m.IsInvokable()) {
           continue;
         } else if (!runtime_->GetClassLinker()->IsQuickToInterpreterBridge(code) &&
-                   !runtime_->IsAsyncDeoptimizeable(reinterpret_cast<uintptr_t>(code))) {
+                   !runtime_->IsAsyncDeoptimizeable(&m, reinterpret_cast<uintptr_t>(code))) {
           runtime_->GetInstrumentation()->InitializeMethodsCode(&m, /*aot_code=*/ nullptr);
         }
       }

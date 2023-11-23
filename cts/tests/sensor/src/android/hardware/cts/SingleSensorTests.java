@@ -25,7 +25,10 @@ import android.hardware.cts.helpers.SensorStats;
 import android.hardware.cts.helpers.TestSensorEnvironment;
 import android.hardware.cts.helpers.sensoroperations.TestSensorOperation;
 
+import com.android.compatibility.common.util.CddTest;
+
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
@@ -105,39 +108,40 @@ public class SingleSensorTests extends SensorTestCase {
      * required by the CDD.
      * </p>
      */
+    @CddTest(requirement = "7.3.4/A-4-3")
     public void testSensorProperties() {
-        // sensor type: [getMinDelay()]
-        Map<Integer, Object[]> expectedProperties = new HashMap<>(3);
-        if(getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
-                expectedProperties.put(Sensor.TYPE_ACCELEROMETER, new Object[]{20000});
-                expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{20000});
-        }else {
-                expectedProperties.put(Sensor.TYPE_ACCELEROMETER, new Object[]{10000});
-                expectedProperties.put(Sensor.TYPE_GYROSCOPE, new Object[]{10000});
+        // An initial size of 11 is used to avoid rehashing
+        Map<Integer, Integer> expectedProperties = new HashMap<>(11);
+        if (getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH)) {
+            expectedProperties.put(Sensor.TYPE_ACCELEROMETER, 20000);
+            expectedProperties.put(Sensor.TYPE_GYROSCOPE, 20000);
+        } else {
+            expectedProperties.put(Sensor.TYPE_ACCELEROMETER, 10000);
+            expectedProperties.put(Sensor.TYPE_GYROSCOPE, 10000);
         }
-        expectedProperties.put(Sensor.TYPE_MAGNETIC_FIELD, new Object[]{100000});
-        expectedProperties.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, new Object[]{10000});
+        expectedProperties.put(Sensor.TYPE_MAGNETIC_FIELD, 100000);
+        expectedProperties.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES, 10000);
         expectedProperties.put(Sensor.TYPE_ACCELEROMETER_LIMITED_AXES_UNCALIBRATED,
-                new Object[]{10000});
-        expectedProperties.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, new Object[]{10000});
+                10000);
+        expectedProperties.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES, 10000);
         expectedProperties.put(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED,
-                new Object[]{10000});
+                10000);
+        expectedProperties.put(Sensor.TYPE_HEADING, 1000000);
 
         SensorManager sensorManager =
                 (SensorManager) getContext().getSystemService(Context.SENSOR_SERVICE);
         assertNotNull("SensorManager not present in the system.", sensorManager);
-        for (Entry<Integer, Object[]> entry : expectedProperties.entrySet()) {
+        for (Entry<Integer, Integer> entry : expectedProperties.entrySet()) {
             Sensor sensor = sensorManager.getDefaultSensor(entry.getKey());
             if (sensor != null) {
-                if (entry.getValue()[0] != null) {
-                    int expected = (Integer) entry.getValue()[0];
-                    String msg = String.format(
-                            "%s: min delay %dus expected to be less than or equal to %dus",
-                            sensor.getName(),
-                            sensor.getMinDelay(),
-                            expected);
-                    assertTrue(msg, sensor.getMinDelay() <= expected);
-                }
+                int expected = entry.getValue();
+                String msg = String.format(
+                        Locale.US,
+                        "%s: min delay %dus expected to be less than or equal to %dus",
+                        sensor.getName(),
+                        sensor.getMinDelay(),
+                        expected);
+                assertTrue(msg, sensor.getMinDelay() <= expected);
             }
         }
     }
@@ -744,6 +748,16 @@ public class SingleSensorTests extends SensorTestCase {
 
     public void testGyroscopeLimitedAxesUncalibrated_1hz() throws Throwable {
         runSensorTest(Sensor.TYPE_GYROSCOPE_LIMITED_AXES_UNCALIBRATED, RATE_1HZ);
+    }
+
+    @CddTest(requirement = "7.3.4/A-4-3")
+    public void testHeading_1hz() throws Throwable {
+        runSensorTest(Sensor.TYPE_HEADING, RATE_1HZ);
+    }
+
+    @CddTest(requirement = "7.3.4/A-4-3")
+    public void testHeading_automotive() throws Throwable {
+        runSensorTest(Sensor.TYPE_HEADING, RATE_1HZ, true);
     }
 
     private void runSensorTest(int sensorType, int rateUs) throws Throwable {

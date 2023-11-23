@@ -15,7 +15,6 @@
 #   limitations under the License.
 
 import logging
-import time
 import xmlrpc.client
 from subprocess import call
 
@@ -105,8 +104,9 @@ class ChameleonDevice:
         self.port = port
         self.address = "http://{}:{}".format(ip, self.port)
         try:
-            self.client = xmlrpc.client.ServerProxy(
-                self.address, allow_none=True, verbose=False)
+            self.client = xmlrpc.client.ServerProxy(self.address,
+                                                    allow_none=True,
+                                                    verbose=False)
         except ConnectionRefusedError as err:
             self.log.exception(
                 "Failed to connect to Chameleon Device at: {}".format(

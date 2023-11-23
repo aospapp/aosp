@@ -47,6 +47,8 @@ import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -147,7 +149,7 @@ public class InstallSessionParamsUnitTest {
                         INSTALL_LOCATION_INTERNAL_ONLY, INSTALL_LOCATION_PREFER_EXTERNAL,
                         /* parame is not verified */ 0xfff}, {}},
          /*size*/
-                {{1, 8092, Integer.MAX_VALUE, /* parame is not verified */ -1, 0}, {}},
+                {{1, 8092, Integer.MAX_VALUE, /* param is not verified */ -1, 0}, {}},
          /*appPackageName*/
                 {{"a.package.name", null, /* param is not verified */ "android"}, {}},
          /*appIcon*/
@@ -217,6 +219,19 @@ public class InstallSessionParamsUnitTest {
         }
 
         return null;
+    }
+
+    @Before
+    public void onBefore() throws Exception {
+        PackageManagerShellCommandTest.setSystemProperty(
+                "debug.pm.install_skip_size_check_for_maxint", "1");
+    }
+
+    @After
+    public void onAfter() throws Exception {
+        // Set the test override to invalid.
+        PackageManagerShellCommandTest.setSystemProperty(
+                "debug.pm.install_skip_size_check_for_maxint", "invalid");
     }
 
     @Test

@@ -36,13 +36,15 @@ import tempfile
 import time
 import unittest
 
-import constants
 
 _TEST_RUN_DIR_PREFIX = 'atest_integration_tests_%s_'
 _LOG_FILE = 'integration_tests.log'
 _FAILED_LINE_LIMIT = 50
 _EXIT_TEST_FAILED = 1
-_ALTERNATIVES = ('-dev', '-py2')
+_ALTERNATIVES = {'-dev'}
+_INTEGRATION_TESTS = [os.path.join(
+    os.environ.get('ANDROID_BUILD_TOP', os.getcwd()),
+    'tools/asuite/atest/test_plans/INTEGRATION_TESTS')]
 
 class ATestIntegrationTest(unittest.TestCase):
     """ATest Integration Test Class."""
@@ -140,7 +142,7 @@ if __name__ == '__main__':
     print('Running tests with {}\n'.format(ATestIntegrationTest.EXECUTABLE))
     try:
         LOG_PATH = os.path.join(create_test_run_dir(), _LOG_FILE)
-        for TEST_PLANS in constants.INTEGRATION_TESTS:
+        for TEST_PLANS in _INTEGRATION_TESTS:
             with open(TEST_PLANS) as test_plans:
                 for test in test_plans:
                     # Skip test when the line startswith #.

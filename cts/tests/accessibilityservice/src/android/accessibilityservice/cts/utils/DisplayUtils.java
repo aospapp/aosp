@@ -14,11 +14,13 @@
 
 package android.accessibilityservice.cts.utils;
 
+import static android.accessibilityservice.cts.utils.ActivityLaunchUtils.findWindowByTitleAndDisplay;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
 import static android.hardware.display.DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
 import static android.view.Display.DEFAULT_DISPLAY;
 
 import android.app.Activity;
+import android.app.UiAutomation;
 import android.content.Context;
 import android.graphics.PixelFormat;
 import android.graphics.Rect;
@@ -26,9 +28,12 @@ import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.ImageReader;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.DisplayMetrics;
 import android.view.Display;
-import android.view.Window;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.WindowInsets;
 
 import com.android.compatibility.common.util.TestUtils;
 
@@ -39,10 +44,8 @@ public class DisplayUtils {
     private static final int DISPLAY_ADDED_TIMEOUT_MS = 5000;
 
     public static int getStatusBarHeight(Activity activity) {
-        final Rect rect = new Rect();
-        Window window = activity.getWindow();
-        window.getDecorView().getWindowVisibleDisplayFrame(rect);
-        return rect.top;
+        return activity.getWindow().getDecorView().getRootWindowInsets()
+                .getInsets(WindowInsets.Type.statusBars()).top;
     }
 
     public static class VirtualDisplaySession implements AutoCloseable {
@@ -128,5 +131,30 @@ public class DisplayUtils {
             }
             return display;
         }
+    }
+
+    public static void touchDisplay(UiAutomation uiAutomation, int displayId,
+            CharSequence activityTitle) {
+        final Rect areaOfActivityWindowOnDisplay = new Rect();
+        findWindowByTitleAndDisplay(uiAutomation, activityTitle, displayId)
+                .getBoundsInScreen(areaOfActivityWindowOnDisplay);
+
+        final int xOnScreen =
+                areaOfActivityWindowOnDisplay.centerX();
+        final int yOnScreen =
+                areaOfActivityWindowOnDisplay.centerY();
+        final long downEventTime = SystemClock.uptimeMillis();
+        final MotionEvent downEvent = MotionEvent.obtain(downEventTime,
+                downEventTime, MotionEvent.ACTION_DOWN, xOnScreen, yOnScreen, 0);
+        downEvent.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        downEvent.setDisplayId(displayId);
+        uiAutomation.injectInputEvent(downEvent, true);
+
+        final long upEventTime = downEventTime + 10;
+        final MotionEvent upEvent = MotionEvent.obtain(downEventTime, upEventTime,
+                MotionEvent.ACTION_UP, xOnScreen, yOnScreen, 0);
+        upEvent.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        upEvent.setDisplayId(displayId);
+        uiAutomation.injectInputEvent(upEvent, true);
     }
 }

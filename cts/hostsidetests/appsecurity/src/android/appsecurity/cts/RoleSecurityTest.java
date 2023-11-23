@@ -21,7 +21,7 @@ import android.platform.test.annotations.AsbSecurityTest;
 
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.sts.common.tradefed.testtype.StsExtraBusinessLogicHostTestBase;
 
 import static org.junit.Assert.assertNull;
 import static org.junit.Assume.assumeTrue;
@@ -30,7 +30,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class RoleSecurityTest extends BaseHostJUnit4Test {
+public class RoleSecurityTest extends StsExtraBusinessLogicHostTestBase {
     private static final String ROLE_SECURITY_TEST_APP_APK = "CtsRoleSecurityTestApp.apk";
     private static final String ROLE_SECURITY_TEST_APP_PACKAGE = "com.android.cts.rolesecuritytest";
 

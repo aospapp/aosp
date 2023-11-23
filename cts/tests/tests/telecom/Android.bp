@@ -32,6 +32,25 @@ filegroup {
     ],
     path: "aidl/",
 }
+
+filegroup {
+    name: "self-managed-cs-app-srcs",
+    srcs: [
+        "src/android/telecom/cts/selfmanagedcstestapp/ConnectionServiceCallController.java",
+        "src/android/telecom/cts/CtsSelfManagedConnectionService.java",
+        "src/android/telecom/cts/selfmanagedcstestapp/CtsSelfManagedConnectionServiceControl.java",
+    ],
+    path: "src/",
+}
+
+filegroup {
+    name: "self-managed-cs-app-aidl",
+    srcs: [
+        "aidl/android/telecom/cts/selfmanagedcstestapp/ICtsSelfManagedConnectionServiceControl.aidl",
+    ],
+    path: "aidl/",
+}
+
 filegroup {
     name: "third-pty-dialer-app-srcs",
     srcs: [
@@ -41,6 +60,7 @@ filegroup {
     ],
     path: "ThirdPtyInCallServiceTestApp/",
 }
+
 filegroup {
     name: "third-pty-dialer-app-aidl",
     srcs: [
@@ -68,6 +88,8 @@ android_test {
         "aidl/**/I*.aidl",
         "CallScreeningServiceTestApp/**/*.java",
         "CallScreeningServiceTestApp/**/I*.aidl",
+        "CallStreamingServiceTestApp/**/*.java",
+        "CallStreamingServiceTestApp/**/I*.aidl",
         "ThirdPtyInCallServiceTestApp/**/*.java",
         "ThirdPtyInCallServiceTestApp/**/I*.aidl",
         "CallRedirectionServiceTestApp/**/*.java",
@@ -78,6 +100,7 @@ android_test {
         "ThirdPtyDialerTestAppTwo/**/*.java",
         "CarModeTestAppSelfManaged/**/*.java",
         "CarModeTestAppTwo/**/*.java",
+        "SelfManagedCSTestAppOne/**/*.java",
     ],
     exclude_srcs: [
         "src/android/telecom/cts/SelfManagedConnection.java",
@@ -89,6 +112,7 @@ android_test {
             "ThirdPtyInCallServiceTestApp/aidl/",
             "CallRedirectionServiceTestApp/aidl/",
             "CallScreeningServiceTestApp/aidl/",
+            "CallStreamingServiceTestApp/aidl/",
             "aidl/",
         ],
     },
@@ -102,6 +126,7 @@ android_test {
     data: [
         ":ThirdPtyInCallServiceTestApp",
         ":CarModeTestAppTwo",
+        ":SelfManagedCSTestAppOne",
         ":Api29InCallServiceTestApp",
         ":CallRedirectionServiceTestApp",
         ":ThirdPtyDialerTestAppTwo",
@@ -109,6 +134,7 @@ android_test {
         ":CarModeTestApp",
         ":CarModeTestAppSelfManaged",
         ":CallScreeningServiceTestApp",
+        ":CallStreamingServiceTestApp",
     ],
     per_testcase_directory: true,
 }

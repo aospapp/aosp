@@ -160,7 +160,7 @@ bool PartitionWriter::Init(const InstallPlan* install_plan,
   // partial updates. Use the source size as the indicator.
 
   target_path_ = install_part_.target_path;
-  int err;
+  int err{};
 
   int flags = O_RDWR;
   if (!interactive_)
@@ -288,7 +288,9 @@ int PartitionWriter::Close() {
 }
 
 void PartitionWriter::CheckpointUpdateProgress(size_t next_op_index) {
-  target_fd_->Flush();
+  if (target_fd_) {
+    target_fd_->Flush();
+  }
 }
 
 std::unique_ptr<ExtentWriter> PartitionWriter::CreateBaseExtentWriter() {

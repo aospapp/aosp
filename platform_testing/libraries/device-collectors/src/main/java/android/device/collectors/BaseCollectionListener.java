@@ -100,24 +100,30 @@ public class BaseCollectionListener<T> extends BaseMetricListener {
     @Override
     public void onTestEnd(DataRecord testData, Description description) {
         if (!mIsCollectPerRun) {
-            // Skip adding the metrics collected during the test failure
-            // if the skip metrics on test failure flag is enabled and the
-            // current test is failed.
-            if (shouldSkipFailureTestMetrics()) {
-                Log.i(getTag(), "Skipping the metric collection.");
-            } else {
-                // Collect the metrics.
-                collectMetrics(testData);
+            try {
+                // Skip adding the metrics collected during the test failure
+                // if the skip metrics on test failure flag is enabled and the
+                // current test is failed.
+                if (shouldSkipFailureTestMetrics()) {
+                    Log.i(getTag(), "Skipping the metric collection.");
+                } else {
+                    // Collect the metrics.
+                    collectMetrics(testData);
+                }
+            } finally {
+                mHelper.stopCollecting();
             }
-            mHelper.stopCollecting();
         }
     }
 
     @Override
     public void onTestRunEnd(DataRecord runData, Result result) {
         if (mIsCollectPerRun) {
-            collectMetrics(runData);
-            mHelper.stopCollecting();
+            try {
+                collectMetrics(runData);
+            } finally {
+                mHelper.stopCollecting();
+            }
         }
     }
 

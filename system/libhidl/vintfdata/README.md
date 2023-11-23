@@ -70,7 +70,7 @@ determine the current level.
 Execute the following, replacing the argument with the level to freeze:
 
 ```shell script
-lunch cf_x86_phone-userdebug # or any generic target
+lunch aosp_arm64
 LEVEL=5
 ./freeze.sh ${LEVEL}
 ```

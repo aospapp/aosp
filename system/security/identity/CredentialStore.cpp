@@ -22,10 +22,10 @@
 #include <android-base/logging.h>
 #include <android/hardware/security/keymint/IRemotelyProvisionedComponent.h>
 #include <android/hardware/security/keymint/RpcHardwareInfo.h>
-#include <android/security/remoteprovisioning/IRemotelyProvisionedKeyPool.h>
-#include <android/security/remoteprovisioning/RemotelyProvisionedKey.h>
 #include <binder/IPCThreadState.h>
 #include <binder/IServiceManager.h>
+#include <rkp/support/rkpd_client.h>
+#include <vintf/VintfObject.h>
 
 #include "Credential.h"
 #include "CredentialData.h"
@@ -39,42 +39,8 @@ namespace security {
 namespace identity {
 namespace {
 
-using ::android::hardware::security::keymint::IRemotelyProvisionedComponent;
-using ::android::hardware::security::keymint::RpcHardwareInfo;
-using ::android::security::remoteprovisioning::IRemotelyProvisionedKeyPool;
-using ::android::security::remoteprovisioning::RemotelyProvisionedKey;
-
-std::optional<std::string>
-getRemotelyProvisionedComponentId(const sp<IIdentityCredentialStore>& hal) {
-    auto init = [](const sp<IIdentityCredentialStore>& hal) -> std::optional<std::string> {
-        sp<IRemotelyProvisionedComponent> remotelyProvisionedComponent;
-        Status status = hal->getRemotelyProvisionedComponent(&remotelyProvisionedComponent);
-        if (!status.isOk()) {
-            LOG(ERROR) << "Error getting remotely provisioned component: " << status;
-            return std::nullopt;
-        }
-
-        RpcHardwareInfo rpcHwInfo;
-        status = remotelyProvisionedComponent->getHardwareInfo(&rpcHwInfo);
-        if (!status.isOk()) {
-            LOG(ERROR) << "Error getting remotely provisioned component hardware info: " << status;
-            return std::nullopt;
-        }
-
-        if (!rpcHwInfo.uniqueId) {
-            LOG(ERROR) << "Remotely provisioned component is missing a unique id, which is "
-                       << "required for credential key remotely provisioned attestation keys. "
-                       << "This is a bug in the vendor implementation.";
-            return std::nullopt;
-        }
-
-        // This id is required to later fetch remotely provisioned attestation keys.
-        return *rpcHwInfo.uniqueId;
-    };
-
-    static std::optional<std::string> id = init(hal);
-    return id;
-}
+using ::android::security::rkp::RemotelyProvisionedKey;
+using ::android::security::rkp::support::getRpcKey;
 
 }  // namespace
 
@@ -90,11 +56,9 @@ bool CredentialStore::init() {
     halApiVersion_ = hal_->getInterfaceVersion();
 
     if (hwInfo_.isRemoteKeyProvisioningSupported) {
-        keyPool_ = android::waitForService<IRemotelyProvisionedKeyPool>(
-            IRemotelyProvisionedKeyPool::descriptor);
-        if (keyPool_.get() == nullptr) {
-            LOG(ERROR) << "Error getting IRemotelyProvisionedKeyPool HAL with service name '"
-                       << IRemotelyProvisionedKeyPool::descriptor << "'";
+        status = hal_->getRemotelyProvisionedComponent(&rpc_);
+        if (!status.isOk()) {
+            LOG(ERROR) << "Error getting remotely provisioned component: " << status;
             return false;
         }
     }
@@ -102,7 +66,9 @@ bool CredentialStore::init() {
     LOG(INFO) << "Connected to Identity Credential HAL with API version " << halApiVersion_
               << " and name '" << hwInfo_.credentialStoreName << "' authored by '"
               << hwInfo_.credentialStoreAuthorName << "' with chunk size " << hwInfo_.dataChunkSize
-              << " and directoAccess set to " << (hwInfo_.isDirectAccess ? "true" : "false");
+              << " directoAccess set to " << (hwInfo_.isDirectAccess ? "true" : "false")
+              << " and remote key provisioning support "
+              << (hwInfo_.isRemoteKeyProvisioningSupported ? "enabled" : "disabled");
     return true;
 }
 
@@ -148,7 +114,9 @@ Status CredentialStore::createCredential(const std::string& credentialName,
     if (hwInfo_.isRemoteKeyProvisioningSupported) {
         status = setRemotelyProvisionedAttestationKey(halWritableCredential.get());
         if (!status.isOk()) {
-            return halStatusToGenericError(status);
+            LOG(WARNING) << status.toString8()
+                         << "\nUnable to fetch remotely provisioned attestation key, falling back "
+                         << "to the factory-provisioned attestation key.";
         }
     }
 
@@ -209,28 +177,32 @@ Status CredentialStore::createPresentationSession(int32_t cipherSuite, sp<ISessi
 
 Status CredentialStore::setRemotelyProvisionedAttestationKey(
     IWritableIdentityCredential* halWritableCredential) {
-    std::optional<std::string> rpcId = getRemotelyProvisionedComponentId(hal_);
-    if (!rpcId) {
-        return Status::fromServiceSpecificError(ERROR_GENERIC,
-                                                "Error getting remotely provisioned component id");
-    }
+    std::vector<uint8_t> keyBlob;
+    std::vector<uint8_t> encodedCertChain;
+    Status status;
+
+    LOG(INFO) << "Fetching attestation key from RKPD";
 
     uid_t callingUid = android::IPCThreadState::self()->getCallingUid();
-    RemotelyProvisionedKey key;
-    Status status = keyPool_->getAttestationKey(callingUid, *rpcId, &key);
-    if (!status.isOk()) {
-        LOG(WARNING) << "Unable to fetch remotely provisioned attestation key, falling back "
-                     << "to the factory-provisioned attestation key.";
-        return Status::ok();
+    std::optional<RemotelyProvisionedKey> key = getRpcKey(rpc_, callingUid);
+    if (!key) {
+        return Status::fromServiceSpecificError(
+            ERROR_GENERIC, "Failed to get remotely provisioned attestation key");
     }
 
-    status = halWritableCredential->setRemotelyProvisionedAttestationKey(key.keyBlob,
-                                                                         key.encodedCertChain);
+    if (key->keyBlob.empty()) {
+        return Status::fromServiceSpecificError(
+            ERROR_GENERIC, "Remotely provisioned attestation key blob is empty");
+    }
+
+    keyBlob = std::move(key->keyBlob);
+    encodedCertChain = std::move(key->encodedCertChain);
+
+    status = halWritableCredential->setRemotelyProvisionedAttestationKey(keyBlob, encodedCertChain);
     if (!status.isOk()) {
         LOG(ERROR) << "Error setting remotely provisioned attestation key on credential";
         return status;
     }
-
     return Status::ok();
 }
 

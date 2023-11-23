@@ -241,7 +241,7 @@ var (
 func vndkModuleLister(predicate func(*Module) bool) moduleListerFunc {
 	return func(ctx android.SingletonContext) (moduleNames, fileNames []string) {
 		ctx.VisitAllModules(func(m android.Module) {
-			if c, ok := m.(*Module); ok && predicate(c) {
+			if c, ok := m.(*Module); ok && predicate(c) && !c.IsVndkPrebuiltLibrary() {
 				filename, err := getVndkFileName(c)
 				if err != nil {
 					ctx.ModuleErrorf(m, "%s", err)
@@ -368,7 +368,10 @@ func IsForVndkApex(mctx android.BottomUpMutatorContext, m *Module) bool {
 			}
 			return m.ImageVariation().Variation == android.CoreVariation && lib.shared() && m.IsVndkSp() && !m.IsVndkExt()
 		}
-
+		// VNDK APEX doesn't need stub variants
+		if lib.buildStubs() {
+			return false
+		}
 		useCoreVariant := m.VndkVersion() == mctx.DeviceConfig().PlatformVndkVersion() &&
 			mctx.DeviceConfig().VndkUseCoreVariant() && !m.MustUseVendorVariant()
 		return lib.shared() && m.InVendor() && m.IsVndk() && !m.IsVndkExt() && !useCoreVariant
@@ -397,6 +400,11 @@ func VndkMutator(mctx android.BottomUpMutatorContext) {
 	if m.UseVndk() && isPrebuiltLib && prebuiltLib.hasLLNDKStubs() {
 		m.VendorProperties.IsLLNDK = true
 		m.VendorProperties.IsVNDKPrivate = Bool(prebuiltLib.Properties.Llndk.Private)
+	}
+
+	if m.IsVndkPrebuiltLibrary() && !m.IsVndk() {
+		m.VendorProperties.IsLLNDK = true
+		// TODO(b/280697209): copy "llndk.private" flag to vndk_prebuilt_shared
 	}
 
 	if (isLib && lib.buildShared()) || (isPrebuiltLib && prebuiltLib.buildShared()) {
@@ -701,28 +709,38 @@ func (c *vndkSnapshotSingleton) GenerateBuildActions(ctx android.SingletonContex
 		snapshotLibOut := filepath.Join(snapshotArchDir, targetArch, "shared", vndkType, libPath.Base())
 		ret = append(ret, snapshot.CopyFileRule(pctx, ctx, libPath, snapshotLibOut))
 
+		// json struct to export snapshot information
+		prop := struct {
+			MinSdkVersion       string   `json:",omitempty"`
+			LicenseKinds        []string `json:",omitempty"`
+			LicenseTexts        []string `json:",omitempty"`
+			ExportedDirs        []string `json:",omitempty"`
+			ExportedSystemDirs  []string `json:",omitempty"`
+			ExportedFlags       []string `json:",omitempty"`
+			RelativeInstallPath string   `json:",omitempty"`
+		}{}
+
+		prop.LicenseKinds = m.EffectiveLicenseKinds()
+		prop.LicenseTexts = m.EffectiveLicenseFiles().Strings()
+		prop.MinSdkVersion = m.MinSdkVersion()
+
 		if ctx.Config().VndkSnapshotBuildArtifacts() {
-			prop := struct {
-				ExportedDirs        []string `json:",omitempty"`
-				ExportedSystemDirs  []string `json:",omitempty"`
-				ExportedFlags       []string `json:",omitempty"`
-				RelativeInstallPath string   `json:",omitempty"`
-			}{}
 			exportedInfo := ctx.ModuleProvider(m, FlagExporterInfoProvider).(FlagExporterInfo)
 			prop.ExportedFlags = exportedInfo.Flags
 			prop.ExportedDirs = exportedInfo.IncludeDirs.Strings()
 			prop.ExportedSystemDirs = exportedInfo.SystemIncludeDirs.Strings()
 			prop.RelativeInstallPath = m.RelativeInstallPath()
-
-			propOut := snapshotLibOut + ".json"
-
-			j, err := json.Marshal(prop)
-			if err != nil {
-				ctx.Errorf("json marshal to %q failed: %#v", propOut, err)
-				return nil, false
-			}
-			ret = append(ret, snapshot.WriteStringToFileRule(ctx, string(j), propOut))
 		}
+
+		propOut := snapshotLibOut + ".json"
+
+		j, err := json.Marshal(prop)
+		if err != nil {
+			ctx.Errorf("json marshal to %q failed: %#v", propOut, err)
+			return nil, false
+		}
+		ret = append(ret, snapshot.WriteStringToFileRule(ctx, string(j), propOut))
+
 		return ret, true
 	}
 
@@ -762,13 +780,11 @@ func (c *vndkSnapshotSingleton) GenerateBuildActions(ctx android.SingletonContex
 		moduleNames[stem] = ctx.ModuleName(m)
 		modulePaths[stem] = ctx.ModuleDir(m)
 
-		if len(m.NoticeFiles()) > 0 {
-			noticeName := stem + ".txt"
-			// skip already copied notice file
-			if _, ok := noticeBuilt[noticeName]; !ok {
-				noticeBuilt[noticeName] = true
-				snapshotOutputs = append(snapshotOutputs, combineNoticesRule(
-					ctx, m.NoticeFiles(), filepath.Join(noticeDir, noticeName)))
+		for _, notice := range m.EffectiveLicenseFiles() {
+			if _, ok := noticeBuilt[notice.String()]; !ok {
+				noticeBuilt[notice.String()] = true
+				snapshotOutputs = append(snapshotOutputs, snapshot.CopyFileRule(
+					pctx, ctx, notice, filepath.Join(noticeDir, notice.String())))
 			}
 		}
 
@@ -887,7 +903,7 @@ func (c *vndkSnapshotSingleton) MakeVars(ctx android.MakeVarsContext) {
 	})
 
 	ctx.Strict("LLNDK_MOVED_TO_APEX_LIBRARIES",
-		strings.Join(android.SortedStringKeys(movedToApexLlndkLibraries), " "))
+		strings.Join(android.SortedKeys(movedToApexLlndkLibraries), " "))
 
 	ctx.Strict("VNDK_LIBRARIES_FILE", c.vndkLibrariesFile.String())
 	ctx.Strict("SOONG_VNDK_SNAPSHOT_ZIP", c.vndkSnapshotZipFile.String())

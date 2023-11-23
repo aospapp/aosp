@@ -15,7 +15,6 @@
 # the License.
 
 import time
-import os
 
 from acts.keys import Config
 from acts.utils import rand_ascii_str
@@ -182,7 +181,8 @@ class E2eBtCarkitLib():
             connected_devices = pri_dut.droid.bluetoothGetConnectedDevices()
             self.log.info(
                 "Waiting up to 10 seconds for device to reconnect...")
-            while time.time() < start_time + 10 and len(connected_devices) != 1:
+            while time.time() < start_time + 10 and len(
+                    connected_devices) != 1:
                 connected_devices = pri_dut.droid.bluetoothGetConnectedDevices(
                 )
                 time.sleep(1)
@@ -361,8 +361,8 @@ class E2eBtCarkitLib():
     def outgoing_call_multiple_iterations(self, pri_dut, sec_dut):
         iteration_count = 3
         self.log.info(
-            "Test outgoing call scenario from phone {} times from known contact".
-            format(iteration_count))
+            "Test outgoing call scenario from phone {} times from known contact"
+            .format(iteration_count))
         input("Press enter to execute this testcase...")
         outgoing_num = get_phone_number(self.log, sec_dut)
         for _ in range(iteration_count):
@@ -772,8 +772,9 @@ class E2eBtCarkitLib():
             carkit_response = volume_info_logcat[-1]['log_message'].split(',')
             for item in carkit_response:
                 if " volume=" in item:
-                    carkit_vol_response = int((
-                        int(item.split("=")[-1]) / android_volume_steps) * 100)
+                    carkit_vol_response = int(
+                        (int(item.split("=")[-1]) / android_volume_steps) *
+                        100)
                     self.log.info(
                         "Carkit set volume to {}%".format(carkit_vol_response))
         result = input(

@@ -17,21 +17,30 @@
 package com.android.queryable.queries;
 
 import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+import static com.android.queryable.queries.IntentFilterQuery.intentFilter;
+import static com.android.queryable.queries.StringQuery.string;
 
 import static com.google.common.truth.Truth.assertThat;
 
 import android.content.IntentFilter;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Set;
 
-@RunWith(JUnit4.class)
-public class IntentFilterQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class IntentFilterQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private final Queryable mQuery = null;
 
@@ -109,8 +118,42 @@ public class IntentFilterQueryHelperTest {
                 new IntentFilterQueryHelper<>(mQuery);
 
         intentFilterQueryHelper.actions().contains("");
-        intentFilterQueryHelper.categories().contains(StringQuery.string().isEqualTo(""));
+        intentFilterQueryHelper.categories().contains(string().where().isEqualTo(""));
 
         assertParcelsCorrectly(IntentFilterQueryHelper.class, intentFilterQueryHelper);
+    }
+
+    @Test
+    public void intentFilterQueryBase_queries() {
+        assertThat(intentFilter().where().categories().contains("category1")
+                .matches(CATEGORIES_INTENT_FILTER)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        IntentFilterQueryHelper<Queryable> intentFilterQueryHelper =
+                new IntentFilterQueryHelper<>(mQuery);
+
+        assertThat(intentFilterQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasActionsQuery_returnsFalse() {
+        IntentFilterQueryHelper<Queryable> intentFilterQueryHelper =
+                new IntentFilterQueryHelper<>(mQuery);
+
+        intentFilterQueryHelper.actions().isEmpty();
+
+        assertThat(intentFilterQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasCategoriesQuery_returnsFalse() {
+        IntentFilterQueryHelper<Queryable> intentFilterQueryHelper =
+                new IntentFilterQueryHelper<>(mQuery);
+
+        intentFilterQueryHelper.categories().isEmpty();
+
+        assertThat(intentFilterQueryHelper.isEmptyQuery()).isFalse();
     }
 }

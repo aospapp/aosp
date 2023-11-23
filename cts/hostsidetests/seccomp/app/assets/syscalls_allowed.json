@@ -15,6 +15,10 @@
   "mips64": {
     "openat": 5247
   },
+  "riscv64": {
+    "openat": 56,
+    "syncfs": 267
+  },
   "x86": {
     "openat": 295
   },

@@ -100,6 +100,16 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
         }
     }
 
+    @Override
+    public boolean requiresReportLog() {
+        return true;
+    }
+
+    @Override
+    public String getReportFileName() {
+        return PassFailButtons.AUDIO_TESTS_REPORT_LOG_NAME;
+    }
+
     private void recordUSBAudioStatus(boolean has) {
         getReportLog().addValue(
                 KEY_CLAIMS_HOST,
@@ -119,8 +129,6 @@ public abstract class USBAudioPeripheralActivity extends PassFailButtons.Activit
     }
 
     public USBAudioPeripheralActivity(boolean mandatedRequired) {
-        super();
-
         // determine if to show "UNSUPPORTED" if the mandated peripheral is required.
         mIsMandatedRequired = mandatedRequired;
 

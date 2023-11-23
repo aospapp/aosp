@@ -167,7 +167,7 @@ abstract class PsiItem(
         // API target (there are many), and each time would have involved constructing a full javadoc
         // AST with lexical tokens using IntelliJ's javadoc parsing APIs. Instead, we'll just
         // do some simple string heuristics.
-        if (tagSection == "@apiSince" || tagSection == "@deprecatedSince") {
+        if (tagSection == "@apiSince" || tagSection == "@deprecatedSince" || tagSection == "@sdkExtSince") {
             documentation = addUniqueTag(documentation, tagSection, comment)
             return
         }

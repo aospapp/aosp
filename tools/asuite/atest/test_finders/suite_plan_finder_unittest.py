@@ -23,13 +23,13 @@ import unittest
 
 from unittest import mock
 
-import unittest_constants as uc
-import unittest_utils
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_finders import suite_plan_finder
-from test_runners import suite_plan_test_runner
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_finders import suite_plan_finder
+from atest.test_runners import suite_plan_test_runner
 
 
 # pylint: disable=protected-access

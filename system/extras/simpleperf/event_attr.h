@@ -18,6 +18,7 @@
 #define SIMPLE_PERF_EVENT_ATTR_H_
 
 #include <stddef.h>
+#include <string.h>
 
 #include <string>
 #include <vector>
@@ -29,15 +30,17 @@ namespace simpleperf {
 struct EventType;
 
 struct EventAttrWithId {
-  const perf_event_attr* attr;
+  perf_event_attr attr;
   std::vector<uint64_t> ids;
 };
+
+using EventAttrIds = std::vector<EventAttrWithId>;
 
 inline constexpr uint64_t INFINITE_SAMPLE_PERIOD = 1ULL << 62;
 
 perf_event_attr CreateDefaultPerfEventAttr(const EventType& event_type);
 void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent = 0);
-bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
+bool GetCommonEventIdPositionsForAttrs(const EventAttrIds& attrs,
                                        size_t* event_id_pos_in_sample_records,
                                        size_t* event_id_reverse_pos_in_non_sample_records);
 bool IsTimestampSupported(const perf_event_attr& attr);
@@ -45,6 +48,15 @@ bool IsCpuSupported(const perf_event_attr& attr);
 // Return event name with modifier if the event is found, otherwise return "unknown".
 // This function is slow for using linear search, so only used when reporting.
 std::string GetEventNameByAttr(const perf_event_attr& attr);
+void ReplaceRegAndStackWithCallChain(perf_event_attr& attr);
+
+inline bool operator==(const perf_event_attr& attr1, const perf_event_attr& attr2) {
+  return memcmp(&attr1, &attr2, sizeof(perf_event_attr)) == 0;
+}
+
+inline bool operator!=(const perf_event_attr& attr1, const perf_event_attr& attr2) {
+  return !(attr1 == attr2);
+}
 
 }  // namespace simpleperf
 

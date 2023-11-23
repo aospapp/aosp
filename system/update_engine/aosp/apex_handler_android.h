@@ -29,7 +29,6 @@
 
 namespace chromeos_update_engine {
 
-std::unique_ptr<ApexHandlerInterface> CreateApexHandler();
 
 class ApexHandlerAndroid : virtual public ApexHandlerInterface {
  public:

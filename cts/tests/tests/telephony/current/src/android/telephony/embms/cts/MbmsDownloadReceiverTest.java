@@ -69,7 +69,8 @@ public class MbmsDownloadReceiverTest extends MbmsDownloadTestBase {
         public AppIntentCapture(Context context, Handler handler) {
             mContext = context;
             IntentFilter filter = new IntentFilter(APP_INTENT_ACTION);
-            mContext.registerReceiver(mAppIntentReceiver, filter, null, handler);
+            mContext.registerReceiver(mAppIntentReceiver, filter, null, handler,
+                    Context.RECEIVER_EXPORTED);
         }
 
         public Intent getIntent() {
@@ -115,7 +116,7 @@ public class MbmsDownloadReceiverTest extends MbmsDownloadTestBase {
         filter.addAction(VendorUtils.ACTION_DOWNLOAD_RESULT_INTERNAL);
         filter.addAction(VendorUtils.ACTION_CLEANUP);
         filter.addAction(VendorUtils.ACTION_FILE_DESCRIPTOR_REQUEST);
-        mContext.registerReceiver(mReceiver, filter);
+        mContext.registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
         tempFileRootDir = new File(mContext.getFilesDir(), "CtsTestDir");
         tempFileRootDir.mkdir();
         tempFileRootDirPath = tempFileRootDir.getCanonicalPath();

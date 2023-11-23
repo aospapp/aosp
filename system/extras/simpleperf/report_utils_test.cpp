@@ -16,6 +16,8 @@
 
 #include <gtest/gtest.h>
 
+#include <stdlib.h>
+
 #include <string>
 #include <vector>
 
@@ -24,6 +26,47 @@
 #include "thread_tree.h"
 
 using namespace simpleperf;
+
+TEST(ProguardMappingRetrace, smoke) {
+  TemporaryFile tmpfile;
+  close(tmpfile.release());
+  ASSERT_TRUE(
+      android::base::WriteStringToFile("original.class.A -> A:\n"
+                                       "\n"
+                                       "    void method_a() -> a\n"
+                                       "    void method_b() -> b\n"
+                                       "      # {\"id\":\"com.android.tools.r8.synthesized\"}\n"
+                                       "      # some other comments\n"
+                                       "    void original.class.M.method_c() -> c\n"
+                                       "    void original.class.A.method_d() -> d\n"
+                                       "original.class.B -> B:\n"
+                                       "# some other comments\n"
+                                       "original.class.C -> C:\n"
+                                       "# {\'id\':\'com.android.tools.r8.synthesized\'}\n",
+                                       tmpfile.path));
+  ProguardMappingRetrace retrace;
+  ASSERT_TRUE(retrace.AddProguardMappingFile(tmpfile.path));
+  std::string original_name;
+  bool synthesized;
+  ASSERT_TRUE(retrace.DeObfuscateJavaMethods("A.a", &original_name, &synthesized));
+  ASSERT_EQ(original_name, "original.class.A.method_a");
+  ASSERT_FALSE(synthesized);
+  ASSERT_TRUE(retrace.DeObfuscateJavaMethods("A.b", &original_name, &synthesized));
+  ASSERT_EQ(original_name, "original.class.A.method_b");
+  ASSERT_TRUE(synthesized);
+  ASSERT_TRUE(retrace.DeObfuscateJavaMethods("A.c", &original_name, &synthesized));
+  ASSERT_EQ(original_name, "original.class.M.method_c");
+  ASSERT_FALSE(synthesized);
+  ASSERT_TRUE(retrace.DeObfuscateJavaMethods("A.d", &original_name, &synthesized));
+  ASSERT_EQ(original_name, "original.class.A.method_d");
+  ASSERT_FALSE(synthesized);
+  ASSERT_TRUE(retrace.DeObfuscateJavaMethods("B.b", &original_name, &synthesized));
+  ASSERT_EQ(original_name, "original.class.B.b");
+  ASSERT_FALSE(synthesized);
+  ASSERT_TRUE(retrace.DeObfuscateJavaMethods("C.c", &original_name, &synthesized));
+  ASSERT_EQ(original_name, "original.class.C.c");
+  ASSERT_TRUE(synthesized);
+}
 
 class CallChainReportBuilderTest : public testing::Test {
  protected:
@@ -65,6 +108,7 @@ class CallChainReportBuilderTest : public testing::Test {
                    Symbol("java_method2", 0x3000, 0x100),
                    Symbol("java_method3", 0x3100, 0x100),
                    Symbol("obfuscated_class.obfuscated_java_method2", 0x3200, 0x100),
+                   Symbol("obfuscated_class.java_method4", 0x3300, 0x100),
                });
 
     // Add map layout for libraries used in the thread:
@@ -265,11 +309,12 @@ TEST_F(CallChainReportBuilderTest, add_proguard_mapping_file) {
   std::vector<uint64_t> fake_ips = {
       0x2200,  // 2200,  // obfuscated_class.obfuscated_java_method
       0x3200,  // 3200,  // obfuscated_class.obfuscated_java_method2
+      0x3300,  // 3300,  // obfuscated_class.java_method4
   };
   CallChainReportBuilder builder(thread_tree);
   // Symbol names aren't changed when not given proguard mapping files.
   std::vector<CallChainReportEntry> entries = builder.Build(thread, fake_ips, 0);
-  ASSERT_EQ(entries.size(), 2);
+  ASSERT_EQ(entries.size(), 3);
   ASSERT_EQ(entries[0].ip, 0x2200);
   ASSERT_STREQ(entries[0].symbol->DemangledName(), "obfuscated_class.obfuscated_java_method");
   ASSERT_EQ(entries[0].dso->Path(), fake_dex_file_path);
@@ -280,6 +325,11 @@ TEST_F(CallChainReportBuilderTest, add_proguard_mapping_file) {
   ASSERT_EQ(entries[1].dso->Path(), fake_jit_cache_path);
   ASSERT_EQ(entries[1].vaddr_in_file, 0x3200);
   ASSERT_EQ(entries[1].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
+  ASSERT_EQ(entries[2].ip, 0x3300);
+  ASSERT_STREQ(entries[2].symbol->DemangledName(), "obfuscated_class.java_method4");
+  ASSERT_EQ(entries[2].dso->Path(), fake_jit_cache_path);
+  ASSERT_EQ(entries[2].vaddr_in_file, 0x3300);
+  ASSERT_EQ(entries[2].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
 
   // Symbol names are changed when given a proguard mapping file.
   TemporaryFile tmpfile;
@@ -294,6 +344,47 @@ TEST_F(CallChainReportBuilderTest, add_proguard_mapping_file) {
       tmpfile.path));
   builder.AddProguardMappingFile(tmpfile.path);
   entries = builder.Build(thread, fake_ips, 0);
+  ASSERT_EQ(entries.size(), 3);
+  ASSERT_EQ(entries[0].ip, 0x2200);
+  ASSERT_STREQ(entries[0].symbol->DemangledName(),
+               "android.support.v4.app.RemoteActionCompatParcelizer.read");
+  ASSERT_EQ(entries[0].dso->Path(), fake_dex_file_path);
+  ASSERT_EQ(entries[0].vaddr_in_file, 0x200);
+  ASSERT_EQ(entries[0].execution_type, CallChainExecutionType::INTERPRETED_JVM_METHOD);
+  ASSERT_EQ(entries[1].ip, 0x3200);
+  ASSERT_STREQ(entries[1].symbol->DemangledName(),
+               "android.support.v4.app.RemoteActionCompatParcelizer.read2");
+  ASSERT_EQ(entries[1].dso->Path(), fake_jit_cache_path);
+  ASSERT_EQ(entries[1].vaddr_in_file, 0x3200);
+  ASSERT_EQ(entries[1].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
+  ASSERT_STREQ(entries[2].symbol->DemangledName(),
+               "android.support.v4.app.RemoteActionCompatParcelizer.java_method4");
+  ASSERT_EQ(entries[2].dso->Path(), fake_jit_cache_path);
+  ASSERT_EQ(entries[2].vaddr_in_file, 0x3300);
+  ASSERT_EQ(entries[2].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
+}
+
+TEST_F(CallChainReportBuilderTest, not_remove_synthesized_frame_by_default) {
+  std::vector<uint64_t> fake_ips = {
+      0x2200,  // 2200,  // obfuscated_class.obfuscated_java_method
+      0x3200,  // 3200,  // obfuscated_class.obfuscated_java_method2
+  };
+
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(android::base::WriteStringToFile(
+      "android.support.v4.app.RemoteActionCompatParcelizer -> obfuscated_class:\n"
+      "    13:13:androidx.core.app.RemoteActionCompat read(androidx.versionedparcelable.Versioned"
+      "Parcel) -> obfuscated_java_method\n"
+      "      # {\"id\":\"com.android.tools.r8.synthesized\"}\n"
+      "    13:13:androidx.core.app.RemoteActionCompat "
+      "android.support.v4.app.RemoteActionCompatParcelizer.read2(androidx.versionedparcelable."
+      "VersionedParcel) -> obfuscated_java_method2",
+      tmpfile.path));
+
+  // By default, synthesized frames are kept.
+  CallChainReportBuilder builder(thread_tree);
+  builder.AddProguardMappingFile(tmpfile.path);
+  std::vector<CallChainReportEntry> entries = builder.Build(thread, fake_ips, 0);
   ASSERT_EQ(entries.size(), 2);
   ASSERT_EQ(entries[0].ip, 0x2200);
   ASSERT_STREQ(entries[0].symbol->DemangledName(),
@@ -307,6 +398,41 @@ TEST_F(CallChainReportBuilderTest, add_proguard_mapping_file) {
   ASSERT_EQ(entries[1].dso->Path(), fake_jit_cache_path);
   ASSERT_EQ(entries[1].vaddr_in_file, 0x3200);
   ASSERT_EQ(entries[1].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
+}
+
+TEST_F(CallChainReportBuilderTest, remove_synthesized_frame_with_env_variable) {
+  // Windows doesn't support setenv and unsetenv. So don't test on it.
+#if !defined(__WIN32)
+  std::vector<uint64_t> fake_ips = {
+      0x2200,  // 2200,  // obfuscated_class.obfuscated_java_method
+      0x3200,  // 3200,  // obfuscated_class.obfuscated_java_method2
+  };
+
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(android::base::WriteStringToFile(
+      "android.support.v4.app.RemoteActionCompatParcelizer -> obfuscated_class:\n"
+      "    13:13:androidx.core.app.RemoteActionCompat read(androidx.versionedparcelable.Versioned"
+      "Parcel) -> obfuscated_java_method\n"
+      "      # {\"id\":\"com.android.tools.r8.synthesized\"}\n"
+      "    13:13:androidx.core.app.RemoteActionCompat "
+      "android.support.v4.app.RemoteActionCompatParcelizer.read2(androidx.versionedparcelable."
+      "VersionedParcel) -> obfuscated_java_method2",
+      tmpfile.path));
+
+  // With environment variable set, synthesized frames are removed.
+  ASSERT_EQ(setenv("REMOVE_R8_SYNTHESIZED_FRAME", "1", 1), 0);
+  CallChainReportBuilder builder(thread_tree);
+  ASSERT_EQ(unsetenv("REMOVE_R8_SYNTHESIZED_FRAME"), 0);
+  builder.AddProguardMappingFile(tmpfile.path);
+  std::vector<CallChainReportEntry> entries = builder.Build(thread, fake_ips, 0);
+  ASSERT_EQ(entries.size(), 1);
+  ASSERT_EQ(entries[0].ip, 0x3200);
+  ASSERT_STREQ(entries[0].symbol->DemangledName(),
+               "android.support.v4.app.RemoteActionCompatParcelizer.read2");
+  ASSERT_EQ(entries[0].dso->Path(), fake_jit_cache_path);
+  ASSERT_EQ(entries[0].vaddr_in_file, 0x3200);
+  ASSERT_EQ(entries[0].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
+#endif  // !defined(__WIN32)
 }
 
 TEST_F(CallChainReportBuilderTest, add_proguard_mapping_file_for_jit_method_with_signature) {
@@ -412,4 +538,46 @@ TEST_F(CallChainReportBuilderTest, convert_jit_frame_for_jit_method_with_signatu
   ASSERT_EQ(entries[1].dso->Path(), fake_dex_file_path);
   ASSERT_EQ(entries[1].vaddr_in_file, 0x200);
   ASSERT_EQ(entries[1].execution_type, CallChainExecutionType::JIT_JVM_METHOD);
+}
+
+class ThreadReportBuilderTest : public testing::Test {
+ protected:
+  virtual void SetUp() {
+    thread_tree.SetThreadName(1, 1, "thread1");
+    thread_tree.SetThreadName(1, 2, "thread-pool1");
+    thread_tree.SetThreadName(1, 3, "thread-pool2");
+  }
+
+  bool IsReportEqual(const ThreadReport& report1, const ThreadReport& report2) {
+    return report1.pid == report2.pid && report1.tid == report2.tid &&
+           strcmp(report1.thread_name, report2.thread_name) == 0;
+  }
+
+  ThreadTree thread_tree;
+};
+
+TEST_F(ThreadReportBuilderTest, no_setting) {
+  ThreadReportBuilder builder;
+  ThreadEntry* thread = thread_tree.FindThread(1);
+  ThreadReport report = builder.Build(*thread);
+  ASSERT_TRUE(IsReportEqual(report, ThreadReport(1, 1, "thread1")));
+}
+
+TEST_F(ThreadReportBuilderTest, aggregate_threads) {
+  ThreadReportBuilder builder;
+  ASSERT_TRUE(builder.AggregateThreads({"thread-pool.*"}));
+  ThreadEntry* thread = thread_tree.FindThread(1);
+  ThreadReport report = builder.Build(*thread);
+  ASSERT_TRUE(IsReportEqual(report, ThreadReport(1, 1, "thread1")));
+  thread = thread_tree.FindThread(2);
+  report = builder.Build(*thread);
+  ASSERT_TRUE(IsReportEqual(report, ThreadReport(1, 2, "thread-pool.*")));
+  thread = thread_tree.FindThread(3);
+  report = builder.Build(*thread);
+  ASSERT_TRUE(IsReportEqual(report, ThreadReport(1, 2, "thread-pool.*")));
+}
+
+TEST_F(ThreadReportBuilderTest, aggregate_threads_bad_regex) {
+  ThreadReportBuilder builder;
+  ASSERT_FALSE(builder.AggregateThreads({"?thread-pool*"}));
 }

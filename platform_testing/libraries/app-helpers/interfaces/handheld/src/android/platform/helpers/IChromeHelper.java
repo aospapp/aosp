@@ -272,4 +272,13 @@ public interface IChromeHelper extends IAppHelper {
     public default boolean isWebPageLoaded() {
         throw new UnsupportedOperationException("Not yet implemented.");
     }
+
+    /**
+     * Setup expectation: Chrome was loading a web page.
+     *
+     * <p>Checks number of active tabs.
+     */
+    public default void tabsCount(int number) {
+        throw new UnsupportedOperationException("Not yet implemented.");
+    }
 }

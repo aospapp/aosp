@@ -19,10 +19,6 @@ package android.media.misc.cts;
 import static android.media.MediaCodecInfo.CodecCapabilities.FEATURE_SecurePlayback;
 import static android.media.MediaCodecInfo.CodecCapabilities.FEATURE_TunneledPlayback;
 
-import com.android.compatibility.common.util.ApiLevelUtil;
-import com.android.compatibility.common.util.MediaUtils;
-import com.android.compatibility.common.util.PropertyUtil;
-
 import android.content.pm.PackageManager;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
@@ -42,6 +38,10 @@ import android.util.Range;
 import android.util.Size;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.PropertyUtil;
 
 import java.io.File;
 import java.io.IOException;
@@ -990,19 +990,16 @@ public class MediaCodecListTest extends AndroidTestCase {
                     continue;
                 }
 
-                // At least one hardware accelerated codec for each media type (including secure
-                // codecs) must publish valid performance points for AVC/VP8/VP9/HEVC/AV1.
+                // All hardware accelerated codecs must publish performance points
                 if (pps.size() == 0) {
-                    if (isMandatory) {
-                        Log.d(TAG, "empty performance points list published by HW accelerated" +
-                                   "component " + info.getName() + " for " + types[j]);
-                    }
-                } else {
-                    for (VideoCapabilities.PerformancePoint p : pps) {
-                        Log.d(TAG, "got performance point " + p);
-                    }
-                    verifyPerformancePoints(info, types[j], pps);
+                    assertFalse("all hw codecs must advertise perf points",
+                            info.isHardwareAccelerated());
+                    continue;
                 }
+                for (VideoCapabilities.PerformancePoint p : pps) {
+                    Log.d(TAG, "got performance point " + p);
+                }
+                verifyPerformancePoints(info, types[j], pps);
             }
         }
 

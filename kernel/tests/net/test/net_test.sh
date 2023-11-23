@@ -120,9 +120,9 @@ if [[ -n "${entropy}" ]]; then
 
   # In kernel/include/uapi/linux/random.h RNDADDENTROPY is defined as
   # _IOW('R', 0x03, int[2]) =(R is 0x52)= 0x40085203 = 1074287107
-  /usr/bin/python 3>/dev/random <<EOF
-import fcntl, struct
-rnd = '${entropy}'.decode('base64')
+  /usr/bin/python3 3>/dev/random <<EOF
+import base64, fcntl, struct
+rnd = base64.b64decode('${entropy}')
 fcntl.ioctl(3, 0x40085203, struct.pack('ii', len(rnd) * 8, len(rnd)) + rnd)
 EOF
 
@@ -139,6 +139,18 @@ sleep 1.1
 # Reset it back to boot time default
 echo 60 > /proc/sys/kernel/random/urandom_min_reseed_secs
 
+# Make sure /sys is mounted
+[[ -d /sys/fs ]] || mount -t sysfs sysfs -o nosuid,nodev,noexec /sys
+
+if ! [[ "$(uname -r)" =~ ^([0-3]|4[.][0-8])[.] ]]; then
+  # Mount the bpf filesystem on Linux version 4.9+
+  mount -t bpf bpf -o nosuid,nodev,noexec /sys/fs/bpf
+fi
+
+if ! [[ "$(uname -r)" =~ ^([0-3]|4[.][0-9]|4[.]1[0-3])[.] ]]; then
+  # Mount the Cgroup v2 filesystem on Linux version 4.14+
+  mount -t cgroup2 cgroup2 -o nosuid,nodev,noexec /sys/fs/cgroup
+fi
 
 # In case IPv6 is compiled as a module.
 [ -f /proc/net/if_inet6 ] || insmod $DIR/kernel/net-next/net/ipv6/ipv6.ko
@@ -146,10 +158,17 @@ echo 60 > /proc/sys/kernel/random/urandom_min_reseed_secs
 # Minimal network setup.
 ip link set lo up
 ip link set lo mtu 16436
-ip link set eth0 up
+if [[ -d /sys/class/net/eth0 ]]; then
+  ip link set eth0 up
+fi
 
 # Allow people to run ping.
 echo '0 2147483647' > /proc/sys/net/ipv4/ping_group_range
+
+# Allow unprivileged use of eBPF (matches Android OS)
+if [[ "$(< /proc/sys/kernel/unprivileged_bpf_disabled)" != '0' ]]; then
+  echo 0 > /proc/sys/kernel/unprivileged_bpf_disabled
+fi
 
 # Read environment variables passed to the kernel to determine if script is
 # running on builder and to find which test to run.

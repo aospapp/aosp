@@ -16,6 +16,7 @@
 
 #include <gmock/gmock.h>
 
+#include <vintf/Apex.h>
 #include <vintf/ObjectFactory.h>
 #include <vintf/PropertyFetcher.h>
 #include "utils.h"
@@ -36,6 +37,7 @@ class MockFileSystem : public FileSystem {
     MOCK_CONST_METHOD2(fetch, status_t(const std::string& path, std::string& fetched));
     MOCK_CONST_METHOD3(listFiles,
                        status_t(const std::string&, std::vector<std::string>*, std::string*));
+    MOCK_CONST_METHOD3(modifiedTime, status_t(const std::string&, int64_t*, std::string*));
 
     status_t fetch(const std::string& path, std::string* fetched, std::string*) const override {
         // Call the mocked function
@@ -50,6 +52,8 @@ class MockFileSystemWithError : public FileSystem {
     MOCK_METHOD(status_t, fetch, (const std::string&, std::string*, std::string*),
                 (const override));
     MOCK_METHOD(status_t, listFiles, (const std::string&, std::vector<std::string>*, std::string*),
+                (const override));
+    MOCK_METHOD(status_t, modifiedTime, (const std::string&, int64_t*, std::string*),
                 (const override));
 };
 
@@ -85,6 +89,13 @@ class MockPropertyFetcher : public PropertyFetcher {
     MOCK_CONST_METHOD2(getProperty, std::string(const std::string&, const std::string&));
     MOCK_CONST_METHOD2(getBoolProperty, bool(const std::string&, bool));
     MOCK_CONST_METHOD3(getUintProperty, uint64_t(const std::string&, uint64_t, uint64_t));
+};
+
+class MockApex : public ApexInterface {
+   public:
+    MockApex() = default;
+    MOCK_CONST_METHOD1(HasUpdate, bool(FileSystem*));
+    MOCK_METHOD3(DeviceVintfDirs, status_t(FileSystem*, std::vector<std::string>*, std::string*));
 };
 
 }  // namespace details

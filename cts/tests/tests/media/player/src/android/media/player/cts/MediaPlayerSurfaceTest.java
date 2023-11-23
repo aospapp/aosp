@@ -16,13 +16,22 @@
 
 package android.media.player.cts;
 
-import android.os.Bundle;
+import static org.junit.Assert.assertNotNull;
+
+import android.os.ConditionVariable;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
-import android.test.ActivityInstrumentationTestCase2;
 
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 /**
  */
@@ -30,17 +39,33 @@ import androidx.test.filters.SmallTest;
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "TODO: evaluate and port to instant")
-public class MediaPlayerSurfaceTest extends ActivityInstrumentationTestCase2<MediaPlayerSurfaceStubActivity> {
+@RunWith(AndroidJUnit4.class)
+public class MediaPlayerSurfaceTest {
 
-    public MediaPlayerSurfaceTest() {
-        super("android.media.player.cts", MediaPlayerSurfaceStubActivity.class);
+    private ActivityScenario<MediaPlayerSurfaceStubActivity> mActivityScenario;
+    private MediaPlayerSurfaceStubActivity mActivity;
+
+    @Before
+    public void setUp() {
+        mActivityScenario = ActivityScenario.launch(MediaPlayerSurfaceStubActivity.class);
+        ConditionVariable activityReferenceObtained = new ConditionVariable();
+        mActivityScenario.onActivity(activity -> {
+            mActivity = activity;
+            activityReferenceObtained.open();
+        });
+        activityReferenceObtained.block(/* timeoutMs= */ 10000);
+        assertNotNull("Failed to acquire activity reference.", mActivity);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
 
+    @After
+    public void tearDown() {
+        mActivity = null;
+    }
+
+    @Test
     public void testSetSurface() throws Exception {
-        Bundle extras = new Bundle();
-        MediaPlayerSurfaceStubActivity activity = launchActivity("android.media.player.cts",
-                MediaPlayerSurfaceStubActivity.class, extras);
-        activity.playVideo();
-        activity.finish();
+        mActivity.playVideo();
+        mActivity.finish();
     }
 }

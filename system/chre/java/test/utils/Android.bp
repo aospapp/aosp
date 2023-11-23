@@ -28,6 +28,10 @@ java_library {
 
     static_libs: [
         "androidx.test.rules",
+        "truth-prebuilt",
+        "chre_api_test_proto_java_lite",
+        "chre_pigweed_utils",
+        "pw_rpc_java_client",
     ],
 
     sdk_version: "system_current",

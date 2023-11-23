@@ -22,12 +22,22 @@
         <uses-library android:name="android.test.runner" />
 
         <activity android:name=".ApplyOverrideConfigurationActivity"
-                  android:configChanges="orientation|screenSize" />
+                  android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
 
         <activity android:name=".PictureInPictureActivity"
                   android:resizeableActivity="false"
                   android:supportsPictureInPicture="true"
                   android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout" />
+
+        <activity android:name=".ShareIdentityTest$ShareIdentityTestActivity"
+                  android:exported="true" />
+
+        <receiver android:name=".ShareIdentityTest$ShareIdentityTestReceiver"
+                  android:exported="true">
+            <intent-filter>
+                <action android:name="android.app.cts.SHARE_IDENTITY_TEST_MANIFEST_ACTION" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

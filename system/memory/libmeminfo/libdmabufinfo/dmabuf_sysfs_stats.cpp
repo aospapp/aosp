@@ -30,7 +30,7 @@
 namespace android {
 namespace dmabufinfo {
 
-static bool ReadUintFromFile(const std::string& path, unsigned int* val) {
+static bool ReadUintFromFile(const std::string& path, uint64_t* val) {
     std::string temp;
 
     if (!android::base::ReadFileToString(path, &temp)) {
@@ -50,6 +50,12 @@ bool ReadBufferExporter(unsigned int inode, std::string* exporter,
     std::string exporter_path =
             ::android::base::StringPrintf("%s/%u/exporter_name", dmabuf_sysfs_path.c_str(), inode);
     return android::base::ReadFileToString(exporter_path, exporter);
+}
+
+bool ReadBufferSize(unsigned int inode, uint64_t* size, const std::string& dmabuf_sysfs_path) {
+    std::string size_path =
+            ::android::base::StringPrintf("%s/%u/size", dmabuf_sysfs_path.c_str(), inode);
+    return ReadUintFromFile(size_path, size);
 }
 
 bool GetDmabufSysfsStats(DmabufSysfsStats* stats, const std::string& dmabuf_sysfs_stats_path) {
@@ -130,7 +136,7 @@ bool GetDmabufTotalExportedKb(uint64_t* total_exported,
                 "%s/%s", dmabuf_sysfs_stats_path.c_str(), dent->d_name);
 
         // Read size of the buffer
-        unsigned int buf_size = 0;
+        uint64_t buf_size = 0;
         std::string size_path = buf_entry_path + "/size";
         if (!ReadUintFromFile(size_path, &buf_size)) return false;
         *total_exported += buf_size;

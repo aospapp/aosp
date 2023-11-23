@@ -33,8 +33,11 @@ public:
   typedef std::false_type fixed_size;
   static const char* descriptor;
 
+  class IEmptyInterfaceDelegator;
+
   class IEmptyInterface : public ::ndk::ICInterface {
   public:
+    typedef IEmptyInterfaceDelegator DefaultDelegator;
     static const char* descriptor;
     IEmptyInterface();
     virtual ~IEmptyInterface();
@@ -67,8 +70,11 @@ public:
     ::ndk::SpAIBinder createBinder() override;
   private:
   };
+  class IMyInterfaceDelegator;
+
   class IMyInterface : public ::ndk::ICInterface {
   public:
+    typedef IMyInterfaceDelegator DefaultDelegator;
     static const char* descriptor;
     IMyInterface();
     virtual ~IMyInterface();

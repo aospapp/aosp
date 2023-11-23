@@ -1,2 +1,2 @@
-PRODUCT_PACKAGES += vendor.google.wifi_ext@1.0-service-vendor
+PRODUCT_PACKAGES += com.google.pixel.wifi.ext
 BOARD_VENDOR_SEPOLICY_DIRS += hardware/google/pixel-sepolicy/wifi_ext

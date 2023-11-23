@@ -27,7 +27,10 @@ android_test {
         "libcore-expectations-knownfailures-jar",
     ],
     libs: ["testng"],
-    dxflags: ["--core-library"],
+    dxflags: [
+        "--core-library",
+        "--android-platform-build",
+    ],
     dex_preopt: {
         enabled: false,
     },
@@ -49,4 +52,5 @@ android_test {
         ":CtsLibcoreTestRunner",
     ],
     per_testcase_directory: true,
+    host_required: ["cts-dalvik-host-test-runner"],
 }

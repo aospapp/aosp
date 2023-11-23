@@ -156,6 +156,7 @@ public class DexMemberChecker {
         }
     }
 
+    @SuppressWarnings("ReturnValueIgnored")
     private static boolean hasMatchingField_Reflection(Class<?> klass, DexField dexField) {
         try {
             klass.getDeclaredField(dexField.getName());
@@ -227,7 +228,7 @@ public class DexMemberChecker {
                 // resolved, but only returns public methods.
                 for (Method method : klass.getMethods()) {
                     if (method.getName().equals(dexMethod.getName())
-                            && method.getClass() == klass
+                            && method.getDeclaringClass() == klass
                             && method.getReturnType().getTypeName().equals(methodReturnType)
                             && typesMatch(method.getParameterTypes(), methodParams)) {
                         return true;

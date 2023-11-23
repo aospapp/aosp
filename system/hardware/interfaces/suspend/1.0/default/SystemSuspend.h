@@ -18,6 +18,7 @@
 #define ANDROID_SYSTEM_SYSTEM_SUSPEND_V1_0_H
 
 #include <android-base/result.h>
+#include <android-base/thread_annotations.h>
 #include <android-base/unique_fd.h>
 #include <android/system/suspend/internal/SuspendInfo.h>
 #include <utils/RefBase.h>
@@ -99,27 +100,39 @@ class SystemSuspend : public RefBase {
 
    private:
     ~SystemSuspend(void) override;
-    void initAutosuspendLocked();
-    void disableAutosuspendLocked();
-    bool hasAliveAutosuspendTokenLocked();
 
-    std::mutex mAutosuspendLock;
-    std::condition_variable mAutosuspendCondVar;
-    uint32_t mSuspendCounter;
+    std::mutex mAutosuspendClientTokensLock;
+    std::mutex mAutosuspendLock ACQUIRED_AFTER(mAutosuspendClientTokensLock);
+    std::mutex mSuspendInfoLock;
+
+    void initAutosuspendLocked()
+        EXCLUSIVE_LOCKS_REQUIRED(mAutosuspendClientTokensLock, mAutosuspendLock);
+    void disableAutosuspendLocked()
+        EXCLUSIVE_LOCKS_REQUIRED(mAutosuspendClientTokensLock, mAutosuspendLock);
+    void checkAutosuspendClientsLivenessLocked()
+        EXCLUSIVE_LOCKS_REQUIRED(mAutosuspendClientTokensLock);
+    bool hasAliveAutosuspendTokenLocked() EXCLUSIVE_LOCKS_REQUIRED(mAutosuspendClientTokensLock);
+
+    std::condition_variable mAutosuspendCondVar GUARDED_BY(mAutosuspendLock);
+    uint32_t mSuspendCounter GUARDED_BY(mAutosuspendLock);
+
+    std::vector<sp<IBinder>> mAutosuspendClientTokens GUARDED_BY(mAutosuspendClientTokensLock);
+    std::atomic<bool> mAutosuspendEnabled GUARDED_BY(mAutosuspendLock){false};
+    std::atomic<bool> mAutosuspendThreadCreated GUARDED_BY(mAutosuspendLock){false};
+
     unique_fd mWakeupCountFd;
     unique_fd mStateFd;
 
     unique_fd mSuspendStatsFd;
     unique_fd mSuspendTimeFd;
 
-    std::mutex mSuspendInfoLock;
-    SuspendInfo mSuspendInfo;
+    SuspendInfo mSuspendInfo GUARDED_BY(mSuspendInfoLock);
 
     const SleepTimeConfig kSleepTimeConfig;
 
     // Amount of thread sleep time between consecutive iterations of the suspend loop
     std::chrono::milliseconds mSleepTime;
-    int32_t mNumConsecutiveBadSuspends;
+    int32_t mNumConsecutiveBadSuspends GUARDED_BY(mSuspendInfoLock);
 
     // Updates thread sleep time and suspend stats depending on the result of suspend attempt
     void updateSleepTime(bool success, const struct SuspendTime& suspendTime);
@@ -137,10 +150,6 @@ class SystemSuspend : public RefBase {
     unique_fd mWakeLockFd;
     unique_fd mWakeUnlockFd;
     unique_fd mWakeupReasonsFd;
-
-    std::atomic<bool> mAutosuspendEnabled{false};
-    std::atomic<bool> mAutosuspendThreadCreated{false};
-    std::vector<sp<IBinder>> mDisableAutosuspendTokens;
 };
 
 }  // namespace V1_0

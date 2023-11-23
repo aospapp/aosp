@@ -29,7 +29,7 @@ pub fn get_aaid(uid: u32) -> Result<Vec<u8>, u32> {
     // in the second pointer argument.
     let status = unsafe { aaid_keystore_attestation_id(uid, buffer.as_mut_ptr(), &mut size) };
     match status {
-        0 => Ok(buffer[0..size as usize].to_vec()),
+        0 => Ok(buffer[0..size].to_vec()),
         status => Err(status),
     }
 }

@@ -18,6 +18,7 @@ package android.telephony.cts;
 
 import static org.junit.Assert.assertEquals;
 
+import android.telephony.AccessNetworkConstants;
 import android.telephony.data.QualifiedNetworksService;
 
 import org.junit.Test;
@@ -27,6 +28,8 @@ import java.util.Collections;
 public class QualifiedNetworksServiceTest {
     private static final int SLOT_INDEX = 0;
     private static final int APN_TYPES = 0;
+    private static final int EMERGENCY_PREFERRED_TRANPORT =
+            AccessNetworkConstants.TRANSPORT_TYPE_WLAN;
 
     private class TestQns extends QualifiedNetworksService {
         TestQns() {
@@ -38,12 +41,23 @@ public class QualifiedNetworksServiceTest {
         }
 
         public class TestNap extends QualifiedNetworksService.NetworkAvailabilityProvider {
+            private int mPreferredTransportForEmergencyDataNetwork;
+
             TestNap(int slotIndex) {
                 super(slotIndex);
             }
 
             public void close() {
                 // Do nothing
+            }
+
+            @Override
+            public void reportEmergencyDataNetworkPreferredTransportChanged(int transportType) {
+                mPreferredTransportForEmergencyDataNetwork = transportType;
+            }
+
+            public int getPreferredTransportForEmergencyDataNetwork() {
+                return mPreferredTransportForEmergencyDataNetwork;
             }
         }
     }
@@ -63,5 +77,15 @@ public class QualifiedNetworksServiceTest {
                 qns.onCreateNetworkAvailabilityProvider(SLOT_INDEX);
         nap.updateQualifiedNetworkTypes(APN_TYPES, Collections.emptyList());
         nap.reportThrottleStatusChanged(Collections.emptyList());
+    }
+
+    @Test
+    public void testReportEmergencyDataNetworkPreferredTransportChanged() {
+        QualifiedNetworksService qns = new TestQns();
+        QualifiedNetworksService.NetworkAvailabilityProvider nap =
+                qns.onCreateNetworkAvailabilityProvider(SLOT_INDEX);
+        nap.reportEmergencyDataNetworkPreferredTransportChanged(EMERGENCY_PREFERRED_TRANPORT);
+        assertEquals(((TestQns.TestNap) nap).getPreferredTransportForEmergencyDataNetwork(),
+                EMERGENCY_PREFERRED_TRANPORT);
     }
 }

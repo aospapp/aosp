@@ -19,6 +19,8 @@ package libcore.libcore.icu;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
+import android.icu.util.VersionInfo;
+
 import java.text.DateFormat;
 import java.util.Locale;
 import libcore.icu.LocaleData;
@@ -33,11 +35,13 @@ public class SimpleDateFormatDataTest {
     // http://b/7924970
     @Test
     public void testTimeFormat12And24() {
+        char sep = ' ';
+
         Boolean originalSetting = DateFormat.is24Hour;
         try {
             SimpleDateFormatData en_US = SimpleDateFormatData.getInstance(Locale.US);
             DateFormat.is24Hour = false;
-            assertEquals("h:mm a", en_US.getTimeFormat(DateFormat.SHORT));
+            assertEquals("h:mm" + sep + "a", en_US.getTimeFormat(DateFormat.SHORT));
             DateFormat.is24Hour = true;
             assertEquals("HH:mm", en_US.getTimeFormat(DateFormat.SHORT));
 

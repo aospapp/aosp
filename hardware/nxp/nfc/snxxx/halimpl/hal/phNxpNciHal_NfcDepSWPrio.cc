@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 NXP Semiconductors
+ * Copyright 2012-2019, 2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -413,7 +413,6 @@ extern NFCSTATUS phNxpNciHal_clean_P2P_Prio() {
  **
  *******************************************************************************/
 void* tmp_thread(void* tmp) {
-  NFCSTATUS status = NFCSTATUS_SUCCESS;
   uint16_t data_len;
   NXPLOG_NCIHAL_W("tmp_thread: enter type=0x0%x", *((int*)tmp));
   usleep(10 * 1000);
@@ -427,7 +426,6 @@ void* tmp_thread(void* tmp) {
 
       if (data_len != cmd_poll_len) {
         NXPLOG_NCIHAL_E("phNxpNciHal_start_polling_loop: data len mismatch");
-        status = NFCSTATUS_FAILED;
       }
     } break;
 
@@ -440,7 +438,6 @@ void* tmp_thread(void* tmp) {
 
       if (data_len != sizeof(cmd_resume_rf_discovery)) {
         NXPLOG_NCIHAL_E("phNxpNciHal_resume_polling_loop: data len mismatch");
-        status = NFCSTATUS_FAILED;
       }
     } break;
 
@@ -452,7 +449,6 @@ void* tmp_thread(void* tmp) {
 
       if (data_len != sizeof(cmd_stop_rf_discovery)) {
         NXPLOG_NCIHAL_E("phNxpNciHal_stop_polling_loop: data len mismatch");
-        status = NFCSTATUS_FAILED;
       }
     } break;
 
@@ -465,13 +461,11 @@ void* tmp_thread(void* tmp) {
 
       if (data_len != sizeof(cmd_resume_rf_discovery)) {
         NXPLOG_NCIHAL_E("phNxpNciHal_resume_polling_loop: data len mismatch");
-        status = NFCSTATUS_FAILED;
       }
     } break;
 
     default:
       NXPLOG_NCIHAL_E("No Matching case");
-      status = NFCSTATUS_FAILED;
       break;
   }
 

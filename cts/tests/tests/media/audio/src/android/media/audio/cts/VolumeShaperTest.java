@@ -265,12 +265,13 @@ public class VolumeShaperTest {
 
     // generic player class to simplify testing
     private interface Player extends AutoCloseable {
-        public void start();
-        public void pause();
-        public void stop();
-        @Override public void close();
-        public VolumeShaper createVolumeShaper(VolumeShaper.Configuration configuration);
-        public String name();
+        void start();
+        void pause();
+        void flush();
+        void stop();
+        @Override void close();
+        VolumeShaper createVolumeShaper(VolumeShaper.Configuration configuration);
+        String name();
     }
 
     private static class AudioTrackPlayer implements Player {
@@ -285,6 +286,10 @@ public class VolumeShaperTest {
 
         @Override public void pause() {
             mTrack.pause();
+        }
+
+        @Override public void flush() {
+            mTrack.flush();
         }
 
         @Override public void stop() {
@@ -308,26 +313,46 @@ public class VolumeShaperTest {
         private final String mName;
     }
 
+    // State management for MediaPlayer
+    private enum State {
+        STOPPED,
+        PAUSED,
+        PLAYING,
+        CLOSED,
+    }
+
     private class MediaPlayerPlayer implements Player {
         public MediaPlayerPlayer(boolean offloaded) {
             mPlayer = createMediaPlayer(offloaded);
             mName = new String("MediaPlayer" + (offloaded ? "Offloaded" : "NonOffloaded"));
+            mState = State.STOPPED;
         }
 
         @Override public void start() {
             mPlayer.start();
+            mState = State.PLAYING;
         }
 
         @Override public void pause() {
             mPlayer.pause();
+            mState = State.PAUSED;
+        }
+
+        @Override public void flush() {
+            if (mState == State.PAUSED) {
+                // On MediaPlayer, seek can be called while playing, too.
+                mPlayer.seekTo(0 /* msec */, MediaPlayer.SEEK_PREVIOUS_SYNC);
+            }
         }
 
         @Override public void stop() {
             mPlayer.stop();
+            mState = State.STOPPED;
         }
 
         @Override public void close() {
             mPlayer.release();
+            mState = State.CLOSED;
         }
 
         @Override
@@ -341,6 +366,7 @@ public class VolumeShaperTest {
 
         private final MediaPlayer mPlayer;
         private final String mName;
+        private State mState;
     }
 
     private static final int PLAYER_TYPES = 3;
@@ -1252,7 +1278,8 @@ public class VolumeShaperTest {
     @LargeTest
     @Test
     public void testPlayerRunDuringPauseStop() throws Exception {
-        runTestPlayerDuringPauseStop("testPlayerRunDuringPauseStop", false /* useMediaTime */);
+        runTestPlayerDuringPauseStop("testPlayerRunDuringPauseStop",
+                false /* doFlush */, false /* useMediaTime */);
     }
 
     // tests that shaper which is based on media time will freeze
@@ -1260,11 +1287,21 @@ public class VolumeShaperTest {
     @LargeTest
     @Test
     public void testPlayerFreezeDuringPauseStop() throws Exception {
-        runTestPlayerDuringPauseStop("testPlayerFreezeDuringPauseStop", true /* useMediaTime */);
+        runTestPlayerDuringPauseStop("testPlayerFreezeDuringPauseStop",
+                false /* doFlush */, true /* useMediaTime */);
+    }
+
+    // tests that shaper which is based on media time will freeze
+    // in the presence of pause and stop.
+    @LargeTest
+    @Test
+    public void testPlayerFreezeDuringPauseStopFlush() throws Exception {
+        runTestPlayerDuringPauseStop("testPlayerFreezeDuringPauseStopFlush",
+                true /* doFlush */, true /* useMediaTime */);
     }
 
     private void runTestPlayerDuringPauseStop(
-            String parentTestName, boolean useMediaTime) throws Exception {
+            String parentTestName, boolean doFlush, boolean useMediaTime) throws Exception {
         if (!hasAudioOutput()) {
             Log.w(TAG, "AUDIO_OUTPUT feature not found. This system might not have a valid "
                     + "audio output HAL");
@@ -1283,15 +1320,9 @@ public class VolumeShaperTest {
                     // MediaPlayer stop requires prepare before starting.
                     continue;
                 }
-                if (useMediaTime &&  p == PLAYER_TYPE_MEDIA_PLAYER_OFFLOADED) {
-                    continue;  // Offloaded media time not supported.
-                }
-                // For this test, force non offload track for media time,
-                // as media time based offload/direct volumeshaper is not supported yet.
-                // TODO(b/236187574) - remove this requirement.
-                if (useMediaTime &&  p == PLAYER_TYPE_AUDIO_TRACK) {
-                    p = PLAYER_TYPE_AUDIO_TRACK_NON_OFFLOADED;
-                }
+
+                // Note: prior to U, offload and direct tracks used clock time
+                // not media time.
 
                 try (   Player player = createPlayer(p);
                         VolumeShaper volumeShaper = player.createVolumeShaper(config);
@@ -1312,6 +1343,9 @@ public class VolumeShaperTest {
                         player.pause();
                     } else {
                         player.stop();
+                    }
+                    if (doFlush) {
+                        player.flush();
                     }
                     Log.d(TAG, testName + " volume right after " +
                             operation + " is " + volumeShaper.getVolume());

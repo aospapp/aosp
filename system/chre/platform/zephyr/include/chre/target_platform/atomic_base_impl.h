@@ -17,7 +17,7 @@
 #ifndef CHRE_PLATFORM_ZEPHYR_ATOMIC_BASE_IMPL_H_
 #define CHRE_PLATFORM_ZEPHYR_ATOMIC_BASE_IMPL_H_
 
-#include <sys/atomic.h>
+#include <zephyr/sys/atomic.h>
 
 #include "chre/platform/atomic.h"
 

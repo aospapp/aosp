@@ -30,7 +30,7 @@ std::function<void(const BpLoggableInterface::TransactionLog&)> BpLoggableInterf
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
-  ::android::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ILoggableInterface::LogThis::cppClient");
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ILoggableInterface::LogThis::cppClient");
   BpLoggableInterface::TransactionLog _transaction_log;
   if (BpLoggableInterface::logFunc != nullptr) {
     _transaction_log.input_args.emplace_back("boolValue", ::android::internal::ToString(boolValue));
@@ -285,7 +285,7 @@ BnLoggableInterface::BnLoggableInterface()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
-    ::android::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ILoggableInterface::LogThis::cppServer");
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ILoggableInterface::LogThis::cppServer");
     _aidl_ret_status = _aidl_data.readBool(&in_boolValue);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -530,7 +530,7 @@ std::function<void(const ILoggableInterface::BpSub::TransactionLog&)> ILoggableI
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
-  ::android::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ISub::Log::cppClient");
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ISub::Log::cppClient");
   ILoggableInterface::BpSub::TransactionLog _transaction_log;
   if (ILoggableInterface::BpSub::logFunc != nullptr) {
     _transaction_log.input_args.emplace_back("value", ::android::internal::ToString(value));
@@ -604,7 +604,7 @@ ILoggableInterface::BnSub::BnSub()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
-    ::android::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ISub::Log::cppServer");
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::ISub::Log::cppServer");
     _aidl_ret_status = _aidl_data.readInt32(&in_value);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;

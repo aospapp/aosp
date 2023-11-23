@@ -1,3 +1,0 @@
-register_toolchains(
-  "//prebuilts/build-tools:py_toolchain"
-)

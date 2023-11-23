@@ -75,6 +75,7 @@ cc_test {
         "device-tests",
         "vts"
     ],
+    isolated: false,
     require_root: true,
     defaults: [
         "netd_aidl_interface_lateststable_cpp_static",
@@ -84,13 +85,12 @@ cc_test {
     srcs: [
         ":netd_integration_test_shared",
         "binder_test.cpp",
-        "bpf_base_test.cpp",
         "kernel_test.cpp",
         "netd_client_test.cpp",
         "netd_test.cpp",
     ],
     include_dirs: ["system/netd/server"],
-    header_libs: ["bpf_connectivity_headers"],
+    header_libs: ["bpf_headers"],
     shared_libs: [
         "libbase",
         "libbinder",

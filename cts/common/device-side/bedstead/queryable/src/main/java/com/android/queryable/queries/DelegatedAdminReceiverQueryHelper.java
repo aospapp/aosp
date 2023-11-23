@@ -20,7 +20,10 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.info.DelegatedAdminReceiverInfo;
+
+import java.util.Objects;
 
 /** Implementation of {@link DelegatedAdminReceiverQuery}. */
 public final class DelegatedAdminReceiverQueryHelper<E extends Queryable>
@@ -29,9 +32,28 @@ public final class DelegatedAdminReceiverQueryHelper<E extends Queryable>
     private final transient E mQuery;
     private final BroadcastReceiverQueryHelper<E> mBroadcastReceiverQueryHelper;
 
-    DelegatedAdminReceiverQueryHelper() {
-        mQuery = (E) this;
-        mBroadcastReceiverQueryHelper = new BroadcastReceiverQueryHelper<>(mQuery);
+    public static final class DelegatedAdminReceiverQueryBase extends
+            QueryableBaseWithMatch<DelegatedAdminReceiverInfo,
+                    DelegatedAdminReceiverQueryHelper<DelegatedAdminReceiverQueryBase>> {
+        DelegatedAdminReceiverQueryBase() {
+            super();
+            setQuery(new DelegatedAdminReceiverQueryHelper<>(this));
+        }
+
+        DelegatedAdminReceiverQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase createFromParcel(Parcel in) {
+                        return new DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase(in);
+                    }
+
+                    public DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase[] newArray(int size) {
+                        return new DelegatedAdminReceiverQueryHelper.DelegatedAdminReceiverQueryBase[size];
+                    }
+                };
     }
 
     public DelegatedAdminReceiverQueryHelper(E query) {
@@ -48,6 +70,11 @@ public final class DelegatedAdminReceiverQueryHelper<E extends Queryable>
     @Override
     public BroadcastReceiverQuery<E> broadcastReceiver() {
         return mBroadcastReceiverQueryHelper;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mBroadcastReceiverQueryHelper);
     }
 
     /** {@code true} if all filters are met by {@code value}. */
@@ -83,4 +110,18 @@ public final class DelegatedAdminReceiverQueryHelper<E extends Queryable>
                     return new DelegatedAdminReceiverQueryHelper[size];
                 }
     };
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof DelegatedAdminReceiverQueryHelper)) return false;
+        DelegatedAdminReceiverQueryHelper<?> that = (DelegatedAdminReceiverQueryHelper<?>) o;
+        return Objects.equals(mBroadcastReceiverQueryHelper,
+                that.mBroadcastReceiverQueryHelper);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(mBroadcastReceiverQueryHelper);
+    }
 }

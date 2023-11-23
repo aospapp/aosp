@@ -25,7 +25,6 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
-
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
@@ -33,13 +32,14 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Process;
 import android.os.UserHandle;
-
 import android.telecom.Call;
 import android.telecom.PhoneAccount;
+import android.telecom.TelecomManager;
 import android.telecom.cts.redirectiontestapp.CtsCallRedirectionService;
 import android.telecom.cts.redirectiontestapp.CtsCallRedirectionServiceController;
 import android.telecom.cts.redirectiontestapp.ICtsCallRedirectionServiceController;
 import android.text.TextUtils;
+import android.util.Log;
 
 import com.android.compatibility.common.util.CddTest;
 
@@ -91,7 +91,7 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
         NewOutgoingCallBroadcastReceiver.reset();
         mHandler = new Handler(Looper.getMainLooper());
         mRoleManager = (RoleManager) mContext.getSystemService(Context.ROLE_SERVICE);
-        setupControlBinder();
+        setupControlBinder(null, null);
         setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
         rememberPreviousCallRedirectionApp();
         // Ensure CTS app holds the call redirection role.
@@ -102,20 +102,19 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
 
     @Override
     protected void tearDown() throws Exception {
-        super.tearDown();
-        if (!mShouldTestTelecom) {
-            return;
-        }
-        if (mCallRedirectionServiceController != null) {
-            mCallRedirectionServiceController.reset();
-        }
-        // Remove the test app from the redirection role.
-        removeRoleHolder(ROLE_CALL_REDIRECTION,
-                CtsCallRedirectionService.class.getPackage().getName());
+        if (mShouldTestTelecom) {
+            if (mCallRedirectionServiceController != null) {
+                mCallRedirectionServiceController.reset();
+            }
+            // Remove the test app from the redirection role.
+            removeRoleHolder(ROLE_CALL_REDIRECTION,
+                    CtsCallRedirectionService.class.getPackage().getName());
 
-        if (!TextUtils.isEmpty(mPreviousCallRedirectionPackage)) {
-            addRoleHolder(ROLE_CALL_REDIRECTION, mPreviousCallRedirectionPackage);
+            if (!TextUtils.isEmpty(mPreviousCallRedirectionPackage)) {
+                addRoleHolder(ROLE_CALL_REDIRECTION, mPreviousCallRedirectionPackage);
+            }
         }
+        super.tearDown();
     }
 
     public void testRedirectedCallWithRedirectedGateway()
@@ -230,16 +229,46 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
         assertFalse(mCallRedirectionServiceController.waitForOnPlaceCallInvoked());
     }
 
+    public void testServiceUnbindOnNullBinding()
+            throws Exception {
+        if (!shouldTestTelecom(mContext)) {
+            return;
+        }
+        // Set up control binder using NullBindingCallRedirectionServiceController.
+        // This will invoke onNullBinding.
+        setupControlBinder(NullBindingCallRedirectionServiceController.CONTROL_INTERFACE_ACTION,
+                NullBindingCallRedirectionServiceController.CONTROL_INTERFACE_COMPONENT);
+        Bundle extras = new Bundle();
+        extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE,
+                TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
+        mTelecomManager.placeCall(createTestNumber(), extras);
+        TestUtils.waitOnLocalMainLooper(TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        TestUtils.waitOnAllHandlers(getInstrumentation());
+        // Assert bind and unbind latch countdown
+        assertTrue(TestUtils.waitForLatchCountDown(
+                NullBindingCallRedirectionServiceController.sBindLatch));
+        assertTrue(TestUtils.waitForLatchCountDown(
+                NullBindingCallRedirectionServiceController.sUnbindLatch));
+    }
+
     /**
      * Sets up a binder used to control the CallRedirectionServiceCtsTestApp.
      * This app is a standalone APK so that it can reside in a package name outside of the one the
      * CTS test itself runs in.
      * @throws InterruptedException
      */
-    private void setupControlBinder() throws InterruptedException {
-        Intent bindIntent = new Intent(
-                CtsCallRedirectionServiceController.CONTROL_INTERFACE_ACTION);
-        bindIntent.setComponent(CtsCallRedirectionServiceController.CONTROL_INTERFACE_COMPONENT);
+    private void setupControlBinder(String interfaceAction,
+            ComponentName interfaceComponentName) throws InterruptedException {
+        if (interfaceAction == null) {
+            interfaceAction = CtsCallRedirectionServiceController.CONTROL_INTERFACE_ACTION;
+        }
+        if (interfaceComponentName == null) {
+            interfaceComponentName =
+                    CtsCallRedirectionServiceController.CONTROL_INTERFACE_COMPONENT;
+        }
+
+        Intent bindIntent = new Intent(interfaceAction);
+        bindIntent.setComponent(interfaceComponentName);
         final CountDownLatch bindLatch = new CountDownLatch(1);
 
         boolean success = mContext.bindService(bindIntent, new ServiceConnection() {
@@ -252,6 +281,15 @@ public class CallRedirectionServiceTest extends BaseTelecomTestWithMockServices 
             @Override
             public void onServiceDisconnected(ComponentName name) {
                 mCallRedirectionServiceController = null;
+            }
+
+            @Override
+            public void onNullBinding(ComponentName name) {
+                // This path will only be hit if NullBindingCallRedirectionServiceController is set
+                // as the controller.
+                Log.i(TAG, "onNullBinding: null binding received from onBind");
+                bindLatch.countDown();
+                mContext.unbindService(this);
             }
         }, Context.BIND_AUTO_CREATE);
         if (!success) {

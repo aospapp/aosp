@@ -1658,5 +1658,32 @@ TEST_F(UnwindOfflineTest, apk_rx_unreadable_arm64) {
   VerifyApkRX(unwinder);
 }
 
+TEST_F(UnwindOfflineTest, apk_soname_at_end_arm64) {
+  std::string error_msg;
+  if (!offline_utils_.Init({.offline_files_dir = "apk_soname_at_end_arm64/", .arch = ARCH_ARM64},
+                           &error_msg))
+    FAIL() << error_msg;
+
+  Regs* regs = offline_utils_.GetRegs();
+  std::unique_ptr<Regs> regs_copy(regs->Clone());
+  Unwinder unwinder(128, offline_utils_.GetMaps(), regs, offline_utils_.GetProcessMemory());
+  unwinder.Unwind();
+
+  size_t expected_num_frames;
+  if (!offline_utils_.GetExpectedNumFrames(&expected_num_frames, &error_msg)) FAIL() << error_msg;
+  std::string expected_frame_info;
+  if (!GetExpectedSamplesFrameInfo(&expected_frame_info, &error_msg)) FAIL() << error_msg;
+
+  std::string frame_info(DumpFrames(unwinder));
+  ASSERT_EQ(expected_num_frames, unwinder.NumFrames()) << "Unwind:\n" << frame_info;
+  EXPECT_EQ(expected_frame_info, frame_info);
+  EXPECT_EQ(0x7c0064b13cULL, unwinder.frames()[0].pc);
+  EXPECT_EQ(0x7ff9ec4b90ULL, unwinder.frames()[0].sp);
+  EXPECT_EQ(0x580e17d0f0ULL, unwinder.frames()[1].pc);
+  EXPECT_EQ(0x7ff9ec4bb0ULL, unwinder.frames()[1].sp);
+  EXPECT_EQ(0x7e908c9cc8ULL, unwinder.frames()[2].pc);
+  EXPECT_EQ(0x7ff9ec4c10ULL, unwinder.frames()[2].sp);
+}
+
 }  // namespace
 }  // namespace unwindstack

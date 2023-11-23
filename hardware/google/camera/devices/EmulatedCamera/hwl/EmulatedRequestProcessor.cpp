@@ -122,8 +122,26 @@ status_t EmulatedRequestProcessor::ProcessPipelineRequests(
         pipelines[request.pipeline_id].cb, request.input_width,
         request.input_height);
 
+    // Check if there are any settings that need to be overridden.
+    camera_metadata_ro_entry_t entry;
+    if (request.settings.get() != nullptr) {
+      auto ret = request.settings.get()->Get(ANDROID_CONTROL_SETTINGS_OVERRIDE,
+                                             &entry);
+      if ((ret == OK) && (entry.count == 1)) {
+        std::unique_ptr<HalCameraMetadata> override_setting =
+            HalCameraMetadata::Clone(request.settings.get());
+        override_settings_.push({.settings = std::move(override_setting),
+                                 .frame_number = frame_number});
+      }
+    } else {
+      override_settings_.push(
+          {.settings = nullptr, .frame_number = frame_number});
+    }
     pending_requests_.push(
-        {.settings = HalCameraMetadata::Clone(request.settings.get()),
+        {.frame_number = frame_number,
+         .pipeline_id = request.pipeline_id,
+         .callback = pipelines[request.pipeline_id].cb,
+         .settings = HalCameraMetadata::Clone(request.settings.get()),
          .input_buffers = std::move(input_buffers),
          .output_buffers = std::move(output_buffers)});
   }
@@ -174,7 +192,7 @@ std::unique_ptr<Buffers> EmulatedRequestProcessor::CreateSensorBuffers(
     if (session_callback_.return_stream_buffers != nullptr) {
       session_callback_.return_stream_buffers(requested_buffers);
     }
-    return nullptr;
+    requested_buffers.clear();
   }
 
   auto sensor_buffers = std::make_unique<Buffers>();
@@ -192,21 +210,20 @@ std::unique_ptr<Buffers> EmulatedRequestProcessor::CreateSensorBuffers(
 }
 
 void EmulatedRequestProcessor::NotifyFailedRequest(const PendingRequest& request) {
-  if (request.output_buffers->at(0)->callback.notify != nullptr) {
+  if (request.output_buffers != nullptr) {
     // Mark all output buffers for this request in order not to send
     // ERROR_BUFFER for them.
     for (auto& output_buffer : *(request.output_buffers)) {
       output_buffer->is_failed_request = true;
     }
-
-    auto output_buffer = std::move(request.output_buffers->at(0));
-    NotifyMessage msg = {
-        .type = MessageType::kError,
-        .message.error = {.frame_number = output_buffer->frame_number,
-                          .error_stream_id = -1,
-                          .error_code = ErrorCode::kErrorRequest}};
-    output_buffer->callback.notify(output_buffer->pipeline_id, msg);
   }
+
+  NotifyMessage msg = {
+      .type = MessageType::kError,
+      .message.error = {.frame_number = request.frame_number,
+                        .error_stream_id = -1,
+                        .error_code = ErrorCode::kErrorRequest}};
+  request.callback.notify(request.pipeline_id, msg);
 }
 
 status_t EmulatedRequestProcessor::Flush() {
@@ -276,7 +293,7 @@ status_t EmulatedRequestProcessor::LockSensorBuffer(
     return BAD_VALUE;
   }
 
-  auto usage = GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN;
+  auto usage = GRALLOC_USAGE_SW_WRITE_OFTEN;
   bool isYUV_420_888 = stream.override_format == HAL_PIXEL_FORMAT_YCBCR_420_888;
   bool isP010 = static_cast<android_pixel_format_v1_1_t>(
                     stream.override_format) == HAL_PIXEL_FORMAT_YCBCR_P010;
@@ -359,6 +376,8 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
   }
   buffer->format = static_cast<PixelFormat>(stream.override_format);
   buffer->dataSpace = stream.override_data_space;
+  buffer->color_space = stream.color_space;
+  buffer->use_case = stream.use_case;
   buffer->stream_buffer = stream_buffer;
   buffer->pipeline_id = pipeline_id;
   buffer->callback = callback;
@@ -374,7 +393,7 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
     auto ret = LockSensorBuffer(stream, buffer->stream_buffer.buffer,
                                 buffer->width, buffer->height, buffer.get());
     if (ret != OK) {
-      buffer.release();
+      buffer->is_failed_request = true;
       buffer = nullptr;
     }
   }
@@ -384,7 +403,7 @@ std::unique_ptr<SensorBuffer> EmulatedRequestProcessor::CreateSensorBuffer(
                                                buffer->acquire_fence_fd);
     if (!fence_status) {
       ALOGE("%s: Failed importing acquire fence!", __FUNCTION__);
-      buffer.release();
+      buffer->is_failed_request = true;
       buffer = nullptr;
     }
   }
@@ -432,13 +451,13 @@ void EmulatedRequestProcessor::RequestProcessorLoop() {
       if (!pending_requests_.empty()) {
         status_t ret;
         const auto& request = pending_requests_.front();
-        auto frame_number = request.output_buffers->at(0)->frame_number;
-        auto notify_callback = request.output_buffers->at(0)->callback;
-        auto pipeline_id = request.output_buffers->at(0)->pipeline_id;
+        auto frame_number = request.frame_number;
+        auto notify_callback = request.callback;
+        auto pipeline_id = request.pipeline_id;
 
         auto output_buffers = AcquireBuffers(request.output_buffers.get());
         auto input_buffers = AcquireBuffers(request.input_buffers.get());
-        if (!output_buffers->empty()) {
+        if ((output_buffers != nullptr) && !output_buffers->empty()) {
           std::unique_ptr<EmulatedSensor::LogicalCameraSettings> logical_settings =
               std::make_unique<EmulatedSensor::LogicalCameraSettings>();
 
@@ -456,14 +475,20 @@ void EmulatedRequestProcessor::RequestProcessorLoop() {
           // last valid values.
           // TODO: Add support for individual physical camera requests.
           if (request.settings.get() != nullptr) {
+            auto override_frame_number =
+                ApplyOverrideSettings(frame_number, request.settings);
             ret = request_state_->InitializeLogicalSettings(
                 HalCameraMetadata::Clone(request.settings.get()),
-                std::move(physical_camera_output_ids), logical_settings.get());
+                std::move(physical_camera_output_ids), override_frame_number,
+                logical_settings.get());
             last_settings_ = HalCameraMetadata::Clone(request.settings.get());
           } else {
+            auto override_frame_number =
+                ApplyOverrideSettings(frame_number, last_settings_);
             ret = request_state_->InitializeLogicalSettings(
                 HalCameraMetadata::Clone(last_settings_.get()),
-                std::move(physical_camera_output_ids), logical_settings.get());
+                std::move(physical_camera_output_ids), override_frame_number,
+                logical_settings.get());
           }
 
           if (ret == OK) {
@@ -532,6 +557,75 @@ status_t EmulatedRequestProcessor::GetDefaultRequest(
   return request_state_->GetDefaultRequest(type, default_settings);
 }
 
+uint32_t EmulatedRequestProcessor::ApplyOverrideSettings(
+    uint32_t frame_number,
+    const std::unique_ptr<HalCameraMetadata>& request_settings) {
+  while (!override_settings_.empty() && request_settings.get() != nullptr) {
+    auto override_frame_number = override_settings_.front().frame_number;
+    bool repeatingOverride = (override_settings_.front().settings == nullptr);
+    const auto& override_setting = repeatingOverride
+                                       ? last_override_settings_
+                                       : override_settings_.front().settings;
+
+    camera_metadata_ro_entry_t entry;
+    status_t ret =
+        override_setting->Get(ANDROID_CONTROL_SETTINGS_OVERRIDE, &entry);
+    bool overriding = false;
+    if ((ret == OK) && (entry.count == 1) &&
+        (entry.data.i32[0] == ANDROID_CONTROL_SETTINGS_OVERRIDE_ZOOM)) {
+      ApplyOverrideZoom(override_setting, request_settings,
+                        ANDROID_CONTROL_SETTINGS_OVERRIDE);
+      ApplyOverrideZoom(override_setting, request_settings,
+                        ANDROID_CONTROL_ZOOM_RATIO);
+      ApplyOverrideZoom(override_setting, request_settings,
+                        ANDROID_SCALER_CROP_REGION);
+      ApplyOverrideZoom(override_setting, request_settings,
+                        ANDROID_CONTROL_AE_REGIONS);
+      ApplyOverrideZoom(override_setting, request_settings,
+                        ANDROID_CONTROL_AWB_REGIONS);
+      ApplyOverrideZoom(override_setting, request_settings,
+                        ANDROID_CONTROL_AF_REGIONS);
+      overriding = true;
+    }
+    if (!repeatingOverride) {
+      last_override_settings_ = HalCameraMetadata::Clone(override_setting.get());
+    }
+
+    override_settings_.pop();
+    // If there are multiple queued override settings, skip until the speed-up
+    // is at least 2 frames.
+    if (override_frame_number - frame_number >= kZoomSpeedup) {
+      // If the request's settings override isn't ON, do not return
+      // override_frame_number. Return 0 to indicate there is no
+      // override happening.
+      return overriding ? override_frame_number : 0;
+    }
+  }
+  return 0;
+}
+
+void EmulatedRequestProcessor::ApplyOverrideZoom(
+    const std::unique_ptr<HalCameraMetadata>& override_setting,
+    const std::unique_ptr<HalCameraMetadata>& request_settings,
+    camera_metadata_tag tag) {
+  status_t ret;
+  camera_metadata_ro_entry_t entry;
+  ret = override_setting->Get(tag, &entry);
+  if (ret == OK) {
+    if (entry.type == TYPE_INT32) {
+      request_settings->Set(tag, entry.data.i32, entry.count);
+    } else if (entry.type == TYPE_FLOAT) {
+      request_settings->Set(tag, entry.data.f, entry.count);
+    } else {
+      ALOGE("%s: Unsupported override key %d", __FUNCTION__, tag);
+    }
+  } else {
+    auto missing_tag = get_camera_metadata_tag_name(tag);
+    ALOGE("%s: %s needs to be specified for overriding zoom", __func__,
+          missing_tag);
+  }
+}
+
 Return<void> EmulatedRequestProcessor::SensorHandler::onEvent(const Event& e) {
   auto processor = processor_.lock();
   if (processor.get() == nullptr) {
@@ -548,6 +642,11 @@ Return<void> EmulatedRequestProcessor::SensorHandler::onEvent(const Event& e) {
     const uint32_t earth_accel = 9;  // Switch threshold [m/s^2]
     uint32_t x_accel = e.u.vec3.x;
     uint32_t y_accel = e.u.vec3.y;
+    uint32_t z_accel = abs(e.u.vec3.z);
+    if (z_accel == earth_accel) {
+      return Void();
+    }
+
     if (x_accel == earth_accel) {
       processor->screen_rotation_ = 270;
     } else if (x_accel == -earth_accel) {

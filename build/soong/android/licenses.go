@@ -303,6 +303,7 @@ func exemptFromRequiredApplicableLicensesProperty(module Module) bool {
 	switch reflect.TypeOf(module).String() {
 	case "*android.licenseModule": // is a license, doesn't need one
 	case "*android.licenseKindModule": // is a license, doesn't need one
+	case "*android.genNoticeModule": // contains license texts as data
 	case "*android.NamespaceModule": // just partitions things, doesn't add anything
 	case "*android.soongConfigModuleTypeModule": // creates aliases for modules with licenses
 	case "*android.soongConfigModuleTypeImport": // creates aliases for modules with licenses
@@ -330,6 +331,8 @@ func init() {
 func licensesMakeVarsProvider(ctx MakeVarsContext) {
 	ctx.Strict("BUILD_LICENSE_METADATA",
 		ctx.Config().HostToolPath(ctx, "build_license_metadata").String())
+	ctx.Strict("COPY_LICENSE_METADATA",
+		ctx.Config().HostToolPath(ctx, "copy_license_metadata").String())
 	ctx.Strict("HTMLNOTICE", ctx.Config().HostToolPath(ctx, "htmlnotice").String())
 	ctx.Strict("XMLNOTICE", ctx.Config().HostToolPath(ctx, "xmlnotice").String())
 	ctx.Strict("TEXTNOTICE", ctx.Config().HostToolPath(ctx, "textnotice").String())
@@ -337,4 +340,5 @@ func licensesMakeVarsProvider(ctx MakeVarsContext) {
 	ctx.Strict("COMPLIANCENOTICE_SHIPPEDLIBS", ctx.Config().HostToolPath(ctx, "compliancenotice_shippedlibs").String())
 	ctx.Strict("COMPLIANCE_LISTSHARE", ctx.Config().HostToolPath(ctx, "compliance_listshare").String())
 	ctx.Strict("COMPLIANCE_CHECKSHARE", ctx.Config().HostToolPath(ctx, "compliance_checkshare").String())
+	ctx.Strict("COMPLIANCE_SBOM", ctx.Config().HostToolPath(ctx, "compliance_sbom").String())
 }

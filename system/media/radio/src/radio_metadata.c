@@ -86,6 +86,7 @@ int check_size(radio_metadata_buffer_t **metadata_ptr, const uint32_t size_int)
         new_size_int *= 2;
 
     ALOGV("%s growing from %u to %u", __func__, metadata->size_int, new_size_int);
+    /* NOLINTNEXTLINE(clang-analyzer-unix.MallocSizeof) */
     metadata = realloc(metadata, new_size_int * sizeof(uint32_t));
     if (metadata == NULL) {
         return -ENOMEM;
@@ -192,6 +193,7 @@ int radio_metadata_allocate(radio_metadata_t **metadata,
                             const uint32_t sub_channel)
 {
     radio_metadata_buffer_t *metadata_buf =
+            /* NOLINTNEXTLINE(clang-analyzer-unix.MallocSizeof) */
             (radio_metadata_buffer_t *)calloc(RADIO_METADATA_DEFAULT_SIZE, sizeof(uint32_t));
     if (metadata_buf == NULL) {
         return -ENOMEM;

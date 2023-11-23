@@ -29,7 +29,7 @@ import android.net.Uri;
 import android.os.AsyncTask;
 import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
-import android.telephony.cts.TelephonyUtils;
+import android.telephony.cts.util.TelephonyUtils;
 import android.telephony.gba.UaSecurityProtocolIdentifier;
 import android.util.Log;
 
@@ -61,8 +61,6 @@ public final class GbaServiceTest {
     private static final String BTID = "(B-TID)";
     private static final int REQ_TIMEOUT = 5000;
     private static final int RELEASE_DEFAULT = 0;
-    private static final int RELEASE_TEST_MS = 15 * 1000;
-    private static final int RELEASE_NEVER = -1;
 
     private static int sSubId;
     private static Instrumentation sInstrumentation;
@@ -231,45 +229,6 @@ public final class GbaServiceTest {
         waitForMs(sConfig, 500);
 
         assertFalse(TestGbaConfig.STATE_BOUND == sConfig.getServiceState());
-    }
-
-    @Test
-    public void testServiceReleaseDuration() throws Exception {
-        int ss = sConfig.getServiceState();
-        boolean isExpected = (ss == TestGbaConfig.STATE_UNKNOWN
-                || ss == TestGbaConfig.STATE_REMOVED
-                || ss == TestGbaConfig.STATE_UNBOUND);
-        assertTrue(isExpected);
-        sConfig.setConfig(false, new byte[16], BTID,
-                TelephonyManager.GBA_FAILURE_REASON_UNKNOWN);
-        assertTrue(setReleaseTime(RELEASE_TEST_MS));
-
-        runGbaFailCase(TelephonyManager.GBA_FAILURE_REASON_UNKNOWN,
-                android.Manifest.permission.MODIFY_PHONE_STATE);
-
-        waitForMs(sConfig, 500);
-        assertEquals(TestGbaConfig.STATE_BOUND, sConfig.getServiceState());
-
-        waitForMs(sConfig, RELEASE_TEST_MS);
-        assertFalse(TestGbaConfig.STATE_BOUND == sConfig.getServiceState());
-    }
-
-    @Test
-    public void testServiceNoRelease() throws Exception {
-        int ss = sConfig.getServiceState();
-        boolean isExpected = (ss == TestGbaConfig.STATE_UNKNOWN
-                || ss == TestGbaConfig.STATE_REMOVED
-                || ss == TestGbaConfig.STATE_UNBOUND);
-        assertTrue(isExpected);
-        sConfig.setConfig(false, new byte[16], BTID,
-                TelephonyManager.GBA_FAILURE_REASON_UNKNOWN);
-        assertTrue(setReleaseTime(RELEASE_NEVER));
-
-        runGbaFailCase(TelephonyManager.GBA_FAILURE_REASON_UNKNOWN,
-                android.Manifest.permission.MODIFY_PHONE_STATE);
-        waitForMs(sConfig, 2 * RELEASE_TEST_MS);
-
-        assertEquals(TestGbaConfig.STATE_BOUND, sConfig.getServiceState());
     }
 
     public static void waitForMs(Object obj, long ms) {

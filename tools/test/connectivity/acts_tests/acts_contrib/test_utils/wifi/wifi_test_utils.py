@@ -56,9 +56,6 @@ SPEED_OF_LIGHT = 299792458
 
 DEFAULT_PING_ADDR = "https://www.google.com/robots.txt"
 
-CNSS_DIAG_CONFIG_PATH = "/data/vendor/wifi/cnss_diag/"
-CNSS_DIAG_CONFIG_FILE = "cnss_diag.conf"
-
 ROAMING_ATTN = {
     "AP1_on_AP2_off": [0, 0, 95, 95],
     "AP1_off_AP2_on": [95, 95, 0, 0],
@@ -811,7 +808,7 @@ def wifi_forget_network(ad, net_ssid):
             break
 
 
-def wifi_test_device_init(ad):
+def wifi_test_device_init(ad, country_code=WifiEnums.CountryCode.US):
     """Initializes an android device for wifi testing.
 
     0. Make sure SL4A connection is established on the android device.
@@ -842,7 +839,7 @@ def wifi_test_device_init(ad):
     ad.log.info("wpa_supplicant log change status: %s", output)
     utils.sync_device_time(ad)
     ad.droid.telephonyToggleDataConnection(False)
-    set_wifi_country_code(ad, WifiEnums.CountryCode.US)
+    set_wifi_country_code(ad, country_code)
     utils.set_ambient_display(ad, False)
 
 
@@ -2602,72 +2599,62 @@ def verify_mac_is_found_in_pcap(ad, mac, packets):
     asserts.fail("Did not find MAC = %s in packet sniffer."
                  "for device %s" % (mac, ad.serial))
 
-
-def start_cnss_diags(ads, cnss_diag_file, pixel_models):
+def start_all_wlan_logs(ads):
     for ad in ads:
-        start_cnss_diag(ad, cnss_diag_file, pixel_models)
+        start_wlan_logs(ad)
 
-
-def start_cnss_diag(ad, cnss_diag_file, pixel_models):
-    """Start cnss_diag to record extra wifi logs
+def start_wlan_logs(ad):
+    """Start Pixel Logger to record extra wifi logs
 
     Args:
         ad: android device object.
-        cnss_diag_file: cnss diag config file to push to device.
-        pixel_models: pixel devices.
     """
-    if ad.model not in pixel_models:
-        ad.log.info("Device not supported to collect pixel logger")
+    if not ad.adb.shell("pm list package | grep com.android.pixellogger"):
+        ad.log.info("Device doesn't have Pixel Logger")
         return
-    if ad.model in wifi_constants.DEVICES_USING_LEGACY_PROP:
-        prop = wifi_constants.LEGACY_CNSS_DIAG_PROP
-    else:
-        prop = wifi_constants.CNSS_DIAG_PROP
-    if ad.adb.getprop(prop) != 'true':
-        if not int(
-                ad.adb.shell("ls -l %s%s | wc -l" %
-                             (CNSS_DIAG_CONFIG_PATH, CNSS_DIAG_CONFIG_FILE))):
-            ad.adb.push("%s %s" % (cnss_diag_file, CNSS_DIAG_CONFIG_PATH))
-        ad.adb.shell(
-            "find /data/vendor/wifi/cnss_diag/wlan_logs/ -type f -delete",
+
+    ad.adb.shell(
+            "find /sdcard/Android/data/com.android.pixellogger/files/logs"
+            "/wlan_logs/ -type f -delete",
             ignore_status=True)
-        ad.adb.shell("setprop %s true" % prop, ignore_status=True)
-
-
-def stop_cnss_diags(ads, pixel_models):
-    for ad in ads:
-        stop_cnss_diag(ad, pixel_models)
-
-
-def stop_cnss_diag(ad, pixel_models):
-    """Stops cnss_diag
-
-    Args:
-        ad: android device object.
-        pixel_models: pixel devices.
-    """
-    if ad.model not in pixel_models:
-        ad.log.info("Device not supported to collect pixel logger")
-        return
-    if ad.model in wifi_constants.DEVICES_USING_LEGACY_PROP:
-        prop = wifi_constants.LEGACY_CNSS_DIAG_PROP
+    if ad.file_exists("/vendor/bin/cnss_diag"):
+        ad.adb.shell("am startservice -a com.android.pixellogger.service"
+                ".logging.LoggingService.ACTION_START_LOGGING "
+                "-e intent_logger cnss_diag", ignore_status=True)
     else:
-        prop = wifi_constants.CNSS_DIAG_PROP
-    ad.adb.shell("setprop %s false" % prop, ignore_status=True)
+        ad.adb.shell("am startservice -a com.android.pixellogger.service"
+                ".logging.LoggingService.ACTION_START_LOGGING "
+                "-e intent_logger wlan_logs", ignore_status=True)
 
+def stop_all_wlan_logs(ads):
+    for ad in ads:
+        stop_wlan_logs(ad)
+    ad.log.info("Wait 30s for the createion of zip file for wlan logs")
+    time.sleep(30)
 
-def get_cnss_diag_log(ad):
-    """Pulls the cnss_diag logs in the wlan_logs dir
+def stop_wlan_logs(ad):
+    """Stops Pixel Logger
+
     Args:
         ad: android device object.
     """
-    logs = ad.get_file_names("/data/vendor/wifi/cnss_diag/wlan_logs/")
+    if not ad.adb.shell("pm list package | grep com.android.pixellogger"):
+        return
+
+    ad.adb.shell("am startservice -a com.android.pixellogger.service.logging"
+            ".LoggingService.ACTION_STOP_LOGGING", ignore_status=True)
+
+def get_wlan_logs(ad):
+    """Pull logs from Pixel Logger folder
+    Args:
+        ad: android device object.
+    """
+    logs = ad.get_file_names("/sdcard/Android/data/com.android.pixellogger/files/logs/wlan_logs")
     if logs:
-        ad.log.info("Pulling cnss_diag logs %s", logs)
-        log_path = os.path.join(ad.device_log_path, "CNSS_DIAG_%s" % ad.serial)
+        ad.log.info("Pulling Pixel Logger logs %s", logs)
+        log_path = os.path.join(ad.device_log_path, "WLAN_LOGS_%s" % ad.serial)
         os.makedirs(log_path, exist_ok=True)
         ad.pull_files(logs, log_path)
-
 
 LinkProbeResult = namedtuple(
     'LinkProbeResult',
@@ -2944,3 +2931,38 @@ def validate_ping_between_two_clients(dut1, dut2):
                              timeout=20),
         "%s ping %s failed" % (dut2.serial, dut1_ip))
 
+def get_wear_wifimediator_disable_status(ad):
+    """Gets WearWifiMediator disable status.
+
+    Args:
+        ad: Android Device
+
+    Returns:
+        True if WearWifiMediator is disabled, False otherwise.
+    """
+    status = ad.adb.shell("settings get global cw_disable_wifimediator")
+    if status == "1":
+        ad.log.info("WearWifiMediator is DISABLED")
+        status = True
+    else:
+        ad.log.info("WearWifiMediator is ENABLED")
+        status = False
+    return status
+
+def disable_wear_wifimediator(ad, state):
+    """Disables WearWifiMediator.
+
+    Args:
+        ad: Android Device
+        state: True to disable, False otherwise.
+    """
+    if state:
+        ad.log.info("Disabling WearWifiMediator.....")
+        ad.adb.shell("settings put global cw_disable_wifimediator 1")
+        asserts.assert_true(get_wear_wifimediator_disable_status(ad),
+                            "WearWifiMediator should be disabled")
+    else:
+        ad.log.info("Enabling WearWifiMediator.....")
+        ad.adb.shell("settings put global cw_disable_wifimediator 0")
+        asserts.assert_false(get_wear_wifimediator_disable_status(ad),
+                             "WearWifiMediator should be enabled")

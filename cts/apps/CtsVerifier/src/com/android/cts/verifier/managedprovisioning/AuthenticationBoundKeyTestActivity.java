@@ -9,6 +9,8 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricManager.Authenticators;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -71,6 +73,8 @@ public class AuthenticationBoundKeyTestActivity extends DialogTestListActivity {
             + KeyProperties.BLOCK_MODE_CBC + "/" + KeyProperties.ENCRYPTION_PADDING_PKCS7;
 
 
+    private BiometricManager mBiometricManager;
+
     private KeyguardManager mKeyguardManager;
     private FingerprintManager mFingerprintManager;
     private boolean mFingerprintSupported;
@@ -91,9 +95,10 @@ public class AuthenticationBoundKeyTestActivity extends DialogTestListActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         mKeyguardManager = (KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        mBiometricManager = (BiometricManager) getSystemService(BIOMETRIC_SERVICE);
         mFingerprintManager = (FingerprintManager) getSystemService(FINGERPRINT_SERVICE);
         mFingerprintSupported = mFingerprintManager != null
-                && mFingerprintManager.isHardwareDetected();
+                && mFingerprintManager.isHardwareDetected() && hasStrongBiometrics();
         // Need to have valid mFingerprintSupported value before calling super.onCreate() because
         // mFingerprintSupported is used in setupTests() which gets called by super.onCreate().
         super.onCreate(savedInstanceState);
@@ -188,6 +193,11 @@ public class AuthenticationBoundKeyTestActivity extends DialogTestListActivity {
             };
             adapter.add(mFingerprintBoundKeyTest);
         }
+    }
+
+    private boolean hasStrongBiometrics() {
+        return mBiometricManager.canAuthenticate(Authenticators.BIOMETRIC_STRONG)
+                != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE;
     }
 
     private boolean checkPreconditions() {

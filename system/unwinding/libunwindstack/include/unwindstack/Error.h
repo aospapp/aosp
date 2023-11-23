@@ -43,6 +43,7 @@ enum ErrorCode : uint8_t {
   ERROR_BAD_ARCH,               // Arch invalid (none, or mismatched).
   ERROR_MAPS_PARSE,             // Failed to parse maps data.
   ERROR_INVALID_PARAMETER,      // Invalid parameter passed to function.
+  ERROR_PTRACE_CALL,            // Ptrace call failed while unwinding.
   ERROR_MAX = ERROR_INVALID_PARAMETER,
 };
 
@@ -76,6 +77,8 @@ static inline const char* GetErrorCodeString(ErrorCode error) {
       return "Failed to parse maps";
     case ERROR_INVALID_PARAMETER:
       return "Invalid parameter";
+    case ERROR_PTRACE_CALL:
+      return "Ptrace Call Failed";
   }
 }
 

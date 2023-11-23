@@ -94,14 +94,12 @@ runnable_test_exceptions = frozenset([
   "1004-checker-volatile-ref-load",
   "133-static-invoke-super",
   "1338-gc-no-los",
-  "151-OpenFileLimit",
   "159-app-image-fields",
   "160-read-barrier-stress",
   "163-app-image-methods",
   "165-lock-owner-proxy",
   "168-vmstack-annotated",
   "176-app-image-string",
-  "2232-write-metrics-to-log",
   "304-method-tracing",
   "628-vdex",
   "643-checker-bogus-ic",
@@ -197,17 +195,38 @@ known_failing_tests = frozenset([
   #           at Main.main(Main.java:20)
   #
   "821-many-args",
+  # 823-cha-inlining: Dependency on `libarttest`.
+  "823-cha-inlining",
   # 826-infinite-loop: The test expects an argument passed to `Main.main` (the test library,
   # usually `arttestd` or `arttest)`, but the ART run-test TradeFed test runner
   # (`com.android.tradefed.testtype.ArtRunTest`) does not implement this yet.
   "826-infinite-loop",
   # 832-cha-recursive: Dependency on `libarttest`.
   "832-cha-recursive",
+  # 837-deopt: Dependency on `libarttest`.
+  "837-deopt",
+  # 844-exception: Dependency on `libarttest`.
+  "844-exception",
+  # 844-exception2: Dependency on `libarttest`.
+  "844-exception2",
+  # 966-default-conflict: Dependency on `libarttest`.
+  "966-default-conflict",
+  # These tests need native code.
+  "993-breakpoints-non-debuggable",
+  "2243-single-step-default",
+  "2262-miranda-methods",
+  "2262-default-conflict-methods"
+])
+
+known_failing_on_hwasan_tests = frozenset([
+  "BootImageProfileTest", # b/232012605
+  "CtsJdwpTestCases", # times out
 ])
 
 # ART gtests that do not need root access to the device.
 art_gtest_user_module_names = [
     "art_libnativebridge_cts_tests",
+    "art_standalone_artd_tests",
     "art_standalone_cmdline_tests",
     "art_standalone_compiler_tests",
     "art_standalone_dex2oat_tests",
@@ -222,7 +241,6 @@ art_gtest_user_module_names = [
     "art_standalone_libprofile_tests",
     "art_standalone_oatdump_tests",
     "art_standalone_odrefresh_tests",
-    "art_standalone_runtime_compiler_tests",
     "art_standalone_runtime_tests",
     "art_standalone_sigchain_tests",
     "libnativeloader_test",
@@ -232,6 +250,7 @@ art_gtest_user_module_names = [
 art_gtest_eng_only_module_names = [
     "art_standalone_dexoptanalyzer_tests",
     "art_standalone_profman_tests",
+    "libnativeloader_e2e_tests",
 ]
 
 # All supported ART gtests.
@@ -239,57 +258,54 @@ art_gtest_module_names = sorted(art_gtest_user_module_names + art_gtest_eng_only
 
 # ART gtests supported in MTS that do not need root access to the device.
 art_gtest_mts_user_module_names = copy.copy(art_gtest_user_module_names)
-# Temporarily disable `art_standalone_odrefresh_tests` in MTS,
-# as it is currently failing in Mainline testing
-# (b/206335809); a fix is in the works but may take some time
-# to land.
-#
-# TODO(b/206335809): Re-enable this test when the fix has landed.
-art_gtest_mts_user_module_names.remove("art_standalone_odrefresh_tests")
 
 # ART gtests supported in Mainline presubmits.
 art_gtests_mainline_presubmit_module_names = copy.copy(art_gtest_module_names)
-# Temporarily disable `art_standalone_odrefresh_tests` in Mainline
-# presubmits, as it is currently failing in Mainline testing
-# (b/206335809); a fix is in the works but may take some time to
-# land.
-#
-# TODO(b/206335809): Re-enable this test when the fix has landed.
-art_gtests_mainline_presubmit_module_names.remove("art_standalone_odrefresh_tests")
 
 # Tests exhibiting a flaky behavior, currently exluded from MTS for
 # the stake of stability / confidence (b/209958457).
-flaky_tests_excluded_from_mts = [
-    ("CtsLibcoreFileIOTestCases" +
-     " android.cts.FileChannelInterProcessLockTest#" + m) for m in [
+flaky_tests_excluded_from_mts = {
+    "CtsLibcoreFileIOTestCases": [
+        ("android.cts.FileChannelInterProcessLockTest#" + m) for m in [
          "test_lockJJZ_Exclusive_asyncChannel",
          "test_lockJJZ_Exclusive_syncChannel",
          "test_lock_differentChannelTypes",
          "test_lockJJZ_Shared_asyncChannel",
          "test_lockJJZ_Shared_syncChannel",
+        ]
+    ],
+    "CtsLibcoreTestCases": [
+        ("com.android.org.conscrypt.javax.net.ssl.SSLSocketVersionCompatibilityTest#" + m + c)
+        for (m, c) in itertools.product(
+            [
+                "test_SSLSocket_interrupt_read_withoutAutoClose",
+                "test_SSLSocket_setSoWriteTimeout",
+            ],
+            [
+                "[0: TLSv1.2 client, TLSv1.2 server]",
+                "[1: TLSv1.2 client, TLSv1.3 server]",
+                "[2: TLSv1.3 client, TLSv1.2 server]",
+                "[3: TLSv1.3 client, TLSv1.3 server]",
+            ]
+        )
+    ] + [
+        ("libcore.dalvik.system.DelegateLastClassLoaderTest#" + m) for m in [
+            "testLookupOrderNodelegate_getResource",
+            "testLookupOrder_getResource",
+        ]
     ]
-] + [
-    ("CtsLibcoreTestCases" +
-     " com.android.org.conscrypt.javax.net.ssl.SSLSocketVersionCompatibilityTest#" + m + c)
-    for (m, c) in itertools.product(
-         [
-             "test_SSLSocket_interrupt_read_withoutAutoClose",
-             "test_SSLSocket_setSoWriteTimeout",
-         ],
-         [
-             "[0: TLSv1.2 client, TLSv1.2 server]",
-             "[1: TLSv1.2 client, TLSv1.3 server]",
-             "[2: TLSv1.3 client, TLSv1.2 server]",
-             "[3: TLSv1.3 client, TLSv1.3 server]",
-         ]
-     )
-] + [
-    ("CtsLibcoreTestCases" +
-     " libcore.dalvik.system.DelegateLastClassLoaderTest#" + m) for m in [
-         "testLookupOrderNodelegate_getResource",
-         "testLookupOrder_getResource",
-    ]
-]
+}
+
+# Tests failing because of linking issues, currently exluded from MTS
+# and Mainline Presubmits to minimize noise in continuous runs while
+# we investigate.
+#
+# TODO(b/247108425): Address the linking issues and re-enable these
+# tests.
+failing_tests_excluded_from_mts_and_mainline_presubmits = {
+    "art_standalone_compiler_tests": ["JniCompilerTest*"],
+    "art_standalone_libartpalette_tests": ["PaletteClientJniTest*"],
+}
 
 # Is `run_test` a Checker test (i.e. a test containing Checker
 # assertions)?
@@ -315,37 +331,37 @@ class Generator:
                    for run_test in os.listdir(self.art_test_dir)
                    if re.match("^[0-9]{3,}-", run_test)])
 
-  # Read build file (Bash script) and return a canonized version of it
-  # (without comments, blank lines, "debugging" statements, etc.).
-  def canonize_build_script(self, build_file):
+  # Return the metadata of a test, if any.
+  def get_test_metadata(self, run_test):
+    run_test_path = os.path.join(self.art_test_dir, run_test)
+    metadata_file = os.path.join(run_test_path, "test-metadata.json")
+    metadata = {}
+    if os.path.exists(metadata_file):
+      with open(metadata_file, "r") as f:
+        try:
+          metadata = json.load(f)
+        except json.decoder.JSONDecodeError:
+          logging.error(f"Unable to parse test metadata file `{metadata_file}`")
+          raise
+    return metadata
 
-    def is_comment(line):
-      return re.match("^\\s*#", line)
-
-    def is_blank(line):
-      return re.match("^\\s*$", line)
-
-    # Is `line` a `set -e` statement?
-    def is_set_e(line):
-      return re.match("^\\s*set -e\\s*", line)
-
-    # Should `line` be kept in the canonized build script?
-    def keep_line(line):
-      return not (is_comment(line) or is_blank(line) or is_set_e(line))
-
-    with open(build_file, "r") as f:
-      lines = f.readlines()
-    return list(filter(keep_line, lines))
-
-  # Can the build script in `build_file` be safely ignored?
-  def can_ignore_build_script(self, build_file):
-    build_script = self.canonize_build_script(build_file)
-    if len(build_script) == 1:
-      if build_script[0] == "./default-build \"$@\" --experimental var-handles\n":
-        # Soong builds JARs with VarHandle support by default (i.e. by
-        # using an API level greater or equal to 28), so we can ignore
-        # build scripts that just request support for this feature.
-        return True
+  # Can the build script of `run_test` be safely ignored?
+  def can_ignore_build_script(self, run_test):
+    # Check whether there are test metadata with build parameters
+    # enabling us to safely ignore the build script.
+    metadata = self.get_test_metadata(run_test)
+    build_param = metadata.get("build-param", {})
+    # Ignore build scripts that are just about preventing building for
+    # the JVM and/or using VarHandles (Soong builds JARs with
+    # VarHandle support by default (i.e. by using an API level greater
+    # or equal to 28), so we can ignore build scripts that just
+    # request support for this feature.)
+    experimental_var_handles = {"experimental": "var-handles"}
+    jvm_supported_false = {"jvm-supported": "false"}
+    if (build_param == experimental_var_handles or
+        build_param == jvm_supported_false or
+        build_param == experimental_var_handles | jvm_supported_false):
+      return True
     return False
 
   # Is building `run_test` supported?
@@ -355,8 +371,11 @@ class Generator:
 
     # Skip tests with non-default build rules, unless these build
     # rules can be safely ignored.
-    if os.path.isfile(os.path.join(run_test_path, "build")):
-      if not self.can_ignore_build_script(os.path.join(run_test_path, "build")):
+    if (os.path.isfile(os.path.join(run_test_path, "generate-sources")) or
+        os.path.isfile(os.path.join(run_test_path, "javac_post.sh"))):
+      return False
+    if os.path.isfile(os.path.join(run_test_path, "build.py")):
+      if not self.can_ignore_build_script(run_test):
         return False
     # Skip tests with sources outside the `src` directory.
     for subdir in ["jasmin",
@@ -368,8 +387,7 @@ class Generator:
                    "src-bcpex",
                    "src-ex",
                    "src-ex2",
-                   "src-multidex",
-                   "src2"]:
+                   "src-multidex"]:
       if os.path.isdir(os.path.join(run_test_path, subdir)):
         return False
     # Skip tests that have both an `src` directory and an `src-art` directory.
@@ -389,19 +407,60 @@ class Generator:
     # All other tests are considered buildable.
     return True
 
-  # Is (successfully) running `run_test` supported?
-  # TODO(b/147812905): Add run-time support for more tests.
-  def is_runnable(self, run_test):
-    run_test_path = os.path.join(self.art_test_dir, run_test)
+  # Can the run script of `run_test` be safely ignored?
+  def can_ignore_run_script(self, run_test):
     # Unconditionally consider some identified tests that have a
     # (not-yet-handled) custom `run` script as runnable.
+    #
     # TODO(rpl): Get rid of this exception mechanism by supporting
     # these tests' `run` scripts properly.
     if run_test in runnable_test_exceptions:
       return True
-    # Skip tests with a custom `run` script.
-    if os.path.isfile(os.path.join(run_test_path, "run")):
-      return False
+    # Check whether there are test metadata with run parameters
+    # enabling us to safely ignore the run script.
+    metadata = self.get_test_metadata(run_test)
+    run_param = metadata.get("run-param", {})
+    if run_param.get("default-run", ""):
+      return True
+    return False
+
+  def gen_libs_list_impl(self, library_type, libraries):
+    if len(libraries) == 0:
+      return ""
+    libraries_joined = """,
+              """.join(libraries)
+    return f"""
+          {library_type}: [
+              {libraries_joined}
+          ],"""
+
+  def gen_libs_list(self, libraries):
+    return self.gen_libs_list_impl("libs", libraries);
+
+  def gen_static_libs_list(self, libraries):
+    return self.gen_libs_list_impl("static_libs", libraries);
+
+  def gen_java_library_rule(self, name, src_dir, libraries):
+    return f"""\
+
+
+      // Library with {src_dir}/ sources for the test.
+      java_library {{
+          name: "{name}",
+          defaults: ["art-run-test-defaults"],{self.gen_libs_list(libraries)}
+          srcs: ["{src_dir}/**/*.java"],
+      }}"""
+
+  # Is (successfully) running `run_test` supported?
+  # TODO(b/147812905): Add run-time support for more tests.
+  def is_runnable(self, run_test):
+    run_test_path = os.path.join(self.art_test_dir, run_test)
+
+    # Skip tests with non-default run rules, unless these run rules
+    # can be safely ignored.
+    if os.path.isfile(os.path.join(run_test_path, "run.py")):
+      if not self.can_ignore_run_script(run_test):
+        return False
     # Skip tests known to fail.
     if run_test in known_failing_tests:
       return False
@@ -429,11 +488,7 @@ class Generator:
     bp_file = os.path.join(run_test_path, "Android.bp")
 
     # Optional test metadata (JSON file).
-    metadata_file = os.path.join(run_test_path, "test-metadata.json")
-    metadata = {}
-    if os.path.exists(metadata_file):
-      with open(metadata_file, "r") as f:
-        metadata = json.load(f)
+    metadata = self.get_test_metadata(run_test)
 
     run_test_module_name = ART_RUN_TEST_MODULE_NAME_PREFIX + run_test
 
@@ -470,6 +525,16 @@ class Generator:
     else:
       source_dir = "src"
 
+    src_library_rules = []
+    test_libraries = []
+    if os.path.isdir(os.path.join(run_test_path, "src2")):
+      src_library_rules.append(self.gen_java_library_rule(
+          f"{run_test_module_name}-{source_dir}",
+          source_dir,
+          test_libraries))
+      test_libraries.append(f"\"{run_test_module_name}-src\"")
+      source_dir = "src2"
+
     with open(bp_file, "w") as f:
       logging.debug(f"Writing `{bp_file}`.")
       f.write(textwrap.dedent(f"""\
@@ -484,14 +549,14 @@ class Generator:
           // to get the below license kinds:
           //   SPDX-license-identifier-Apache-2.0
           default_applicable_licenses: ["art_license"],
-      }}
+      }}{''.join(src_library_rules)}
 
       // Test's Dex code.
       java_test {{
           name: "{run_test_module_name}",
           defaults: ["art-run-test-defaults"],
           test_config_template: ":{test_config_template}",
-          srcs: ["{source_dir}/**/*.java"],
+          srcs: ["{source_dir}/**/*.java"],{self.gen_static_libs_list(test_libraries)}
           data: [
               ":{run_test_module_name}-expected-stdout",
               ":{run_test_module_name}-expected-stderr",
@@ -521,26 +586,37 @@ class Generator:
     run_test_module_names = [ART_RUN_TEST_MODULE_NAME_PREFIX + t for t in art_run_tests]
 
     # Mainline presubmits.
-    mainline_other_presubmit_tests = [
-        "ComposHostTestCases",
-    ]
+    mainline_presubmit_apex_suffix = "[com.google.android.art.apex]"
+    mainline_other_presubmit_tests = []
     mainline_presubmit_tests = (mainline_other_presubmit_tests + run_test_module_names +
                                 art_gtests_mainline_presubmit_module_names)
-    mainline_presubmit_tests_with_apex = [t + "[com.google.android.art.apex]"
-                                          for t
-                                          in mainline_presubmit_tests]
-    mainline_presubmit_tests_dict = [{"name": t} for t in mainline_presubmit_tests_with_apex]
+    mainline_presubmit_tests_dict = [
+        ({"name": t + mainline_presubmit_apex_suffix,
+          "options": [
+              {"exclude-filter": e}
+              for e in failing_tests_excluded_from_mts_and_mainline_presubmits[t]
+          ]}
+         if t in failing_tests_excluded_from_mts_and_mainline_presubmits
+         else {"name": t + mainline_presubmit_apex_suffix})
+        for t in mainline_presubmit_tests
+    ]
+
+    # Android Virtualization Framework presubmits
+    avf_presubmit_tests = ["ComposHostTestCases"]
+    avf_presubmit_tests_dict = [{"name": t} for t in avf_presubmit_tests]
 
     # Presubmits.
     other_presubmit_tests = [
-        "CtsJdwpTestCases",
-        "BootImageProfileTest",
         "ArtServiceTests",
-        "ComposHostTestCases",
+        "BootImageProfileTest",
+        "CtsJdwpTestCases",
+        "art-apex-update-rollback",
         "art_standalone_dexpreopt_tests",
     ]
     presubmit_tests = other_presubmit_tests + run_test_module_names + art_gtest_module_names
     presubmit_tests_dict = [{"name": t} for t in presubmit_tests]
+    hwasan_presubmit_tests_dict = [{"name": t} for t in presubmit_tests
+                                   if t not in known_failing_on_hwasan_tests]
 
     # Use an `OrderedDict` container to preserve the order in which items are inserted.
     # Do not produce an entry for a test group if it is empty.
@@ -550,6 +626,8 @@ class Generator:
         in [
             ("mainline-presubmit", mainline_presubmit_tests_dict),
             ("presubmit", presubmit_tests_dict),
+            ("hwasan-presubmit", hwasan_presubmit_tests_dict),
+            ("avf-presubmit", avf_presubmit_tests_dict),
         ]
         if test_group_dict
     ])
@@ -699,18 +777,25 @@ class Generator:
       include.setAttribute("name", f"mts-art-tests-list-user-shard-{s:02}")
       configuration.appendChild(include)
 
-    # Excluded flaky tests.
-    xml_comment = root.createComment(f" Excluded flaky tests (b/209958457). ")
-    configuration.appendChild(xml_comment)
-
     def append_test_exclusion(test):
       option = root.createElement("option")
       option.setAttribute("name", "compatibility:exclude-filter")
       option.setAttribute("value", test)
       configuration.appendChild(option)
 
-    for t in flaky_tests_excluded_from_mts:
-      append_test_exclusion(t)
+    # Excluded flaky tests.
+    xml_comment = root.createComment(" Excluded flaky tests (b/209958457). ")
+    configuration.appendChild(xml_comment)
+    for module in flaky_tests_excluded_from_mts:
+      for testcase in flaky_tests_excluded_from_mts[module]:
+        append_test_exclusion(f"{module} {testcase}")
+
+    # Excluded failing tests.
+    xml_comment = root.createComment(" Excluded failing tests (b/247108425). ")
+    configuration.appendChild(xml_comment)
+    for module in failing_tests_excluded_from_mts_and_mainline_presubmits:
+      for testcase in failing_tests_excluded_from_mts_and_mainline_presubmits[module]:
+        append_test_exclusion(f"{module} {testcase}")
 
     xml_str = root.toprettyxml(indent = XML_INDENT, encoding = "utf-8")
 
@@ -736,18 +821,11 @@ class Generator:
 
     mts_test_shards = []
 
-    # ART test (gtest & run-test) shard(s).
-    # TODO: Also handle the case of gtests requiring root access to the device
-    # (`art_gtest_eng_only_module_names`).
+    # ART run-tests shard(s).
     art_run_test_module_names = [ART_RUN_TEST_MODULE_NAME_PREFIX + t for t in art_run_tests]
     art_run_test_shards = split_list(art_run_test_module_names, NUM_MTS_ART_RUN_TEST_SHARDS)
     for i in range(len(art_run_test_shards)):
       art_tests_shard_i_tests = art_run_test_shards[i]
-      # Append ART gtests to the last ART run-test shard for now.
-      # If needed, consider moving them to their own shard to increase
-      # the parallelization of code coverage runs.
-      if i + 1 == len(art_run_test_shards):
-        art_tests_shard_i_tests.extend(art_gtest_mts_user_module_names)
       art_tests_shard_i = self.create_mts_test_shard(
           "ART run-tests", art_tests_shard_i_tests, i, 2020,
           ["TODO(rpl): Find a way to express this list in a more concise fashion."])
@@ -774,6 +852,15 @@ class Generator:
         "CTS Libcore OJ tests", other_cts_libcore_tests_shard_tests,
         other_cts_libcore_tests_shard_num, 2021)
     mts_test_shards.append(other_cts_libcore_tests_shard)
+
+    # ART gtests shard.
+    # TODO: Also handle the case of gtests requiring root access to the device
+    # (`art_gtest_eng_only_module_names`).
+    art_gtests_shard_num = len(mts_test_shards)
+    art_gtests_shard_tests = art_gtest_mts_user_module_names
+    art_gtests_shard = self.create_mts_test_shard(
+        "ART gtests", art_gtests_shard_tests, art_gtests_shard_num, 2022)
+    mts_test_shards.append(art_gtests_shard)
 
     for s in mts_test_shards:
       s.regen_test_plan_file()

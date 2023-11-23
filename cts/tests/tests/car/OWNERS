@@ -1,6 +1,11 @@
 # Bug component: 526266
-felipeal@google.com
-gurunagarajan@google.com
-keunyoung@google.com
-nicksauer@google.com
-sgurun@google.com
+include platform/packages/services/Car:/OWNERS
+
+# Vehicle property related CTS files
+per-file src/android/car/cts/CarPropertyManagerTest.java = shanyu@google.com, tylertrephan@google.com
+per-file src/android/car/cts/VehiclePropertyIdsTest.java = shanyu@google.com, tylertrephan@google.com
+per-file src/android/car/cts/utils/VehiclePropertyVerifier.java = shanyu@google.com, tylertrephan@google.com
+
+# Audio related CTS files
+per-file src/android/car/cts/CarAudioManagerTest.java = oscarazu@google.com
+per-file src/android/car/cts/CarAudioFocusTest.java = oscarazu@google.com

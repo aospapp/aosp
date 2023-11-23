@@ -16,13 +16,13 @@
 
 package android.system.helpers;
 
+import static org.junit.Assert.assertTrue;
+
 import android.content.Context;
 import android.os.UserManager;
 import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
-
-import junit.framework.Assert;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -92,7 +92,9 @@ public class UserHelper {
     public void removeSecondaryUser(int userId) {
         int prevUserCount = getUserCount();
         CommandsHelper.execute("pm remove-user " + userId);
-        Assert.assertTrue("User hasn't been removed", getUserCount() == (prevUserCount - 1));
+        // Since this is being run in parallel in some cases, the user count may have
+        // decremented by more than 1 when the command finishes
+        assertTrue("User hasn't been removed", getUserCount() < prevUserCount);
     }
 
     public int getUserCount() {

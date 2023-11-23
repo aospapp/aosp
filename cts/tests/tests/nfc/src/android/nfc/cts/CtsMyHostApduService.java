@@ -4,6 +4,10 @@ import android.nfc.cardemulation.*;
 import android.os.Bundle;
 
 public class CtsMyHostApduService extends HostApduService {
+    public void ctsNotifyUnhandled() {
+      return;
+    }
+
     @Override
     public byte[] processCommandApdu(byte[] apdu, Bundle extras) {
         return new byte[0];

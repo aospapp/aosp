@@ -127,7 +127,7 @@ def enumerate_android_devices(require_prefix=''):
     device_list = []
 
     for device in devices:
-        if device is not "" and device.startswith(require_prefix):
+        if device != "" and device.startswith(require_prefix):
             info = device.split('\t')
             if info[1] == "device":
                 device_list.append(info[0])

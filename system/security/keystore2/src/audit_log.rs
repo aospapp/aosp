@@ -67,7 +67,7 @@ pub fn log_key_integrity_violation(key: &KeyDescriptor) {
 fn log_key_event(tag: u32, key: &KeyDescriptor, calling_app: uid_t, success: bool) {
     with_log_context(tag, |ctx| {
         let owner = key_owner(key.domain, key.nspace, calling_app as i32);
-        ctx.append_i32(if success { 1 } else { 0 })
+        ctx.append_i32(i32::from(success))
             .append_str(key.alias.as_ref().map_or("none", String::as_str))
             .append_i32(owner)
     })

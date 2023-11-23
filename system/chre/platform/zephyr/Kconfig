@@ -6,6 +6,7 @@ config ZEPHYR_CHRE_MODULE
 
 menuconfig CHRE
 	bool "CHRE Support"
+	select REQUIRES_FULL_LIBCPP
 	help
 	  This option enables the CHRE library.
 

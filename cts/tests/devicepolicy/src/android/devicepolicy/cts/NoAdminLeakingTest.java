@@ -19,8 +19,6 @@ package android.devicepolicy.cts;
 import static android.content.pm.PackageManager.FEATURE_AUTOMOTIVE;
 import static android.content.pm.PackageManager.FEATURE_SECURE_LOCK_SCREEN;
 
-import static com.android.bedstead.remotedpc.RemoteDpc.DPC_COMPONENT_NAME;
-
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.fail;
@@ -39,8 +37,10 @@ import com.android.bedstead.harrier.policies.ScreenCaptureDisabled;
 import com.android.bedstead.testapp.TestApp;
 import com.android.bedstead.testapp.TestAppInstance;
 
+import org.junit.Assume;
 import org.junit.ClassRule;
 import org.junit.Rule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.util.function.BiConsumer;
@@ -64,115 +64,134 @@ public class NoAdminLeakingTest {
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordQuality_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordQuality_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordQuality(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumLength_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordMinimumLength_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumLength(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumLetters_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordMinimumLetters_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumLetters(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumNonLetter_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordMinimumNonLetter_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumNonLetter(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumLowerCase_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordMinimumLowerCase_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumLowerCase(who));
     }
 
     @Postsubmit(reason = "new test")
+    @Test
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumUpperCase_adminPolicyNotAvailableToNonAdmin() {
+    public void testPasswordMinimumUpperCase_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumUpperCase(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumNumeric_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordMinimumNumeric_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumNumeric(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordMinimumSymbols_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordMinimumSymbols_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordMinimumSymbols(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordHistoryLength_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordHistoryLength_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordHistoryLength(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordExpiration_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordExpiration_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordExpiration(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void passwordExpirationTimeout_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testPasswordExpirationTimeout_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getPasswordExpirationTimeout(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void maximumFailedPasswordsForWipe_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testMaximumFailedPasswordsForWipe_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getMaximumFailedPasswordsForWipe(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void maximumTimeToLock_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testMaximumTimeToLock_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getMaximumTimeToLock(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void requiredStrongAuthTimeout_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testRequiredStrongAuthTimeout_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getRequiredStrongAuthTimeout(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = ScreenCaptureDisabled.class)
-    public void screenCaptureDisabled_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testScreenCaptureDisabled_adminPolicyNotAvailableToNonAdmin() {
+        Assume.assumeFalse("Test not suitable for non-deviceadmins",
+                sDeviceState.dpc().componentName() == null);
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getScreenCaptureDisabled(who));
     }
 
     @Postsubmit(reason = "new test")
     @CanSetPolicyTest(policy = LockscreenPolicyWithUnifiedChallenge.class)
-    public void trustAgentConfiguration_adminPolicyNotAvailableToNonAdmin() {
+    @Test
+    public void testTrustAgentConfiguration_adminPolicyNotAvailableToNonAdmin() {
         assertOnlyAggregatePolicyAvailableToNonAdmin(
                 (dpm, who) -> dpm.getTrustAgentConfiguration(who,
-                        DPC_COMPONENT_NAME /* agent component, need to be non-null */));
+                        sDeviceState.dpc().componentName()
+                        /* agent component, need to be non-null */));
     }
 
     // TODO(b/210996030): replace this with test method parametrization and separate "null" case.
@@ -185,7 +204,8 @@ public class NoAdminLeakingTest {
             SecurityException adminPackageEx = null;
             try {
                 // Requesting policy for an admin from a different app should throw.
-                accessor.accept(testApp.devicePolicyManager(), DPC_COMPONENT_NAME);
+                accessor.accept(testApp.devicePolicyManager(),
+                        sDeviceState.dpc().componentName());
                 fail("Checking particular admin policy shouldn't be allowed for non admin");
             } catch (SecurityException e) {
                 adminPackageEx = e;
@@ -204,7 +224,7 @@ public class NoAdminLeakingTest {
             // Both exceptions should have the same message (except package name) to avoid revealing
             // admin existence.
             String adminMessage = adminPackageEx.getMessage()
-                    .replace(DPC_COMPONENT_NAME.toString(), "");
+                    .replace(sDeviceState.dpc().componentName().toString(), "");
             String nonexistentMessage = nonexistentPackageEx.getMessage()
                     .replace(nonexistentComponent.toString(), "");
             assertThat(adminMessage).isEqualTo(nonexistentMessage);

@@ -15,18 +15,14 @@
 package rust
 
 import (
+	"path/filepath"
+
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
 	"android/soong/cc"
 	"android/soong/tradefed"
 )
-
-// Test option struct.
-type TestOptions struct {
-	// If the test is a hostside(no device required) unittest that shall be run during presubmit check.
-	Unit_test *bool
-}
 
 type TestProperties struct {
 	// Disables the creation of a test-specific directory when used with
@@ -65,7 +61,7 @@ type TestProperties struct {
 	Test_harness *bool
 
 	// Test options.
-	Test_options TestOptions
+	Test_options android.CommonTestOptions
 
 	// Add RootTargetPreparer to auto generated test config. This guarantees the test to run
 	// with root permission.
@@ -134,13 +130,16 @@ func (test *testDecorator) install(ctx ModuleContext) {
 		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", options})
 	}
 
-	test.testConfig = tradefed.AutoGenRustTestConfig(ctx,
-		test.Properties.Test_config,
-		test.Properties.Test_config_template,
-		test.Properties.Test_suites,
-		configs,
-		test.Properties.Auto_gen_config,
-		testInstallBase)
+	test.testConfig = tradefed.AutoGenTestConfig(ctx, tradefed.AutoGenTestConfigOptions{
+		TestConfigProp:         test.Properties.Test_config,
+		TestConfigTemplateProp: test.Properties.Test_config_template,
+		TestSuites:             test.Properties.Test_suites,
+		Config:                 configs,
+		AutoGenConfig:          test.Properties.Auto_gen_config,
+		TestInstallBase:        testInstallBase,
+		DeviceTemplate:         "${RustDeviceTestConfigTemplate}",
+		HostTemplate:           "${RustHostTestConfigTemplate}",
+	})
 
 	dataSrcPaths := android.PathsForModuleSrc(ctx, test.Properties.Data)
 
@@ -151,9 +150,15 @@ func (test *testDecorator) install(ctx ModuleContext) {
 			ctx.ModuleErrorf("data_lib %q is not a linkable module", depName)
 		}
 		if linkableDep.OutputFile().Valid() {
+			// Copy the output in "lib[64]" so that it's compatible with
+			// the default rpath values.
+			libDir := "lib"
+			if linkableDep.Target().Arch.ArchType.Multilib == "lib64" {
+				libDir = "lib64"
+			}
 			test.data = append(test.data,
 				android.DataPath{SrcPath: linkableDep.OutputFile().Path(),
-					RelativeInstallPath: linkableDep.RelativeInstallPath()})
+					RelativeInstallPath: filepath.Join(libDir, linkableDep.RelativeInstallPath())})
 		}
 	})
 
@@ -195,6 +200,7 @@ func (test *testDecorator) compilerFlags(ctx ModuleContext, flags Flags) Flags {
 	if ctx.Device() {
 		flags.RustFlags = append(flags.RustFlags, "-Z panic_abort_tests")
 	}
+
 	return flags
 }
 

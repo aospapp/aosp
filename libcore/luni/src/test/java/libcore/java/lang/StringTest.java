@@ -27,6 +27,7 @@ import java.nio.ReadOnlyBufferException;
 import java.nio.charset.Charset;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
+import java.nio.charset.CoderMalfunctionError;
 import java.nio.charset.CoderResult;
 import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
@@ -94,7 +95,7 @@ public class StringTest extends TestCase {
             // it was given.
             s.getBytes(EVIL_CHARSET);
             fail(); // We shouldn't have got here!
-        } catch (ReadOnlyBufferException expected) {
+        } catch (CoderMalfunctionError expected) {
             // We caught you trying to be naughty!
         }
     }

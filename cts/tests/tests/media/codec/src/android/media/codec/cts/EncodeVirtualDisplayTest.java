@@ -16,6 +16,9 @@
 
 package android.media.codec.cts;
 
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.app.Presentation;
 import android.content.Context;
 import android.graphics.drawable.ColorDrawable;
@@ -23,12 +26,8 @@ import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
-import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
-import android.media.cts.CompositionTextureView;
-import android.media.cts.InputSurface;
-import android.media.cts.NonMediaMainlineTest;
 import android.media.cts.OutputSurface;
 import android.media.cts.TestArgs;
 import android.opengl.GLES20;
@@ -38,38 +37,33 @@ import android.os.Handler;
 import android.os.Looper;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
-import android.test.AndroidTestCase;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
 import android.view.ViewGroup.LayoutParams;
-import android.view.WindowManager;
 import android.widget.ImageView;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.MediaUtils;
-
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.List;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Tests connecting a virtual display to the input of a MediaCodec encoder.
@@ -179,7 +173,7 @@ public class EncodeVirtualDisplayTest {
         return argsList;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}:{6})")
+    @Parameterized.Parameters(name = "{index}_{0}_{6}")
     public static Collection<Object[]> input() {
         final List<Object[]> exhaustiveArgsList = Arrays.asList(new Object[][]{
                 // mediaType, width, height,  bitrate, framerate, level
@@ -196,6 +190,13 @@ public class EncodeVirtualDisplayTest {
      *
      * @throws Exception
      */
+    @ApiTest(apis = {"AMediaCodec_createInputSurface",
+            "android.hardware.display.DisplayManager#createVirtualDisplay",
+            "android.media.MediaCodecInfo.CodecCapabilities#COLOR_FormatSurface",
+            "android.opengl.GLES20#glReadPixels",
+            "android.media.MediaFormat#KEY_COLOR_RANGE",
+            "android.media.MediaFormat#KEY_COLOR_STANDARD",
+            "android.media.MediaFormat#KEY_COLOR_TRANSFER"})
     @Test
     public void testEncodeVirtualDisplay() throws Throwable {
         if (!MediaUtils.check(sIsAtLeastR, "test needs Android 11")) return;
@@ -366,7 +367,7 @@ public class EncodeVirtualDisplayTest {
                     if (VERBOSE) Log.d(TAG, "decoder output format changed: " +
                             decoderOutputFormat);
                 } else if (decoderStatus < 0) {
-                    fail("unexpected result from deocder.dequeueOutputBuffer: " + decoderStatus);
+                    fail("unexpected result from decoder.dequeueOutputBuffer: " + decoderStatus);
                 } else {  // decoderStatus >= 0
                     if (VERBOSE) Log.d(TAG, "surface decoder given buffer " + decoderStatus +
                             " (size=" + info.size + ")");

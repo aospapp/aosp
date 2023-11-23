@@ -22,6 +22,7 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.helpers.ProcLoadHelper;
 import static com.android.helpers.ProcLoadHelper.LAST_MINUTE_LOAD_METRIC_KEY;
+import static com.android.helpers.ProcLoadHelper.PROC_LOAD_WAIT_TIME_METRIC_KEY;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -57,6 +58,18 @@ public class ProcLoadHelperTest {
         assertTrue(mLoadHelper.startCollecting());
         Map<String, Double> procLoadMetric = mLoadHelper.getMetrics();
         assertTrue(procLoadMetric.containsKey(LAST_MINUTE_LOAD_METRIC_KEY));
+        assertTrue(procLoadMetric.get(LAST_MINUTE_LOAD_METRIC_KEY) > 0);
+    }
+
+    /** Test to verify total proc load wait time metric. **/
+    @Test
+    public void testProcLoadWaitTimeMetric() {
+        mLoadHelper.setProcLoadThreshold(100);
+        mLoadHelper.setProcLoadWaitTimeInMs(1100L);
+        mLoadHelper.setProcLoadIntervalInMs(100L);
+        assertTrue(mLoadHelper.startCollecting());
+        Map<String, Double> procLoadMetric = mLoadHelper.getMetrics();
+        assertTrue(procLoadMetric.containsKey(PROC_LOAD_WAIT_TIME_METRIC_KEY));
         assertTrue(procLoadMetric.get(LAST_MINUTE_LOAD_METRIC_KEY) > 0);
     }
 

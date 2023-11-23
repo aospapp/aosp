@@ -18,11 +18,11 @@ package platform.test.screenshot
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.MediumTest
-import platform.test.screenshot.matchers.MSSIMMatcher
-import platform.test.screenshot.utils.loadBitmap
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
+import platform.test.screenshot.matchers.MSSIMMatcher
+import platform.test.screenshot.utils.loadBitmap
 
 @RunWith(AndroidJUnit4::class)
 @MediumTest

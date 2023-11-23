@@ -18,11 +18,13 @@ package android.platform.test.scenario;
 
 import android.os.SystemClock;
 import android.platform.test.rule.TestWatcher;
+import android.util.Log;
 
 import org.junit.runner.Description;
 
 /** This rule will sleep for a given amount of time at the end of each test method. */
 public class SleepAtTestFinishRule extends TestWatcher {
+    private static final String LOG_TAG = SleepAtTestFinishRule.class.getSimpleName();
 
     private final long mMillis;
 
@@ -32,6 +34,8 @@ public class SleepAtTestFinishRule extends TestWatcher {
 
     @Override
     protected void finished(Description description) {
+        Log.v(LOG_TAG, String.format("Sleeping for %d ms", mMillis));
         SystemClock.sleep(mMillis);
+        Log.v(LOG_TAG, String.format("Done sleeping for %d ms", mMillis));
     }
 }

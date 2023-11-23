@@ -28,6 +28,10 @@ public class TestImsRegistration extends ImsRegistrationImplBase {
 
     private static final String TAG = "TestImsRegistration";
 
+    private boolean mDeregistrationTriggered = false;
+    private @ImsRegistrationImplBase.ImsDeregistrationReason int mDeregistrationReason =
+            ImsRegistrationImplBase.REASON_UNKNOWN;
+
     public TestImsRegistration() {
         Log.d(TAG, "TestImsRegistration with default constructor");
     }
@@ -48,7 +52,8 @@ public class TestImsRegistration extends ImsRegistrationImplBase {
 
     public static final int LATCH_UPDATE_REGISTRATION = 0;
     public static final int LATCH_TRIGGER_DEREGISTRATION = 1;
-    private static final int LATCH_MAX = 2;
+    public static final int LATCH_TRIGGER_DEREGISTRATION_BY_RADIO = 2;
+    private static final int LATCH_MAX = 3;
     private static final CountDownLatch[] sLatches = new CountDownLatch[LATCH_MAX];
     static {
         for (int i = 0; i < LATCH_MAX; i++) {
@@ -78,6 +83,15 @@ public class TestImsRegistration extends ImsRegistrationImplBase {
         }
     }
 
+    @Override
+    public void triggerDeregistration(@ImsRegistrationImplBase.ImsDeregistrationReason int reason) {
+        mDeregistrationTriggered = true;
+        mDeregistrationReason = reason;
+        synchronized (sLatches) {
+            sLatches[LATCH_TRIGGER_DEREGISTRATION_BY_RADIO].countDown();
+        }
+    }
+
     public NetworkRegistrationInfo getNextFullNetworkRegRequest(int timeoutMs) throws Exception {
         return mPendingFullRegistrationRequests.poll(timeoutMs, TimeUnit.MILLISECONDS);
     }
@@ -99,5 +113,19 @@ public class TestImsRegistration extends ImsRegistrationImplBase {
             } catch (InterruptedException e) { }
         }
         return true;
+    }
+
+    public void resetDeregistrationTriggeredByRadio() {
+        mDeregistrationTriggered = false;
+        mDeregistrationReason = ImsRegistrationImplBase.REASON_UNKNOWN;
+        sLatches[LATCH_TRIGGER_DEREGISTRATION_BY_RADIO] = new CountDownLatch(1);
+    }
+
+    public boolean isDeregistrationTriggeredByRadio() {
+        return mDeregistrationTriggered;
+    }
+
+    public int getDeregistrationTriggeredByRadioReason() {
+        return mDeregistrationReason;
     }
 }

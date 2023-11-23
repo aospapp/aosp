@@ -36,7 +36,7 @@
 #include <ctype.h>
 #include <errno.h>
 
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include "common.h"
 #include "cpp_bindings.h"
 
@@ -600,6 +600,9 @@ static int mapErrorCodes(int err)
             break;
         case -EBUSY:
             ret = WIFI_ERROR_BUSY;
+            break;
+        case -ENODEV:
+            ret = WIFI_ERROR_NOT_AVAILABLE;
             break;
         default:
             ret = WIFI_ERROR_UNKNOWN;

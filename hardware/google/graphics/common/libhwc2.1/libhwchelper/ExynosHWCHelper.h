@@ -82,22 +82,35 @@ enum {
 };
 
 typedef enum format_type {
-    TYPE_UNDEF      = 0,
+    TYPE_UNDEF       = 0,
 
     /* format */
-    FORMAT_SHIFT    = 0,
-    FORMAT_MASK     = 0x00000fff,
-    RGB             = 0x00000001,
-    YUV420          = 0x00000002,
-    YUV422          = 0x00000004,
-    P010            = 0x00000008,
+    FORMAT_SHIFT     = 0,
+    FORMAT_MASK      = 0x00000fff,
+
+    FORMAT_RGB_MASK  = 0x0000000f,
+    RGB              = 0x00000001,
+
+    FORMAT_YUV_MASK  = 0x000000f0,
+    YUV420           = 0x00000010,
+    YUV422           = 0x00000020,
+    P010             = 0x00000030,
+
+    FORMAT_SBWC_MASK = 0x00000f00,
+    SBWC_LOSSLESS    = 0x00000100,
+    SBWC_LOSSY_40    = 0x00000200,
+    SBWC_LOSSY_50    = 0x00000300,
+    SBWC_LOSSY_60    = 0x00000400,
+    SBWC_LOSSY_75    = 0x00000500,
+    SBWC_LOSSY_80    = 0x00000600,
 
     /* bit */
-    BIT_SHIFT       = 12,
-    BIT_MASK        = 0x000ff000,
-    BIT8            = 0x00001000,
-    BIT10           = 0x00002000,
-    BIT8_2          = 0x00004000,
+    BIT_SHIFT        = 16,
+    BIT_MASK         = 0x000f0000,
+    BIT8             = 0x00010000,
+    BIT10            = 0x00020000,
+    BIT8_2           = 0x00030000,
+    BIT16            = 0x00040000,
 
     /* compression */
     /*
@@ -105,12 +118,12 @@ typedef enum format_type {
      * descriptions of format (ex: drmFormat, bufferNum, bpp...)
      * in format_description
      */
-    COMP_SHIFT      = 20,
-    COMP_MASK       = 0x0ff00000,
-    COMP_ANY        = 0x08000000, /* the highest bit */
-    AFBC            = 0x00100000,
-    SBWC            = 0x00200000,
-    SBWC_LOSSY      = 0x00400000,
+    COMP_SHIFT       = 20,
+    COMP_MASK        = 0x0ff00000,
+    COMP_ANY         = 0x08000000, /* the highest bit */
+    AFBC             = 0x00100000,
+    SBWC             = 0x00200000,
+    SBWC_LOSSY       = 0x00400000,
 
 } format_type_t;
 
@@ -190,6 +203,8 @@ const format_description_t exynos_format_desc[] = {
         2, 2, 24, YUV420|BIT10|P010, false, String8("EXYNOS_YCbCr_P010_M"), 0},
     {HAL_PIXEL_FORMAT_YCBCR_P010, DECON_PIXEL_FORMAT_NV12_P010, DRM_FORMAT_P010,
         2, 1, 24, YUV420|BIT10|P010, false, String8("EXYNOS_YCbCr_P010"), 0},
+    {HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_SPN, DECON_PIXEL_FORMAT_NV12_P010, DRM_FORMAT_P010,
+        2, 1, 24, YUV420|BIT10|P010, false, String8("EXYNOS_YCbCr_P010_SPN"), 0},
 
     {HAL_PIXEL_FORMAT_GOOGLE_NV12_SP, DECON_PIXEL_FORMAT_MAX, DRM_FORMAT_NV12,
         2, 1, 12, YUV420|BIT8, false, String8("GOOGLE_YCbCr_420_SP"), 0},
@@ -199,6 +214,8 @@ const format_description_t exynos_format_desc[] = {
         1, 1, 12, YUV420|BIT8|AFBC, false, String8("MALI_GRALLOC_FORMAT_INTERNAL_YUV420_8BIT_I"), 0},
     {MALI_GRALLOC_FORMAT_INTERNAL_YUV420_10BIT_I, DECON_PIXEL_FORMAT_MAX, DRM_FORMAT_YUV420_10BIT,
         1, 1, 15, YUV420|BIT10|AFBC, false, String8("MALI_GRALLOC_FORMAT_INTERNAL_YUV420_10BIT_I"), 0},
+    {MALI_GRALLOC_FORMAT_INTERNAL_NV21, DECON_PIXEL_FORMAT_NV21, DRM_FORMAT_NV21,
+        2, 1, 12, YUV420|BIT8, false, String8("MALI_GRALLOC_FORMAT_INTERNAL_NV21"), 0},
 
     /* YUV 422 */
     {HAL_PIXEL_FORMAT_EXYNOS_CbYCrY_422_I, DECON_PIXEL_FORMAT_MAX, DRM_FORMAT_UNDEFINED,
@@ -426,6 +443,8 @@ bool isFormat10BitYUV420(int format);
 bool isFormatLossy(int format);
 bool isFormatSBWC(int format);
 bool isFormatP010(int format);
+bool isFormat10Bit(int format);
+bool isFormat8Bit(int format);
 bool formatHasAlphaChannel(int format);
 unsigned int isNarrowRgb(int format, android_dataspace data_space);
 bool isAFBCCompressed(const buffer_handle_t handle);
@@ -564,7 +583,10 @@ private:
 
 void writeFileNode(FILE *fd, int value);
 int32_t writeIntToFile(const char *file, uint32_t value);
-uint32_t getDisplayId(int32_t displayType, int32_t displayIndex = 0);
+constexpr uint32_t getDisplayId(int32_t displayType, int32_t displayIndex) {
+    return (displayType << DISPLAYID_MASK_LEN) | displayIndex;
+}
+
 int32_t load_png_image(const char *filepath, buffer_handle_t buffer);
 int readLineFromFile(const std::string &filename, std::string &out, char delim);
 

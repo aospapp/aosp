@@ -121,6 +121,7 @@ typedef struct km_auth_list {
     ASN1_INTEGER* boot_patch_level;
     ASN1_NULL* device_unique_attestation;
     ASN1_NULL* identity_credential_key;
+    ASN1_OCTET_STRING* attestation_id_second_imei;
 } KM_AUTH_LIST;
 
 ASN1_SEQUENCE(KM_AUTH_LIST) = {
@@ -191,6 +192,8 @@ ASN1_SEQUENCE(KM_AUTH_LIST) = {
                  TAG_DEVICE_UNIQUE_ATTESTATION.masked_tag()),
     ASN1_EXP_OPT(KM_AUTH_LIST, identity_credential_key, ASN1_NULL,
                  TAG_IDENTITY_CREDENTIAL_KEY.masked_tag()),
+    ASN1_EXP_OPT(KM_AUTH_LIST, attestation_id_second_imei, ASN1_OCTET_STRING,
+                 TAG_ATTESTATION_ID_SECOND_IMEI.masked_tag()),
 } ASN1_SEQUENCE_END(KM_AUTH_LIST);
 DECLARE_ASN1_FUNCTIONS(KM_AUTH_LIST);
 
@@ -347,13 +350,14 @@ keymaster_error_t build_eat_record(const AuthorizationSet& attestation_params,
                                    std::vector<uint8_t>* eat_token);
 
 // Builds the input to HMAC-SHA256 for unique ID generation.
-std::vector<uint8_t> build_unique_id_input(uint64_t creation_date_time,
-                                           const keymaster_blob_t& application_id,
-                                           bool reset_since_rotation);
+keymaster_error_t build_unique_id_input(uint64_t creation_date_time,
+                                        const keymaster_blob_t& application_id,
+                                        bool reset_since_rotation, Buffer* input_data);
 
 // Builds a unique ID of size UNIQUE_ID_SIZE from the given inputs.
-Buffer generate_unique_id(const std::vector<uint8_t>& hbk, uint64_t creation_date_time,
-                          const keymaster_blob_t& application_id, bool reset_since_rotation);
+keymaster_error_t generate_unique_id(const std::vector<uint8_t>& hbk, uint64_t creation_date_time,
+                                     const keymaster_blob_t& application_id,
+                                     bool reset_since_rotation, Buffer* unique_id);
 
 /**
  * Helper functions for attestation record tests. Caller takes ownership of
@@ -400,7 +404,7 @@ keymaster_error_t extract_auth_list(const KM_AUTH_LIST* record, AuthorizationSet
 /**
  * Convert a KeymasterContext::Version to the keymaster version number used in attestations.
  */
-inline static uint version_to_attestation_km_version(KmVersion version) {
+inline static uint32_t version_to_attestation_km_version(KmVersion version) {
     switch (version) {
     default:
     case KmVersion::KEYMASTER_1:
@@ -418,13 +422,15 @@ inline static uint version_to_attestation_km_version(KmVersion version) {
         return 100;
     case KmVersion::KEYMINT_2:
         return 200;
+    case KmVersion::KEYMINT_3:
+        return 300;
     }
 }
 
 /**
  * Convert a KeymasterContext::Version to the corresponding attestation format version number.
  */
-inline static uint version_to_attestation_version(KmVersion version) {
+inline static uint32_t version_to_attestation_version(KmVersion version) {
     switch (version) {
     default:
     case KmVersion::KEYMASTER_1:
@@ -441,6 +447,8 @@ inline static uint version_to_attestation_version(KmVersion version) {
         return 100;
     case KmVersion::KEYMINT_2:
         return 200;
+    case KmVersion::KEYMINT_3:
+        return 300;
     }
 }
 

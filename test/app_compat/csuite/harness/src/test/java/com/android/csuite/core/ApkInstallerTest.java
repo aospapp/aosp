@@ -16,6 +16,8 @@
 package com.android.csuite.core;
 
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.anyLong;
 
 import com.android.csuite.core.ApkInstaller.ApkInstallerException;
 import com.android.tradefed.util.CommandResult;
@@ -27,12 +29,15 @@ import com.google.common.jimfs.Jimfs;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.ArgumentCaptor;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 @RunWith(JUnit4.class)
 public final class ApkInstallerTest {
@@ -74,6 +79,48 @@ public final class ApkInstallerTest {
         ApkInstaller sut = new ApkInstaller("serial", runUtil, apk -> "package.name");
 
         sut.install(root);
+    }
+
+    @Test
+    public void install_parsePackageNameFailed_throwsException() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Files.createFile(root.resolve("base.apk"));
+        IRunUtil runUtil = Mockito.mock(IRunUtil.class);
+        Mockito.when(runUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        ApkInstaller sut =
+                new ApkInstaller(
+                        "serial",
+                        runUtil,
+                        apk -> {
+                            throw new IOException();
+                        });
+
+        assertThrows(ApkInstallerException.class, () -> sut.install(root));
+    }
+
+    @Test
+    public void install_obbExists_installObb() throws Exception {
+        Path root = mFileSystem.getPath("apk");
+        Files.createDirectories(root);
+        Path apkPath = root.resolve("base.apk");
+        Files.createFile(apkPath);
+        Path obbPath = root.resolve("main.obb");
+        Files.createFile(obbPath);
+        IRunUtil runUtil = Mockito.mock(IRunUtil.class);
+        Mockito.when(runUtil.runTimedCmd(Mockito.anyLong(), ArgumentMatchers.<String>any()))
+                .thenReturn(createSuccessfulCommandResultWithStdout(""));
+        ApkInstaller sut = new ApkInstaller("serial", runUtil, apk -> "package.name");
+
+        sut.install(root);
+
+        ArgumentCaptor<String> cmdCaptor = ArgumentCaptor.forClass(String.class);
+        Mockito.verify(runUtil, Mockito.atLeastOnce()).runTimedCmd(anyLong(), cmdCaptor.capture());
+        List<String> capturedArgs = cmdCaptor.getAllValues();
+        assertTrue(capturedArgs.stream().anyMatch(arg -> arg.contains("push")));
+        assertTrue(capturedArgs.stream().anyMatch(arg -> arg.contains("rm")));
+        assertTrue(capturedArgs.stream().anyMatch(arg -> arg.contains("mkdir")));
     }
 
     private static CommandResult createSuccessfulCommandResultWithStdout(String stdout) {

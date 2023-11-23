@@ -47,6 +47,7 @@
 #include "mirror/array-alloc-inl.h"
 #include "mirror/array-inl.h"
 #include "mirror/class-alloc-inl.h"
+#include "mirror/class.h"
 #include "mirror/executable-inl.h"
 #include "mirror/field.h"
 #include "mirror/method.h"
@@ -61,7 +62,7 @@
 #include "thread-inl.h"
 #include "transaction.h"
 #include "unstarted_runtime_list.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 namespace interpreter {
@@ -138,6 +139,10 @@ static void UnstartedRuntimeFindClass(Thread* self,
   ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
 
   ObjPtr<mirror::Class> found = class_linker->FindClass(self, descriptor.c_str(), class_loader);
+  if (found != nullptr && !found->CheckIsVisibleWithTargetSdk(self)) {
+    CHECK(self->IsExceptionPending());
+    return;
+  }
   if (found != nullptr && initialize_class) {
     StackHandleScope<1> hs(self);
     HandleWrapperObjPtr<mirror::Class> h_class = hs.NewHandleWrapper(&found);
@@ -231,8 +236,7 @@ void UnstartedRuntime::UnstartedClassForNameCommon(Thread* self,
     class_loader = nullptr;
   }
 
-  ScopedObjectAccessUnchecked soa(self);
-  if (class_loader != nullptr && !ClassLinker::IsBootClassLoader(soa, class_loader)) {
+  if (class_loader != nullptr && !ClassLinker::IsBootClassLoader(class_loader)) {
     AbortTransactionOrFail(self,
                            "Only the boot classloader is supported: %s",
                            mirror::Object::PrettyTypeOf(class_loader).c_str());
@@ -659,8 +663,7 @@ void UnstartedRuntime::UnstartedClassLoaderGetResourceAsStream(
     StackHandleScope<1> hs(self);
     Handle<mirror::Class> this_classloader_class(hs.NewHandle(this_obj->GetClass()));
 
-    if (self->DecodeJObject(WellKnownClasses::java_lang_BootClassLoader) !=
-            this_classloader_class.Get()) {
+    if (WellKnownClasses::java_lang_BootClassLoader != this_classloader_class.Get()) {
       AbortTransactionOrFail(self,
                              "Unsupported classloader type %s for getResourceAsStream",
                              mirror::Class::PrettyClass(this_classloader_class.Get()).c_str());
@@ -1113,18 +1116,14 @@ void UnstartedRuntime::UnstartedThreadCurrentThread(
     // thread as unstarted to the ThreadGroup. A faked-up main thread peer is good enough for
     // these purposes.
     Runtime::Current()->InitThreadGroups(self);
-    jobject main_peer =
-        self->CreateCompileTimePeer(self->GetJniEnv(),
-                                    "main",
-                                    false,
-                                    Runtime::Current()->GetMainThreadGroup());
+    ObjPtr<mirror::Object> main_peer = self->CreateCompileTimePeer(
+        "main", /*as_daemon=*/ false, Runtime::Current()->GetMainThreadGroup());
     if (main_peer == nullptr) {
       AbortTransactionOrFail(self, "Failed allocating peer");
       return;
     }
 
-    result->SetL(self->DecodeJObject(main_peer));
-    self->GetJniEnv()->DeleteLocalRef(main_peer);
+    result->SetL(main_peer);
   } else {
     AbortTransactionOrFail(self,
                            "Thread.currentThread() does not support %s",
@@ -1277,7 +1276,7 @@ static void UnstartedMemoryPeekArray(
   if (offset < 0 || offset + count > array->GetLength()) {
     std::string error_msg(StringPrintf("Array out of bounds in peekArray: %d/%d vs %d",
                                        offset, count, array->GetLength()));
-    Runtime::Current()->AbortTransactionAndThrowAbortError(self, error_msg.c_str());
+    Runtime::Current()->AbortTransactionAndThrowAbortError(self, error_msg);
     return;
   }
 
@@ -1364,6 +1363,22 @@ void UnstartedRuntime::UnstartedStringDoReplace(
     return;
   }
   result->SetL(mirror::String::DoReplace(self, string, old_c, new_c));
+}
+
+// This allows creating the new style of String objects during compilation.
+void UnstartedRuntime::UnstartedStringFactoryNewStringFromBytes(
+    Thread* self, ShadowFrame* shadow_frame, JValue* result, size_t arg_offset) {
+  jint high = shadow_frame->GetVReg(arg_offset + 1);
+  jint offset = shadow_frame->GetVReg(arg_offset + 2);
+  jint byte_count = shadow_frame->GetVReg(arg_offset + 3);
+  DCHECK_GE(byte_count, 0);
+  StackHandleScope<1> hs(self);
+  Handle<mirror::ByteArray> h_byte_array(
+      hs.NewHandle(shadow_frame->GetVRegReference(arg_offset)->AsByteArray()));
+  Runtime* runtime = Runtime::Current();
+  gc::AllocatorType allocator = runtime->GetHeap()->GetCurrentAllocator();
+  result->SetL(
+      mirror::String::AllocFromByteArray(self, byte_count, h_byte_array, offset, high, allocator));
 }
 
 // This allows creating the new style of String objects during compilation.
@@ -1557,7 +1572,7 @@ void UnstartedRuntime::UnstartedJdkUnsafeCompareAndSwapObject(
   mirror::Object* new_value = shadow_frame->GetVRegReference(arg_offset + 5);
 
   // Must use non transactional mode.
-  if (kUseReadBarrier) {
+  if (gUseReadBarrier) {
     // Need to make sure the reference stored in the field is a to-space one before attempting the
     // CAS or the CAS could fail incorrectly.
     mirror::HeapReference<mirror::Object>* field_addr =
@@ -1921,6 +1936,30 @@ void UnstartedRuntime::UnstartedJNIStringCompareTo(Thread* self,
   result->SetI(receiver->AsString()->CompareTo(rhs->AsString()));
 }
 
+void UnstartedRuntime::UnstartedJNIStringFillBytesLatin1(
+    Thread* self, ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver, uint32_t* args, JValue* ATTRIBUTE_UNUSED) {
+  StackHandleScope<2> hs(self);
+  Handle<mirror::String> h_receiver(hs.NewHandle(
+      reinterpret_cast<mirror::String*>(receiver)->AsString()));
+  Handle<mirror::ByteArray> h_buffer(hs.NewHandle(
+      reinterpret_cast<mirror::ByteArray*>(args[0])->AsByteArray()));
+  int32_t index = static_cast<int32_t>(args[1]);
+  h_receiver->FillBytesLatin1(h_buffer, index);
+}
+
+void UnstartedRuntime::UnstartedJNIStringFillBytesUTF16(
+    Thread* self, ArtMethod* method ATTRIBUTE_UNUSED,
+    mirror::Object* receiver, uint32_t* args, JValue* ATTRIBUTE_UNUSED) {
+  StackHandleScope<2> hs(self);
+  Handle<mirror::String> h_receiver(hs.NewHandle(
+      reinterpret_cast<mirror::String*>(receiver)->AsString()));
+  Handle<mirror::ByteArray> h_buffer(hs.NewHandle(
+      reinterpret_cast<mirror::ByteArray*>(args[0])->AsByteArray()));
+  int32_t index = static_cast<int32_t>(args[1]);
+  h_receiver->FillBytesUTF16(h_buffer, index);
+}
+
 void UnstartedRuntime::UnstartedJNIStringIntern(
     Thread* self ATTRIBUTE_UNUSED, ArtMethod* method ATTRIBUTE_UNUSED, mirror::Object* receiver,
     uint32_t* args ATTRIBUTE_UNUSED, JValue* result) {
@@ -2163,6 +2202,7 @@ using JNIHandler = void(*)(Thread* self,
                            uint32_t* args,
                            JValue* result);
 
+// NOLINTNEXTLINE
 #define ONE_PLUS(ShortNameIgnored, DescriptorIgnored, NameIgnored, SignatureIgnored) 1 +
 static constexpr size_t kInvokeHandlersSize = UNSTARTED_RUNTIME_DIRECT_LIST(ONE_PLUS) 0;
 static constexpr size_t kJniHandlersSize = UNSTARTED_RUNTIME_JNI_LIST(ONE_PLUS) 0;
@@ -2262,6 +2302,9 @@ void UnstartedRuntime::Invoke(Thread* self, const CodeItemDataAccessor& accessor
 
   const auto& iter = invoke_handlers_.find(shadow_frame->GetMethod());
   if (iter != invoke_handlers_.end()) {
+    // Note: When we special case the method, we do not ensure initialization.
+    // This has been the behavior since implementation of this feature.
+
     // Clear out the result in case it's not zeroed out.
     result->SetL(nullptr);
 
@@ -2272,6 +2315,9 @@ void UnstartedRuntime::Invoke(Thread* self, const CodeItemDataAccessor& accessor
 
     self->PopShadowFrame();
   } else {
+    if (!EnsureInitialized(self, shadow_frame)) {
+      return;
+    }
     // Not special, continue with regular interpreter execution.
     ArtInterpreterToInterpreterBridge(self, accessor, shadow_frame, result);
   }

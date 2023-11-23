@@ -37,7 +37,6 @@
 #include "update_engine/common/utils.h"
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/payload_constants.h"
-#include "update_engine/payload_generator/annotated_operation.h"
 #include "update_engine/payload_generator/payload_file.h"
 #include "update_engine/payload_generator/payload_signer.h"
 
@@ -70,8 +69,7 @@ TEST_F(DownloadActionTest, CacheManifestInvalid) {
       .WillRepeatedly(DoAll(SetArgPointee<1>(data), Return(true)));
 
   BootControlStub boot_control;
-  MockHttpFetcher* http_fetcher =
-      new MockHttpFetcher(data.data(), data.size(), nullptr);
+  MockHttpFetcher* http_fetcher = new MockHttpFetcher(data.data(), data.size());
   http_fetcher->set_delay(false);
   InstallPlan install_plan;
   auto& payload = install_plan.payloads.emplace_back();
@@ -139,8 +137,7 @@ TEST_F(DownloadActionTest, CacheManifestValid) {
       .WillRepeatedly(DoAll(SetArgPointee<1>(0), Return(true)));
 
   BootControlStub boot_control;
-  MockHttpFetcher* http_fetcher =
-      new MockHttpFetcher(data.data(), data.size(), nullptr);
+  MockHttpFetcher* http_fetcher = new MockHttpFetcher(data.data(), data.size());
   http_fetcher->set_delay(false);
   InstallPlan install_plan;
   auto& payload = install_plan.payloads.emplace_back();

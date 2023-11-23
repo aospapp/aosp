@@ -196,11 +196,13 @@ public class MbmsDownloadTestBase {
     }
 
     protected static void recursiveDelete(File f) {
-        if (f.isDirectory()) {
-            for (File f1 : f.listFiles()) {
-                recursiveDelete(f1);
+        if (f != null) {
+            if (f.isDirectory()) {
+                for (File f1 : f.listFiles()) {
+                    recursiveDelete(f1);
+                }
             }
+            f.delete();
         }
-        f.delete();
     }
 }

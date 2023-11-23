@@ -89,6 +89,15 @@ void EventLogger::logMessageFromNanoapp(
   });
 }
 
+void EventLogger::logMessageFromNanoapp(const ContextHubMessage &message) {
+  std::lock_guard<std::mutex> lock(mQueuesMutex);
+  mMsgFromNanoapp.kick_push({
+      .timestampMs = getTimeMs(),
+      .id = message.nanoappId,
+      .sizeBytes = message.messageBody.size(),
+  });
+}
+
 std::string EventLogger::dump() const {
   constexpr int kBufferSize = 100;
   char buffer[kBufferSize];

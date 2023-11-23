@@ -23,18 +23,6 @@ java_library_host {
     java_resource_dirs: ["res"],
 }
 
-java_library_host {
-    name: "asuite_proto_java",
-    srcs: [
-        "proto/*.proto",
-    ],
-    proto: {
-        type: "full",
-        canonical_path_from_root: false,
-        include_dirs: ["external/protobuf/src"],
-    },
-}
-
 tradefed_binary_host {
     name: "atest-tradefed",
     short_name: "ATEST",
@@ -43,54 +31,10 @@ tradefed_binary_host {
     required: ["atest_tradefed.sh", "atest_script_help.sh"],
 }
 
+// Attributes common to both atest and atest_flag_list_generator.
 python_defaults {
-    name: "atest_default",
+    name: "atest_defaults",
     pkg_path: "atest",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
-python_defaults {
-    name: "atest_lib_default",
-    pkg_path: "atest",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
-python_defaults {
-    name: "asuite_default",
-    pkg_path: "asuite",
-    version: {
-        py2: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            embedded_launcher: false,
-        },
-    },
-}
-
-python_binary_host {
-    name: "atest",
-    main: "atest.py",
     srcs: [
         "**/*.py",
     ],
@@ -98,43 +42,55 @@ python_binary_host {
         "*_unittest.py",
         "*/*_unittest.py",
         "asuite_lib_test/*.py",
-        "proto/*_pb2.py",
-        "proto/__init__.py",
-        "tf_proto/__init__.py",
-        "tf_proto/*_pb2.py",
+        "proto/*.py",
+        "tf_proto/*.py",
     ],
     libs: [
-        "atest_proto",
+        "asuite_proto",
         "tradefed-protos-py",
         "py-google-api-python-client",
         "py-oauth2client",
-        "py-six",
     ],
     data: [
-        "tools/updatedb_darwin.sh",
+        "bazel/resources/**/*",
     ],
-    // Make atest's built name to atest-dev
+}
+
+python_binary_host {
+    name: "atest",
+    defaults: ["atest_defaults"],
+    main: "atest_main.py",
+    data: [
+        ":atest_flag_list_for_completion",
+    ],
+    // Make atest's built name be atest-dev
     stem: "atest-dev",
-    defaults: ["atest_default"],
     dist: {
         targets: ["droidcore"],
     },
 }
 
-python_library_host {
-    name: "atest_proto",
-    defaults: ["atest_default"],
-    srcs: [
-        "proto/*.proto",
-    ],
-    proto: {
-        canonical_path_from_root: false,
-    },
+// A helper binary used to generate the atest_flag_list_for_completion.txt
+// file, it should never be run outside of the build. It's the same
+// as atest except it has atest_flag_list_generator.py as it's main python
+// file. The atest_flag_list_for_completion.txt file is extracted from the
+// atest binary during autocompletion.
+python_binary_host {
+    name: "atest_flag_list_generator",
+    defaults: ["atest_defaults"],
+    main: "atest_flag_list_generator.py",
+}
+
+genrule {
+    name: "atest_flag_list_for_completion",
+    out: ["atest_flag_list_for_completion.txt"],
+    tools: ["atest_flag_list_generator"],
+    cmd: "$(location atest_flag_list_generator) > $(out)",
 }
 
 python_library_host {
     name: "atest_module_info",
-    defaults: ["atest_lib_default"],
+    pkg_path: "atest",
     srcs: [
         "atest_error.py",
         "atest_decorator.py",
@@ -144,44 +100,22 @@ python_library_host {
         "module_info.py",
     ],
     libs: [
-        "metrics-protos",
-    ]
-}
-
-python_library_host {
-    name: "asuite_proto",
-    defaults: ["asuite_default"],
-    srcs: [
-        "proto/*.proto",
-    ],
-    proto: {
-        canonical_path_from_root: false,
-    },
-}
-
-python_library_host {
-    name: "asuite_metrics",
-    defaults: ["asuite_default"],
-    srcs: [
-        "asuite_metrics.py",
+        "tradefed-protos-py",
     ],
 }
 
 python_library_host {
     name: "asuite_cc_client",
-    defaults: ["asuite_default"],
+    pkg_path: "atest",
     srcs: [
-        "atest_error.py",
-        "atest_decorator.py",
         "atest_enum.py",
-        "atest_utils.py",
-        "constants.py",
-        "constants_default.py",
+        "asuite_metrics.py",
         "metrics/*.py",
+        "coverage/*.py",
     ],
     libs: [
         "asuite_proto",
-        "asuite_metrics",
+        "atest_module_info",
     ],
 }
 
@@ -196,26 +130,22 @@ python_test_host {
         unit_test: true,
     },
     data: [
-        "tools/updatedb_darwin.sh",
         "unittest_data/**/*",
         "unittest_data/**/.*",
     ],
     exclude_srcs: [
         "asuite_lib_test/*.py",
-        "proto/*_pb2.py",
-        "proto/__init__.py",
         "tools/atest_updatedb_unittest.py",
-        "tf_proto/__init__.py",
-        "tf_proto/*_pb2.py",
+        "proto/*.py",
+        "tf_proto/*.py",
     ],
     libs: [
-        "atest_proto",
+        "asuite_proto",
         "pyfakefs",
         "tradefed-protos-py",
     ],
     test_config: "atest_unittests.xml",
     test_suites: ["general-tests"],
-    defaults: ["atest_default"],
 }
 
 python_test_host {
@@ -230,7 +160,6 @@ python_test_host {
     ],
     test_config: "atest_integration_tests.xml",
     test_suites: ["null-suite"],
-    defaults: ["atest_default"],
     test_options: {
         unit_test: false,
     },

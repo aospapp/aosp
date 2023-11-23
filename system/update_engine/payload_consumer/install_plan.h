@@ -73,6 +73,8 @@ struct InstallPlan {
       ErrorCode* error);
 
   bool is_resume{false};
+  bool vabc_none{false};
+  bool disable_vabc{false};
   std::string download_url;  // url to download from
   std::string version;       // version we are installing.
 
@@ -194,6 +196,12 @@ struct InstallPlan {
   // The name of dynamic partitions not included in the payload. Only used
   // for partial updates.
   std::vector<std::string> untouched_dynamic_partitions;
+
+  // Whether to batch write operations for COW
+  bool batched_writes = false;
+
+  // Whether to enable multi-threaded compression on COW writes
+  bool enable_threading = false;
 };
 
 class InstallPlanAction;

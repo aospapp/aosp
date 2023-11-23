@@ -25,7 +25,6 @@ from acts_contrib.test_utils.bt.bt_constants import gatt_descriptor
 from acts_contrib.test_utils.bt.bt_constants import gatt_event
 from acts_contrib.test_utils.bt.bt_constants import gatt_cb_strings
 from acts_contrib.test_utils.bt.bt_constants import gatt_char_desc_uuids
-from math import ceil
 
 
 class GattNotifyTest(GattConnectedBaseTest):
@@ -76,8 +75,9 @@ class GattNotifyTest(GattConnectedBaseTest):
         bt_device_id = 0
         status = 0
         #confirm notification registration was successful
-        self.per_ad.droid.gattServerSendResponse(
-            self.gatt_server, bt_device_id, request_id, status, 0, [])
+        self.per_ad.droid.gattServerSendResponse(self.gatt_server,
+                                                 bt_device_id, request_id,
+                                                 status, 0, [])
         #wait for client to get response
         event = self._client_wait(gatt_event['desc_write'])
 

@@ -32,4 +32,6 @@
     <string name="username_hint">Hint for username</string>
     <string name="password_hint">Hint for password</string>
 
+    <string name="custom_service_name">Custom Autofill Service Name</string>
+
 </resources>

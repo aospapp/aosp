@@ -24,8 +24,6 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
-import dalvik.system.PathClassLoader;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,16 +40,11 @@ public class UsingOtherAppTest {
     @Test
     public void useOtherApp() throws Exception {
         Context context = ApplicationProvider.getApplicationContext();
-        String apkFile = context
-                .getPackageManager()
-                .getApplicationInfo("android.compilation.cts.appusedbyotherapp", 0 /* flags */)
-                .sourceDir;
-        PathClassLoader classLoader =
-                new PathClassLoader(apkFile, this.getClass().getClassLoader());
-        Class<?> c = Class.forName(
-                "android.compilation.cts.appusedbyotherapp.MyActivity",
-                true /* initialize */,
-                classLoader);
+        Context otherAppContext =
+                context.createPackageContext("android.compilation.cts.appusedbyotherapp",
+                        Context.CONTEXT_INCLUDE_CODE | Context.CONTEXT_IGNORE_SECURITY);
+        ClassLoader classLoader = otherAppContext.getClassLoader();
+        Class<?> c = classLoader.loadClass("android.compilation.cts.appusedbyotherapp.MyActivity");
         Method m = c.getMethod("publicMethod");
         String ret = (String) m.invoke(null /* obj */);
         assertThat(ret).isEqualTo("foo");

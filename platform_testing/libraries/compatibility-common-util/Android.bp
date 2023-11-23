@@ -24,6 +24,7 @@ java_library_static {
     srcs: ["src/**/*.java"],
 
     static_libs: [
+        "error_prone_annotations",
         "guava",
         "junit",
     ],
@@ -39,10 +40,13 @@ java_library {
     srcs: ["src/**/*.java"],
     host_supported: true,
     libs: [
+        "error_prone_annotations",
         "junit",
         "guava",
         "json-prebuilt",
         "platform-test-annotations",
         "kxml2-2.3.0",
     ],
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
 }

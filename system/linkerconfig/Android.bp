@@ -26,12 +26,16 @@ cc_defaults {
         "-Wextra",
     ],
     defaults: ["libapexutil-deps"],
+    shared_libs: [
+        // Because the runtime apex depends on the shared libbase,
+        // linkerconfig can use it as shared as well to save more bits.
+        "libbase",
+    ],
     static_libs: [
         "libapexutil",
-        "libbase",
-        "liblog",
+        "liblog_for_runtime_apex",
         "libprotobuf-cpp-lite",
-        "libxml2",
+        "libtinyxml2",
         "lib_linker_config_proto_lite",
     ],
     target: {
@@ -65,9 +69,8 @@ cc_library_static {
     srcs: [
         "modules/*.cc",
     ],
-    generated_sources: ["apex-info-list"],
+    generated_sources: ["apex-info-list-tinyxml"],
     apex_available: [
-        "//apex_available:platform",
         "com.android.runtime",
     ],
 }
@@ -87,7 +90,6 @@ cc_library_static {
         "contents/common/*.cc",
     ],
     apex_available: [
-        "//apex_available:platform",
         "com.android.runtime",
     ],
 }
@@ -104,7 +106,6 @@ cc_library_static {
         "generator/*.cc",
     ],
     apex_available: [
-        "//apex_available:platform",
         "com.android.runtime",
     ],
 }
@@ -129,15 +130,15 @@ cc_binary {
         // at runtime according to ro.vndk.version (or ro.product.vndk.version)
     ],
     target: {
-        android: {
-            // This binary needs to be static on device, but it's also packaged
-            // as a host prebuilt in runtime-module-host-exports. On host it
-            // should link all libraries statically except libc and other system
-            // libraries, so enable this only on device.
-            static_executable: true,
-        },
         host: {
-            stl: "c++_static",  // Link libc++ statically.
+            // Link libc++ and libbase statically on host for convenience(no need to set library paths)
+            stl: "c++_static",
+            static_libs: [
+                "libbase",
+            ],
+            exclude_shared_libs: [
+                "libbase",
+            ],
         },
     },
 
@@ -148,9 +149,14 @@ cc_binary {
     },
 
     apex_available: [
-        "//apex_available:platform",
         "com.android.runtime",
     ],
+
+    sanitize: {
+        // linkerconfig should be able to run at the very early stage of boot process when
+        // /data/asan is not ready. So linkerconfig can't run with ASAN.
+        address: false,
+    },
 }
 
 cc_test {
@@ -200,6 +206,8 @@ cc_test {
 cc_test {
     name: "linkerconfig_contents_fulltest",
     defaults: [ "linkerconfig_test_defaults" ],
+    // TODO(b/231993627): Reenable isolated:true by deleting the explicit disable below
+    isolated: false,
     local_include_dirs: [
         "contents/tests/configuration/include",
     ],
@@ -207,6 +215,7 @@ cc_test {
         "contents/tests/configuration/*_test.cc",
     ],
     static_libs: [
+        "libgmock",
         "linkerconfig_modules",
         "linkerconfig_contents",
     ],
@@ -227,22 +236,6 @@ genrule {
     cmd: "$(location linkerconfig) --recovery --target $(genDir)",
 }
 
-genrule {
-    name: "linkerconfig_diff_test_host_tools",
-    out: ["linkerconfig_diff_test_host_tools.zip"],
-    tools: ["conv_apex_manifest", "conv_linker_config", "linkerconfig", "soong_zip"],
-    cmd: "HOST_OUT_BIN=$$(dirname $(location conv_apex_manifest)) && " +
-         "HOST_SOONG_OUT=$$(dirname $$HOST_OUT_BIN) && " +
-         "LIBCPLUSPLUS=$$(find $${HOST_SOONG_OUT}/lib64 -name \"libc++.*\") && " +
-         "mkdir -p $(genDir)/tools/bin && " +
-         "mkdir -p $(genDir)/tools/lib64 && " +
-         "cp $(location conv_apex_manifest) $(genDir)/tools/bin && " +
-         "cp $(location conv_linker_config) $(genDir)/tools/bin && " +
-         "cp $(location linkerconfig) $(genDir)/tools/bin && " +
-         "cp $$LIBCPLUSPLUS $(genDir)/tools/lib64 && " +
-         "$(location soong_zip) -C $(genDir)/tools -D $(genDir)/tools -o $(out)",
-}
-
 sh_test_host {
     name: "linkerconfig_diff_test",
     src: "rundiff.sh",
@@ -253,10 +246,11 @@ sh_test_host {
         "testdata/root/**/.*", // copy .keep files
         "testdata/golden_output/**/*",
         "testdata/prepare_root.sh",
-        // workaround to use host tools(conv_apex_manifest, linkerconfig) on build server
-        // ":conv_apex_manifest",
-        // ":linkerconfig",
-        ":linkerconfig_diff_test_host_tools",
+    ],
+    data_bins: [
+        "conv_apex_manifest",
+        "conv_linker_config",
+        "linkerconfig",
     ],
     test_options: {
         unit_test: true,

@@ -16,6 +16,9 @@
 
 package android.media.codec.cts;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
+
 import android.media.MediaCodec;
 import android.media.MediaCodec.CodecException;
 import android.media.MediaCodecInfo;
@@ -24,7 +27,6 @@ import android.media.MediaCodecList;
 import android.media.MediaFormat;
 import android.media.cts.MediaCodecWrapper;
 import android.media.cts.NdkMediaCodec;
-import android.media.cts.Preconditions;
 import android.media.cts.SdkMediaCodec;
 import android.os.Bundle;
 import android.os.Environment;
@@ -34,9 +36,7 @@ import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 
 import com.android.compatibility.common.util.MediaUtils;
-
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assume.assumeTrue;
+import com.android.compatibility.common.util.Preconditions;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -64,6 +64,7 @@ public class VideoCodecTestBase {
     protected static final String VP9_MIME = MediaFormat.MIMETYPE_VIDEO_VP9;
     protected static final String AVC_MIME = MediaFormat.MIMETYPE_VIDEO_AVC;
     protected static final String HEVC_MIME = MediaFormat.MIMETYPE_VIDEO_HEVC;
+    protected static final String AV1_MIME = MediaFormat.MIMETYPE_VIDEO_AV1;
     protected static final String SDCARD_DIR =
             Environment.getExternalStorageDirectory().getAbsolutePath();
     static final String mInpPrefix = WorkDir.getMediaDirString();

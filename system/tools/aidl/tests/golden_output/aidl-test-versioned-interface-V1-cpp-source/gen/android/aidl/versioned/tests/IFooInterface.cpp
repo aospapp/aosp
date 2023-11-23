@@ -29,6 +29,7 @@ BpFooInterface::BpFooInterface(const ::android::sp<::android::IBinder>& _aidl_im
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::originalApi::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -58,6 +59,7 @@ BpFooInterface::BpFooInterface(const ::android::sp<::android::IBinder>& _aidl_im
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::acceptUnionAndReturnString::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -95,6 +97,7 @@ BpFooInterface::BpFooInterface(const ::android::sp<::android::IBinder>& _aidl_im
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::ignoreParcelablesAndRepeatInt::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -148,6 +151,7 @@ BpFooInterface::BpFooInterface(const ::android::sp<::android::IBinder>& _aidl_im
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::returnsLengthOfFooArray::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -242,6 +246,7 @@ BnFooInterface::BnFooInterface()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::originalApi::cppServer");
     ::android::binder::Status _aidl_status(originalApi());
     _aidl_ret_status = _aidl_status.writeToParcel(_aidl_reply);
     if (((_aidl_ret_status) != (::android::OK))) {
@@ -260,6 +265,7 @@ BnFooInterface::BnFooInterface()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::acceptUnionAndReturnString::cppServer");
     _aidl_ret_status = _aidl_data.readParcelable(&in_u);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -293,6 +299,7 @@ BnFooInterface::BnFooInterface()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::ignoreParcelablesAndRepeatInt::cppServer");
     _aidl_ret_status = _aidl_data.readParcelable(&in_inFoo);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -339,6 +346,7 @@ BnFooInterface::BnFooInterface()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IFooInterface::returnsLengthOfFooArray::cppServer");
     _aidl_ret_status = _aidl_data.readParcelableVector(&in_foos);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;

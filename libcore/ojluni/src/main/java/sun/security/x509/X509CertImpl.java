@@ -2001,6 +2001,62 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
         return fingerPrint;
     }
 
+    // BEGIN Android-added: these methods are from OpenJDK 17.
+    private String getFingerprint(String algorithm, Debug debug) {
+        return fingerprints.computeIfAbsent(algorithm,
+                x -> {
+                    try {
+                        return getFingerprintInternal(x, getEncodedInternal(), debug);
+                    } catch (CertificateEncodingException e) {
+                        if (debug != null) {
+                            debug.println("Cannot encode certificate: " + e);
+                        }
+                        return null;
+                    }
+                });
+    }
+
+    private static String getFingerprintInternal(String algorithm,
+            byte[] encodedCert, Debug debug) {
+        try {
+            MessageDigest md = MessageDigest.getInstance(algorithm);
+            byte[] digest = md.digest(encodedCert);
+            return HexFormat.of().withUpperCase().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            if (debug != null) {
+                debug.println("Cannot create " + algorithm
+                        + " MessageDigest: " + e);
+            }
+            return null;
+        }
+    }
+
+    /**
+     * Gets the requested fingerprint of the certificate. The result
+     * only contains 0-9 and A-F. No small case, no colon.
+     *
+     * @param algorithm the MessageDigest algorithm
+     * @param cert the X509Certificate
+     * @return the fingerprint, or null if it cannot be calculated because
+     *     of an exception
+     */
+    public static String getFingerprint(String algorithm,
+            X509Certificate cert, Debug debug) {
+        if (cert instanceof X509CertImpl) {
+            return ((X509CertImpl)cert).getFingerprint(algorithm, debug);
+        } else {
+            try {
+                return getFingerprintInternal(algorithm, cert.getEncoded(), debug);
+            } catch (CertificateEncodingException e) {
+                if (debug != null) {
+                    debug.println("Cannot encode certificate: " + e);
+                }
+                return null;
+            }
+        }
+    }
+    // END Android-added: these methods are from OpenJDK 17.
+
     /**
      * Converts a byte to hex digit and writes to the supplied buffer
      */

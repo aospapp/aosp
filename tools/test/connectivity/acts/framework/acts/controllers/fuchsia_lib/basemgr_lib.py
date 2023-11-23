@@ -22,10 +22,9 @@ COMMAND_KILL_BASEMGR = 'basemgr_facade.KillBasemgr'
 
 
 class FuchsiaBasemgrLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "basemgr")
 
     def restartSession(self):
         """Restarts an ongoing basemgr session
@@ -36,10 +35,8 @@ class FuchsiaBasemgrLib(BaseLib):
                 result: 'Success', 'NoSessionToRestart', or None if error
         """
         test_cmd = COMMAND_RESTART_SESSION
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def startBasemgr(self):
         """Starts basemgr service
@@ -50,10 +47,8 @@ class FuchsiaBasemgrLib(BaseLib):
                 result: 'Success' or None if error
         """
         test_cmd = COMMAND_START_BASEMGR
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def killBasemgr(self):
         """Kill basemgr service, if one is running
@@ -64,7 +59,5 @@ class FuchsiaBasemgrLib(BaseLib):
                 result: 'Success', 'NoBasemgrToKill', or None if error
         """
         test_cmd = COMMAND_KILL_BASEMGR
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})

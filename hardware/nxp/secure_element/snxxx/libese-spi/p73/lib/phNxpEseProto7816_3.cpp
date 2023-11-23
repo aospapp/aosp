@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2021 NXP
+ *  Copyright 2018-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
  *
  ******************************************************************************/
 #define LOG_TAG "NxpEseHal"
+#include <ese_logs.h>
 #include <log/log.h>
 #include <phNxpEseProto7816_3.h>
+
+#include "phNxpEsePal.h"
 
 /**
  * \addtogroup ISO7816-3_protocol_lib
@@ -120,8 +123,9 @@ static ESESTATUS phNxpEseProto7816_SetNextIframeContxt(void);
 /**
  * \ingroup ISO7816-3_protocol_lib
  * \brief      This internal function is called to push I-frame data to internal
- *structure. \param[in]    p_data -raw data buffer \param[in]    data_len -data
- *length
+ *structure.
+ *\param[in]    p_data -raw data buffer
+ *\param[in]    data_len -data length
  *
  */
 static ESESTATUS phNxpEseProto7816_SaveIframeData(uint8_t* p_data,
@@ -130,7 +134,7 @@ static ESESTATUS phNxpEseProto7816_SaveIframeData(uint8_t* p_data,
 /**
  * \ingroup ISO7816-3_protocol_lib
  * \brief      This internal function is called to do reset the recovery
- *pareameters
+ *parameters
  *
  */
 static ESESTATUS phNxpEseProto7816_ResetRecovery(void);
@@ -188,18 +192,11 @@ static ESESTATUS TransceiveProcess(void);
 /**
  * \ingroup ISO7816-3_protocol_lib
  * \brief      This internal function is used to
- *                  1. Send propreitary S-Frame command for resynch
+ *                  1. Send proprietary S-Frame command for re-sync
  *T=1 sequence at worker
  *
  */
 static ESESTATUS phNxpEseProto7816_RSync(void);
-
-/**
- * \ingroup ISO7816-3_protocol_lib
- * \brief       This function is used to reset the 7816 protocol stack
- *
- */
-static ESESTATUS phNxpEseProto7816_ResetProtoParams(void);
 
 /**
  * \ingroup ISO7816-3_protocol_lib
@@ -271,6 +268,13 @@ static phNxpEseProto7816_t phNxpEseProto7816_3_Var;
  */
 static phNxpEseProto7816_t phNxpEseProto7816_ptr[MAX_END_POINTS];
 
+/*!
+ * \brief  Prints  time taken(in microseconds) in cmd transfer and response
+ *         receive
+ */
+static void printCmdRspTimeDuration(ESESTATUS status, uint32_t cmdLen,
+                                    uint32_t respLen);
+
 /******************************************************************************
  * Function         phNxpEseProto7816_SendRawFrame
  *
@@ -282,15 +286,14 @@ static phNxpEseProto7816_t phNxpEseProto7816_ptr[MAX_END_POINTS];
 static ESESTATUS phNxpEseProto7816_SendRawFrame(uint32_t data_len,
                                                 uint8_t* p_data) {
   ESESTATUS status = ESESTATUS_FAILED;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   status = phNxpEse_WriteFrame(data_len, p_data);
   if (ESESTATUS_SUCCESS != status) {
-    ALOGE("%s Error phNxpEse_WriteFrame\n", __FUNCTION__);
+    NXP_LOG_ESE_E("%s Error phNxpEse_WriteFrame\n", __FUNCTION__);
   } else {
-    ALOGD_IF(ese_debug_enabled, "%s phNxpEse_WriteFrame Success \n",
-             __FUNCTION__);
+    NXP_LOG_ESE_D("%s phNxpEse_WriteFrame Success \n", __FUNCTION__);
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s with status %d", __FUNCTION__, status);
   return status;
 }
 
@@ -308,7 +311,8 @@ static ESESTATUS phNxpEseProto7816_GetRawFrame(uint32_t* data_len,
 
   status = phNxpEse_read(data_len, pp_data);
   if (ESESTATUS_SUCCESS != status) {
-    ALOGE("%s phNxpEse_read failed , status : 0x%x", __FUNCTION__, status);
+    NXP_LOG_ESE_E("%s phNxpEse_read failed , status : 0x%x", __FUNCTION__,
+                  status);
   }
   return status;
 }
@@ -324,11 +328,11 @@ static ESESTATUS phNxpEseProto7816_GetRawFrame(uint32_t* data_len,
 static uint8_t phNxpEseProto7816_ComputeLRC(unsigned char* p_buff,
                                             uint32_t offset, uint32_t length) {
   uint32_t LRC = 0, i = 0;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   for (i = offset; i < length; i++) {
     LRC = LRC ^ p_buff[i];
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return (uint8_t)LRC;
 }
 
@@ -346,23 +350,22 @@ static ESESTATUS phNxpEseProto7816_CheckLRC(uint32_t data_len,
   ESESTATUS status = ESESTATUS_SUCCESS;
   uint8_t calc_crc = 0;
   uint8_t recv_crc = 0;
-  ALOGD_IF(ese_debug_enabled, "Enter %s len %d", __FUNCTION__, data_len);
+  NXP_LOG_ESE_D("Enter %s len %d", __FUNCTION__, data_len);
   if (data_len > 0) {
     recv_crc = p_data[data_len - 1];
 
     /* calculate the CRC after excluding CRC  */
     calc_crc = phNxpEseProto7816_ComputeLRC(p_data, 1, (data_len - 1));
-    ALOGD_IF(ese_debug_enabled, "Received LRC:0x%x Calculated LRC:0x%x",
-             recv_crc, calc_crc);
+    NXP_LOG_ESE_D("Received LRC:0x%x Calculated LRC:0x%x", recv_crc, calc_crc);
     if (recv_crc != calc_crc) {
       status = ESESTATUS_FAILED;
-      ALOGE("%s LRC failed", __FUNCTION__);
+      NXP_LOG_ESE_E("%s LRC failed", __FUNCTION__);
     }
   } else {
     status = ESESTATUS_FAILED;
-    ALOGE("%s LRC failed length = 0", __FUNCTION__);
+    NXP_LOG_ESE_E("%s LRC failed length = 0", __FUNCTION__);
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -381,7 +384,7 @@ static ESESTATUS phNxpEseProto7816_SendSFrame(sFrameInfo_t sFrameData) {
   uint8_t* p_framebuff = NULL;
   uint8_t pcb_byte = 0;
   uint8_t lenIFS = 0;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   sFrameInfo_t sframeData = sFrameData;
   /* This update is helpful in-case a R-NACK is transmitted from the MW */
   phNxpEseProto7816_3_Var.lastSentNonErrorframeType = SFRAME;
@@ -489,7 +492,7 @@ static ESESTATUS phNxpEseProto7816_SendSFrame(sFrameInfo_t sFrameData) {
       pcb_byte |= ATR_REQ;
       break;
     default:
-      ALOGE("Invalid S-block");
+      NXP_LOG_ESE_E("Invalid S-block");
       break;
   }
   if (NULL != p_framebuff) {
@@ -499,7 +502,7 @@ static ESESTATUS phNxpEseProto7816_SendSFrame(sFrameInfo_t sFrameData) {
 
     p_framebuff[frame_len - 1] =
         phNxpEseProto7816_ComputeLRC(p_framebuff, 0, (frame_len - 1));
-    ALOGD_IF(ese_debug_enabled, "S-Frame PCB: %x\n", p_framebuff[1]);
+    NXP_LOG_ESE_D("S-Frame PCB: %x\n", p_framebuff[1]);
     status = phNxpEseProto7816_SendRawFrame(frame_len, p_framebuff);
     phNxpEse_free(p_framebuff);
     /*After S-Frame Tx 1 ms sleep before Rx*/
@@ -508,9 +511,9 @@ static ESESTATUS phNxpEseProto7816_SendSFrame(sFrameInfo_t sFrameData) {
       phNxpEse_Sleep(1 * 1000);
     }
   } else {
-    ALOGE("Invalid S-block or malloc for s-block failed");
+    NXP_LOG_ESE_E("Invalid S-block or malloc for s-block failed");
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -537,7 +540,7 @@ static ESESTATUS phNxpEseProto7816_sendRframe(rFrameTypes_t rFrameType) {
   recv_ack[1] |=
       ((phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo ^ 1)
        << 4);
-  ALOGD_IF(ese_debug_enabled, "%s recv_ack[1]:0x%x", __FUNCTION__, recv_ack[1]);
+  NXP_LOG_ESE_D("%s recv_ack[1]:0x%x", __FUNCTION__, recv_ack[1]);
   recv_ack[3] =
       phNxpEseProto7816_ComputeLRC(recv_ack, 0x00, (sizeof(recv_ack) - 1));
   status = phNxpEseProto7816_SendRawFrame(sizeof(recv_ack), recv_ack);
@@ -558,9 +561,9 @@ static ESESTATUS phNxpEseProto7816_SendIframe(iFrameInfo_t iFrameData) {
   uint32_t frame_len = 0;
   uint8_t* p_framebuff = NULL;
   uint8_t pcb_byte = 0;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   if (0 == iFrameData.sendDataLen) {
-    ALOGE("I frame Len is 0, INVALID");
+    NXP_LOG_ESE_E("I frame Len is 0, INVALID");
     return ESESTATUS_FAILED;
   }
   /* This update is helpful in-case a R-NACK is transmitted from the MW */
@@ -570,7 +573,7 @@ static ESESTATUS phNxpEseProto7816_SendIframe(iFrameInfo_t iFrameData) {
 
   p_framebuff = (uint8_t*)phNxpEse_memalloc(frame_len * sizeof(uint8_t));
   if (NULL == p_framebuff) {
-    ALOGE("Heap allocation failed");
+    NXP_LOG_ESE_E("Heap allocation failed");
     return ESESTATUS_FAILED;
   }
 
@@ -613,9 +616,14 @@ static ESESTATUS phNxpEseProto7816_SendIframe(iFrameInfo_t iFrameData) {
       phNxpEseProto7816_ComputeLRC(p_framebuff, 0, (frame_len - 1));
 
   status = phNxpEseProto7816_SendRawFrame(frame_len, p_framebuff);
+  if (iFrameData.isChained == false) {
+    NXP_LOG_ESE_I("All Iframes are sent");
+    phPalEse_stopTimer(phPalEse_getTimer()->tx_timer);
 
+    phPalEse_startTimer(phPalEse_getTimer()->rx_timer);
+  }
   phNxpEse_free(p_framebuff);
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -630,7 +638,7 @@ static ESESTATUS phNxpEseProto7816_SendIframe(iFrameInfo_t iFrameData) {
  *
  ******************************************************************************/
 static ESESTATUS phNxpEseProto7816_SetFirstIframeContxt(void) {
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.dataOffset = 0;
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.seqNo =
@@ -652,10 +660,11 @@ static ESESTATUS phNxpEseProto7816_SetFirstIframeContxt(void) {
         phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.totalDataLen;
     phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.isChained = false;
   }
-  ALOGD_IF(ese_debug_enabled, "I-Frame Data Len: %d Seq. no:%d",
-           phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.sendDataLen,
-           phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.seqNo);
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D(
+      "I-Frame Data Len: %d Seq. no:%d",
+      phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.sendDataLen,
+      phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.seqNo);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return ESESTATUS_SUCCESS;
 }
 
@@ -670,7 +679,7 @@ static ESESTATUS phNxpEseProto7816_SetFirstIframeContxt(void) {
  *
  ******************************************************************************/
 static ESESTATUS phNxpEseProto7816_SetNextIframeContxt(void) {
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   /* Expecting to reach here only after first of chained I-frame is sent and
    * before the last chained is sent */
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
@@ -690,7 +699,7 @@ static ESESTATUS phNxpEseProto7816_SetNextIframeContxt(void) {
   if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo.totalDataLen >
       phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo
           .currentDataLenIFS) {
-    ALOGD_IF(ese_debug_enabled, "Process Chained Frame");
+    NXP_LOG_ESE_D("Process Chained Frame");
     phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.isChained = true;
     phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.sendDataLen =
         phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo
@@ -704,9 +713,10 @@ static ESESTATUS phNxpEseProto7816_SetNextIframeContxt(void) {
     phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.sendDataLen =
         phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo.totalDataLen;
   }
-  ALOGD_IF(ese_debug_enabled, "I-Frame Data Len: %d",
-           phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.sendDataLen);
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D(
+      "I-Frame Data Len: %d",
+      phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.sendDataLen);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return ESESTATUS_SUCCESS;
 }
 
@@ -714,23 +724,22 @@ static ESESTATUS phNxpEseProto7816_SetNextIframeContxt(void) {
  * Function         phNxpEseProto7816_ResetRecovery
  *
  * Description      This internal function is called to do reset the recovery
- *pareameters
+ *                  parameters
  *
  * Returns          On success return true or else false.
  *
  ******************************************************************************/
 static ESESTATUS phNxpEseProto7816_SaveIframeData(uint8_t* p_data,
                                                   uint32_t data_len) {
-  ESESTATUS status = ESESTATUS_FAILED;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
-  ALOGD_IF(ese_debug_enabled, "Data[0]=0x%x len=%d Data[%d]=0x%x", p_data[0],
-           data_len, data_len - 1, p_data[data_len - 1]);
-  if (ESESTATUS_SUCCESS != phNxpEse_StoreDatainList(data_len, p_data)) {
-    ALOGE("%s - Error storing chained data in list", __FUNCTION__);
-  } else {
-    status = ESESTATUS_SUCCESS;
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Data[0]=0x%x len=%d Data[%d]=0x%x", p_data[0], data_len,
+                data_len - 1, p_data[data_len - 1]);
+  ESESTATUS status = phNxpEse_StoreDatainList(data_len, p_data);
+  if (ESESTATUS_SUCCESS != status) {
+    NXP_LOG_ESE_E("%s - Error storing chained data in list, status %d",
+                  __FUNCTION__, status);
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -738,7 +747,7 @@ static ESESTATUS phNxpEseProto7816_SaveIframeData(uint8_t* p_data,
  * Function         phNxpEseProto7816_ResetRecovery
  *
  * Description      This internal function is called to do reset the recovery
- *pareameters
+ *                  parameters
  *
  * Returns          On success return true or else false.
  *
@@ -768,9 +777,10 @@ static ESESTATUS phNxpEseProto7816_RecoverySteps(void) {
         INTF_RESET_REQ;
     phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
         SEND_S_INTF_RST;
+    phNxpEseProto7816_3_Var.reset_type = RESET_TYPE_RECOVERY;
   } else { /* If recovery fails */
     phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState = IDLE_STATE;
-    ALOGE("%s Recovery failed", __FUNCTION__);
+    NXP_LOG_ESE_E("%s Recovery failed", __FUNCTION__);
   }
   return ESESTATUS_SUCCESS;
 }
@@ -821,14 +831,13 @@ static void phNxpEseProto7816_DecodeSFrameIFSData(uint8_t* p_data) {
   if (ifsd_data == phNxpEseProto7816_3_Var.currentIFSDSize) {
     phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.currentDataLenIFS =
         phNxpEseProto7816_3_Var.currentIFSDSize;
-    ALOGD_IF(ese_debug_enabled, "%s IFS adjustment: Max DataLen=%d \n",
-             __FUNCTION__,
-             phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo
-                 .currentDataLenIFS);
+    NXP_LOG_ESE_D("%s IFS adjustment: Max DataLen=%d \n", __FUNCTION__,
+                  phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo
+                      .currentDataLenIFS);
   } else {
-    ALOGE("%s ERROR IFS adjustment: Max DataLen=%d \n", __FUNCTION__,
-          phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo
-              .currentDataLenIFS);
+    NXP_LOG_ESE_E("%s ERROR IFS adjustment: Max DataLen=%d \n", __FUNCTION__,
+                  phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo
+                      .currentDataLenIFS);
   }
 }
 
@@ -858,60 +867,60 @@ static void phNxpEseProto7816_DecodeSFrameATRData(uint8_t* p_data) {
                   &p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET],
                   sizeof(phNxpEseProto7816_ATR_Info_t));
 
-  ALOGD_IF(
-      ese_debug_enabled,
+  NXP_LOG_ESE_D(
       "%s Max DataLen=%d Current DataLen=%d Default DataLen=%d \n",
       __FUNCTION__,
       phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.maxDataLenIFSC,
       phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.currentDataLenIFS,
       phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo
           .defaultDataLenIFSC);
-  ALOGD_IF(ese_debug_enabled, "ATR Data Follows");
-  ALOGD_IF(ese_debug_enabled, "======================");
-  ALOGD_IF(ese_debug_enabled, "ATR Length = %d",
-           phNxpEseProto7816_3_Var.atrInfo.len);
-  ALOGD_IF(ese_debug_enabled, "Vendor ID = 0x%.2x%.2x%.2x%.2x%.2x",
-           phNxpEseProto7816_3_Var.atrInfo.vendorID[0],
-           phNxpEseProto7816_3_Var.atrInfo.vendorID[1],
-           phNxpEseProto7816_3_Var.atrInfo.vendorID[2],
-           phNxpEseProto7816_3_Var.atrInfo.vendorID[3],
-           phNxpEseProto7816_3_Var.atrInfo.vendorID[4]);
-  ALOGD_IF(ese_debug_enabled, "DLL-IC = supports T%d",
-           phNxpEseProto7816_3_Var.atrInfo.dll_IC);
-  ALOGD_IF(ese_debug_enabled, "BGT = %d ms",
-           (phNxpEseProto7816_3_Var.atrInfo.bgt[0] << 8) |
-               (phNxpEseProto7816_3_Var.atrInfo.bgt[1]));
-  ALOGD_IF(ese_debug_enabled, "BWT = %d ms",
-           phNxpEseProto7816_3_Var.atrInfo.bwt[0] << 8 |
-               phNxpEseProto7816_3_Var.atrInfo.bwt[1]);
-  ALOGD_IF(ese_debug_enabled, "Max supported frequency = %d Hz",
-           phNxpEseProto7816_3_Var.atrInfo.maxFreq[0] << 8 |
-               phNxpEseProto7816_3_Var.atrInfo.maxFreq[1]);
-  ALOGD_IF(ese_debug_enabled, "Checksum LRC(0)/CRC(1) supports = 0x%x",
-           phNxpEseProto7816_3_Var.atrInfo.checksum);
-  ALOGD_IF(ese_debug_enabled, "DefaultIFSC = %d bytes",
-           phNxpEseProto7816_3_Var.atrInfo.defaultIFSC);
-  ALOGD_IF(ese_debug_enabled, "Max IFSC = %d bytes",
-           phNxpEseProto7816_3_Var.atrInfo.maxIFSC[0] << 8 |
-               phNxpEseProto7816_3_Var.atrInfo.maxIFSC[1]);
-  ALOGD_IF(ese_debug_enabled, "Capabilities = 0x%x",
-           phNxpEseProto7816_3_Var.atrInfo.capabilities[0] << 8 |
-               phNxpEseProto7816_3_Var.atrInfo.capabilities[1]);
+  NXP_LOG_ESE_D("ATR Data Follows");
+  NXP_LOG_ESE_D("======================");
+  NXP_LOG_ESE_D("ATR Length = %d", phNxpEseProto7816_3_Var.atrInfo.len);
+  NXP_LOG_ESE_D("Vendor ID = 0x%.2x%.2x%.2x%.2x%.2x",
+                phNxpEseProto7816_3_Var.atrInfo.vendorID[0],
+                phNxpEseProto7816_3_Var.atrInfo.vendorID[1],
+                phNxpEseProto7816_3_Var.atrInfo.vendorID[2],
+                phNxpEseProto7816_3_Var.atrInfo.vendorID[3],
+                phNxpEseProto7816_3_Var.atrInfo.vendorID[4]);
+  NXP_LOG_ESE_D("DLL-IC = supports T%d",
+                phNxpEseProto7816_3_Var.atrInfo.dll_IC);
+  NXP_LOG_ESE_D("BGT = %d ms", (phNxpEseProto7816_3_Var.atrInfo.bgt[0] << 8) |
+                                   (phNxpEseProto7816_3_Var.atrInfo.bgt[1]));
+  NXP_LOG_ESE_D("BWT = %d ms", phNxpEseProto7816_3_Var.atrInfo.bwt[0] << 8 |
+                                   phNxpEseProto7816_3_Var.atrInfo.bwt[1]);
+  NXP_LOG_ESE_D("Max supported frequency = %d Hz",
+                phNxpEseProto7816_3_Var.atrInfo.maxFreq[0] << 8 |
+                    phNxpEseProto7816_3_Var.atrInfo.maxFreq[1]);
+  NXP_LOG_ESE_D("Checksum LRC(0)/CRC(1) supports = 0x%x",
+                phNxpEseProto7816_3_Var.atrInfo.checksum);
+  NXP_LOG_ESE_D("DefaultIFSC = %d bytes",
+                phNxpEseProto7816_3_Var.atrInfo.defaultIFSC);
+  NXP_LOG_ESE_D("Max IFSC = %d bytes",
+                phNxpEseProto7816_3_Var.atrInfo.maxIFSC[0] << 8 |
+                    phNxpEseProto7816_3_Var.atrInfo.maxIFSC[1]);
+  NXP_LOG_ESE_D("Capabilities = 0x%x",
+                phNxpEseProto7816_3_Var.atrInfo.capabilities[0] << 8 |
+                    phNxpEseProto7816_3_Var.atrInfo.capabilities[1]);
 
   if (phNxpEseProto7816_3_Var.atrInfo.vendorID[4] >= PH_SE_OS_VERSION_11) {
     phNxpEse_memcpy(&phNxpEseProto7816_3_Var.extndAtrInfo.channelNo,
                     &p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET] +
                         sizeof(phNxpEseProto7816_ATR_Info_t),
                     sizeof(phNxpEseProto7816_ATR_Info2_t));
-    ALOGD_IF(ese_debug_enabled, "Channel Number = 0x%x",
-             phNxpEseProto7816_3_Var.extndAtrInfo.channelNo);
-    ALOGD_IF(
-        ese_debug_enabled, "OS Type = %s",
+    NXP_LOG_ESE_D("Channel Number = 0x%x",
+                  phNxpEseProto7816_3_Var.extndAtrInfo.channelNo);
+    NXP_LOG_ESE_D(
+        "OS Type = %s",
         (phNxpEseProto7816_3_Var.extndAtrInfo.osType == 0x01 ? "JCOP Mode"
                                                              : "OSU Mode"));
   }
   if (phNxpEseProto7816_3_Var.atrInfo.vendorID[PH_PROTO_ATR_RSP_VENDOR_ID_LEN -
-                                               1] >= PH_SE_OS_VERSION_20) {
+                                               1] >= PH_SE_OS_VERSION_21) {
+    phNxpEse_setOsVersion(OS_VERSION_6_3);
+  } else if (phNxpEseProto7816_3_Var.atrInfo
+                 .vendorID[PH_PROTO_ATR_RSP_VENDOR_ID_LEN - 1] >=
+             PH_SE_OS_VERSION_20) {
     phNxpEse_setOsVersion(OS_VERSION_6_2);
   } else if (phNxpEseProto7816_3_Var.atrInfo
                  .vendorID[PH_PROTO_ATR_RSP_VENDOR_ID_LEN - 1] >=
@@ -927,7 +936,7 @@ static void phNxpEseProto7816_DecodeSFrameATRData(uint8_t* p_data) {
     phNxpEse_setOsVersion(OS_VERSION_5_1);
   }
 
-  ALOGD_IF(ese_debug_enabled, "======================");
+  NXP_LOG_ESE_D("======================");
 }
 
 /******************************************************************************
@@ -948,8 +957,8 @@ static void phNxpEseProto7816_DecodeSFrameSecureTimerData(uint8_t* p_data) {
   while (maxSframeLen > frameOffset) {
     frameOffset += 1; /* To get the Type (TLV) */
     dataType = p_data[frameOffset];
-    ALOGD_IF(ese_debug_enabled, "%s frameoffset=%d value=0x%x\n", __FUNCTION__,
-             frameOffset, p_data[frameOffset]);
+    NXP_LOG_ESE_D("%s frameoffset=%d value=0x%x\n", __FUNCTION__, frameOffset,
+                  p_data[frameOffset]);
     switch (dataType) /* Type (TLV) */
     {
       case PH_PROPTO_7816_SFRAME_TIMER1:
@@ -973,10 +982,10 @@ static void phNxpEseProto7816_DecodeSFrameSecureTimerData(uint8_t* p_data) {
         break;
     }
   }
-  ALOGD_IF(ese_debug_enabled, "secure timer t1 = 0x%x t2 = 0x%x t3 = 0x%x",
-           phNxpEseProto7816_3_Var.secureTimerParams.secureTimer1,
-           phNxpEseProto7816_3_Var.secureTimerParams.secureTimer2,
-           phNxpEseProto7816_3_Var.secureTimerParams.secureTimer3);
+  NXP_LOG_ESE_D("secure timer t1 = 0x%x t2 = 0x%x t3 = 0x%x",
+                phNxpEseProto7816_3_Var.secureTimerParams.secureTimer1,
+                phNxpEseProto7816_3_Var.secureTimerParams.secureTimer2,
+                phNxpEseProto7816_3_Var.secureTimerParams.secureTimer3);
   return;
 }
 
@@ -990,7 +999,7 @@ static void phNxpEseProto7816_DecodeSFrameSecureTimerData(uint8_t* p_data) {
                     3. If the received frame is R-frame,
                        3.1 R-ACK with expected seq. number: Send the next
  chained I-frame
-                       3.2 R-ACK with different sequence number: Sebd the R-Nack
+                       3.2 R-ACK with different sequence number: Send the R-Nack
                        3.3 R-NACK: Re-send the last frame
                     4. If the received frame is S-frame, send back the correct
  S-frame response.
@@ -1002,9 +1011,9 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
   ESESTATUS status = ESESTATUS_SUCCESS;
   uint8_t pcb;
   phNxpEseProto7816_PCB_bits_t pcb_bits;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
-  ALOGD_IF(ese_debug_enabled, "Retry Counter = %d\n",
-           phNxpEseProto7816_3_Var.recoveryCounter);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Retry Counter = %d\n",
+                phNxpEseProto7816_3_Var.recoveryCounter);
   pcb = p_data[PH_PROPTO_7816_PCB_OFFSET];
   // memset(&phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.rcvPcbBits, 0x00,
   // sizeof(struct PCB_BITS));
@@ -1014,14 +1023,14 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
   if (0x00 == pcb_bits.msb) /* I-FRAME decoded should come here */
   {
     if (!phNxpEseProto7816_ResendLastSFrameReq()) {
-      ALOGD_IF(ese_debug_enabled, "%s I-Frame Received", __FUNCTION__);
+      NXP_LOG_ESE_D("%s I-Frame Received", __FUNCTION__);
       phNxpEseProto7816_CheckAndNotifyWtx(WTX_END);
       phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = IFRAME;
       if (phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo !=
           pcb_bits.bit7)  //   != pcb_bits->bit7)
       {
-        ALOGD_IF(ese_debug_enabled, "%s I-Frame lastRcvdIframeInfo.seqNo:0x%x",
-                 __FUNCTION__, pcb_bits.bit7);
+        NXP_LOG_ESE_D("%s I-Frame lastRcvdIframeInfo.seqNo:0x%x", __FUNCTION__,
+                      pcb_bits.bit7);
         phNxpEseProto7816_ResetRecovery();
         phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo = 0x00;
         phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.seqNo |=
@@ -1044,7 +1053,7 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
           } else {
             phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
                 SEND_R_NACK;
-            ALOGD_IF(ese_debug_enabled, "%s Invalid IframeData", __FUNCTION__);
+            NXP_LOG_ESE_I("%s Invalid IframeData", __FUNCTION__);
           }
         } else {
           phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdIframeInfo.isChained =
@@ -1061,7 +1070,7 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
             phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = RFRAME;
             phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
                 SEND_R_NACK;
-            ALOGD_IF(ese_debug_enabled, "%s Invalid IframeData", __FUNCTION__);
+            NXP_LOG_ESE_I("%s Invalid IframeData", __FUNCTION__);
           }
         }
       } else {
@@ -1082,61 +1091,71 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
   } else if ((0x01 == pcb_bits.msb) &&
              (0x00 == pcb_bits.bit7)) /* R-FRAME decoded should come here */
   {
-    ALOGD_IF(ese_debug_enabled, "%s R-Frame Received", __FUNCTION__);
-    phNxpEseProto7816_CheckAndNotifyWtx(WTX_END);
-    phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = RFRAME;
-    phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.seqNo =
-        0;  // = 0;
-    phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.seqNo |=
-        pcb_bits.bit5;
+    NXP_LOG_ESE_D("%s R-Frame Received", __FUNCTION__);
+    if (data_len == (PH_PROTO_7816_HEADER_LEN + PH_PROTO_7816_CRC_LEN)) {
+      phNxpEseProto7816_CheckAndNotifyWtx(WTX_END);
+      phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = RFRAME;
+      phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.seqNo =
+          0;  // = 0;
+      phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.seqNo |=
+          pcb_bits.bit5;
 
-    if ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x00)) {
-      if (!phNxpEseProto7816_ResendLastSFrameReq()) {
-        phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
-            NO_ERROR;
-        phNxpEseProto7816_ResetRecovery();
-        if (phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.seqNo !=
-            phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo.seqNo) {
-          status = phNxpEseProto7816_SetNextIframeContxt();
-          phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-              SEND_IFRAME;
-        } else {
-          // error handling.
+      if ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x00)) {
+        if (!phNxpEseProto7816_ResendLastSFrameReq()) {
+          phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
+              NO_ERROR;
+          phNxpEseProto7816_ResetRecovery();
+          if (phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
+                  .seqNo !=
+              phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo.seqNo) {
+            status = phNxpEseProto7816_SetNextIframeContxt();
+            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+                SEND_IFRAME;
+          } else {
+            // error handling.
+          }
         }
-      }
-    } /* Error handling 1 : Parity error */
-    else if (((pcb_bits.lsb == 0x01) && (pcb_bits.bit2 == 0x00)) ||
-             /* Error handling 2: Other indicated error */
-             ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x01)) ||
-             /* Error handling 3 : Frame Missing error */
-             ((pcb_bits.lsb == 0x01) && (pcb_bits.bit2 == 0x01))) {
-      phNxpEse_Sleep(GET_DELAY_ERROR_RECOVERY());
-      if ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x01)) {
-        phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
-            OTHER_ERROR;
-      } else if ((pcb_bits.lsb == 0x01) && (pcb_bits.bit2 == 0x00)) {
-        phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
-            PARITY_ERROR;
-      } else {
-        phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
-            SOF_MISSED_ERROR;
-      }
-      if (phNxpEseProto7816_3_Var.recoveryCounter < GET_FRAME_RETRY_COUNT()) {
-        if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType == IFRAME) {
-          /*Only for R-NACK other issue re sync*/
-          if ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x01)) {
-            if (phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
-                        .seqNo != phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx
-                                      .IframeInfo.seqNo &&
-                phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo
-                        .isChained == false) {
-              phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-                  SEND_S_RSYNC;
-              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = SFRAME;
-              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.SframeInfo
-                  .sFrameType = RESYNCH_REQ;
+      } /* Error handling 1 : Parity error */
+      else if (((pcb_bits.lsb == 0x01) && (pcb_bits.bit2 == 0x00)) ||
+               /* Error handling 2: Other indicated error */
+               ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x01)) ||
+               /* Error handling 3 : Frame Missing error */
+               ((pcb_bits.lsb == 0x01) && (pcb_bits.bit2 == 0x01))) {
+        phNxpEse_Sleep(GET_DELAY_ERROR_RECOVERY());
+        if ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x01)) {
+          phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
+              OTHER_ERROR;
+        } else if ((pcb_bits.lsb == 0x01) && (pcb_bits.bit2 == 0x00)) {
+          phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
+              PARITY_ERROR;
+        } else {
+          phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
+              SOF_MISSED_ERROR;
+        }
+        if (phNxpEseProto7816_3_Var.recoveryCounter < GET_FRAME_RETRY_COUNT()) {
+          if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType == IFRAME) {
+            /*Only for R-NACK other issue re sync*/
+            if ((pcb_bits.lsb == 0x00) && (pcb_bits.bit2 == 0x01)) {
+              if (phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
+                          .seqNo != phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx
+                                        .IframeInfo.seqNo &&
+                  phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo
+                          .isChained == false) {
+                phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+                    SEND_S_RSYNC;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = SFRAME;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.SframeInfo
+                    .sFrameType = RESYNCH_REQ;
+              } else {
+                /*If R-NACK with sequence no matching then also reissue frame*/
+                phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
+                                &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
+                                sizeof(phNxpEseProto7816_NextTx_Info_t));
+                phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+                    SEND_IFRAME;
+                phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
+              }
             } else {
-              /*If R-NACK with sequence no matching then also reissue frame*/
               phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
                               &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
                               sizeof(phNxpEseProto7816_NextTx_Info_t));
@@ -1144,84 +1163,81 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
                   SEND_IFRAME;
               phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
             }
-          } else {
+          } else if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType ==
+                     RFRAME) {
+            /* Usecase to reach the below case:
+            I-frame sent first, followed by R-NACK and we receive a R-NACK with
+            last sent I-frame sequence number*/
+            if ((phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
+                     .seqNo == phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx
+                                   .IframeInfo.seqNo) &&
+                (phNxpEseProto7816_3_Var.lastSentNonErrorframeType == IFRAME)) {
+              phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
+                              &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
+                              sizeof(phNxpEseProto7816_NextTx_Info_t));
+              phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+                  SEND_IFRAME;
+              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
+            }
+            /* Usecase to reach the below case:
+            R-frame sent first, followed by R-NACK and we receive a R-NACK with
+            next expected I-frame sequence number*/
+            else if ((phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
+                          .seqNo != phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx
+                                        .IframeInfo.seqNo) &&
+                     (phNxpEseProto7816_3_Var.lastSentNonErrorframeType ==
+                      RFRAME)) {
+              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = RFRAME;
+              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode =
+                  NO_ERROR;
+              phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+                  SEND_R_ACK;
+            }
+            /* Usecase to reach the below case:
+            I-frame sent first, followed by R-NACK and we receive a R-NACK with
+            next expected I-frame sequence number + all the other unexpected
+            scenarios */
+            else {
+              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = RFRAME;
+              phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode =
+                  OTHER_ERROR;
+              phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+                  SEND_R_NACK;
+            }
+          } else if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType ==
+                     SFRAME) {
+            /* Copy the last S frame sent */
             phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
                             &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
                             sizeof(phNxpEseProto7816_NextTx_Info_t));
-            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-                SEND_IFRAME;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
           }
-        } else if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType ==
-                   RFRAME) {
-          /* Usecase to reach the below case:
-          I-frame sent first, followed by R-NACK and we receive a R-NACK with
-          last sent I-frame sequence number*/
-          if ((phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
-                   .seqNo ==
-               phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.IframeInfo.seqNo) &&
-              (phNxpEseProto7816_3_Var.lastSentNonErrorframeType == IFRAME)) {
-            phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
-                            &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
-                            sizeof(phNxpEseProto7816_NextTx_Info_t));
-            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-                SEND_IFRAME;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = IFRAME;
-          }
-          /* Usecase to reach the below case:
-          R-frame sent first, followed by R-NACK and we receive a R-NACK with
-          next expected I-frame sequence number*/
-          else if ((phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo
-                        .seqNo != phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx
-                                      .IframeInfo.seqNo) &&
-                   (phNxpEseProto7816_3_Var.lastSentNonErrorframeType ==
-                    RFRAME)) {
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = RFRAME;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode =
-                NO_ERROR;
-            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-                SEND_R_ACK;
-          }
-          /* Usecase to reach the below case:
-          I-frame sent first, followed by R-NACK and we receive a R-NACK with
-          next expected I-frame sequence number + all the other unexpected
-          scenarios */
-          else {
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = RFRAME;
-            phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.RframeInfo.errCode =
-                OTHER_ERROR;
-            phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-                SEND_R_NACK;
-          }
-        } else if (phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType ==
-                   SFRAME) {
-          /* Copy the last S frame sent */
-          phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
-                          &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
-                          sizeof(phNxpEseProto7816_NextTx_Info_t));
+          phNxpEseProto7816_3_Var.recoveryCounter++;
+        } else {
+          phNxpEseProto7816_RecoverySteps();
+          phNxpEseProto7816_3_Var.recoveryCounter++;
         }
-        phNxpEseProto7816_3_Var.recoveryCounter++;
-      } else {
-        phNxpEseProto7816_RecoverySteps();
-        phNxpEseProto7816_3_Var.recoveryCounter++;
+        // resend previously send I frame
+      } else /* Error handling 4 */
+      {
+        phNxpEse_Sleep(GET_DELAY_ERROR_RECOVERY());
+        if (phNxpEseProto7816_3_Var.recoveryCounter < GET_FRAME_RETRY_COUNT()) {
+          phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
+              UNDEFINED_ERROR;
+          phNxpEseProto7816_3_Var.recoveryCounter++;
+        } else {
+          phNxpEseProto7816_RecoverySteps();
+          phNxpEseProto7816_3_Var.recoveryCounter++;
+        }
       }
-      // resend previously send I frame
-    } else /* Error handling 4 */
-    {
-      phNxpEse_Sleep(GET_DELAY_ERROR_RECOVERY());
-      if (phNxpEseProto7816_3_Var.recoveryCounter < GET_FRAME_RETRY_COUNT()) {
-        phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdRframeInfo.errCode =
-            UNDEFINED_ERROR;
-        phNxpEseProto7816_3_Var.recoveryCounter++;
-      } else {
-        phNxpEseProto7816_RecoverySteps();
-        phNxpEseProto7816_3_Var.recoveryCounter++;
-      }
+    } else {
+      NXP_LOG_ESE_E("%s Payload data is not expected in R-Frame, data_len %d",
+                    __FUNCTION__, data_len);
+      status = ESESTATUS_INVALID_RECEIVE_LENGTH;
     }
   } else if ((0x01 == pcb_bits.msb) &&
              (0x01 == pcb_bits.bit7)) /* S-FRAME decoded should come here */
   {
-    ALOGD_IF(ese_debug_enabled, "%s S-Frame Received", __FUNCTION__);
+    NXP_LOG_ESE_D("%s S-Frame Received", __FUNCTION__);
     int32_t frameType = (int32_t)(pcb & 0x3F); /*discard upper 2 bits */
     phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdFrameType = SFRAME;
     if (frameType != WTX_REQ) {
@@ -1287,10 +1303,10 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
         break;
       case WTX_REQ:
         phNxpEseProto7816_3_Var.wtx_counter++;
-        ALOGD_IF(ese_debug_enabled, "%s Wtx_counter value - %lu", __FUNCTION__,
-                 phNxpEseProto7816_3_Var.wtx_counter);
-        ALOGD_IF(ese_debug_enabled, "%s Wtx_counter wtx_counter_limit - %lu",
-                 __FUNCTION__, phNxpEseProto7816_3_Var.wtx_counter_limit);
+        NXP_LOG_ESE_D("%s Wtx_counter value - %lu", __FUNCTION__,
+                      phNxpEseProto7816_3_Var.wtx_counter);
+        NXP_LOG_ESE_D("%s Wtx_counter wtx_counter_limit - %lu", __FUNCTION__,
+                      phNxpEseProto7816_3_Var.wtx_counter_limit);
         /* Previous sent frame is some S-frame but not WTX response S-frame */
         if (GET_CHIP_OS_VERSION() == OS_VERSION_4_0 &&
             phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.SframeInfo.sFrameType !=
@@ -1314,10 +1330,10 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
               phNxpEseProto7816_3_Var.wtx_counter_limit) {
             phNxpEseProto7816_CheckAndNotifyWtx(WTX_END);
             if (GET_CHIP_OS_VERSION() != OS_VERSION_4_0) {
-              ALOGD_IF(ese_debug_enabled,
-                       "%s Power cycle to eSE  max "
-                       "WTX received",
-                       __FUNCTION__);
+              NXP_LOG_ESE_D(
+                  "%s Power cycle to eSE  max "
+                  "WTX received",
+                  __FUNCTION__);
               phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
                   IDLE_STATE;
               status = ESESTATUS_TRANSCEIVE_FAILED;
@@ -1329,10 +1345,10 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
                   .sFrameType = INTF_RESET_REQ;
               phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
                   SEND_S_INTF_RST;
-              ALOGD_IF(ese_debug_enabled,
-                       "%s Interface Reset to eSE wtx"
-                       " count reached!!!",
-                       __FUNCTION__);
+              NXP_LOG_ESE_D(
+                  "%s Interface Reset to eSE wtx"
+                  " count reached!!!",
+                  __FUNCTION__);
             }
           } else {
             phNxpEse_Sleep(GET_DELAY_ERROR_RECOVERY());
@@ -1355,17 +1371,30 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
             INTF_RESET_REQ;
         break;
       case INTF_RESET_RSP:
-        phNxpEseProto7816_ResetProtoParams();
-        phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdSframeInfo.sFrameType =
-            INTF_RESET_RSP;
+        if (phNxpEseProto7816_3_Var.reset_type == RESET_TYPE_RECOVERY) {
+          uint32_t tmpcurrentIFSDSize = phNxpEseProto7816_3_Var.currentIFSDSize;
+          phNxpEseProto7816_ResetProtoParams();
+          phNxpEseProto7816_3_Var.currentIFSDSize = tmpcurrentIFSDSize;
+          phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
+              PH_NXP_ESE_PROTO_7816_TRANSCEIVE;
+          phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = SFRAME;
+          phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.SframeInfo.sFrameType =
+              IFS_REQ;
+          phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+              SEND_S_IFS_ADJ;
+        } else {
+          phNxpEseProto7816_ResetProtoParams();
+          phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdSframeInfo
+              .sFrameType = INTF_RESET_RSP;
+          phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = UNKNOWN;
+          phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+              IDLE_STATE;
+        }
         if (p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET] > 0) {
           phNxpEseProto7816_DecodeSFrameATRData(p_data);
         } else {
           phNxpEse_setOsVersion(OS_VERSION_4_0);
         }
-        phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = UNKNOWN;
-        phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
-            IDLE_STATE;
         break;
       case PROP_END_APDU_REQ:
         phNxpEseProto7816_3_Var.phNxpEseRx_Cntx.lastRcvdSframeInfo.sFrameType =
@@ -1406,7 +1435,7 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
             ATR_RSP;
         if (p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET] > 0) {
           phNxpEseProto7816_DecodeSFrameATRData(p_data);
-          phNxpEse_StoreDatainList(
+          status = phNxpEse_StoreDatainList(
               p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET],
               &p_data[PH_PROPTO_7816_FRAME_LENGTH_OFFSET + 1]);
         } else {
@@ -1417,18 +1446,18 @@ static ESESTATUS phNxpEseProto7816_DecodeFrame(uint8_t* p_data,
             IDLE_STATE;
         break;
       default:
-        ALOGE("%s Wrong S-Frame Received", __FUNCTION__);
+        NXP_LOG_ESE_E("%s Wrong S-Frame Received", __FUNCTION__);
         break;
     }
-    /*After S-Frame Rx 1 msec delay before next Tx*/
+    /*After S-Frame Rx 1 microsecond delay before next Tx*/
     if ((GET_CHIP_OS_VERSION() != OS_VERSION_4_0) &&
         (frameType != PROP_END_APDU_RSP)) {
       phNxpEse_Sleep(1000);
     }
   } else {
-    ALOGD_IF(ese_debug_enabled, "%s Wrong-Frame Received", __FUNCTION__);
+    NXP_LOG_ESE_D("%s Wrong-Frame Received", __FUNCTION__);
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -1445,10 +1474,10 @@ static ESESTATUS phNxpEseProto7816_ProcessResponse(void) {
   uint32_t data_len = 0;
   uint8_t* p_data = NULL;
   ESESTATUS status = ESESTATUS_FAILED;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   status = phNxpEseProto7816_GetRawFrame(&data_len, &p_data);
-  ALOGD_IF(ese_debug_enabled, "%s p_data ----> %p len ----> 0x%x", __FUNCTION__,
-           p_data, data_len);
+  NXP_LOG_ESE_D("%s p_data ----> %p len ----> 0x%x", __FUNCTION__, p_data,
+                data_len);
   if (ESESTATUS_SUCCESS == status) {
     /* Resetting the timeout counter */
     phNxpEseProto7816_3_Var.timeoutCounter = PH_PROTO_7816_VALUE_ZERO;
@@ -1459,7 +1488,7 @@ static ESESTATUS phNxpEseProto7816_ProcessResponse(void) {
       phNxpEseProto7816_3_Var.rnack_retry_counter = PH_PROTO_7816_VALUE_ZERO;
       status = phNxpEseProto7816_DecodeFrame(p_data, data_len);
     } else {
-      ALOGE("%s LRC Check failed", __FUNCTION__);
+      NXP_LOG_ESE_E("%s LRC Check failed", __FUNCTION__);
       if (phNxpEseProto7816_3_Var.rnack_retry_counter <
           phNxpEseProto7816_3_Var.rnack_retry_limit) {
         /*If Last sent Non-error frame is S-Frame*/
@@ -1488,8 +1517,7 @@ static ESESTATUS phNxpEseProto7816_ProcessResponse(void) {
       }
     }
   } else {
-    ALOGD_IF(ese_debug_enabled, "%s phNxpEseProto7816_GetRawFrame failed",
-             __FUNCTION__);
+    NXP_LOG_ESE_I("%s phNxpEseProto7816_GetRawFrame failed", __FUNCTION__);
     if ((SFRAME == phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.FrameType) &&
         ((WTX_RSP ==
           phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.SframeInfo.sFrameType) ||
@@ -1520,8 +1548,7 @@ static ESESTATUS phNxpEseProto7816_ProcessResponse(void) {
       if (phNxpEseProto7816_3_Var.timeoutCounter <
           PH_PROTO_7816_TIMEOUT_RETRY_COUNT) {
         phNxpEseProto7816_3_Var.timeoutCounter++;
-        ALOGD_IF(ese_debug_enabled, "%s re-transmitting the previous frame",
-                 __FUNCTION__);
+        NXP_LOG_ESE_D("%s re-transmitting the previous frame", __FUNCTION__);
         phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx =
             phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx;
       } else {
@@ -1532,13 +1559,17 @@ static ESESTATUS phNxpEseProto7816_ProcessResponse(void) {
           status = ESESTATUS_FAILED;
         }
         phNxpEseProto7816_3_Var.timeoutCounter = PH_PROTO_7816_VALUE_ZERO;
-        ALOGD_IF(ese_debug_enabled, "%s calling phNxpEse_StoreDatainList",
-                 __FUNCTION__);
-        phNxpEse_StoreDatainList(data_len, p_data);
+        NXP_LOG_ESE_D("%s calling phNxpEse_StoreDatainList", __FUNCTION__);
+        ESESTATUS storeDataStatus = phNxpEse_StoreDatainList(data_len, p_data);
+        if (storeDataStatus != ESESTATUS_SUCCESS) {
+          NXP_LOG_ESE_D("%s :phNxpEse_StoreDatainList failed. status = %x",
+                        __FUNCTION__, storeDataStatus);
+          status = storeDataStatus;
+        }
       }
     }
   }
-  ALOGD_IF(ese_debug_enabled, "Exit %s Status 0x%x", __FUNCTION__, status);
+  NXP_LOG_ESE_D("Exit %s Status 0x%x", __FUNCTION__, status);
   return status;
 }
 
@@ -1559,11 +1590,13 @@ static ESESTATUS TransceiveProcess(void) {
   sFrameInfo_t sFrameInfo;
   memset(&sFrameInfo, 0, sizeof(sFrameInfo_t));
 
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  phNxpEse_FlushData();
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   while (phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState !=
          IDLE_STATE) {
-    ALOGD_IF(ese_debug_enabled, "%s nextTransceiveState %x", __FUNCTION__,
-             phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState);
+    NXP_LOG_ESE_D(
+        "%s nextTransceiveState %x", __FUNCTION__,
+        phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState);
     switch (phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState) {
       case SEND_IFRAME:
         status = phNxpEseProto7816_SendIframe(
@@ -1621,16 +1654,25 @@ static ESESTATUS TransceiveProcess(void) {
                       &phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
                       sizeof(phNxpEseProto7816_NextTx_Info_t));
       status = phNxpEseProto7816_ProcessResponse();
+      if (ESESTATUS_NOT_ENOUGH_MEMORY == status ||
+          ESESTATUS_INVALID_RECEIVE_LENGTH == status) {
+        NXP_LOG_ESE_E(
+            "%s Processing response failed, shall retry in new session",
+            __FUNCTION__);
+        phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
+            IDLE_STATE;
+      }
     } else {
-      ALOGE("%s Transceive send failed, going to recovery!", __FUNCTION__);
+      NXP_LOG_ESE_E("%s Transceive send failed, going to recovery!",
+                    __FUNCTION__);
       phNxpEseProto7816_3_Var.phNxpEseProto7816_nextTransceiveState =
           IDLE_STATE;
     }
-  };
+  }
   /*Timeout condition when previously WTX_ONGOING is notified
    *WTX_END shall be notified from here */
   phNxpEseProto7816_CheckAndNotifyWtx(WTX_END);
-  ALOGD_IF(ese_debug_enabled, "Exit %s Status 0x%x", __FUNCTION__, status);
+  NXP_LOG_ESE_D("Exit %s Status 0x%x", __FUNCTION__, status);
   return status;
 }
 
@@ -1683,7 +1725,7 @@ ESESTATUS phNxpEseProto7816_Transceive(phNxpEse_data* pCmd,
   ESESTATUS status = ESESTATUS_FAILED;
   ESESTATUS wStatus = ESESTATUS_FAILED;
   phNxpEse_data pRes;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   if ((NULL == pCmd) || (NULL == pRsp) ||
       (phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState !=
        PH_NXP_ESE_PROTO_7816_IDLE))
@@ -1695,32 +1737,37 @@ ESESTATUS phNxpEseProto7816_Transceive(phNxpEse_data* pCmd,
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.p_data = pCmd->p_data;
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.totalDataLen =
       pCmd->len;
-  ALOGD_IF(ese_debug_enabled, "Transceive data ptr 0x%p len:%d", pCmd->p_data,
-           pCmd->len);
+  NXP_LOG_ESE_D("Transceive data ptr 0x%p len:%d", pCmd->p_data, pCmd->len);
   status = phNxpEseProto7816_SetFirstIframeContxt();
+
+  phPalEse_startTimer(phPalEse_getTimer()->tx_timer);
+
   status = TransceiveProcess();
+
+  phPalEse_stopTimer(phPalEse_getTimer()->rx_timer);
+
   if (ESESTATUS_FAILED == status || ESESTATUS_TRANSCEIVE_FAILED == status) {
     /* ESE hard reset to be done */
-    ALOGE("Transceive failed, hard reset to proceed");
+    NXP_LOG_ESE_E("Transceive failed, hard reset to proceed");
     wStatus = phNxpEse_GetData(&pRes.len, &pRes.p_data);
     if (ESESTATUS_SUCCESS == wStatus) {
-      ALOGD_IF(ese_debug_enabled,
-               "%s Data successfully received at 7816, packaging to "
-               "send upper layers: DataLen = %d",
-               __FUNCTION__, pRes.len);
+      NXP_LOG_ESE_D(
+          "%s Data successfully received at 7816, packaging to "
+          "send upper layers: DataLen = %d",
+          __FUNCTION__, pRes.len);
     }
   } else {
     // fetch the data info and report to upper layer.
     wStatus = phNxpEse_GetData(&pRes.len, &pRes.p_data);
     if (ESESTATUS_SUCCESS == wStatus) {
-      ALOGD_IF(ese_debug_enabled,
-               "%s Data successfully received at 7816, packaging to "
-               "send upper layers: DataLen = %d",
-               __FUNCTION__, pRes.len);
+      NXP_LOG_ESE_D(
+          "%s Data successfully received at 7816, packaging to "
+          "send upper layers: DataLen = %d",
+          __FUNCTION__, pRes.len);
     } else
       status = ESESTATUS_FAILED;
   }
-
+  printCmdRspTimeDuration(status, pCmd->len, pRes.len);
   /* Copy the data to be read by the upper layer via transceive api */
   pRsp->len = pRes.len;
   pRsp->p_data = pRes.p_data;
@@ -1728,8 +1775,34 @@ ESESTATUS phNxpEseProto7816_Transceive(phNxpEse_data* pCmd,
   phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
       PH_NXP_ESE_PROTO_7816_IDLE;
   phNxpEseProto7816_3_Var.reset_type = RESET_TYPE_NONE;
-  ALOGD_IF(ese_debug_enabled, "Exit %s Status 0x%x", __FUNCTION__, status);
+  NXP_LOG_ESE_D("Exit %s Status 0x%x", __FUNCTION__, status);
   return status;
+}
+
+/******************************************************************************
+ * Function         printCmdRspTimeDuration
+ *
+ * Description      Prints time taken(usecs) in sending C-Apdu and receiving
+ *                  R-Apdu
+ *                  Applicable only when KPI measurement config is enabled
+ *
+ * Returns          void
+ *
+ ******************************************************************************/
+static void printCmdRspTimeDuration(ESESTATUS status, uint32_t cmdLen,
+                                    uint32_t respLen) {
+  if (!phPalEse_getTimer()->is_enabled) return;
+
+  if (status == ESESTATUS_SUCCESS) {
+    NXP_LOG_ESE_I(
+        "TX: Total time taken for sending C-Apdu of size: %d is %lu usecs",
+        cmdLen, phPalEse_timerDuration(phPalEse_getTimer()->tx_timer));
+    NXP_LOG_ESE_I(
+        "RX: Total time taken for receiving R-Apdu of size: %d is %lu usecs",
+        respLen, phPalEse_timerDuration(phPalEse_getTimer()->rx_timer));
+  } else {
+    phPalEse_resetTimer();
+  }
 }
 
 /******************************************************************************
@@ -1879,8 +1952,7 @@ ESESTATUS phNxpEseProto7816_Reset(void) {
 ESESTATUS phNxpEseProto7816_Open(phNxpEseProto7816InitParam_t initParam) {
   ESESTATUS status = ESESTATUS_FAILED;
   status = phNxpEseProto7816_ResetProtoParams();
-  ALOGD_IF(ese_debug_enabled, "%s: First open completed, Congratulations",
-           __FUNCTION__);
+  NXP_LOG_ESE_D("%s: First open completed, Congratulations", __FUNCTION__);
   /* Update WTX max. limit */
   phNxpEseProto7816_3_Var.wtx_counter_limit = initParam.wtx_counter_limit;
   phNxpEseProto7816_3_Var.rnack_retry_limit = initParam.rnack_retry_limit;
@@ -1939,13 +2011,13 @@ ESESTATUS phNxpEseProto7816_Close(
   status = TransceiveProcess();
   if (ESESTATUS_SUCCESS != status) {
     /* reset all the structures */
-    ALOGE("%s TransceiveProcess failed ", __FUNCTION__);
+    NXP_LOG_ESE_E("%s TransceiveProcess failed ", __FUNCTION__);
     if (status == ESESTATUS_TRANSCEIVE_FAILED &&
         phNxpEseProto7816_3_Var.atrInfo.len > PH_PROTO_7816_VALUE_ZERO) {
       if (phNxpEseProto7816_3_Var.atrInfo
               .vendorID[PH_PROTO_ATR_RSP_VENDOR_ID_LEN - 1] <
           PH_SE_OS_VERSION_10) {
-        ALOGD_IF(ese_debug_enabled, "%s shall trigger recovery", __FUNCTION__);
+        NXP_LOG_ESE_D("%s shall trigger recovery", __FUNCTION__);
         status = ESESTATUS_RESPONSE_TIMEOUT;
       }
     }
@@ -1991,14 +2063,14 @@ ESESTATUS phNxpEseProto7816_CloseAllSessions(void) {
       status = TransceiveProcess();
       if (ESESTATUS_FAILED == status) {
         /* reset all the structures */
-        ALOGD_IF(ese_debug_enabled, "%s EndOfSession failed ", __FUNCTION__);
+        NXP_LOG_ESE_D("%s EndOfSession failed ", __FUNCTION__);
       }
       phNxpEse_free(buffer);
       phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
           PH_NXP_ESE_PROTO_7816_IDLE;
     }
   } else {
-    ALOGD_IF(ese_debug_enabled, "%s Function not supported ", __FUNCTION__);
+    NXP_LOG_ESE_D("%s Function not supported ", __FUNCTION__);
     status = ESESTATUS_SUCCESS;
   }
   return status;
@@ -2015,7 +2087,7 @@ ESESTATUS phNxpEseProto7816_CloseAllSessions(void) {
 ESESTATUS phNxpEseProto7816_IntfReset(
     phNxpEseProto7816SecureTimer_t* pSecureTimerParam) {
   ESESTATUS status = ESESTATUS_FAILED;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
       PH_NXP_ESE_PROTO_7816_TRANSCEIVE;
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = SFRAME;
@@ -2026,13 +2098,13 @@ ESESTATUS phNxpEseProto7816_IntfReset(
   status = TransceiveProcess();
   if (ESESTATUS_FAILED == status) {
     /* reset all the structures */
-    ALOGE("%s TransceiveProcess failed ", __FUNCTION__);
+    NXP_LOG_ESE_E("%s TransceiveProcess failed ", __FUNCTION__);
   }
   phNxpEse_memcpy(pSecureTimerParam, &phNxpEseProto7816_3_Var.secureTimerParams,
                   sizeof(phNxpEseProto7816SecureTimer_t));
   phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
       PH_NXP_ESE_PROTO_7816_IDLE;
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -2048,16 +2120,15 @@ ESESTATUS phNxpEseProto7816_SetIfs(uint16_t IFS_Size) {
   // phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.maxDataLenIFSC =
   // IFSC_Size;
   ESESTATUS status = ESESTATUS_FAILED;
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   /* IFSD > IFSC not allowed, card will reject by R-NACK so not sending */
   if (IFS_Size >
       phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.maxDataLenIFSC) {
     phNxpEseProto7816_3_Var.currentIFSDSize =
         phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.maxDataLenIFSC;
     /* IFSD is greater than IFSC , set max IFSC as IFSD*/
-    ALOGD_IF(ese_debug_enabled,
-             "%s : IFSD greater than IFSC ,  set max IFSC as IFSD  ",
-             __FUNCTION__);
+    NXP_LOG_ESE_D("%s : IFSD greater than IFSC ,  set max IFSC as IFSD  ",
+                  __FUNCTION__);
   } else {
     phNxpEseProto7816_3_Var.currentIFSDSize = IFS_Size;
   }
@@ -2070,11 +2141,11 @@ ESESTATUS phNxpEseProto7816_SetIfs(uint16_t IFS_Size) {
   status = TransceiveProcess();
   if (ESESTATUS_FAILED == status) {
     /* reset all the structures */
-    ALOGE("%s TransceiveProcess failed ", __FUNCTION__);
+    NXP_LOG_ESE_E("%s TransceiveProcess failed ", __FUNCTION__);
   }
   phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
       PH_NXP_ESE_PROTO_7816_IDLE;
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -2088,8 +2159,8 @@ ESESTATUS phNxpEseProto7816_SetIfs(uint16_t IFS_Size) {
  *
  ******************************************************************************/
 uint16_t phNxpEseProto7816_GetIfs(void) {
-  ALOGD_IF(
-      ese_debug_enabled, "Enter %s current IFSC = %d", __FUNCTION__,
+  NXP_LOG_ESE_D(
+      "Enter %s current IFSC = %d", __FUNCTION__,
       phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo.currentDataLenIFS);
   return phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.IframeInfo
       .currentDataLenIFS;
@@ -2108,20 +2179,17 @@ phNxpEseProto7816_OsType_t phNxpEseProto7816_GetOsMode(void) {
   phNxpEseProto7816_OsType_t mode = UNKNOWN_MODE;
   if (GET_CHIP_OS_VERSION() >= OS_VERSION_5_2_2) {
     if (phNxpEseProto7816_3_Var.extndAtrInfo.osType == MODE_JCOP) {
-      ALOGD_IF(ese_debug_enabled, "Enter %s OS Mode = %s", __FUNCTION__,
-               "JCOP Mode");
+      NXP_LOG_ESE_D("Enter %s OS Mode = %s", __FUNCTION__, "JCOP Mode");
       mode = JCOP_MODE;
     } else if (phNxpEseProto7816_3_Var.extndAtrInfo.osType == MODE_OSU) {
-      ALOGD_IF(ese_debug_enabled, "Enter %s OS Mode = %s", __FUNCTION__,
-               "OSU Mode");
+      NXP_LOG_ESE_D("Enter %s OS Mode = %s", __FUNCTION__, "OSU Mode");
       mode = OSU_MODE;
     } else {
-      ALOGD_IF(ese_debug_enabled, "Enter %s OS Mode = %s", __FUNCTION__,
-               "UNKNOWN Mode");
+      NXP_LOG_ESE_D("Enter %s OS Mode = %s", __FUNCTION__, "UNKNOWN Mode");
       mode = UNKNOWN_MODE;
     }
   } else {
-    ALOGE("%s function not supported", __FUNCTION__);
+    NXP_LOG_ESE_E("%s function not supported", __FUNCTION__);
   }
   return mode;
 }
@@ -2137,7 +2205,7 @@ phNxpEseProto7816_OsType_t phNxpEseProto7816_GetOsMode(void) {
 ESESTATUS phNxpEseProto7816_getAtr(phNxpEse_data* pATRRsp) {
   ESESTATUS status = ESESTATUS_FAILED;
 
-  ALOGD_IF(ese_debug_enabled, "Enter %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Enter %s ", __FUNCTION__);
   phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
       PH_NXP_ESE_PROTO_7816_TRANSCEIVE;
   phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx.FrameType = SFRAME;
@@ -2148,20 +2216,20 @@ ESESTATUS phNxpEseProto7816_getAtr(phNxpEse_data* pATRRsp) {
   status = TransceiveProcess();
   if (ESESTATUS_FAILED == status) {
     /* reset all the structures */
-    ALOGD_IF(ese_debug_enabled, "%s TransceiveProcess failed ", __FUNCTION__);
+    NXP_LOG_ESE_D("%s TransceiveProcess failed ", __FUNCTION__);
   }
 
   status = phNxpEse_GetData(&(pATRRsp->len), &(pATRRsp->p_data));
   if (ESESTATUS_SUCCESS == status) {
-    ALOGD_IF(ese_debug_enabled,
-             "%s Data successfully received at 7816, packaging to "
-             "send upper layers: DataLen = %d",
-             __FUNCTION__, pATRRsp->len);
+    NXP_LOG_ESE_D(
+        "%s Data successfully received at 7816, packaging to "
+        "send upper layers: DataLen = %d",
+        __FUNCTION__, pATRRsp->len);
   } else
     status = ESESTATUS_FAILED;
   phNxpEseProto7816_3_Var.phNxpEseProto7816_CurrentState =
       PH_NXP_ESE_PROTO_7816_IDLE;
-  ALOGD_IF(ese_debug_enabled, "Exit %s ", __FUNCTION__);
+  NXP_LOG_ESE_D("Exit %s ", __FUNCTION__);
   return status;
 }
 
@@ -2218,9 +2286,8 @@ static bool phNxpEseProto7816_ResendLastSFrameReq(void) {
   if (phNxpEseProto7816_3_Var.lastSentNonErrorframeType == SFRAME &&
       WTX_RSP !=
           phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx.SframeInfo.sFrameType) {
-    ALOGD_IF(ese_debug_enabled,
-             "%s Unexpected Frame, re-transmitting the previous S-frame",
-             __FUNCTION__);
+    NXP_LOG_ESE_D("%s Unexpected Frame, re-transmitting the previous S-frame",
+                  __FUNCTION__);
     phNxpEse_memcpy(&phNxpEseProto7816_3_Var.phNxpEseNextTx_Cntx,
                     &phNxpEseProto7816_3_Var.phNxpEseLastTx_Cntx,
                     sizeof(phNxpEseProto7816_NextTx_Info_t));

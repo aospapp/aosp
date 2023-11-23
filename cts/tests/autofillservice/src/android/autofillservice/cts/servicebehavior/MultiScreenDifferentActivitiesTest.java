@@ -34,7 +34,8 @@ import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequ
 import android.content.ComponentName;
 import android.platform.test.annotations.AppModeFull;
 import android.service.autofill.SaveInfo;
-import android.support.test.uiautomator.UiObject2;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 

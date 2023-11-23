@@ -24,4 +24,7 @@ bootstrap_go_package {
     srcs: [
         "event_handler.go",
     ],
+    testSrcs: [
+        "event_handler_test.go",
+    ],
 }

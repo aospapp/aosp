@@ -45,14 +45,6 @@ cc_library_static {
 
 python_library_host {
     name: "apex_manifest_proto",
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     srcs: [
         "apex_manifest.proto",
     ],
@@ -63,14 +55,6 @@ python_library_host {
 
 python_library_host {
     name: "apex_build_info_proto",
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     srcs: [
         "apex_build_info.proto",
     ],

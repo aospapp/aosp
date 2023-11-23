@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"android/soong/android"
+	"android/soong/dexpreopt"
 	"android/soong/java"
 
 	"github.com/google/blueprint"
@@ -30,7 +31,7 @@ import (
 // apexes.
 
 var prepareForTestWithPlatformBootclasspath = android.GroupFixturePreparers(
-	java.PrepareForTestWithDexpreopt,
+	java.PrepareForTestWithJavaDefaultModules,
 	PrepareForTestWithApexBuildComponents,
 )
 
@@ -125,6 +126,7 @@ func TestPlatformBootclasspath_Fragments(t *testing.T) {
 					unsupported_packages: [
 							"bar-unsupported-packages.txt",
 					],
+					split_packages: ["*"],
 				},
 			}
 
@@ -248,6 +250,8 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 		java.FixtureConfigureApexBootJars("myapex:bar"),
 		java.PrepareForTestWithJavaSdkLibraryFiles,
 		java.FixtureWithLastReleaseApis("foo"),
+		java.PrepareForTestWithDexpreopt,
+		dexpreopt.FixtureDisableDexpreoptBootImages(false),
 	).RunTestWithBp(t, `
 		apex {
 			name: "com.android.art",
@@ -274,6 +278,9 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 				"baz",
 				"quuz",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		java_library {
@@ -317,6 +324,9 @@ func TestPlatformBootclasspathDependencies(t *testing.T) {
 			name: "my-bootclasspath-fragment",
 			contents: ["bar"],
 			apex_available: ["myapex"],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		apex_key {
@@ -482,6 +492,9 @@ func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 			contents: [
 				"foo", "bar",
 			],
+			hidden_api: {
+				split_packages: ["*"],
+			},
 		}
 
 		prebuilt_bootclasspath_fragment {
@@ -528,9 +541,6 @@ func TestPlatformBootclasspath_AlwaysUsePrebuiltSdks(t *testing.T) {
 
 		// Not a prebuilt as no prebuilt existed when it was added.
 		"platform:legacy.core.platform.api.stubs",
-
-		// Needed for generating the boot image.
-		"platform:dex2oatd",
 
 		// The platform_bootclasspath intentionally adds dependencies on both source and prebuilt
 		// modules when available as it does not know which one will be preferred.
@@ -599,6 +609,9 @@ func TestPlatformBootclasspath_IncludesRemainingApexJars(t *testing.T) {
 				generate_classpaths_proto: false,
 				contents: ["foo"],
 				apex_available: ["myapex"],
+				hidden_api: {
+					split_packages: ["*"],
+				},
 			}
 
 			java_library {
@@ -656,6 +669,9 @@ func TestBootJarNotInApex(t *testing.T) {
 				contents: [
 					"foo",
 				],
+				hidden_api: {
+					split_packages: ["*"],
+				},
 			}
 
 			platform_bootclasspath {
@@ -696,6 +712,9 @@ func TestBootFragmentNotInApex(t *testing.T) {
 			bootclasspath_fragment {
 				name: "not-in-apex-fragment",
 				contents: ["foo"],
+				hidden_api: {
+					split_packages: ["*"],
+				},
 			}
 
 			platform_bootclasspath {
@@ -746,6 +765,9 @@ func TestNonBootJarInFragment(t *testing.T) {
 				name: "apex-fragment",
 				contents: ["foo", "bar"],
 				apex_available:[ "myapex" ],
+				hidden_api: {
+					split_packages: ["*"],
+				},
 			}
 
 			platform_bootclasspath {

@@ -15,6 +15,7 @@
 
 import glob
 import os
+import tempfile
 import unittest
 import uuid
 
@@ -25,6 +26,7 @@ from acloud.internal import constants
 from acloud.internal.lib import android_build_client
 from acloud.internal.lib import auth
 from acloud.internal.lib import cvd_compute_client_multi_stage
+from acloud.internal.lib import cvd_utils
 from acloud.internal.lib import driver_test_lib
 from acloud.internal.lib import utils
 from acloud.list import list as list_instances
@@ -41,6 +43,8 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         self.Patch(android_build_client.AndroidBuildClient, "InitResourceHandle")
         self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "InitResourceHandle")
         self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "LaunchCvd")
+        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "UpdateFetchCvd")
+        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "FetchBuild")
         self.Patch(list_instances, "GetInstancesFromInstanceNames", return_value=mock.MagicMock())
         self.Patch(list_instances, "ChooseOneRemoteInstance", return_value=mock.MagicMock())
         self.Patch(utils, "GetBuildEnvironmentVariable",
@@ -48,14 +52,12 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         self.Patch(glob, "glob", return_vale=["fake.img"])
 
     # pylint: disable=protected-access
+    @staticmethod
     @mock.patch.object(cvd_compute_client_multi_stage.CvdComputeClient,
                        "UpdateCertificate")
-    @mock.patch.object(remote_instance_cf_device_factory.RemoteInstanceDeviceFactory,
-                       "_FetchBuild")
     @mock.patch("acloud.public.actions.remote_instance_cf_device_factory."
                 "cvd_utils")
-    def testProcessArtifacts(self, mock_cvd_utils, mock_download,
-                             mock_uploadca):
+    def testProcessArtifacts(mock_cvd_utils, mock_uploadca):
         """test ProcessArtifacts."""
         # Test image source type is local.
         args = mock.MagicMock()
@@ -64,6 +66,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         args.flavor = "phone"
         args.local_image = constants.FIND_IN_BUILD_ENV
         args.local_system_image = None
+        args.local_vendor_image = None
         args.launch_args = None
         args.autoconnect = constants.INS_KEY_WEBRTC
         avd_spec_local_img = avd_spec.AVDSpec(args)
@@ -78,7 +81,8 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         mock_uploadca.assert_called_once()
         mock_uploadca.reset_mock()
         mock_cvd_utils.UploadArtifacts.assert_called_once_with(
-            mock.ANY, fake_image_name, fake_host_package_name)
+            mock.ANY, mock_cvd_utils.GCE_BASE_DIR, fake_image_name,
+            fake_host_package_name)
         mock_cvd_utils.UploadExtraImages.assert_called_once()
 
         # given autoconnect to vnc should not upload certificates
@@ -103,11 +107,13 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         args.kernel_branch = "kernel_branch"
         args.kernel_build_target = "kernel_target"
         avd_spec_remote_img = avd_spec.AVDSpec(args)
-        self.Patch(cvd_compute_client_multi_stage.CvdComputeClient, "UpdateFetchCvd")
         factory_remote_img = remote_instance_cf_device_factory.RemoteInstanceDeviceFactory(
             avd_spec_remote_img)
         factory_remote_img._ProcessArtifacts()
-        mock_download.assert_called_once()
+
+        compute_client = factory_remote_img.GetComputeClient()
+        compute_client.UpdateFetchCvd.assert_called_once()
+        compute_client.FetchBuild.assert_called_once()
 
     # pylint: disable=protected-access
     @mock.patch.dict(os.environ, {constants.ENV_BUILD_TARGET:'fake-target'})
@@ -121,6 +127,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         args.local_image = constants.FIND_IN_BUILD_ENV
         args.local_system_image = None
         args.adb_port = None
+        args.fastboot_port = None
         args.launch_args = None
         fake_avd_spec = avd_spec.AVDSpec(args)
         fake_avd_spec.cfg.enable_multi_stage = True
@@ -138,7 +145,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
             fake_avd_spec,
             fake_image_name,
             fake_host_package_name)
-        self.assertEqual(factory._CreateGceInstance(), "ins-1234-userbuild-aosp-cf-x86-phone")
+        self.assertEqual(factory.CreateGceInstance(), "ins-1234-userbuild-aosp-cf-x86-phone")
 
         # Can't get target name from zip file name.
         fake_image_name = "/fake/aosp_cf_x86_phone.username.zip"
@@ -146,7 +153,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
             fake_avd_spec,
             fake_image_name,
             fake_host_package_name)
-        self.assertEqual(factory._CreateGceInstance(), "ins-1234-userbuild-fake-target")
+        self.assertEqual(factory.CreateGceInstance(), "ins-1234-userbuild-fake-target")
 
         # No image zip path, it uses local build images.
         fake_image_name = ""
@@ -154,7 +161,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
             fake_avd_spec,
             fake_image_name,
             fake_host_package_name)
-        self.assertEqual(factory._CreateGceInstance(), "ins-1234-userbuild-fake-target")
+        self.assertEqual(factory.CreateGceInstance(), "ins-1234-userbuild-fake-target")
 
     def testReuseInstanceNameMultiStage(self):
         """Test reuse instance name."""
@@ -165,6 +172,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         args.local_image = constants.FIND_IN_BUILD_ENV
         args.local_system_image = None
         args.adb_port = None
+        args.fastboot_port = None
         args.launch_args = None
         fake_avd_spec = avd_spec.AVDSpec(args)
         fake_avd_spec.cfg.enable_multi_stage = True
@@ -180,7 +188,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
             fake_avd_spec,
             fake_image_name,
             fake_host_package_name)
-        self.assertEqual(factory._CreateGceInstance(), "fake-1234-userbuild-fake-target")
+        self.assertEqual(factory.CreateGceInstance(), "fake-1234-userbuild-fake-target")
 
     @mock.patch("acloud.public.actions.remote_instance_cf_device_factory."
                 "cvd_utils")
@@ -196,6 +204,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         args.local_image = "fake_local_image"
         args.local_system_image = None
         args.adb_port = None
+        args.fastboot_port = None
         args.cheeps_betty_image = None
         args.launch_args = None
         avd_spec_local_image = avd_spec.AVDSpec(args)
@@ -220,7 +229,7 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         mock_cvd_utils.GetRemoteBuildInfoDict.assert_called()
 
     @mock.patch.object(remote_instance_cf_device_factory.RemoteInstanceDeviceFactory,
-                       "_CreateGceInstance")
+                       "CreateGceInstance")
     @mock.patch("acloud.public.actions.remote_instance_cf_device_factory.pull")
     @mock.patch("acloud.public.actions.remote_instance_cf_device_factory."
                 "cvd_utils")
@@ -236,8 +245,12 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         fake_avd_spec.image_source = constants.IMAGE_SRC_LOCAL
         fake_avd_spec._instance_name_to_reuse = None
         fake_avd_spec.no_pull_log = False
+        fake_avd_spec.base_instance_num = None
+        fake_avd_spec.num_avds_per_instance = None
+        fake_avd_spec.local_system_image = None
+        fake_avd_spec.local_vendor_image = None
 
-        mock_cvd_utils.ConvertRemoteLogs.return_value = [{"path": "/logcat"}]
+        mock_cvd_utils.FindRemoteLogs.return_value = [{"path": "/logcat"}]
         mock_cvd_utils.UploadExtraImages.return_value = [
             "-boot_image", "/boot/img"]
 
@@ -252,17 +265,93 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         factory.CreateInstance()
         mock_create_gce_instance.assert_called_once()
         mock_cvd_utils.UploadArtifacts.assert_called_once()
+        mock_cvd_utils.FindRemoteLogs.assert_called_with(
+            mock.ANY, mock_cvd_utils.GCE_BASE_DIR, None, None)
         compute_client.LaunchCvd.assert_called_once()
-        self.assertEqual(
-            ["-boot_image", "/boot/img"],
-            compute_client.LaunchCvd.call_args[1].get("extra_args"))
-        mock_pull.GetAllLogFilePaths.assert_called_once()
+        self.assertIn(["-boot_image", "/boot/img"],
+                      compute_client.LaunchCvd.call_args[0])
+        mock_pull.GetAllLogFilePaths.assert_called_once_with(
+            mock.ANY, constants.REMOTE_LOG_FOLDER)
         mock_pull.PullLogs.assert_called_once()
+
+        factory.GetAdbPorts()
+        mock_cvd_utils.GetAdbPorts.assert_called_with(None, None)
+        factory.GetVncPorts()
+        mock_cvd_utils.GetVncPorts.assert_called_with(None, None)
+        factory.GetFastbootPorts()
+        mock_cvd_utils.GetFastbootPorts.assert_called_with(None, None)
         self.assertEqual({"instance": "failure"}, factory.GetFailures())
-        self.assertEqual(3, len(factory.GetLogs().get("instance")))
+        self.assertEqual(2, len(factory.GetLogs().get("instance")))
+
+    @mock.patch("acloud.public.actions.remote_instance_cf_device_factory."
+                "ota_tools")
+    def testLocalSystemAndVendorImageCreateInstance(self, mock_ota_tools):
+        """Test CreateInstance with local system image."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            local_image_dir = os.path.join(temp_dir, "cf")
+            misc_info_path = os.path.join(local_image_dir, "misc_info.txt")
+            local_system_image_dir = os.path.join(temp_dir, "system")
+            local_system_image_path = os.path.join(
+                local_system_image_dir, "system.img")
+            local_vendor_image_dir = os.path.join(temp_dir, "vendor")
+            local_vendor_image_path = os.path.join(
+                local_vendor_image_dir, "vendor.img")
+            local_vendor_dlkm_image_path = os.path.join(
+                local_vendor_image_dir, "vendor_dlkm.img")
+            local_odm_image_path = os.path.join(
+                local_vendor_image_dir, "odm.img")
+            local_odm_dlkm_image_path = os.path.join(
+                local_vendor_image_dir, "odm_dlkm.img")
+            self.CreateFile(misc_info_path, b"key=value")
+            self.CreateFile(local_system_image_path)
+            self.CreateFile(local_vendor_image_path)
+            self.CreateFile(local_vendor_dlkm_image_path)
+            self.CreateFile(local_odm_image_path)
+            self.CreateFile(local_odm_dlkm_image_path)
+
+            self.Patch(cvd_utils, "UploadArtifacts")
+            self.Patch(cvd_utils, "UploadSuperImage")
+            self.Patch(cvd_utils, "UploadExtraImages")
+            self.Patch(cvd_compute_client_multi_stage, "CvdComputeClient")
+            self.Patch(
+                remote_instance_cf_device_factory.RemoteInstanceDeviceFactory,
+                "CreateGceInstance", return_value="instance")
+            self.Patch(
+                remote_instance_cf_device_factory.RemoteInstanceDeviceFactory,
+                "_FindLogFiles")
+            mock_ota_tools_object = mock_ota_tools.FindOtaTools.return_value
+
+            args = mock.MagicMock()
+            args.config_file = ""
+            args.avd_type = constants.TYPE_CF
+            args.flavor = "phone"
+            args.local_image = local_image_dir
+            args.local_system_image = local_system_image_dir
+            args.local_vendor_image = local_vendor_image_dir
+            args.local_tool = ["/ota/tools/dir"]
+            args.launch_args = None
+            args.no_pull_log = True
+            avd_spec_local_img = avd_spec.AVDSpec(args)
+            factory_local_img = remote_instance_cf_device_factory.RemoteInstanceDeviceFactory(
+                avd_spec_local_img)
+            compute_client = factory_local_img.GetComputeClient()
+            compute_client.LaunchCvd.return_value = {}
+
+            factory_local_img.CreateInstance()
+
+            cvd_utils.UploadArtifacts.assert_called_once_with(
+                mock.ANY, mock.ANY, local_image_dir, mock.ANY)
+            mock_ota_tools_object.MixSuperImage.assert_called_once_with(
+                mock.ANY, misc_info_path, local_image_dir,
+                system_image=local_system_image_path,
+                vendor_image=local_vendor_image_path,
+                vendor_dlkm_image=local_vendor_dlkm_image_path,
+                odm_image=local_odm_image_path,
+                odm_dlkm_image=local_odm_dlkm_image_path)
+            cvd_utils.UploadSuperImage.assert_called_once()
 
     @mock.patch.object(remote_instance_cf_device_factory.RemoteInstanceDeviceFactory,
-                       "_CreateGceInstance")
+                       "CreateGceInstance")
     @mock.patch("acloud.public.actions.remote_instance_cf_device_factory.pull")
     @mock.patch("acloud.public.actions.remote_instance_cf_device_factory."
                 "cvd_utils")
@@ -278,8 +367,12 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         fake_avd_spec.image_source = constants.IMAGE_SRC_REMOTE
         fake_avd_spec.host_user = None
         fake_avd_spec.no_pull_log = True
+        fake_avd_spec.base_instance_num = 2
+        fake_avd_spec.num_avds_per_instance = 3
+        fake_avd_spec.local_system_image = None
+        fake_avd_spec.local_vendor_image = None
 
-        mock_cvd_utils.ConvertRemoteLogs.return_value = [{"path": "/logcat"}]
+        mock_cvd_utils.FindRemoteLogs.return_value = [{"path": "/logcat"}]
         mock_cvd_utils.UploadExtraImages.return_value = []
 
         factory = remote_instance_cf_device_factory.RemoteInstanceDeviceFactory(
@@ -289,10 +382,17 @@ class RemoteInstanceDeviceFactoryTest(driver_test_lib.BaseDriverTest):
         factory.CreateInstance()
 
         compute_client.FetchBuild.assert_called_once()
-        mock_pull.GetAllLogFilePaths.assert_called_once()
+        mock_cvd_utils.FindRemoteLogs.assert_called_with(
+            mock.ANY, mock_cvd_utils.GCE_BASE_DIR, 2, 3)
+        mock_pull.GetAllLogFilePaths.assert_not_called()
         mock_pull.PullLogs.assert_not_called()
+
+        factory.GetAdbPorts()
+        mock_cvd_utils.GetAdbPorts.assert_called_with(2, 3)
+        factory.GetVncPorts()
+        mock_cvd_utils.GetVncPorts.assert_called_with(2, 3)
         self.assertFalse(factory.GetFailures())
-        self.assertEqual(4, len(factory.GetLogs().get("instance")))
+        self.assertEqual(3, len(factory.GetLogs().get("instance")))
 
     def testGetOpenWrtInfoDict(self):
         """Test GetOpenWrtInfoDict."""

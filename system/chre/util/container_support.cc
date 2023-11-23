@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-#include <chre.h>
-
 #include <cinttypes>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
+#include "chre_api/chre.h"
 
 #include "chre/util/macros.h"
 

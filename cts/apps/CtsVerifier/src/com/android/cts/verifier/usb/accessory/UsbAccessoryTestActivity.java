@@ -33,12 +33,13 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemClock;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import android.util.Log;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.android.compatibility.common.util.ResultType;
 import com.android.compatibility.common.util.ResultUnit;
@@ -72,6 +73,8 @@ public class UsbAccessoryTestActivity extends PassFailButtons.Activity implement
     private BroadcastReceiver mUsbAccessoryHandshakeReceiver;
 
     private Boolean mAccessoryStart = false;
+    private boolean mHasSendStringCount = false;
+    private boolean mHasAccessoryConnectionStartTime = false;
     private CompletableFuture<Void> mAccessoryHandshakeIntent = new CompletableFuture<>();
 
     @Override
@@ -99,12 +102,27 @@ public class UsbAccessoryTestActivity extends PassFailButtons.Activity implement
                 synchronized (UsbAccessoryTestActivity.this) {
                     mAccessoryStart = intent.getBooleanExtra(
                             UsbManager.EXTRA_ACCESSORY_START, false);
+
+                    // check SENDSTRING event
+                    if (intent.hasExtra(UsbManager.EXTRA_ACCESSORY_STRING_COUNT)) {
+                        mHasSendStringCount = true;
+                    }
+
+                    // check GETPROTOCOL event
+                    if (intent.hasExtra(UsbManager.EXTRA_ACCESSORY_UEVENT_TIME)) {
+                        mHasAccessoryConnectionStartTime = true;
+                    }
                     mAccessoryHandshakeIntent.complete(null);
                 }
             }
         };
 
-        registerReceiver(mUsbAccessoryHandshakeReceiver, filter);
+        registerReceiver(mUsbAccessoryHandshakeReceiver, filter, Context.RECEIVER_EXPORTED);
+    }
+
+    @Override
+    public boolean requiresReportLog() {
+        return true;
     }
 
     @Override
@@ -277,6 +295,8 @@ public class UsbAccessoryTestActivity extends PassFailButtons.Activity implement
                             mAccessoryHandshakeIntent.get(accessroyStarTime,
                                     TimeUnit.MILLISECONDS);
                             assertTrue(mAccessoryStart);
+                            assertTrue(mHasSendStringCount);
+                            assertTrue(mHasAccessoryConnectionStartTime);
 
                             unregisterReceiver(mUsbAccessoryHandshakeReceiver);
                             mUsbAccessoryHandshakeReceiver = null;

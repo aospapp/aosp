@@ -18,7 +18,6 @@ package com.android.bedstead.nene.utils;
 
 import static android.os.Build.VERSION.CODENAME;
 
-import static com.android.compatibility.common.util.VersionCodes.CUR_DEVELOPMENT;
 import static com.android.compatibility.common.util.VersionCodes.R;
 
 import android.os.Build;
@@ -35,13 +34,14 @@ public final class Versions {
     private static final String TAG = "Versions";
 
     public static final int T = Build.VERSION_CODES.TIRAMISU;
-    public static final int U = Build.VERSION_CODES.CUR_DEVELOPMENT;
+    public static final int U = Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+    public static final int V = Build.VERSION_CODES.CUR_DEVELOPMENT;
 
     /** Any version. */
     public static final int ANY = -1;
 
     private static final ImmutableSet<String> DEVELOPMENT_CODENAMES =
-            ImmutableSet.of("UpsideDownCake");
+            ImmutableSet.of("UpsideDownCake", "VanillaIceCream");
 
     private Versions() {
 

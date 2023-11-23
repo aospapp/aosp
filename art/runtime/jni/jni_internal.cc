@@ -22,7 +22,7 @@
 #include <utility>
 
 #include "art_field-inl.h"
-#include "art_method-inl.h"
+#include "art_method-alloc-inl.h"
 #include "base/allocator.h"
 #include "base/atomic.h"
 #include "base/casts.h"
@@ -37,6 +37,7 @@
 #include "dex/dex_file-inl.h"
 #include "dex/utf-inl.h"
 #include "fault_handler.h"
+#include "handle_scope.h"
 #include "hidden_api.h"
 #include "gc/accounting/card_table-inl.h"
 #include "gc_root.h"
@@ -63,7 +64,7 @@
 #include "runtime.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
@@ -392,8 +393,7 @@ static ObjPtr<mirror::ClassLoader> GetClassLoader(const ScopedObjectAccess& soa)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   ArtMethod* method = soa.Self()->GetCurrentMethod(nullptr);
   // If we are running Runtime.nativeLoad, use the overriding ClassLoader it set.
-  if (method ==
-      jni::DecodeArtMethod<kEnableIndexIds>(WellKnownClasses::java_lang_Runtime_nativeLoad)) {
+  if (method == WellKnownClasses::java_lang_Runtime_nativeLoad) {
     return soa.Decode<mirror::ClassLoader>(soa.Self()->GetClassLoaderOverride());
   }
   // If we have a method, use its ClassLoader for context.
@@ -954,16 +954,15 @@ class JNI {
           WellKnownClasses::StringInitToStringFactory(jni::DecodeArtMethod(mid)));
       return CallStaticObjectMethodV(env, WellKnownClasses::java_lang_StringFactory, sf_mid, args);
     }
-    ObjPtr<mirror::Object> result = c->AllocObject(soa.Self());
+    ScopedLocalRef<jobject> result(env, soa.AddLocalReference<jobject>(c->AllocObject(soa.Self())));
     if (result == nullptr) {
       return nullptr;
     }
-    jobject local_result = soa.AddLocalReference<jobject>(result);
-    CallNonvirtualVoidMethodV(env, local_result, java_class, mid, args);
+    CallNonvirtualVoidMethodV(env, result.get(), java_class, mid, args);
     if (soa.Self()->IsExceptionPending()) {
       return nullptr;
     }
-    return local_result;
+    return result.release();
   }
 
   static jobject NewObjectA(JNIEnv* env, jclass java_class, jmethodID mid, const jvalue* args) {
@@ -981,16 +980,15 @@ class JNI {
           WellKnownClasses::StringInitToStringFactory(jni::DecodeArtMethod(mid)));
       return CallStaticObjectMethodA(env, WellKnownClasses::java_lang_StringFactory, sf_mid, args);
     }
-    ObjPtr<mirror::Object> result = c->AllocObject(soa.Self());
+    ScopedLocalRef<jobject> result(env, soa.AddLocalReference<jobject>(c->AllocObject(soa.Self())));
     if (result == nullptr) {
       return nullptr;
     }
-    jobject local_result = soa.AddLocalReference<jobjectArray>(result);
-    CallNonvirtualVoidMethodA(env, local_result, java_class, mid, args);
+    CallNonvirtualVoidMethodA(env, result.get(), java_class, mid, args);
     if (soa.Self()->IsExceptionPending()) {
       return nullptr;
     }
-    return local_result;
+    return result.release();
   }
 
   static jmethodID GetMethodID(JNIEnv* env, jclass java_class, const char* name, const char* sig) {
@@ -1269,8 +1267,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, obj, mid, ap));
-    jobject local_result = soa.AddLocalReference<jobject>(result.GetL());
-    return local_result;
+    return soa.AddLocalReference<jobject>(result.GetL());
   }
 
   static jobject CallNonvirtualObjectMethodV(JNIEnv* env, jobject obj, jclass, jmethodID mid,
@@ -1756,8 +1753,7 @@ class JNI {
     CHECK_NON_NULL_ARGUMENT(mid);
     ScopedObjectAccess soa(env);
     JValue result(InvokeWithVarArgs(soa, nullptr, mid, ap));
-    jobject local_result = soa.AddLocalReference<jobject>(result.GetL());
-    return local_result;
+    return soa.AddLocalReference<jobject>(result.GetL());
   }
 
   static jobject CallStaticObjectMethodV(JNIEnv* env, jclass, jmethodID mid, va_list args) {
@@ -1950,6 +1946,7 @@ class JNI {
     return InvokeWithJValues(soa, nullptr, mid, args).GetD();
   }
 
+  NO_STACK_PROTECTOR
   static void CallStaticVoidMethod(JNIEnv* env, jclass, jmethodID mid, ...) {
     va_list ap;
     va_start(ap, mid);
@@ -1959,6 +1956,7 @@ class JNI {
     InvokeWithVarArgs(soa, nullptr, mid, ap);
   }
 
+  NO_STACK_PROTECTOR
   static void CallStaticVoidMethodV(JNIEnv* env, jclass, jmethodID mid, va_list args) {
     CHECK_NON_NULL_ARGUMENT_RETURN_VOID(mid);
     ScopedObjectAccess soa(env);
@@ -2176,14 +2174,17 @@ class JNI {
       if (heap->IsMovableObject(s)) {
         StackHandleScope<1> hs(soa.Self());
         HandleWrapperObjPtr<mirror::String> h(hs.NewHandleWrapper(&s));
-        if (!kUseReadBarrier) {
+        if (!gUseReadBarrier && !gUseUserfaultfd) {
           heap->IncrementDisableMovingGC(soa.Self());
         } else {
-          // For the CC collector, we only need to wait for the thread flip rather
+          // For the CC and CMC collector, we only need to wait for the thread flip rather
           // than the whole GC to occur thanks to the to-space invariant.
           heap->IncrementDisableThreadFlip(soa.Self());
         }
       }
+      // Ensure that the string doesn't cause userfaults in case passed on to
+      // the kernel.
+      heap->EnsureObjectUserfaulted(s);
       if (is_copy != nullptr) {
         *is_copy = JNI_FALSE;
       }
@@ -2199,7 +2200,7 @@ class JNI {
     gc::Heap* heap = Runtime::Current()->GetHeap();
     ObjPtr<mirror::String> s = soa.Decode<mirror::String>(java_string);
     if (!s->IsCompressed() && heap->IsMovableObject(s)) {
-      if (!kUseReadBarrier) {
+      if (!gUseReadBarrier && !gUseUserfaultfd) {
         heap->DecrementDisableMovingGC(soa.Self());
       } else {
         heap->DecrementDisableThreadFlip(soa.Self());
@@ -2366,16 +2367,18 @@ class JNI {
     }
     gc::Heap* heap = Runtime::Current()->GetHeap();
     if (heap->IsMovableObject(array)) {
-      if (!kUseReadBarrier) {
+      if (!gUseReadBarrier && !gUseUserfaultfd) {
         heap->IncrementDisableMovingGC(soa.Self());
       } else {
-        // For the CC collector, we only need to wait for the thread flip rather than the whole GC
-        // to occur thanks to the to-space invariant.
+        // For the CC and CMC collector, we only need to wait for the thread flip rather
+        // than the whole GC to occur thanks to the to-space invariant.
         heap->IncrementDisableThreadFlip(soa.Self());
       }
       // Re-decode in case the object moved since IncrementDisableGC waits for GC to complete.
       array = soa.Decode<mirror::Array>(java_array);
     }
+    // Ensure that the array doesn't cause userfaults in case passed on to the kernel.
+    heap->EnsureObjectUserfaulted(array);
     if (is_copy != nullptr) {
       *is_copy = JNI_FALSE;
     }
@@ -2772,10 +2775,10 @@ class JNI {
     jlong address_arg = reinterpret_cast<jlong>(address);
     jint capacity_arg = static_cast<jint>(capacity);
 
-    jobject result = env->NewObject(WellKnownClasses::java_nio_DirectByteBuffer,
-                                    WellKnownClasses::java_nio_DirectByteBuffer_init,
-                                    address_arg, capacity_arg);
-    return static_cast<JNIEnvExt*>(env)->self_->IsExceptionPending() ? nullptr : result;
+    ScopedObjectAccess soa(env);
+    return soa.AddLocalReference<jobject>(
+        WellKnownClasses::java_nio_DirectByteBuffer_init->NewObject<'J', 'I'>(
+            soa.Self(), address_arg, capacity_arg));
   }
 
   static void* GetDirectBufferAddress(JNIEnv* env, jobject java_buffer) {
@@ -2784,14 +2787,16 @@ class JNI {
       return nullptr;
     }
 
+    ScopedObjectAccess soa(env);
+    ObjPtr<mirror::Object> buffer = soa.Decode<mirror::Object>(java_buffer);
+
     // Return null if |java_buffer| is not a java.nio.Buffer instance.
-    if (!IsInstanceOf(env, java_buffer, WellKnownClasses::java_nio_Buffer)) {
+    if (!buffer->InstanceOf(WellKnownClasses::java_nio_Buffer.Get())) {
       return nullptr;
     }
 
     // Buffer.address is non-null when the |java_buffer| is direct.
-    return reinterpret_cast<void*>(env->GetLongField(
-        java_buffer, WellKnownClasses::java_nio_Buffer_address));
+    return reinterpret_cast<void*>(WellKnownClasses::java_nio_Buffer_address->GetLong(buffer));
   }
 
   static jlong GetDirectBufferCapacity(JNIEnv* env, jobject java_buffer) {
@@ -2799,7 +2804,10 @@ class JNI {
       return -1;
     }
 
-    if (!IsInstanceOf(env, java_buffer, WellKnownClasses::java_nio_Buffer)) {
+    ScopedObjectAccess soa(env);
+    StackHandleScope<1u> hs(soa.Self());
+    Handle<mirror::Object> buffer = hs.NewHandle(soa.Decode<mirror::Object>(java_buffer));
+    if (!buffer->InstanceOf(WellKnownClasses::java_nio_Buffer.Get())) {
       return -1;
     }
 
@@ -2808,16 +2816,18 @@ class JNI {
     // We therefore call Buffer.isDirect(). One path that creates such a buffer is
     // FileChannel.map() if the file size is zero.
     //
-    // NB GetDirectBufferAddress() does not need to call Buffer.isDirect() since it is only
+    // NB GetDirectBufferAddress() does not need to call `Buffer.isDirect()` since it is only
     // able return a valid address if the Buffer address field is not-null.
-    jboolean direct = env->CallBooleanMethod(java_buffer,
-                                             WellKnownClasses::java_nio_Buffer_isDirect);
-    if (!direct) {
+    //
+    // Note: We can hit a `StackOverflowError` during the invocation but `Buffer.isDirect()`
+    // implementations should not otherwise throw any exceptions.
+    bool direct = WellKnownClasses::java_nio_Buffer_isDirect->InvokeVirtual<'Z'>(
+        soa.Self(), buffer.Get());
+    if (UNLIKELY(soa.Self()->IsExceptionPending()) || !direct) {
       return -1;
     }
 
-    return static_cast<jlong>(env->GetIntField(
-        java_buffer, WellKnownClasses::java_nio_Buffer_capacity));
+    return static_cast<jlong>(WellKnownClasses::java_nio_Buffer_capacity->GetInt(buffer.Get()));
   }
 
   static jobjectRefType GetObjectRefType(JNIEnv* env ATTRIBUTE_UNUSED, jobject java_object) {
@@ -2835,7 +2845,7 @@ class JNI {
       return JNIGlobalRefType;
     case kWeakGlobal:
       return JNIWeakGlobalRefType;
-    case kJniTransitionOrInvalid:
+    case kJniTransition:
       // Assume value is in a JNI transition frame.
       return JNILocalRefType;
     }
@@ -2967,7 +2977,7 @@ class JNI {
         delete[] reinterpret_cast<uint64_t*>(elements);
       } else if (heap->IsMovableObject(array)) {
         // Non copy to a movable object must means that we had disabled the moving GC.
-        if (!kUseReadBarrier) {
+        if (!gUseReadBarrier && !gUseUserfaultfd) {
           heap->DecrementDisableMovingGC(soa.Self());
         } else {
           heap->DecrementDisableThreadFlip(soa.Self());

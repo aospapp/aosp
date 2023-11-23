@@ -51,7 +51,7 @@ class UAnnotationItem private constructor(
     val uAnnotation: UAnnotation,
     override val originalName: String?
 ) : DefaultAnnotationItem(codebase) {
-    override val qualifiedName: String? = AnnotationItem.mapName(codebase, originalName)
+    override val qualifiedName: String? = AnnotationItem.mapName(originalName)
 
     override fun toString(): String = toSource()
 
@@ -121,7 +121,7 @@ class UAnnotationItem private constructor(
             target: AnnotationTarget,
             showDefaultAttrs: Boolean
         ) {
-            val qualifiedName = AnnotationItem.mapName(codebase, originalName, null, target) ?: return
+            val qualifiedName = AnnotationItem.mapName(originalName, target) ?: return
 
             val attributes = getAttributes(uAnnotation, showDefaultAttrs)
             if (attributes.isEmpty()) {

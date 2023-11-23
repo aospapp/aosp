@@ -16,14 +16,14 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import static com.android.bedstead.harrier.OptionalBoolean.ANY;
-import static com.android.bedstead.harrier.OptionalBoolean.TRUE;
 import static com.android.bedstead.harrier.UserType.INSTRUMENTED_USER;
-import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.MIDDLE;
+import static com.android.bedstead.harrier.annotations.AnnotationRunPrecedence.REQUIRE_RUN_ON_PRECEDENCE;
+import static com.android.bedstead.nene.types.OptionalBoolean.ANY;
+import static com.android.bedstead.nene.types.OptionalBoolean.TRUE;
 
-import com.android.bedstead.harrier.OptionalBoolean;
 import com.android.bedstead.harrier.UserType;
 import com.android.bedstead.harrier.annotations.meta.EnsureHasProfileAnnotation;
+import com.android.bedstead.nene.types.OptionalBoolean;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -62,5 +62,6 @@ public @interface EnsureHasTvProfile {
      *
      * <p>Weight can be set to a {@link AnnotationRunPrecedence} constant, or to any {@link int}.
      */
-    int weight() default MIDDLE;
+    // Must be before RequireRunOn to ensure users exist
+    int weight() default REQUIRE_RUN_ON_PRECEDENCE - 1;
 }

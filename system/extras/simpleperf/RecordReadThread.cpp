@@ -29,8 +29,8 @@
 
 namespace simpleperf {
 
-static constexpr size_t kDefaultLowBufferLevel = 10 * 1024 * 1024u;
-static constexpr size_t kDefaultCriticalBufferLevel = 5 * 1024 * 1024u;
+static constexpr size_t kDefaultLowBufferLevel = 10 * kMegabyte;
+static constexpr size_t kDefaultCriticalBufferLevel = 5 * kMegabyte;
 
 RecordBuffer::RecordBuffer(size_t buffer_size)
     : read_head_(0), write_head_(0), buffer_size_(buffer_size), buffer_(new char[buffer_size]) {}
@@ -236,6 +236,9 @@ RecordReadThread::RecordReadThread(size_t record_buffer_size, const perf_event_a
   }
   record_buffer_low_level_ = std::min(record_buffer_size / 4, kDefaultLowBufferLevel);
   record_buffer_critical_level_ = std::min(record_buffer_size / 6, kDefaultCriticalBufferLevel);
+  LOG(VERBOSE) << "user buffer size = " << record_buffer_size
+               << ", low_level size = " << record_buffer_low_level_
+               << ", critical_level size = " << record_buffer_critical_level_;
   if (!allow_cutting_samples) {
     record_buffer_low_level_ = record_buffer_critical_level_;
   }
@@ -530,7 +533,7 @@ void RecordReadThread::PushRecordToRecordBuffer(KernelRecordReader* kernel_recor
     if (free_size < record_buffer_critical_level_) {
       // When the free size in record buffer is below critical level, drop sample records to save
       // space for more important records (like mmap or fork records).
-      stat_.lost_samples++;
+      stat_.userspace_lost_samples++;
       return;
     }
     size_t stack_size_limit = stack_size_in_sample_record_;
@@ -577,10 +580,10 @@ void RecordReadThread::PushRecordToRecordBuffer(KernelRecordReader* kernel_recor
           memcpy(p + pos + new_stack_size, &new_stack_size, sizeof(uint64_t));
           record_buffer_.FinishWrite();
           if (new_stack_size < dyn_stack_size) {
-            stat_.cut_stack_samples++;
+            stat_.userspace_cut_stack_samples++;
           }
         } else {
-          stat_.lost_samples++;
+          stat_.userspace_lost_samples++;
         }
         return;
       }
@@ -600,13 +603,18 @@ void RecordReadThread::PushRecordToRecordBuffer(KernelRecordReader* kernel_recor
         // only after we have collected the aux data.
         event_fds_disabled_by_kernel_.insert(kernel_record_reader->GetEventFd());
       }
+    } else if (header.type == PERF_RECORD_LOST) {
+      LostRecord r;
+      if (r.Parse(attr_, p, p + header.size)) {
+        stat_.kernelspace_lost_records += static_cast<size_t>(r.lost);
+      }
     }
     record_buffer_.FinishWrite();
   } else {
     if (header.type == PERF_RECORD_SAMPLE) {
-      stat_.lost_samples++;
+      stat_.userspace_lost_samples++;
     } else {
-      stat_.lost_non_samples++;
+      stat_.userspace_lost_non_samples++;
     }
   }
 }
@@ -625,10 +633,11 @@ void RecordReadThread::ReadAuxDataFromKernelBuffer(bool* has_data) {
       *has_data = true;
       AuxTraceRecord auxtrace(Align(aux_size, 8), offset, event_fd->Cpu(), 0, event_fd->Cpu());
       size_t alloc_size = auxtrace.size() + auxtrace.data->aux_size;
-      if (record_buffer_.GetFreeSize() < alloc_size + record_buffer_critical_level_) {
+      char* p = nullptr;
+      if ((record_buffer_.GetFreeSize() < alloc_size + record_buffer_critical_level_) ||
+          (p = record_buffer_.AllocWriteSpace(alloc_size)) == nullptr) {
         stat_.lost_aux_data_size += aux_size;
       } else {
-        char* p = record_buffer_.AllocWriteSpace(alloc_size);
         CHECK(p != nullptr);
         MoveToBinaryFormat(auxtrace.Binary(), auxtrace.size(), p);
         MoveToBinaryFormat(buf[0], size[0], p);

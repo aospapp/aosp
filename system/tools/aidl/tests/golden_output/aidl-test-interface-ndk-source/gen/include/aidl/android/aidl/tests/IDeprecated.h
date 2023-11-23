@@ -14,8 +14,11 @@ namespace aidl {
 namespace android {
 namespace aidl {
 namespace tests {
+class IDeprecatedDelegator;
+
 class __attribute__((deprecated("test"))) IDeprecated : public ::ndk::ICInterface {
 public:
+  typedef IDeprecatedDelegator DefaultDelegator;
   static const char* descriptor;
   IDeprecated();
   virtual ~IDeprecated();

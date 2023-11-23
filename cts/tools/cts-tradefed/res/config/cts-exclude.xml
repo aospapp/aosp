@@ -17,11 +17,6 @@
 
     <include name="cts-developer-exclude" />
 
-    <!-- b/64127136 -->
-    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testNoExemptionsForBinderInVendorBan" />
-    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testNoExemptionsForSocketsBetweenCoreAndVendorBan" />
-    <option name="compatibility:exclude-filter" value="CtsSecurityHostTestCases android.security.cts.SELinuxHostTest#testNoExemptionsForVendorExecutingCore" />
-
     <!-- Test Harness Mode tests are not a part of CTS. They are a part
          of their own testing plan, as they reset the device during the
          test. It's possible and ideal in the future to incorporate the
@@ -33,6 +28,7 @@
          instead). -->
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:com.android.compatibility.common.util.CtsDownstreamingTest" />
     <option name="compatibility:test-arg" value="com.android.compatibility.common.tradefed.testtype.JarHostTest:exclude-annotation:com.android.compatibility.common.util.CtsDownstreamingTest" />
+    <option name="compatibility:test-arg" value="com.android.tradefed.testtype.HostTest:exclude-annotation:com.android.compatibility.common.util.CtsDownstreamingTest" />
 
     <!-- Exclude @SecurityTest tests from CTS. These are tested in STS. b/180417031-->
     <option name="compatibility:test-arg" value="com.android.tradefed.testtype.AndroidJUnitTest:exclude-annotation:android.platform.test.annotations.AsbSecurityTest" />

@@ -72,11 +72,13 @@ public final class HeadlessSystemUserTest extends BaseDeviceOwnerTest {
 
             // Must try a couple times as PO is asynchronously set after user is created.
             // TODO(b/178102911): use a callback instead
-            Context newUserContext = mContext.createContextAsUser(UserHandle.of(userId),
-                    /* flags=*/ 0);
-            DevicePolicyManager newUserDpm = newUserContext
-                    .getSystemService(DevicePolicyManager.class);
-            eventually(() -> assertProfileOwner(newUserDpm.getProfileOwner(), userId));
+            eventually(() -> {
+                Context newUserContext = mContext.createContextAsUser(UserHandle.of(userId),
+                        /* flags=*/ 0);
+                DevicePolicyManager newUserDpm = newUserContext
+                        .getSystemService(DevicePolicyManager.class);
+                assertProfileOwner(newUserDpm.getProfileOwner(), userId);
+            });
 
         } finally {
             if (user != null) {

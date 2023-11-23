@@ -25,7 +25,9 @@ import android.content.ContentResolver;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Handler;
+import android.os.Process;
 import android.provider.Settings;
+import android.util.Log;
 import android.util.MutableBoolean;
 import android.widget.TextClock;
 
@@ -36,6 +38,8 @@ import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.UserSettings;
+import com.android.compatibility.common.util.UserSettings.Namespace;
 
 import org.junit.After;
 import org.junit.Before;
@@ -55,9 +59,14 @@ import java.util.concurrent.TimeUnit;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class TextClockTest {
+
+    private static final String TAG = TextClockTest.class.getSimpleName();
+
     private Activity mActivity;
     private TextClock mTextClock;
     private String mDefaultTime1224;
+
+    private final UserSettings mSystemSettings = new UserSettings(Namespace.SYSTEM);
 
     @Rule
     public ActivityTestRule<TextClockCtsActivity> mActivityRule =
@@ -67,14 +76,13 @@ public class TextClockTest {
     public void setup() throws Throwable {
         mActivity = mActivityRule.getActivity();
         mTextClock = mActivity.findViewById(R.id.textclock);
-        mDefaultTime1224 = Settings.System.getString(mActivity.getContentResolver(),
-                Settings.System.TIME_12_24);
+        mDefaultTime1224 = mSystemSettings.get(Settings.System.TIME_12_24);
+        Log.d(TAG, "Initial value of TIME_12_24 setting: " + mDefaultTime1224);
     }
 
     @After
     public void teardown() throws Throwable {
-        Settings.System.putString(mActivity.getContentResolver(), Settings.System.TIME_12_24,
-                mDefaultTime1224);
+        setTime1224(mDefaultTime1224);
     }
 
     @Test
@@ -107,17 +115,13 @@ public class TextClockTest {
         // If the time was already set to 12, we want it to start at locale-specified
         if (mDefaultTime1224 != null) {
             final CountDownLatch changeDefault = registerForChanges(Settings.System.TIME_12_24);
-            mActivityRule.runOnUiThread(() -> {
-                Settings.System.putString(resolver, Settings.System.TIME_12_24, null);
-            });
+            mActivityRule.runOnUiThread(() -> setTime1224(null));
             assertTrue(changeDefault.await(1, TimeUnit.SECONDS));
         }
 
         // Change to 12-hour mode
         final CountDownLatch change12 = registerForChanges(Settings.System.TIME_12_24);
-        mActivityRule.runOnUiThread(() -> {
-            Settings.System.putInt(resolver, Settings.System.TIME_12_24, 12);
-        });
+        mActivityRule.runOnUiThread(() -> setTime1224(12));
         assertTrue(change12.await(1, TimeUnit.SECONDS));
 
         // Must poll here because there are no timing guarantees for ContentObserver notification
@@ -136,9 +140,7 @@ public class TextClockTest {
 
         // Change to 24-hour mode
         final CountDownLatch change24 = registerForChanges(Settings.System.TIME_12_24);
-        mActivityRule.runOnUiThread(() -> {
-            Settings.System.putInt(resolver, Settings.System.TIME_12_24, 24);
-        });
+        mActivityRule.runOnUiThread(() -> setTime1224(24));
         assertTrue(change24.await(1, TimeUnit.SECONDS));
 
         // Must poll here because there are no timing guarantees for ContentObserver notification
@@ -206,9 +208,19 @@ public class TextClockTest {
         return latch;
     }
 
+    private void setTime1224(String time) {
+        Log.d(TAG, "Setting time 12/24 to '" + time + "'");
+        mSystemSettings.set(Settings.System.TIME_12_24, time);
+    }
+
+    private void setTime1224(int time) {
+        setTime1224(String.valueOf(time));
+    }
+
     private void grantWriteSettingsPermission() throws IOException {
+        int userId = Process.myUserHandle().getIdentifier();
         SystemUtil.runShellCommand(InstrumentationRegistry.getInstrumentation(),
-                "appops set " + mActivity.getPackageName() + " "
+                "appops set --user " + userId  + " " + mActivity.getPackageName() + " "
                         + AppOpsManager.OPSTR_WRITE_SETTINGS + " allow");
     }
 }

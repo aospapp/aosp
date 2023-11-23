@@ -37,7 +37,6 @@ using ::android::hardware::identity::IIdentityCredential;
 using ::android::hardware::identity::SecureAccessControlProfile;
 using ::std::map;
 using ::std::optional;
-using ::std::pair;
 using ::std::string;
 using ::std::tuple;
 using ::std::vector;
@@ -89,7 +88,8 @@ class CredentialData : public RefBase {
 
     bool deleteCredential();
 
-    void setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey);
+    void setAvailableAuthenticationKeys(int keyCount, int maxUsesPerKey,
+                                        int64_t minValidTimeMillis);
 
     // Getters
 
@@ -107,7 +107,8 @@ class CredentialData : public RefBase {
 
     const vector<AuthKeyData>& getAuthKeyDatas() const;
 
-    pair<int /* keyCount */, int /*maxUsersPerKey */> getAvailableAuthenticationKeys();
+    tuple<int /* keyCount */, int /*maxUsersPerKey */, int64_t /* minValidTimeMillis */>
+    getAvailableAuthenticationKeys() const;
 
     // Returns |nullptr| if a suitable key cannot be found. Otherwise returns
     // the authentication and increases its use-count.
@@ -143,6 +144,7 @@ class CredentialData : public RefBase {
 
     int keyCount_ = 0;
     int maxUsesPerKey_ = 1;
+    int64_t minValidTimeMillis_ = 0;
     vector<AuthKeyData> authKeyDatas_;  // Always |keyCount_| long.
 };
 

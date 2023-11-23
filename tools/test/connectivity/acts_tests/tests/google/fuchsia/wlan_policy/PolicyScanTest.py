@@ -18,7 +18,7 @@
 
 from datetime import datetime
 
-from acts import signals, utils
+from acts import signals
 from acts.controllers.ap_lib import (hostapd_ap_preset, hostapd_bss_settings,
                                      hostapd_constants, hostapd_security)
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
@@ -135,7 +135,7 @@ class PolicyScanTest(WifiBaseTest):
         """
         start_time = datetime.now()
 
-        scan_response = fd.wlan_policy_lib.wlanScanForNetworks()
+        scan_response = fd.sl4f.wlan_policy_lib.wlanScanForNetworks()
 
         # first check if we received an error
         if scan_response.get("error") is not None:

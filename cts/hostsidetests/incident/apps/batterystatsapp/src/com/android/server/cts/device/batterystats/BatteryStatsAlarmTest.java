@@ -48,7 +48,8 @@ public class BatteryStatsAlarmTest {
 
         final Context context = InstrumentationRegistry.getContext();
 
-        final Intent intent = new Intent("com.android.server.cts.device.batterystats.ALARM");
+        final Intent intent = new Intent("com.android.server.cts.device.batterystats.ALARM")
+                .setPackage(context.getPackageName());
         final IntentFilter inf = new IntentFilter(intent.getAction());
 
         final CountDownLatch latch = new CountDownLatch(NUM_ALARMS);
@@ -58,13 +59,13 @@ public class BatteryStatsAlarmTest {
             public void onReceive(Context context, Intent intent) {
                 Log.i(TAG, "Received: " + intent);
                 latch.countDown();
-            }}, inf);
+            }}, inf, Context.RECEIVER_EXPORTED_UNAUDITED);
 
         final AlarmManager alm = context.getSystemService(AlarmManager.class);
         for (int i = 0; i < NUM_ALARMS; i++) {
             alm.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
                     SystemClock.elapsedRealtime() + (i + 1) * 1000,
-                    PendingIntent.getBroadcast(context, i, intent, PendingIntent.FLAG_MUTABLE_UNAUDITED));
+                    PendingIntent.getBroadcast(context, i, intent, PendingIntent.FLAG_MUTABLE));
         }
         assertTrue("Didn't receive all broadcasts.", latch.await(60 * 1000, TimeUnit.SECONDS));
     }

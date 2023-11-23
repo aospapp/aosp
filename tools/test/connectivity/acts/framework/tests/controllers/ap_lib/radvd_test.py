@@ -15,7 +15,6 @@
 #   limitations under the License.
 
 import os
-import time
 import unittest
 from unittest.mock import patch
 
@@ -25,7 +24,6 @@ from acts.controllers.ap_lib.radvd import Radvd
 
 from acts.controllers.ap_lib.radvd_config import RadvdConfig
 
-RADVD_PREFIX = 'fd00::/64'
 SEARCH_FILE = ('acts.controllers.utils_lib.commands.shell.'
                'ShellCommand.search_file')
 DELETE_FILE = ('acts.controllers.utils_lib.commands.shell.ShellCommand.'
@@ -160,11 +158,7 @@ class RadvdTest(unittest.TestCase):
     def test_write_configs_simple(self, write_file, delete_file):
         delete_file.side_effect = delete_file_mock
         write_file.side_effect = write_configs_mock
-        basic_radvd_config = RadvdConfig(
-            prefix=RADVD_PREFIX,
-            adv_send_advert=radvd_constants.ADV_SEND_ADVERT_ON,
-            adv_on_link=radvd_constants.ADV_ON_LINK_ON,
-            adv_autonomous=radvd_constants.ADV_AUTONOMOUS_ON)
+        basic_radvd_config = RadvdConfig()
         radvd_mock = Radvd('mock_runner', 'wlan0')
         radvd_mock._write_configs(basic_radvd_config)
         radvd_config = radvd_mock._config_file
@@ -178,9 +172,8 @@ class RadvdTest(unittest.TestCase):
         delete_file.side_effect = delete_file_mock
         write_file.side_effect = write_configs_mock
         complex_radvd_config = RadvdConfig(
-            prefix=RADVD_PREFIX,
             clients=['fe80::c66d:3c75:2cec:1d72', 'fe80::c66d:3c75:2cec:1d73'],
-            route=RADVD_PREFIX,
+            route=radvd_constants.DEFAULT_PREFIX,
             rdnss=[
                 '2401:fa00:480:7a00:4d56:5373:4549:1e29',
                 '2401:fa00:480:7a00:4d56:5373:4549:1e30',

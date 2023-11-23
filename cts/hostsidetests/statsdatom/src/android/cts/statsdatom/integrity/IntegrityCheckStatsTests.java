@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.integrity;
 
+import com.android.tradefed.util.RunUtil;
 import static com.android.os.AtomsProto.IntegrityCheckResultReported.Response.ALLOWED;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -43,7 +44,7 @@ public class IntegrityCheckStatsTests extends DeviceTestCase implements IBuildRe
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override

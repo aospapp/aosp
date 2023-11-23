@@ -162,6 +162,11 @@ status_t ConvertToHalBufferCaches(
     const std::vector<BufferCache>& aidl_buffer_caches,
     std::vector<google_camera_hal::BufferCache>* hal_buffer_caches);
 
+// Optimize sensor pixel modes list: If all streams' sensor pixel modes
+// list contains DEFAULT, just override them to DEFAULT only.
+void FixSensorPixelModesInStreamConfig(
+    StreamConfiguration* out_aidl_stream_config);
+
 status_t ConvertToHalStreamConfig(
     const StreamConfiguration& aidl_stream_config,
     google_camera_hal::StreamConfiguration* hal_stream_config);

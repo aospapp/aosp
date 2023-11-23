@@ -18,8 +18,8 @@
 #include <android-base/stringprintf.h>
 #include <benchmark/benchmark.h>
 
+#define BPF_MAP_MAKE_VISIBLE_FOR_TESTING
 #include "bpf/BpfMap.h"
-#include "bpf/BpfUtils.h"
 
 constexpr uint32_t TEST_MAP_SIZE = 10000;
 
@@ -74,8 +74,11 @@ BENCHMARK_DEFINE_F(BpfBenchMark, WaitForRcu)(benchmark::State& state) {
     }
 }
 
+namespace {
 BENCHMARK_REGISTER_F(BpfBenchMark, MapUpdateEntry)->Arg(1);
 BENCHMARK_REGISTER_F(BpfBenchMark, MapWriteNewEntry)->Arg(1);
 BENCHMARK_REGISTER_F(BpfBenchMark, MapDeleteAddEntry)->Arg(1);
 BENCHMARK_REGISTER_F(BpfBenchMark, WaitForRcu)->Arg(1);
+}  // namespace
+
 BENCHMARK_MAIN();

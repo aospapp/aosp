@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 
 #include <pb_decode.h>
 
 #include "chre/util/nanoapp/log.h"
+#include "chre_api/chre.h"
 #include "ping_test.nanopb.h"
 #include "send_message.h"
 

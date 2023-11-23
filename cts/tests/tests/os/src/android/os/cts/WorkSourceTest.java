@@ -15,12 +15,23 @@
  */
 package android.os.cts;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.os.WorkSource;
-import android.test.AndroidTestCase;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.android.compatibility.common.util.ApiTest;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.Arrays;
 
-public class WorkSourceTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class WorkSourceTest {
     private WorkSource wsNew(int uid) {
         return new WorkSource(uid);
     }
@@ -28,7 +39,7 @@ public class WorkSourceTest extends AndroidTestCase {
     private WorkSource wsNew(int[] uids) {
         WorkSource ws = new WorkSource();
         for (int i=0; i<uids.length; i++) {
-            wsAdd(ws, uids[i]);
+            ws.add(uids[i]);
         }
         checkWorkSource("Constructed", ws, uids);
         return ws;
@@ -37,18 +48,10 @@ public class WorkSourceTest extends AndroidTestCase {
     private WorkSource wsNew(int[] uids, String[] names) {
         WorkSource ws = new WorkSource();
         for (int i=0; i<uids.length; i++) {
-            wsAdd(ws, uids[i], names[i]);
+            ws.add(uids[i], names[i]);
         }
         checkWorkSource("Constructed", ws, uids, names);
         return ws;
-    }
-
-    private boolean wsAdd(WorkSource ws, int uid) {
-        return ws.add(uid);
-    }
-
-    private boolean wsAdd(WorkSource ws, int uid, String name) {
-        return ws.add(uid, name);
     }
 
     private WorkSource wsAddReturningNewbs(WorkSource ws, WorkSource other) {
@@ -132,46 +135,56 @@ public class WorkSourceTest extends AndroidTestCase {
         }
     }
 
+    @Test
     public void testConstructEmpty() {
         checkWorkSource("Empty", new WorkSource(), new int[] { });
     }
 
+    @Test
     public void testConstructSingle() throws Exception {
         checkWorkSource("Single 1", wsNew(1), new int[] { 1 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testAddRawOrdered() throws Exception {
         WorkSource ws = wsNew(1);
-        wsAdd(ws, 2);
+        ws.add(2);
         checkWorkSource("First", ws, new int[] { 1 , 2 });
-        wsAdd(ws, 20);
+        ws.add(20);
         checkWorkSource("Second", ws, new int[] { 1 , 2, 20 });
-        wsAdd(ws, 100);
+        ws.add(100);
         checkWorkSource("Third", ws, new int[] { 1, 2, 20, 100 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testAddRawRevOrdered() throws Exception {
         WorkSource ws = wsNew(100);
-        wsAdd(ws, 20);
+        ws.add(20);
         checkWorkSource("First", ws, new int[] { 20, 100 });
-        wsAdd(ws, 2);
+        ws.add(2);
         checkWorkSource("Second", ws, new int[] { 2, 20, 100 });
-        wsAdd(ws, 1);
+        ws.add(1);
         checkWorkSource("Third", ws, new int[] { 1, 2, 20, 100 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testAddRawUnordered() throws Exception {
         WorkSource ws = wsNew(10);
-        wsAdd(ws, 2);
+        ws.add(2);
         checkWorkSource("First", ws, new int[] { 2, 10 });
-        wsAdd(ws, 5);
+        ws.add(5);
         checkWorkSource("Second", ws, new int[] { 2, 5, 10 });
-        wsAdd(ws, 1);
+        ws.add(1);
         checkWorkSource("Third", ws, new int[] { 1, 2, 5, 10 });
-        wsAdd(ws, 100);
+        ws.add(100);
         checkWorkSource("Fourth", ws, new int[] { 1, 2, 5, 10, 100 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testAddWsOrdered() throws Exception {
         WorkSource ws = wsNew(1);
         ws.add(wsNew(2));
@@ -182,6 +195,8 @@ public class WorkSourceTest extends AndroidTestCase {
         checkWorkSource("Third", ws, new int[] { 1 , 2, 20, 100 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testAddWsRevOrdered() throws Exception {
         WorkSource ws = wsNew(100);
         ws.add(wsNew(20));
@@ -192,6 +207,8 @@ public class WorkSourceTest extends AndroidTestCase {
         checkWorkSource("Third", ws, new int[] { 1, 2, 20, 100 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testAddWsUnordered() throws Exception {
         WorkSource ws = wsNew(10);
         ws.add(wsNew(2));
@@ -296,6 +313,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 makeStringArray(expected), makeStringArray(newbs), makeStringArray(gones));
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiFront() throws Exception {
         doTestCombineTwo(
                 new int[] { 10, 20, 30, 40 },
@@ -305,6 +324,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20, 30, 40 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiMiddle() throws Exception {
         doTestCombineTwo(
                 new int[] { 10, 20, 30, 40 },
@@ -314,6 +335,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20, 30, 40 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiEnd() throws Exception {
         doTestCombineTwo(
                 new int[] { 10, 20, 30, 40 },
@@ -323,6 +346,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20, 30, 40 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiFull() throws Exception {
         doTestCombineTwo(
                 new int[] { 10, 20, 30, 40 },
@@ -332,6 +357,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20, 30, 40 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiSame() throws Exception {
         doTestCombineTwo(
                 new int[] { 10, 20, 30, 40 },
@@ -341,6 +368,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 40 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiSomeSame() throws Exception {
         doTestCombineTwo(
                 new int[] { 10, 20, 30, 40 },
@@ -350,6 +379,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 new int[] { 10, 20 });
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#add"})
+    @Test
     public void testCombineMultiSomeSameUidsNames() throws Exception {
         doTestCombineTwoUidsNames(
                 new int[]    { 10,  10,  20,  30,  30,  30,  40 },
@@ -436,6 +467,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 makeStringArray(result), diff);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#remove"})
+    @Test
     public void testRemoveNone() throws Exception {
         doTestRemove(
                 new int[] { 10, 20, 30, 40 },
@@ -444,6 +477,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 false);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#remove"})
+    @Test
     public void testRemoveMultiFront() throws Exception {
         doTestRemove(
                 new int[] { 10, 20, 30, 40 },
@@ -452,6 +487,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 true);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#remove"})
+    @Test
     public void testRemoveMultiMiddle() throws Exception {
         doTestRemove(
                 new int[] { 10, 20, 30, 40 },
@@ -460,6 +497,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 true);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#remove"})
+    @Test
     public void testRemoveMultiEnd() throws Exception {
         doTestRemove(
                 new int[] { 10, 20, 30, 40 },
@@ -468,6 +507,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 true);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#remove"})
+    @Test
     public void testRemoveMultiFull() throws Exception {
         doTestRemove(
                 new int[] { 10, 20, 30, 40 },
@@ -476,6 +517,8 @@ public class WorkSourceTest extends AndroidTestCase {
                 true);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#remove"})
+    @Test
     public void testRemoveMultiAll() throws Exception {
         doTestRemove(
                 new int[] { 10, 20, 30, 40 },
@@ -484,11 +527,15 @@ public class WorkSourceTest extends AndroidTestCase {
                 true);
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#isEmpty"})
+    @Test
     public void testIsEmptyByDefault() {
         WorkSource ws = new WorkSource();
         assertTrue("isEmpty false for empty WorkSource", ws.isEmpty());
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#clear"})
+    @Test
     public void testIsEmptyOnClear() {
         WorkSource ws = wsNew(new int[] {1, 2, 3}, new String[] {"a", "aa", "aaa"});
         assertFalse(ws.isEmpty());
@@ -496,6 +543,8 @@ public class WorkSourceTest extends AndroidTestCase {
         assertTrue(ws.isEmpty());
     }
 
+    @ApiTest(apis = {"android.os.WorkSource#withoutNames"})
+    @Test
     public void testWithoutNames() {
         WorkSource ws = wsNew(
                 new int[] {10, 12, 12, 15, 15, 17},

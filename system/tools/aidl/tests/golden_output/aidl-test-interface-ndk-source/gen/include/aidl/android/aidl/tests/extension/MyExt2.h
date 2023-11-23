@@ -13,6 +13,9 @@
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 
+namespace aidl::android::aidl::tests::extension {
+class MyExt;
+}  // namespace aidl::android::aidl::tests::extension
 namespace aidl {
 namespace android {
 namespace aidl {

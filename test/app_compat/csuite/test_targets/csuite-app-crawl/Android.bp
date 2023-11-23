@@ -19,5 +19,6 @@ package {
 csuite_test {
     name: "csuite-app-crawl",
     test_plan_include: "plan.xml",
-    test_config_template: "template.xml"
+    test_config_template: "ui-automator-crawl.xml",
+    extra_test_config_templates: ["espresso-crawl.xml", "pre-installed-crawl.xml"]
 }

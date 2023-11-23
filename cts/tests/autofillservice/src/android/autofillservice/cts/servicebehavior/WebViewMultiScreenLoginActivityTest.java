@@ -24,7 +24,6 @@ import static android.autofillservice.cts.testcore.Helper.ID_USERNAME;
 import static android.autofillservice.cts.testcore.Helper.ID_USERNAME_LABEL;
 import static android.autofillservice.cts.testcore.Helper.assertTextAndValue;
 import static android.autofillservice.cts.testcore.Helper.findNodeByHtmlName;
-import static android.autofillservice.cts.testcore.Helper.getAutofillId;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_PASSWORD;
 import static android.service.autofill.SaveInfo.SAVE_DATA_TYPE_USERNAME;
 
@@ -44,10 +43,11 @@ import android.autofillservice.cts.testcore.InstrumentedAutoFillService.SaveRequ
 import android.content.ComponentName;
 import android.service.autofill.CharSequenceTransformation;
 import android.service.autofill.SaveInfo;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.autofill.AutofillId;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 
@@ -103,7 +103,7 @@ public class WebViewMultiScreenLoginActivityTest
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_USERNAME, HTML_NAME_USERNAME)
                 .setSaveInfoDecorator((builder, nodeResolver) -> {
-                    final AutofillId usernameId = getAutofillId(nodeResolver, HTML_NAME_USERNAME);
+                    final AutofillId usernameId = nodeResolver.apply(HTML_NAME_USERNAME);
                     final CharSequenceTransformation usernameTrans = new CharSequenceTransformation
                             .Builder(usernameId, MATCH_ALL, "$1").build();
                     builder.setCustomDescription(newCustomDescriptionWithUsernameAndPassword()
@@ -155,7 +155,7 @@ public class WebViewMultiScreenLoginActivityTest
         sReplier.addResponse(new CannedFillResponse.Builder()
                 .setRequiredSavableIds(SAVE_DATA_TYPE_PASSWORD, HTML_NAME_PASSWORD)
                 .setSaveInfoDecorator((builder, nodeResolver) -> {
-                    final AutofillId passwordId = getAutofillId(nodeResolver, HTML_NAME_PASSWORD);
+                    final AutofillId passwordId = nodeResolver.apply(HTML_NAME_PASSWORD);
                     final CharSequenceTransformation passwordTrans = new CharSequenceTransformation
                             .Builder(passwordId, MATCH_ALL, "$1").build();
                     builder.setCustomDescription(newCustomDescriptionWithUsernameAndPassword()
@@ -219,7 +219,7 @@ public class WebViewMultiScreenLoginActivityTest
                 .setIgnoreFields(HTML_NAME_USERNAME)
                 .setSaveInfoFlags(SaveInfo.FLAG_DELAY_SAVE)
                 .setSaveInfoDecorator((builder, nodeResolver) -> {
-                    usernameId.set(getAutofillId(nodeResolver, HTML_NAME_USERNAME));
+                    usernameId.set(nodeResolver.apply(HTML_NAME_USERNAME));
 
                 })
                 .build());
@@ -258,7 +258,7 @@ public class WebViewMultiScreenLoginActivityTest
                 .setRequiredSavableIds(SAVE_DATA_TYPE_USERNAME | SAVE_DATA_TYPE_PASSWORD,
                         HTML_NAME_PASSWORD)
                 .setSaveInfoDecorator((builder, nodeResolver) -> {
-                    final AutofillId passwordId = getAutofillId(nodeResolver, HTML_NAME_PASSWORD);
+                    final AutofillId passwordId = nodeResolver.apply(HTML_NAME_PASSWORD);
                     final CharSequenceTransformation usernameTrans = new CharSequenceTransformation
                             .Builder(usernameId.get(), MATCH_ALL, "$1").build();
                     final CharSequenceTransformation passwordTrans = new CharSequenceTransformation

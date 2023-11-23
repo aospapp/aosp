@@ -454,13 +454,22 @@ TEST(OptionsTest, AcceptValidMinSdkVersion) {
   EXPECT_EQ(30u, options->GetMinSdkVersion());
 }
 
-TEST(OptionsTests, AcceptCodeNameAsMinSdkVersion) {
+TEST(OptionsTests, AcceptTCodeNameAsMinSdkVersion) {
   const char* args[] = {
       "aidl", "--lang=java", "--min_sdk_version=Tiramisu", "--out=out", "input.aidl", nullptr,
   };
   auto options = GetOptions(args);
   EXPECT_TRUE(options->Ok());
   EXPECT_EQ(33u, options->GetMinSdkVersion());
+}
+
+TEST(OptionsTests, AcceptUCodeNameAsMinSdkVersion) {
+  const char* args[] = {
+      "aidl", "--lang=java", "--min_sdk_version=UpsideDownCake", "--out=out", "input.aidl", nullptr,
+  };
+  auto options = GetOptions(args);
+  EXPECT_TRUE(options->Ok());
+  EXPECT_EQ(34u, options->GetMinSdkVersion());
 }
 
 TEST(OptionsTest, DefaultMinSdkVersion) {

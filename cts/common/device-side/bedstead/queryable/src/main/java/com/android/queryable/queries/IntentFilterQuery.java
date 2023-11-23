@@ -27,14 +27,14 @@ import com.android.queryable.Queryable;
  */
 public interface IntentFilterQuery<E extends Queryable> extends Query<IntentFilter> {
 
-    /** Create a {@link IntentFilterQueryHelper}*/
-    static IntentFilterQuery<IntentFilterQuery<?>> intentFilter() {
-        return new IntentFilterQueryHelper<>();
+    /** Queries a {@link IntentFilter}*/
+    static IntentFilterQueryHelper.IntentFilterQueryBase intentFilter() {
+        return new IntentFilterQueryHelper.IntentFilterQueryBase();
     }
 
     /** Query for the actions on a intent filter.*/
-    SetQuery<E, String, StringQuery<?>> actions();
+    SetQuery<E, String> actions();
 
     /** Query for the categories of an intent filter.*/
-    SetQuery<E, String, StringQuery<?>> categories();
+    SetQuery<E, String> categories();
 }

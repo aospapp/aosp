@@ -28,15 +28,15 @@ import image_processing_utils
 import its_session_utils
 
 
-BAYER_LIST = ['R', 'GR', 'GB', 'B']
-NAME = os.path.splitext(os.path.basename(__file__))[0]
-NUM_STEPS = 4
-PATCH_H = 0.02  # center 2%
-PATCH_W = 0.02
-PATCH_X = 0.5 - PATCH_W/2
-PATCH_Y = 0.5 - PATCH_H/2
-VAR_ATOL_THRESH = 0.0012  # absolute variance delta threshold
-VAR_RTOL_THRESH = 0.2  # relative variance delta threshold
+_BAYER_COLORS = ('R', 'GR', 'GB', 'B')
+_NAME = os.path.splitext(os.path.basename(__file__))[0]
+_NUM_STEPS = 4
+_PATCH_H = 0.02  # center 2%
+_PATCH_W = 0.02
+_PATCH_X = 0.5 - _PATCH_W/2
+_PATCH_Y = 0.5 - _PATCH_H/2
+_VAR_ATOL_THRESH = 0.0012  # absolute variance delta threshold
+_VAR_RTOL_THRESH = 0.2  # relative variance delta threshold
 
 
 class DngNoiseModelTest(its_base_test.ItsBaseTest):
@@ -51,14 +51,14 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
   """
 
   def test_dng_noise_model(self):
-    logging.debug('Starting %s', NAME)
+    logging.debug('Starting %s', _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
         hidden_physical_id=self.hidden_physical_id) as cam:
       props = cam.get_camera_properties()
       props = cam.override_with_hidden_physical_camera_props(props)
-      log_path = self.log_path
+      name_with_log_path = os.path.join(self.log_path, _NAME)
 
       # check SKIP conditions
       camera_properties_utils.skip_unless(
@@ -70,14 +70,15 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
 
       # Load chart for scene
       its_session_utils.load_scene(
-          cam, props, self.scene, self.tablet, self.chart_distance)
+          cam, props, self.scene, self.tablet,
+          its_session_utils.CHART_DISTANCE_NO_SCALING)
 
       # Expose for the scene with min sensitivity
       white_level = float(props['android.sensor.info.whiteLevel'])
       cfa_idxs = image_processing_utils.get_canonical_cfa_order(props)
       sens_min, _ = props['android.sensor.info.sensitivityRange']
       sens_max_ana = props['android.sensor.maxAnalogSensitivity']
-      sens_step = (sens_max_ana - sens_min) // NUM_STEPS
+      sens_step = (sens_max_ana - sens_min) // _NUM_STEPS
       s_ae, e_ae, _, _, _ = cam.do_3a(get_results=True, do_af=False)
       # Focus at zero to intentionally blur the scene as much as possible.
       f_dist = 0.0
@@ -99,14 +100,14 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
           img = image_processing_utils.convert_capture_to_rgb_image(
               cap, props=props)
           image_processing_utils.write_image(
-              img, '%s_%d.jpg' % (os.path.join(log_path, NAME), sens))
+              img, f'{name_with_log_path}_{sens}.jpg')
 
         # Test each raw color channel (R, GR, GB, B)
         noise_profile = cap['metadata']['android.sensor.noiseProfile']
-        if len(noise_profile) != len(BAYER_LIST):
+        if len(noise_profile) != len(_BAYER_COLORS):
           raise AssertionError(
               f'noise_profile wrong length! {len(noise_profile)}')
-        for i, ch in enumerate(BAYER_LIST):
+        for i, ch in enumerate(_BAYER_COLORS):
           # Get the noise model parameters for this channel of this shot.
           s, o = noise_profile[cfa_idxs[i]]
 
@@ -117,7 +118,7 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
               i, props, cap['metadata'])
           level_range = white_level - black_level
           plane = image_processing_utils.get_image_patch(
-              planes[i], PATCH_X, PATCH_Y, PATCH_W, PATCH_H)
+              planes[i], _PATCH_X, _PATCH_Y, _PATCH_W, _PATCH_H)
           patch_raw = plane * white_level
           patch_norm = ((patch_raw - black_level) / level_range)
 
@@ -151,24 +152,24 @@ class DngNoiseModelTest(its_base_test.ItsBaseTest):
         sens_valid.append(sens)
 
     # plot data and models
-    pylab.figure(NAME)
-    for i, ch in enumerate(BAYER_LIST):
+    pylab.figure(_NAME)
+    for i, ch in enumerate(_BAYER_COLORS):
       pylab.plot(sens_valid, var_exp[i], 'rgkb'[i], label=ch+' expected')
       pylab.plot(sens_valid, var_meas[i], 'rgkb'[i]+'.--', label=ch+' measured')
-    pylab.title(NAME)
+    pylab.title(_NAME)
     pylab.xlabel('Sensitivity')
     pylab.ylabel('Center patch variance')
     pylab.ticklabel_format(axis='y', style='sci', scilimits=(-6, -6))
     pylab.legend(loc=2)
-    matplotlib.pyplot.savefig('%s_plot.png' % os.path.join(log_path, NAME))
+    matplotlib.pyplot.savefig(f'{name_with_log_path}_plot.png')
 
     # PASS/FAIL check
-    for i, ch in enumerate(BAYER_LIST):
+    for i, ch in enumerate(_BAYER_COLORS):
       var_diffs = [abs(var_meas[i][j] - var_exp[i][j])
                    for j in range(len(sens_valid))]
       logging.debug('%s variance diffs: %s', ch, str(var_diffs))
       for j, diff in enumerate(var_diffs):
-        thresh = max(VAR_ATOL_THRESH, VAR_RTOL_THRESH*var_exp[i][j])
+        thresh = max(_VAR_ATOL_THRESH, _VAR_RTOL_THRESH*var_exp[i][j])
         if diff > thresh:
           raise AssertionError(f'var diff: {diff:.5f}, thresh: {thresh:.4f}')
 

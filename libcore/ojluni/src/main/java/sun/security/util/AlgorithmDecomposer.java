@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2016, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2015, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,6 +27,8 @@ package sun.security.util;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.regex.Pattern;
 
 /**
@@ -34,18 +36,18 @@ import java.util.regex.Pattern;
  */
 public class AlgorithmDecomposer {
 
-    private static final Pattern transPattern = Pattern.compile("/");
-    private static final Pattern pattern =
-                    Pattern.compile("with|and", Pattern.CASE_INSENSITIVE);
+    // '(?<!padd)in': match 'in' but not preceded with 'padd'.
+    private static final Pattern PATTERN =
+            Pattern.compile("with|and|(?<!padd)in", Pattern.CASE_INSENSITIVE);
 
     private static Set<String> decomposeImpl(String algorithm) {
+        Set<String> elements = new HashSet<>();
 
         // algorithm/mode/padding
-        String[] transTockens = transPattern.split(algorithm);
+        String[] transTokens = algorithm.split("/");
 
-        Set<String> elements = new HashSet<>();
-        for (String transTocken : transTockens) {
-            if (transTocken == null || transTocken.length() == 0) {
+        for (String transToken : transTokens) {
+            if (transToken == null || transToken.isEmpty()) {
                 continue;
             }
 
@@ -54,10 +56,11 @@ public class AlgorithmDecomposer {
             // OAEPWith<digest>And<mgf>Padding
             // <digest>with<encryption>
             // <digest>with<encryption>and<mgf>
-            String[] tokens = pattern.split(transTocken);
+            // <digest>with<encryption>in<format>
+            String[] tokens = PATTERN.split(transToken);
 
             for (String token : tokens) {
-                if (token == null || token.length() == 0) {
+                if (token == null || token.isEmpty()) {
                     continue;
                 }
 
@@ -77,7 +80,7 @@ public class AlgorithmDecomposer {
      * Please override the method if need to support more name pattern.
      */
     public Set<String> decompose(String algorithm) {
-        if (algorithm == null || algorithm.length() == 0) {
+        if (algorithm == null || algorithm.isEmpty()) {
             return new HashSet<>();
         }
 
@@ -133,11 +136,28 @@ public class AlgorithmDecomposer {
         return elements;
     }
 
+    /**
+     * Get aliases of the specified algorithm.
+     *
+     * May support more algorithms in the future.
+     */
+    public static Collection<String> getAliases(String algorithm) {
+        String[] aliases;
+        if (algorithm.equalsIgnoreCase("DH") ||
+                algorithm.equalsIgnoreCase("DiffieHellman")) {
+            aliases = new String[] {"DH", "DiffieHellman"};
+        } else {
+            aliases = new String[] {algorithm};
+        }
+
+        return Arrays.asList(aliases);
+    }
+
     private static void hasLoop(Set<String> elements, String find, String replace) {
         if (elements.contains(find)) {
             if (!elements.contains(replace)) {
                 elements.add(replace);
-}
+            }
             elements.remove(find);
         }
     }
@@ -147,7 +167,7 @@ public class AlgorithmDecomposer {
      * message digest algorithm name to avoid overly complicated checking.
      */
     public static Set<String> decomposeOneHash(String algorithm) {
-        if (algorithm == null || algorithm.length() == 0) {
+        if (algorithm == null || algorithm.isEmpty()) {
             return new HashSet<>();
         }
 

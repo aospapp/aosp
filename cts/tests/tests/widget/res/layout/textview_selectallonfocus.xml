@@ -21,23 +21,27 @@
     <TextView android:id="@+id/selectAllOnFocus_default"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textIsSelectable="true"
         android:focusable="true"/>
 
     <TextView android:id="@+id/selectAllOnFocus_true"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:selectAllOnFocus="true"
+        android:textIsSelectable="true"
         android:focusable="true"/>
 
     <TextView android:id="@+id/selectAllOnFocus_false"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:selectAllOnFocus="false"
+        android:textIsSelectable="true"
         android:focusable="true"/>
 
         <TextView android:id="@+id/selectAllOnFocus_placeholder"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:textIsSelectable="true"
         android:focusable="true"/>
 
 </LinearLayout>

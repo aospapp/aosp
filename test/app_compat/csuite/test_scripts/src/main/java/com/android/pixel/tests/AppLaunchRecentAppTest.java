@@ -64,16 +64,7 @@ public class AppLaunchRecentAppTest extends PixelAppCompatTestBase {
 
     @Test
     public void testLaunchFromRecentApps() throws Exception {
-        // Launch the 3P app
-        getDeviceUtils().launchApp(getPackage());
-
-        // Wait for the 3P app to appear
-        getUiDevice()
-                .wait(Until.hasObject(By.pkg(getPackage()).depth(0)), WAIT_FIFTEEN_SECONDS_IN_MS);
-        getUiDevice().waitForIdle();
-        Assert.assertTrue(
-                "3P app main page should show up",
-                getUiDevice().hasObject(By.pkg(getPackage()).depth(0)));
+        launchAndWaitAppOpen(WAIT_FIFTEEN_SECONDS_IN_MS);
 
         getUiDevice().pressRecentApps();
         getUiDevice().wait(Until.hasObject(By.text("Screenshot")), WAIT_FIFTEEN_SECONDS_IN_MS);

@@ -20,6 +20,7 @@ use crate::database::{
 };
 use crate::error::{map_km_error, Error};
 use crate::key_parameter::{KeyParameter, KeyParameterValue};
+use crate::ks_err;
 use crate::legacy_blob::{self, Blob, BlobValue, LegacyKeyCharacteristics};
 use crate::super_key::USER_SUPER_KEY;
 use crate::utils::{
@@ -185,9 +186,8 @@ impl LegacyImporter {
                 }
                 (Self::STATE_UNINITIALIZED, false) => {
                     // Okay, tough luck. The legacy loader was really completely uninitialized.
-                    return Err(Error::sys()).context(
-                        "In check_state: Legacy loader should not be called uninitialized.",
-                    );
+                    return Err(Error::sys())
+                        .context(ks_err!("Legacy loader should not be called uninitialized."));
                 }
                 (Self::STATE_READY, _) => return Ok(Self::STATE_READY),
                 (s, _) => panic!("Unknown legacy importer state. {} ", s),
@@ -227,7 +227,7 @@ impl LegacyImporter {
         F: FnOnce(&mut LegacyImporterState) -> Result<T> + Send + 'static,
     {
         // Short circuit if the database is empty or not initialized (error case).
-        match self.check_state().context("In do_serialized: Checking state.") {
+        match self.check_state().context(ks_err!("Checking state.")) {
             Ok(LegacyImporter::STATE_EMPTY) => return None,
             Ok(LegacyImporter::STATE_READY) => {}
             Err(e) => return Some(Err(e)),
@@ -266,7 +266,7 @@ impl LegacyImporter {
 
         let (new_state, result) = match receiver.recv() {
             Err(e) => {
-                return Some(Err(e).context("In do_serialized. Failed to receive from the sender."))
+                return Some(Err(e).context(ks_err!("Failed to receive from the sender.")));
             }
             Ok(r) => r,
         };
@@ -357,7 +357,7 @@ impl LegacyImporter {
             Ok(None) => {}
             Err(e) => return Err(e),
         }
-        let pw = pw.try_clone().context("In with_try_import_super_key: Cloning password.")?;
+        let pw = pw.try_clone().context(ks_err!("Cloning password."))?;
         let result = self.do_serialized(move |importer_state| {
             importer_state.check_and_import_super_key(user_id, &pw)
         });
@@ -424,7 +424,7 @@ impl LegacyImporterState {
         };
 
         self.sec_level_to_km_uuid.get(&sec_level).copied().ok_or_else(|| {
-            anyhow::anyhow!(Error::sys()).context("In get_km_uuid: No KM instance for blob.")
+            anyhow::anyhow!(Error::sys()).context(ks_err!("No KM instance for blob."))
         })
     }
 
@@ -446,7 +446,7 @@ impl LegacyImporterState {
         match self
             .db
             .load_super_key(&USER_SUPER_KEY, user_id)
-            .context("In get_super_key_id_check_unlockable_or_delete: Failed to load super key")?
+            .context(ks_err!("Failed to load super key"))?
         {
             Some((_, entry)) => Ok(entry.id()),
             None => {
@@ -460,17 +460,14 @@ impl LegacyImporterState {
                 // key and return NotFound, because the key will never
                 // be unlocked again.
                 if self.legacy_loader.has_super_key(user_id) {
-                    Err(Error::Rc(ResponseCode::LOCKED)).context(
-                        "In get_super_key_id_check_unlockable_or_delete: \
-                         Cannot import super key of this key while user is locked.",
-                    )
+                    Err(Error::Rc(ResponseCode::LOCKED)).context(ks_err!(
+                        "Cannot import super key of this key while user is locked."
+                    ))
                 } else {
-                    self.legacy_loader.remove_keystore_entry(uid, alias).context(
-                        "In get_super_key_id_check_unlockable_or_delete: \
-                         Trying to remove obsolete key.",
-                    )?;
-                    Err(Error::Rc(ResponseCode::KEY_NOT_FOUND))
-                        .context("In get_super_key_id_check_unlockable_or_delete: Obsolete key.")
+                    self.legacy_loader
+                        .remove_keystore_entry(uid, alias)
+                        .context(ks_err!("Trying to remove obsolete key."))?;
+                    Err(Error::Rc(ResponseCode::KEY_NOT_FOUND)).context(ks_err!("Obsolete key."))
                 }
             }
         }
@@ -487,99 +484,91 @@ impl LegacyImporterState {
         let (km_blob, params) = match km_blob_params {
             Some((km_blob, LegacyKeyCharacteristics::File(params))) => (km_blob, params),
             Some((km_blob, LegacyKeyCharacteristics::Cache(params))) => {
-                return Ok((Some((km_blob, params)), None))
+                return Ok((Some((km_blob, params)), None));
             }
             None => return Ok((None, None)),
         };
 
-        let km_uuid = self
-            .get_km_uuid(km_blob.is_strongbox())
-            .context("In characteristics_file_to_cache: Trying to get KM UUID")?;
+        let km_uuid =
+            self.get_km_uuid(km_blob.is_strongbox()).context(ks_err!("Trying to get KM UUID"))?;
 
         let blob = match (&km_blob.value(), super_key.as_ref()) {
             (BlobValue::Encrypted { iv, tag, data }, Some(super_key)) => {
-                let blob = super_key
-                    .decrypt(data, iv, tag)
-                    .context("In characteristics_file_to_cache: Decryption failed.")?;
+                let blob =
+                    super_key.decrypt(data, iv, tag).context(ks_err!("Decryption failed."))?;
                 LegacyBlob::ZVec(blob)
             }
             (BlobValue::Encrypted { .. }, None) => {
-                return Err(Error::Rc(ResponseCode::LOCKED)).context(
-                    "In characteristics_file_to_cache: Oh uh, so close. \
-                     This ancient key cannot be imported unless the user is unlocked.",
-                );
+                return Err(Error::Rc(ResponseCode::LOCKED)).context(ks_err!(
+                    "Oh uh, so close. \
+                     This ancient key cannot be imported unless the user is unlocked."
+                ));
             }
             (BlobValue::Decrypted(data), _) => LegacyBlob::Ref(data),
             _ => {
-                return Err(Error::sys())
-                    .context("In characteristics_file_to_cache: Unexpected blob type.")
+                return Err(Error::sys()).context(ks_err!("Unexpected blob type."));
             }
         };
 
-        let (km_params, upgraded_blob) = get_key_characteristics_without_app_data(&km_uuid, &*blob)
-            .context(
-                "In characteristics_file_to_cache: Failed to get key characteristics from device.",
-            )?;
+        let (km_params, upgraded_blob) = get_key_characteristics_without_app_data(&km_uuid, &blob)
+            .context(ks_err!("Failed to get key characteristics from device.",))?;
 
         let flags = km_blob.get_flags();
 
-        let (current_blob, superseded_blob) = if let Some(upgraded_blob) = upgraded_blob {
-            match (km_blob.take_value(), super_key.as_ref()) {
-                (BlobValue::Encrypted { iv, tag, data }, Some(super_key)) => {
-                    let super_key_id =
-                        self.get_super_key_id_check_unlockable_or_delete(uid, alias).context(
-                            "In characteristics_file_to_cache: \
-                             How is there a super key but no super key id?",
-                        )?;
+        let (current_blob, superseded_blob) =
+            if let Some(upgraded_blob) = upgraded_blob {
+                match (km_blob.take_value(), super_key.as_ref()) {
+                    (BlobValue::Encrypted { iv, tag, data }, Some(super_key)) => {
+                        let super_key_id = self
+                            .get_super_key_id_check_unlockable_or_delete(uid, alias)
+                            .context(ks_err!("How is there a super key but no super key id?"))?;
 
-                    let mut superseded_metadata = BlobMetaData::new();
-                    superseded_metadata.add(BlobMetaEntry::Iv(iv.to_vec()));
-                    superseded_metadata.add(BlobMetaEntry::AeadTag(tag.to_vec()));
-                    superseded_metadata
-                        .add(BlobMetaEntry::EncryptedBy(EncryptedBy::KeyId(super_key_id)));
-                    superseded_metadata.add(BlobMetaEntry::KmUuid(km_uuid));
-                    let superseded_blob = (LegacyBlob::Vec(data), superseded_metadata);
+                        let mut superseded_metadata = BlobMetaData::new();
+                        superseded_metadata.add(BlobMetaEntry::Iv(iv.to_vec()));
+                        superseded_metadata.add(BlobMetaEntry::AeadTag(tag.to_vec()));
+                        superseded_metadata
+                            .add(BlobMetaEntry::EncryptedBy(EncryptedBy::KeyId(super_key_id)));
+                        superseded_metadata.add(BlobMetaEntry::KmUuid(km_uuid));
+                        let superseded_blob = (LegacyBlob::Vec(data), superseded_metadata);
 
-                    let (data, iv, tag) = super_key.encrypt(&upgraded_blob).context(
-                        "In characteristics_file_to_cache: \
-                         Failed to encrypt upgraded key blob.",
-                    )?;
-                    (
-                        Blob::new(flags, BlobValue::Encrypted { data, iv, tag }),
-                        Some(superseded_blob),
-                    )
+                        let (data, iv, tag) = super_key
+                            .encrypt(&upgraded_blob)
+                            .context(ks_err!("Failed to encrypt upgraded key blob."))?;
+                        (
+                            Blob::new(flags, BlobValue::Encrypted { data, iv, tag }),
+                            Some(superseded_blob),
+                        )
+                    }
+                    (BlobValue::Encrypted { .. }, None) => {
+                        return Err(Error::sys()).context(ks_err!(
+                            "This should not be reachable. \
+                         The blob could not have been decrypted above."
+                        ));
+                    }
+                    (BlobValue::Decrypted(data), _) => {
+                        let mut superseded_metadata = BlobMetaData::new();
+                        superseded_metadata.add(BlobMetaEntry::KmUuid(km_uuid));
+                        let superseded_blob = (LegacyBlob::ZVec(data), superseded_metadata);
+                        (
+                            Blob::new(
+                                flags,
+                                BlobValue::Decrypted(upgraded_blob.try_into().context(ks_err!(
+                                    "Failed to convert upgraded blob to ZVec."
+                                ))?),
+                            ),
+                            Some(superseded_blob),
+                        )
+                    }
+                    _ => {
+                        return Err(Error::sys()).context(ks_err!(
+                            "This should not be reachable. \
+                         Any other variant should have resulted in a different error."
+                        ));
+                    }
                 }
-                (BlobValue::Encrypted { .. }, None) => {
-                    return Err(Error::sys()).context(
-                        "In characteristics_file_to_cache: This should not be reachable. \
-                         The blob could not have been decrypted above.",
-                    );
-                }
-                (BlobValue::Decrypted(data), _) => {
-                    let mut superseded_metadata = BlobMetaData::new();
-                    superseded_metadata.add(BlobMetaEntry::KmUuid(km_uuid));
-                    let superseded_blob = (LegacyBlob::ZVec(data), superseded_metadata);
-                    (
-                        Blob::new(
-                            flags,
-                            BlobValue::Decrypted(upgraded_blob.try_into().context(
-                                "In characteristics_file_to_cache: \
-                             Failed to convert upgraded blob to ZVec.",
-                            )?),
-                        ),
-                        Some(superseded_blob),
-                    )
-                }
-                _ => {
-                    return Err(Error::sys()).context(
-                        "In characteristics_file_to_cache: This should not be reachable. \
-                         Any other variant should have resulted in a different error.",
-                    )
-                }
-            }
-        } else {
-            (km_blob, None)
-        };
+            } else {
+                (km_blob, None)
+            };
 
         let params =
             augment_legacy_characteristics_file_with_key_characteristics(km_params, params);
@@ -595,10 +584,10 @@ impl LegacyImporterState {
         super_key: Option<Arc<dyn AesGcm>>,
     ) -> Result<()> {
         let alias = key.alias.clone().ok_or_else(|| {
-            anyhow::anyhow!(Error::sys()).context(
-                "In check_and_import: Must be Some because \
-                 our caller must not have called us otherwise.",
-            )
+            anyhow::anyhow!(Error::sys()).context(ks_err!(
+                "Must be Some because \
+                 our caller must not have called us otherwise."
+            ))
         })?;
 
         if self.recently_imported.contains(&RecentImport::new(uid, alias.clone())) {
@@ -632,11 +621,11 @@ impl LegacyImporterState {
                     e
                 }
             })
-            .context("In check_and_import: Trying to load legacy blob.")?;
+            .context(ks_err!("Trying to load legacy blob."))?;
 
         let (km_blob_params, superseded_blob) = self
             .characteristics_file_to_cache(km_blob_params, &super_key, uid, &alias)
-            .context("In check_and_import: Trying to update legacy charateristics.")?;
+            .context(ks_err!("Trying to update legacy characteristics."))?;
 
         let result = match km_blob_params {
             Some((km_blob, params)) => {
@@ -647,7 +636,7 @@ impl LegacyImporterState {
                         // Get super key id for user id.
                         let super_key_id = self
                             .get_super_key_id_check_unlockable_or_delete(uid, &alias)
-                            .context("In check_and_import: Failed to get super key id.")?;
+                            .context(ks_err!("Failed to get super key id."))?;
 
                         let mut blob_metadata = BlobMetaData::new();
                         blob_metadata.add(BlobMetaEntry::Iv(iv.to_vec()));
@@ -659,18 +648,17 @@ impl LegacyImporterState {
                     BlobValue::Decrypted(data) => (LegacyBlob::ZVec(data), BlobMetaData::new()),
                     _ => {
                         return Err(Error::Rc(ResponseCode::KEY_NOT_FOUND))
-                            .context("In check_and_import: Legacy key has unexpected type.")
+                            .context(ks_err!("Legacy key has unexpected type."));
                     }
                 };
 
-                let km_uuid = self
-                    .get_km_uuid(is_strongbox)
-                    .context("In check_and_import: Trying to get KM UUID")?;
+                let km_uuid =
+                    self.get_km_uuid(is_strongbox).context(ks_err!("Trying to get KM UUID"))?;
                 blob_metadata.add(BlobMetaEntry::KmUuid(km_uuid));
 
                 let mut metadata = KeyMetaData::new();
-                let creation_date = DateTime::now()
-                    .context("In check_and_import: Trying to make creation time.")?;
+                let creation_date =
+                    DateTime::now().context(ks_err!("Trying to make creation time."))?;
                 metadata.add(KeyMetaEntry::CreationDate(creation_date));
 
                 let blob_info = BlobInfo::new_with_superseded(
@@ -689,18 +677,18 @@ impl LegacyImporterState {
                         &metadata,
                         &km_uuid,
                     )
-                    .context("In check_and_import.")?;
+                    .context(ks_err!())?;
                 Ok(())
             }
             None => {
                 if let Some(ca_cert) = ca_cert {
                     self.db
                         .store_new_certificate(&key, KeyType::Client, &ca_cert, &KEYSTORE_UUID)
-                        .context("In check_and_import: Failed to insert new certificate.")?;
+                        .context(ks_err!("Failed to insert new certificate."))?;
                     Ok(())
                 } else {
                     Err(Error::Rc(ResponseCode::KEY_NOT_FOUND))
-                        .context("In check_and_import: Legacy key not found.")
+                        .context(ks_err!("Legacy key not found."))
                 }
             }
         };
@@ -712,7 +700,7 @@ impl LegacyImporterState {
                 // Delete legacy key from the file system
                 self.legacy_loader
                     .remove_keystore_entry(uid, &alias)
-                    .context("In check_and_import: Trying to remove imported key.")?;
+                    .context(ks_err!("Trying to remove imported key."))?;
                 Ok(())
             }
             Err(e) => Err(e),
@@ -727,11 +715,11 @@ impl LegacyImporterState {
         if let Some(super_key) = self
             .legacy_loader
             .load_super_key(user_id, pw)
-            .context("In check_and_import_super_key: Trying to load legacy super key.")?
+            .context(ks_err!("Trying to load legacy super key."))?
         {
             let (blob, blob_metadata) =
                 crate::super_key::SuperKeyManager::encrypt_with_password(&super_key, pw)
-                    .context("In check_and_import_super_key: Trying to encrypt super key.")?;
+                    .context(ks_err!("Trying to encrypt super key."))?;
 
             self.db
                 .store_super_key(
@@ -741,16 +729,12 @@ impl LegacyImporterState {
                     &blob_metadata,
                     &KeyMetaData::new(),
                 )
-                .context(concat!(
-                    "In check_and_import_super_key: ",
-                    "Trying to insert legacy super_key into the database."
-                ))?;
+                .context(ks_err!("Trying to insert legacy super_key into the database."))?;
             self.legacy_loader.remove_super_key(user_id);
             self.recently_imported_super_key.insert(user_id);
             Ok(())
         } else {
-            Err(Error::Rc(ResponseCode::KEY_NOT_FOUND))
-                .context("In check_and_import_super_key: No key found do import.")
+            Err(Error::Rc(ResponseCode::KEY_NOT_FOUND)).context(ks_err!("No key found do import."))
         }
     }
 
@@ -765,7 +749,7 @@ impl LegacyImporterState {
             BulkDeleteRequest::Uid(uid) => (
                 self.legacy_loader
                     .list_keystore_entries_for_uid(uid)
-                    .context("In bulk_delete: Trying to get aliases for uid.")
+                    .context(ks_err!("Trying to get aliases for uid."))
                     .map(|aliases| {
                         let mut h = HashMap::<u32, HashSet<String>>::new();
                         h.insert(uid, aliases.into_iter().collect());
@@ -776,7 +760,7 @@ impl LegacyImporterState {
             BulkDeleteRequest::User(user_id) => (
                 self.legacy_loader
                     .list_keystore_entries_for_user(user_id)
-                    .context("In bulk_delete: Trying to get aliases for user_id.")?,
+                    .context(ks_err!("Trying to get aliases for user_id."))?,
                 user_id,
             ),
         };
@@ -784,7 +768,7 @@ impl LegacyImporterState {
         let super_key_id = self
             .db
             .load_super_key(&USER_SUPER_KEY, user_id)
-            .context("In bulk_delete: Failed to load super key")?
+            .context(ks_err!("Failed to load super key"))?
             .map(|(_, entry)| entry.id());
 
         for (uid, alias) in aliases
@@ -794,7 +778,7 @@ impl LegacyImporterState {
             let (km_blob_params, _, _) = self
                 .legacy_loader
                 .load_by_uid_alias(uid, &alias, &None)
-                .context("In bulk_delete: Trying to load legacy blob.")?;
+                .context(ks_err!("Trying to load legacy blob."))?;
 
             // Determine if the key needs special handling to be deleted.
             let (need_gc, is_super_encrypted) = km_blob_params
@@ -848,16 +832,16 @@ impl LegacyImporterState {
                 };
 
                 if let Some((blob, blob_metadata)) = mark_deleted {
-                    self.db.set_deleted_blob(&blob, &blob_metadata).context(concat!(
-                        "In bulk_delete: Trying to insert deleted ",
-                        "blob into the database for garbage collection."
+                    self.db.set_deleted_blob(&blob, &blob_metadata).context(ks_err!(
+                        "Trying to insert deleted \
+                            blob into the database for garbage collection."
                     ))?;
                 }
             }
 
             self.legacy_loader
                 .remove_keystore_entry(uid, &alias)
-                .context("In bulk_delete: Trying to remove imported key.")?;
+                .context(ks_err!("Trying to remove imported key."))?;
         }
         Ok(())
     }
@@ -926,18 +910,18 @@ fn get_key_characteristics_without_app_data(
     blob: &[u8],
 ) -> Result<(Vec<KeyParameter>, Option<Vec<u8>>)> {
     let (km_dev, _) = crate::globals::get_keymint_dev_by_uuid(uuid)
-        .with_context(|| format!("In foo: Trying to get km device for id {:?}", uuid))?;
+        .with_context(|| ks_err!("Trying to get km device for id {:?}", uuid))?;
 
     let (characteristics, upgraded_blob) = upgrade_keyblob_if_required_with(
         &*km_dev,
         blob,
         &[],
         |blob| {
-            let _wd = wd::watch_millis("In foo: Calling GetKeyCharacteristics.", 500);
+            let _wd = wd::watch_millis("Calling GetKeyCharacteristics.", 500);
             map_km_error(km_dev.getKeyCharacteristics(blob, &[], &[]))
         },
         |_| Ok(()),
     )
-    .context("In foo.")?;
+    .context(ks_err!())?;
     Ok((key_characteristics_to_internal(characteristics), upgraded_blob))
 }

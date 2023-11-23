@@ -25,6 +25,7 @@ android_test {
         "androidx.test.rules",
         "ctstestrunner-axt",
         "accountaccesslib",
+        "androidx.test.uiautomator_uiautomator",
     ],
     srcs: ["src/**/*.java"],
     platform_apis: true,

@@ -216,7 +216,7 @@ public class ContactsContract_Wipe extends AndroidTestCase {
                 Log.i(TAG, "Received broadcast: " + intent);
                 latch.countDown();
             }
-        }, filter);
+        }, filter, Context.RECEIVER_EXPORTED);
 
         wipeContactsProvider();
 

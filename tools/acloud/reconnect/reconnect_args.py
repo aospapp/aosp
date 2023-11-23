@@ -55,7 +55,8 @@ def GetReconnectArgParser(subparser):
         dest="autoconnect",
         required=False,
         choices=[constants.INS_KEY_VNC, constants.INS_KEY_ADB,
-                 constants.INS_KEY_WEBRTC],
-        help="If need adb only, you can pass in 'adb' here.")
+                 constants.INS_KEY_FASTBOOT, constants.INS_KEY_WEBRTC],
+        help="If need adb/fastboot/vnc/webrtc only, you can pass in 'adb', 'fastboot', "
+        "'vnc' or 'webrtc' only here.")
 
     return reconnect_parser

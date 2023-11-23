@@ -94,6 +94,9 @@ cc_binary {
         "libhwservicemanager_shared_libs",
         "libtokenmanager_shared_libs",
     ],
+    vintf_fragments: [
+        "hwservicemanager.xml",
+    ],
     init_rc: [
         "hwservicemanager.rc",
     ],
@@ -107,6 +110,7 @@ cc_binary {
         "libhwservicemanager",
         "libtokenmanager",
     ],
+    bootstrap: true,
 }
 
 cc_test {

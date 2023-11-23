@@ -18,11 +18,6 @@ Test script to test the integrity of LE scan results upon resetting the
 Bluetooth stack.
 """
 
-import concurrent
-import os
-import time
-
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_constants import ble_advertise_settings_modes
@@ -105,8 +100,8 @@ class ConcurrentBleAdvertisementDiscoveryTest(BluetoothBaseTest):
         self.scn_ad.droid.bleBuildScanFilter(filter_list)
         self.scn_ad.droid.bleSetScanSettingsCallbackType(
             ble_scan_settings_callback_types['all_matches'])
-        self.scn_ad.droid.bleSetScanSettingsScanMode(ble_scan_settings_modes[
-            'low_latency'])
+        self.scn_ad.droid.bleSetScanSettingsScanMode(
+            ble_scan_settings_modes['low_latency'])
         iterations = 20
         for _ in range(iterations):
             self.log.info("Verify all advertisements found")

@@ -37,6 +37,7 @@
 
 #if defined(__APPLE__)
 #include <crt_externs.h>
+// NOLINTNEXTLINE - inclusion of syscall is dependent on arch
 #include <sys/syscall.h>
 #include "AvailabilityMacros.h"  // For MAC_OS_X_VERSION_MAX_ALLOWED
 #endif
@@ -44,13 +45,14 @@
 #if defined(__BIONIC__)
 // membarrier(2) is only supported for target builds (b/111199492).
 #include <linux/membarrier.h>
+// NOLINTNEXTLINE - inclusion of syscall is dependent on arch
 #include <sys/syscall.h>
 #endif
 
 #if defined(__linux__)
 #include <linux/unistd.h>
+// NOLINTNEXTLINE - inclusion of syscall is dependent on arch
 #include <sys/syscall.h>
-#include <sys/utsname.h>
 #endif
 
 #if defined(_WIN32)
@@ -64,7 +66,7 @@
 
 namespace art {
 
-using android::base::ReadFileToString;
+using android::base::ReadFileToString;  // NOLINT - ReadFileToString is actually used
 using android::base::StringPrintf;
 
 #if defined(__arm__)
@@ -91,7 +93,7 @@ bool TouchAndFlushCacheLinesWithinPage(uintptr_t start, uintptr_t limit, size_t 
   CHECK_LT(start, limit);
   CHECK_EQ(RoundDown(start, kPageSize), RoundDown(limit - 1, kPageSize)) << "range spans pages";
   // Declare a volatile variable so the compiler does not elide reads from the page being touched.
-  volatile uint8_t v = 0;
+  [[maybe_unused]] volatile uint8_t v = 0;
   for (size_t i = 0; i < attempts; ++i) {
     // Touch page to maximize chance page is resident.
     v = *reinterpret_cast<uint8_t*>(start);
@@ -158,6 +160,17 @@ bool FlushCpuCaches(void* begin, void* end) {
 
 #endif
 
+#if defined(__linux__)
+bool IsKernelVersionAtLeast(int reqd_major, int reqd_minor) {
+  struct utsname uts;
+  int major, minor;
+  CHECK_EQ(uname(&uts), 0);
+  CHECK_EQ(strcmp(uts.sysname, "Linux"), 0);
+  CHECK_EQ(sscanf(uts.release, "%d.%d:", &major, &minor), 2);
+  return major > reqd_major || (major == reqd_major && minor >= reqd_minor);
+}
+#endif
+
 bool CacheOperationsMaySegFault() {
 #if defined(__linux__) && defined(__aarch64__)
   // Avoid issue on older ARM64 kernels where data cache operations could be classified as writes
@@ -167,18 +180,10 @@ bool CacheOperationsMaySegFault() {
   //
   // This behaviour means we should avoid the dual view JIT on the device. This is just
   // an issue when running tests on devices that have an old kernel.
-  static constexpr int kRequiredMajor = 3;
-  static constexpr int kRequiredMinor = 12;
-  struct utsname uts;
-  int major, minor;
-  if (uname(&uts) != 0 ||
-      strcmp(uts.sysname, "Linux") != 0 ||
-      sscanf(uts.release, "%d.%d", &major, &minor) != 2 ||
-      (major < kRequiredMajor || (major == kRequiredMajor && minor < kRequiredMinor))) {
-    return true;
-  }
-#endif
+  return !IsKernelVersionAtLeast(3, 12);
+#else
   return false;
+#endif
 }
 
 uint32_t GetTid() {
@@ -249,6 +254,9 @@ template void Split(const char *const& s, char separator, std::vector<std::strin
 template void Split(const std::string_view& s,
                     char separator,
                     std::vector<std::string_view>* out_result);
+template void Split(const std::string_view& s,
+                    char separator,
+                    std::vector<std::string>* out_result);
 
 template <typename Str>
 void Split(const Str& s, char separator, size_t len, Str* out_result) {

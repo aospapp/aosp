@@ -16,8 +16,8 @@
 #
 # Updates the test data files.
 TIMEZONE_DIR=${ANDROID_BUILD_TOP}/system/timezone
-DISTRO_TOOLS_DIR=${TIMEZONE_DIR}/distro/tools
-REFERENCE_DISTRO_FILES=${TIMEZONE_DIR}/output_data
+TZVERSION_TOOLS_DIR=${TIMEZONE_DIR}/input_tools/version
+REFERENCE_DATA_FILES=${TIMEZONE_DIR}/output_data
 
 # Fail on error
 set -e
@@ -26,41 +26,19 @@ set -e
 IANA_VERSION=2030a
 TEST_DIR=test1
 
-# Create fake distro input files.
-./transform-distro-files.sh ${REFERENCE_DISTRO_FILES} ${IANA_VERSION} ./${TEST_DIR}/output_data
+# Create fake data input files.
+./transform-data-files.sh ${REFERENCE_DATA_FILES} ${IANA_VERSION} ./${TEST_DIR}/output_data
 
-# Create the distro .zip
-mkdir -p ${TEST_DIR}/output_data/distro
+# Create the tz version file.
 mkdir -p ${TEST_DIR}/output_data/version
-${DISTRO_TOOLS_DIR}/create-distro.py \
+${TZVERSION_TOOLS_DIR}/create-tz_version.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
-    -tzdata ${TEST_DIR}/output_data/iana/tzdata \
-    -icu_dir ${TEST_DIR}/output_data/icu_overlay \
-    -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
-    -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
-    -output_distro_dir ${TEST_DIR}/output_data/distro \
     -output_version_file ${TEST_DIR}/output_data/version/tz_version
 
-# Test 2: A set of data older than the system-image data from ${TIMEZONE_DIR}
-IANA_VERSION=2016a
-TEST_DIR=test2
-
-# Create fake distro input files.
-./transform-distro-files.sh ${REFERENCE_DISTRO_FILES} ${IANA_VERSION} ./${TEST_DIR}/output_data
-
-# Create the distro .zip
-mkdir -p ${TEST_DIR}/output_data/distro
-mkdir -p ${TEST_DIR}/output_data/version
-${DISTRO_TOOLS_DIR}/create-distro.py \
-    -iana_version ${IANA_VERSION} \
-    -revision 1 \
-    -tzdata ${TEST_DIR}/output_data/iana/tzdata \
-    -icu_dir ${TEST_DIR}/output_data/icu_overlay \
-    -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
-    -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
-    -output_distro_dir ${TEST_DIR}/output_data/distro \
-    -output_version_file ${TEST_DIR}/output_data/version/tz_version
+# Test 2 was about out-dated APK installation. Knowledge about these tests might be hardcoded
+# somewhere, so test3 is left as test3, not test2. Renaming might break something w/o obvious
+# benefits.
 
 # Test 3: A corrupted set of data like test 1, but with a truncated ICU
 # overlay file. This test data set exists because it is (currently) a good way
@@ -68,21 +46,15 @@ ${DISTRO_TOOLS_DIR}/create-distro.py \
 IANA_VERSION=2030a
 TEST_DIR=test3
 
-# Create fake distro input files.
-./transform-distro-files.sh ${REFERENCE_DISTRO_FILES} ${IANA_VERSION} ./${TEST_DIR}/output_data
+# Create fake data input files.
+./transform-data-files.sh ${REFERENCE_DATA_FILES} ${IANA_VERSION} ./${TEST_DIR}/output_data
 
 # Corrupt icu_tzdata.dat by truncating it
 truncate --size 27766 ${TEST_DIR}/output_data/icu_overlay/icu_tzdata.dat
 
-# Create the distro .zip
-mkdir -p ${TEST_DIR}/output_data/distro
+# Create tz version file.
 mkdir -p ${TEST_DIR}/output_data/version
-${DISTRO_TOOLS_DIR}/create-distro.py \
+${TZVERSION_TOOLS_DIR}/create-tz_version.py \
     -iana_version ${IANA_VERSION} \
     -revision 1 \
-    -tzdata ${TEST_DIR}/output_data/iana/tzdata \
-    -icu_dir ${TEST_DIR}/output_data/icu_overlay \
-    -tzlookup ${TEST_DIR}/output_data/android/tzlookup.xml \
-    -telephonylookup ${TEST_DIR}/output_data/android/telephonylookup.xml \
-    -output_distro_dir ${TEST_DIR}/output_data/distro \
     -output_version_file ${TEST_DIR}/output_data/version/tz_version

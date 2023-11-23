@@ -16,6 +16,9 @@
 
 package android.view.cts;
 
+import static com.android.compatibility.common.util.SynchronousPixelCopy.copySurface;
+import static com.android.compatibility.common.util.SynchronousPixelCopy.copyWindow;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
@@ -24,8 +27,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import android.app.Activity;
+import android.app.ActivityOptions;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -41,16 +46,16 @@ import android.media.Image;
 import android.media.ImageReader;
 import android.media.ImageWriter;
 import android.os.Debug;
-import android.server.wm.IgnoreOrientationRequestSession;
+import android.server.wm.SetRequestedOrientationRule;
 import android.util.Half;
 import android.util.Log;
+import android.util.Pair;
 import android.view.PixelCopy;
 import android.view.Surface;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.cts.util.BitmapDumper;
-import android.view.cts.util.DisableFixedToUserRotationRule;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.LargeTest;
@@ -62,8 +67,10 @@ import com.android.compatibility.common.util.SynchronousPixelCopy;
 
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExternalResource;
 import org.junit.rules.TestName;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
@@ -73,6 +80,7 @@ import org.junit.runners.model.Statement;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
@@ -82,9 +90,9 @@ import java.util.function.Function;
 public class PixelCopyTest {
     private static final String TAG = "PixelCopyTests";
 
-    @Rule
-    public DisableFixedToUserRotationRule mDisableFixedToUserRotationRule =
-            new DisableFixedToUserRotationRule();
+    @ClassRule
+    public static SetRequestedOrientationRule mSetRequestedOrientationRule =
+            new SetRequestedOrientationRule();
 
     @Rule
     public ActivityTestRule<PixelCopyGLProducerCtsActivity> mGLSurfaceViewActivityRule =
@@ -94,18 +102,31 @@ public class PixelCopyTest {
     public ActivityTestRule<PixelCopyVideoSourceActivity> mVideoSourceActivityRule =
             new ActivityTestRule<>(PixelCopyVideoSourceActivity.class, false, false);
 
-    @Rule
-    public ActivityTestRule<PixelCopyViewProducerActivity> mWindowSourceActivityRule =
-            new ActivityTestRule<>(PixelCopyViewProducerActivity.class, false, false);
+    public static class FullscreenActivityRule extends ExternalResource {
+        private final ArrayList<Activity> mActivities = new ArrayList<>();
+
+        public <T extends Activity> T launch(Class<T> klass) {
+            final Pair<Intent, ActivityOptions> args =
+                    SetRequestedOrientationRule.buildFullScreenLaunchArgs(klass);
+            final T activity = (T) InstrumentationRegistry.getInstrumentation()
+                    .startActivitySync(args.first, args.second.toBundle());
+            mActivities.add(activity);
+            return activity;
+        }
+
+        @Override
+        protected void after() {
+            if (mActivities.isEmpty()) return;
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+                for (final Activity activity : mActivities) {
+                    activity.finish();
+                }
+            });
+        }
+    }
 
     @Rule
-    public ActivityTestRule<PixelCopyWideGamutViewProducerActivity>
-            mWideGamutWindowSourceActivityRule = new ActivityTestRule<>(
-                    PixelCopyWideGamutViewProducerActivity.class, false, false);
-
-    @Rule
-    public ActivityTestRule<PixelCopyViewProducerDialogActivity> mDialogSourceActivityRule =
-            new ActivityTestRule<>(PixelCopyViewProducerDialogActivity.class, false, false);
+    public FullscreenActivityRule mFullscreenActivityRule = new FullscreenActivityRule();
 
     @Rule
     public SurfaceTextureRule mSurfaceRule = new SurfaceTextureRule();
@@ -121,24 +142,6 @@ public class PixelCopyTest {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
         assertNotNull(mInstrumentation);
         mCopyHelper = new SynchronousPixelCopy();
-    }
-
-    /**
-     * Helper method used to execute a runnable that enables the
-     * {@link Activity#setRequestedOrientation} API.
-     *
-     * On Android 12L large screen devices ignore requests to the setRequestedOrientation.
-     * So in order to support test cases that rely on this API, use
-     * {@link IgnoreOrientationRequestSession} to temporarily enable the setRequestedOrientation API
-     */
-    private void withRequestedOrientationsEnabled(Runnable runnable) {
-        IgnoreOrientationRequestSession session = new IgnoreOrientationRequestSession(
-                false /* enable setRequestedOrientation */);
-        try {
-            runnable.run();
-        } finally {
-            session.close();
-        }
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -201,6 +204,19 @@ public class PixelCopyTest {
         mCopyHelper.request(mockWindow, dest);
     }
 
+    @Test
+    public void testRequestGetters() {
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Bitmap dest = Bitmap.createBitmap(5, 5, Config.ARGB_8888);
+        Rect source = new Rect(3, 3, 40, 50);
+        PixelCopy.Request request = PixelCopy.Request.Builder.ofWindow(activity.getWindow())
+                .setSourceRect(source)
+                .setDestinationBitmap(dest)
+                .build();
+        assertEquals(dest, request.getDestinationBitmap());
+        assertEquals(source, request.getSourceRect());
+    }
+
     private PixelCopyGLProducerCtsActivity waitForGlProducerActivity() {
         CountDownLatch swapFence = new CountDownLatch(2);
 
@@ -224,6 +240,19 @@ public class PixelCopyTest {
         Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
         int result = mCopyHelper.request(activity.getView(), bitmap);
         assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+        assertEquals(100, bitmap.getWidth());
+        assertEquals(100, bitmap.getHeight());
+        assertEquals(Config.ARGB_8888, bitmap.getConfig());
+        assertBitmapQuadColor(bitmap,
+                Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+    }
+
+    @Test
+    public void testGlProducerAutoSize() {
+        PixelCopyGLProducerCtsActivity activity = waitForGlProducerActivity();
+        PixelCopy.Result result = copySurface(activity.getView());
+        assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result.getStatus());
+        Bitmap bitmap = result.getBitmap();
         assertEquals(100, bitmap.getWidth());
         assertEquals(100, bitmap.getHeight());
         assertEquals(Config.ARGB_8888, bitmap.getConfig());
@@ -311,370 +340,385 @@ public class PixelCopyTest {
         assertNotEquals(generationId, bitmap.getGenerationId());
     }
 
-    private Window waitForWindowProducerActivity() {
-        PixelCopyViewProducerActivity activity =
-                mWindowSourceActivityRule.launchActivity(null);
+    private PixelCopyViewProducerActivity waitForWindowProducerActivity() {
+        PixelCopyViewProducerActivity activity = mFullscreenActivityRule.launch(
+                        PixelCopyViewProducerActivity.class);
         activity.waitForFirstDrawCompleted(10, TimeUnit.SECONDS);
-        return activity.getWindow();
+        return activity;
     }
 
-    private Rect makeWindowRect(int left, int top, int right, int bottom) {
+    private Rect makeWindowRect(
+            PixelCopyViewProducerActivity activity, int left, int top, int right, int bottom) {
         Rect r = new Rect(left, top, right, bottom);
-        mWindowSourceActivityRule.getActivity().normalizedToSurface(r);
+        activity.normalizedToSurface(r);
         return r;
     }
 
     @Test
-    public void testWindowProducer() {
-        withRequestedOrientationsEnabled(() -> {
-            Bitmap bitmap;
-            Window window = waitForWindowProducerActivity();
-            PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
-            do {
-                Rect src = makeWindowRect(0, 0, 100, 100);
-                bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
-                int result = mCopyHelper.request(window, src, bitmap);
-                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
-                assertEquals(Config.ARGB_8888, bitmap.getConfig());
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-                assertBitmapEdgeColor(bitmap, Color.YELLOW);
-            } while (activity.rotate());
-        });
+    public void testViewProducer() {
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        do {
+            final Rect src = makeWindowRect(activity, 0, 0, 100, 100);
+            final Bitmap bitmap = Bitmap.createBitmap(src.width(), src.height(),
+                    Config.ARGB_8888);
+            int result = copyWindow(activity.getContentView(), request -> {
+                request.setDestinationBitmap(bitmap);
+                request.setSourceRect(src);
+            }).getStatus();
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+            assertBitmapEdgeColor(bitmap, Color.YELLOW);
+        } while (activity.rotate());
+    }
+
+    @Test
+    public void testWindowProducerAutoSize() {
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Window window = activity.getWindow();
+        do {
+            PixelCopy.Result result = copyWindow(window);
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS,
+                    result.getStatus());
+            final Bitmap bitmap = result.getBitmap();
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            final View decorView = window.getDecorView();
+            assertTrue(bitmap.getWidth() >= decorView.getWidth());
+            assertTrue(bitmap.getHeight() >= decorView.getHeight());
+            // We can't directly assert qualities of the bitmap because the View's location
+            // is going to be affected by padding/insets.
+        } while (activity.rotate());
+    }
+
+    @Test
+    public void testViewProducerAutoSizeWithSrc() {
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        do {
+            final Rect src = makeWindowRect(activity, 0, 0, 100, 100);
+            PixelCopy.Result result = copyWindow(activity.getContentView(), request -> {
+                request.setSourceRect(src);
+            });
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result.getStatus());
+            final Bitmap bitmap = result.getBitmap();
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            assertEquals(src.width(), bitmap.getWidth());
+            assertEquals(src.height(), bitmap.getHeight());
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+            assertBitmapEdgeColor(bitmap, Color.YELLOW);
+        } while (activity.rotate());
     }
 
     @Test
     public void testWindowProducerCropTopLeft() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForWindowProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, makeWindowRect(0, 0, 50, 50), bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.RED, Color.RED, Color.RED);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(
+                    activity.getWindow(), makeWindowRect(activity, 0, 0, 50, 50), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.RED, Color.RED, Color.RED);
+        } while (activity.rotate());
     }
 
     @Test
     public void testWindowProducerCropCenter() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForWindowProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, makeWindowRect(25, 25, 75, 75), bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(
+                    activity.getWindow(), makeWindowRect(activity, 25, 25, 75, 75), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+        } while (activity.rotate());
     }
 
     @Test
     public void testWindowProducerCropBottomHalf() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForWindowProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, makeWindowRect(0, 50, 100, 100), bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                assertBitmapQuadColor(bitmap,
-                        Color.BLUE, Color.BLACK, Color.BLUE, Color.BLACK);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(
+                    activity.getWindow(), makeWindowRect(activity, 0, 50, 100, 100), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            assertBitmapQuadColor(bitmap,
+                    Color.BLUE, Color.BLACK, Color.BLUE, Color.BLACK);
+        } while (activity.rotate());
     }
 
     @Test
     public void testWindowProducerScaling() {
-        withRequestedOrientationsEnabled(() -> {
-            // Since we only sample mid-pixel of each qudrant, filtering
-            // quality isn't tested
-            Window window = waitForWindowProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                // Make sure nothing messed with the bitmap
-                assertEquals(20, bitmap.getWidth());
-                assertEquals(20, bitmap.getHeight());
-                assertEquals(Config.ARGB_8888, bitmap.getConfig());
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-            } while (activity.rotate());
-        });
+        // Since we only sample mid-pixel of each qudrant, filtering
+        // quality isn't tested
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(activity.getWindow(), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            // Make sure nothing messed with the bitmap
+            assertEquals(20, bitmap.getWidth());
+            assertEquals(20, bitmap.getHeight());
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+        } while (activity.rotate());
     }
 
     @Test
     public void testWindowProducerCopyToRGBA16F() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForWindowProducerActivity();
-            PixelCopyViewProducerActivity activity = mWindowSourceActivityRule.getActivity();
-
-            Bitmap bitmap;
-            do {
-                Rect src = makeWindowRect(0, 0, 100, 100);
-                bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16);
-                int result = mCopyHelper.request(window, src, bitmap);
-                // On OpenGL ES 2.0 devices a copy to RGBA_F16 can fail because there's
-                // not support for float textures
-                if (result != PixelCopy.ERROR_DESTINATION_INVALID) {
-                    assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
-                    assertEquals(Config.RGBA_F16, bitmap.getConfig());
-                    assertBitmapQuadColor(bitmap,
-                            Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-                    assertBitmapEdgeColor(bitmap, Color.YELLOW);
-                }
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        do {
+            Rect src = makeWindowRect(activity, 0, 0, 100, 100);
+            Bitmap bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16);
+            int result = mCopyHelper.request(activity.getWindow(), src, bitmap);
+            // On OpenGL ES 2.0 devices a copy to RGBA_F16 can fail because there's
+            // not support for float textures
+            if (result != PixelCopy.ERROR_DESTINATION_INVALID) {
+                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+                assertEquals(Config.RGBA_F16, bitmap.getConfig());
+                assertBitmapQuadColor(bitmap,
+                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+                assertBitmapEdgeColor(bitmap, Color.YELLOW);
+            }
+        } while (activity.rotate());
     }
 
-    private Window waitForWideGamutWindowProducerActivity() {
-        PixelCopyWideGamutViewProducerActivity activity =
-                mWideGamutWindowSourceActivityRule.launchActivity(null);
+    @Test
+    public void testWindowProducer() {
+        Bitmap bitmap;
+        PixelCopyViewProducerActivity activity = waitForWindowProducerActivity();
+        Window window = activity.getWindow();
+        do {
+            Rect src = makeWindowRect(activity, 0, 0, 100, 100);
+            bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
+            int result = mCopyHelper.request(window, src, bitmap);
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+            assertBitmapEdgeColor(bitmap, Color.YELLOW);
+        } while (activity.rotate());
+    }
+
+    private PixelCopyWideGamutViewProducerActivity waitForWideGamutWindowProducerActivity() {
+        PixelCopyWideGamutViewProducerActivity activity = mFullscreenActivityRule.launch(
+                        PixelCopyWideGamutViewProducerActivity.class);
         activity.waitForFirstDrawCompleted(10, TimeUnit.SECONDS);
-        return activity.getWindow();
+        return activity;
     }
 
-    private Rect makeWideGamutWindowRect(int left, int top, int right, int bottom) {
+    private Rect makeWideGamutWindowRect(
+            PixelCopyWideGamutViewProducerActivity activity,
+            int left, int top, int right, int bottom) {
         Rect r = new Rect(left, top, right, bottom);
-        mWideGamutWindowSourceActivityRule.getActivity().offsetForContent(r);
+        activity.offsetForContent(r);
         return r;
     }
 
     @Test
     public void testWideGamutWindowProducerCopyToRGBA8888() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForWideGamutWindowProducerActivity();
-            assertEquals(
-                    ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT,
-                    window.getAttributes().getColorMode()
-            );
+        PixelCopyWideGamutViewProducerActivity activity = waitForWideGamutWindowProducerActivity();
+        assertEquals(
+                ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT,
+                activity.getWindow().getAttributes().getColorMode()
+        );
 
-            // Early out if the device does not support wide color gamut rendering
-            if (!window.isWideColorGamut()) {
-                return;
-            }
+        // Early out if the device does not support wide color gamut rendering
+        if (!activity.getWindow().isWideColorGamut()) {
+            return;
+        }
 
-            PixelCopyWideGamutViewProducerActivity activity =
-                    mWideGamutWindowSourceActivityRule.getActivity();
+        do {
+            Rect src = makeWideGamutWindowRect(activity, 0, 0, 128, 128);
+            Bitmap bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
+            int result = mCopyHelper.request(activity.getWindow(), src, bitmap);
 
-            Bitmap bitmap;
-            do {
-                Rect src = makeWideGamutWindowRect(0, 0, 128, 128);
-                bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
-                int result = mCopyHelper.request(window, src, bitmap);
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
 
-                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
-                assertEquals(Config.ARGB_8888, bitmap.getConfig());
-
-                assertEquals("Top left", Color.RED, bitmap.getPixel(32, 32));
-                assertEquals("Top right", Color.GREEN, bitmap.getPixel(96, 32));
-                assertEquals("Bottom left", Color.BLUE, bitmap.getPixel(32, 96));
-                assertEquals("Bottom right", Color.YELLOW, bitmap.getPixel(96, 96));
-            } while (activity.rotate());
-        });
+            assertEquals("Top left", Color.RED, bitmap.getPixel(32, 32));
+            assertEquals("Top right", Color.GREEN, bitmap.getPixel(96, 32));
+            assertEquals("Bottom left", Color.BLUE, bitmap.getPixel(32, 96));
+            assertEquals("Bottom right", Color.YELLOW, bitmap.getPixel(96, 96));
+        } while (activity.rotate());
     }
 
     @Test
     public void testWideGamutWindowProducerCopyToRGBA16F() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForWideGamutWindowProducerActivity();
-            assertEquals(
-                    ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT,
-                    window.getAttributes().getColorMode()
-            );
+        PixelCopyWideGamutViewProducerActivity activity = waitForWideGamutWindowProducerActivity();
+        assertEquals(
+                ActivityInfo.COLOR_MODE_WIDE_COLOR_GAMUT,
+                activity.getWindow().getAttributes().getColorMode()
+        );
 
-            // Early out if the device does not support wide color gamut rendering
-            if (!window.isWideColorGamut()) {
-                return;
-            }
+        // Early out if the device does not support wide color gamut rendering
+        if (!activity.getWindow().isWideColorGamut()) {
+            return;
+        }
 
-            PixelCopyWideGamutViewProducerActivity activity =
-                    mWideGamutWindowSourceActivityRule.getActivity();
-            final WindowManager windowManager = (WindowManager) activity.getSystemService(
-                    Context.WINDOW_SERVICE);
-            final ColorSpace colorSpace = windowManager.getDefaultDisplay()
-                    .getPreferredWideGamutColorSpace();
-            final ColorSpace.Connector proPhotoToDisplayWideColorSpace = ColorSpace.connect(
-                    ColorSpace.get(ColorSpace.Named.PRO_PHOTO_RGB), colorSpace);
-            final ColorSpace.Connector displayWideColorSpaceToExtendedSrgb = ColorSpace.connect(
-                    colorSpace, ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB));
+        final WindowManager windowManager = (WindowManager) activity.getSystemService(
+                Context.WINDOW_SERVICE);
+        final ColorSpace colorSpace = windowManager.getDefaultDisplay()
+                .getPreferredWideGamutColorSpace();
+        final ColorSpace.Connector proPhotoToDisplayWideColorSpace = ColorSpace.connect(
+                ColorSpace.get(ColorSpace.Named.PRO_PHOTO_RGB), colorSpace);
+        final ColorSpace.Connector displayWideColorSpaceToExtendedSrgb = ColorSpace.connect(
+                colorSpace, ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB));
 
-            final float[] intermediateRed =
-                    proPhotoToDisplayWideColorSpace.transform(1.0f, 0.0f, 0.0f);
-            final float[] intermediateGreen = proPhotoToDisplayWideColorSpace
-                    .transform(0.0f, 1.0f, 0.0f);
-            final float[] intermediateBlue = proPhotoToDisplayWideColorSpace
-                    .transform(0.0f, 0.0f, 1.0f);
-            final float[] intermediateYellow = proPhotoToDisplayWideColorSpace
-                    .transform(1.0f, 1.0f, 0.0f);
+        final float[] intermediateRed =
+                proPhotoToDisplayWideColorSpace.transform(1.0f, 0.0f, 0.0f);
+        final float[] intermediateGreen = proPhotoToDisplayWideColorSpace
+                .transform(0.0f, 1.0f, 0.0f);
+        final float[] intermediateBlue = proPhotoToDisplayWideColorSpace
+                .transform(0.0f, 0.0f, 1.0f);
+        final float[] intermediateYellow = proPhotoToDisplayWideColorSpace
+                .transform(1.0f, 1.0f, 0.0f);
 
-            final float[] expectedRed =
-                    displayWideColorSpaceToExtendedSrgb.transform(intermediateRed);
-            final float[] expectedGreen = displayWideColorSpaceToExtendedSrgb
-                    .transform(intermediateGreen);
-            final float[] expectedBlue = displayWideColorSpaceToExtendedSrgb
-                    .transform(intermediateBlue);
-            final float[] expectedYellow = displayWideColorSpaceToExtendedSrgb
-                    .transform(intermediateYellow);
+        final float[] expectedRed =
+                displayWideColorSpaceToExtendedSrgb.transform(intermediateRed);
+        final float[] expectedGreen = displayWideColorSpaceToExtendedSrgb
+                .transform(intermediateGreen);
+        final float[] expectedBlue = displayWideColorSpaceToExtendedSrgb
+                .transform(intermediateBlue);
+        final float[] expectedYellow = displayWideColorSpaceToExtendedSrgb
+                .transform(intermediateYellow);
 
-            Bitmap bitmap;
-            int i = 0;
-            do {
-                Rect src = makeWideGamutWindowRect(0, 0, 128, 128);
-                bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16,
-                        true, ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB));
-                int result = mCopyHelper.request(window, src, bitmap);
+        do {
+            Rect src = makeWideGamutWindowRect(activity, 0, 0, 128, 128);
+            Bitmap bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16,
+                    true, ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB));
+            int result = mCopyHelper.request(activity.getWindow(), src, bitmap);
 
-                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
-                assertEquals(Config.RGBA_F16, bitmap.getConfig());
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.RGBA_F16, bitmap.getConfig());
 
-                ByteBuffer dst = ByteBuffer.allocateDirect(bitmap.getAllocationByteCount());
-                bitmap.copyPixelsToBuffer(dst);
-                dst.rewind();
-                dst.order(ByteOrder.LITTLE_ENDIAN);
+            ByteBuffer dst = ByteBuffer.allocateDirect(bitmap.getAllocationByteCount());
+            bitmap.copyPixelsToBuffer(dst);
+            dst.rewind();
+            dst.order(ByteOrder.LITTLE_ENDIAN);
 
-                // ProPhoto RGB red in scRGB-nl
-                assertEqualsRgba16f("Top left", bitmap, 32, 32, dst, expectedRed[0],
-                        expectedRed[1], expectedRed[2], 1.0f);
-                // ProPhoto RGB green in scRGB-nl
-                assertEqualsRgba16f("Top right", bitmap, 96, 32, dst,
-                        expectedGreen[0], expectedGreen[1], expectedGreen[2], 1.0f);
-                // ProPhoto RGB blue in scRGB-nl
-                assertEqualsRgba16f("Bottom left",  bitmap, 32, 96, dst,
-                        expectedBlue[0], expectedBlue[1], expectedBlue[2], 1.0f);
-                // ProPhoto RGB yellow in scRGB-nl
-                assertEqualsRgba16f("Bottom right", bitmap, 96, 96, dst,
-                        expectedYellow[0], expectedYellow[1], expectedYellow[2], 1.0f);
-            } while (activity.rotate());
-        });
+            // ProPhoto RGB red in scRGB-nl
+            assertEqualsRgba16f("Top left", bitmap, 32, 32, dst, expectedRed[0],
+                    expectedRed[1], expectedRed[2], 1.0f);
+            // ProPhoto RGB green in scRGB-nl
+            assertEqualsRgba16f("Top right", bitmap, 96, 32, dst,
+                    expectedGreen[0], expectedGreen[1], expectedGreen[2], 1.0f);
+            // ProPhoto RGB blue in scRGB-nl
+            assertEqualsRgba16f("Bottom left",  bitmap, 32, 96, dst,
+                    expectedBlue[0], expectedBlue[1], expectedBlue[2], 1.0f);
+            // ProPhoto RGB yellow in scRGB-nl
+            assertEqualsRgba16f("Bottom right", bitmap, 96, 96, dst,
+                    expectedYellow[0], expectedYellow[1], expectedYellow[2], 1.0f);
+        } while (activity.rotate());
     }
 
-    private Window waitForDialogProducerActivity() {
-        PixelCopyViewProducerActivity activity =
-                mDialogSourceActivityRule.launchActivity(null);
+    private PixelCopyViewProducerDialogActivity waitForDialogProducerActivity() {
+        PixelCopyViewProducerDialogActivity activity = mFullscreenActivityRule.launch(
+                PixelCopyViewProducerDialogActivity.class);
         activity.waitForFirstDrawCompleted(10, TimeUnit.SECONDS);
-        return activity.getWindow();
+        return activity;
     }
 
-    private Rect makeDialogRect(int left, int top, int right, int bottom) {
+    private Rect makeDialogRect(
+            PixelCopyViewProducerDialogActivity activity,
+            int left, int top, int right, int bottom) {
         Rect r = new Rect(left, top, right, bottom);
-        mDialogSourceActivityRule.getActivity().normalizedToSurface(r);
+        activity.normalizedToSurface(r);
         return r;
     }
 
     @Test
     public void testDialogProducer() {
-        withRequestedOrientationsEnabled(() -> {
-            Bitmap bitmap;
-            Window window = waitForDialogProducerActivity();
-            PixelCopyViewProducerActivity activity = mDialogSourceActivityRule.getActivity();
-            do {
-                Rect src = makeDialogRect(0, 0, 100, 100);
-                bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
-                int result = mCopyHelper.request(window, src, bitmap);
-                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
-                assertEquals(Config.ARGB_8888, bitmap.getConfig());
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-                assertBitmapEdgeColor(bitmap, Color.YELLOW);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerDialogActivity activity = waitForDialogProducerActivity();
+        do {
+            Rect src = makeDialogRect(activity, 0, 0, 100, 100);
+            Bitmap bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.ARGB_8888);
+            int result = mCopyHelper.request(activity.getWindow(), src, bitmap);
+            assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+            assertBitmapEdgeColor(bitmap, Color.YELLOW);
+        } while (activity.rotate());
     }
 
     @Test
     public void testDialogProducerCropTopLeft() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForDialogProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mDialogSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, makeDialogRect(0, 0, 50, 50), bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.RED, Color.RED, Color.RED);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerDialogActivity activity = waitForDialogProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(
+                    activity.getWindow(), makeDialogRect(activity, 0, 0, 50, 50), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.RED, Color.RED, Color.RED);
+        } while (activity.rotate());
     }
 
     @Test
     public void testDialogProducerCropCenter() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForDialogProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mDialogSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, makeDialogRect(25, 25, 75, 75), bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerDialogActivity activity = waitForDialogProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(
+                    activity.getWindow(), makeDialogRect(activity, 25, 25, 75, 75), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+        } while (activity.rotate());
     }
 
     @Test
     public void testDialogProducerCropBottomHalf() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForDialogProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mDialogSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, makeDialogRect(0, 50, 100, 100), bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                assertBitmapQuadColor(bitmap,
-                        Color.BLUE, Color.BLACK, Color.BLUE, Color.BLACK);
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerDialogActivity activity = waitForDialogProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(100, 100, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(
+                    activity.getWindow(), makeDialogRect(activity, 0, 50, 100, 100), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            assertBitmapQuadColor(bitmap,
+                    Color.BLUE, Color.BLACK, Color.BLUE, Color.BLACK);
+        } while (activity.rotate());
     }
 
     @Test
     public void testDialogProducerScaling() {
-        withRequestedOrientationsEnabled(() -> {
-            // Since we only sample mid-pixel of each qudrant, filtering
-            // quality isn't tested
-            Window window = waitForDialogProducerActivity();
-            Bitmap bitmap = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
-            PixelCopyViewProducerActivity activity = mDialogSourceActivityRule.getActivity();
-            do {
-                int result = mCopyHelper.request(window, bitmap);
-                assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
-                // Make sure nothing messed with the bitmap
-                assertEquals(20, bitmap.getWidth());
-                assertEquals(20, bitmap.getHeight());
-                assertEquals(Config.ARGB_8888, bitmap.getConfig());
-                assertBitmapQuadColor(bitmap,
-                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-            } while (activity.rotate());
-        });
+        // Since we only sample mid-pixel of each qudrant, filtering
+        // quality isn't tested
+        PixelCopyViewProducerDialogActivity activity = waitForDialogProducerActivity();
+        Bitmap bitmap = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
+        do {
+            int result = mCopyHelper.request(activity.getWindow(), bitmap);
+            assertEquals("Scaled copy request failed", PixelCopy.SUCCESS, result);
+            // Make sure nothing messed with the bitmap
+            assertEquals(20, bitmap.getWidth());
+            assertEquals(20, bitmap.getHeight());
+            assertEquals(Config.ARGB_8888, bitmap.getConfig());
+            assertBitmapQuadColor(bitmap,
+                    Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+        } while (activity.rotate());
     }
 
     @Test
     public void testDialogProducerCopyToRGBA16F() {
-        withRequestedOrientationsEnabled(() -> {
-            Window window = waitForDialogProducerActivity();
-            PixelCopyViewProducerActivity activity = mDialogSourceActivityRule.getActivity();
-
-            Bitmap bitmap;
-            do {
-                Rect src = makeDialogRect(0, 0, 100, 100);
-                bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16);
-                int result = mCopyHelper.request(window, src, bitmap);
-                // On OpenGL ES 2.0 devices a copy to RGBA_F16 can fail because there's
-                // not support for float textures
-                if (result != PixelCopy.ERROR_DESTINATION_INVALID) {
-                    assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
-                    assertEquals(Config.RGBA_F16, bitmap.getConfig());
-                    assertBitmapQuadColor(bitmap,
-                            Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
-                    assertBitmapEdgeColor(bitmap, Color.YELLOW);
-                }
-            } while (activity.rotate());
-        });
+        PixelCopyViewProducerDialogActivity activity = waitForDialogProducerActivity();
+        do {
+            Rect src = makeDialogRect(activity, 0, 0, 100, 100);
+            Bitmap bitmap = Bitmap.createBitmap(src.width(), src.height(), Config.RGBA_F16);
+            int result = mCopyHelper.request(activity.getWindow(), src, bitmap);
+            // On OpenGL ES 2.0 devices a copy to RGBA_F16 can fail because there's
+            // not support for float textures
+            if (result != PixelCopy.ERROR_DESTINATION_INVALID) {
+                assertEquals("Fullsize copy request failed", PixelCopy.SUCCESS, result);
+                assertEquals(Config.RGBA_F16, bitmap.getConfig());
+                assertBitmapQuadColor(bitmap,
+                        Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+                assertBitmapEdgeColor(bitmap, Color.YELLOW);
+            }
+        } while (activity.rotate());
     }
 
     private static void assertEqualsRgba16f(String message, Bitmap bitmap, int x, int y,
@@ -911,6 +955,108 @@ public class PixelCopyTest {
         result = Bitmap.createBitmap(20, 20, Config.ARGB_8888);
         status = mCopyHelper.request(reader.getSurface(), new Rect(0, 0, 20, 20), result);
         assertEquals("Copy request failed", PixelCopy.SUCCESS, status);
+        assertBitmapQuadColor(result, Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+    }
+
+    @Test
+    public void testAutoSize() throws InterruptedException {
+        ImageReader reader = ImageReader.newInstance(100, 100, PixelFormat.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_CPU_READ_OFTEN
+                        | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        ImageWriter writer = ImageWriter.newInstance(reader.getSurface(), 1);
+        Image image = writer.dequeueInputImage();
+        Image.Plane plane = image.getPlanes()[0];
+        Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4,
+                image.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setAntiAlias(false);
+        paint.setColor(Color.RED);
+        canvas.drawRect(0f, 0f, 50f, 50f, paint);
+        paint.setColor(Color.GREEN);
+        canvas.drawRect(50f, 0f, 100f, 50f, paint);
+        paint.setColor(Color.BLUE);
+        canvas.drawRect(0f, 50f, 50f, 100f, paint);
+        paint.setColor(Color.BLACK);
+        canvas.drawRect(50f, 50f, 100f, 100f, paint);
+        bitmap.copyPixelsToBuffer(plane.getBuffer());
+        writer.queueInputImage(image);
+
+        PixelCopy.Result copyResult = copySurface(reader.getSurface());
+        assertEquals("Copy request failed", PixelCopy.SUCCESS, copyResult.getStatus());
+        Bitmap result = copyResult.getBitmap();
+        assertEquals(100, result.getWidth());
+        assertEquals(100, result.getHeight());
+        assertBitmapQuadColor(result, Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+    }
+
+    @Test
+    public void testAutoSizeWithCrop() throws InterruptedException {
+        ImageReader reader = ImageReader.newInstance(100, 100, PixelFormat.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_CPU_READ_OFTEN
+                        | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        ImageWriter writer = ImageWriter.newInstance(reader.getSurface(), 1);
+        Image image = writer.dequeueInputImage();
+        Image.Plane plane = image.getPlanes()[0];
+        Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4,
+                image.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setAntiAlias(false);
+        canvas.drawColor(Color.MAGENTA);
+        canvas.translate(20f, 70f);
+        paint.setColor(Color.RED);
+        canvas.drawRect(0f, 0f, 10f, 10f, paint);
+        paint.setColor(Color.GREEN);
+        canvas.drawRect(10f, 0f, 20f, 10f, paint);
+        paint.setColor(Color.BLUE);
+        canvas.drawRect(0f, 10f, 10f, 20f, paint);
+        paint.setColor(Color.BLACK);
+        canvas.drawRect(10f, 10f, 20f, 20f, paint);
+        bitmap.copyPixelsToBuffer(plane.getBuffer());
+        image.setCropRect(new Rect(20, 70, 40, 90));
+        writer.queueInputImage(image);
+
+        PixelCopy.Result copyResult = copySurface(reader.getSurface());
+        assertEquals("Copy request failed", PixelCopy.SUCCESS, copyResult.getStatus());
+        Bitmap result = copyResult.getBitmap();
+        assertEquals(20, result.getWidth());
+        assertEquals(20, result.getHeight());
+        assertBitmapQuadColor(result, Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
+    }
+
+    @Test
+    public void testAutoSizeWithSrcRect() throws InterruptedException {
+        ImageReader reader = ImageReader.newInstance(100, 100, PixelFormat.RGBA_8888, 1,
+                HardwareBuffer.USAGE_CPU_WRITE_OFTEN | HardwareBuffer.USAGE_CPU_READ_OFTEN
+                        | HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE);
+        ImageWriter writer = ImageWriter.newInstance(reader.getSurface(), 1);
+        Image image = writer.dequeueInputImage();
+        Image.Plane plane = image.getPlanes()[0];
+        Bitmap bitmap = Bitmap.createBitmap(plane.getRowStride() / 4,
+                image.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        Paint paint = new Paint();
+        paint.setAntiAlias(false);
+        canvas.drawColor(Color.MAGENTA);
+        canvas.translate(20f, 70f);
+        paint.setColor(Color.RED);
+        canvas.drawRect(0f, 0f, 10f, 10f, paint);
+        paint.setColor(Color.GREEN);
+        canvas.drawRect(10f, 0f, 20f, 10f, paint);
+        paint.setColor(Color.BLUE);
+        canvas.drawRect(0f, 10f, 10f, 20f, paint);
+        paint.setColor(Color.BLACK);
+        canvas.drawRect(10f, 10f, 20f, 20f, paint);
+        bitmap.copyPixelsToBuffer(plane.getBuffer());
+        writer.queueInputImage(image);
+
+        PixelCopy.Result copyResult = copySurface(reader.getSurface(),
+                request -> request.setSourceRect(new Rect(20, 70, 40, 90)));
+        assertEquals("Copy request failed", PixelCopy.SUCCESS, copyResult.getStatus());
+        Bitmap result = copyResult.getBitmap();
+        assertEquals(20, result.getWidth());
+        assertEquals(20, result.getHeight());
         assertBitmapQuadColor(result, Color.RED, Color.GREEN, Color.BLUE, Color.BLACK);
     }
 

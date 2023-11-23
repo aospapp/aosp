@@ -31,6 +31,24 @@ public final class DeviceConfigKeys {
 
     /**
      * Keys and values associated with the location_time_zone_manager.
+     * See also {@link TimeZoneDetectorShellHelper}.
+     */
+    public final class TimeZoneDetector {
+        private TimeZoneDetector() {
+            // No need to instantiate.
+        }
+
+        /**
+         * The key to alter a device's "automatic time zone detection enabled" setting default
+         * value. This flag is only intended for internal testing. It only has an effect on a
+         * device's default value and does not interfere with a user's explicit preference.
+         */
+        public static final String KEY_TIME_ZONE_DETECTOR_AUTO_DETECTION_ENABLED_DEFAULT =
+                "time_zone_detector_auto_detection_enabled_default";
+    }
+
+    /**
+     * Keys and values associated with the location_time_zone_manager.
      * See also {@link LocationTimeZoneManagerShellHelper}.
      */
     public final class LocationTimeZoneManager {
@@ -53,6 +71,14 @@ public final class DeviceConfigKeys {
         private TimeDetector() {
             // No need to instantiate.
         }
+
+        /**
+         * See {@link
+         * com.android.server.timedetector.ServerFlags#KEY_TIME_DETECTOR_LOWER_BOUND_MILLIS_OVERRIDE
+         * }
+         */
+        public static final String KEY_TIME_DETECTOR_LOWER_BOUND_MILLIS_OVERRIDE =
+                "time_detector_lower_bound_millis_override";
 
         /**
          * See {@link

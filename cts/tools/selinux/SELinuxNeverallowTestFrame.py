@@ -90,6 +90,12 @@ public class SELinuxNeverallowRulesTest extends DeviceTestCase implements IBuild
         }
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        sepolicyAnalyze.delete();
+    }
+
     private boolean isFullTrebleDevice() throws Exception {
         return android.security.cts.SELinuxHostTest.isFullTrebleDevice(mDevice);
     }

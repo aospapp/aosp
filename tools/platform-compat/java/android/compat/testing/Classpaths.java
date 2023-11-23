@@ -61,6 +61,7 @@ public final class Classpaths {
         BOOTCLASSPATH,
         DEX2OATBOOTCLASSPATH,
         SYSTEMSERVERCLASSPATH,
+        STANDALONE_SYSTEMSERVER_JARS,
     }
 
     private static final String TEST_RUNNER = "androidx.test.runner.AndroidJUnitRunner";
@@ -90,21 +91,6 @@ public final class Classpaths {
             device.deleteFile(remoteFile);
         }
         return SharedLibraryInfo.getSharedLibraryInfos(content);
-    }
-
-    /** Returns classes defined a given jar file on the test device. */
-    public static ImmutableSet<ClassDef> getClassDefsFromJar(INativeDevice device,
-            String remoteJarPath) throws DeviceNotAvailableException, IOException {
-        File jar = null;
-        try {
-            jar = device.pullFile(remoteJarPath);
-            if (jar == null) {
-                throw new IllegalStateException("could not pull remote file " + remoteJarPath);
-            }
-            return getClassDefsFromJar(jar);
-        } finally {
-            FileUtil.deleteFile(jar);
-        }
     }
 
     /** Returns classes defined a given jar file on the test device. */

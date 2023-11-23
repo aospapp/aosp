@@ -15,19 +15,27 @@
  */
 package android.media.recorder.cts;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.media.MediaRecorder;
 import android.media.cts.MediaHeavyPresubmitTest;
-import android.media.cts.MediaStubActivity;
-import android.media.cts.NonMediaMainlineTest;
+import android.media.cts.MediaTestBase;
 import android.os.Environment;
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.compatibility.common.util.WatchDog;
 
-import java.io.File;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.util.Random;
 
 /**
@@ -35,10 +43,11 @@ import java.util.Random;
  *
  * <p>Only fails when a crash or a blocking call happens. Does not verify output.
  */
-@NonMediaMainlineTest
+@NonMainlineTest
 @MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
-public class MediaRecorderRandomTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
+@RunWith(AndroidJUnit4.class)
+public class MediaRecorderRandomTest extends MediaTestBase {
     private static final String TAG = "MediaRecorderRandomTest";
     private static final int MAX_PARAM = 1000000;
     private static final String OUTPUT_FILE =
@@ -52,28 +61,25 @@ public class MediaRecorderRandomTest extends ActivityInstrumentationTestCase2<Me
     // Modified across multiple threads
     private volatile boolean mMediaServerDied;
 
+    @Before
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Throwable {
         super.setUp();
-        getInstrumentation().waitForIdleSync();
         mMediaServerDied = false;
         mSurfaceHolder = getActivity().getSurfaceHolder();
         try {
             // Running this on UI thread make sure that
             // onError callback can be received.
-            runTestOnUiThread(new Runnable() {
-                public void run() {
-                    mRecorder = new MediaRecorder();
-                }
-            });
+            getActivity().runOnUiThread(() -> mRecorder = new MediaRecorder());
         } catch (Throwable e) {
             e.printStackTrace();
             fail();
         }
     }
 
+    @After
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() {
         if (mRecorder != null) {
             mRecorder.release();
             mRecorder = null;
@@ -81,10 +87,7 @@ public class MediaRecorderRandomTest extends ActivityInstrumentationTestCase2<Me
         super.tearDown();
     }
 
-    public MediaRecorderRandomTest() {
-        super("android.media.recorder.cts", MediaStubActivity.class);
-    }
-
+    @Test
     public void testRecorderRandomAction() throws Exception {
         WatchDog watchDog = new WatchDog(5000);
         try {

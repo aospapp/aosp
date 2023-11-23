@@ -87,6 +87,7 @@
 #include "verifier/class_verifier.h"
 #include "verifier/verifier_deps.h"
 #include "verifier/verifier_enums.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
@@ -252,10 +253,12 @@ class CompilerDriver::AOTCompilationStats {
 
 CompilerDriver::CompilerDriver(
     const CompilerOptions* compiler_options,
+    const VerificationResults* verification_results,
     Compiler::Kind compiler_kind,
     size_t thread_count,
     int swap_fd)
     : compiler_options_(compiler_options),
+      verification_results_(verification_results),
       compiler_(),
       compiler_kind_(compiler_kind),
       number_of_soft_verifier_failures_(0),
@@ -493,7 +496,7 @@ static void CompileMethodQuick(
       // Method is annotated with @NeverCompile and should not be compiled.
     } else {
       const CompilerOptions& compiler_options = driver->GetCompilerOptions();
-      const VerificationResults* results = compiler_options.GetVerificationResults();
+      const VerificationResults* results = driver->GetVerificationResults();
       DCHECK(results != nullptr);
       MethodReference method_ref(&dex_file, method_idx);
       // Don't compile class initializers unless kEverything.
@@ -1008,13 +1011,68 @@ class RecordImageClassesVisitor : public ClassVisitor {
   HashSet<std::string>* const image_classes_;
 };
 
-// Add classes which contain intrinsics methods to the list of image classes.
-static void AddClassesContainingIntrinsics(/* out */ HashSet<std::string>* image_classes) {
-#define ADD_INTRINSIC_OWNER_CLASS(_, __, ___, ____, _____, ClassName, ______, _______) \
-  image_classes->insert(ClassName);
+// Verify that classes which contain intrinsics methods are in the list of image classes.
+static void VerifyClassesContainingIntrinsicsAreImageClasses(HashSet<std::string>* image_classes) {
+#define CHECK_INTRINSIC_OWNER_CLASS(_, __, ___, ____, _____, ClassName, ______, _______) \
+  CHECK(image_classes->find(std::string_view(ClassName)) != image_classes->end());
 
-  INTRINSICS_LIST(ADD_INTRINSIC_OWNER_CLASS)
-#undef ADD_INTRINSIC_OWNER_CLASS
+  INTRINSICS_LIST(CHECK_INTRINSIC_OWNER_CLASS)
+#undef CHECK_INTRINSIC_OWNER_CLASS
+}
+
+// We need to put classes required by app class loaders to the boot image,
+// otherwise we would not be able to store app class loaders in app images.
+static void AddClassLoaderClasses(/* out */ HashSet<std::string>* image_classes) {
+  ScopedObjectAccess soa(Thread::Current());
+  // Well known classes have been loaded and shall be added to image classes
+  // by the `RecordImageClassesVisitor`. However, there are fields with array
+  // types which we need to add to the image classes explicitly.
+  ArtField* class_loader_array_fields[] = {
+      WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders,
+      // BaseDexClassLoader.sharedLibraryLoadersAfter has the same array type as above.
+      WellKnownClasses::dalvik_system_DexPathList_dexElements,
+  };
+  for (ArtField* field : class_loader_array_fields) {
+    const char* field_type_descriptor = field->GetTypeDescriptor();
+    DCHECK_EQ(field_type_descriptor[0], '[');
+    image_classes->insert(field_type_descriptor);
+  }
+}
+
+static void VerifyClassLoaderClassesAreImageClasses(/* out */ HashSet<std::string>* image_classes) {
+  ScopedObjectAccess soa(Thread::Current());
+  ScopedAssertNoThreadSuspension sants(__FUNCTION__);
+  ObjPtr<mirror::Class> class_loader_classes[] = {
+      WellKnownClasses::dalvik_system_BaseDexClassLoader.Get(),
+      WellKnownClasses::dalvik_system_DelegateLastClassLoader.Get(),
+      WellKnownClasses::dalvik_system_DexClassLoader.Get(),
+      WellKnownClasses::dalvik_system_DexFile.Get(),
+      WellKnownClasses::dalvik_system_DexPathList.Get(),
+      WellKnownClasses::dalvik_system_DexPathList__Element.Get(),
+      WellKnownClasses::dalvik_system_InMemoryDexClassLoader.Get(),
+      WellKnownClasses::dalvik_system_PathClassLoader.Get(),
+      WellKnownClasses::java_lang_BootClassLoader.Get(),
+      WellKnownClasses::java_lang_ClassLoader.Get(),
+  };
+  for (ObjPtr<mirror::Class> klass : class_loader_classes) {
+    std::string temp;
+    std::string_view descriptor = klass->GetDescriptor(&temp);
+    CHECK(image_classes->find(descriptor) != image_classes->end());
+  }
+  ArtField* class_loader_fields[] = {
+      WellKnownClasses::dalvik_system_BaseDexClassLoader_pathList,
+      WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoaders,
+      WellKnownClasses::dalvik_system_BaseDexClassLoader_sharedLibraryLoadersAfter,
+      WellKnownClasses::dalvik_system_DexFile_cookie,
+      WellKnownClasses::dalvik_system_DexFile_fileName,
+      WellKnownClasses::dalvik_system_DexPathList_dexElements,
+      WellKnownClasses::dalvik_system_DexPathList__Element_dexFile,
+      WellKnownClasses::java_lang_ClassLoader_parent,
+  };
+  for (ArtField* field : class_loader_fields) {
+    std::string_view field_type_descriptor = field->GetTypeDescriptor();
+    CHECK(image_classes->find(field_type_descriptor) != image_classes->end());
+  }
 }
 
 // Make a list of descriptors for classes to include in the image
@@ -1028,7 +1086,10 @@ void CompilerDriver::LoadImageClasses(TimingLogger* timings,
   TimingLogger::ScopedTiming t("LoadImageClasses", timings);
 
   if (GetCompilerOptions().IsBootImage()) {
-    AddClassesContainingIntrinsics(image_classes);
+    // Image classes of intrinsics are loaded and shall be added
+    // to image classes by the `RecordImageClassesVisitor`.
+    // Add classes needed for storing class loaders in app images.
+    AddClassLoaderClasses(image_classes);
   }
 
   // Make a first pass to load all classes explicitly listed in the file
@@ -1099,6 +1160,11 @@ void CompilerDriver::LoadImageClasses(TimingLogger* timings,
   RecordImageClassesVisitor visitor(image_classes);
   class_linker->VisitClasses(&visitor);
 
+  if (kIsDebugBuild && GetCompilerOptions().IsBootImage()) {
+    VerifyClassesContainingIntrinsicsAreImageClasses(image_classes);
+    VerifyClassLoaderClassesAreImageClasses(image_classes);
+  }
+
   if (GetCompilerOptions().IsBootImage()) {
     CHECK(!image_classes->empty());
   }
@@ -1109,6 +1175,7 @@ static void MaybeAddToImageClasses(Thread* self,
                                    HashSet<std::string>* image_classes)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   DCHECK_EQ(self, Thread::Current());
+  DCHECK(klass->IsResolved());
   Runtime* runtime = Runtime::Current();
   gc::Heap* heap = runtime->GetHeap();
   if (heap->ObjectIsInBootImageSpace(klass)) {
@@ -1218,12 +1285,16 @@ class ClinitImageUpdate {
           data_->image_class_descriptors_->erase(it);
         }
       } else if (can_include_in_image) {
-        // Check whether it is initialized and has a clinit. They must be kept, too.
-        if (klass->IsInitialized() && klass->FindClassInitializer(
-            Runtime::Current()->GetClassLinker()->GetImagePointerSize()) != nullptr) {
-          DCHECK(!Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(klass->GetDexCache()))
-              << klass->PrettyDescriptor();
-          data_->image_classes_.push_back(data_->hs_.NewHandle(klass));
+        // Check whether the class is initialized and has a clinit or static fields.
+        // Such classes must be kept too.
+        if (klass->IsInitialized()) {
+          PointerSize pointer_size = Runtime::Current()->GetClassLinker()->GetImagePointerSize();
+          if (klass->FindClassInitializer(pointer_size) != nullptr ||
+              klass->NumStaticFields() != 0) {
+            DCHECK(!Runtime::Current()->GetHeap()->ObjectIsInBootImageSpace(klass->GetDexCache()))
+                << klass->PrettyDescriptor();
+            data_->image_classes_.push_back(data_->hs_.NewHandle(klass));
+          }
         }
       }
       return true;
@@ -1536,8 +1607,7 @@ class ResolveTypeVisitor : public CompilationVisitor {
       mirror::Throwable* exception = soa.Self()->GetException();
       DCHECK(exception != nullptr);
       VLOG(compiler) << "Exception during type resolution: " << exception->Dump();
-      if (exception->GetClass() ==
-              soa.Decode<mirror::Class>(WellKnownClasses::java_lang_OutOfMemoryError)) {
+      if (exception->GetClass() == WellKnownClasses::java_lang_OutOfMemoryError.Get()) {
         // There's little point continuing compilation if the heap is exhausted.
         // Trying to do so would also introduce non-deterministic compilation results.
         LOG(FATAL) << "Out of memory during type resolution for compilation";
@@ -1653,8 +1723,8 @@ static void LoadAndUpdateStatus(const ClassAccessor& accessor,
 bool CompilerDriver::FastVerify(jobject jclass_loader,
                                 const std::vector<const DexFile*>& dex_files,
                                 TimingLogger* timings) {
-  verifier::VerifierDeps* verifier_deps =
-      Runtime::Current()->GetCompilerCallbacks()->GetVerifierDeps();
+  CompilerCallbacks* callbacks = Runtime::Current()->GetCompilerCallbacks();
+  verifier::VerifierDeps* verifier_deps = callbacks->GetVerifierDeps();
   // If there exist VerifierDeps that aren't the ones we just created to output, use them to verify.
   if (verifier_deps == nullptr || verifier_deps->OutputOnly()) {
     return false;
@@ -1672,6 +1742,9 @@ bool CompilerDriver::FastVerify(jobject jclass_loader,
       class_loader,
       dex_files,
       &error_msg)) {
+    // Clear the information we have as we are going to re-verify and we do not
+    // want to keep that a class is verified.
+    verifier_deps->ClearData(dex_files);
     LOG(WARNING) << "Fast verification failed: " << error_msg;
     return false;
   }
@@ -1690,28 +1763,34 @@ bool CompilerDriver::FastVerify(jobject jclass_loader,
     const std::vector<bool>& verified_classes = verifier_deps->GetVerifiedClasses(*dex_file);
     DCHECK_EQ(verified_classes.size(), dex_file->NumClassDefs());
     for (ClassAccessor accessor : dex_file->GetClasses()) {
-      if (verified_classes[accessor.GetClassDefIndex()]) {
-        if (compiler_only_verifies) {
-          // Just update the compiled_classes_ map. The compiler doesn't need to resolve
-          // the type.
-          ClassReference ref(dex_file, accessor.GetClassDefIndex());
-          const ClassStatus existing = ClassStatus::kNotReady;
-          ClassStateTable::InsertResult result =
-             compiled_classes_.Insert(ref, existing, ClassStatus::kVerifiedNeedsAccessChecks);
-          CHECK_EQ(result, ClassStateTable::kInsertResultSuccess) << ref.dex_file->GetLocation();
-        } else {
-          // Update the class status, so later compilation stages know they don't need to verify
-          // the class.
-          LoadAndUpdateStatus(
-              accessor, ClassStatus::kVerifiedNeedsAccessChecks, class_loader, soa.Self());
-        }
-      } else if (!compiler_only_verifies) {
-        // Make sure later compilation stages know they should not try to verify
-        // this class again.
-        LoadAndUpdateStatus(accessor,
-                            ClassStatus::kRetryVerificationAtRuntime,
-                            class_loader,
-                            soa.Self());
+      ClassStatus status = verified_classes[accessor.GetClassDefIndex()]
+          ? ClassStatus::kVerifiedNeedsAccessChecks
+          : ClassStatus::kRetryVerificationAtRuntime;
+      if (compiler_only_verifies) {
+        // Just update the compiled_classes_ map. The compiler doesn't need to resolve
+        // the type.
+        ClassReference ref(dex_file, accessor.GetClassDefIndex());
+        const ClassStatus existing = ClassStatus::kNotReady;
+        // Note: when dex files are compiled inidividually, the class may have
+        // been verified in a previous stage. This means this insertion can
+        // fail, but that's OK.
+        compiled_classes_.Insert(ref, existing, status);
+      } else {
+        // Update the class status, so later compilation stages know they don't need to verify
+        // the class.
+        LoadAndUpdateStatus(accessor, status, class_loader, soa.Self());
+      }
+
+      // Vdex marks class as unverified for two reasons only:
+      // 1. It has a hard failure, or
+      // 2. Once of its method needs lock counting.
+      //
+      // The optimizing compiler expects a method to not have a hard failure before
+      // compiling it, so for simplicity just disable any compilation of methods
+      // of these classes.
+      if (status == ClassStatus::kRetryVerificationAtRuntime) {
+        ClassReference ref(dex_file, accessor.GetClassDefIndex());
+        callbacks->AddUncompilableClass(ref);
       }
     }
   }
@@ -2100,13 +2179,16 @@ class InitializeClassVisitor : public CompilationVisitor {
         bool too_many_encoded_fields = (!is_boot_image && !is_boot_image_extension) &&
             klass->NumStaticFields() > kMaxEncodedFields;
 
+        bool have_profile = (compiler_options.GetProfileCompilationInfo() != nullptr) &&
+            !compiler_options.GetProfileCompilationInfo()->IsEmpty();
         // If the class was not initialized, we can proceed to see if we can initialize static
         // fields. Limit the max number of encoded fields.
         if (!klass->IsInitialized() &&
             (is_app_image || is_boot_image || is_boot_image_extension) &&
-            try_initialize_with_superclasses &&
-            !too_many_encoded_fields &&
-            compiler_options.IsImageClass(descriptor)) {
+            try_initialize_with_superclasses && !too_many_encoded_fields &&
+            compiler_options.IsImageClass(descriptor) &&
+            // TODO(b/274077782): remove this test.
+            (have_profile || !is_boot_image_extension)) {
           bool can_init_static_fields = false;
           if (is_boot_image || is_boot_image_extension) {
             // We need to initialize static fields, we only do this for image classes that aren't
@@ -2231,6 +2313,19 @@ class InitializeClassVisitor : public CompilationVisitor {
     if (kIsDebugBuild) {
       // Make sure the class initialization did not leave any local references.
       self->GetJniEnv()->AssertLocalsEmpty();
+    }
+
+    if (!klass->IsVisiblyInitialized() &&
+        (is_boot_image || is_boot_image_extension) &&
+        !compiler_options.IsPreloadedClass(PrettyDescriptor(descriptor).c_str())) {
+      klass->SetInBootImageAndNotInPreloadedClasses();
+    }
+
+    if (compiler_options.CompileArtTest()) {
+      // For stress testing and unit-testing the clinit check in compiled code feature.
+      if (kIsDebugBuild || EndsWith(std::string_view(descriptor), "$NoPreloadHolder;")) {
+        klass->SetInBootImageAndNotInPreloadedClasses();
+      }
     }
   }
 
@@ -2493,7 +2588,8 @@ static void CompileDexFile(CompilerDriver* driver,
     ClassAccessor accessor(dex_file, class_def_index);
     CompilerDriver* const driver = context.GetCompiler();
     // Skip compiling classes with generic verifier failures since they will still fail at runtime
-    if (driver->GetCompilerOptions().GetVerificationResults()->IsClassRejected(ref)) {
+    DCHECK(driver->GetVerificationResults() != nullptr);
+    if (driver->GetVerificationResults()->IsClassRejected(ref)) {
       return;
     }
     // Use a scoped object access to perform to the quick SkipClass check.

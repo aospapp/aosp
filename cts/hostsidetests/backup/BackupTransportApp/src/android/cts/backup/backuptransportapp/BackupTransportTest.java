@@ -231,4 +231,9 @@ public class BackupTransportTest {
     public void testGetTransportFlags_returnsZero() {
         assertThat(mBackupTransport.getTransportFlags()).isEqualTo(0);
     }
+
+    @Test
+    public void testGetBackupManagerMonitor_returnsNull() {
+        assertThat(mBackupTransport.getBackupManagerMonitor()).isNull();
+    }
 }

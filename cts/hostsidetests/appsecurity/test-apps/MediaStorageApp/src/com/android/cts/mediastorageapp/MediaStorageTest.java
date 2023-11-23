@@ -17,6 +17,7 @@
 package com.android.cts.mediastorageapp;
 
 import static android.provider.MediaStore.VOLUME_EXTERNAL;
+import static android.scopedstorage.cts.lib.TestUtils.doEscalation;
 
 import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
 
@@ -30,16 +31,12 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import android.app.Activity;
-import android.app.Instrumentation;
-import android.app.PendingIntent;
 import android.app.RecoverableSecurityException;
 import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
-import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -130,7 +127,7 @@ public class MediaStorageTest {
         final HashSet<Long> seen = new HashSet<>();
         try (Cursor c = mContentResolver.query(
                 MediaStore.Files.getContentUri(VOLUME_EXTERNAL),
-                new String[] { MediaColumns._ID }, null, null)) {
+                new String[]{MediaColumns._ID}, null, null)) {
             while (c.moveToNext()) {
                 seen.add(c.getLong(0));
             }
@@ -188,7 +185,7 @@ public class MediaStorageTest {
         // that we've contributed
         final HashSet<Long> seen = new HashSet<>();
         try (Cursor c = mContentResolver.query(collection,
-                new String[] { MediaColumns._ID }, null, null)) {
+                new String[]{MediaColumns._ID}, null, null)) {
             while (c.moveToNext()) {
                 seen.add(c.getLong(0));
             }
@@ -209,7 +206,7 @@ public class MediaStorageTest {
         }
 
         // Verify that we can't grant ourselves access
-        for (int flag : new int[] {
+        for (int flag : new int[]{
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
                 Intent.FLAG_GRANT_WRITE_URI_PERMISSION
         }) {
@@ -286,7 +283,7 @@ public class MediaStorageTest {
             try (Cursor c = mContentResolver.query(collectionUri, new String[]{MediaColumns._ID},
                     null, null)) {
                 assertWithMessage("After grant read UriPermission to " + collectionUri.toString()
-                        + ", the item count of the query result" ).that(c.getCount()).isEqualTo(
+                        + ", the item count of the query result").that(c.getCount()).isEqualTo(
                         originalCount);
             }
 
@@ -484,7 +481,7 @@ public class MediaStorageTest {
         // Holding read permission we can see items we don't own
         final HashSet<Long> seen = new HashSet<>();
         try (Cursor c = mContentResolver.query(collection,
-                new String[] { MediaColumns._ID }, null, null)) {
+                new String[]{MediaColumns._ID}, null, null)) {
             while (c.moveToNext()) {
                 seen.add(c.getLong(0));
             }
@@ -519,7 +516,7 @@ public class MediaStorageTest {
         // Holding read permission we can see items we don't own
         final HashSet<Long> seen = new HashSet<>();
         try (Cursor c = mContentResolver.query(collection,
-                new String[] { MediaColumns._ID }, null, null)) {
+                new String[]{MediaColumns._ID}, null, null)) {
             while (c.moveToNext()) {
                 seen.add(c.getLong(0));
             }
@@ -684,17 +681,17 @@ public class MediaStorageTest {
         // Rename to same extension so test app does not lose access to file.
         final String newRelativeName = "cts" + System.nanoTime() + extension;
         final File newFile = Environment.buildPath(
-            Environment.getExternalStorageDirectory(),
-            Environment.DIRECTORY_DOWNLOADS,
-            newRelativeName);
+                Environment.getExternalStorageDirectory(),
+                Environment.DIRECTORY_DOWNLOADS,
+                newRelativeName);
         final String newName = newFile.getAbsolutePath();
         assertWithMessage("Rename from oldName [%s] to newName [%s]", oldName, newName)
-            .that(oldFile.renameTo(newFile))
-            .isTrue();
+                .that(oldFile.renameTo(newFile))
+                .isTrue();
         // Rename back to oldFile for other ops like delete
         assertWithMessage("Rename back from newName [%s] to oldName [%s]", newName, oldName)
-            .that(newFile.renameTo(oldFile))
-            .isTrue();
+                .that(newFile.renameTo(oldFile))
+                .isTrue();
     }
 
     public void assertRenameAndReplaceFileAPISupport(File oldFile, Callable<Uri> create)
@@ -709,24 +706,26 @@ public class MediaStorageTest {
         clearMediaOwner(newUri, mUserId);
 
         assertWithMessage(
-            "Rename should fail without newFile grant from oldName [%s] to newName [%s]",
-            oldName, newName)
-            .that(oldFile.renameTo(newFile))
-            .isFalse();
+                "Rename should fail without newFile grant from oldName [%s] to newName [%s]",
+                oldName, newName)
+                .that(oldFile.renameTo(newFile))
+                .isFalse();
 
         // Grant access to newFile and rename should succeed.
-        doEscalation(MediaStore.createWriteRequest(mContentResolver, Arrays.asList(newUri)));
+        doEscalation(
+                MediaStore.createWriteRequest(mContentResolver, Arrays.asList(newUri)));
         assertWithMessage("Rename from oldName [%s] to newName [%s]", oldName, newName)
-            .that(oldFile.renameTo(newFile))
-            .isTrue();
+                .that(oldFile.renameTo(newFile))
+                .isTrue();
 
         // We need to request grant on newUri again, since the rename above caused the URI grant
         // to be revoked.
-        doEscalation(MediaStore.createWriteRequest(mContentResolver, Arrays.asList(newUri)));
+        doEscalation(
+                MediaStore.createWriteRequest(mContentResolver, Arrays.asList(newUri)));
         // Rename back to oldFile for other ops like delete
         assertWithMessage("Rename back from newName [%s] to oldName [%s]", newName, oldName)
-            .that(newFile.renameTo(oldFile))
-            .isTrue();
+                .that(newFile.renameTo(oldFile))
+                .isTrue();
     }
 
     private void assertDeleteFileAPISupport(File file) throws Exception {
@@ -782,13 +781,15 @@ public class MediaStorageTest {
         }
 
         if (allowAccess) {
-            doEscalation(MediaStore.createWriteRequest(mContentResolver, Arrays.asList(red)),
+            doEscalation(
+                    MediaStore.createWriteRequest(mContentResolver, Arrays.asList(red)),
                     true /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
 
             try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(red, "w")) {
             }
         } else {
-            doEscalation(MediaStore.createWriteRequest(mContentResolver, Arrays.asList(red)),
+            doEscalation(
+                    MediaStore.createWriteRequest(mContentResolver, Arrays.asList(red)),
                     false /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
             try (ParcelFileDescriptor pfd = mContentResolver.openFileDescriptor(red, "w")) {
                 fail("Expected write access to be blocked");
@@ -814,7 +815,8 @@ public class MediaStorageTest {
         doEscalation(
                 MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), true));
         assertEquals("1", queryForSingleColumn(red, MediaColumns.IS_TRASHED));
-        doEscalation(MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), false),
+        doEscalation(
+                MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), false),
                 false /* allowAccess */, false /* shouldCheckDialogShownValue */,
                 false /* isDialogShownExpected */);
         assertEquals("1", queryForSingleColumn(red, MediaColumns.IS_TRASHED));
@@ -866,14 +868,17 @@ public class MediaStorageTest {
         assertEquals("0", queryForSingleColumn(red, MediaColumns.IS_TRASHED));
 
         if (allowAccess) {
-            doEscalation(MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), true),
+            doEscalation(
+                    MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), true),
                     true /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
             assertEquals("1", queryForSingleColumn(red, MediaColumns.IS_TRASHED));
-            doEscalation(MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), false),
+            doEscalation(
+                    MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), false),
                     true /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
             assertEquals("0", queryForSingleColumn(red, MediaColumns.IS_TRASHED));
         } else {
-            doEscalation(MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), true),
+            doEscalation(
+                    MediaStore.createTrashRequest(mContentResolver, Arrays.asList(red), true),
                     false /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
             assertEquals("0", queryForSingleColumn(red, MediaColumns.IS_TRASHED));
         }
@@ -893,9 +898,11 @@ public class MediaStorageTest {
         clearMediaOwner(red, mUserId);
 
         assertEquals("0", queryForSingleColumn(red, MediaColumns.IS_FAVORITE));
-        doEscalation(MediaStore.createFavoriteRequest(mContentResolver, Arrays.asList(red), true));
+        doEscalation(
+                MediaStore.createFavoriteRequest(mContentResolver, Arrays.asList(red), true));
         assertEquals("1", queryForSingleColumn(red, MediaColumns.IS_FAVORITE));
-        doEscalation(MediaStore.createFavoriteRequest(mContentResolver, Arrays.asList(red), false));
+        doEscalation(
+                MediaStore.createFavoriteRequest(mContentResolver, Arrays.asList(red), false));
         assertEquals("0", queryForSingleColumn(red, MediaColumns.IS_FAVORITE));
     }
 
@@ -947,13 +954,15 @@ public class MediaStorageTest {
         }
 
         if (allowAccess) {
-            doEscalation(MediaStore.createDeleteRequest(mContentResolver, Arrays.asList(red)),
+            doEscalation(
+                    MediaStore.createDeleteRequest(mContentResolver, Arrays.asList(red)),
                     true /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
             try (Cursor c = mContentResolver.query(red, null, null, null)) {
                 assertEquals(0, c.getCount());
             }
         } else {
-            doEscalation(MediaStore.createDeleteRequest(mContentResolver, Arrays.asList(red)),
+            doEscalation(
+                    MediaStore.createDeleteRequest(mContentResolver, Arrays.asList(red)),
                     false /* allowAccess */, shouldCheckDialogShownValue, isDialogShownExpected);
             try (Cursor c = mContentResolver.query(red, null, null, null)) {
                 assertEquals(1, c.getCount());
@@ -961,72 +970,12 @@ public class MediaStorageTest {
         }
     }
 
-    private void doEscalation(RecoverableSecurityException exception) throws Exception {
-        doEscalation(exception.getUserAction().getActionIntent());
-    }
-
-    private void doEscalation(PendingIntent pi) throws Exception {
-        doEscalation(pi, true /* allowAccess */, false /* shouldCheckDialogShownValue */,
-                false /* isDialogShownExpectedExpected */);
-    }
-
-    private void doEscalation(PendingIntent pi, boolean allowAccess,
-            boolean shouldCheckDialogShownValue, boolean isDialogShownExpected) throws Exception {
-        // Try launching the action to grant ourselves access
-        final Instrumentation inst = InstrumentationRegistry.getInstrumentation();
-        final Intent intent = new Intent(inst.getContext(), GetResultActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-
-        // Wake up the device and dismiss the keyguard before the test starts
-        final UiDevice device = UiDevice.getInstance(inst);
-        device.executeShellCommand("input keyevent KEYCODE_WAKEUP");
-        device.executeShellCommand("wm dismiss-keyguard");
-
-        final GetResultActivity activity = (GetResultActivity) inst.startActivitySync(intent);
-        // Wait for the UI Thread to become idle.
-        inst.waitForIdleSync();
-        activity.clearResult();
-        device.waitForIdle();
-        activity.startIntentSenderForResult(pi.getIntentSender(), 42, null, 0, 0, 0);
-
-        device.waitForIdle();
-        final long timeout = 5_000;
-        if (allowAccess) {
-            // Some dialogs may have granted access automatically, so we're willing
-            // to keep rolling forward if we can't find our grant button
-            final UiSelector grant = new UiSelector().textMatches("(?i)Allow");
-            if (isWatch()) {
-                UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
-                try {
-                    uiScrollable.scrollIntoView(grant);
-                } catch (UiObjectNotFoundException e) {
-                    // Scrolling can fail if the UI is not scrollable
-                }
-            }
-            final boolean grantExists = new UiObject(grant).waitForExists(timeout);
-
-            if (shouldCheckDialogShownValue) {
-                assertThat(grantExists).isEqualTo(isDialogShownExpected);
-            }
-
-            if (grantExists) {
-                device.findObject(grant).click();
-            }
-            final GetResultActivity.Result res = activity.getResult();
-            // Verify that we now have access
-            assertEquals(Activity.RESULT_OK, res.resultCode);
-        } else {
-            // fine the Deny button
-            final UiSelector deny = new UiSelector().textMatches("(?i)Deny");
-            final boolean denyExists = new UiObject(deny).waitForExists(timeout);
-
-            assertThat(denyExists).isTrue();
-
-            device.findObject(deny).click();
-
-            final GetResultActivity.Result res = activity.getResult();
-            // Verify that we don't have access
-            assertEquals(Activity.RESULT_CANCELED, res.resultCode);
+    private static void scrollIntoView(UiSelector selector) {
+        UiScrollable uiScrollable = new UiScrollable(new UiSelector().scrollable(true));
+        try {
+            uiScrollable.scrollIntoView(selector);
+        } catch (UiObjectNotFoundException e) {
+            // Scrolling can fail if the UI is not scrollable
         }
     }
 
@@ -1064,7 +1013,7 @@ public class MediaStorageTest {
 
         try (PendingSession session = MediaStoreUtils.openPending(context, pendingUri)) {
             try (InputStream in = context.getResources().getAssets().open("testmp3.mp3");
-                    OutputStream out = session.openOutputStream()) {
+                 OutputStream out = session.openOutputStream()) {
                 FileUtils.copy(in, out);
             }
             return session.publish();
@@ -1079,7 +1028,7 @@ public class MediaStorageTest {
         final Uri pendingUri = MediaStoreUtils.createPending(context, params);
         try (PendingSession session = MediaStoreUtils.openPending(context, pendingUri)) {
             try (InputStream in = context.getResources().getAssets().open("testmp3.mp3");
-                    OutputStream out = session.openOutputStream()) {
+                 OutputStream out = session.openOutputStream()) {
                 FileUtils.copy(in, out);
             }
             return session.publish();
@@ -1122,7 +1071,7 @@ public class MediaStorageTest {
         try (PendingSession session = MediaStoreUtils.openPending(context, pendingUri)) {
             try (InputStream in = context.getResources().getAssets().open("testmp3.mp3");
                  OutputStream out = session.openOutputStream()) {
-                 FileUtils.copy(in, out);
+                FileUtils.copy(in, out);
             }
             return session.publish();
         }
@@ -1131,7 +1080,7 @@ public class MediaStorageTest {
     private static String queryForSingleColumn(Uri uri, String column) throws Exception {
         final ContentResolver resolver = InstrumentationRegistry.getTargetContext()
                 .getContentResolver();
-        try (Cursor c = resolver.query(uri, new String[] { column }, null, null)) {
+        try (Cursor c = resolver.query(uri, new String[]{column}, null, null)) {
             assertEquals(1, c.getCount());
             assertTrue(c.moveToFirst());
             return c.getString(0);
@@ -1142,7 +1091,7 @@ public class MediaStorageTest {
         final ContentResolver resolver = InstrumentationRegistry.getTargetContext()
                 .getContentResolver();
         try (Cursor c = resolver.query(uri, new String[]{MediaColumns._ID}, null, null)) {
-            while(c.moveToNext()) {
+            while (c.moveToNext()) {
                 final long id = c.getLong(0);
                 final Uri contentUri = ContentUris.withAppendedId(uri, id);
                 resolver.delete(contentUri, null);
@@ -1159,12 +1108,12 @@ public class MediaStorageTest {
 
     static File stageFile(File file) throws Exception {
         // Sometimes file creation fails due to slow permission update, try more times
-        while(currentAttempt < MAX_NUMBER_OF_ATTEMPT) {
+        while (currentAttempt < MAX_NUMBER_OF_ATTEMPT) {
             try {
                 file.getParentFile().mkdirs();
                 file.createNewFile();
                 return file;
-            } catch(IOException e) {
+            } catch (IOException e) {
                 currentAttempt++;
                 // wait 500ms
                 Thread.sleep(500);
@@ -1173,11 +1122,4 @@ public class MediaStorageTest {
         throw new TimeoutException("File creation failed due to slow permission update");
     }
 
-    private boolean isWatch() {
-        return hasFeature(PackageManager.FEATURE_WATCH);
-    }
-
-    private boolean hasFeature(String feature) {
-        return mContext.getPackageManager().hasSystemFeature(feature);
-    }
 }

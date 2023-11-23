@@ -18,10 +18,11 @@
 use std::collections::HashMap;
 
 use crate::audit_log::log_key_deleted;
+use crate::ks_err;
 use crate::permission::{KeyPerm, KeystorePerm};
 use crate::security_level::KeystoreSecurityLevel;
 use crate::utils::{
-    check_grant_permission, check_key_permission, check_keystore_permission,
+    check_grant_permission, check_key_permission, check_keystore_permission, count_key_entries,
     key_parameters_to_authorizations, list_key_entries, uid_to_android_user, watchdog as wd,
 };
 use crate::{
@@ -65,10 +66,7 @@ impl KeystoreService {
             SecurityLevel::TRUSTED_ENVIRONMENT,
             id_rotation_state.clone(),
         )
-        .context(concat!(
-            "In KeystoreService::new_native_binder: ",
-            "Trying to construct mandatory security level TEE."
-        ))?;
+        .context(ks_err!("Trying to construct mandatory security level TEE."))?;
         result.i_sec_level_by_uuid.insert(uuid, dev);
         result.uuid_by_sec_level.insert(SecurityLevel::TRUSTED_ENVIRONMENT, uuid);
 
@@ -85,9 +83,7 @@ impl KeystoreService {
             .set_init(move || {
                 (create_thread_local_db(), uuid_by_sec_level, LEGACY_BLOB_LOADER.clone())
             })
-            .context(
-                "In KeystoreService::new_native_binder: Trying to initialize the legacy migrator.",
-            )?;
+            .context(ks_err!("Trying to initialize the legacy migrator."))?;
 
         Ok(BnKeystoreService::new_binder(
             result,
@@ -107,8 +103,7 @@ impl KeystoreService {
         if let Some(dev) = self.i_sec_level_by_uuid.get(uuid) {
             Ok(dev.clone())
         } else {
-            Err(error::Error::sys())
-                .context("In get_i_sec_level_by_uuid: KeyMint instance for key not found.")
+            Err(error::Error::sys()).context(ks_err!("KeyMint instance for key not found."))
         }
     }
 
@@ -124,7 +119,7 @@ impl KeystoreService {
             Ok(dev.clone())
         } else {
             Err(error::Error::Km(ErrorCode::HARDWARE_TYPE_UNAVAILABLE))
-                .context("In get_security_level: No such security level.")
+                .context(ks_err!("No such security level."))
         }
     }
 
@@ -146,12 +141,12 @@ impl KeystoreService {
                     )
                 })
             })
-            .context("In get_key_entry, while trying to load key info.")?;
+            .context(ks_err!("while trying to load key info."))?;
 
         let i_sec_level = if !key_entry.pure_cert() {
             Some(
                 self.get_i_sec_level_by_uuid(key_entry.km_uuid())
-                    .context("In get_key_entry: Trying to get security level proxy.")?,
+                    .context(ks_err!("Trying to get security level proxy."))?,
             )
         } else {
             None
@@ -173,7 +168,7 @@ impl KeystoreService {
                     .creation_date()
                     .map(|d| d.to_millis_epoch())
                     .ok_or(Error::Rc(ResponseCode::VALUE_CORRUPTED))
-                    .context("In get_key_entry: Trying to get creation date.")?,
+                    .context(ks_err!("Trying to get creation date."))?,
                 authorizations: key_parameters_to_authorizations(key_entry.into_key_parameters()),
             },
         })
@@ -196,10 +191,7 @@ impl KeystoreService {
                     KeyType::Client,
                     KeyEntryLoadBits::NONE,
                     caller_uid,
-                    |k, av| {
-                        check_key_permission(KeyPerm::Update, k, &av)
-                            .context("In update_subcomponent.")
-                    },
+                    |k, av| check_key_permission(KeyPerm::Update, k, &av).context(ks_err!()),
                 )
             }) {
                 Err(e) => match e.root_cause().downcast_ref::<Error>() {
@@ -208,22 +200,23 @@ impl KeystoreService {
                 },
                 Ok(v) => Ok(Some(v)),
             }
-            .context("Failed to load key entry.")?;
+            .context(ks_err!("Failed to load key entry."))?;
 
             let mut db = db.borrow_mut();
             if let Some((key_id_guard, _key_entry)) = entry {
                 db.set_blob(&key_id_guard, SubComponentType::CERT, public_cert, None)
-                    .context("Failed to update cert subcomponent.")?;
+                    .context(ks_err!("Failed to update cert subcomponent."))?;
 
                 db.set_blob(&key_id_guard, SubComponentType::CERT_CHAIN, certificate_chain, None)
-                    .context("Failed to update cert chain subcomponent.")?;
+                    .context(ks_err!("Failed to update cert chain subcomponent."))?;
                 return Ok(());
             }
 
             // If we reach this point we have to check the special condition where a certificate
             // entry may be made.
             if !(public_cert.is_none() && certificate_chain.is_some()) {
-                return Err(Error::Rc(ResponseCode::KEY_NOT_FOUND)).context("No key to update.");
+                return Err(Error::Rc(ResponseCode::KEY_NOT_FOUND))
+                    .context(ks_err!("No key to update."));
             }
 
             // So we know that we have a certificate chain and no public cert.
@@ -238,13 +231,13 @@ impl KeystoreService {
                 (Domain::SELINUX, Some(_)) => key.clone(),
                 _ => {
                     return Err(Error::Rc(ResponseCode::INVALID_ARGUMENT))
-                        .context("Domain must be APP or SELINUX to insert a certificate.")
+                        .context(ks_err!("Domain must be APP or SELINUX to insert a certificate."))
                 }
             };
 
             // Security critical: This must return on failure. Do not remove the `?`;
             check_key_permission(KeyPerm::Rebind, &key, &None)
-                .context("Caller does not have permission to insert this certificate.")?;
+                .context(ks_err!("Caller does not have permission to insert this certificate."))?;
 
             db.store_new_certificate(
                 &key,
@@ -252,23 +245,29 @@ impl KeystoreService {
                 certificate_chain.unwrap(),
                 &KEYSTORE_UUID,
             )
-            .context("Failed to insert new certificate.")?;
+            .context(ks_err!("Failed to insert new certificate."))?;
             Ok(())
         })
-        .context("In update_subcomponent.")
+        .context(ks_err!())
     }
 
-    fn list_entries(&self, domain: Domain, namespace: i64) -> Result<Vec<KeyDescriptor>> {
+    fn get_key_descriptor_for_lookup(
+        &self,
+        domain: Domain,
+        namespace: i64,
+    ) -> Result<KeyDescriptor> {
         let mut k = match domain {
             Domain::APP => KeyDescriptor {
                 domain,
                 nspace: ThreadState::get_calling_uid() as u64 as i64,
                 ..Default::default()
             },
-            Domain::SELINUX => KeyDescriptor{domain, nspace: namespace, ..Default::default()},
-            _ => return Err(Error::perm()).context(
-                "In list_entries: List entries is only supported for Domain::APP and Domain::SELINUX."
-            ),
+            Domain::SELINUX => KeyDescriptor { domain, nspace: namespace, ..Default::default() },
+            _ => {
+                return Err(Error::Rc(ResponseCode::INVALID_ARGUMENT)).context(ks_err!(
+                    "List entries is only supported for Domain::APP and Domain::SELINUX."
+                ))
+            }
         };
 
         // First we check if the caller has the info permission for the selected domain/namespace.
@@ -278,19 +277,40 @@ impl KeystoreService {
         // selected.
         if let Err(e) = check_key_permission(KeyPerm::GetInfo, &k, &None) {
             if let Some(selinux::Error::PermissionDenied) =
-                e.root_cause().downcast_ref::<selinux::Error>() {
-
+                e.root_cause().downcast_ref::<selinux::Error>()
+            {
                 check_keystore_permission(KeystorePerm::List)
-                    .context("In list_entries: While checking keystore permission.")?;
+                    .context(ks_err!("While checking keystore permission."))?;
                 if namespace != -1 {
                     k.nspace = namespace;
                 }
             } else {
-                return Err(e).context("In list_entries: While checking key permission.")?;
+                return Err(e).context(ks_err!("While checking key permission."))?;
             }
         }
+        Ok(k)
+    }
 
-        DB.with(|db| list_key_entries(&mut db.borrow_mut(), k.domain, k.nspace))
+    fn list_entries(&self, domain: Domain, namespace: i64) -> Result<Vec<KeyDescriptor>> {
+        let k = self.get_key_descriptor_for_lookup(domain, namespace)?;
+
+        DB.with(|db| list_key_entries(&mut db.borrow_mut(), k.domain, k.nspace, None))
+    }
+
+    fn count_num_entries(&self, domain: Domain, namespace: i64) -> Result<i32> {
+        let k = self.get_key_descriptor_for_lookup(domain, namespace)?;
+
+        DB.with(|db| count_key_entries(&mut db.borrow_mut(), k.domain, k.nspace))
+    }
+
+    fn list_entries_batched(
+        &self,
+        domain: Domain,
+        namespace: i64,
+        start_past_alias: Option<&str>,
+    ) -> Result<Vec<KeyDescriptor>> {
+        let k = self.get_key_descriptor_for_lookup(domain, namespace)?;
+        DB.with(|db| list_key_entries(&mut db.borrow_mut(), k.domain, k.nspace, start_past_alias))
     }
 
     fn delete_key(&self, key: &KeyDescriptor) -> Result<()> {
@@ -301,11 +321,12 @@ impl KeystoreService {
         DB.with(|db| {
             LEGACY_IMPORTER.with_try_import(key, caller_uid, super_key, || {
                 db.borrow_mut().unbind_key(key, KeyType::Client, caller_uid, |k, av| {
-                    check_key_permission(KeyPerm::Delete, k, &av).context("During delete_key.")
+                    check_key_permission(KeyPerm::Delete, k, &av)
+                        .context(ks_err!("During delete_key."))
                 })
             })
         })
-        .context("In delete_key: Trying to unbind the key.")?;
+        .context(ks_err!("Trying to unbind the key."))?;
         Ok(())
     }
 
@@ -330,7 +351,7 @@ impl KeystoreService {
                 )
             })
         })
-        .context("In KeystoreService::grant.")
+        .context(ks_err!("KeystoreService::grant."))
     }
 
     fn ungrant(&self, key: &KeyDescriptor, grantee_uid: i32) -> Result<()> {
@@ -339,7 +360,7 @@ impl KeystoreService {
                 check_key_permission(KeyPerm::Grant, k, &None)
             })
         })
-        .context("In KeystoreService::ungrant.")
+        .context(ks_err!("KeystoreService::ungrant."))
     }
 }
 
@@ -392,5 +413,19 @@ impl IKeystoreService for KeystoreService {
     fn ungrant(&self, key: &KeyDescriptor, grantee_uid: i32) -> binder::Result<()> {
         let _wp = wd::watch_millis("IKeystoreService::ungrant", 500);
         map_or_log_err(self.ungrant(key, grantee_uid), Ok)
+    }
+    fn listEntriesBatched(
+        &self,
+        domain: Domain,
+        namespace: i64,
+        start_past_alias: Option<&str>,
+    ) -> binder::Result<Vec<KeyDescriptor>> {
+        let _wp = wd::watch_millis("IKeystoreService::listEntriesBatched", 500);
+        map_or_log_err(self.list_entries_batched(domain, namespace, start_past_alias), Ok)
+    }
+
+    fn getNumberOfEntries(&self, domain: Domain, namespace: i64) -> binder::Result<i32> {
+        let _wp = wd::watch_millis("IKeystoreService::getNumberOfEntries", 500);
+        map_or_log_err(self.count_num_entries(domain, namespace), Ok)
     }
 }

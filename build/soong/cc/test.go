@@ -22,6 +22,8 @@ import (
 	"github.com/google/blueprint/proptools"
 
 	"android/soong/android"
+	"android/soong/bazel"
+	"android/soong/bazel/cquery"
 	"android/soong/tradefed"
 )
 
@@ -30,7 +32,8 @@ type TestLinkerProperties struct {
 	// if set, build against the gtest library. Defaults to true.
 	Gtest *bool
 
-	// if set, use the isolated gtest runner. Defaults to false.
+	// if set, use the isolated gtest runner. Defaults to true if gtest is also true and the arch is Windows, false
+	// otherwise.
 	Isolated *bool
 }
 
@@ -42,6 +45,8 @@ type TestInstallerProperties struct {
 
 // Test option struct.
 type TestOptions struct {
+	android.CommonTestOptions
+
 	// The UID that you want to run the test as on a device.
 	Run_test_as *string
 
@@ -50,9 +55,6 @@ type TestOptions struct {
 
 	// a list of extra test configuration files that should be installed with the module.
 	Extra_test_configs []string `android:"path,arch_variant"`
-
-	// If the test is a hostside(no device required) unittest that shall be run during presubmit check.
-	Unit_test *bool
 
 	// Add ShippingApiLevelModuleController to auto generated test config. If the device properties
 	// for the shipping api level is less than the min_shipping_api_level, skip this module.
@@ -133,7 +135,8 @@ func init() {
 // specific functionality on a device. The executable binary gets an implicit
 // static_libs dependency on libgtests unless the gtest flag is set to false.
 func TestFactory() android.Module {
-	module := NewTest(android.HostAndDeviceSupported)
+	module := NewTest(android.HostAndDeviceSupported, true)
+	module.bazelHandler = &ccTestBazelHandler{module: module}
 	return module.Init()
 }
 
@@ -156,7 +159,7 @@ func BenchmarkFactory() android.Module {
 
 // cc_test_host compiles a test host binary.
 func TestHostFactory() android.Module {
-	module := NewTest(android.HostSupported)
+	module := NewTest(android.HostSupported, true)
 	return module.Init()
 }
 
@@ -202,6 +205,10 @@ func (test *testBinary) setSrc(name, src string) {
 func (test *testBinary) unsetSrc() {
 	test.baseCompiler.Properties.Srcs = nil
 	test.binaryDecorator.Properties.Stem = StringPtr("")
+}
+
+func (test *testBinary) testBinary() bool {
+	return true
 }
 
 var _ testPerSrc = (*testBinary)(nil)
@@ -256,10 +263,11 @@ func (test *testDecorator) gtest() bool {
 	return BoolDefault(test.LinkerProperties.Gtest, true)
 }
 
-func (test *testDecorator) testBinary() bool {
-	return true
+func (test *testDecorator) isolated(ctx BaseModuleContext) bool {
+	return BoolDefault(test.LinkerProperties.Isolated, false)
 }
 
+// NOTE: Keep this in sync with cc/cc_test.bzl#gtest_copts
 func (test *testDecorator) linkerFlags(ctx ModuleContext, flags Flags) Flags {
 	if !test.gtest() {
 		return flags
@@ -288,7 +296,7 @@ func (test *testDecorator) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 	if test.gtest() {
 		if ctx.useSdk() && ctx.Device() {
 			deps.StaticLibs = append(deps.StaticLibs, "libgtest_main_ndk_c++", "libgtest_ndk_c++")
-		} else if BoolDefault(test.LinkerProperties.Isolated, false) {
+		} else if test.isolated(ctx) {
 			deps.StaticLibs = append(deps.StaticLibs, "libgtest_isolated_main")
 			// The isolated library requires liblog, but adding it
 			// as a static library means unit tests cannot override
@@ -301,23 +309,6 @@ func (test *testDecorator) linkerDeps(ctx BaseModuleContext, deps Deps) Deps {
 	}
 
 	return deps
-}
-
-func (test *testDecorator) linkerInit(ctx BaseModuleContext, linker *baseLinker) {
-	// 1. Add ../../lib[64] to rpath so that out/host/linux-x86/nativetest/<test dir>/<test> can
-	// find out/host/linux-x86/lib[64]/library.so
-	// 2. Add ../../../lib[64] to rpath so that out/host/linux-x86/testcases/<test dir>/<CPU>/<test> can
-	// also find out/host/linux-x86/lib[64]/library.so
-	runpaths := []string{"../../lib", "../../../lib"}
-	for _, runpath := range runpaths {
-		if ctx.toolchain().Is64Bit() {
-			runpath += "64"
-		}
-		linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, runpath)
-	}
-
-	// add "" to rpath so that test binaries can find libraries in their own test directory
-	linker.dynamicProperties.RunPaths = append(linker.dynamicProperties.RunPaths, "")
 }
 
 func (test *testDecorator) linkerProps() []interface{} {
@@ -348,11 +339,6 @@ func (test *testBinary) linkerProps() []interface{} {
 	return props
 }
 
-func (test *testBinary) linkerInit(ctx BaseModuleContext) {
-	test.testDecorator.linkerInit(ctx, test.binaryDecorator.baseLinker)
-	test.binaryDecorator.linkerInit(ctx)
-}
-
 func (test *testBinary) linkerDeps(ctx DepsContext, deps Deps) Deps {
 	deps = test.testDecorator.linkerDeps(ctx, deps)
 	deps = test.binaryDecorator.linkerDeps(ctx, deps)
@@ -372,12 +358,6 @@ func (test *testBinary) installerProps() []interface{} {
 }
 
 func (test *testBinary) install(ctx ModuleContext, file android.Path) {
-	// TODO: (b/167308193) Switch to /data/local/tests/unrestricted as the default install base.
-	testInstallBase := "/data/local/tmp"
-	if ctx.inVendor() || ctx.useVndk() {
-		testInstallBase = "/data/local/tests/vendor"
-	}
-
 	dataSrcPaths := android.PathsForModuleSrc(ctx, test.Properties.Data)
 
 	for _, dataSrcPath := range dataSrcPaths {
@@ -409,52 +389,20 @@ func (test *testBinary) install(ctx ModuleContext, file android.Path) {
 		}
 	})
 
-	var configs []tradefed.Config
-	for _, module := range test.Properties.Test_mainline_modules {
-		configs = append(configs, tradefed.Option{Name: "config-descriptor:metadata", Key: "mainline-param", Value: module})
-	}
-	if Bool(test.Properties.Require_root) {
-		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", nil})
-	} else {
-		var options []tradefed.Option
-		options = append(options, tradefed.Option{Name: "force-root", Value: "false"})
-		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", options})
-	}
-	if Bool(test.Properties.Disable_framework) {
-		var options []tradefed.Option
-		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.StopServicesSetup", options})
-	}
-	if Bool(test.testDecorator.LinkerProperties.Isolated) {
-		configs = append(configs, tradefed.Option{Name: "not-shardable", Value: "true"})
-	}
-	if test.Properties.Test_options.Run_test_as != nil {
-		configs = append(configs, tradefed.Option{Name: "run-test-as", Value: String(test.Properties.Test_options.Run_test_as)})
-	}
-	for _, tag := range test.Properties.Test_options.Test_suite_tag {
-		configs = append(configs, tradefed.Option{Name: "test-suite-tag", Value: tag})
-	}
-	if test.Properties.Test_options.Min_shipping_api_level != nil {
-		if test.Properties.Test_options.Vsr_min_shipping_api_level != nil {
-			ctx.PropertyErrorf("test_options.min_shipping_api_level", "must not be set at the same time as 'vsr_min_shipping_api_level'.")
-		}
-		var options []tradefed.Option
-		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_options.Min_shipping_api_level), 10)})
-		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
-	}
-	if test.Properties.Test_options.Vsr_min_shipping_api_level != nil {
-		var options []tradefed.Option
-		options = append(options, tradefed.Option{Name: "vsr-min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_options.Vsr_min_shipping_api_level), 10)})
-		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
-	}
-	if test.Properties.Test_options.Min_vndk_version != nil {
-		var options []tradefed.Option
-		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*test.Properties.Test_options.Min_vndk_version), 10)})
-		options = append(options, tradefed.Option{Name: "api-level-prop", Value: "ro.vndk.version"})
-		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.MinApiLevelModuleController", options})
-	}
+	useVendor := ctx.inVendor() || ctx.useVndk()
+	testInstallBase := getTestInstallBase(useVendor)
+	configs := getTradefedConfigOptions(ctx, &test.Properties, test.isolated(ctx))
 
-	test.testConfig = tradefed.AutoGenNativeTestConfig(ctx, test.Properties.Test_config,
-		test.Properties.Test_config_template, test.testDecorator.InstallerProperties.Test_suites, configs, test.Properties.Auto_gen_config, testInstallBase)
+	test.testConfig = tradefed.AutoGenTestConfig(ctx, tradefed.AutoGenTestConfigOptions{
+		TestConfigProp:         test.Properties.Test_config,
+		TestConfigTemplateProp: test.Properties.Test_config_template,
+		TestSuites:             test.testDecorator.InstallerProperties.Test_suites,
+		Config:                 configs,
+		AutoGenConfig:          test.Properties.Auto_gen_config,
+		TestInstallBase:        testInstallBase,
+		DeviceTemplate:         "${NativeTestConfigTemplate}",
+		HostTemplate:           "${NativeHostTestConfigTemplate}",
+	})
 
 	test.extraTestConfigs = android.PathsForModuleSrc(ctx, test.Properties.Test_options.Extra_test_configs)
 
@@ -473,8 +421,66 @@ func (test *testBinary) install(ctx ModuleContext, file android.Path) {
 	test.binaryDecorator.baseInstaller.install(ctx, file)
 }
 
-func NewTest(hod android.HostOrDeviceSupported) *Module {
-	module, binary := newBinary(hod, false)
+func getTestInstallBase(useVendor bool) string {
+	// TODO: (b/167308193) Switch to /data/local/tests/unrestricted as the default install base.
+	testInstallBase := "/data/local/tmp"
+	if useVendor {
+		testInstallBase = "/data/local/tests/vendor"
+	}
+	return testInstallBase
+}
+
+func getTradefedConfigOptions(ctx android.EarlyModuleContext, properties *TestBinaryProperties, isolated bool) []tradefed.Config {
+	var configs []tradefed.Config
+
+	for _, module := range properties.Test_mainline_modules {
+		configs = append(configs, tradefed.Option{Name: "config-descriptor:metadata", Key: "mainline-param", Value: module})
+	}
+	if Bool(properties.Require_root) {
+		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", nil})
+	} else {
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "force-root", Value: "false"})
+		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", options})
+	}
+	if Bool(properties.Disable_framework) {
+		var options []tradefed.Option
+		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.StopServicesSetup", options})
+	}
+	if isolated {
+		configs = append(configs, tradefed.Option{Name: "not-shardable", Value: "true"})
+	}
+	if properties.Test_options.Run_test_as != nil {
+		configs = append(configs, tradefed.Option{Name: "run-test-as", Value: String(properties.Test_options.Run_test_as)})
+	}
+	for _, tag := range properties.Test_options.Test_suite_tag {
+		configs = append(configs, tradefed.Option{Name: "test-suite-tag", Value: tag})
+	}
+	if properties.Test_options.Min_shipping_api_level != nil {
+		if properties.Test_options.Vsr_min_shipping_api_level != nil {
+			ctx.PropertyErrorf("test_options.min_shipping_api_level", "must not be set at the same time as 'vsr_min_shipping_api_level'.")
+		}
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*properties.Test_options.Min_shipping_api_level), 10)})
+		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
+	}
+	if properties.Test_options.Vsr_min_shipping_api_level != nil {
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "vsr-min-api-level", Value: strconv.FormatInt(int64(*properties.Test_options.Vsr_min_shipping_api_level), 10)})
+		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.ShippingApiLevelModuleController", options})
+	}
+	if properties.Test_options.Min_vndk_version != nil {
+		var options []tradefed.Option
+		options = append(options, tradefed.Option{Name: "min-api-level", Value: strconv.FormatInt(int64(*properties.Test_options.Min_vndk_version), 10)})
+		options = append(options, tradefed.Option{Name: "api-level-prop", Value: "ro.vndk.version"})
+		configs = append(configs, tradefed.Object{"module_controller", "com.android.tradefed.testtype.suite.module.MinApiLevelModuleController", options})
+	}
+	return configs
+}
+
+func NewTest(hod android.HostOrDeviceSupported, bazelable bool) *Module {
+	module, binary := newBinary(hod, bazelable)
+	module.bazelable = bazelable
 	module.multilib = android.MultilibBoth
 	binary.baseInstaller = NewTestInstaller()
 
@@ -497,15 +503,14 @@ type testLibrary struct {
 	*libraryDecorator
 }
 
+func (test *testLibrary) testLibrary() bool {
+	return true
+}
+
 func (test *testLibrary) linkerProps() []interface{} {
 	var props []interface{}
 	props = append(props, test.testDecorator.linkerProps()...)
 	return append(props, test.libraryDecorator.linkerProps()...)
-}
-
-func (test *testLibrary) linkerInit(ctx BaseModuleContext) {
-	test.testDecorator.linkerInit(ctx, test.libraryDecorator.baseLinker)
-	test.libraryDecorator.linkerInit(ctx)
 }
 
 func (test *testLibrary) linkerDeps(ctx DepsContext, deps Deps) Deps {
@@ -536,6 +541,7 @@ func NewTestLibrary(hod android.HostOrDeviceSupported) *Module {
 	}
 	module.linker = test
 	module.installer = test
+	module.bazelable = true
 	return module
 }
 
@@ -577,15 +583,6 @@ func (benchmark *benchmarkDecorator) benchmarkBinary() bool {
 	return true
 }
 
-func (benchmark *benchmarkDecorator) linkerInit(ctx BaseModuleContext) {
-	runpath := "../../lib"
-	if ctx.toolchain().Is64Bit() {
-		runpath += "64"
-	}
-	benchmark.baseLinker.dynamicProperties.RunPaths = append(benchmark.baseLinker.dynamicProperties.RunPaths, runpath)
-	benchmark.binaryDecorator.linkerInit(ctx)
-}
-
 func (benchmark *benchmarkDecorator) linkerProps() []interface{} {
 	props := benchmark.binaryDecorator.linkerProps()
 	props = append(props, &benchmark.Properties)
@@ -605,8 +602,15 @@ func (benchmark *benchmarkDecorator) install(ctx ModuleContext, file android.Pat
 	if Bool(benchmark.Properties.Require_root) {
 		configs = append(configs, tradefed.Object{"target_preparer", "com.android.tradefed.targetprep.RootTargetPreparer", nil})
 	}
-	benchmark.testConfig = tradefed.AutoGenNativeBenchmarkTestConfig(ctx, benchmark.Properties.Test_config,
-		benchmark.Properties.Test_config_template, benchmark.Properties.Test_suites, configs, benchmark.Properties.Auto_gen_config)
+	benchmark.testConfig = tradefed.AutoGenTestConfig(ctx, tradefed.AutoGenTestConfigOptions{
+		TestConfigProp:         benchmark.Properties.Test_config,
+		TestConfigTemplateProp: benchmark.Properties.Test_config_template,
+		TestSuites:             benchmark.Properties.Test_suites,
+		Config:                 configs,
+		AutoGenConfig:          benchmark.Properties.Auto_gen_config,
+		DeviceTemplate:         "${NativeBenchmarkTestConfigTemplate}",
+		HostTemplate:           "${NativeBenchmarkTestConfigTemplate}",
+	})
 
 	benchmark.binaryDecorator.baseInstaller.dir = filepath.Join("benchmarktest", ctx.ModuleName())
 	benchmark.binaryDecorator.baseInstaller.dir64 = filepath.Join("benchmarktest64", ctx.ModuleName())
@@ -624,4 +628,117 @@ func NewBenchmark(hod android.HostOrDeviceSupported) *Module {
 	module.linker = benchmark
 	module.installer = benchmark
 	return module
+}
+
+type ccTestBazelHandler struct {
+	module *Module
+}
+
+var _ BazelHandler = (*ccTestBazelHandler)(nil)
+
+func (handler *ccTestBazelHandler) QueueBazelCall(ctx android.BaseModuleContext, label string) {
+	bazelCtx := ctx.Config().BazelContext
+	bazelCtx.QueueBazelRequest(label, cquery.GetCcUnstrippedInfo, android.GetConfigKey(ctx))
+}
+
+func (handler *ccTestBazelHandler) ProcessBazelQueryResponse(ctx android.ModuleContext, label string) {
+	bazelCtx := ctx.Config().BazelContext
+	info, err := bazelCtx.GetCcUnstrippedInfo(label, android.GetConfigKey(ctx))
+	if err != nil {
+		ctx.ModuleErrorf(err.Error())
+		return
+	}
+
+	var outputFilePath android.Path = android.PathForBazelOut(ctx, info.OutputFile)
+	if len(info.TidyFiles) > 0 {
+		handler.module.tidyFiles = android.PathsForBazelOut(ctx, info.TidyFiles)
+		outputFilePath = android.AttachValidationActions(ctx, outputFilePath, handler.module.tidyFiles)
+	}
+	handler.module.outputFile = android.OptionalPathForPath(outputFilePath)
+	handler.module.linker.(*testBinary).unstrippedOutputFile = android.PathForBazelOut(ctx, info.UnstrippedOutput)
+
+	handler.module.setAndroidMkVariablesFromCquery(info.CcAndroidMkInfo)
+}
+
+// binaryAttributes contains Bazel attributes corresponding to a cc test
+type testBinaryAttributes struct {
+	binaryAttributes
+
+	Gtest    bool
+	Isolated bool
+
+	tidyAttributes
+	tradefed.TestConfigAttributes
+}
+
+// testBinaryBp2build is the bp2build converter for cc_test modules. A cc_test's
+// dependency graph and compilation/linking steps are functionally similar to a
+// cc_binary, but has additional dependencies on test deps like gtest, and
+// produces additional runfiles like XML plans for Tradefed orchestration
+//
+// TODO(b/244432609): handle `isolated` property.
+// TODO(b/244432134): handle custom runpaths for tests that assume runfile layouts not
+// default to bazel. (see linkerInit function)
+func testBinaryBp2build(ctx android.TopDownMutatorContext, m *Module) {
+	var testBinaryAttrs testBinaryAttributes
+	testBinaryAttrs.binaryAttributes = binaryBp2buildAttrs(ctx, m)
+
+	var data bazel.LabelListAttribute
+	var tags bazel.StringListAttribute
+
+	testBinaryProps := m.GetArchVariantProperties(ctx, &TestBinaryProperties{})
+	for axis, configToProps := range testBinaryProps {
+		for config, props := range configToProps {
+			if p, ok := props.(*TestBinaryProperties); ok {
+				// Combine data, data_bins and data_libs into a single 'data' attribute.
+				var combinedData bazel.LabelList
+				combinedData.Append(android.BazelLabelForModuleSrc(ctx, p.Data))
+				combinedData.Append(android.BazelLabelForModuleDeps(ctx, p.Data_bins))
+				combinedData.Append(android.BazelLabelForModuleDeps(ctx, p.Data_libs))
+				data.SetSelectValue(axis, config, combinedData)
+				tags.SetSelectValue(axis, config, p.Test_options.Tags)
+			}
+		}
+	}
+
+	m.convertTidyAttributes(ctx, &testBinaryAttrs.tidyAttributes)
+
+	for _, propIntf := range m.GetProperties() {
+		if testLinkerProps, ok := propIntf.(*TestLinkerProperties); ok {
+			testBinaryAttrs.Gtest = proptools.BoolDefault(testLinkerProps.Gtest, true)
+			testBinaryAttrs.Isolated = proptools.BoolDefault(testLinkerProps.Isolated, true)
+			break
+		}
+	}
+
+	for _, testProps := range m.GetProperties() {
+		if p, ok := testProps.(*TestBinaryProperties); ok {
+			useVendor := false // TODO Bug: 262914724
+			testInstallBase := getTestInstallBase(useVendor)
+			testConfigAttributes := tradefed.GetTestConfigAttributes(
+				ctx,
+				p.Test_config,
+				p.Test_options.Extra_test_configs,
+				p.Auto_gen_config,
+				p.Test_options.Test_suite_tag,
+				p.Test_config_template,
+				getTradefedConfigOptions(ctx, p, testBinaryAttrs.Isolated),
+				&testInstallBase,
+			)
+			testBinaryAttrs.TestConfigAttributes = testConfigAttributes
+		}
+	}
+
+	// TODO (b/262914724): convert to tradefed_cc_test and tradefed_cc_test_host
+	ctx.CreateBazelTargetModule(
+		bazel.BazelTargetModuleProperties{
+			Rule_class:        "cc_test",
+			Bzl_load_location: "//build/bazel/rules/cc:cc_test.bzl",
+		},
+		android.CommonAttributes{
+			Name: m.Name(),
+			Data: data,
+			Tags: tags,
+		},
+		&testBinaryAttrs)
 }

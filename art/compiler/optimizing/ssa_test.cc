@@ -17,6 +17,7 @@
 #include "android-base/stringprintf.h"
 
 #include "base/arena_allocator.h"
+#include "base/macros.h"
 #include "builder.h"
 #include "dex/dex_file.h"
 #include "dex/dex_instruction.h"
@@ -27,9 +28,9 @@
 
 #include "gtest/gtest.h"
 
-namespace art {
+namespace art HIDDEN {
 
-class SsaTest : public OptimizingUnitTest {
+class SsaTest : public CommonCompilerTest, public OptimizingUnitTestHelper {
  protected:
   void TestCode(const std::vector<uint16_t>& data, const char* expected);
 };

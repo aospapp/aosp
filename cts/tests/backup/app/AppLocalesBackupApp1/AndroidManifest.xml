@@ -18,7 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.cts.backup.applocalesbackupapp1">
     <application
-        android:label="AppLocalesBackupApp1">
+        android:label="AppLocalesBackupApp1"
+        android:localeConfig="@xml/locales_config">
         <uses-library android:name="android.test.runner" />
     </application>
 </manifest>

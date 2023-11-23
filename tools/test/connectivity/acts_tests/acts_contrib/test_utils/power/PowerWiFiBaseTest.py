@@ -14,6 +14,8 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from retry import retry
+
 import acts_contrib.test_utils.power.PowerBaseTest as PBT
 from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi import wifi_power_test_utils as wputils
@@ -50,8 +52,17 @@ class PowerWiFiBaseTest(PBT.PowerBaseTest):
         if self.iperf_duration:
             self.mon_duration = self.iperf_duration - self.mon_offset - IPERF_TAIL
             self.mon_info = self.create_monsoon_info()
+        try:
+          self._set_country_code()
+        except Exception as e:
+          self.log.warning('error in set country code with %s', e)
+          country_code = self.dut.droid.wifiGetCountryCode()
+          self.log.info('the country code is %s', country_code)
 
-        wutils.set_wifi_country_code(self.dut, 'US')
+    @retry(tries=5, delay=10)
+    def _set_country_code(self):
+      wutils.wifi_toggle_state(self.dut, True)
+      wutils.set_wifi_country_code(self.dut, 'US')
 
     def teardown_test(self):
         """Tear down necessary objects after test case is finished.
@@ -180,4 +191,3 @@ class PowerWiFiBaseTest(PBT.PowerBaseTest):
 
         wutils.reset_wifi(self.dut)
         wutils.wifi_toggle_state(self.dut, False)
-

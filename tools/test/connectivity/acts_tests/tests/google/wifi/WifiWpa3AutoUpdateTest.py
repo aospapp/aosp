@@ -14,7 +14,6 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-import re
 from acts.libs.ota import ota_updater
 import acts.signals as signals
 from acts.test_decorators import test_tracker_info
@@ -45,14 +44,13 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
 
     def __init__(self, configs):
         super().__init__(configs)
-        self.tests = (
-            "test_check_wpa3_wifi_state_after_au",
-            "test_verify_wpa3_networks_after_au",
-            "test_wpa3_configstore_after_au",
-            "test_all_wpa3_networks_connectable_after_au",
-            "test_check_wpa3_wifi_toggling_after_au",
-            "test_wpa3_connection_to_new_networks",
-            "test_reset_wpa3_wifi_after_au")
+        self.tests = ("test_check_wpa3_wifi_state_after_au",
+                      "test_verify_wpa3_networks_after_au",
+                      "test_wpa3_configstore_after_au",
+                      "test_all_wpa3_networks_connectable_after_au",
+                      "test_check_wpa3_wifi_toggling_after_au",
+                      "test_wpa3_connection_to_new_networks",
+                      "test_reset_wpa3_wifi_after_au")
 
     def setup_class(self):
         super(WifiBaseTest, self).setup_class()
@@ -63,15 +61,16 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
         wutils.wifi_toggle_state(self.dut, True)
 
         # configure APs
-        req_params = ["ec2_ca_cert", "ec2_client_cert", "ec2_client_key", "rsa3072_ca_cert",
-                     "rsa3072_client_cert", "rsa3072_client_key", "wpa3_ec2_network",
-                     "wpa3_rsa3072_network", "rsa2048_client_cert", "rsa2048_client_key",
-                     "rsa3072_client_cert_expired", "rsa3072_client_cert_corrupted",
-                     "rsa3072_client_cert_unsigned", "rsa3072_client_key_unsigned",
-                     "wpa3_sae_gcmp_128", "wpa3_sae_gcmp_256","owe_networks", "sae_networks"]
-        self.unpack_userparams(
-                               req_param_names=req_params
-                               )
+        req_params = [
+            "ec2_ca_cert", "ec2_client_cert", "ec2_client_key",
+            "rsa3072_ca_cert", "rsa3072_client_cert", "rsa3072_client_key",
+            "wpa3_ec2_network", "wpa3_rsa3072_network", "rsa2048_client_cert",
+            "rsa2048_client_key", "rsa3072_client_cert_expired",
+            "rsa3072_client_cert_corrupted", "rsa3072_client_cert_unsigned",
+            "rsa3072_client_key_unsigned", "wpa3_sae_gcmp_128",
+            "wpa3_sae_gcmp_256", "owe_networks", "sae_networks"
+        ]
+        self.unpack_userparams(req_param_names=req_params)
         self.owe_2g = self.owe_networks[0]["2g"]
         self.owe_5g = self.owe_networks[0]["5g"]
         self.wpa3_personal_2g = self.sae_networks[0]["2g"]
@@ -86,13 +85,15 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
             WifiEnums.SECURITY: WPA3_SECURITY,
             "identity": self.wpa3_rsa3072_network["identity"],
             "domain_suffix_match": self.wpa3_rsa3072_network["domain"]
-            }
+        }
 
         # saved & connected networks, network suggestions
         # and new networks
         self.saved_networks = [self.wpa3_sae_gcmp_256]
         self.network_suggestions = [self.owe_2g]
-        self.connected_networks = [self.config_rsa3072_tls, self.wpa3_personal_5g]
+        self.connected_networks = [
+            self.config_rsa3072_tls, self.wpa3_personal_5g
+        ]
         self.new_networks = [self.wpa3_personal_2g]
         # add pre ota upgrade configuration
         self.wifi_config_list = []
@@ -149,9 +150,13 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
             self.dut, reconnect_to[SSID])
 
         if reconnect_to[SSID] == self.connected_networks[0][SSID]:
-            wutils.wifi_connect(self.dut, self.connected_networks[0], num_of_tries=6)
+            wutils.wifi_connect(self.dut,
+                                self.connected_networks[0],
+                                num_of_tries=6)
         else:
-            wutils.wifi_connect(self.dut, self.connected_networks[1], num_of_tries=6)
+            wutils.wifi_connect(self.dut,
+                                self.connected_networks[1],
+                                num_of_tries=6)
         connect_data = self.dut.droid.wifiGetConnectionInfo()
         connect_ssid = connect_data[SSID]
         self.log.info("Expected SSID = %s" % reconnect_to[SSID])
@@ -190,8 +195,7 @@ class WifiWpa3AutoUpdateTest(WifiAutoUpdateTest):
                1. Connect to previously added wpa3 network using network id.
         """
         network = self.wifi_config_list[0]
-        if not wutils.connect_to_wifi_network_with_id(self.dut,
-                                                      network[NETID],
+        if not wutils.connect_to_wifi_network_with_id(self.dut, network[NETID],
                                                       network[SSID]):
             raise signals.TestFailure("Failed to connect to %s after OTA" %
                                       network[SSID])

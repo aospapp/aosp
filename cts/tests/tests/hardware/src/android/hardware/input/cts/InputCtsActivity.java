@@ -31,6 +31,7 @@ public class InputCtsActivity extends Activity {
     private InputCallback mInputCallback;
     private Consumer<Boolean> mPointerCaptureCallback;
     private final ArrayList<Integer> mUnhandledKeys = new ArrayList<>();
+    private boolean mConsumeGenericMotionEvents = true;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -39,10 +40,14 @@ public class InputCtsActivity extends Activity {
 
     @Override
     public boolean dispatchGenericMotionEvent(MotionEvent ev) {
+        if (!mConsumeGenericMotionEvents) {
+            Log.i(TAG, "Unhandled generic motion event: "  + ev);
+            return false;
+        }
         if (mInputCallback != null) {
             mInputCallback.onMotionEvent(ev);
         }
-        return true;
+        return mConsumeGenericMotionEvents;
     }
 
     @Override
@@ -95,5 +100,9 @@ public class InputCtsActivity extends Activity {
 
     public void clearUnhandleKeyCode() {
         mUnhandledKeys.clear();
+    }
+
+    public void setConsumeGenericMotionEvents(boolean enable) {
+        mConsumeGenericMotionEvents = enable;
     }
 }

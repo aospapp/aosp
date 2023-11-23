@@ -16,7 +16,6 @@
 
 import itertools as it
 import pprint
-import time
 
 from queue import Empty
 from acts.test_decorators import test_tracker_info
@@ -11874,22 +11873,22 @@ class FilteringTest(BluetoothBaseTest):
             self.log.error("Expected callback type: {}, Found callback type: "
                            "{}".format(self.default_callback, callback_type))
             test_result = False
-        if 'include_device_name' in filters.keys() and filters[
-                'include_device_name'] is not False:
+        if 'include_device_name' in filters.keys(
+        ) and filters['include_device_name'] is not False:
             if event['data']['Result']['deviceName'] != filters[
                     'include_device_name']:
                 self.log.error(
-                    "Expected device name: {}, Found device name: {}"
-                    .format(filters['include_device_name'], event['data'][
-                        'Result']['deviceName']))
+                    "Expected device name: {}, Found device name: {}".format(
+                        filters['include_device_name'],
+                        event['data']['Result']['deviceName']))
 
                 test_result = False
         elif 'deviceName' in event['data']['Result'].keys():
             self.log.error(
                 "Device name was found when it wasn't meant to be included.")
             test_result = False
-        if ('include_tx_power_level' in filters.keys() and
-                filters['include_tx_power_level'] is not False):
+        if ('include_tx_power_level' in filters.keys()
+                and filters['include_tx_power_level'] is not False):
             if not event['data']['Result']['txPowerLevel']:
                 self.log.error(
                     "Expected to find tx power level in event but found none.")
@@ -11908,22 +11907,25 @@ class FilteringTest(BluetoothBaseTest):
         if 'is_connectable' in settings_in_effect.keys():
             if (event['data']['SettingsInEffect']['isConnectable'] !=
                     settings_in_effect['is_connectable']):
-                self.log.error("Expected is connectable value: {}, Actual is "
-                               "connectable value:".format(settings_in_effect[
-                                   'is_connectable'], event['data'][
-                                       'SettingsInEffect']['isConnectable']))
+                self.log.error(
+                    "Expected is connectable value: {}, Actual is "
+                    "connectable value:".format(
+                        settings_in_effect['is_connectable'],
+                        event['data']['SettingsInEffect']['isConnectable']))
                 test_result = False
         elif (event['data']['SettingsInEffect']['isConnectable'] !=
               self.default_is_connectable):
             self.log.error(
-                "Default value for isConnectable did not match what was found.")
+                "Default value for isConnectable did not match what was found."
+            )
             test_result = False
         if 'mode' in settings_in_effect.keys():
             if (event['data']['SettingsInEffect']['mode'] !=
                     settings_in_effect['mode']):
-                self.log.error("Expected mode value: {}, Actual mode value: {}"
-                               .format(settings_in_effect['mode'], event[
-                                   'data']['SettingsInEffect']['mode']))
+                self.log.error(
+                    "Expected mode value: {}, Actual mode value: {}".format(
+                        settings_in_effect['mode'],
+                        event['data']['SettingsInEffect']['mode']))
                 test_result = False
         elif (event['data']['SettingsInEffect']['mode'] !=
               self.default_advertise_mode):
@@ -11958,8 +11960,8 @@ class FilteringTest(BluetoothBaseTest):
             self.adv_ad.droid.bleSetAdvertiseSettingsIsConnectable(
                 settings_in_effect['is_connectable'])
         if 'mode' in settings_in_effect.keys():
-            self.log.debug("Setting advertisement mode to {}"
-                           .format(settings_in_effect['mode']))
+            self.log.debug("Setting advertisement mode to {}".format(
+                settings_in_effect['mode']))
             self.adv_ad.droid.bleSetAdvertiseSettingsAdvertiseMode(
                 settings_in_effect['mode'])
         if 'tx_power_level' in settings_in_effect.keys():
@@ -11968,24 +11970,25 @@ class FilteringTest(BluetoothBaseTest):
             self.adv_ad.droid.bleSetAdvertiseSettingsTxPowerLevel(
                 settings_in_effect['tx_power_level'])
         filter_list = self.scn_ad.droid.bleGenFilterList()
-        if ('include_device_name' in filters.keys() and
-                filters['include_device_name'] is not False):
+        if ('include_device_name' in filters.keys()
+                and filters['include_device_name'] is not False):
 
-            self.log.debug("Setting advertisement include_device_name to {}"
-                           .format(filters['include_device_name']))
+            self.log.debug(
+                "Setting advertisement include_device_name to {}".format(
+                    filters['include_device_name']))
             self.adv_ad.droid.bleSetAdvertiseDataIncludeDeviceName(True)
             filters['include_device_name'] = (
                 self.adv_ad.droid.bluetoothGetLocalName())
             self.log.debug("Setting scanner include_device_name to {}".format(
                 filters['include_device_name']))
-            self.scn_ad.droid.bleSetScanFilterDeviceName(filters[
-                'include_device_name'])
+            self.scn_ad.droid.bleSetScanFilterDeviceName(
+                filters['include_device_name'])
         else:
             self.log.debug(
                 "Setting advertisement include_device_name to False")
             self.adv_ad.droid.bleSetAdvertiseDataIncludeDeviceName(False)
-        if ('include_tx_power_level' in filters.keys() and
-                filters['include_tx_power_level'] is not False):
+        if ('include_tx_power_level' in filters.keys()
+                and filters['include_tx_power_level'] is not False):
             self.log.debug(
                 "Setting advertisement include_tx_power_level to True")
             self.adv_ad.droid.bleSetAdvertiseDataIncludeTxPowerLevel(True)
@@ -12013,26 +12016,26 @@ class FilteringTest(BluetoothBaseTest):
         if 'manufacturer_specific_data_list' in filters.keys():
             for pair in filters['manufacturer_specific_data_list']:
                 (manu_id, manu_data) = pair
-                self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(manu_id,
-                                                                    manu_data)
+                self.adv_ad.droid.bleAddAdvertiseDataManufacturerId(
+                    manu_id, manu_data)
         if 'service_mask' in filters.keys():
             self.scn_ad.droid.bleSetScanFilterServiceUuid(
                 filters['service_uuid'].upper(), filters['service_mask'])
             self.adv_ad.droid.bleSetAdvertiseDataSetServiceUuids(
                 [filters['service_uuid'].upper()])
         elif 'service_uuid' in filters.keys():
-            self.scn_ad.droid.bleSetScanFilterServiceUuid(filters[
-                'service_uuid'])
+            self.scn_ad.droid.bleSetScanFilterServiceUuid(
+                filters['service_uuid'])
             self.adv_ad.droid.bleSetAdvertiseDataSetServiceUuids(
                 [filters['service_uuid']])
         self.scn_ad.droid.bleBuildScanFilter(filter_list)
         advertise_callback, advertise_data, advertise_settings = (
             generate_ble_advertise_objects(self.adv_ad.droid))
-        if ('scan_mode' in settings_in_effect and
-                settings_in_effect['scan_mode'] !=
+        if ('scan_mode' in settings_in_effect
+                and settings_in_effect['scan_mode'] !=
                 ble_scan_settings_modes['opportunistic']):
-            self.scn_ad.droid.bleSetScanSettingsScanMode(settings_in_effect[
-                'scan_mode'])
+            self.scn_ad.droid.bleSetScanSettingsScanMode(
+                settings_in_effect['scan_mode'])
         else:
             self.scn_ad.droid.bleSetScanSettingsScanMode(
                 ble_scan_settings_modes['low_latency'])
@@ -12042,8 +12045,8 @@ class FilteringTest(BluetoothBaseTest):
                                           scan_callback)
         opportunistic = False
         scan_settings2, scan_callback2 = None, None
-        if ('scan_mode' in settings_in_effect and
-                settings_in_effect['scan_mode'] ==
+        if ('scan_mode' in settings_in_effect
+                and settings_in_effect['scan_mode'] ==
                 ble_scan_settings_modes['opportunistic']):
             opportunistic = True
             scan_settings2 = self.scn_ad.droid.bleBuildScanSetting()
@@ -12052,8 +12055,9 @@ class FilteringTest(BluetoothBaseTest):
                                               scan_callback2)
             self.scn_ad.droid.bleSetScanSettingsScanMode(
                 ble_scan_settings_modes['opportunistic'])
-        self.adv_ad.droid.bleStartBleAdvertising(
-            advertise_callback, advertise_data, advertise_settings)
+        self.adv_ad.droid.bleStartBleAdvertising(advertise_callback,
+                                                 advertise_data,
+                                                 advertise_settings)
         regex = "(" + adv_succ.format(
             advertise_callback) + "|" + adv_fail.format(
                 advertise_callback) + ")"
@@ -12078,8 +12082,8 @@ class FilteringTest(BluetoothBaseTest):
             event = self.scn_ad.ed.pop_event(expected_scan_event_name,
                                              self.default_timeout)
         except Empty:
-            self.log.error("Scan event not found: {}".format(
-                expected_scan_event_name))
+            self.log.error(
+                "Scan event not found: {}".format(expected_scan_event_name))
             return False
         if not self._blescan_verify_onscanresult_event(event, filters):
             return False

@@ -15,6 +15,8 @@
  */
 package android.jobscheduler.cts;
 
+import static android.server.wm.WindowManagerState.STATE_RESUMED;
+
 import static com.android.compatibility.common.util.TestUtils.waitUntil;
 
 import android.annotation.CallSuper;
@@ -27,14 +29,17 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.jobscheduler.MockJobService;
+import android.jobscheduler.TestActivity;
 import android.jobscheduler.TriggerContentJobService;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.PowerManager;
 import android.os.Process;
 import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.DeviceConfig;
 import android.provider.Settings;
+import android.server.wm.WindowManagerStateHelper;
 import android.test.InstrumentationTestCase;
 import android.util.Log;
 
@@ -76,6 +81,10 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
     ClipData mSecondClipData;
 
     boolean mStorageStateChanged;
+    boolean mActivityStarted;
+
+    private boolean mDeviceIdleEnabled;
+    private boolean mDeviceLightIdleEnabled;
 
     private String mInitialBatteryStatsConstants;
 
@@ -115,9 +124,17 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
         super.setUp();
         mDeviceConfigStateHelper =
                 new DeviceConfigStateHelper(DeviceConfig.NAMESPACE_JOB_SCHEDULER);
+        mDeviceConfigStateHelper.set("fc_enable_flexibility", "false");
         kTestEnvironment.setUp();
         kTriggerTestEnvironment.setUp();
         mJobScheduler.cancelAll();
+
+        mDeviceIdleEnabled = isDeviceIdleEnabled();
+        mDeviceLightIdleEnabled = isDeviceLightIdleEnabled();
+        if (mDeviceIdleEnabled || mDeviceLightIdleEnabled) {
+            // Make sure the device isn't dozing since it will affect execution of regular jobs
+            setDeviceIdleState(false);
+        }
 
         mInitialBatteryStatsConstants = Settings.Global.getString(mContext.getContentResolver(),
                 Settings.Global.BATTERY_STATS_CONSTANTS);
@@ -129,6 +146,7 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
     @CallSuper
     @Override
     public void tearDown() throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd jobscheduler monitor-battery off");
         SystemUtil.runShellCommand(getInstrumentation(), "cmd battery reset");
         Settings.Global.putString(mContext.getContentResolver(),
                 Settings.Global.BATTERY_STATS_CONSTANTS, mInitialBatteryStatsConstants);
@@ -141,6 +159,14 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
                 "cmd jobscheduler reset-execution-quota -u current "
                         + kJobServiceComponent.getPackageName());
         mDeviceConfigStateHelper.restoreOriginalValues();
+
+        if (mActivityStarted) {
+            closeActivity();
+        }
+
+        if (mDeviceIdleEnabled || mDeviceLightIdleEnabled) {
+            resetDeviceIdleState();
+        }
 
         // The super method should be called at the end.
         super.tearDown();
@@ -173,8 +199,33 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
         }
     }
 
+    boolean isDeviceIdleFeatureEnabled() throws Exception {
+        return mDeviceIdleEnabled || mDeviceLightIdleEnabled;
+    }
+
+    static boolean isDeviceIdleEnabled() throws Exception {
+        final String output = SystemUtil.runShellCommand("cmd deviceidle enabled deep").trim();
+        return Integer.parseInt(output) != 0;
+    }
+
+    static boolean isDeviceLightIdleEnabled() throws Exception {
+        final String output = SystemUtil.runShellCommand("cmd deviceidle enabled light").trim();
+        return Integer.parseInt(output) != 0;
+    }
+
+    /** Returns the current storage-low state, as believed by JobScheduler. */
+    private boolean isJsStorageStateLow() throws Exception {
+        return !Boolean.parseBoolean(
+                SystemUtil.runShellCommand(getInstrumentation(),
+                        "cmd jobscheduler get-storage-not-low").trim());
+    }
+
     // Note we are just using storage state as a way to control when the job gets executed.
     void setStorageStateLow(boolean low) throws Exception {
+        if (isJsStorageStateLow() == low) {
+            // Nothing to do here
+            return;
+        }
         mStorageStateChanged = true;
         String res;
         if (low) {
@@ -195,9 +246,25 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
             if (curSeq == seq) {
                 return;
             }
-        } while ((SystemClock.elapsedRealtime()-startTime) < 1000);
+            Thread.sleep(500);
+        } while ((SystemClock.elapsedRealtime() - startTime) < 10_000);
 
         fail("Timed out waiting for job scheduler: expected seq=" + seq + ", cur=" + curSeq);
+    }
+
+    void startAndKeepTestActivity() {
+        final Intent testActivity = new Intent();
+        testActivity.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        ComponentName testComponentName = new ComponentName(mContext, TestActivity.class);
+        testActivity.setComponent(testComponentName);
+        mContext.startActivity(testActivity);
+        new WindowManagerStateHelper().waitForActivityState(testComponentName, STATE_RESUMED);
+        mActivityStarted = true;
+    }
+
+    void closeActivity() {
+        mContext.sendBroadcast(new Intent(TestActivity.ACTION_FINISH_ACTIVITY));
+        mActivityStarted = false;
     }
 
     String getJobState(int jobId) throws Exception {
@@ -230,7 +297,12 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
         Thread.sleep(2_000);
     }
 
+    void resetDeviceIdleState() throws Exception {
+        SystemUtil.runShellCommand("cmd deviceidle unforce");
+    }
+
     void setBatteryState(boolean plugged, int level) throws Exception {
+        SystemUtil.runShellCommand(getInstrumentation(), "cmd jobscheduler monitor-battery on");
         if (plugged) {
             SystemUtil.runShellCommand(getInstrumentation(), "cmd battery set ac 1");
             final int curLevel = Integer.parseInt(SystemUtil.runShellCommand(getInstrumentation(),
@@ -261,11 +333,38 @@ public abstract class BaseJobSchedulerTest extends InstrumentationTestCase {
                 });
     }
 
+    void setDeviceIdleState(final boolean idle) throws Exception {
+        final String changeCommand;
+        if (idle) {
+            changeCommand = "force-idle " + (mDeviceIdleEnabled ? "deep" : "light");
+        } else {
+            changeCommand = "force-active";
+        }
+        SystemUtil.runShellCommand("cmd deviceidle " + changeCommand);
+        waitUntil("Could not change device idle state to " + idle, 15 /* seconds */,
+                () -> {
+                    PowerManager powerManager = getContext().getSystemService(PowerManager.class);
+                    if (idle) {
+                        return mDeviceIdleEnabled
+                                ? powerManager.isDeviceIdleMode()
+                                : powerManager.isDeviceLightIdleMode();
+                    } else {
+                        return !powerManager.isDeviceIdleMode()
+                                && !powerManager.isDeviceLightIdleMode();
+                    }
+                });
+    }
+
     /** Asks (not forces) JobScheduler to run the job if constraints are met. */
     void runSatisfiedJob(int jobId) throws Exception {
+        runSatisfiedJob(jobId, null);
+    }
+
+    void runSatisfiedJob(int jobId, String namespace) throws Exception {
         SystemUtil.runShellCommand(getInstrumentation(),
                 "cmd jobscheduler run -s"
                 + " -u " + UserHandle.myUserId()
+                + (namespace == null ? "" : " -n " + namespace)
                 + " " + kJobServiceComponent.getPackageName()
                 + " " + jobId);
     }

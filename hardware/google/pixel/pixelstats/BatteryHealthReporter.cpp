@@ -79,24 +79,28 @@ void BatteryHealthReporter::reportBatteryHealthStatusEvent(
             BatteryHealthStatus::kCurrentImpedanceFieldNumber,
             BatteryHealthStatus::kBatteryAgeFieldNumber,
             BatteryHealthStatus::kCycleCountFieldNumber,
+            BatteryHealthStatus::kBatteryDisconnectStatusFieldNumber,
     };
 
     const int32_t vtier_fields_size = std::size(health_status_stats_fields);
-    static_assert(vtier_fields_size == 10, "Unexpected battery health status fields size");
+    static_assert(vtier_fields_size == 11, "Unexpected battery health status fields size");
     std::vector<VendorAtomValue> values(vtier_fields_size);
     VendorAtomValue val;
-    int32_t i = 0, tmp[vtier_fields_size] = {0};
+    int32_t i = 0, fields_size = 0, tmp[vtier_fields_size] = {0};
 
     // health_algo: health_status, health_index,healh_capacity_index,health_imp_index,
-    // swelling_cumulative,health_full_capacity,current_impedance, battery_age,cycle_count
-    if (sscanf(line, "%d: %d, %d,%d,%d %d,%d,%d %d,%d", &tmp[0], &tmp[1], &tmp[2], &tmp[3], &tmp[4],
-               &tmp[5], &tmp[6], &tmp[7], &tmp[8], &tmp[9]) != vtier_fields_size) {
-        /* If format isn't as expected, then ignore line on purpose */
+    // swelling_cumulative,health_full_capacity,current_impedance, battery_age,cycle_count,
+    // bpst_status
+    fields_size = sscanf(line, "%d: %d, %d,%d,%d %d,%d,%d %d,%d, %d", &tmp[0], &tmp[1], &tmp[2],
+                         &tmp[3], &tmp[4], &tmp[5], &tmp[6], &tmp[7], &tmp[8], &tmp[9], &tmp[10]);
+    if (fields_size < (vtier_fields_size - 1) || fields_size > vtier_fields_size) {
+        // Whether bpst_status exists or not, it needs to be compatible
+        // If format isn't as expected, then ignore line on purpose
         return;
     }
 
     ALOGD("BatteryHealthStatus: processed %s", line);
-    for (i = 0; i < vtier_fields_size; i++) {
+    for (i = 0; i < fields_size; i++) {
         val.set<VendorAtomValue::intValue>(tmp[i]);
         values[health_status_stats_fields[i] - kVendorAtomOffset] = val;
     }

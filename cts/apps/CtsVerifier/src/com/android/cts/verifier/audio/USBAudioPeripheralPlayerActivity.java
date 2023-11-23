@@ -16,13 +16,12 @@
 
 package com.android.cts.verifier.audio;
 
-import android.content.Context;
+import android.os.Bundle;
 import android.util.Log;
 
-import com.android.cts.verifier.audio.audiolib.AudioSystemParams;
-
 // MegaAudio imports
-import org.hyphonate.megaaudio.player.AudioSource;
+import org.hyphonate.megaaudio.common.BuilderBase;
+import org.hyphonate.megaaudio.common.StreamBase;
 import org.hyphonate.megaaudio.player.AudioSourceProvider;
 import org.hyphonate.megaaudio.player.JavaPlayer;
 import org.hyphonate.megaaudio.player.PlayerBuilder;
@@ -33,6 +32,9 @@ public abstract class USBAudioPeripheralPlayerActivity extends USBAudioPeriphera
 
     // MegaPlayer
     static final int NUM_CHANNELS = 2;
+    protected int mSampleRate;
+    protected int mNumExchangeFrames;
+
     JavaPlayer mAudioPlayer;
 
     protected boolean mIsPlaying = false;
@@ -43,44 +45,57 @@ public abstract class USBAudioPeripheralPlayerActivity extends USBAudioPeriphera
         super(requiresMandatePeripheral); // Mandated peripheral is NOT required
     }
 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        // MegaAudio Initialization
+        StreamBase.setup(this);
+
+        mSampleRate = StreamBase.getSystemSampleRate();
+        mNumExchangeFrames = StreamBase.getNumBurstFrames(BuilderBase.TYPE_JAVA);
+    }
+
     protected void setupPlayer() {
-        AudioSystemParams audioSystemParams = new AudioSystemParams();
-        audioSystemParams.init(this);
-
-        int systemSampleRate = audioSystemParams.getSystemSampleRate();
-        int numBufferFrames = audioSystemParams.getSystemBufferFrames();
-
         //
         // Allocate the source provider for the sort of signal we want to play
         //
         AudioSourceProvider sourceProvider = new SinAudioSourceProvider();
         try {
             PlayerBuilder builder = new PlayerBuilder();
-            mAudioPlayer = (JavaPlayer)builder
-                    // choose one or the other of these for a Java or an Oboe player
-                    .setPlayerType(PlayerBuilder.TYPE_JAVA)
-                    // .setPlayerType(PlayerBuilder.PLAYER_OBOE)
-                    .setSourceProvider(sourceProvider)
-                    .build();
-            mAudioPlayer.setupStream(NUM_CHANNELS, systemSampleRate, numBufferFrames);
+            builder.setPlayerType(PlayerBuilder.TYPE_JAVA)
+                .setSourceProvider(sourceProvider)
+                .setChannelCount(NUM_CHANNELS)
+                .setSampleRate(mSampleRate)
+                .setNumExchangeFrames(mNumExchangeFrames);
+            mAudioPlayer = (JavaPlayer) builder.build();
         } catch (PlayerBuilder.BadStateException ex) {
             Log.e(TAG, "Failed MegaPlayer build.");
         }
     }
 
-    protected void startPlay() {
+    // Returns whether the stream started correctly.
+    protected boolean startPlay() {
+        boolean result = false;
         if (mOutputDevInfo != null && !mIsPlaying) {
-            mAudioPlayer.startStream();
-
+            result = (mAudioPlayer.startStream() == StreamBase.OK);
+        }
+        if (result) {
             mIsPlaying = true;
         }
+        return result;
     }
 
-    protected void stopPlay() {
+    // Returns whether the stream stopped correctly.
+    protected boolean stopPlay() {
+        boolean result = false;
         if (mIsPlaying) {
-            mAudioPlayer.stopStream();
+            result = (mAudioPlayer.stopStream() == StreamBase.OK);
+        }
+        if (result) {
             mIsPlaying = false;
         }
+        return result;
     }
 
     public boolean isPlaying() {

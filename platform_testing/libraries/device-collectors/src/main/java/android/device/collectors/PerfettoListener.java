@@ -39,7 +39,7 @@ import org.junit.runner.notification.Failure;
 /**
  * A {@link PerfettoListener} that captures the perfetto trace during each test method
  * and save the perfetto trace files under
- * <root_folder>/<test_display_name>/PerfettoListener/<test_display_name>-<invocation_count>.pb
+ * <root>/<test_name>/PerfettoListener/<test_name>-<invocation_count>.perfetto-trace
  */
 @OptionClass(alias = "perfetto-collector")
 public class PerfettoListener extends BaseMetricListener {
@@ -49,7 +49,7 @@ public class PerfettoListener extends BaseMetricListener {
     // Default perfetto config file name when text proto config is used.
     private static final String DEFAULT_TEXT_CONFIG_FILE = "trace_config.textproto";
     // Default wait time before stopping the perfetto trace.
-    private static final String DEFAULT_WAIT_TIME_MSECS = "3000";
+    private static final String DEFAULT_WAIT_TIME_MSECS = "0";
     // Option to pass the folder name which contains the perfetto trace config file.
     private static final String PERFETTO_CONFIG_ROOT_DIR_ARG = "perfetto_config_root_dir";
     // Default folder name to look for the perfetto config file.
@@ -77,7 +77,7 @@ public class PerfettoListener extends BaseMetricListener {
     // perfetto trace.
     public static final String PERFETTO_START_WAIT_TIME_ARG = "perfetto_start_wait_time_ms";
     // Default wait time before starting the perfetto trace.
-    public static final String DEFAULT_START_WAIT_TIME_MSECS = "3000";
+    public static final String DEFAULT_START_WAIT_TIME_MSECS = "0";
     // Regular expression pattern to identify multiple spaces.
     public static final String SPACES_PATTERN = "\\s+";
     // Space replacement value
@@ -225,14 +225,14 @@ public class PerfettoListener extends BaseMetricListener {
                     () -> {
                         Log.i(getTag(), "Stopping perfetto after test ended.");
                         // Construct test output directory in the below format
-                        // <root_folder>/<test_name>/PerfettoListener/<test_name>-<count>.pb
+                        // <root>/<test_name>/PerfettoListener/<test_name>-<count>.perfetto-trace
                         Path path =
                                 Paths.get(
                                         mTestOutputRoot,
                                         getTestFileName(description),
                                         this.getClass().getSimpleName(),
                                         String.format(
-                                                "%s%s-%d.pb",
+                                                "%s%s-%d.perfetto-trace",
                                                 PERFETTO_PREFIX,
                                                 getTestFileName(description),
                                                 mTestIdInvocationCount.get(
@@ -265,13 +265,13 @@ public class PerfettoListener extends BaseMetricListener {
                 () -> {
                     Log.i(getTag(), "Stopping perfetto after test run ended.");
                     // Construct test output directory in the below format
-                    // <root_folder>/PerfettoListener/<randomUUID>.pb
+                    // <root_folder>/PerfettoListener/<randomUUID>.perfetto-trace
                     Path path =
                             Paths.get(
                                     mTestOutputRoot,
                                     this.getClass().getSimpleName(),
                                     String.format(
-                                            "%s%d.pb",
+                                            "%s%d.perfetto-trace",
                                             PERFETTO_PREFIX, UUID.randomUUID().hashCode()));
                     stopPerfettoTracing(path, runData);
                 };
@@ -317,12 +317,11 @@ public class PerfettoListener extends BaseMetricListener {
                 Boolean.parseBoolean(args.getString(HOLD_WAKELOCK_WHILE_COLLECTING));
 
         // Wait time before stopping the perfetto trace collection after the test
-        // is completed. Defaulted to 3000 msecs if perfetto_wait_time_ms is not passed.
-        // TODO: b/118122395 for parsing failures.
+        // is completed. Defaulted to 0 msecs.
         mWaitTimeInMs =
                 Long.parseLong(args.getString(PERFETTO_WAIT_TIME_ARG, DEFAULT_WAIT_TIME_MSECS));
 
-        // TODO: b/165344369 to avoid wait time before starting the perfetto trace.
+        // Wait time before the perfetto trace is started.
         mWaitStartTimeInMs =
                 Long.parseLong(
                         args.getString(

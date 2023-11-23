@@ -1,2 +1,4 @@
 # Bug component: 533114
-include platform/frameworks/base:/apex/blobstore/OWNERS
+set noparent
+
+file:platform/frameworks/base:/apex/blobstore/OWNERS

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 2000, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -102,11 +102,20 @@ public class InetSocketAddress
 
         @Override
         public String toString() {
+
+            String formatted;
+
             if (isUnresolved()) {
-                return hostname + ":" + port;
+                formatted = hostname + "/<unresolved>";
             } else {
-                return addr.toString() + ":" + port;
+                formatted = addr.toString();
+                if (addr instanceof Inet6Address) {
+                    int i = formatted.lastIndexOf("/");
+                    formatted = formatted.substring(0, i + 1)
+                            + "[" + formatted.substring(i + 1) + "]";
+                }
             }
+            return formatted + ":" + port;
         }
 
         @Override
@@ -137,6 +146,7 @@ public class InetSocketAddress
 
     private final transient InetSocketAddressHolder holder;
 
+    @java.io.Serial
     private static final long serialVersionUID = 5076001401234631237L;
 
     private static int checkPort(int port) {
@@ -270,15 +280,23 @@ public class InetSocketAddress
     }
 
     /**
-     * @serialField hostname String
-     * @serialField addr InetAddress
-     * @serialField port int
+     * @serialField hostname String the hostname of the Socket Address
+     * @serialField addr InetAddress the IP address of the Socket Address
+     * @serialField port int the port number of the Socket Address
      */
+    @java.io.Serial
     private static final ObjectStreamField[] serialPersistentFields = {
          new ObjectStreamField("hostname", String.class),
          new ObjectStreamField("addr", InetAddress.class),
          new ObjectStreamField("port", int.class)};
 
+    /**
+     * Writes the state of this object to the stream.
+     *
+     * @param  out the {@code ObjectOutputStream} to which data is written
+     * @throws IOException if an I/O error occurs
+     */
+    @java.io.Serial
     private void writeObject(ObjectOutputStream out)
         throws IOException
     {
@@ -290,6 +308,14 @@ public class InetSocketAddress
          out.writeFields();
      }
 
+    /**
+     * Restores the state of this object from the stream.
+     *
+     * @param  in the {@code ObjectInputStream} from which data is read
+     * @throws IOException if an I/O error occurs
+     * @throws ClassNotFoundException if a serialized class cannot be loaded
+     */
+    @java.io.Serial
     private void readObject(ObjectInputStream in)
         throws IOException, ClassNotFoundException
     {
@@ -308,9 +334,14 @@ public class InetSocketAddress
         InetSocketAddressHolder h = new InetSocketAddressHolder(oisHostname,
                                                                 oisAddr,
                                                                 oisPort);
-        UNSAFE.putObject(this, FIELDS_OFFSET, h);
+        UNSAFE.putReference(this, FIELDS_OFFSET, h);
     }
 
+    /**
+     * Throws {@code InvalidObjectException}, always.
+     * @throws ObjectStreamException always
+     */
+    @java.io.Serial
     private void readObjectNoData()
         throws ObjectStreamException
     {
@@ -375,9 +406,18 @@ public class InetSocketAddress
 
     /**
      * Constructs a string representation of this InetSocketAddress.
-     * This String is constructed by calling toString() on the InetAddress
-     * and concatenating the port number (with a colon). If the address
-     * is unresolved then the part before the colon will only contain the hostname.
+     * This string is constructed by calling {@link InetAddress#toString()}
+     * on the InetAddress and concatenating the port number (with a colon).
+     * <p>
+     * If the address is an IPv6 address, the IPv6 literal is enclosed in
+     * square brackets, for example: {@code "localhost/[0:0:0:0:0:0:0:1]:80"}.
+     * If the address is {@linkplain #isUnresolved() unresolved},
+     * {@code <unresolved>} is displayed in place of the address literal, for
+     * example {@code "foo/<unresolved>:80"}.
+     * <p>
+     * To retrieve a string representation of the hostname or the address, use
+     * {@link #getHostString()}, rather than parsing the string returned by this
+     * {@link #toString()} method.
      *
      * @return  a string representation of this object.
      */

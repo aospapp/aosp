@@ -48,6 +48,7 @@ class AssembleVintf {
     bool addKernel(const std::string& kernelArg);
 
     virtual std::ostream& setOutputStream(Ostream&&) = 0;
+    virtual std::ostream& setErrorStream(Ostream&&) = 0;
     virtual std::istream& addInputStream(const std::string& name, Istream&&) = 0;
     virtual std::istream& setCheckInputStream(const std::string& name, Istream&&) = 0;
     virtual std::istream& addKernelConfigInputStream(const KernelVersion& kernelVer,
@@ -57,6 +58,7 @@ class AssembleVintf {
    protected:
     virtual bool hasKernelVersion(const KernelVersion&) const = 0;
     virtual std::string getEnv(const std::string& key) const = 0;
+    virtual std::basic_ostream<char>& err() const = 0;
 };
 
 }  // namespace vintf

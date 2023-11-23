@@ -483,7 +483,7 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         // Test non-currency number formats
         assertEquals("1\u00a0234,00", new DecimalFormat("#,##0.00", dfs).format(1234));
         // Test currency format
-        assertEquals("\u20ac1\u00a0234,00", new DecimalFormat("¤#,##0.00", dfs).format(1234));
+        assertEquals("\u20ac1.234,00", new DecimalFormat("¤#,##0.00", dfs).format(1234));
     }
 
     /**
@@ -496,7 +496,7 @@ public class DecimalFormatTest extends junit.framework.TestCase {
         // Test non-currency number formats
         assertEquals("1 234.00", new DecimalFormat("#,##0.00", dfs).format(1234));
         // Test currency format
-        assertEquals("$1 234.00", new DecimalFormat("¤#,##0.00", dfs).format(1234));
+        assertEquals("$1,234.00", new DecimalFormat("¤#,##0.00", dfs).format(1234));
     }
 
     /**

@@ -65,6 +65,8 @@ public class ActivityLaunchUtils {
             "am start -a android.intent.action.MAIN -c android.intent.category.HOME";
     public static final String AM_BROADCAST_CLOSE_SYSTEM_DIALOG_COMMAND =
             "am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS";
+    public static final String INPUT_KEYEVENT_KEYCODE_BACK =
+            "input keyevent KEYCODE_BACK";
 
     // Using a static variable so it can be used in lambdas. Not preserving state in it.
     private static Activity mTempActivity;
@@ -146,6 +148,7 @@ public class ActivityLaunchUtils {
                     () -> {
                         execShellCommand(uiAutomation, AM_START_HOME_ACTIVITY_COMMAND);
                         execShellCommand(uiAutomation, AM_BROADCAST_CLOSE_SYSTEM_DIALOG_COMMAND);
+                        execShellCommand(uiAutomation, INPUT_KEYEVENT_KEYCODE_BACK);
                     },
                     () -> isHomeScreenShowing(context, uiAutomation),
                     DEFAULT_TIMEOUT_MS,
@@ -292,6 +295,13 @@ public class ActivityLaunchUtils {
                                 findWindowByTitleAndDisplay(uiAutomation, activityTitle, displayId);
                         if (window == null) return false;
                         if (window.getRoot() == null) return false;
+                        if (displayId == Display.DEFAULT_DISPLAY
+                                && (!window.isActive() || !window.isFocused())) {
+                            // The window should get activated and focused.
+                            // Launching activity in non-default display in CTS is usually in a
+                            // virtual display, which doesn't get focused on launch.
+                            return false;
+                        }
 
                         window.getBoundsInScreen(bounds);
                         mTempActivity.getWindow().getDecorView().getLocationOnScreen(location);
@@ -313,7 +323,7 @@ public class ActivityLaunchUtils {
         return (T) mTempActivity;
     }
 
-    private static AccessibilityWindowInfo findWindowByTitleWithList(CharSequence title,
+    public static AccessibilityWindowInfo findWindowByTitleWithList(CharSequence title,
             List<AccessibilityWindowInfo> windows) {
         AccessibilityWindowInfo returnValue = null;
         if (windows != null && windows.size() > 0) {

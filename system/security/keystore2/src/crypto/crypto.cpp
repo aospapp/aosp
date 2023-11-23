@@ -18,6 +18,7 @@
 
 #include "crypto.hpp"
 
+#include <assert.h>
 #include <log/log.h>
 #include <openssl/aes.h>
 #include <openssl/ec.h>
@@ -192,16 +193,6 @@ static constexpr size_t SALT_SIZE = 16;
 
 void generateKeyFromPassword(uint8_t* key, size_t key_len, const char* pw, size_t pw_len,
                              const uint8_t* salt) {
-    size_t saltSize;
-    if (salt != nullptr) {
-        saltSize = SALT_SIZE;
-    } else {
-        // Pre-gingerbread used this hardwired salt, readMasterKey will rewrite these when found
-        salt = reinterpret_cast<const uint8_t*>("keystore");
-        // sizeof = 9, not strlen = 8
-        saltSize = sizeof("keystore");
-    }
-
     const EVP_MD* digest = EVP_sha256();
 
     // SHA1 was used prior to increasing the key size
@@ -209,7 +200,7 @@ void generateKeyFromPassword(uint8_t* key, size_t key_len, const char* pw, size_
         digest = EVP_sha1();
     }
 
-    PKCS5_PBKDF2_HMAC(pw, pw_len, salt, saltSize, 8192, digest, key_len, key);
+    PKCS5_PBKDF2_HMAC(pw, pw_len, salt, SALT_SIZE, 8192, digest, key_len, key);
 }
 
 // New code.

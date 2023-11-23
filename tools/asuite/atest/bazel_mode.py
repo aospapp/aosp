@@ -30,28 +30,42 @@ import contextlib
 import dataclasses
 import enum
 import functools
+import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
+import tempfile
+import time
 import warnings
 
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque, OrderedDict
+from collections.abc import Iterable
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Callable, Dict, IO, List, Set
+from xml.etree import ElementTree as ET
 
-import atest_utils
-import constants
-import module_info
+from google.protobuf.message import DecodeError
 
-from atest_enum import ExitCode
-from test_finders import test_finder_base
-from test_finders import test_info
-from test_runners import test_runner_base as trb
-from test_runners import atest_tf_test_runner as tfr
+from atest import atest_utils
+from atest import constants
+from atest import module_info
 
+from atest.atest_enum import DetectType, ExitCode
+from atest.metrics import metrics
+from atest.proto import file_md5_pb2
+from atest.test_finders import test_finder_base
+from atest.test_finders import test_info
+from atest.test_runners import test_runner_base as trb
+from atest.test_runners import atest_tf_test_runner as tfr
+
+
+JDK_PACKAGE_NAME = 'prebuilts/robolectric_jdk'
+JDK_NAME = 'jdk'
+ROBOLECTRIC_CONFIG = 'build/make/core/robolectric_test_config_template.xml'
 
 _BAZEL_WORKSPACE_DIR = 'atest_bazel_workspace'
 _SUPPORTED_BAZEL_ARGS = MappingProxyType({
@@ -65,9 +79,22 @@ _SUPPORTED_BAZEL_ARGS = MappingProxyType({
     # https://docs.bazel.build/versions/main/command-line-reference.html#flag--flaky_test_attempts
     constants.RETRY_ANY_FAILURE:
         lambda arg_value: [f'--flaky_test_attempts={str(arg_value)}'],
+    # https://docs.bazel.build/versions/main/command-line-reference.html#flag--test_output
+    constants.VERBOSE:
+        lambda arg_value: ['--test_output=all'] if arg_value else [],
     constants.BAZEL_ARG:
         lambda arg_value: [item for sublist in arg_value for item in sublist]
 })
+
+# Maps Bazel configuration names to Soong variant names.
+_CONFIG_TO_VARIANT = {
+    'host': 'host',
+    'device': 'target',
+}
+
+
+class AbortRunException(Exception):
+    pass
 
 
 @enum.unique
@@ -79,11 +106,36 @@ class Features(enum.Enum):
     EXPERIMENTAL_BES_PUBLISH = ('--experimental-bes-publish',
                                 'Upload test results via BES in Bazel mode.',
                                 False)
+    EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES = (
+        '--experimental-java-runtime-dependencies',
+        'Mirrors Soong Java `libs` and `static_libs` as Bazel target '
+        'dependencies in the generated workspace. Tradefed test rules use '
+        'these dependencies to set up the execution environment and ensure '
+        'that all transitive runtime dependencies are present.',
+        True)
+    EXPERIMENTAL_REMOTE = (
+        '--experimental-remote',
+        'Use Bazel remote execution and caching where supported.',
+        False)
+    EXPERIMENTAL_HOST_DRIVEN_TEST = (
+        '--experimental-host-driven-test',
+        'Enables running host-driven device tests in Bazel mode.', True)
+    EXPERIMENTAL_ROBOLECTRIC_TEST = (
+        '--experimental-robolectric-test',
+        'Enables running Robolectric tests in Bazel mode.', True)
 
     def __init__(self, arg_flag, description, affects_workspace):
-        self.arg_flag = arg_flag
-        self.description = description
+        self._arg_flag = arg_flag
+        self._description = description
         self.affects_workspace = affects_workspace
+
+    @property
+    def arg_flag(self):
+        return self._arg_flag
+
+    @property
+    def description(self):
+        return self._description
 
 
 def add_parser_arguments(parser: argparse.ArgumentParser, dest: str):
@@ -105,14 +157,25 @@ def generate_bazel_workspace(mod_info: module_info.ModuleInfo,
 
     src_root_path = Path(os.environ.get(constants.ANDROID_BUILD_TOP))
     workspace_path = get_bazel_workspace_dir()
+    resource_manager = ResourceManager(
+            src_root_path=src_root_path,
+            resource_root_path=_get_resource_root(),
+            product_out_path=Path(
+                os.environ.get(constants.ANDROID_PRODUCT_OUT)),
+            md5_checksum_file_path=workspace_path.joinpath(
+                'workspace_md5_checksum'),
+        )
+    jdk_path = _read_robolectric_jdk_path(
+        resource_manager.get_src_file_path(ROBOLECTRIC_CONFIG, True))
+
     workspace_generator = WorkspaceGenerator(
-        src_root_path,
-        workspace_path,
-        Path(os.environ.get(constants.ANDROID_PRODUCT_OUT)),
-        Path(os.environ.get(constants.ANDROID_HOST_OUT)),
-        Path(atest_utils.get_build_out_dir()),
-        mod_info,
-        enabled_features,
+        resource_manager=resource_manager,
+        workspace_out_path=workspace_path,
+        host_out_path=Path(os.environ.get(constants.ANDROID_HOST_OUT)),
+        build_out_dir=Path(atest_utils.get_build_out_dir()),
+        mod_info=mod_info,
+        jdk_path=jdk_path,
+        enabled_features=enabled_features,
     )
     workspace_generator.generate()
 
@@ -122,33 +185,184 @@ def get_default_build_metadata():
                          atest_utils.get_build_target())
 
 
+class ResourceManager:
+    """Class for managing files required to generate a Bazel Workspace."""
+
+    def __init__(self,
+                 src_root_path: Path,
+                 resource_root_path: Path,
+                 product_out_path: Path,
+                 md5_checksum_file_path: Path):
+        self._root_type_to_path = {
+            file_md5_pb2.RootType.SRC_ROOT: src_root_path,
+            file_md5_pb2.RootType.RESOURCE_ROOT: resource_root_path,
+            file_md5_pb2.RootType.ABS_PATH: Path(),
+            file_md5_pb2.RootType.PRODUCT_OUT: product_out_path,
+        }
+        self._md5_checksum_file = md5_checksum_file_path
+        self._file_checksum_list = file_md5_pb2.FileChecksumList()
+
+    def get_src_file_path(
+        self,
+        rel_path: Path=None,
+        affects_workspace: bool=False
+    ) -> Path:
+        """Get the abs file path from the relative path of source_root.
+
+        Args:
+            rel_path: A relative path of the source_root.
+            affects_workspace: A boolean of whether the file affects the
+            workspace.
+
+        Returns:
+            A abs path of the file.
+        """
+        return self._get_file_path(
+            file_md5_pb2.RootType.SRC_ROOT, rel_path, affects_workspace)
+
+    def get_resource_file_path(
+        self,
+        rel_path: Path=None,
+        affects_workspace: bool=False,
+    ) -> Path:
+        """Get the abs file path from the relative path of resource_root.
+
+        Args:
+            rel_path: A relative path of the resource_root.
+            affects_workspace: A boolean of whether the file affects the
+            workspace.
+
+        Returns:
+            A abs path of the file.
+        """
+        return self._get_file_path(
+            file_md5_pb2.RootType.RESOURCE_ROOT, rel_path, affects_workspace)
+
+    def get_product_out_file_path(
+        self,
+        rel_path: Path=None,
+        affects_workspace: bool=False
+    ) -> Path:
+        """Get the abs file path from the relative path of product out.
+
+        Args:
+            rel_path: A relative path to the product out.
+            affects_workspace: A boolean of whether the file affects the
+            workspace.
+
+        Returns:
+            An abs path of the file.
+        """
+        return self._get_file_path(
+            file_md5_pb2.RootType.PRODUCT_OUT, rel_path, affects_workspace)
+
+    def _get_file_path(
+        self,
+        root_type: file_md5_pb2.RootType,
+        rel_path: Path,
+        affects_workspace: bool=True
+    ) -> Path:
+        abs_path = self._root_type_to_path[root_type].joinpath(
+            rel_path or Path())
+
+        if not affects_workspace:
+            return abs_path
+
+        if abs_path.is_dir():
+            for file in abs_path.glob('**/*'):
+                self._register_file(root_type, file)
+        else:
+            self._register_file(root_type, abs_path)
+        return abs_path
+
+    def _register_file(
+        self,
+        root_type: file_md5_pb2.RootType,
+        abs_path: Path
+    ):
+        if not abs_path.is_file():
+            logging.debug(' ignore %s: not a file.', abs_path)
+            return
+
+        rel_path = abs_path
+        if abs_path.is_relative_to(self._root_type_to_path[root_type]):
+            rel_path = abs_path.relative_to(self._root_type_to_path[root_type])
+
+        self._file_checksum_list.file_checksums.append(
+            file_md5_pb2.FileChecksum(
+                root_type=root_type,
+                rel_path=str(rel_path),
+                md5sum=atest_utils.md5sum(abs_path)
+            )
+        )
+
+    def register_file_with_abs_path(self, abs_path: Path):
+        """Register a file which affects the workspace.
+
+        Args:
+            abs_path: A abs path of the file.
+        """
+        self._register_file(file_md5_pb2.RootType.ABS_PATH, abs_path)
+
+    def save_affects_files_md5(self):
+        with open(self._md5_checksum_file, 'wb') as f:
+            f.write(self._file_checksum_list.SerializeToString())
+
+    def check_affects_files_md5(self):
+        """Check all affect files are consistent with the actual MD5."""
+        if not self._md5_checksum_file.is_file():
+            return False
+
+        with open(self._md5_checksum_file, 'rb') as f:
+            file_md5_list = file_md5_pb2.FileChecksumList()
+
+            try:
+                file_md5_list.ParseFromString(f.read())
+            except DecodeError:
+                logging.warning(
+                    'Failed to parse the workspace md5 checksum file.')
+                return False
+
+            for file_md5 in file_md5_list.file_checksums:
+                abs_path = (Path(self._root_type_to_path[file_md5.root_type])
+                            .joinpath(file_md5.rel_path))
+                if not abs_path.is_file():
+                    return False
+                if atest_utils.md5sum(abs_path) != file_md5.md5sum:
+                    return False
+            return True
+
+
 class WorkspaceGenerator:
     """Class for generating a Bazel workspace."""
 
     # pylint: disable=too-many-arguments
-    def __init__(self, src_root_path: Path, workspace_out_path: Path,
-                 product_out_path: Path, host_out_path: Path,
-                 build_out_dir: Path, mod_info: module_info.ModuleInfo,
-                 enabled_features: Set[Features] = None):
+    def __init__(self,
+                 resource_manager: ResourceManager,
+                 workspace_out_path: Path,
+                 host_out_path: Path,
+                 build_out_dir: Path,
+                 mod_info: module_info.ModuleInfo,
+                 jdk_path: Path=None,
+                 enabled_features: Set[Features] = None,
+                 ):
         """Initializes the generator.
 
         Args:
-            src_root_path: Path of the ANDROID_BUILD_TOP.
             workspace_out_path: Path where the workspace will be output.
-            product_out_path: Path of the ANDROID_PRODUCT_OUT.
             host_out_path: Path of the ANDROID_HOST_OUT.
             build_out_dir: Path of OUT_DIR
             mod_info: ModuleInfo object.
             enabled_features: Set of enabled features.
         """
         self.enabled_features = enabled_features or set()
-        self.src_root_path = src_root_path
+        self.resource_manager = resource_manager
         self.workspace_out_path = workspace_out_path
-        self.product_out_path = product_out_path
         self.host_out_path = host_out_path
         self.build_out_dir = build_out_dir
         self.mod_info = mod_info
         self.path_to_package = {}
+        self.jdk_path = jdk_path
 
     def generate(self):
         """Generate a Bazel workspace.
@@ -157,8 +371,7 @@ class WorkspaceGenerator:
         workspace will be generated. Otherwise, the existing workspace will be
         reused.
         """
-        workspace_md5_checksum_file = self.workspace_out_path.joinpath(
-            'workspace_md5_checksum')
+        start = time.time()
         enabled_features_file = self.workspace_out_path.joinpath(
             'atest_bazel_mode_enabled_features')
         enabled_features_file_contents = '\n'.join(sorted(
@@ -168,7 +381,7 @@ class WorkspaceGenerator:
             # Update the file with the set of the currently enabled features to
             # make sure that changes are detected in the workspace checksum.
             enabled_features_file.write_text(enabled_features_file_contents)
-            if atest_utils.check_md5(workspace_md5_checksum_file):
+            if self.resource_manager.check_affects_files_md5():
                 return
 
             # We raise an exception if rmtree fails to avoid leaving stale
@@ -186,13 +399,16 @@ class WorkspaceGenerator:
         # Note that we write the set of enabled features despite having written
         # it above since the workspace no longer exists at this point.
         enabled_features_file.write_text(enabled_features_file_contents)
-        atest_utils.save_md5(
-            [
-                self.mod_info.mod_info_file_path,
-                enabled_features_file,
-            ],
-            workspace_md5_checksum_file
-        )
+
+        self.resource_manager.get_product_out_file_path(
+            self.mod_info.mod_info_file_path.relative_to(
+                self.resource_manager.get_product_out_file_path()), True)
+        self.resource_manager.register_file_with_abs_path(
+            enabled_features_file)
+        self.resource_manager.save_affects_files_md5()
+        metrics.LocalDetectEvent(
+            detect_type=DetectType.FULL_GENERATE_BAZEL_WORKSPACE_TIME,
+            result=int(time.time() - start))
 
     def _add_test_module_targets(self):
         seen = set()
@@ -211,15 +427,21 @@ class WorkspaceGenerator:
                     self.enabled_features and
                     self.mod_info.is_device_driven_test(info)):
                 self._resolve_dependencies(
-                    self._add_test_target(
-                        info, 'device',
-                        TestTarget.create_device_test_target), seen)
+                    self._add_device_test_target(info, False), seen)
 
-            if self.is_host_unit_test(info):
+            if self.mod_info.is_host_unit_test(info):
                 self._resolve_dependencies(
-                    self._add_test_target(
-                        info, 'host',
-                        TestTarget.create_deviceless_test_target), seen)
+                    self._add_deviceless_test_target(info), seen)
+            elif (Features.EXPERIMENTAL_ROBOLECTRIC_TEST in
+                  self.enabled_features and
+                  self.mod_info.is_modern_robolectric_test(info)):
+                self._resolve_dependencies(
+                    self._add_tradefed_robolectric_test_target(info), seen)
+            elif (Features.EXPERIMENTAL_HOST_DRIVEN_TEST in
+                  self.enabled_features and
+                  self.mod_info.is_host_driven_test(info)):
+                self._resolve_dependencies(
+                    self._add_device_test_target(info, True), seen)
 
     def _resolve_dependencies(
         self, top_level_target: Target, seen: Set[Target]):
@@ -252,13 +474,28 @@ class WorkspaceGenerator:
 
             stack.append(next_top)
 
-    def _add_test_target(self, info: Dict[str, Any], name_suffix: str,
-                         create_fn: Callable) -> Target:
+    def _add_device_test_target(self, info: Dict[str, Any],
+                                is_host_driven: bool) -> Target:
         package_name = self._get_module_path(info)
-        name = f'{info["module_name"]}_{name_suffix}'
+        name_suffix = 'host' if is_host_driven else 'device'
+        name = f'{info[constants.MODULE_INFO_ID]}_{name_suffix}'
 
         def create():
-            return create_fn(
+            return TestTarget.create_device_test_target(
+                name,
+                package_name,
+                info,
+                is_host_driven,
+            )
+
+        return self._add_target(package_name, name, create)
+
+    def _add_deviceless_test_target(self, info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = f'{info[constants.MODULE_INFO_ID]}_host'
+
+        def create():
+            return TestTarget.create_deviceless_test_target(
                 name,
                 package_name,
                 info,
@@ -266,9 +503,21 @@ class WorkspaceGenerator:
 
         return self._add_target(package_name, name, create)
 
+    def _add_tradefed_robolectric_test_target(
+        self, info: Dict[str, Any]) -> Target:
+        package_name = self._get_module_path(info)
+        name = f'{info[constants.MODULE_INFO_ID]}_host'
+
+        return self._add_target(
+            package_name,
+            name,
+            lambda : TestTarget.create_tradefed_robolectric_test_target(
+                name, package_name, info, f'//{JDK_PACKAGE_NAME}:{JDK_NAME}')
+        )
+
     def _add_prebuilt_target(self, info: Dict[str, Any]) -> Target:
         package_name = self._get_module_path(info)
-        name = info['module_name']
+        name = info[constants.MODULE_INFO_ID]
 
         def create():
             return SoongPrebuiltTarget.create(
@@ -326,27 +575,61 @@ class WorkspaceGenerator:
 
         return mod_path[0]
 
-    def is_host_unit_test(self, info: Dict[str, Any]) -> bool:
-        return self.mod_info.is_testable_module(
-            info) and self.mod_info.is_host_unit_test(info)
-
     def _generate_artifacts(self):
         """Generate workspace files on disk."""
 
         self._create_base_files()
-        self._symlink(src='tools/asuite/atest/bazel/rules',
-                      target='bazel/rules')
-        self._symlink(src='tools/asuite/atest/bazel/configs',
-                      target='bazel/configs')
+
+        self._add_workspace_resource(src='rules', dst='bazel/rules')
+        self._add_workspace_resource(src='configs', dst='bazel/configs')
+
+        self._add_bazel_bootstrap_files()
+
         # Symlink to package with toolchain definitions.
         self._symlink(src='prebuilts/build-tools',
                       target='prebuilts/build-tools')
+
+        device_infra_path = 'vendor/google/tools/atest/device_infra'
+        if self.resource_manager.get_src_file_path(device_infra_path).exists():
+            self._symlink(src=device_infra_path,
+                          target=device_infra_path)
+
         self._create_constants_file()
+
+        self._generate_robolectric_resources()
 
         for package in self.path_to_package.values():
             package.generate(self.workspace_out_path)
 
+    def _generate_robolectric_resources(self):
+        if not self.jdk_path:
+            return
 
+        self._generate_jdk_resources()
+        self._generate_android_all_resources()
+
+    def _generate_jdk_resources(self):
+        # TODO(b/265596946): Create the JDK toolchain instead of using
+        # a filegroup.
+        return self._add_target(
+            JDK_PACKAGE_NAME,
+            JDK_NAME,
+            lambda : FilegroupTarget(
+                JDK_PACKAGE_NAME, JDK_NAME,
+                self.resource_manager.get_src_file_path(self.jdk_path))
+        )
+
+    def _generate_android_all_resources(self):
+        package_name = 'android-all'
+        name = 'android-all'
+
+        return self._add_target(
+            package_name,
+            name,
+            lambda : FilegroupTarget(
+                package_name, name,
+                self.host_out_path.joinpath(f'testcases/{name}'))
+        )
 
     def _symlink(self, *, src, target):
         """Create a symbolic link in workspace pointing to source file/dir.
@@ -360,14 +643,44 @@ class WorkspaceGenerator:
         """
         symlink = self.workspace_out_path.joinpath(target)
         symlink.parent.mkdir(parents=True, exist_ok=True)
-        symlink.symlink_to(self.src_root_path.joinpath(src))
+        symlink.symlink_to(self.resource_manager.get_src_file_path(src))
 
     def _create_base_files(self):
-        self._symlink(src='tools/asuite/atest/bazel/WORKSPACE',
-                      target='WORKSPACE')
-        self._symlink(src='tools/asuite/atest/bazel/bazelrc',
-                      target='.bazelrc')
+        self._add_workspace_resource(src='WORKSPACE', dst='WORKSPACE')
+        self._add_workspace_resource(src='bazelrc', dst='.bazelrc')
+
         self.workspace_out_path.joinpath('BUILD.bazel').touch()
+
+    def _add_bazel_bootstrap_files(self):
+        self._symlink(src='tools/asuite/atest/bazel/resources/bazel.sh',
+                      target='bazel.sh')
+        # TODO(b/256924541): Consolidate the JDK with the version the Roboleaf
+        # team uses.
+        self._symlink(src='prebuilts/jdk/jdk17/BUILD.bazel',
+                      target='prebuilts/jdk/jdk17/BUILD.bazel')
+        self._symlink(src='prebuilts/jdk/jdk17/linux-x86',
+                      target='prebuilts/jdk/jdk17/linux-x86')
+        self._symlink(src='prebuilts/bazel/linux-x86_64/bazel',
+                      target='prebuilts/bazel/linux-x86_64/bazel')
+
+    def _add_workspace_resource(self, src, dst):
+        """Add resource to the given destination in workspace.
+
+        Args:
+            src: A string of a relative path to root of Bazel artifacts. This is
+                the source file/dir path that will be added to workspace.
+            dst: A string of a relative path to workspace root. This is the
+                destination file/dir path where the artifacts will be added.
+        """
+        src = self.resource_manager.get_resource_file_path(src, True)
+        dst = self.workspace_out_path.joinpath(dst)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+
+        if src.is_file():
+            shutil.copy(src, dst)
+        else:
+            shutil.copytree(src, dst,
+                            ignore=shutil.ignore_patterns('__init__.py'))
 
     def _create_constants_file(self):
 
@@ -385,13 +698,17 @@ class WorkspaceGenerator:
             targets.append(target)
 
         with self.workspace_out_path.joinpath(
-                'constants.bzl').open('w') as f:
+            'constants.bzl').open('w') as f:
             writer = IndentWriter(f)
             for target in targets:
                 writer.write_line(
                     '%s = "%s"' %
                     (variable_name(target.name()), target.qualified_name())
                 )
+
+
+def _get_resource_root():
+    return Path(os.path.dirname(__file__)).joinpath('bazel/resources')
 
 
 class Package:
@@ -471,8 +788,8 @@ class ModuleRef:
 
     def target(self) -> Target:
         if not self._target:
-            module_name = self.info['module_name']
-            raise Exception(f'Target not set for ref `{module_name}`')
+            target_name = self.info[constants.MODULE_INFO_ID]
+            raise Exception(f'Target not set for ref `{target_name}`')
 
         return self._target
 
@@ -509,6 +826,42 @@ class Target(ABC):
         pass
 
 
+class FilegroupTarget(Target):
+
+    def __init__(
+        self,
+        package_name: str,
+        target_name: str,
+        srcs_root: Path
+    ):
+        self._package_name = package_name
+        self._target_name = target_name
+        self._srcs_root = srcs_root
+
+    def name(self) -> str:
+        return self._target_name
+
+    def package_name(self) -> str:
+        return self._package_name
+
+    def write_to_build_file(self, f: IO):
+        writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
+
+        writer.write_line('filegroup(')
+
+        with writer.indent():
+            build_file_writer.write_string_attribute('name', self._target_name)
+            build_file_writer.write_glob_attribute(
+                'srcs', [f'{self._target_name}_files/**'])
+
+        writer.write_line(')')
+
+    def create_filesystem_layout(self, package_dir: Path):
+        symlink = package_dir.joinpath(f'{self._target_name}_files')
+        symlink.symlink_to(self._srcs_root)
+
+
 class TestTarget(Target):
     """Class for generating a test target."""
 
@@ -522,31 +875,81 @@ class TestTarget(Target):
         'bazel-result-reporter'
     })
 
-    DEVICE_TEST_PREREQUISITES = frozenset(
-        {'aapt'}).union(DEVICELESS_TEST_PREREQUISITES)
+    DEVICE_TEST_PREREQUISITES = frozenset(DEVICELESS_TEST_PREREQUISITES.union(
+        frozenset({
+            'aapt',
+            'aapt2',
+            'compatibility-tradefed',
+            'vts-core-tradefed-harness',
+        })))
 
     @staticmethod
     def create_deviceless_test_target(name: str, package_name: str,
                                       info: Dict[str, Any]):
-        return TestTarget(name, package_name, info, 'tradefed_deviceless_test',
-                          TestTarget.DEVICELESS_TEST_PREREQUISITES)
+        return TestTarget(
+            package_name,
+            'tradefed_deviceless_test',
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
+                'tags': info.get(constants.MODULE_TEST_OPTIONS_TAGS, []),
+            },
+            TestTarget.DEVICELESS_TEST_PREREQUISITES,
+        )
 
     @staticmethod
     def create_device_test_target(name: str, package_name: str,
-                                  info: Dict[str, Any]):
-        return TestTarget(name, package_name, info, 'tradefed_device_test',
-                          TestTarget.DEVICE_TEST_PREREQUISITES)
+                                  info: Dict[str, Any], is_host_driven: bool):
+        rule = ('tradefed_host_driven_device_test' if is_host_driven
+                else 'tradefed_device_driven_test')
 
-    def __init__(self, name: str, package_name: str, info: Dict[str, Any],
-                 rule_name: str, prerequisites=frozenset()):
-        self._name = name
+        return TestTarget(
+            package_name,
+            rule,
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
+                'suites': set(
+                    info.get(constants.MODULE_COMPATIBILITY_SUITES, [])),
+                'tradefed_deps': list(map(
+                    ModuleRef.for_name,
+                    info.get(constants.MODULE_HOST_DEPS, []))),
+                'tags': info.get(constants.MODULE_TEST_OPTIONS_TAGS, []),
+            },
+            TestTarget.DEVICE_TEST_PREREQUISITES,
+        )
+
+    @staticmethod
+    def create_tradefed_robolectric_test_target(
+        name: str,
+        package_name: str,
+        info: Dict[str, Any],
+        jdk_label: str
+    ):
+        return TestTarget(
+            package_name,
+            'tradefed_robolectric_test',
+            {
+                'name': name,
+                'test': ModuleRef.for_info(info),
+                'module_name': info["module_name"],
+                'tags': info.get(constants.MODULE_TEST_OPTIONS_TAGS, []),
+                'jdk' : jdk_label,
+            },
+            TestTarget.DEVICELESS_TEST_PREREQUISITES,
+        )
+
+    def __init__(self, package_name: str, rule_name: str,
+                 attributes: Dict[str, Any], prerequisites=frozenset()):
+        self._attributes = attributes
         self._package_name = package_name
-        self._test_module_ref = ModuleRef.for_info(info)
         self._rule_name = rule_name
         self._prerequisites = prerequisites
 
     def name(self) -> str:
-        return self._name
+        return self._attributes['name']
 
     def package_name(self) -> str:
         return self._package_name
@@ -556,19 +959,125 @@ class TestTarget(Target):
 
     def dependencies(self) -> List[ModuleRef]:
         prerequisite_refs = map(ModuleRef.for_name, self._prerequisites)
-        return [self._test_module_ref] + list(prerequisite_refs)
+
+        declared_dep_refs = []
+        for value in self._attributes.values():
+            if isinstance(value, Iterable):
+                declared_dep_refs.extend(
+                    [dep for dep in value if isinstance(dep, ModuleRef)])
+            elif isinstance(value, ModuleRef):
+                declared_dep_refs.append(value)
+
+        return declared_dep_refs + list(prerequisite_refs)
 
     def write_to_build_file(self, f: IO):
-        prebuilt_target_name = self._test_module_ref.target().qualified_name()
+        prebuilt_target_name = self._attributes['test'].target(
+            ).qualified_name()
         writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
 
         writer.write_line(f'{self._rule_name}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._name}",')
-            writer.write_line(f'test = "{prebuilt_target_name}",')
+            build_file_writer.write_string_attribute(
+                'name', self._attributes['name'])
+
+            build_file_writer.write_string_attribute(
+                'module_name', self._attributes['module_name'])
+
+            build_file_writer.write_string_attribute(
+                'test', prebuilt_target_name)
+
+            build_file_writer.write_label_list_attribute(
+                'tradefed_deps', self._attributes.get('tradefed_deps'))
+
+            build_file_writer.write_string_list_attribute(
+                'suites', sorted(self._attributes.get('suites', [])))
+
+            build_file_writer.write_string_list_attribute(
+                'tags', sorted(self._attributes.get('tags', [])))
+
+            build_file_writer.write_label_attribute(
+                'jdk', self._attributes.get('jdk', None))
 
         writer.write_line(')')
+
+
+def _read_robolectric_jdk_path(test_xml_config_template: Path) -> Path:
+    if not test_xml_config_template.is_file():
+        return None
+
+    xml_root = ET.parse(test_xml_config_template).getroot()
+    option = xml_root.find(".//option[@name='java-folder']")
+    jdk_path = Path(option.get('value', ''))
+
+    if not jdk_path.is_relative_to('prebuilts/jdk'):
+        raise Exception(f'Failed to get "java-folder" from '
+                        f'`{test_xml_config_template}`')
+
+    return jdk_path
+
+
+class BuildFileWriter:
+    """Class for writing BUILD files."""
+
+    def __init__(self, underlying: IndentWriter):
+        self._underlying = underlying
+
+    def write_string_attribute(self, attribute_name, value):
+        if value is None:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = "{value}",')
+
+    def write_label_attribute(self, attribute_name: str, label_name: str):
+        if label_name is None:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = "{label_name}",')
+
+    def write_string_list_attribute(self, attribute_name, values):
+        if not values:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = [')
+
+        with self._underlying.indent():
+            for value in values:
+                self._underlying.write_line(f'"{value}",')
+
+        self._underlying.write_line('],')
+
+    def write_label_list_attribute(
+            self, attribute_name: str, modules: List[ModuleRef]):
+        if not modules:
+            return
+
+        self._underlying.write_line(f'{attribute_name} = [')
+
+        with self._underlying.indent():
+            for label in sorted(set(
+                    m.target().qualified_name() for m in modules)):
+                self._underlying.write_line(f'"{label}",')
+
+        self._underlying.write_line('],')
+
+    def write_glob_attribute(self, attribute_name: str, patterns: List[str]):
+        self._underlying.write_line(f'{attribute_name} = glob([')
+
+        with self._underlying.indent():
+            for pattern in patterns:
+                self._underlying.write_line(f'"{pattern}",')
+
+        self._underlying.write_line(']),')
+
+
+@dataclasses.dataclass(frozen=True)
+class Dependencies:
+    static_dep_refs: List[ModuleRef]
+    runtime_dep_refs: List[ModuleRef]
+    data_dep_refs: List[ModuleRef]
+    device_data_dep_refs: List[ModuleRef]
 
 
 class SoongPrebuiltTarget(Target):
@@ -582,56 +1091,59 @@ class SoongPrebuiltTarget(Target):
 
         configs = [
             Config('host', gen.host_out_path),
-            Config('device', gen.product_out_path),
+            Config('device', gen.resource_manager.get_product_out_file_path()),
         ]
 
-        installed_paths = get_module_installed_paths(info, gen.src_root_path)
+        installed_paths = get_module_installed_paths(
+            info, gen.resource_manager.get_src_file_path())
         config_files = group_paths_by_config(configs, installed_paths)
 
         # For test modules, we only create symbolic link to the 'testcases'
         # directory since the information in module-info is not accurate.
-        #
-        # Note that we use is_tf_testable_module here instead of ModuleInfo
-        # class's is_testable_module method to avoid misadding a shared library
-        # as a test module.
-        # e.g.
-        # 1. test_module A has a shared_lib (or RLIB, DYLIB) of B
-        # 2. We create target B as a result of method _resolve_dependencies for
-        #    target A
-        # 3. B matches the conditions of is_testable_module:
-        #     a. B has installed path.
-        #     b. has_config return True
-        #     Note that has_config method also looks for AndroidTest.xml in the
-        #     dir of B. If there is a test module in the same dir, B could be
-        #     added as a test module.
-        # 4. We create symbolic link to the 'testcases' for non test target B
-        #    and cause errors.
-        if is_tf_testable_module(gen.mod_info, info):
+        if gen.mod_info.is_tradefed_testable_module(info):
             config_files = {c: [c.out_path.joinpath(f'testcases/{module_name}')]
                             for c in config_files.keys()}
 
+        enabled_features = gen.enabled_features
+
         return SoongPrebuiltTarget(
-            module_name,
+            info,
             package_name,
             config_files,
-            find_runtime_dep_refs(gen.mod_info, info, configs,
-                                  gen.src_root_path),
-            find_data_dep_refs(gen.mod_info, info, configs,
-                                  gen.src_root_path)
+            Dependencies(
+                static_dep_refs = find_static_dep_refs(
+                    gen.mod_info, info, configs,
+                    gen.resource_manager.get_src_file_path(), enabled_features),
+                runtime_dep_refs = find_runtime_dep_refs(
+                    gen.mod_info, info, configs,
+                    gen.resource_manager.get_src_file_path(), enabled_features),
+                data_dep_refs = find_data_dep_refs(
+                    gen.mod_info, info, configs,
+                    gen.resource_manager.get_src_file_path()),
+                device_data_dep_refs = find_device_data_dep_refs(gen, info),
+            ),
+            [
+                c for c in configs if c.name in map(
+                str.lower, info.get(constants.MODULE_SUPPORTED_VARIANTS, []))
+            ],
         )
 
-    def __init__(self, name: str, package_name: str,
+    def __init__(self,
+                 info: Dict[str, Any],
+                 package_name: str,
                  config_files: Dict[Config, List[Path]],
-                 runtime_dep_refs: List[ModuleRef],
-                 data_dep_refs: List[ModuleRef]):
-        self._name = name
+                 deps: Dependencies,
+                 supported_configs: List[Config]):
+        self._target_name = info[constants.MODULE_INFO_ID]
+        self._module_name = info[constants.MODULE_NAME]
         self._package_name = package_name
         self.config_files = config_files
-        self.runtime_dep_refs = runtime_dep_refs
-        self.data_dep_refs = data_dep_refs
+        self.deps = deps
+        self.suites = info.get(constants.MODULE_COMPATIBILITY_SUITES, [])
+        self._supported_configs = supported_configs
 
     def name(self) -> str:
-        return self._name
+        return self._target_name
 
     def package_name(self) -> str:
         return self._package_name
@@ -641,44 +1153,52 @@ class SoongPrebuiltTarget(Target):
             Import('//bazel/rules:soong_prebuilt.bzl', self._rule_name()),
         }
 
-    @functools.lru_cache(maxsize=None)
+    @functools.lru_cache(maxsize=128)
     def supported_configs(self) -> Set[Config]:
+        # We deduce the supported configs from the installed paths since the
+        # build exports incorrect metadata for some module types such as
+        # Robolectric. The information exported from the build is only used if
+        # the module does not have any installed paths.
+        # TODO(b/232929584): Remove this once all modules correctly export the
+        #  supported variants.
         supported_configs = set(self.config_files.keys())
-
         if supported_configs:
             return supported_configs
 
-        # If a target has no installed files, then it supports the same
-        # configurations as its dependencies. This is required because some
-        # build modules are just intermediate targets that don't produce any
-        # output but that still have transitive dependencies.
-        for ref in self.runtime_dep_refs:
-            supported_configs.update(ref.target().supported_configs())
-
-        return supported_configs
+        return self._supported_configs
 
     def dependencies(self) -> List[ModuleRef]:
-        all_deps = set(self.runtime_dep_refs)
-        all_deps.update(self.data_dep_refs)
+        all_deps = set(self.deps.runtime_dep_refs)
+        all_deps.update(self.deps.data_dep_refs)
+        all_deps.update(self.deps.device_data_dep_refs)
+        all_deps.update(self.deps.static_dep_refs)
         return list(all_deps)
 
     def write_to_build_file(self, f: IO):
         writer = IndentWriter(f)
+        build_file_writer = BuildFileWriter(writer)
 
         writer.write_line(f'{self._rule_name()}(')
 
         with writer.indent():
-            writer.write_line(f'name = "{self._name}",')
-            writer.write_line(f'module_name = "{self._name}",')
+            writer.write_line(f'name = "{self._target_name}",')
+            writer.write_line(f'module_name = "{self._module_name}",')
             self._write_files_attribute(writer)
+            self._write_deps_attribute(writer, 'static_deps',
+                                       self.deps.static_dep_refs)
             self._write_deps_attribute(writer, 'runtime_deps',
-                                       self.runtime_dep_refs)
-            self._write_deps_attribute(writer, 'data', self.data_dep_refs)
+                                       self.deps.runtime_dep_refs)
+            self._write_deps_attribute(writer, 'data', self.deps.data_dep_refs)
+
+            build_file_writer.write_label_list_attribute(
+                'device_data', self.deps.device_data_dep_refs)
+            build_file_writer.write_string_list_attribute(
+                'suites', sorted(self.suites))
 
         writer.write_line(')')
 
     def create_filesystem_layout(self, package_dir: Path):
-        prebuilts_dir = package_dir.joinpath(self._name)
+        prebuilts_dir = package_dir.joinpath(self._target_name)
         prebuilts_dir.mkdir()
 
         for config, files in self.config_files.items():
@@ -699,13 +1219,12 @@ class SoongPrebuiltTarget(Target):
         if not self.config_files:
             return
 
-        name = self._name
-
         writer.write('files = ')
         write_config_select(
             writer,
             self.config_files,
-            lambda c, _: writer.write(f'glob(["{name}/{c.name}/**/*"])'),
+            lambda c, _: writer.write(
+                f'glob(["{self._target_name}/{c.name}/**/*"])'),
         )
         writer.write_line(',')
 
@@ -801,6 +1320,7 @@ def find_runtime_dep_refs(
     info: module_info.Module,
     configs: List[Config],
     src_root_path: Path,
+    enabled_features: List[Features],
 ) -> List[ModuleRef]:
     """Return module references for runtime dependencies."""
 
@@ -815,6 +1335,10 @@ def find_runtime_dep_refs(
     libs = set()
     libs.update(info.get(constants.MODULE_SHARED_LIBS, []))
     libs.update(info.get(constants.MODULE_RUNTIME_DEPS, []))
+
+    if Features.EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES in enabled_features:
+        libs.update(info.get(constants.MODULE_LIBS, []))
+
     runtime_dep_refs = _find_module_refs(mod_info, configs, src_root_path, libs)
 
     runtime_library_class = {'RLIB_LIBRARIES', 'DYLIB_LIBRARIES'}
@@ -847,6 +1371,41 @@ def find_data_dep_refs(
                              configs,
                              src_root_path,
                              info.get(constants.MODULE_DATA_DEPS, []))
+
+
+def find_device_data_dep_refs(
+        gen: WorkspaceGenerator,
+        info: module_info.Module,
+) -> List[ModuleRef]:
+    """Return module references for device data dependencies."""
+
+    return _find_module_refs(
+        gen.mod_info,
+        [Config('device', gen.resource_manager.get_product_out_file_path())],
+        gen.resource_manager.get_src_file_path(),
+        info.get(constants.MODULE_TARGET_DEPS, []))
+
+
+def find_static_dep_refs(
+        mod_info: module_info.ModuleInfo,
+        info: module_info.Module,
+        configs: List[Config],
+        src_root_path: Path,
+        enabled_features: List[Features],
+) -> List[ModuleRef]:
+    """Return module references for static libraries."""
+
+    if Features.EXPERIMENTAL_JAVA_RUNTIME_DEPENDENCIES not in enabled_features:
+        return []
+
+    static_libs = set()
+    static_libs.update(info.get(constants.MODULE_STATIC_LIBS, []))
+    static_libs.update(info.get(constants.MODULE_STATIC_DEPS, []))
+
+    return _find_module_refs(mod_info,
+                             configs,
+                             src_root_path,
+                             static_libs)
 
 
 def _find_module_refs(
@@ -931,21 +1490,6 @@ def write_target_list(writer: IndentWriter, targets: List[Target]):
     writer.write(']')
 
 
-def is_tf_testable_module(mod_info: module_info.ModuleInfo,
-                          info: Dict[str, Any]):
-    """Check if the module is a Tradefed runnable test module.
-
-    ModuleInfo.is_testable_module() is from ATest's point of view. It only
-    checks if a module has installed path and has local config files. This
-    way is not reliable since some libraries might match these two conditions
-    and be included mistakenly. Robolectric_utils is an example that matched
-    these two conditions but not testable. This function make sure the module
-    is a TF runnable test module.
-    """
-    return (mod_info.is_testable_module(info)
-            and info.get(constants.MODULE_COMPATIBILITY_SUITES))
-
-
 def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
     """A finder_method decorator to override TestInfo properties."""
 
@@ -956,6 +1500,17 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
         for tinfo in test_infos:
             m_info = mod_info.get_module_info(tinfo.test_name)
 
+            # TODO(b/262200630): Refactor the duplicated logic in
+            # _decorate_find_method() and _add_test_module_targets() to
+            # determine whether a test should run with Atest Bazel Mode.
+
+            # Only enable modern Robolectric tests since those are the only ones
+            # TF currently supports.
+            if mod_info.is_modern_robolectric_test(m_info):
+                if Features.EXPERIMENTAL_ROBOLECTRIC_TEST in enabled_features:
+                    tinfo.test_runner = BazelTestRunner.NAME
+                continue
+
             # Only run device-driven tests in Bazel mode when '--host' is not
             # specified and the feature is enabled.
             if not host and mod_info.is_device_driven_test(m_info):
@@ -964,7 +1519,9 @@ def _decorate_find_method(mod_info, finder_method_func, host, enabled_features):
                 continue
 
             if mod_info.is_suite_in_compatibility_suites(
-                'host-unit-tests', m_info):
+                'host-unit-tests', m_info) or (
+                    Features.EXPERIMENTAL_HOST_DRIVEN_TEST in enabled_features
+                    and mod_info.is_host_driven_test(m_info)):
                 tinfo.test_runner = BazelTestRunner.NAME
         return test_infos
     return use_bazel_runner
@@ -994,13 +1551,27 @@ def create_new_finder(mod_info: module_info.ModuleInfo,
                                    finder.finder_info)
 
 
+class RunCommandError(subprocess.CalledProcessError):
+    """CalledProcessError but including debug information when it fails."""
+    def __str__(self):
+        return f'{super().__str__()}\n' \
+               f'stdout={self.stdout}\n\n' \
+               f'stderr={self.stderr}'
+
+
 def default_run_command(args: List[str], cwd: Path) -> str:
-    return subprocess.check_output(
+    result = subprocess.run(
         args=args,
         cwd=cwd,
         text=True,
-        stderr=subprocess.DEVNULL,
+        capture_output=True,
+        check=False,
     )
+    if result.returncode:
+        # Provide a more detailed log message including stdout and stderr.
+        raise RunCommandError(result.returncode, result.args, result.stdout,
+                              result.stderr)
+    return result.stdout
 
 
 @dataclasses.dataclass
@@ -1021,7 +1592,6 @@ class BazelTestRunner(trb.TestRunnerBase):
                  results_dir,
                  mod_info: module_info.ModuleInfo,
                  extra_args: Dict[str, Any]=None,
-                 test_infos: List[test_info.TestInfo]=None,
                  src_top: Path=None,
                  workspace_path: Path=None,
                  run_command: Callable=default_run_command,
@@ -1030,15 +1600,14 @@ class BazelTestRunner(trb.TestRunnerBase):
                  **kwargs):
         super().__init__(results_dir, **kwargs)
         self.mod_info = mod_info
-        self.test_infos = test_infos
         self.src_top = src_top or Path(os.environ.get(
             constants.ANDROID_BUILD_TOP))
-        self.starlark_file = self.src_top.joinpath(
-            'tools/asuite/atest/bazel/format_as_soong_module_name.cquery')
+        self.starlark_file = _get_resource_root().joinpath(
+            'format_as_soong_module_name.cquery')
 
-        self.bazel_binary = self.src_top.joinpath(
-            'prebuilts/bazel/linux-x86_64/bazel')
         self.bazel_workspace = workspace_path or get_bazel_workspace_dir()
+        self.bazel_binary = self.bazel_workspace.joinpath(
+            'bazel.sh')
         self.run_command = run_command
         self._extra_args = extra_args or {}
         self.build_metadata = build_metadata or get_default_build_metadata()
@@ -1056,27 +1625,51 @@ class BazelTestRunner(trb.TestRunnerBase):
         reporter.register_unsupported_runner(self.NAME)
         ret_code = ExitCode.SUCCESS
 
-        run_cmds = self.generate_run_commands(test_infos, extra_args)
+        try:
+            run_cmds = self.generate_run_commands(test_infos, extra_args)
+        except AbortRunException as e:
+            atest_utils.colorful_print(f'Stop running test(s): {e}',
+                                       constants.RED)
+            return ExitCode.ERROR
+
         for run_cmd in run_cmds:
             subproc = self.run(run_cmd, output_to_stdout=True)
             ret_code |= self.wait_for_subprocess(subproc)
         return ret_code
 
-    def _get_bes_publish_args(self):
-        args = []
+    def _get_feature_config_or_warn(self, feature, env_var_name):
+        feature_config = self.env.get(env_var_name)
+        if not feature_config:
+            logging.warning(
+                'Ignoring `%s` because the `%s`'
+                ' environment variable is not set.',
+                # pylint: disable=no-member
+                feature, env_var_name
+            )
+        return feature_config
 
-        if not self.env.get("ATEST_BAZEL_BES_PUBLISH_CONFIG"):
-            return args
+    def _get_bes_publish_args(self, feature):
+        bes_publish_config = self._get_feature_config_or_warn(
+            feature, 'ATEST_BAZEL_BES_PUBLISH_CONFIG')
 
-        config = self.env["ATEST_BAZEL_BES_PUBLISH_CONFIG"]
+        if not bes_publish_config:
+            return []
+
         branch = self.build_metadata.build_branch
         target = self.build_metadata.build_target
 
-        args.append(f'--config={config}')
-        args.append(f'--build_metadata=ab_branch={branch}')
-        args.append(f'--build_metadata=ab_target={target}')
+        return [
+            f'--config={bes_publish_config}',
+            f'--build_metadata=ab_branch={branch}',
+            f'--build_metadata=ab_target={target}'
+        ]
 
-        return args
+    def _get_remote_args(self, feature):
+        remote_config = self._get_feature_config_or_warn(
+            feature, 'ATEST_BAZEL_REMOTE_CONFIG')
+        if not remote_config:
+            return []
+        return [f'--config={remote_config}']
 
     def host_env_check(self):
         """Check that host env has everything we need.
@@ -1086,25 +1679,51 @@ class BazelTestRunner(trb.TestRunnerBase):
         if that changes.
         """
 
-    def get_test_runner_build_reqs(self) -> Set[str]:
-        if not self.test_infos:
+    def get_test_runner_build_reqs(self, test_infos) -> Set[str]:
+        if not test_infos:
             return set()
 
         deps_expression = ' + '.join(
-            sorted(self.test_info_target_label(i) for i in self.test_infos)
+            sorted(self.test_info_target_label(i) for i in test_infos)
         )
 
-        query_args = [
-            self.bazel_binary,
-            'cquery',
-            f'deps(tests({deps_expression}))',
-            '--output=starlark',
-            f'--starlark:file={self.starlark_file}',
-        ]
+        with tempfile.NamedTemporaryFile() as query_file:
+            with open(query_file.name, 'w', encoding='utf-8') as _query_file:
+                _query_file.write(f'deps(tests({deps_expression}))')
 
-        output = self.run_command(query_args, self.bazel_workspace)
+            query_args = [
+                str(self.bazel_binary),
+                'cquery',
+                f'--query_file={query_file.name}',
+                '--output=starlark',
+                f'--starlark:file={self.starlark_file}',
+            ]
 
-        return set(filter(bool, map(str.strip, output.splitlines())))
+            output = self.run_command(query_args, self.bazel_workspace)
+
+        targets = set()
+        robolectric_tests = set(filter(
+            self._is_robolectric_test_suite,
+            [test.test_name for test in test_infos]))
+
+        modules_to_variant = _parse_cquery_output(output)
+
+        for module, variants in modules_to_variant.items():
+
+            # Skip specifying the build variant for Robolectric test modules
+            # since they are special. Soong builds them with the `target`
+            # variant although are installed as 'host' modules.
+            if module in robolectric_tests:
+                targets.add(module)
+                continue
+
+            targets.add(_soong_target_for_variants(module, variants))
+
+        return targets
+
+    def _is_robolectric_test_suite(self, module_name: str) -> bool:
+        return self.mod_info.is_robolectric_test_suite(
+            self.mod_info.get_module_info(module_name))
 
     def test_info_target_label(self, test: test_info.TestInfo) -> str:
         module_name = test.test_name
@@ -1118,6 +1737,11 @@ class BazelTestRunner(trb.TestRunnerBase):
             target_suffix = 'device'
 
         return f'//{package_name}:{module_name}_{target_suffix}'
+
+    def _get_bazel_feature_args(self, feature, extra_args, generator):
+        if feature not in extra_args.get('BAZEL_MODE_FEATURES', []):
+            return []
+        return generator(feature)
 
     # pylint: disable=unused-argument
     def generate_run_commands(self, test_infos, extra_args, port=None):
@@ -1140,13 +1764,22 @@ class BazelTestRunner(trb.TestRunnerBase):
         target_patterns = ' '.join(
             self.test_info_target_label(i) for i in test_infos)
 
-        bazel_args = self._parse_extra_args(test_infos, extra_args)
+        bazel_args = parse_args(test_infos, extra_args, self.mod_info)
 
-        if Features.EXPERIMENTAL_BES_PUBLISH in extra_args.get(
-                'BAZEL_MODE_FEATURES', []):
-            bazel_args.extend(self._get_bes_publish_args())
+        bazel_args.extend(
+            self._get_bazel_feature_args(
+                Features.EXPERIMENTAL_BES_PUBLISH,
+                extra_args,
+                self._get_bes_publish_args))
+        bazel_args.extend(
+            self._get_bazel_feature_args(
+                Features.EXPERIMENTAL_REMOTE,
+                extra_args,
+                self._get_remote_args))
 
-        bazel_args_str = ' '.join(bazel_args)
+        # This is an alternative to shlex.join that doesn't exist in Python
+        # versions < 3.8.
+        bazel_args_str = ' '.join(shlex.quote(arg) for arg in bazel_args)
 
         # Use 'cd' instead of setting the working directory in the subprocess
         # call for a working --dry-run command that users can run.
@@ -1156,36 +1789,81 @@ class BazelTestRunner(trb.TestRunnerBase):
             f'test {target_patterns} {bazel_args_str}'
         ]
 
-    def _parse_extra_args(self, test_infos: List[test_info.TestInfo],
-                          extra_args: trb.ARGS) -> trb.ARGS:
-        args_to_append = []
-        # Make a copy of the `extra_args` dict to avoid modifying it for other
-        # Atest runners.
-        extra_args_copy = extra_args.copy()
 
-        # Map args to their native Bazel counterparts.
-        for arg in _SUPPORTED_BAZEL_ARGS:
-            if arg not in extra_args_copy:
-                continue
-            args_to_append.extend(
-                self.map_to_bazel_args(arg, extra_args_copy[arg]))
-            # Remove the argument since we already mapped it to a Bazel option
-            # and no longer need it mapped to a Tradefed argument below.
-            del extra_args_copy[arg]
+def parse_args(
+    test_infos: List[test_info.TestInfo],
+    extra_args: Dict[str, Any],
+    mod_info: module_info.ModuleInfo) -> Dict[str, Any]:
+    """Parse commandline args and passes supported args to bazel.
 
-        # TODO(b/215461642): Store the extra_args in the top-level object so
-        # that we don't have to re-parse the extra args to get BAZEL_ARG again.
-        tf_args, _ = tfr.extra_args_to_tf_args(
-            self.mod_info, test_infos, extra_args_copy)
+    Args:
+        test_infos: A set of TestInfo instances.
+        extra_args: A Dict of extra args to append.
+        mod_info: A ModuleInfo object.
 
-        # Add ATest include filter argument to allow testcase filtering.
-        tf_args.extend(tfr.get_include_filter(test_infos))
+    Returns:
+        A list of args to append to the run command.
+    """
 
-        args_to_append.extend([f'--test_arg={i}' for i in tf_args])
+    args_to_append = []
+    # Make a copy of the `extra_args` dict to avoid modifying it for other
+    # Atest runners.
+    extra_args_copy = extra_args.copy()
 
-        return args_to_append
+    # Remove the `--host` flag since we already pass that in the rule's
+    # implementation.
+    extra_args_copy.pop(constants.HOST, None)
 
-    @staticmethod
-    def map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
-        return _SUPPORTED_BAZEL_ARGS[arg](
-            arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []
+    # Map args to their native Bazel counterparts.
+    for arg in _SUPPORTED_BAZEL_ARGS:
+        if arg not in extra_args_copy:
+            continue
+        args_to_append.extend(
+            _map_to_bazel_args(arg, extra_args_copy[arg]))
+        # Remove the argument since we already mapped it to a Bazel option
+        # and no longer need it mapped to a Tradefed argument below.
+        del extra_args_copy[arg]
+
+    # TODO(b/215461642): Store the extra_args in the top-level object so
+    # that we don't have to re-parse the extra args to get BAZEL_ARG again.
+    tf_args, _ = tfr.extra_args_to_tf_args(
+        mod_info, test_infos, extra_args_copy)
+
+    # Add ATest include filter argument to allow testcase filtering.
+    tf_args.extend(tfr.get_include_filter(test_infos))
+
+    args_to_append.extend([f'--test_arg={i}' for i in tf_args])
+
+    # Default to --test_output=errors unless specified otherwise
+    if not any(arg.startswith('--test_output=') for arg in args_to_append):
+        args_to_append.append('--test_output=errors')
+
+    return args_to_append
+
+def _map_to_bazel_args(arg: str, arg_value: Any) -> List[str]:
+    return _SUPPORTED_BAZEL_ARGS[arg](
+        arg_value) if arg in _SUPPORTED_BAZEL_ARGS else []
+
+
+def _parse_cquery_output(output: str) -> Dict[str, Set[str]]:
+    module_to_build_variants = defaultdict(set)
+
+    for line in filter(bool, map(str.strip, output.splitlines())):
+        module_name, build_variant = line.split(':')
+        module_to_build_variants[module_name].add(build_variant)
+
+    return module_to_build_variants
+
+
+def _soong_target_for_variants(
+    module_name: str,
+    build_variants: Set[str]) -> str:
+
+    if not build_variants:
+        raise Exception(f'Missing the build variants for module {module_name} '
+                        f'in cquery output!')
+
+    if len(build_variants) > 1:
+        return module_name
+
+    return f'{module_name}-{_CONFIG_TO_VARIANT[list(build_variants)[0]]}'

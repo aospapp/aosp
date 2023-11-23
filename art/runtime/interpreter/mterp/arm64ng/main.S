@@ -238,7 +238,7 @@
     .hidden \name
     .global \name
     .balign 16
-    // Padding of 3 * 8 bytes to get 16 bytes alignment of code entry.
+    // Padding of 3 * 4 bytes to get 16 bytes alignment of code entry.
     .long 0
     .long 0
     .long 0
@@ -273,7 +273,9 @@ ENTRY \name
   bl \helper
   RESTORE_SAVE_REFS_ONLY_FRAME
   REFRESH_MARKING_REGISTER
-  RETURN_OR_DELIVER_PENDING_EXCEPTION
+  ldr xIP0, [xSELF, # THREAD_EXCEPTION_OFFSET]   // Get exception field.
+  cbnz xIP0, nterp_deliver_pending_exception
+  ret
 END \name
 .endm
 
@@ -1590,6 +1592,29 @@ END \name
  *  rest  method parameters
  */
 
+OAT_ENTRY ExecuteNterpWithClinitImpl, EndExecuteNterpWithClinitImpl
+    // For simplicity, we don't do a read barrier here, but instead rely
+    // on art_quick_resolution_trampoline to always have a suspend point before
+    // calling back here.
+    ldr wip, [x0, #ART_METHOD_DECLARING_CLASS_OFFSET]
+    ldrb wip2, [ip, #MIRROR_CLASS_IS_VISIBLY_INITIALIZED_OFFSET]
+    cmp ip2, #MIRROR_CLASS_IS_VISIBLY_INITIALIZED_VALUE
+    b.hs ExecuteNterpImpl
+    cmp ip2, #MIRROR_CLASS_IS_INITIALIZED_VALUE
+    b.lo .Linitializing_check
+    dmb ish
+    b ExecuteNterpImpl
+.Linitializing_check:
+    cmp ip2, #MIRROR_CLASS_IS_INITIALIZING_VALUE
+    b.lo .Lresolution_trampoline
+    ldr wip2, [ip, #MIRROR_CLASS_CLINIT_THREAD_ID_OFFSET]
+    ldr wip, [xSELF, #THREAD_TID_OFFSET]
+    cmp wip, wip2
+    b.eq ExecuteNterpImpl
+.Lresolution_trampoline:
+    b art_quick_resolution_trampoline
+EndExecuteNterpWithClinitImpl:
+
 OAT_ENTRY ExecuteNterpImpl, EndExecuteNterpImpl
     .cfi_startproc
     sub x16, sp, #STACK_OVERFLOW_RESERVED_BYTES
@@ -1887,10 +1912,15 @@ NTERP_TRAMPOLINE nterp_get_static_field, NterpGetStaticField
 NTERP_TRAMPOLINE nterp_get_instance_field_offset, NterpGetInstanceFieldOffset
 NTERP_TRAMPOLINE nterp_filled_new_array, NterpFilledNewArray
 NTERP_TRAMPOLINE nterp_filled_new_array_range, NterpFilledNewArrayRange
-NTERP_TRAMPOLINE nterp_get_class_or_allocate_object, NterpGetClassOrAllocateObject
+NTERP_TRAMPOLINE nterp_get_class, NterpGetClass
+NTERP_TRAMPOLINE nterp_allocate_object, NterpAllocateObject
 NTERP_TRAMPOLINE nterp_get_method, NterpGetMethod
 NTERP_TRAMPOLINE nterp_hot_method, NterpHotMethod
 NTERP_TRAMPOLINE nterp_load_object, NterpLoadObject
+
+ENTRY nterp_deliver_pending_exception
+    DELIVER_PENDING_EXCEPTION
+END nterp_deliver_pending_exception
 
 // gen_mterp.py will inline the following definitions
 // within [ExecuteNterpImpl, EndExecuteNterpImpl).

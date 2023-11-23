@@ -18,6 +18,7 @@
 
 from __future__ import absolute_import
 from __future__ import print_function
+import binascii
 
 import hashlib
 import io
@@ -25,10 +26,10 @@ import mmap
 import struct
 import zipfile
 
-from update_payload import applier
+import update_metadata_pb2
+
 from update_payload import checker
 from update_payload import common
-from update_payload import update_metadata_pb2
 from update_payload.error import PayloadError
 
 
@@ -123,15 +124,22 @@ class Payload(object):
       payload_file_offset: the offset of the actual payload
     """
     if zipfile.is_zipfile(payload_file):
+      self.name = payload_file
       with zipfile.ZipFile(payload_file) as zfp:
+        if "payload.bin" not in zfp.namelist():
+          raise ValueError(f"payload.bin missing in archive {payload_file}")
         self.payload_file = zfp.open("payload.bin", "r")
     elif isinstance(payload_file, str):
+      self.name = payload_file
       payload_fp = open(payload_file, "rb")
       payload_bytes = mmap.mmap(
           payload_fp.fileno(), 0, access=mmap.ACCESS_READ)
       self.payload_file = io.BytesIO(payload_bytes)
     else:
+      self.name = payload_file.name
       self.payload_file = payload_file
+    self.payload_file_size = self.payload_file.seek(0, io.SEEK_END)
+    self.payload_file.seek(0, io.SEEK_SET)
     self.payload_file_offset = payload_file_offset
     self.manifest_hasher = None
     self.is_init = False
@@ -141,6 +149,7 @@ class Payload(object):
     self.metadata_signature = None
     self.payload_signature = None
     self.metadata_size = None
+    self.Init()
 
   @property
   def is_incremental(self):
@@ -149,6 +158,20 @@ class Payload(object):
   @property
   def is_partial(self):
     return self.manifest.partial_update
+
+  @property
+  def total_data_length(self):
+    """Return the total data length of this payload, excluding payload
+    signature at the very end.
+    """
+    # Operations are sorted in ascending data_offset order, so iterating
+    # backwards and find the first one with non zero data_offset will tell
+    # us total data length
+    for partition in reversed(self.manifest.partitions):
+      for op in reversed(partition.operations):
+        if op.data_length > 0:
+          return op.data_offset + op.data_length
+    return 0
 
   def _ReadHeader(self):
     """Reads and returns the payload header.
@@ -223,7 +246,7 @@ class Payload(object):
       correctly.
     """
     if self.is_init:
-      raise PayloadError('payload object already initialized')
+      return
 
     self.manifest_hasher = hashlib.sha256()
 
@@ -245,7 +268,7 @@ class Payload(object):
     self.metadata_size = self.header.size + self.header.manifest_len
     self.data_offset = self.metadata_size + self.header.metadata_signature_len
 
-    if self.manifest.signatures_offset and self.manifest.signatures_size:
+    if self.manifest.signatures_offset and self.manifest.signatures_size and self.manifest.signatures_offset + self.manifest.signatures_size <= self.payload_file_size:
       payload_signature_blob = self.ReadDataBlob(
           self.manifest.signatures_offset, self.manifest.signatures_size)
       payload_signature = update_metadata_pb2.Signatures()
@@ -305,29 +328,16 @@ class Payload(object):
                part_sizes=part_sizes,
                report_out_file=report_out_file)
 
-  def Apply(self, new_parts, old_parts=None, bsdiff_in_place=True,
-            bspatch_path=None, puffpatch_path=None,
-            truncate_to_expected_size=True):
-    """Applies the update payload.
-
-    Args:
-      new_parts: map of partition name to dest partition file
-      old_parts: map of partition name to partition file (optional)
-      bsdiff_in_place: whether to perform BSDIFF operations in-place (optional)
-      bspatch_path: path to the bspatch binary (optional)
-      puffpatch_path: path to the puffpatch binary (optional)
-      truncate_to_expected_size: whether to truncate the resulting partitions
-                                 to their expected sizes, as specified in the
-                                 payload (optional)
-
-    Raises:
-      PayloadError if payload application failed.
-    """
-    self._AssertInit()
-
-    # Create a short-lived payload applier object and run it.
-    helper = applier.PayloadApplier(
-        self, bsdiff_in_place=bsdiff_in_place, bspatch_path=bspatch_path,
-        puffpatch_path=puffpatch_path,
-        truncate_to_expected_size=truncate_to_expected_size)
-    helper.Run(new_parts, old_parts=old_parts)
+  def CheckDataHash(self):
+    for part in self.manifest.partitions:
+      for op in part.operations:
+        if op.data_length == 0:
+          continue
+        if not op.data_sha256_hash:
+          raise PayloadError(
+              f"Operation {op} in partition {part.partition_name} missing data_sha256_hash")
+        blob = self.ReadDataBlob(op.data_offset, op.data_length)
+        blob_hash = hashlib.sha256(blob)
+        if blob_hash.digest() != op.data_sha256_hash:
+          raise PayloadError(
+              f"Operation {op} in partition {part.partition_name} has unexpected hash, expected: {binascii.hexlify(op.data_sha256_hash)}, actual: {blob_hash.hexdigest()}")

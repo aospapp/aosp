@@ -26,7 +26,6 @@ android_test_helper_app {
     },
     srcs: ["src/**/*.java"],
     test_suites: [
-        "cts",
         "general-tests",
     ],
     static_libs: ["CtsJvmtiDeviceAppBase"],

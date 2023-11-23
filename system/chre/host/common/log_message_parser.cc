@@ -15,9 +15,13 @@
  */
 
 #include "chre_host/log_message_parser.h"
+
 #include <endian.h>
+#include <string.h>
+
 #include "chre/util/time.h"
 #include "chre_host/daemon_base.h"
+#include "chre_host/file_stream.h"
 #include "chre_host/log.h"
 #include "include/chre_host/log_message_parser.h"
 
@@ -39,10 +43,11 @@ LogMessageParser::LogMessageParser()
     : mVerboseLoggingEnabled(kVerboseLoggingEnabled) {}
 
 std::unique_ptr<Detokenizer> LogMessageParser::logDetokenizerInit() {
+#ifdef CHRE_TOKENIZED_LOGGING_ENABLED
   constexpr const char kLogDatabaseFilePath[] =
       "/vendor/etc/chre/libchre_log_database.bin";
   std::vector<uint8_t> tokenData;
-  if (ChreDaemonBase::readFileContents(kLogDatabaseFilePath, &tokenData)) {
+  if (readFileContents(kLogDatabaseFilePath, tokenData)) {
     pw::tokenizer::TokenDatabase database =
         pw::tokenizer::TokenDatabase::Create(tokenData);
     if (database.ok()) {
@@ -54,6 +59,7 @@ std::unique_ptr<Detokenizer> LogMessageParser::logDetokenizerInit() {
   } else {
     LOGE("Failed to read CHRE Token database file");
   }
+#endif
   return std::unique_ptr<Detokenizer>(nullptr);
 }
 
@@ -122,13 +128,13 @@ android_LogPriority LogMessageParser::chreLogLevelToAndroidLogPriority(
 uint8_t LogMessageParser::getLogLevelFromMetadata(uint8_t metadata) {
   // The lower nibble of the metadata denotes the loglevel, as indicated
   // by the schema in host_messages.fbs.
-  return (metadata & 0xf);
+  return metadata & 0xf;
 }
 
 bool LogMessageParser::isLogMessageEncoded(uint8_t metadata) {
   // The upper nibble of the metadata denotes the encoding, as indicated
   // by the schema in host_messages.fbs.
-  return (((metadata >> 4) & 0xf) != 0);
+  return (metadata & 0xf0) != 0;
 }
 
 void LogMessageParser::log(const uint8_t *logBuffer, size_t logBufferSize) {
@@ -196,22 +202,32 @@ void LogMessageParser::emitLogMessage(uint8_t level, uint32_t timestampMillis,
 
 void LogMessageParser::logV2(const uint8_t *logBuffer, size_t logBufferSize,
                              uint32_t numLogsDropped) {
+  // Size of the struct with an empty string.
+  constexpr size_t kMinLogMessageV2Size = sizeof(LogMessageV2) + 1;
+
   updateAndPrintDroppedLogs(numLogsDropped);
 
   size_t bufferIndex = 0;
-  while (bufferIndex < logBufferSize) {
-    const LogMessageV2 *message =
+  while (bufferIndex + kMinLogMessageV2Size <= logBufferSize) {
+    auto message =
         reinterpret_cast<const LogMessageV2 *>(&logBuffer[bufferIndex]);
-    size_t bufferIndexDelta = logBufferSize - bufferIndex;
+
     size_t logMessageSize;
     if (isLogMessageEncoded(message->metadata)) {
       logMessageSize = parseAndEmitTokenizedLogMessageAndGetSize(message);
     } else {
+      size_t maxLogMessageLen =
+          (logBufferSize - bufferIndex) - kMinLogMessageV2Size;
+      size_t logMessageLen = strnlen(message->logMessage, maxLogMessageLen);
+      if (message->logMessage[logMessageLen] != '\0') {
+        LOGE("Dropping log due to invalid buffer structure");
+        break;
+      }
       parseAndEmitLogMessage(message);
-      logMessageSize = strlen(message->logMessage) + 1;
+      // Account for the terminating '\0'
+      logMessageSize = logMessageLen + 1;
     }
-    bufferIndex +=
-        sizeof(LogMessageV2) + std::min(logMessageSize, bufferIndexDelta);
+    bufferIndex += sizeof(LogMessageV2) + logMessageSize;
   }
 }
 

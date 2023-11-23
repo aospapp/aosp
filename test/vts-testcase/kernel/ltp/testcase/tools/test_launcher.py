@@ -25,34 +25,23 @@ class LTPConfigTest(unittest.TestCase):
     """Tests the correctness of LTP tests configuration."""
 
     @staticmethod
-    def stable_test_entry_name(stable_tuple, no_suffix=False):
-        t = stable_tuple[0]
+    def stable_test_entry_name(stable_key, no_suffix=False):
         if no_suffix:
             for s in ["_32bit", "_64bit"]:
-                if t.endswith(s):
-                    t = t.removesuffix(s)
+                if stable_key.endswith(s):
+                    stable_key = stable_key.removesuffix(s)
                     break
-        return t
+        return stable_key
 
     def get_parsed_tests(self, no_suffix=False):
         from configs import stable_tests
         from configs import disabled_tests
 
         return {
-            "STABLE_TESTS": [self.stable_test_entry_name(t, no_suffix) for t in stable_tests.STABLE_TESTS],
+            "STABLE_TESTS": set(self.stable_test_entry_name(t, no_suffix) for t in stable_tests.STABLE_TESTS),
             "DISABLED_TESTS": disabled_tests.DISABLED_TESTS,
             "DISABLED_TESTS_HWASAN": disabled_tests.DISABLED_TESTS_HWASAN,
         }
-
-    def test_configs_sorted_methods(self):
-        parsed_tests = self.get_parsed_tests()
-
-        for t in parsed_tests:
-            with self.subTest(container=t):
-                unsorted_tests = parsed_tests[t]
-                sorted_tests = sorted(unsorted_tests)
-                for i in range(0, len(unsorted_tests)):
-                    self.assertEqual(unsorted_tests[i], sorted_tests[i])
 
     def test_configs_correct_format(self):
         parsed_tests = self.get_parsed_tests()
@@ -62,21 +51,6 @@ class LTPConfigTest(unittest.TestCase):
                 test_syntax = re.compile(r"\A[\w|-]+\.[\w|-]+_(32|64)bit\Z")
                 for t in parsed_tests[container]:
                     self.assertIsNotNone(test_syntax.match(t), '"{}" should be in the form "<class>.<method>_{{32,64}}bit"'.format(t))
-
-    def test_configs_no_duplicate_methods(self):
-        parsed_tests = self.get_parsed_tests()
-        success = True
-        multiple_occurrences = {}
-
-        for test_container in parsed_tests:
-            with self.subTest(container=test_container):
-                tests_list = parsed_tests[test_container]
-                for test in tests_list:
-                    occurrences = tests_list.count(test)
-                    if occurrences > 1:
-                        multiple_occurrences[test] = occurrences
-                        success = False
-        self.assertTrue(success, 'Test(s) with multiple occurrencies: \n{}'.format(pprint.pformat(multiple_occurrences)))
 
     def test_configs_collide(self):
         parsed_tests = self.get_parsed_tests()

@@ -24,12 +24,12 @@ from acts import asserts
 from acts.controllers.access_point import setup_ap
 from acts.controllers.ap_lib import hostapd_constants
 from acts.utils import rand_ascii_str
+from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_device
-from acts_contrib.test_utils.abstract_devices.wlan_device_lib.AbstractDeviceWlanDeviceBaseTest import AbstractDeviceWlanDeviceBaseTest
 from typing import Sequence
 
 
-class ChannelSwitchTest(AbstractDeviceWlanDeviceBaseTest):
+class ChannelSwitchTest(WifiBaseTest):
     # Time to wait between issuing channel switches
     WAIT_BETWEEN_CHANNEL_SWITCHES_S = 15
 
@@ -211,8 +211,8 @@ class ChannelSwitchTest(AbstractDeviceWlanDeviceBaseTest):
             test_with_soft_ap=True)
 
     # TODO(fxbug.dev/84777): This test fails.
-    def test_channel_switch_regression_global_operating_class_115(self
-                                                                  ) -> None:
+    def test_channel_switch_regression_global_operating_class_115(
+            self) -> None:
         """Channel switch into, through, and out of global op. class 115 channels.
 
         Global operating class 115 is described in IEEE 802.11-2016 Table E-4.
@@ -243,8 +243,8 @@ class ChannelSwitchTest(AbstractDeviceWlanDeviceBaseTest):
             test_with_soft_ap=True)
 
     # TODO(fxbug.dev/84777): This test fails.
-    def test_channel_switch_regression_global_operating_class_124(self
-                                                                  ) -> None:
+    def test_channel_switch_regression_global_operating_class_124(
+            self) -> None:
         """Switch into, through, and out of global op. class 124 channels.
 
         Global operating class 124 is described in IEEE 802.11-2016 Table E-4.
@@ -307,7 +307,7 @@ class ChannelSwitchTest(AbstractDeviceWlanDeviceBaseTest):
 
         self.log.info('Starting SoftAP on DUT')
 
-        response = self.dut.device.wlan_ap_policy_lib.wlanStartAccessPoint(
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStartAccessPoint(
             ssid, security_type, password, connectivity_mode, operating_band)
         if response.get('error'):
             raise EnvironmentError('SL4F: Failed to setup SoftAP. Err: %s' %
@@ -320,7 +320,8 @@ class ChannelSwitchTest(AbstractDeviceWlanDeviceBaseTest):
         Raises:
             EnvironmentError: if SoftAP stop call fails
         """
-        response = self.dut.device.wlan_ap_policy_lib.wlanStopAllAccessPoint()
+        response = self.dut.device.sl4f.wlan_ap_policy_lib.wlanStopAllAccessPoint(
+        )
         if response.get('error'):
             raise EnvironmentError(
                 'SL4F: Failed to stop all SoftAPs. Err: %s' %
@@ -362,12 +363,12 @@ class ChannelSwitchTest(AbstractDeviceWlanDeviceBaseTest):
         """
         iface_ids = self.dut.get_wlan_interface_id_list()
         for iface_id in iface_ids:
-            query = self.dut.device.wlan_lib.wlanQueryInterface(iface_id)
+            query = self.dut.device.sl4f.wlan_lib.wlanQueryInterface(iface_id)
             if query['error']:
                 continue
             query_result = query['result']
             if type(query_result) is dict and query_result.get('role') == 'Ap':
-                status = self.dut.device.wlan_lib.wlanStatus(iface_id)
+                status = self.dut.device.sl4f.wlan_lib.wlanStatus(iface_id)
                 if status['error']:
                     continue
                 status_result = status['result']

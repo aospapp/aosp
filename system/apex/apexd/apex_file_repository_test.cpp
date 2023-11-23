@@ -740,8 +740,7 @@ TEST_F(ApexFileRepositoryTestAddBlockApex, GetBlockApexRootDigest) {
   auto status = instance.AddBlockApex(metadata_partition_path);
   ASSERT_TRUE(IsOk(status));
 
-  ASSERT_EQ(hex_root_digest,
-            instance.GetBlockApexRootDigest("com.android.apex.test_package"));
+  ASSERT_EQ(hex_root_digest, instance.GetBlockApexRootDigest(apex_foo_path));
 }
 
 TEST_F(ApexFileRepositoryTestAddBlockApex, GetBlockApexLastUpdateSeconds) {
@@ -767,8 +766,8 @@ TEST_F(ApexFileRepositoryTestAddBlockApex, GetBlockApexLastUpdateSeconds) {
   auto status = instance.AddBlockApex(metadata_partition_path);
   ASSERT_TRUE(IsOk(status));
 
-  ASSERT_EQ(last_update_seconds, instance.GetBlockApexLastUpdateSeconds(
-                                     "com.android.apex.test_package"));
+  ASSERT_EQ(last_update_seconds,
+            instance.GetBlockApexLastUpdateSeconds(apex_foo_path));
 }
 
 TEST_F(ApexFileRepositoryTestAddBlockApex, VerifyPublicKeyWhenAddingBlockApex) {

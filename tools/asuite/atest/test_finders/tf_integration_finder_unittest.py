@@ -23,14 +23,14 @@ import unittest
 
 from unittest import mock
 
-import constants
-import unittest_constants as uc
-import unittest_utils
+from atest import constants
+from atest import unittest_constants as uc
+from atest import unittest_utils
 
-from test_finders import test_finder_utils
-from test_finders import test_info
-from test_finders import tf_integration_finder
-from test_runners import atest_tf_test_runner as atf_tr
+from atest.test_finders import test_finder_utils
+from atest.test_finders import test_info
+from atest.test_finders import tf_integration_finder
+from atest.test_runners import atest_tf_test_runner as atf_tr
 
 
 INT_NAME_CLASS = uc.INT_NAME + ':' + uc.FULL_CLASS_NAME
@@ -99,7 +99,6 @@ class TFIntegrationFinderUnittests(unittest.TestCase):
         self.assertEqual(
             self.tf_finder.find_test_by_integration_name('NotIntName'), [])
 
-    @mock.patch.dict('os.environ', {constants.ANDROID_BUILD_TOP:'/'})
     @mock.patch.object(tf_integration_finder.TFIntegrationFinder,
                        '_get_build_targets', return_value=set())
     @mock.patch('os.path.realpath',

@@ -29,11 +29,9 @@ import android.os.Bundle;
 import android.os.Process;
 import android.platform.test.longevity.proto.Configuration.Scenario;
 import android.util.Log;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
-
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
 
 import org.junit.rules.TestRule;
 import org.junit.rules.Timeout;
@@ -42,6 +40,9 @@ import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.Statement;
+
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 /**
  * A {@link BlockJUnit4ClassRunner} that runs a test class with a specified timeout and optionally
@@ -223,13 +224,14 @@ public class ScheduledScenarioRunner extends LongevityClassRunner {
                         countDownLatch.countDown();
                     }
                 };
-        context.registerReceiver(receiver, wakeUpActionFilter);
+        context.registerReceiver(
+                receiver, wakeUpActionFilter, Context.RECEIVER_EXPORTED /*UNAUDITED*/);
         PendingIntent pendingIntent =
                 PendingIntent.getBroadcast(
                         context,
                         0,
-                        new Intent(wakeUpAction),
-                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                        new Intent(wakeUpAction).setPackage(context.getPackageName()),
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
 
         alarmManager.setExactAndAllowWhileIdle(
                 AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + durationMs, pendingIntent);

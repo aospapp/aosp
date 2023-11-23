@@ -31,19 +31,21 @@ const (
 type testBazelTarget struct {
 	typ   string
 	name  string
-	attrs attrNameToString
+	attrs AttrNameToString
 }
 
-func generateBazelTargetsForTest(targets []testBazelTarget) []string {
+func generateBazelTargetsForTest(targets []testBazelTarget, hod android.HostOrDeviceSupported) []string {
 	ret := make([]string, 0, len(targets))
 	for _, t := range targets {
-		ret = append(ret, makeBazelTarget(t.typ, t.name, t.attrs))
+		attrs := t.attrs.clone()
+		ret = append(ret, makeBazelTargetHostOrDevice(t.typ, t.name, attrs, hod))
 	}
 	return ret
 }
 
 type ccBinaryBp2buildTestCase struct {
 	description string
+	filesystem  map[string]string
 	blueprint   string
 	targets     []testBazelTarget
 }
@@ -65,43 +67,36 @@ func runCcBinaryTests(t *testing.T, tc ccBinaryBp2buildTestCase) {
 	runCcHostBinaryTestCase(t, tc)
 }
 
-func runCcBinaryTestCase(t *testing.T, tc ccBinaryBp2buildTestCase) {
+func runCcBinaryTestCase(t *testing.T, testCase ccBinaryBp2buildTestCase) {
 	t.Helper()
 	moduleTypeUnderTest := "cc_binary"
-	testCase := bp2buildTestCase{
-		expectedBazelTargets:       generateBazelTargetsForTest(tc.targets),
-		moduleTypeUnderTest:        moduleTypeUnderTest,
-		moduleTypeUnderTestFactory: cc.BinaryFactory,
-		description:                fmt.Sprintf("%s %s", moduleTypeUnderTest, tc.description),
-		blueprint:                  binaryReplacer.Replace(tc.blueprint),
-	}
-	t.Run(testCase.description, func(t *testing.T) {
+
+	description := fmt.Sprintf("%s %s", moduleTypeUnderTest, testCase.description)
+	t.Run(description, func(t *testing.T) {
 		t.Helper()
-		runBp2BuildTestCase(t, registerCcBinaryModuleTypes, testCase)
+		RunBp2BuildTestCase(t, registerCcBinaryModuleTypes, Bp2buildTestCase{
+			ExpectedBazelTargets:       generateBazelTargetsForTest(testCase.targets, android.DeviceSupported),
+			ModuleTypeUnderTest:        moduleTypeUnderTest,
+			ModuleTypeUnderTestFactory: cc.BinaryFactory,
+			Description:                description,
+			Blueprint:                  binaryReplacer.Replace(testCase.blueprint),
+			Filesystem:                 testCase.filesystem,
+		})
 	})
 }
 
-func runCcHostBinaryTestCase(t *testing.T, tc ccBinaryBp2buildTestCase) {
+func runCcHostBinaryTestCase(t *testing.T, testCase ccBinaryBp2buildTestCase) {
 	t.Helper()
-	testCase := tc
-	for i, tar := range testCase.targets {
-		switch tar.typ {
-		case "cc_binary", "proto_library", "cc_lite_proto_library":
-			tar.attrs["target_compatible_with"] = `select({
-        "//build/bazel/platforms/os:android": ["@platforms//:incompatible"],
-        "//conditions:default": [],
-    })`
-		}
-		testCase.targets[i] = tar
-	}
 	moduleTypeUnderTest := "cc_binary_host"
-	t.Run(testCase.description, func(t *testing.T) {
-		runBp2BuildTestCase(t, registerCcBinaryModuleTypes, bp2buildTestCase{
-			expectedBazelTargets:       generateBazelTargetsForTest(testCase.targets),
-			moduleTypeUnderTest:        moduleTypeUnderTest,
-			moduleTypeUnderTestFactory: cc.BinaryHostFactory,
-			description:                fmt.Sprintf("%s %s", moduleTypeUnderTest, tc.description),
-			blueprint:                  hostBinaryReplacer.Replace(testCase.blueprint),
+	description := fmt.Sprintf("%s %s", moduleTypeUnderTest, testCase.description)
+	t.Run(description, func(t *testing.T) {
+		RunBp2BuildTestCase(t, registerCcBinaryModuleTypes, Bp2buildTestCase{
+			ExpectedBazelTargets:       generateBazelTargetsForTest(testCase.targets, android.HostSupported),
+			ModuleTypeUnderTest:        moduleTypeUnderTest,
+			ModuleTypeUnderTestFactory: cc.BinaryHostFactory,
+			Description:                description,
+			Blueprint:                  hostBinaryReplacer.Replace(testCase.blueprint),
+			Filesystem:                 testCase.filesystem,
 		})
 	})
 }
@@ -109,6 +104,9 @@ func runCcHostBinaryTestCase(t *testing.T, tc ccBinaryBp2buildTestCase) {
 func TestBasicCcBinary(t *testing.T) {
 	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
 		description: "basic -- properties -> attrs with little/no transformation",
+		filesystem: map[string]string{
+			soongCcVersionLibBpPath: soongCcVersionLibBp,
+		},
 		blueprint: `
 {rule_name} {
     name: "foo",
@@ -134,7 +132,7 @@ func TestBasicCcBinary(t *testing.T) {
 }
 `,
 		targets: []testBazelTarget{
-			{"cc_binary", "foo", attrNameToString{
+			{"cc_binary", "foo", AttrNameToString{
 				"absolute_includes": `["absolute_dir"]`,
 				"asflags":           `["-Dasflag"]`,
 				"conlyflags":        `["-Dconlyflag"]`,
@@ -154,9 +152,10 @@ func TestBasicCcBinary(t *testing.T) {
         "keep_symbols_list": ["symbol"],
         "none": True,
     }`,
-				"sdk_version":     `"current"`,
-				"min_sdk_version": `"29"`,
-				"use_version_lib": `True`,
+				"sdk_version":        `"current"`,
+				"min_sdk_version":    `"29"`,
+				"use_version_lib":    `True`,
+				"whole_archive_deps": `["//build/soong/cc/libbuildversion:libbuildversion"]`,
 			},
 			},
 		},
@@ -174,7 +173,7 @@ func TestCcBinaryWithSharedLdflagDisableFeature(t *testing.T) {
 }
 `,
 		targets: []testBazelTarget{
-			{"cc_binary", "foo", attrNameToString{
+			{"cc_binary", "foo", AttrNameToString{
 				"features": `["-static_flag"]`,
 				"linkopts": `["-shared"]`,
 			},
@@ -194,7 +193,7 @@ func TestCcBinaryWithLinkStatic(t *testing.T) {
 }
 `,
 		targets: []testBazelTarget{
-			{"cc_binary", "foo", attrNameToString{
+			{"cc_binary", "foo", AttrNameToString{
 				"linkshared": `False`,
 			},
 			},
@@ -202,23 +201,62 @@ func TestCcBinaryWithLinkStatic(t *testing.T) {
 	})
 }
 
-func TestCcBinaryVersionScript(t *testing.T) {
+func TestCcBinaryVersionScriptAndDynamicList(t *testing.T) {
 	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
-		description: `version script`,
+		description: `version script and dynamic list`,
 		blueprint: `
 {rule_name} {
     name: "foo",
     include_build_directory: false,
     version_script: "vs",
+    dynamic_list: "dynamic.list",
 }
 `,
 		targets: []testBazelTarget{
-			{"cc_binary", "foo", attrNameToString{
-				"additional_linker_inputs": `["vs"]`,
-				"linkopts":                 `["-Wl,--version-script,$(location vs)"]`,
+			{"cc_binary", "foo", AttrNameToString{
+				"additional_linker_inputs": `[
+        "vs",
+        "dynamic.list",
+    ]`,
+				"linkopts": `[
+        "-Wl,--version-script,$(location vs)",
+        "-Wl,--dynamic-list,$(location dynamic.list)",
+    ]`,
 			},
 			},
 		},
+	})
+}
+
+func TestCcBinaryLdflagsSplitBySpaceExceptSoongAdded(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: "ldflags are split by spaces except for the ones added by soong (version script and dynamic list)",
+		blueprint: `
+{rule_name} {
+    name: "foo",
+		ldflags: [
+			"--nospace_flag",
+			"-z spaceflag",
+		],
+		version_script: "version_script",
+		dynamic_list: "dynamic.list",
+    include_build_directory: false,
+}
+`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"additional_linker_inputs": `[
+        "version_script",
+        "dynamic.list",
+    ]`,
+				"linkopts": `[
+        "--nospace_flag",
+        "-z",
+        "spaceflag",
+        "-Wl,--version-script,$(location version_script)",
+        "-Wl,--dynamic-list,$(location dynamic.list)",
+    ]`,
+			}}},
 	})
 }
 
@@ -238,7 +276,7 @@ func TestCcBinarySplitSrcsByLang(t *testing.T) {
 }
 ` + simpleModuleDoNotConvertBp2build("filegroup", "fg_foo"),
 		targets: []testBazelTarget{
-			{"cc_binary", "foo", attrNameToString{
+			{"cc_binary", "foo", AttrNameToString{
 				"srcs": `[
         "cpponly.cpp",
         ":fg_foo_cpp_srcs",
@@ -293,7 +331,7 @@ genrule {
 			simpleModuleDoNotConvertBp2build("cc_library", "shared_dep") +
 			simpleModuleDoNotConvertBp2build("cc_library", "implementation_shared_dep"),
 		targets: []testBazelTarget{
-			{"cc_binary", "foo", attrNameToString{
+			{"cc_binary", "foo", AttrNameToString{
 				"deps": `[
         ":implementation_static_dep",
         ":static_dep",
@@ -322,21 +360,21 @@ func TestCcBinaryNocrtTests(t *testing.T) {
 	baseTestCases := []struct {
 		description   string
 		soongProperty string
-		bazelAttr     attrNameToString
+		bazelAttr     AttrNameToString
 	}{
 		{
 			description:   "nocrt: true",
 			soongProperty: `nocrt: true,`,
-			bazelAttr:     attrNameToString{"link_crt": `False`},
+			bazelAttr:     AttrNameToString{"features": `["-link_crt"]`},
 		},
 		{
 			description:   "nocrt: false",
 			soongProperty: `nocrt: false,`,
-			bazelAttr:     attrNameToString{},
+			bazelAttr:     AttrNameToString{},
 		},
 		{
 			description: "nocrt: not set",
-			bazelAttr:   attrNameToString{},
+			bazelAttr:   AttrNameToString{},
 		},
 	}
 
@@ -365,21 +403,21 @@ func TestCcBinaryNo_libcrtTests(t *testing.T) {
 	baseTestCases := []struct {
 		description   string
 		soongProperty string
-		bazelAttr     attrNameToString
+		bazelAttr     AttrNameToString
 	}{
 		{
 			description:   "no_libcrt: true",
 			soongProperty: `no_libcrt: true,`,
-			bazelAttr:     attrNameToString{"use_libcrt": `False`},
+			bazelAttr:     AttrNameToString{"features": `["-use_libcrt"]`},
 		},
 		{
 			description:   "no_libcrt: false",
 			soongProperty: `no_libcrt: false,`,
-			bazelAttr:     attrNameToString{"use_libcrt": `True`},
+			bazelAttr:     AttrNameToString{},
 		},
 		{
 			description: "no_libcrt: not set",
-			bazelAttr:   attrNameToString{},
+			bazelAttr:   AttrNameToString{},
 		},
 	}
 
@@ -408,35 +446,35 @@ func TestCcBinaryPropertiesToFeatures(t *testing.T) {
 	baseTestCases := []struct {
 		description   string
 		soongProperty string
-		bazelAttr     attrNameToString
+		bazelAttr     AttrNameToString
 	}{
 		{
 			description:   "pack_relocation: true",
 			soongProperty: `pack_relocations: true,`,
-			bazelAttr:     attrNameToString{},
+			bazelAttr:     AttrNameToString{},
 		},
 		{
 			description:   "pack_relocations: false",
 			soongProperty: `pack_relocations: false,`,
-			bazelAttr:     attrNameToString{"features": `["disable_pack_relocations"]`},
+			bazelAttr:     AttrNameToString{"features": `["disable_pack_relocations"]`},
 		},
 		{
 			description: "pack_relocations: not set",
-			bazelAttr:   attrNameToString{},
+			bazelAttr:   AttrNameToString{},
 		},
 		{
 			description:   "pack_relocation: true",
 			soongProperty: `allow_undefined_symbols: true,`,
-			bazelAttr:     attrNameToString{"features": `["-no_undefined_symbols"]`},
+			bazelAttr:     AttrNameToString{"features": `["-no_undefined_symbols"]`},
 		},
 		{
 			description:   "allow_undefined_symbols: false",
 			soongProperty: `allow_undefined_symbols: false,`,
-			bazelAttr:     attrNameToString{},
+			bazelAttr:     AttrNameToString{},
 		},
 		{
 			description: "allow_undefined_symbols: not set",
-			bazelAttr:   attrNameToString{},
+			bazelAttr:   AttrNameToString{},
 		},
 	}
 
@@ -470,11 +508,11 @@ func TestCcBinarySharedProto(t *testing.T) {
 	include_build_directory: false,
 }`,
 		targets: []testBazelTarget{
-			{"proto_library", "foo_proto", attrNameToString{
+			{"proto_library", "foo_proto", AttrNameToString{
 				"srcs": `["foo.proto"]`,
-			}}, {"cc_lite_proto_library", "foo_cc_proto_lite", attrNameToString{
+			}}, {"cc_lite_proto_library", "foo_cc_proto_lite", AttrNameToString{
 				"deps": `[":foo_proto"]`,
-			}}, {"cc_binary", "foo", attrNameToString{
+			}}, {"cc_binary", "foo", AttrNameToString{
 				"dynamic_deps":       `[":libprotobuf-cpp-lite"]`,
 				"whole_archive_deps": `[":foo_cc_proto_lite"]`,
 			}},
@@ -493,14 +531,467 @@ func TestCcBinaryStaticProto(t *testing.T) {
 	include_build_directory: false,
 }`,
 		targets: []testBazelTarget{
-			{"proto_library", "foo_proto", attrNameToString{
+			{"proto_library", "foo_proto", AttrNameToString{
 				"srcs": `["foo.proto"]`,
-			}}, {"cc_lite_proto_library", "foo_cc_proto_lite", attrNameToString{
+			}}, {"cc_lite_proto_library", "foo_cc_proto_lite", AttrNameToString{
 				"deps": `[":foo_proto"]`,
-			}}, {"cc_binary", "foo", attrNameToString{
+			}}, {"cc_binary", "foo", AttrNameToString{
 				"deps":               `[":libprotobuf-cpp-lite"]`,
 				"whole_archive_deps": `[":foo_cc_proto_lite"]`,
 				"linkshared":         `False`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryConvertLex(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: `.l and .ll sources converted to .c and .cc`,
+		blueprint: `
+{rule_name} {
+    name: "foo",
+		srcs: ["foo.c", "bar.cc", "foo1.l", "foo2.l", "bar1.ll", "bar2.ll"],
+		lex: { flags: ["--foo_opt", "--bar_opt"] },
+		include_build_directory: false,
+}
+`,
+		targets: []testBazelTarget{
+			{"genlex", "foo_genlex_l", AttrNameToString{
+				"srcs": `[
+        "foo1.l",
+        "foo2.l",
+    ]`,
+				"lexopts": `[
+        "--foo_opt",
+        "--bar_opt",
+    ]`,
+			}},
+			{"genlex", "foo_genlex_ll", AttrNameToString{
+				"srcs": `[
+        "bar1.ll",
+        "bar2.ll",
+    ]`,
+				"lexopts": `[
+        "--foo_opt",
+        "--bar_opt",
+    ]`,
+			}},
+			{"cc_binary", "foo", AttrNameToString{
+				"srcs": `[
+        "bar.cc",
+        ":foo_genlex_ll",
+    ]`,
+				"srcs_c": `[
+        "foo.c",
+        ":foo_genlex_l",
+    ]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryRuntimeLibs(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary with runtime libs",
+		blueprint: `
+cc_library {
+    name: "bar",
+    srcs: ["b.cc"],
+}
+
+{rule_name} {
+    name: "foo",
+    srcs: ["a.cc"],
+    runtime_libs: ["bar"],
+}
+`,
+		targets: []testBazelTarget{
+			{"cc_library_static", "bar_bp2build_cc_library_static", AttrNameToString{
+				"local_includes":         `["."]`,
+				"srcs":                   `["b.cc"]`,
+				"target_compatible_with": `["//build/bazel/platforms/os:android"]`,
+			},
+			},
+			{"cc_library_shared", "bar", AttrNameToString{
+				"local_includes":         `["."]`,
+				"srcs":                   `["b.cc"]`,
+				"target_compatible_with": `["//build/bazel/platforms/os:android"]`,
+			},
+			},
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"srcs":           `["a.cc"]`,
+				"runtime_deps":   `[":bar"]`,
+			},
+			},
+		},
+	})
+}
+
+func TestCcBinaryWithInstructionSet(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: "instruction set",
+		blueprint: `
+{rule_name} {
+    name: "foo",
+    arch: {
+      arm: {
+        instruction_set: "arm",
+      }
+    }
+}
+`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"features": `select({
+        "//build/bazel/platforms/arch:arm": [
+            "arm_isa_arm",
+            "-arm_isa_thumb",
+        ],
+        "//conditions:default": [],
+    })`,
+				"local_includes": `["."]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryEmptySuffix(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: "binary with empty suffix",
+		blueprint: `
+{rule_name} {
+    name: "foo",
+    suffix: "",
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"suffix":         `""`,
+			}},
+		},
+	})
+}
+
+func TestCcBinarySuffix(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: "binary with suffix",
+		blueprint: `
+{rule_name} {
+    name: "foo",
+    suffix: "-suf",
+}
+`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"suffix":         `"-suf"`,
+			}},
+		},
+	})
+}
+
+func TestCcArchVariantBinarySuffix(t *testing.T) {
+	runCcBinaryTests(t, ccBinaryBp2buildTestCase{
+		description: "binary with suffix",
+		blueprint: `
+{rule_name} {
+    name: "foo",
+    arch: {
+        arm64: { suffix: "-64" },
+        arm:   { suffix: "-32" },
+		},
+}
+`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"suffix": `select({
+        "//build/bazel/platforms/arch:arm": "-32",
+        "//build/bazel/platforms/arch:arm64": "-64",
+        "//conditions:default": None,
+    })`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithSyspropSrcs(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary with sysprop sources",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	srcs: [
+		"bar.sysprop",
+		"baz.sysprop",
+		"blah.cpp",
+	],
+	min_sdk_version: "5",
+}`,
+		targets: []testBazelTarget{
+			{"sysprop_library", "foo_sysprop_library", AttrNameToString{
+				"srcs": `[
+        "bar.sysprop",
+        "baz.sysprop",
+    ]`,
+			}},
+			{"cc_sysprop_library_static", "foo_cc_sysprop_library_static", AttrNameToString{
+				"dep":             `":foo_sysprop_library"`,
+				"min_sdk_version": `"5"`,
+			}},
+			{"cc_binary", "foo", AttrNameToString{
+				"srcs":               `["blah.cpp"]`,
+				"local_includes":     `["."]`,
+				"min_sdk_version":    `"5"`,
+				"whole_archive_deps": `[":foo_cc_sysprop_library_static"]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithSyspropSrcsSomeConfigs(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary with sysprop sources in some configs but not others",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	srcs: [
+		"blah.cpp",
+	],
+	target: {
+		android: {
+			srcs: ["bar.sysprop"],
+		},
+	},
+	min_sdk_version: "5",
+}`,
+		targets: []testBazelTarget{
+			{"sysprop_library", "foo_sysprop_library", AttrNameToString{
+				"srcs": `select({
+        "//build/bazel/platforms/os:android": ["bar.sysprop"],
+        "//conditions:default": [],
+    })`,
+			}},
+			{"cc_sysprop_library_static", "foo_cc_sysprop_library_static", AttrNameToString{
+				"dep":             `":foo_sysprop_library"`,
+				"min_sdk_version": `"5"`,
+			}},
+			{"cc_binary", "foo", AttrNameToString{
+				"srcs":            `["blah.cpp"]`,
+				"local_includes":  `["."]`,
+				"min_sdk_version": `"5"`,
+				"whole_archive_deps": `select({
+        "//build/bazel/platforms/os:android": [":foo_cc_sysprop_library_static"],
+        "//conditions:default": [],
+    })`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithIntegerOverflowProperty(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary with integer overflow property specified",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	sanitize: {
+		integer_overflow: true,
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features":       `["ubsan_integer_overflow"]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithMiscUndefinedProperty(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary with miscellaneous properties specified",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	sanitize: {
+		misc_undefined: ["undefined", "nullability"],
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `[
+        "ubsan_undefined",
+        "ubsan_nullability",
+    ]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithUBSanPropertiesArchSpecific(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary has correct feature select when UBSan props are specified in arch specific blocks",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	sanitize: {
+		misc_undefined: ["undefined", "nullability"],
+	},
+	target: {
+			android: {
+					sanitize: {
+							misc_undefined: ["alignment"],
+					},
+			},
+			linux_glibc: {
+					sanitize: {
+							integer_overflow: true,
+					},
+			},
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `[
+        "ubsan_undefined",
+        "ubsan_nullability",
+    ] + select({
+        "//build/bazel/platforms/os:android": ["ubsan_alignment"],
+        "//build/bazel/platforms/os:linux_glibc": ["ubsan_integer_overflow"],
+        "//conditions:default": [],
+    })`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithThinLto(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary has correct features when thin LTO is enabled",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	lto: {
+		thin: true,
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features":       `["android_thin_lto"]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithLtoNever(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary has correct features when LTO is explicitly disabled",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	lto: {
+		never: true,
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features":       `["-android_thin_lto"]`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithThinLtoArchSpecific(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary has correct features when LTO differs across arch and os variants",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	target: {
+		android: {
+			lto: {
+				thin: true,
+			},
+		},
+	},
+	arch: {
+		riscv64: {
+			lto: {
+				thin: false,
+			},
+		},
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `select({
+        "//build/bazel/platforms/os_arch:android_arm": ["android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_arm64": ["android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_riscv64": ["-android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_x86": ["android_thin_lto"],
+        "//build/bazel/platforms/os_arch:android_x86_64": ["android_thin_lto"],
+        "//conditions:default": [],
+    })`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithThinLtoDisabledDefaultEnabledVariant(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary has correct features when LTO disabled by default but enabled on a particular variant",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	lto: {
+		never: true,
+	},
+	target: {
+		android: {
+			lto: {
+				thin: true,
+				never: false,
+			},
+		},
+	},
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `select({
+        "//build/bazel/platforms/os:android": ["android_thin_lto"],
+        "//conditions:default": ["-android_thin_lto"],
+    })`,
+			}},
+		},
+	})
+}
+
+func TestCcBinaryWithThinLtoAndWholeProgramVtables(t *testing.T) {
+	runCcBinaryTestCase(t, ccBinaryBp2buildTestCase{
+		description: "cc_binary has correct features when thin LTO is enabled with whole_program_vtables",
+		blueprint: `
+{rule_name} {
+	name: "foo",
+	lto: {
+		thin: true,
+	},
+	whole_program_vtables: true,
+}`,
+		targets: []testBazelTarget{
+			{"cc_binary", "foo", AttrNameToString{
+				"local_includes": `["."]`,
+				"features": `[
+        "android_thin_lto",
+        "android_thin_lto_whole_program_vtables",
+    ]`,
 			}},
 		},
 	})

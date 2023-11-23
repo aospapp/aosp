@@ -143,3 +143,10 @@ TEST_F(ThreadTreeTest, add_symbols_for_process) {
   ASSERT_STREQ("two", FindSymbol(1, 1, 0x2010)->Name());
   ASSERT_STREQ("three", FindSymbol(1, 1, 0x302f)->Name());
 }
+
+TEST_F(ThreadTreeTest, invalid_fork) {
+  // tid == ptid
+  ASSERT_FALSE(thread_tree_.ForkThread(1, 2, 1, 2));
+  // pid != tid && pid != ppid
+  ASSERT_FALSE(thread_tree_.ForkThread(1, 2, 3, 1));
+}

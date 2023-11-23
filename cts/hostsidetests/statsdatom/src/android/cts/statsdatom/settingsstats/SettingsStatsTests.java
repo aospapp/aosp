@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.settingsstats;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 
 import android.cts.statsdatom.lib.AtomTestUtils;
@@ -40,7 +41,7 @@ public class SettingsStatsTests extends DeviceTestCase implements IBuildReceiver
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -73,14 +74,14 @@ public class SettingsStatsTests extends DeviceTestCase implements IBuildReceiver
             originalNetworkMode = 0;
         }
         // Clear settings_stats device config.
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         getDevice().executeShellCommand(
                 "device_config reset untrusted_clear settings_stats");
         // Set allow list through device config.
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         getDevice().executeShellCommand(
                 "device_config put settings_stats GlobalFeature__integer_whitelist " + encoded);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Set network_mode1 value
         getDevice().executeShellCommand("settings put global " + network_mode1 + " 15");
 
@@ -92,10 +93,10 @@ public class SettingsStatsTests extends DeviceTestCase implements IBuildReceiver
         try (AutoCloseable a = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, "StatsdCtsForegroundActivity", "action",
                 "action.show_notification")) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
             // Trigger a pull and wait for new pull before killing the process.
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
         }
 
         // Test the size of atoms. It should contain 5 atoms.
@@ -110,7 +111,7 @@ public class SettingsStatsTests extends DeviceTestCase implements IBuildReceiver
             }
         }
 
-        Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
         // Test the data of atom.
         assertNotNull(snapshot);
         // Get setting value and test value type.

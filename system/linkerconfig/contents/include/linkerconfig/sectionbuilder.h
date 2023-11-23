@@ -21,6 +21,7 @@
 
 #include "linkerconfig/apex.h"
 #include "linkerconfig/context.h"
+#include "linkerconfig/namespacebuilder.h"
 #include "linkerconfig/section.h"
 
 typedef android::linkerconfig::modules::Section SectionBuilder(
@@ -47,6 +48,10 @@ SectionBuilder BuildPostInstallSection;
 SectionBuilder BuildRecoverySection;
 SectionBuilder BuildIsolatedSection;
 ApexSectionBuilder BuildApexDefaultSection;
+
+std::vector<modules::LibProvider> GetVndkProvider(const Context& ctx,
+                                                  VndkUserPartition partition);
+
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

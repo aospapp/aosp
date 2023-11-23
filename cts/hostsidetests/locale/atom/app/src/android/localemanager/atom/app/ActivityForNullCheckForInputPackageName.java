@@ -31,6 +31,8 @@ public class ActivityForNullCheckForInputPackageName extends Activity {
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         callSetApplicationLocalesWithNullPackage();
+
+        finish();
     }
 
     public void callSetApplicationLocalesWithNullPackage() {

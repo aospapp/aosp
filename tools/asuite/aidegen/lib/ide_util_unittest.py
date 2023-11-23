@@ -39,7 +39,6 @@ from aidegen.lib import project_file_gen
 from aidegen.sdk import jdk_table
 
 
-# pylint: disable=too-many-public-methods
 # pylint: disable=protected-access
 # pylint: disable-msg=too-many-arguments
 # pylint: disable-msg=unused-argument
@@ -52,14 +51,16 @@ class IdeUtilUnittests(unittest.TestCase):
     _TEST_PRJ_PATH4 = ''
     _MODULE_XML_SAMPLE = ''
     _TEST_DIR = None
-    _TEST_XML_CONTENT = """<application>
+    _TEST_XML_CONTENT = """\
+<application>
   <component name="FileTypeManager" version="17">
     <extensionMap>
       <mapping ext="pi" type="Python"/>
     </extensionMap>
   </component>
 </application>"""
-    _TEST_XML_CONTENT_2 = """<application>
+    _TEST_XML_CONTENT_2 = """\
+<application>
   <component name="FileTypeManager" version="17">
     <extensionMap>
       <mapping ext="pi" type="Python"/>
@@ -159,7 +160,7 @@ class IdeUtilUnittests(unittest.TestCase):
     @mock.patch.object(ide_util.IdeBase, 'apply_optional_config')
     def test_config_ide(self, mock_config, mock_paths, mock_preference):
         """Test IDEA, IdeUtil.config_ide won't call base none implement api."""
-        # Mock SDkConfig flow to not to generate real jdk config file.
+        # Mock SDkConfig flow to not generate real jdk config file.
         mock_preference.return_value = None
         module_path = os.path.join(self._TEST_DIR, 'test')
         idea_path = os.path.join(module_path, '.idea')
@@ -581,32 +582,32 @@ class IdeUtilUnittests(unittest.TestCase):
 
         # Test no binary path in _get_script_from_system.
         eclipse._bin_paths = []
-        expacted_result = None
+        expected_result = None
         test_result = eclipse._get_script_from_system()
-        self.assertEqual(test_result, expacted_result)
+        self.assertEqual(test_result, expected_result)
 
         # Test get the matched binary from _get_script_from_system.
         mock_glob.return_value = ['/a/b/eclipse']
         mock_file_access.return_value = True
         eclipse._bin_paths = ['/a/b/eclipse']
-        expacted_result = '/a/b/eclipse'
+        expected_result = '/a/b/eclipse'
         test_result = eclipse._get_script_from_system()
-        self.assertEqual(test_result, expacted_result)
+        self.assertEqual(test_result, expected_result)
 
         # Test no matched binary from _get_script_from_system.
         mock_glob.return_value = []
         eclipse._bin_paths = ['/a/b/eclipse']
-        expacted_result = None
+        expected_result = None
         test_result = eclipse._get_script_from_system()
-        self.assertEqual(test_result, expacted_result)
+        self.assertEqual(test_result, expected_result)
 
         # Test the matched binary cannot be executed.
         mock_glob.return_value = ['/a/b/eclipse']
         mock_file_access.return_value = False
         eclipse._bin_paths = ['/a/b/eclipse']
-        expacted_result = None
+        expected_result = None
         test_result = eclipse._get_script_from_system()
-        self.assertEqual(test_result, expacted_result)
+        self.assertEqual(test_result, expected_result)
 
     @mock.patch('builtins.input')
     @mock.patch('os.path.exists')
@@ -616,19 +617,19 @@ class IdeUtilUnittests(unittest.TestCase):
         eclipse = ide_util.IdeEclipse()
         eclipse.cmd = ['eclipse']
         mock_exists.return_value = True
-        expacted_result = ('eclipse -data '
+        expected_result = ('eclipse -data '
                            '~/Documents/AIDEGen_Eclipse_workspace '
                            '2>/dev/null >&2 &')
         test_result = eclipse._get_ide_cmd()
-        self.assertEqual(test_result, expacted_result)
+        self.assertEqual(test_result, expected_result)
 
         # Test running command without the default workspace.
         eclipse.cmd = ['eclipse']
         mock_exists.return_value = False
         mock_input.return_value = 'n'
-        expacted_result = 'eclipse 2>/dev/null >&2 &'
+        expected_result = 'eclipse 2>/dev/null >&2 &'
         test_result = eclipse._get_ide_cmd()
-        self.assertEqual(test_result, expacted_result)
+        self.assertEqual(test_result, expected_result)
 
     @mock.patch.object(ide_util.IdeUtil, 'is_ide_installed')
     @mock.patch.object(project_config.ProjectConfig, 'get_instance')

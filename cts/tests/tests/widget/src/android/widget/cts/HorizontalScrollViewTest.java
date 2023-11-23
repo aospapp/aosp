@@ -19,8 +19,11 @@ package android.widget.cts;
 import static android.widget.cts.util.StretchEdgeUtil.dragAndHoldExecute;
 import static android.widget.cts.util.StretchEdgeUtil.fling;
 
+import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -32,10 +35,18 @@ import android.animation.ValueAnimator;
 import android.app.Activity;
 import android.app.Instrumentation;
 import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.Rect;
 import android.util.AttributeSet;
 import android.util.Xml;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.Surface;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.MeasureSpec;
 import android.view.ViewGroup;
@@ -46,6 +57,7 @@ import android.widget.TextView;
 import android.widget.cts.util.NoReleaseEdgeEffect;
 import android.widget.cts.util.StretchEdgeUtil;
 
+import androidx.annotation.NonNull;
 import androidx.test.InstrumentationRegistry;
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.LargeTest;
@@ -71,11 +83,11 @@ import java.util.ArrayList;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class HorizontalScrollViewTest {
-    private static final int ITEM_WIDTH  = 250;
-    private static final int ITEM_HEIGHT = 100;
+    private static final int ITEM_WIDTH  = 500;
+    private static final int ITEM_HEIGHT = 200;
     private static final int ITEM_COUNT  = 15;
-    private static final int PAGE_WIDTH  = 100;
-    private static final int PAGE_HEIGHT = 100;
+    private static final int PAGE_WIDTH  = 200;
+    private static final int PAGE_HEIGHT = 200;
     private static final int SCROLL_RIGHT = ITEM_WIDTH * ITEM_COUNT - PAGE_WIDTH;
 
     private Instrumentation mInstrumentation;
@@ -83,7 +95,9 @@ public class HorizontalScrollViewTest {
     private HorizontalScrollView mScrollViewRegular;
     private HorizontalScrollView mScrollViewCustom;
     private MyHorizontalScrollView mScrollViewCustomEmpty;
-    private HorizontalScrollView mScrollViewStretch;
+    private MyHorizontalScrollView mScrollViewStretch;
+
+    private SurfaceView mSurfaceView;
     private float mDurationScale = 1f;
 
     @Rule
@@ -102,8 +116,9 @@ public class HorizontalScrollViewTest {
                 R.id.horizontal_scroll_view_custom);
         mScrollViewCustomEmpty = (MyHorizontalScrollView) mActivity.findViewById(
                 R.id.horizontal_scroll_view_custom_empty);
-        mScrollViewStretch = (HorizontalScrollView) mActivity.findViewById(
+        mScrollViewStretch = (MyHorizontalScrollView) mActivity.findViewById(
                 R.id.horizontal_scroll_view_stretch);
+        mSurfaceView = mActivity.findViewById(R.id.surfaceview_stretch_target);
     }
 
     @After
@@ -852,7 +867,7 @@ public class HorizontalScrollViewTest {
 
         mActivityRule.runOnUiThread(() -> {
             // Scroll all the way to the right
-            mScrollViewStretch.scrollTo(210, 0);
+            mScrollViewStretch.scrollToEnd();
         });
 
         NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
@@ -874,7 +889,7 @@ public class HorizontalScrollViewTest {
 
         mActivityRule.runOnUiThread(() -> {
             // Scroll all the way to the bottom
-            mScrollViewStretch.scrollTo(210, 0);
+            mScrollViewStretch.scrollToEnd();
         });
 
         NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
@@ -918,6 +933,144 @@ public class HorizontalScrollViewTest {
         );
     }
 
+    /**
+     * Verify that the SurfaceView is at the correct location during the overscroll stretch
+     */
+    @Test
+    public void testSurfaceViewStretchAtEnd() throws Throwable {
+        showOnlyStretch();
+
+        mActivityRule.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                SurfaceView surfaceView = mActivity.findViewById(R.id.surfaceview_stretch_target);
+                surfaceView.setBackgroundColor(Color.RED);
+                surfaceView.setVisibility(View.VISIBLE);
+            }
+        });
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the end
+            mScrollViewStretch.scrollToEnd();
+        });
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+
+        mScrollViewStretch.mEdgeGlowRight = edgeEffect;
+
+        StretchEdgeUtil.dragAndHoldExecute(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                -3000,
+                0,
+                null,
+                () -> {
+                    int[] coords = new int[2];
+                    mScrollViewStretch.getLocationInWindow(coords);
+                    Bitmap screenshot = getInstrumentation().getUiAutomation().takeScreenshot(
+                            mActivityRule.getActivity().getWindow());
+
+                    assertEquals(Color.RED, screenshot.getPixel(
+                            coords[0] + mScrollViewStretch.getWidth() / 2,
+                            coords[1] + mScrollViewStretch.getHeight() / 2));
+                }
+        );
+    }
+
+    @Test
+    public void testSurfaceViewStretchAtEndWithScale() throws Throwable {
+        showOnlyStretch();
+
+        float scaleX = 2.0f;
+
+        mActivityRule.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                SurfaceView surfaceView = mActivity.findViewById(R.id.surfaceview_stretch_target);
+                surfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
+                    @Override
+                    public void surfaceCreated(@NonNull SurfaceHolder holder) {
+                        // no-op
+                    }
+
+                    @Override
+                    public void surfaceChanged(@NonNull SurfaceHolder holder, int format, int width,
+                            int height) {
+                        surfaceView.setScaleX(scaleX);
+                        surfaceView.setPivotX(width);
+                        surfaceView.setPivotY(height / 2f);
+                        Surface surface = holder.getSurface();
+                        Paint paint = new Paint();
+                        Canvas canvas = surface.lockHardwareCanvas();
+                        paint.setColor(Color.RED);
+                        canvas.drawRect(0f, 0f, width / 2f, height / 2f, paint);
+                        paint.setColor(Color.YELLOW);
+                        canvas.drawRect(width / 2f, 0f, width, height / 2f, paint);
+                        paint.setColor(Color.BLUE);
+                        canvas.drawRect(0f, height / 2f, width / 2f, height, paint);
+                        paint.setColor(Color.BLACK);
+                        canvas.drawRect(width / 2f, height / 2f, width, height, paint);
+                        surface.unlockCanvasAndPost(canvas);
+
+                    }
+
+                    @Override
+                    public void surfaceDestroyed(@NonNull SurfaceHolder holder) {
+                        // no-op
+                    }
+                });
+                surfaceView.setVisibility(View.VISIBLE);
+
+            }
+        });
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the end
+            mScrollViewStretch.scrollToEnd();
+        });
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+
+        mScrollViewStretch.mEdgeGlowRight = edgeEffect;
+
+        StretchEdgeUtil.dragAndHoldExecute(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                -3000,
+                0,
+                null,
+                () -> {
+                    int[] coords = new int[2];
+                    mScrollViewStretch.getLocationInWindow(coords);
+                    Bitmap screenshot = getInstrumentation().getUiAutomation().takeScreenshot(
+                            mActivityRule.getActivity().getWindow());
+
+                    int containerWidth = mScrollViewStretch.getWidth();
+                    int containerHeight = mScrollViewStretch.getHeight();
+
+                    int topLeftColor = screenshot.getPixel(
+                            coords[0] + containerWidth / 4,
+                            coords[1] + containerHeight / 4);
+                    int topRightColor = screenshot.getPixel(
+                            coords[0] + containerWidth / 2 + containerWidth / 4,
+                            coords[1] + containerHeight / 4);
+                    int bottomLeftColor = screenshot.getPixel(
+                            coords[0] + containerWidth / 4,
+                            coords[1] + containerHeight / 2 + containerHeight / 4);
+                    int bottomRightColor = screenshot.getPixel(
+                            coords[0] + containerWidth / 2 + containerWidth / 4,
+                            coords[1] + containerHeight / 2 + containerHeight / 4);
+
+                    assertEquals(Color.RED, topLeftColor);
+                    assertEquals(Color.YELLOW, topRightColor);
+                    assertEquals(Color.BLUE, bottomLeftColor);
+                    assertEquals(Color.BLACK, bottomRightColor);
+                }
+        );
+    }
+
     @Test
     public void testFlingWhileStretchedLeft() throws Throwable {
         // Make sure that the scroll view we care about is on screen and at the top:
@@ -938,7 +1091,7 @@ public class HorizontalScrollViewTest {
 
         mActivityRule.runOnUiThread(() -> {
             // Scroll all the way to the bottom
-            mScrollViewStretch.scrollTo(210, 0);
+            mScrollViewStretch.scrollToEnd();
         });
 
         ScrollViewTest.CaptureOnAbsorbEdgeEffect
@@ -949,11 +1102,180 @@ public class HorizontalScrollViewTest {
                 edgeEffect.onAbsorbVelocity > 0);
     }
 
+    @Test
+    public void scrollFromRotaryStretchesLeft() throws Throwable {
+        showOnlyStretch();
+
+        ScrollViewTest.CaptureOnReleaseEdgeEffect
+                edgeEffect = new ScrollViewTest.CaptureOnReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowLeft = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertTrue(mScrollViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(-2f, InputDevice.SOURCE_ROTARY_ENCODER)));
+            assertFalse(edgeEffect.isFinished());
+            assertTrue(edgeEffect.getDistance() > 0f);
+            assertTrue(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void scrollFromMouseDoesNotStretchLeft() throws Throwable {
+        showOnlyStretch();
+
+        ScrollViewTest.CaptureOnReleaseEdgeEffect
+                edgeEffect = new ScrollViewTest.CaptureOnReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowLeft = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertFalse(mScrollViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(-2f, InputDevice.SOURCE_MOUSE)));
+            assertTrue(edgeEffect.isFinished());
+            assertFalse(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void scrollFromRotaryStretchesRight() throws Throwable {
+        showOnlyStretch();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the Right
+            mScrollViewStretch.scrollToEnd();
+        });
+
+        ScrollViewTest.CaptureOnReleaseEdgeEffect
+                edgeEffect = new ScrollViewTest.CaptureOnReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowRight = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertTrue(mScrollViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(2f, InputDevice.SOURCE_ROTARY_ENCODER)));
+            assertFalse(edgeEffect.isFinished());
+            assertTrue(edgeEffect.getDistance() > 0f);
+            assertTrue(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void scrollFromMouseDoesNotStretchRight() throws Throwable {
+        showOnlyStretch();
+
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the Right
+            mScrollViewStretch.scrollToEnd();
+        });
+
+        ScrollViewTest.CaptureOnReleaseEdgeEffect
+                edgeEffect = new ScrollViewTest.CaptureOnReleaseEdgeEffect(mActivity);
+        mScrollViewStretch.mEdgeGlowRight = edgeEffect;
+
+        mActivityRule.runOnUiThread(() -> {
+            assertFalse(mScrollViewStretch.dispatchGenericMotionEvent(
+                    createScrollEvent(2f, InputDevice.SOURCE_MOUSE)));
+            assertTrue(edgeEffect.isFinished());
+            assertFalse(edgeEffect.onReleaseCalled);
+        });
+    }
+
+    @Test
+    public void flingLeftWhileStretchedAtLeft() throws Throwable {
+        showOnlyStretch();
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+
+        mScrollViewStretch.mEdgeGlowLeft = edgeEffect;
+
+        StretchEdgeUtil.dragAndHoldExecute(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                3000,
+                0,
+                null,
+                () -> assertNotEquals(0f, edgeEffect.getDistance())
+        );
+
+        mActivityRule.runOnUiThread(() -> {
+            edgeEffect.setOnReleaseCalled(false);
+            assertEquals(0, mScrollViewStretch.getScrollX());
+            mScrollViewStretch.fling(10000);
+            assertFalse(edgeEffect.getOnReleaseCalled());
+            assertNotEquals(0f, edgeEffect.getDistance());
+            assertEquals(0, mScrollViewStretch.getScrollX());
+        });
+
+        PollingCheck.waitFor(1000L, () -> edgeEffect.getDistance() == 0);
+        PollingCheck.waitFor(1000L, () -> mScrollViewStretch.getScrollX() != 0);
+    }
+
+    @Test
+    public void flingRightWhileStretchedAtRight() throws Throwable {
+        showOnlyStretch();
+        mActivityRule.runOnUiThread(() -> {
+            // Scroll all the way to the bottom
+            mScrollViewStretch.scrollToEnd();
+            assertEquals(420, mScrollViewStretch.getScrollX());
+        });
+
+        NoReleaseEdgeEffect edgeEffect = new NoReleaseEdgeEffect(mActivity);
+
+        mScrollViewStretch.mEdgeGlowRight = edgeEffect;
+
+        StretchEdgeUtil.dragAndHoldExecute(
+                mActivityRule,
+                mScrollViewStretch,
+                edgeEffect,
+                -3000,
+                0,
+                null,
+                () -> assertNotEquals(0f, edgeEffect.getDistance())
+        );
+
+        mActivityRule.runOnUiThread(() -> {
+            edgeEffect.setOnReleaseCalled(false);
+            assertEquals(420, mScrollViewStretch.getScrollX());
+            mScrollViewStretch.fling(-10000);
+            assertFalse(edgeEffect.getOnReleaseCalled());
+            assertNotEquals(0f, edgeEffect.getDistance());
+            assertEquals(420, mScrollViewStretch.getScrollX());
+        });
+
+        PollingCheck.waitFor(1000L, () -> edgeEffect.getDistance() == 0);
+        PollingCheck.waitFor(1000L, () -> mScrollViewStretch.getScrollX() != 420);
+    }
+
+    private MotionEvent createScrollEvent(float scrollAmount, int source) {
+        MotionEvent.PointerProperties pointerProperties = new MotionEvent.PointerProperties();
+        pointerProperties.toolType = MotionEvent.TOOL_TYPE_MOUSE;
+        MotionEvent.PointerCoords pointerCoords = new MotionEvent.PointerCoords();
+        int axis = source == InputDevice.SOURCE_ROTARY_ENCODER ? MotionEvent.AXIS_SCROLL
+                : MotionEvent.AXIS_HSCROLL;
+        pointerCoords.setAxisValue(axis, scrollAmount);
+
+        return MotionEvent.obtain(
+                0, /* downTime */
+                0, /* eventTime */
+                MotionEvent.ACTION_SCROLL, /* action */
+                1, /* pointerCount */
+                new MotionEvent.PointerProperties[] { pointerProperties },
+                new MotionEvent.PointerCoords[] { pointerCoords },
+                0, /* metaState */
+                0, /* buttonState */
+                0f, /* xPrecision */
+                0f, /* yPrecision */
+                0, /* deviceId */
+                0, /* edgeFlags */
+                source, /* source */
+                0 /* flags */
+        );
+    }
+
     private void showOnlyStretch() throws Throwable {
         mActivityRule.runOnUiThread(() -> {
             mScrollViewCustom.setVisibility(View.GONE);
             mScrollViewCustomEmpty.setVisibility(View.GONE);
             mScrollViewRegular.setVisibility(View.GONE);
+            mSurfaceView.setVisibility(View.GONE);
             // The stretch HorizontalScrollView is 90x90 pixels
             Rect exclusionRect = new Rect(0, 0, 90, 90);
             ArrayList exclusionRects = new ArrayList();
@@ -1096,6 +1418,10 @@ public class HorizontalScrollViewTest {
         @Override
         public int computeVerticalScrollExtent() {
             return super.computeVerticalScrollExtent();
+        }
+
+        public void scrollToEnd() {
+            scrollTo(computeHorizontalScrollRange(), 0);
         }
     }
 

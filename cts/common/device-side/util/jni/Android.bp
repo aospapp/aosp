@@ -33,7 +33,6 @@ cc_library_shared {
 
     stl: "c++_static",
 
-    static_libs: ["cpufeatures"],
     sdk_version: "19",
 
     cflags: [

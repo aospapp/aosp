@@ -19,10 +19,15 @@ interface ITestService {
     // Since sdk = 29, we have write/readBoolean
     boolean RepeatBoolean(boolean token);
 
-    // Since sdk = 23, we have write/readTypedObject
     @JavaDerive(toString=true, equals=true)
     parcelable TypedObject {
         boolean b;
     }
+
+    // Since sdk = 23, we have write/readTypedObject
     @nullable TypedObject RepeatTypedObject(in @nullable TypedObject token);
+
+    // Since sdk = 33, we have write/readTypedList (with parcelableFlags)
+    @nullable List<TypedObject> RepeatTypedList(
+            in @nullable List<TypedObject> tokens);
 }

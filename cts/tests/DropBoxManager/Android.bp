@@ -20,7 +20,6 @@ android_test {
     name: "CtsDropBoxManagerTestCases",
     defaults: ["cts_defaults"],
     static_libs: [
-        "ub-uiautomator",
         "androidx.test.rules",
         "compatibility-device-util-axt",
     ],

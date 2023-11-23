@@ -3,6 +3,11 @@
     {
       "name": "hal_implementation_test"
     }
+  ],
+  "auto-presubmit": [
+    {
+      "name": "hal_implementation_test"
+    }
   ]
 }
 

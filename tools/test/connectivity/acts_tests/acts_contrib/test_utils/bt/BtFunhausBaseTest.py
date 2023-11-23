@@ -22,7 +22,6 @@ from acts_contrib.test_utils.bt.bt_test_utils import bluetooth_enabled_check
 from acts.utils import bypass_setup_wizard
 from acts.utils import exe_cmd
 from acts.utils import sync_device_time
-import json
 import time
 import os
 

@@ -49,7 +49,11 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 
+import com.android.compatibility.common.util.OverrideAnimationScaleRule;
+
 import org.junit.Assert;
+import org.junit.Rule;
+import org.junit.rules.TestRule;
 import org.mockito.InOrder;
 
 import java.util.ArrayList;
@@ -62,6 +66,10 @@ import java.util.function.Predicate;
  * Base class for tests in {@link WindowInsetsAnimation} and {@link WindowInsetsAnimation.Callback}.
  */
 public class WindowInsetsAnimationTestBase extends WindowManagerTestBase {
+
+    @Rule
+    public final OverrideAnimationScaleRule mOverrideAnimationScaleRule =
+            new OverrideAnimationScaleRule(1.0f);
 
     protected TestActivity mActivity;
     protected View mRootView;
@@ -302,6 +310,11 @@ public class WindowInsetsAnimationTestBase extends WindowManagerTestBase {
         AnimCallback mCallback =
                 spy(new AnimCallback(WindowInsetsAnimation.Callback.DISPATCH_MODE_STOP));
         WindowInsets mLastWindowInsets;
+        /**
+         * Save the WindowInsets when animation done. Acoid to mLastWindowInsets
+         * always be updated after windowinsets animation done on low-ram devices.
+         */
+        WindowInsets mLastPendingWindowInsets;
 
         View.OnApplyWindowInsetsListener mListener;
         LinearLayout mView;
@@ -312,7 +325,16 @@ public class WindowInsetsAnimationTestBase extends WindowManagerTestBase {
 
             @Override
             public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                /**
+                 * Do not update mLastWindowInsets and save the latest WindowInsets to
+                 *  mLastPendingWindowInsets.
+                 */
+                if (mCallback.animationDone) {
+                    mLastPendingWindowInsets = insets;
+                    return WindowInsets.CONSUMED;
+                }
                 mLastWindowInsets = insets;
+                mLastPendingWindowInsets = null;
                 return WindowInsets.CONSUMED;
             }
         }
@@ -335,14 +357,27 @@ public class WindowInsetsAnimationTestBase extends WindowManagerTestBase {
             mView.addView(mChild);
             mView.addView(mEditor);
 
+            setContentView(mView);
+
             getWindow().setDecorFitsSystemWindows(false);
             getWindow().getAttributes().layoutInDisplayCutoutMode =
                     LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
             getWindow().setSoftInputMode(SOFT_INPUT_STATE_HIDDEN);
             getWindow().getDecorView().getWindowInsetsController().setSystemBarsBehavior(
                     BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            setContentView(mView);
             mEditor.requestFocus();
+        }
+
+        public void resetAnimationDone() {
+            mCallback.animationDone = false;
+            /**
+             * Do not update mLastWindowInsets and save the latest WindowInsets to
+             *  mLastPendingWindowInsets.
+             */
+            if (mLastPendingWindowInsets != null) {
+                mLastWindowInsets = new WindowInsets(mLastPendingWindowInsets);
+                mLastPendingWindowInsets = null;
+            }
         }
     }
 }

@@ -17,13 +17,18 @@
 
 trap "echo 3 >${exitcode}" ERR
 
-# $1 - Suite name for apt sources
+# $1 - Suite names for apt sources
+# $2 - Additional repos, if any
 update_apt_sources() {
   # Add the needed debian sources
-  cat >/etc/apt/sources.list <<EOF
-deb http://ftp.debian.org/debian bullseye main
-deb-src http://ftp.debian.org/debian bullseye main
+  cat >/etc/apt/sources.list << EOF
 EOF
+  for source in $1; do
+    cat >>/etc/apt/sources.list <<EOF
+deb http://ftp.debian.org/debian $source main $2
+deb-src http://ftp.debian.org/debian $source main $2
+EOF
+  done
 
   # Disable the automatic installation of recommended packages
   cat >/etc/apt/apt.conf.d/90recommends <<EOF
@@ -61,8 +66,8 @@ setup_static_networking() {
   echo "nameserver 8.8.4.4" >>/etc/resolv.conf
 }
 
-# $1 - Network interface for bridge (or NetworkManager DHCP)
-# $2 - Bridge name. If set to the empty string, NetworkManager is used
+# $1 - Network interface for bridge (or traditional DHCP)
+# $2 - Bridge name. If not specified, no bridge is configured
 setup_dynamic_networking() {
   # So isc-dhcp-client can work with a read-only rootfs..
   cat >>/etc/fstab <<EOF
@@ -77,15 +82,10 @@ EOF
 
   # Set up automatic DHCP for *future* boots
   if [ -z "$2" ]; then
-    cat >/etc/systemd/network/dhcp.network <<EOF
-[Match]
-Name=$1
-
-[Network]
-DHCP=yes
+    cat >/etc/network/interfaces.d/$1.conf <<EOF
+auto $1
+iface $1 inet dhcp
 EOF
-    # Mask the NetworkManager-wait-online service to prevent hangs
-    systemctl mask NetworkManager-wait-online.service
   else
     cat >/etc/network/interfaces.d/$2.conf <<EOF
 auto $2
@@ -119,19 +119,35 @@ create_systemd_getty_symlinks() {
 
 # $1 - Additional default command line
 setup_grub() {
-  if [ -n "${embed_kernel_initrd_dtb}" ]; then
-    # For testing the image with a virtual device
+  if [[ "${embed_kernel_initrd_dtb}" = "0" && "${install_grub}" = "0" ]]; then
+    return
+  fi
+
+  if [[ "${install_grub}" = "1" ]]; then
+    # Mount fstab entry added by stage2
+    mount /boot/efi
+
+    # Install GRUB EFI (removable, for Cloud)
+    apt-get install -y grub-efi
+    grub_arch="$(uname -m)"
+    # Remap some mismatches with uname -m
+    [ "${grub_arch}" = "i686" ] && grub_arch=i386
+    [ "${grub_arch}" = "aarch64" ] && grub_arch=arm64
+    grub-install --target "${grub_arch}-efi" --removable
+  else
+    # Install common grub components
     apt-get install -y grub2-common
-    cat >/etc/default/grub <<EOF
+    mkdir /boot/grub
+  fi
+
+  cat >/etc/default/grub <<EOF
 GRUB_DEFAULT=0
 GRUB_TIMEOUT=5
 GRUB_DISTRIBUTOR=Debian
-GRUB_CMDLINE_LINUX_DEFAULT="quiet"
+GRUB_CMDLINE_LINUX_DEFAULT=""
 GRUB_CMDLINE_LINUX="\\\$cmdline $1"
 EOF
-    mkdir /boot/grub
-    update-grub
-  fi
+  update-grub
 }
 
 cleanup() {
@@ -139,13 +155,17 @@ cleanup() {
   mkdir -p /var/lib/systemd/{coredump,linger,rfkill,timesync}
   chown systemd-timesync:systemd-timesync /var/lib/systemd/timesync
 
-  # If embedding isn't enabled, remove the embedded modules and initrd and
-  # uninstall the tools to regenerate the initrd, as they're unlikely to
-  # ever be used
-  if [ -z "${embed_kernel_initrd_dtb}" ]; then
-    apt-get purge -y initramfs-tools initramfs-tools-core klibc-utils kmod
+
+  # If embedding isn't enabled, remove the embedded modules and initrd
+  if [[ "${embed_kernel_initrd_dtb}" = "0" ]]; then
     rm -f "/boot/initrd.img-$(uname -r)"
     rm -rf "/lib/modules/$(uname -r)"
+  fi
+
+  # If embedding isn't enabled *and* GRUB isn't being installed, uninstall
+  # the tools to regenerate the initrd, as they're unlikely to ever be used
+  if [[ "${embed_kernel_initrd_dtb}" = "0" && "${install_grub}" = "0" ]]; then
+    apt-get purge -y initramfs-tools initramfs-tools-core klibc-utils kmod
   fi
 
   # Miscellaneous cleanup

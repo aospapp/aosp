@@ -15,6 +15,7 @@
  */
 package android.cts.statsdatom.statsd;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -126,7 +127,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -153,7 +154,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
 
         executeForegroundService(getDevice());
         final int waitTime = SLEEP_OF_FOREGROUND_SERVICE;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
@@ -172,7 +173,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
 
         executeForegroundActivity(getDevice(), ACTION_SHOW_APPLICATION_OVERLAY);
         final int waitTime = EXTRA_WAIT_TIME_MS + 5_000; // Overlay may need to sit there a while.
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
@@ -190,7 +191,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
 
         DeviceUtils.executeBackgroundService(getDevice(), ACTION_BACKGROUND_SLEEP);
         final int waitTime = SLEEP_OF_ACTION_BACKGROUND_SLEEP;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
@@ -209,7 +210,7 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
 
         executeForegroundActivity(getDevice(), ACTION_SLEEP_WHILE_TOP);
         final int waitTime = SLEEP_OF_ACTION_SLEEP_WHILE_TOP;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS + EXTRA_WAIT_TIME_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data, onStates,
@@ -228,13 +229,13 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
                 PROC_STATE_ATOM_TAG, /*useUidAttributionChain=*/false);
 
         DeviceUtils.turnScreenOn(getDevice());
-        Thread.sleep(WAIT_TIME_FOR_SCREEN_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_FOR_SCREEN_MS);
 
         executeForegroundActivity(getDevice(), ACTION_SLEEP_WHILE_TOP);
-        Thread.sleep(WAIT_TIME_FOR_SCREEN_MS);
+        RunUtil.getDefault().sleep(WAIT_TIME_FOR_SCREEN_MS);
         DeviceUtils.turnScreenOff(getDevice());
         final int waitTime = SLEEP_OF_ACTION_SLEEP_WHILE_TOP + EXTRA_WAIT_TIME_MS;
-        Thread.sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
+        RunUtil.getDefault().sleep(waitTime + STATSD_REPORT_WAIT_TIME_MS);
 
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         AtomTestUtils.popUntilFind(data,
@@ -265,11 +266,11 @@ public class ProcStateAtomTests extends DeviceTestCase implements IBuildReceiver
         // Start extremely short-lived activity, so app goes into cache state (#1 - #3 above).
         DeviceUtils.executeBackgroundService(getDevice(), ACTION_END_IMMEDIATELY);
         final int cacheTime = 2_000; // process should be in cached state for up to this long
-        Thread.sleep(cacheTime);
+        RunUtil.getDefault().sleep(cacheTime);
         // Now forcibly bring the app out of cache (#4 above).
         executeForegroundActivity(getDevice(), ACTION_SHOW_APPLICATION_OVERLAY);
         // Now check the data *before* the app enters cache again (to avoid another cache event).
-
+        RunUtil.getDefault().sleep(cacheTime);  //the app out of cache need some time
         List<EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
         // First, clear out any incidental cached states of step #1, prior to step #2.
         AtomTestUtils.popUntilFind(data, BG_STATES, PROC_STATE_FUNCTION);

@@ -110,6 +110,8 @@ PaletteLoader::PaletteLoader() :
 
 extern "C" {
 
+// Methods in version 1 API, corresponding to SDK level 31.
+
 palette_status_t PaletteSchedSetPriority(int32_t tid, int32_t java_priority) {
   PaletteSchedSetPriorityMethod m = PaletteLoader::Instance().GetPaletteSchedSetPriorityMethod();
   return m(tid, java_priority);
@@ -218,6 +220,8 @@ palette_status_t PaletteNotifyEndJniInvocation(JNIEnv* env) {
   return m(env);
 }
 
+// Methods in version 2 API, corresponding to SDK level 33.
+
 palette_status_t PaletteReportLockContention(JNIEnv* env,
                                              int32_t wait_ms,
                                              const char* filename,
@@ -240,6 +244,15 @@ palette_status_t PaletteReportLockContention(JNIEnv* env,
            owner_method_name,
            proc_name,
            thread_name);
+}
+
+// Methods in version 3 API, corresponding to SDK level 34.
+
+palette_status_t PaletteSetTaskProfiles(int32_t tid,
+                                        const char* const profiles[],
+                                        size_t profiles_len) {
+  PaletteSetTaskProfilesMethod m = PaletteLoader::Instance().GetPaletteSetTaskProfilesMethod();
+  return m(tid, profiles, profiles_len);
 }
 
 }  // extern "C"

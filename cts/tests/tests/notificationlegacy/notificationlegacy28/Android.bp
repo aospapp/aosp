@@ -27,6 +27,7 @@ android_test {
         "junit",
         "permission-test-util-lib",
         "compatibility-device-util-axt",
+        "CtsAppTestStubsShared",
     ],
     libs: [
         "android.test.runner",
@@ -39,4 +40,5 @@ android_test {
         "general-tests",
     ],
     min_sdk_version: "28",
+    target_sdk_version: "28",
 }

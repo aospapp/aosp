@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <chre.h>
 #include <cinttypes>
 
+#include "chre_api/chre.h"
 #include "chre_stress_test_manager.h"
 
 namespace chre {

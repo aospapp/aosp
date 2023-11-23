@@ -140,24 +140,23 @@
 #        other_loop_entry
 #        i1 = phi(p0, i0)
 #
-## CHECK-START: int IrreducibleLoop.liveness(int) liveness (after)
+## CHECK-START: int IrreducibleLoop.liveness(int, int) liveness (after)
 ## CHECK-DAG: <<Arg:i\d+>>      ParameterValue liveness:<<ArgLiv:\d+>> ranges:{[<<ArgLiv>>,<<ArgLoopPhiUse:\d+>>)}
 ## CHECK-DAG: <<LoopPhi:i\d+>>  Phi [<<Arg>>,<<PhiInLoop:i\d+>>] liveness:<<ArgLoopPhiUse>> ranges:{[<<ArgLoopPhiUse>>,<<PhiInLoopUse:\d+>>)}
 ## CHECK-DAG: <<PhiInLoop>>     Phi [<<Arg>>,<<LoopPhi>>] liveness:<<PhiInLoopUse>> ranges:{[<<PhiInLoopUse>>,<<BackEdgeLifetimeEnd:\d+>>)}
 ## CHECK:                       Return liveness:<<ReturnLiveness:\d+>>
 ## CHECK-EVAL:    <<ReturnLiveness>> == <<BackEdgeLifetimeEnd>> + 2
-.method public static liveness(I)I
+.method public static liveness(II)I
    .registers 2
-   const/16 v0, 42
-   if-eq p0, v0, :other_loop_entry
+   if-eq p0, p1, :other_loop_entry
    :loop_entry
-   add-int v0, v0, p0
-   if-ne v1, v0, :exit
+   add-int p1, p1, p0
+   if-ne v0, p1, :exit
    :other_loop_entry
-   add-int v0, v0, v0
+   add-int p1, p1, p1
    goto :loop_entry
    :exit
-   return v0
+   return p1
 .end method
 
 # Check that we don't GVN across irreducible loops:
@@ -546,4 +545,58 @@
 
   :exit
   return-void
+.end method
+
+## CHECK-START: int IrreducibleLoop.testDoNotInlineIrreducible(int) inliner (before)
+## CHECK: InvokeStaticOrDirect method_name:IrreducibleLoop.doNotInlineIrreducible
+#
+## CHECK-START: int IrreducibleLoop.testDoNotInlineIrreducible(int) inliner (after)
+## CHECK: InvokeStaticOrDirect method_name:IrreducibleLoop.doNotInlineIrreducible
+.method public static testDoNotInlineIrreducible(I)I
+  .registers 2
+  invoke-static {p0}, LIrreducibleLoop;->doNotInlineIrreducible(I)I
+  move-result v0
+  return v0
+.end method
+
+# Check that doNotInlineIrreducible has a simple irreducible loop
+#
+#        entry
+#       /    \
+#      /      \
+# loop_entry   \
+#    /    \-    \
+# try_start\-    \
+#           other_loop_entry
+#
+## CHECK-START: int IrreducibleLoop.doNotInlineIrreducible(int) register (after)
+## CHECK: irreducible:true
+#
+# Check that we didn't optimized away the try.
+## CHECK-START: int IrreducibleLoop.doNotInlineIrreducible(int) register (after)
+## CHECK: TryBoundary kind:exit
+.method public static doNotInlineIrreducible(I)I
+  .registers 3
+  const/16 v0, 42
+  const/16 v1, 21
+  # Irreducible loop
+  if-eq v1, v0, :other_loop_entry
+  :loop_entry
+  if-ne v1, v0, :try_start
+  add-int v0, v0, v0
+  :other_loop_entry
+  add-int v0, v0, v0
+  goto :loop_entry
+
+  :try_start
+  # We make this division to make sure the try doesn't get optimized out
+  div-int v0, v0, p0
+  return v0
+  :try_end
+  .catchall {:try_start .. :try_end} :catch_all
+
+  :catch_all
+  # This is only reachable if the parameter is 0
+  const/4 v0, -0x1
+  return v0
 .end method

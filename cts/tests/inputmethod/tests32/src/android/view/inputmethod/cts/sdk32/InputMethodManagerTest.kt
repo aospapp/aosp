@@ -17,20 +17,23 @@
 package android.view.inputmethod.cts.sdk32
 
 import android.content.Context
-import android.view.inputmethod.InputMethodManager
 import android.view.inputmethod.cts.util.EndToEndImeTestBase
 import android.view.inputmethod.cts.util.InputMethodVisibilityVerifier.expectImeVisible
 import android.view.inputmethod.cts.util.MockTestActivityUtil
+import android.view.inputmethod.cts.util.MockTestActivityUtil.EXTRA_KEY_PRIVATE_IME_OPTIONS
+import android.view.inputmethod.InputMethodManager
 import androidx.test.filters.MediumTest
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4
+import com.android.cts.mockime.ImeEventStreamTestUtils.editorMatcher
+import com.android.cts.mockime.ImeEventStreamTestUtils.expectEvent
 import com.android.cts.mockime.ImeSettings
 import com.android.cts.mockime.MockImeSession
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.AssumptionViolatedException
-import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.TimeUnit
+import org.junit.Test
 
 @MediumTest
 @RunWith(AndroidJUnit4::class)
@@ -41,18 +44,24 @@ class InputMethodManagerTest : EndToEndImeTestBase() {
 
     @Test
     fun getInputMethodWindowVisibleHeight_returnsZeroIfNotFocused() {
+        val marker = createUniqueMarker()
         val imm = context.getSystemService(InputMethodManager::class.java)!!
         MockImeSession.create(context, uiAutomation, ImeSettings.Builder()).use { session ->
+            val stream = session.openEventStream()
             MockTestActivityUtil.launchSync(
-                    context.getPackageManager().isInstantApp(), TIMEOUT).use {
-                session.callRequestShowSelf(0)
-                expectImeVisible(TIMEOUT)
-                assertEquals(
-                        "Only IME target UID may observe the visible height of the IME",
-                        0,
-                        imm.reflectivelyGetInputMethodWindowVisibleHeight()
-                )
-            }
+                    context.getPackageManager().isInstantApp(), TIMEOUT,
+                    mapOf(EXTRA_KEY_PRIVATE_IME_OPTIONS to marker)
+            )
+                .use {
+                    expectEvent(stream, editorMatcher("onStartInput", marker), TIMEOUT)
+                    session.callRequestShowSelf(0)
+                    expectImeVisible(TIMEOUT)
+                    assertEquals(
+                            "Only IME target UID may observe the visible height of the IME",
+                            0,
+                            imm.reflectivelyGetInputMethodWindowVisibleHeight()
+                    )
+                }
         }
     }
 

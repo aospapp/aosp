@@ -17,6 +17,8 @@
 #ifndef SYSTEM_KEYMASTER_ASYMMETRIC_KEY_H
 #define SYSTEM_KEYMASTER_ASYMMETRIC_KEY_H
 
+#include <utility>
+
 #include <openssl/evp.h>
 
 #include <keymaster/key.h>
@@ -28,7 +30,7 @@ class AsymmetricKey : public Key {
   public:
     AsymmetricKey(AuthorizationSet&& hw_enforced, AuthorizationSet&& sw_enforced,
                   const KeyFactory* key_factory)
-        : Key(move(hw_enforced), move(sw_enforced), key_factory) {}
+        : Key(std::move(hw_enforced), std::move(sw_enforced), key_factory) {}
     virtual ~AsymmetricKey() {}
 
     virtual int evp_key_type() const = 0;

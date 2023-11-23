@@ -174,9 +174,9 @@ public final class CpmsFrameworkLayerStateInfo {
     @Override
     public int hashCode() {
         return Objects.hash(mEnables, mDisables, mControlledEnables, mControlledDisables,
-                mChangedComponents, mPowerPolicyGroups, mCurrentPolicyId, mPendingPolicyId,
-                mCurrentPolicyGroupId, mCurrentState, mMonitoringHw, mSilentModeByHw,
-                mForcedSilentMode, mNumberPolicyListeners);
+                Arrays.hashCode(mChangedComponents), mPowerPolicyGroups, mCurrentPolicyId,
+                mPendingPolicyId, mCurrentPolicyGroupId, mCurrentState, mMonitoringHw,
+                mSilentModeByHw, mForcedSilentMode, mNumberPolicyListeners);
     }
 
     public static CpmsFrameworkLayerStateInfo parse(String cmdOutput) throws Exception {

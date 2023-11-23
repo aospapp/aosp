@@ -241,6 +241,16 @@ bool CanRecordRawData() {
 #endif
 }
 
+std::optional<uint64_t> GetMemorySize() {
+  std::unique_ptr<FILE, decltype(&fclose)> fp(fopen("/proc/meminfo", "r"), fclose);
+  uint64_t size;
+  if (fp && fscanf(fp.get(), "MemTotal:%" PRIu64 " k", &size) == 1) {
+    return size * kKilobyte;
+  }
+  PLOG(ERROR) << "failed to get memory size";
+  return std::nullopt;
+}
+
 static const char* GetLimitLevelDescription(int limit_level) {
   switch (limit_level) {
     case -1:
@@ -299,15 +309,16 @@ bool CheckPerfEventLimit() {
     }
   }
   if (can_read_allow_file) {
-    LOG(WARNING) << perf_event_allow_path << " is " << limit_level << ", "
-                 << GetLimitLevelDescription(limit_level) << ".";
+    LOG(ERROR) << perf_event_allow_path << " is " << limit_level << ", "
+               << GetLimitLevelDescription(limit_level) << ".";
   }
-  LOG(WARNING) << "Try using `adb shell setprop security.perf_harden 0` to allow profiling.";
+  LOG(ERROR) << "Try using `adb shell setprop security.perf_harden 0` to allow profiling.";
   return false;
 #else
   if (can_read_allow_file) {
-    LOG(WARNING) << perf_event_allow_path << " is " << limit_level << ", "
-                 << GetLimitLevelDescription(limit_level) << ".";
+    LOG(ERROR) << perf_event_allow_path << " is " << limit_level << ", "
+               << GetLimitLevelDescription(limit_level) << ". Try using `echo -1 >"
+               << perf_event_allow_path << "` to enable profiling.";
     return false;
   }
 #endif
@@ -332,9 +343,10 @@ bool SetPerfEventLimits(uint64_t sample_freq, size_t cpu_percent, uint64_t mlock
   }
   // Wait for init process to change perf event limits based on properties.
   const size_t max_wait_us = 3 * 1000000;
+  const size_t interval_us = 10000;
   int finish_mask = 0;
-  for (size_t i = 0; i < max_wait_us && finish_mask != 7; ++i) {
-    usleep(1);  // Wait 1us to avoid busy loop.
+  for (size_t i = 0; i < max_wait_us && finish_mask != 7; i += interval_us) {
+    usleep(interval_us);  // Wait 10ms to avoid busy loop.
     if ((finish_mask & 1) == 0) {
       uint64_t freq;
       if (!GetMaxSampleFrequency(&freq) || freq == sample_freq) {
@@ -486,12 +498,10 @@ std::set<pid_t> WaitForAppProcesses(const std::string& package_name) {
   while (true) {
     std::vector<pid_t> pids = GetAllProcesses();
     for (pid_t pid : pids) {
-      std::string cmdline;
-      if (!android::base::ReadFileToString("/proc/" + std::to_string(pid) + "/cmdline", &cmdline)) {
-        // Maybe we don't have permission to read it.
+      std::string process_name = GetCompleteProcessName(pid);
+      if (process_name.empty()) {
         continue;
       }
-      std::string process_name = android::base::Basename(cmdline);
       // The app may have multiple processes, with process name like
       // com.google.android.googlequicksearchbox:search.
       size_t split_pos = process_name.find(':');
@@ -824,9 +834,22 @@ void AllowMoreOpenedFiles() {
   // On Android <= O, the hard limit is 4096, and the soft limit is 1024.
   // On Android >= P, both the hard and soft limit are 32768.
   rlimit limit;
-  if (getrlimit(RLIMIT_NOFILE, &limit) == 0) {
-    limit.rlim_cur = limit.rlim_max;
-    setrlimit(RLIMIT_NOFILE, &limit);
+  if (getrlimit(RLIMIT_NOFILE, &limit) != 0) {
+    return;
+  }
+  rlim_t new_limit = limit.rlim_max;
+  if (IsRoot()) {
+    rlim_t sysctl_nr_open = 0;
+    if (ReadUintFromProcFile("/proc/sys/fs/nr_open", &sysctl_nr_open) &&
+        sysctl_nr_open > new_limit) {
+      new_limit = sysctl_nr_open;
+    }
+  }
+  if (limit.rlim_cur < new_limit) {
+    limit.rlim_cur = limit.rlim_max = new_limit;
+    if (setrlimit(RLIMIT_NOFILE, &limit) == 0) {
+      LOG(DEBUG) << "increased open file limit to " << new_limit;
+    }
   }
 }
 
@@ -934,18 +957,18 @@ bool MappedFileOnlyExistInMemory(const char* filename) {
 }
 
 std::string GetCompleteProcessName(pid_t pid) {
-  std::string s;
-  if (!android::base::ReadFileToString(android::base::StringPrintf("/proc/%d/cmdline", pid), &s)) {
-    s.clear();
+  std::string argv0;
+  if (!android::base::ReadFileToString("/proc/" + std::to_string(pid) + "/cmdline", &argv0)) {
+    // Maybe we don't have permission to read it.
+    return std::string();
   }
-  for (size_t i = 0; i < s.size(); ++i) {
-    // /proc/pid/cmdline uses 0 to separate arguments.
-    if (isspace(s[i]) || s[i] == 0) {
-      s.resize(i);
-      break;
-    }
+  size_t pos = argv0.find('\0');
+  if (pos != std::string::npos) {
+    argv0.resize(pos);
   }
-  return s;
+  // argv0 can be empty if the process is in zombie state. In that case, we don't want to pass argv0
+  // to Basename(), which returns ".".
+  return argv0.empty() ? std::string() : android::base::Basename(argv0);
 }
 
 const char* GetTraceFsDir() {

@@ -44,7 +44,7 @@ BITNESS_ALL = [BITNESS_32, BITNESS_64, BITNESS_MULTILIB, BITNESS_AUTO]
 
 # Architectures supported by APEX packages.
 ARCHS_32 = ["arm", "x86"]
-ARCHS_64 = ["arm64", "x86_64"]
+ARCHS_64 = ["arm64", "riscv64", "x86_64"]
 
 # Multilib options
 MULTILIB_32 = '32'
@@ -65,12 +65,14 @@ def isEnvTrue(var):
   return var in os.environ and os.environ[var] == 'true'
 
 
-def extract_apex(apex_path, deapexer_path, debugfs_path, tmpdir):
+def extract_apex(apex_path, deapexer_path, debugfs_path, fsckerofs_path,
+                 blkid_path, tmpdir):
   _, apex_name = os.path.split(apex_path)
   extract_path = os.path.join(tmpdir, apex_name)
   if os.path.exists(extract_path):
     shutil.rmtree(extract_path)
   subprocess.check_call([deapexer_path, '--debugfs', debugfs_path,
+                         '--fsckerofs', fsckerofs_path, '--blkid', blkid_path,
                          'extract', apex_path, extract_path],
                         stdout=subprocess.DEVNULL)
   return extract_path
@@ -217,6 +219,8 @@ class Checker:
       return False, 'Could not find %s'
     if fs_object.is_dir:
       return False, '%s is a directory'
+    if fs_object.is_symlink:
+      return False, '%s is a symlink'
     return True, ''
 
   def is_dir(self, path):
@@ -272,17 +276,22 @@ class Checker:
   def check_art_test_executable(self, filename, multilib=None):
     dirs = self.arch_dirs_for_path(ART_TEST_DIR, multilib)
     if not dirs:
-      self.fail('ART test binary missing: %s', filename)
+      self.fail('Directories for ART test binary missing: %s', filename)
+      return
     for dir in dirs:
       test_path = '%s/%s' % (dir, filename)
       self._expected_file_globs.add(test_path)
-      if not self._provider.get(test_path).is_exec:
+      file_obj = self._provider.get(test_path)
+      if not file_obj:
+        self.fail('ART test binary missing: %s', test_path)
+      elif not file_obj.is_exec:
         self.fail('%s is not executable', test_path)
 
   def check_art_test_data(self, filename):
     dirs = self.arch_dirs_for_path(ART_TEST_DIR)
     if not dirs:
-      self.fail('ART test data missing: %s', filename)
+      self.fail('Directories for ART test data missing: %s', filename)
+      return
     for dir in dirs:
       if not self.check_file('%s/%s' % (dir, filename)):
         return
@@ -471,7 +480,6 @@ class ReleaseChecker:
     self._checker.check_native_library('libart-disassembler')
     self._checker.check_native_library('libartbase')
     self._checker.check_native_library('libartpalette')
-    self._checker.check_native_library('libartservice')
     self._checker.check_native_library('libarttools')
     self._checker.check_native_library('libdt_fd_forward')
     self._checker.check_native_library('libopenjdkjvm')
@@ -504,7 +512,6 @@ class ReleaseChecker:
     # catch invalid dependencies on /system or other APEXes that should go
     # through an exported library with stubs (b/128708192 tracks implementing a
     # better approach for that).
-    self._checker.check_native_library('libbacktrace')
     self._checker.check_native_library('libbase')
     self._checker.check_native_library('libc++')
     self._checker.check_native_library('libdt_socket')
@@ -513,7 +520,6 @@ class ReleaseChecker:
     self._checker.check_native_library('liblzma')
     self._checker.check_native_library('libnpt')
     self._checker.check_native_library('libunwindstack')
-    self._checker.check_native_library('libziparchive')
 
     # Allow extra dependencies that appear in ASAN builds.
     self._checker.check_optional_native_library('libclang_rt.asan*')
@@ -544,14 +550,16 @@ class ReleaseTargetChecker:
     # removed in Android R.
 
     # Check binaries for ART.
+    self._checker.check_executable('art_boot')
+    self._checker.check_executable('art_exec')
     self._checker.check_executable('artd')
     self._checker.check_executable('oatdump')
     self._checker.check_executable("odrefresh")
     self._checker.check_symlinked_multilib_executable('dex2oat')
 
     # Check internal libraries for ART.
+    self._checker.check_native_library('libartservice')
     self._checker.check_native_library('libperfetto_hprof')
-    self._checker.check_prefer64_library('artd-aidl-ndk')
 
     # Check internal Java libraries
     self._checker.check_java_library("service-art")
@@ -637,6 +645,7 @@ class DebugTargetChecker:
     self._checker.check_symlinked_multilib_executable('dex2oatd')
 
     # Check ART internal libraries.
+    self._checker.check_native_library('libartserviced')
     self._checker.check_native_library('libperfetto_hprofd')
 
     # Check internal native library dependencies.
@@ -664,6 +673,7 @@ class TestingTargetChecker:
 
   def run(self):
     # Check ART test binaries.
+    self._checker.check_art_test_executable('art_artd_tests')
     self._checker.check_art_test_executable('art_cmdline_tests')
     self._checker.check_art_test_executable('art_compiler_tests')
     self._checker.check_art_test_executable('art_dex2oat_tests')
@@ -673,6 +683,7 @@ class TestingTargetChecker:
     self._checker.check_art_test_executable('art_dexlayout_tests')
     self._checker.check_art_test_executable('art_dexlist_tests')
     self._checker.check_art_test_executable('art_dexoptanalyzer_tests')
+    self._checker.check_art_test_executable('art_disassembler_tests')
     self._checker.check_art_test_executable('art_imgdiag_tests')
     self._checker.check_art_test_executable('art_libartbase_tests')
     self._checker.check_art_test_executable('art_libartpalette_tests')
@@ -684,7 +695,6 @@ class TestingTargetChecker:
     self._checker.check_art_test_executable('art_oatdump_tests')
     self._checker.check_art_test_executable('art_odrefresh_tests')
     self._checker.check_art_test_executable('art_profman_tests')
-    self._checker.check_art_test_executable('art_runtime_compiler_tests')
     self._checker.check_art_test_executable('art_runtime_tests')
     self._checker.check_art_test_executable('art_sigchain_tests')
 
@@ -698,6 +708,7 @@ class TestingTargetChecker:
 
     # Check ART jar files which are needed for gtests.
     self._checker.check_art_test_data('art-gtest-jars-AbstractMethod.jar')
+    self._checker.check_art_test_data('art-gtest-jars-ArrayClassWithUnresolvedComponent.dex')
     self._checker.check_art_test_data('art-gtest-jars-MyClassNatives.jar')
     self._checker.check_art_test_data('art-gtest-jars-Main.jar')
     self._checker.check_art_test_data('art-gtest-jars-ProtoCompare.jar')
@@ -749,6 +760,7 @@ class TestingTargetChecker:
     self._checker.check_art_test_data('art-gtest-jars-MainEmptyUncompressed.jar')
     self._checker.check_art_test_data('art-gtest-jars-Dex2oatVdexTestDex.jar')
     self._checker.check_art_test_data('art-gtest-jars-Dex2oatVdexPublicSdkDex.dex')
+    self._checker.check_art_test_data('art-gtest-jars-SuperWithAccessChecks.dex')
 
 
 class NoSuperfluousBinariesChecker:
@@ -889,6 +901,12 @@ def art_apex_test_main(test_args):
     if not test_args.debugfs:
       logging.error("Need debugfs.")
       return 1
+    if not test_args.fsckerofs:
+      logging.error("Need fsck.erofs.")
+      return 1
+    if not test_args.blkid:
+      logging.error("Need blkid.")
+      return 1
 
   if test_args.host:
     # Host APEX.
@@ -928,7 +946,7 @@ def art_apex_test_main(test_args):
         # Extract the apex. It would be nice to use the output from "deapexer list"
         # to avoid this work, but it doesn't provide info about executable bits.
         apex_dir = extract_apex(test_args.apex, test_args.deapexer, test_args.debugfs,
-                                test_args.tmpdir)
+                                test_args.fsckerofs, test_args.blkid, test_args.tmpdir)
       apex_provider = TargetApexProvider(apex_dir)
   except (zipfile.BadZipFile, zipfile.LargeZipFile) as e:
     logging.error('Failed to create provider: %s', e)
@@ -1014,6 +1032,8 @@ def art_apex_test_default(test_parser):
 
   test_args = test_parser.parse_args(['unused'])  # For consistency.
   test_args.debugfs = '%s/bin/debugfs' % host_out
+  test_args.fsckerofs = '%s/bin/fsck.erofs' % host_out
+  test_args.blkid = '%s/bin/blkid_static' % host_out
   test_args.tmpdir = '.'
   test_args.tree = False
   test_args.list = False
@@ -1069,6 +1089,8 @@ if __name__ == "__main__":
   parser.add_argument('--tmpdir', help='Directory for temp files')
   parser.add_argument('--deapexer', help='Path to deapexer')
   parser.add_argument('--debugfs', help='Path to debugfs')
+  parser.add_argument('--fsckerofs', help='Path to fsck.erofs')
+  parser.add_argument('--blkid', help='Path to blkid')
 
   parser.add_argument('--bitness', help='Bitness to check', choices=BITNESS_ALL,
                       default=BITNESS_AUTO)

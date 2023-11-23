@@ -16,22 +16,18 @@
 
 package android.media.audio.cts;
 
-import android.media.audio.cts.R;
-
 import android.content.Context;
-import android.media.audiofx.AudioEffect;
-import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
+import android.media.audiofx.AudioEffect;
 import android.media.audiofx.LoudnessEnhancer;
-import android.media.cts.PostProcTestBase;
-import android.platform.test.annotations.AppModeFull;
-import java.util.UUID;
 import android.media.audiofx.Visualizer;
 import android.media.audiofx.Visualizer.MeasurementPeakRms;
-import android.os.Looper;
-import android.test.AndroidTestCase;
+import android.media.cts.PostProcTestBase;
+import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
+
+import java.util.UUID;
 
 @AppModeFull(reason = "Dynamic config disabled.")
 public class LoudnessEnhancerTest extends PostProcTestBase {

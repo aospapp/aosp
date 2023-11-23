@@ -90,7 +90,7 @@ function check_env() {
     fi
 
     local missing_py_packages=false
-    for py_lib in {coverage,mock};
+    for py_lib in {coverage,mock,google-api-core};
     do
         if ! python3 -m pip list | grep $py_lib &> /dev/null; then
             echo "Missing required python package: $py_lib (python3 -m pip install $py_lib)"

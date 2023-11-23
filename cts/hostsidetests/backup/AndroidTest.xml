@@ -19,6 +19,8 @@
     <!-- Backup of instant apps is not supported. -->
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <!-- Our tests do not need to be repeated for different foldable states. -->
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <!-- Run module in system user because backup tests are not fully supported in secondary user.
          For devices running on secondary user, such as automotive devices, these tests will fail.
          When backup tests are fully functional for secondary users:

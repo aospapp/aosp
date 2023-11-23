@@ -16,25 +16,8 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-python_defaults {
-    name: "external_updater_defaults",
-    version: {
-        py2: {
-            enabled: false,
-            embedded_launcher: false,
-        },
-        py3: {
-            enabled: true,
-            // Error if enable:
-            // certificate verify failed: unable to get local issuer certificate
-            embedded_launcher: false,
-        },
-    },
-}
-
 python_binary_host {
     name: "external_updater",
-    defaults: ["external_updater_defaults"],
     main: "external_updater.py",
     srcs: ["external_updater.py"],
     libs: ["external_updater_lib"],
@@ -42,14 +25,12 @@ python_binary_host {
 
 python_binary_host {
     name: "external_updater_notifier",
-    defaults: ["external_updater_defaults"],
     main: "notifier.py",
     srcs: ["notifier.py"],
 }
 
 python_library_host {
     name: "external_updater_lib",
-    defaults: ["external_updater_defaults"],
     srcs: [
         "archive_utils.py",
         "base_updater.py",
@@ -64,7 +45,6 @@ python_library_host {
         "updater_utils.py",
     ],
     libs: [
-        "python-symbol",
         "libprotobuf-python",
     ],
     proto: {
@@ -78,7 +58,6 @@ python_library_host {
 
 python_defaults {
     name: "external_updater_test_defaults",
-    defaults: ["external_updater_defaults"],
     version: {
         py3: {
             embedded_launcher: true,

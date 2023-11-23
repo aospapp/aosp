@@ -307,9 +307,15 @@ bool Interface::fillHashChainMethod(Method *method) const {
         } } }, /* cppImpl */
         { { IMPL_INTERFACE, [this, digestType, chainType](auto &out) {
             std::vector<const Interface *> chain = typeChain();
-            out << "return new "
-                << chainType->getJavaType(false /* forInitializer */)
-                << "(java.util.Arrays.asList(\n";
+            out << "return new " << chainType->getJavaType(false /* forInitializer */);
+            if (chain.size() == 1) {
+                // https://errorprone.info/bugpattern/ArraysAsListPrimitiveArray
+                // To avoid an ArraysAsListPrimitiveArray errorprone error, use
+                // singletonList when there's only 1 element in the chain.
+                out << "(java.util.Collections.singletonList(\n";
+            } else {
+                out << "(java.util.Arrays.asList(\n";
+            }
             out.indent(2, [&] {
                 // No need for dimensions when elements are explicitly provided.
                 emitDigestChain(out, "new " + digestType->getJavaType(false /* forInitializer */),

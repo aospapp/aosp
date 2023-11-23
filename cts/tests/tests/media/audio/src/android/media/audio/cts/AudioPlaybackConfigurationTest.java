@@ -16,77 +16,131 @@
 
 package android.media.audio.cts;
 
+import static android.app.AppOpsManager.MODE_ALLOWED;
+import static android.app.AppOpsManager.MODE_IGNORED;
+import static android.app.AppOpsManager.OPSTR_PLAY_AUDIO;
 import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_ALL;
 import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_NONE;
 import static android.media.AudioAttributes.ALLOW_CAPTURE_BY_SYSTEM;
+import static android.media.AudioManager.ADJUST_MUTE;
+import static android.media.AudioManager.ADJUST_UNMUTE;
+import static android.media.AudioManager.STREAM_MUSIC;
+import static android.media.AudioPlaybackConfiguration.MUTED_BY_APP_OPS;
+import static android.media.AudioPlaybackConfiguration.MUTED_BY_CLIENT_VOLUME;
+import static android.media.AudioPlaybackConfiguration.MUTED_BY_STREAM_VOLUME;
+import static android.media.AudioPlaybackConfiguration.MUTED_BY_VOLUME_SHAPER;
+import static android.media.AudioTrack.WRITE_NON_BLOCKING;
+import static android.media.cts.AudioHelper.createSoundDataInShortByteBuffer;
+import static android.media.cts.AudioHelper.hasAudioSilentProperty;
 
+import static com.android.compatibility.common.util.AppOpsUtils.getOpMode;
+import static com.android.compatibility.common.util.AppOpsUtils.setOpMode;
+
+import android.Manifest;
 import android.annotation.Nullable;
 import android.annotation.RawRes;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.media.AudioAttributes;
 import android.media.AudioAttributes.CapturePolicy;
+import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioPlaybackConfiguration;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.SoundPool;
-import android.media.audio.cts.R;
-import android.media.cts.NonMediaMainlineTest;
+import android.media.VolumeShaper;
 import android.media.cts.TestUtils;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Parcel;
 import android.util.Log;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.CtsAndroidTestCase;
+import com.android.compatibility.common.util.NonMainlineTest;
 import com.android.internal.annotations.GuardedBy;
 
 import java.io.IOException;
 import java.lang.reflect.Method;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-@NonMediaMainlineTest
+@NonMainlineTest
 public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
-    private final static String TAG = "AudioPlaybackConfigurationTest";
+    private static final String TAG = "AudioPlaybackConfigurationTest";
 
-    private final static int TEST_TIMING_TOLERANCE_MS = 150;
+    private static final int TEST_TIMING_TOLERANCE_MS = 150;
     /** acceptable timeout for the time it takes for a prepared MediaPlayer to have an audio device
      * selected and reported when starting to play */
-    private final static int PLAY_ROUTING_TIMING_TOLERANCE_MS = 500;
-    private final static int TEST_TIMEOUT_SOUNDPOOL_LOAD_MS = 3000;
-    private final static long MEDIAPLAYER_PREPARE_TIMEOUT_MS = 2000;
+    private static final int PLAY_ROUTING_TIMING_TOLERANCE_MS = 500;
+    private static final int TEST_TIMEOUT_SOUNDPOOL_LOAD_MS = 3000;
+    private static final long MEDIAPLAYER_PREPARE_TIMEOUT_MS = 2000;
+
+    private static final int TEST_AUDIO_TRACK_SAMPLERATE = 48000;
+    private static final double TEST_AUDIO_TRACK_FREQUENCY = 440.0;
+    private static final int TEST_AUDIO_TRACK_CHANNELS = 2;
+    private static final int TEST_AUDIO_TRACK_PLAY_SECONDS = 2;
+    private static final double TEST_AUDIO_TRACK_SWEEP = 0;
+
+    // volume shaper duration in milliseconds.
+    private static final long VOLUME_SHAPER_DURATION_MS = 10;
+
+    private static final VolumeShaper.Configuration SHAPER_MUTE =
+            new VolumeShaper.Configuration.Builder()
+                    .setInterpolatorType(VolumeShaper.Configuration.INTERPOLATOR_TYPE_LINEAR)
+                    .setCurve(new float[] { 0.f, 1.f } /* times */,
+                            new float[] { 1.f, 0.f } /* volumes */)
+                    .setDuration(VOLUME_SHAPER_DURATION_MS)
+                    .build();
+
+    private VolumeShaper mMuteShaper;
 
     // not declared inside test so it can be released in case of failure
     private MediaPlayer mMp;
     private SoundPool mSp;
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-    }
+    private AudioTrack mAt;
 
     @Override
     protected void tearDown() throws Exception {
         // try/catch for every method in case the tests left the objects in various states
         if (mMp != null) {
-            try { mMp.stop(); } catch (Exception e) {}
-            try { mMp.release(); } catch (Exception e) {}
+            try {
+                mMp.stop();
+            } catch (Exception ignored) { }
+            mMp.release();
             mMp = null;
         }
         if (mSp != null) {
-            try { mSp.release(); } catch (Exception e) {}
+            mSp.release();
             mSp = null;
         }
+        if (mAt != null) {
+            mAt.release();
+            mAt = null;
+        }
+        super.tearDown();
     }
 
-    private final static int TEST_USAGE = AudioAttributes.USAGE_NOTIFICATION_COMMUNICATION_DELAYED;
-    private final static int TEST_CONTENT = AudioAttributes.CONTENT_TYPE_SPEECH;
+    private static final int TEST_USAGE = AudioAttributes.USAGE_MEDIA;
+    private static final int TEST_CONTENT = AudioAttributes.CONTENT_TYPE_MUSIC;
+    private static final int TEST_STREAM_FOR_USAGE = STREAM_MUSIC;
 
     // test marshalling/unmarshalling of an AudioPlaybackConfiguration instance. Since we can't
     // create an AudioPlaybackConfiguration directly, we first need to play something to get one.
     public void testParcelableWriteToParcel() throws Exception {
         if (!isValidPlatform("testParcelableWriteToParcel")) return;
+        if (hasAudioSilentProperty()) {
+            // No reasons to test since the started MediaPlayer will be muted and inactive
+            Log.w(TAG, "Device has ro.audio.silent set, skipping testParcelableWriteToParcel");
+            return;
+        }
 
         // create a player, make it play so we can get an AudioPlaybackConfiguration instance
         AudioManager am = new AudioManager(getContext());
@@ -130,6 +184,11 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
 
     public void testGetterMediaPlayer() throws Exception {
         if (!isValidPlatform("testGetterMediaPlayer")) return;
+        if (hasAudioSilentProperty()) {
+            // No reasons to test since the started MediaPlayer will be muted and inactive
+            Log.w(TAG, "Device has ro.audio.silent set, skipping testGetterMediaPlayer");
+            return;
+        }
 
         AudioManager am = new AudioManager(getContext());
         assertNotNull("Could not create AudioManager", am);
@@ -155,7 +214,6 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                 nbActivePlayersBeforeStart + 1 /*expected*/,
                 configs.size());
         assertTrue("Active player, attributes not found", hasAttr(configs, aa));
-
         // verify "privileged" fields aren't available through reflection
         final AudioPlaybackConfiguration config = configs.get(0);
         final Class<?> confClass = config.getClass();
@@ -175,6 +233,9 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         } catch (Exception e) {
             fail("Exception thrown during reflection on config privileged fields"+ e);
         }
+        assertEquals("spatialized field isn't protected", false, config.isSpatialized());
+        assertEquals("sample rate field isn't protected", 0, config.getSampleRate());
+        assertEquals("channel mask field isn't protected", 0, config.getChannelMask());
     }
 
     public void testCallbackMediaPlayer() throws Exception {
@@ -210,7 +271,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                 .build();
 
         try {
-            mMp =  createPreparedMediaPlayer(R.raw.sine1khzs40dblong, aa,
+            mMp = createPreparedMediaPlayer(R.raw.sine1khzs40dblong, aa,
                     am.generateAudioSessionId());
 
             am.registerAudioPlaybackCallback(callback, h /*handler*/);
@@ -328,33 +389,9 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                 .setContentType(TEST_CONTENT)
                 .setAllowedCapturePolicy(ALLOW_CAPTURE_BY_SYSTEM)
                 .build();
+        mSp = createSoundPool(aa);
+        playSoundPool(mSp, getContext());
 
-        mSp = new SoundPool.Builder()
-                .setAudioAttributes(aa)
-                .setMaxStreams(1)
-                .build();
-        final Object loadLock = new Object();
-        final SoundPool zepool = mSp;
-        // load a sound and play it once load completion is reported
-        mSp.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
-            @Override
-            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
-                assertEquals("Receiving load completion for wrong SoundPool", zepool, mSp);
-                assertEquals("Load completion error", 0 /*success expected*/, status);
-                synchronized (loadLock) {
-                    loadLock.notify();
-                }
-            }
-        });
-        final int loadId = mSp.load(getContext(), R.raw.sine1320hz5sec, 1/*priority*/);
-        synchronized (loadLock) {
-            loadLock.wait(TEST_TIMEOUT_SOUNDPOOL_LOAD_MS);
-        }
-        int res = mSp.play(loadId, 1.0f /*leftVolume*/, 1.0f /*rightVolume*/, 1 /*priority*/,
-                0 /*loop*/, 1.0f/*rate*/);
-        // FIXME SoundPool activity is not reported yet, but exercise creation/release with
-        //       an AudioPlaybackCallback registered
-        assertTrue("Error playing sound through SoundPool", res > 0);
         Thread.sleep(TEST_TIMING_TOLERANCE_MS);
 
         mSp.autoPause();
@@ -369,6 +406,44 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         }
         assertEquals("Number of active players changed after pausing SoundPool",
                 nbActivePlayersBeforeStart, nbActivePlayersAfterPause);
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged"})
+    public void testGetterAndCallbackConsistency() throws Exception {
+        if (!isValidPlatform("testGetterAndCallbackConsistency")) return;
+
+        AudioManager am = new AudioManager(getContext());
+        assertNotNull("Could not create AudioManager", am);
+
+        MyAudioPlaybackCallback callback = new MyAudioPlaybackCallback();
+        am.registerAudioPlaybackCallback(callback, null /*handler*/);
+
+        final AudioAttributes aa = (new AudioAttributes.Builder())
+                .setUsage(TEST_USAGE)
+                .setContentType(TEST_CONTENT)
+                .setAllowedCapturePolicy(ALLOW_CAPTURE_BY_SYSTEM)
+                .build();
+        mSp = createSoundPool(aa);
+        mMp = createPreparedMediaPlayer(R.raw.sine1khzs40dblong, aa,
+                am.generateAudioSessionId());
+
+        try {
+            playSoundPool(mSp, getContext());
+
+            callback.reset();
+            mMp.start();
+
+            assertTrue("onPlaybackConfigChanged should have been called for start and new device",
+                    callback.waitForCallbacks(2,
+                            TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS));
+            assertListsAreConsistent(am.getActivePlaybackConfigurations(), callback.getConfigs());
+
+            mSp.autoPause();
+            mMp.stop();
+        } finally {
+            am.unregisterAudioPlaybackCallback(callback);
+        }
     }
 
     public void testGetAudioDeviceInfoMediaPlayerStart() throws Exception {
@@ -389,31 +464,356 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                 .build();
 
         try {
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .adoptShellPermissionIdentity(Manifest.permission.MODIFY_AUDIO_ROUTING);
+
             mMp = createPreparedMediaPlayer(R.raw.sine1khzs40dblong, aa,
                     am.generateAudioSessionId());
 
             am.registerAudioPlaybackCallback(callback, h /*handler*/);
 
-            // query how many active players before starting the MediaPlayer
-            List<AudioPlaybackConfiguration> configs =
-                    am.getActivePlaybackConfigurations();
-            final int nbActivePlayersBeforeStart = configs.size();
-
-            assertPlayerStartAndCallbackWithPlayerAttributes(mMp, callback,
-                    nbActivePlayersBeforeStart + 1, aa);
+            mMp.start();
+            // time for the new configuration to propagate
+            Thread.sleep(TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS);
 
             assertTrue("Active player, device not found",
                     hasDevice(callback.getConfigs(), aa));
 
         } finally {
             am.unregisterAudioPlaybackCallback(callback);
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                    .dropShellPermissionIdentity();
             if (h != null) {
                 h.getLooper().quit();
             }
         }
     }
 
-    private @Nullable MediaPlayer createPreparedMediaPlayer(
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testAudioTrackMuteFromAppOpsNotification() throws Exception {
+        if (!isValidPlatform("testAudioTrackMuteFromAppOpsNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testAudioTrackMuteFromAppOpsNotification");
+            return;
+        }
+
+        initializeAudioTrack();
+        checkMuteFromAppOpsNotification(new MyPlayer(mAt));
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testMediaPlayerMuteFromAppOpsNotification() throws Exception {
+        if (!isValidPlatform("testMediaPlayerMuteFromAppOpsNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testMediaPlayerMuteFromAppOpsNotification");
+            return;
+        }
+
+        initializeMediaPlayer();
+        checkMuteFromAppOpsNotification(new MyPlayer(mMp));
+    }
+
+    private void checkMuteFromAppOpsNotification(MyPlayer player) throws Exception {
+        verifyMuteUnmuteNotifications(/*start=*/player.mPlay,
+                /*mute=*/() -> {
+                    try {
+                        setOpMode(getContext().getPackageName(), OPSTR_PLAY_AUDIO, MODE_IGNORED);
+                    } catch (IOException e) {
+                        fail("Failed to set AppOps ignore for play audio: " + e);
+                    }
+                },
+                /*unmute=*/() -> {
+                    try {
+                        if (getOpMode(getContext().getPackageName(), OPSTR_PLAY_AUDIO)
+                                != MODE_ALLOWED) {
+                            setOpMode(getContext().getPackageName(), OPSTR_PLAY_AUDIO,
+                                    MODE_ALLOWED);
+                        }
+                    } catch (IOException e) {
+                        fail("Failed to set AppOps allow for play audio: " + e);
+                    }
+                }, /*muteChangesActiveState=*/true, MUTED_BY_APP_OPS);
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testAudioTrackMuteFromStreamVolumeNotification() throws Exception {
+        if (!isValidPlatform("testAudioTrackMuteFromStreamVolumeNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testAudioTrackMuteFromStreamVolumeNotification");
+            return;
+        }
+
+        initializeAudioTrack();
+        checkMuteFromStreamVolumeNotification(new MyPlayer(mAt));
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testMediaPlayerMuteFromStreamVolumeNotification() throws Exception {
+        if (!isValidPlatform("testMediaPlayerMuteFromStreamVolumeNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testMediaPlayerMuteFromStreamVolumeNotification");
+            return;
+        }
+
+        initializeMediaPlayer();
+        checkMuteFromStreamVolumeNotification(new MyPlayer(mMp));
+    }
+
+    private void checkMuteFromStreamVolumeNotification(MyPlayer player) throws Exception {
+        AudioManager am = new AudioManager(getContext());
+        assertNotNull("Could not create AudioManager", am);
+
+        if (am.isVolumeFixed()) {
+            Log.w(TAG, "Skipping testMuteFromStreamVolumeNotification, device has volume fixed.");
+            return;
+        }
+
+        verifyMuteUnmuteNotifications(/*start=*/player.mPlay,
+                /*mute=*/
+                () -> am.adjustStreamVolume(TEST_STREAM_FOR_USAGE, ADJUST_MUTE, /* flags= */0),
+                /*unmute=*/
+                () -> am.adjustStreamVolume(TEST_STREAM_FOR_USAGE, ADJUST_UNMUTE, /* flags= */0),
+                /*muteChangesActiveState=*/false, MUTED_BY_STREAM_VOLUME);
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testAudioTrackMuteFromClientVolumeNotification() throws Exception {
+        if (!isValidPlatform("testAudioTrackMuteFromClientVolumeNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testAudioTrackMuteFromClientVolumeNotification");
+            return;
+        }
+
+        initializeAudioTrack();
+        checkMuteFromClientVolumeNotification(new MyPlayer(mAt));
+    }
+
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testMediaPlayerMuteFromClientVolumeNotification() throws Exception {
+        if (!isValidPlatform("testMediaPlayerMuteFromClientVolumeNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testMediaPlayerMuteFromClientVolumeNotification");
+            return;
+        }
+
+        initializeMediaPlayer();
+        checkMuteFromClientVolumeNotification(new MyPlayer(mMp));
+    }
+
+    private void checkMuteFromClientVolumeNotification(MyPlayer player) throws Exception {
+        verifyMuteUnmuteNotifications(/*start=*/player.mPlay,
+                /*mute=*/() -> player.mSetClientVolume.accept(0.f),
+                /*unmute=*/() -> player.mSetClientVolume.accept(1.f),
+                /*muteChangesActiveState=*/true, MUTED_BY_CLIENT_VOLUME);
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testAudioTrackMuteFromVolumeShaperNotification() throws Exception {
+        if (!isValidPlatform("testAudioTrackMuteFromVolumeShaperNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testAudioTrackMuteFromVolumeShaperNotification");
+            return;
+        }
+
+        initializeAudioTrack();
+        checkMuteFromVolumeShaperNotification(new MyPlayer(mAt));
+    }
+
+    @ApiTest(apis = {"android.media.AudioManager#getActivePlaybackConfigurations",
+            "android.media.AudioManager.AudioPlaybackCallback#onPlaybackConfigChanged",
+            "android.media.AudioManager.AudioPlaybackCallback#isMuted",
+            "android.media.AudioManager.AudioPlaybackCallback#getMutedBy"})
+    public void testMediaPlayerMuteFromVolumeShaperNotification() throws Exception {
+        if (!isValidPlatform("testMediaPlayerMuteFromVolumeShaperNotification")) return;
+        if (hasAudioSilentProperty()) {
+            Log.w(TAG, "Device has ro.audio.silent set, skipping "
+                            + "testMediaPlayerMuteFromVolumeShaperNotification");
+            return;
+        }
+
+        initializeMediaPlayer();
+        checkMuteFromVolumeShaperNotification(new MyPlayer(mMp));
+    }
+
+    private void checkMuteFromVolumeShaperNotification(MyPlayer player) throws Exception {
+        verifyMuteUnmuteNotifications(/*start=*/player.mPlay,
+                /*mute=*/() -> {
+                    mMuteShaper = player.mCreateVolumeShaper.apply(SHAPER_MUTE);
+                    mMuteShaper.apply(VolumeShaper.Operation.PLAY);
+                },
+                /*unmute=*/() -> {
+                    mMuteShaper.replace(SHAPER_MUTE, VolumeShaper.Operation.REVERSE, /*join=*/
+                            false);
+                    mMuteShaper.apply(VolumeShaper.Operation.PLAY);
+                }, /*muteChangesActiveState=*/true, MUTED_BY_VOLUME_SHAPER);
+    }
+
+    private void verifyMuteUnmuteNotifications(Runnable start, Runnable mute, Runnable unmute,
+            boolean muteChangesActiveState, int checkFlag)
+            throws Exception {
+        AudioManager am = new AudioManager(getContext());
+        assertNotNull("Could not create AudioManager", am);
+
+        MyAudioPlaybackCallback callback = new MyAudioPlaybackCallback();
+
+        try {
+            am.registerAudioPlaybackCallback(callback, null /*handler*/);
+
+            // start playing audio
+            start.run();
+
+            if (muteChangesActiveState) {
+                assertTrue("onPlaybackConfigChanged play, format and device expected",
+                        callback.waitForCallbacks(3,
+                                TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS));
+            } else {
+                Thread.sleep(TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS);
+            }
+
+            // mute with Runnable
+            callback.reset();
+            mute.run();
+
+            if (muteChangesActiveState) {
+                assertTrue("onPlaybackConfigChanged for mute expected",
+                        callback.waitForCallbacks(1,
+                                TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS));
+            } else {
+                Thread.sleep(TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS);
+            }
+
+            checkMutedApi(checkFlag);
+
+            // unmute with Runnable
+            callback.reset();
+            unmute.run();
+
+            if (muteChangesActiveState) {
+                assertTrue("onPlaybackConfigChanged for unmute expected",
+                        callback.waitForCallbacks(1,
+                                TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS));
+            } else {
+                Thread.sleep(TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS);
+            }
+        } finally {
+            am.unregisterAudioPlaybackCallback(callback);
+            unmute.run();
+        }
+    }
+
+    private void checkMutedApi(int checkFlag) {
+        InstrumentationRegistry.getInstrumentation().getUiAutomation().adoptShellPermissionIdentity(
+                Manifest.permission.MODIFY_AUDIO_ROUTING);
+
+        AudioPlaybackConfiguration currentConfiguration = findConfiguration(checkFlag);
+        assertTrue("APC should be muted", currentConfiguration.isMuted());
+        assertTrue("APC muted by wrong source",
+                (currentConfiguration.getMutedBy() & checkFlag) != 0);
+
+        InstrumentationRegistry.getInstrumentation().getUiAutomation()
+                .dropShellPermissionIdentity();
+    }
+
+    private AudioPlaybackConfiguration findConfiguration(int muteHint) {
+        int uid;
+        Context context = getContext();
+        try {
+            uid = context.getPackageManager().getApplicationInfo(context.getPackageName(),
+                    PackageManager.ApplicationInfoFlags.of(0)).uid;
+        } catch (PackageManager.NameNotFoundException e) {
+            uid = -1;
+        }
+
+        AudioManager am = new AudioManager(getContext());
+        List<AudioPlaybackConfiguration> configList = am.getActivePlaybackConfigurations();
+        AudioPlaybackConfiguration result = null;
+        for (AudioPlaybackConfiguration config : configList) {
+            if (config.getClientUid() == uid && config.getAudioDeviceInfo() != null
+                    && config.getAudioAttributes().getUsage() == TEST_USAGE
+                    && config.getAudioAttributes().getContentType() == TEST_CONTENT) {
+                Log.v(TAG,
+                        "AudioPlaybackConfiguration " + config + " uid " + config.getClientUid());
+                result = config;
+                if ((config.getMutedBy() & muteHint) != 0) {
+                    break;
+                }
+            }
+        }
+        assertNotNull("Could not find AudioPlaybackConfiguration for uid " + uid, result);
+        return result;
+    }
+
+    private void initializeAudioTrack() {
+        final int bufferSizeInBytes =
+                TEST_AUDIO_TRACK_PLAY_SECONDS * TEST_AUDIO_TRACK_SAMPLERATE
+                        * TEST_AUDIO_TRACK_CHANNELS;
+
+        ByteBuffer audioData = createSoundDataInShortByteBuffer(bufferSizeInBytes,
+                TEST_AUDIO_TRACK_SAMPLERATE, TEST_AUDIO_TRACK_FREQUENCY,
+                TEST_AUDIO_TRACK_SWEEP);
+
+        final AudioAttributes aa = (new AudioAttributes.Builder())
+                .setUsage(TEST_USAGE)
+                .setContentType(TEST_CONTENT)
+                .build();
+
+        mAt = new AudioTrack.Builder()
+                .setAudioAttributes(aa)
+                .setAudioFormat(new AudioFormat.Builder()
+                        .setSampleRate(TEST_AUDIO_TRACK_SAMPLERATE)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .build())
+                .setBufferSizeInBytes(bufferSizeInBytes)
+                .build();
+
+        mAt.write(audioData, audioData.remaining(), WRITE_NON_BLOCKING);
+    }
+
+    private void initializeMediaPlayer() throws Exception {
+        AudioManager am = new AudioManager(getContext());
+        assertNotNull("Could not create AudioManager", am);
+
+        final AudioAttributes aa = (new AudioAttributes.Builder())
+                .setUsage(TEST_USAGE)
+                .setContentType(TEST_CONTENT)
+                .build();
+
+        mMp = createPreparedMediaPlayer(R.raw.sine1khzs40dblong, aa,
+                am.generateAudioSessionId());
+    }
+
+    @Nullable
+    private MediaPlayer createPreparedMediaPlayer(
             @RawRes int resID, AudioAttributes aa, int session) throws Exception {
         final TestUtils.Monitor onPreparedCalled = new TestUtils.Monitor();
         final MediaPlayer mp = createPlayer(resID, aa, session);
@@ -440,13 +840,55 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
         return mp;
     }
 
+    private static SoundPool createSoundPool(AudioAttributes aa) {
+        return new SoundPool.Builder()
+                .setAudioAttributes(aa)
+                .setMaxStreams(1)
+                .build();
+    }
+
+    /** Loads a track and plays it with the passed {@link SoundPool}. */
+    private static void playSoundPool(SoundPool sp, Context context) throws InterruptedException {
+        final Object loadLock = new Object();
+        final SoundPool zepool = sp;
+        // load a sound and play it once load completion is reported
+        sp.setOnLoadCompleteListener(new SoundPool.OnLoadCompleteListener() {
+            @Override
+            public void onLoadComplete(SoundPool soundPool, int sampleId, int status) {
+                assertEquals("Receiving load completion for wrong SoundPool", zepool, sp);
+                assertEquals("Load completion error", 0 /*success expected*/, status);
+                synchronized (loadLock) {
+                    loadLock.notify();
+                }
+            }
+        });
+        final int loadId = sp.load(context, R.raw.sine1320hz5sec, 1/*priority*/);
+        synchronized (loadLock) {
+            loadLock.wait(TEST_TIMEOUT_SOUNDPOOL_LOAD_MS);
+        }
+
+        int res = sp.play(loadId, 1.0f /*leftVolume*/, 1.0f /*rightVolume*/, 1 /*priority*/,
+                0 /*loop*/, 1.0f/*rate*/);
+        // FIXME SoundPool activity is not reported yet, but exercise creation/release with
+        //       an AudioPlaybackCallback registered
+        assertTrue("Error playing sound through SoundPool", res > 0);
+    }
+
+    private static void assertListsAreConsistent(List<AudioPlaybackConfiguration> config1,
+            List<AudioPlaybackConfiguration> config2) {
+        assertEquals("Different size of audio playback configurations reported", config1.size(),
+                config2.size());
+        assertTrue("Reported audio playback configurations are inconsistent",
+                config1.containsAll(config2) && config2.containsAll(config1));
+    }
+
     private void assertPlayerStartAndCallbackWithPlayerAttributes(
             MediaPlayer mp, MyAudioPlaybackCallback callback,
             int activePlayerCount, AudioAttributes aa) throws Exception{
         mp.start();
 
-        assertTrue("onPlaybackConfigChanged play and device called expected "
-                , callback.waitForCallbacks(2,
+        assertTrue("onPlaybackConfigChanged play, format and device events expected ",
+                callback.waitForCallbacks(3,
                         TEST_TIMING_TOLERANCE_MS + PLAY_ROUTING_TIMING_TOLERANCE_MS));
         assertEquals("number of active players not expected",
                 // one more player active
@@ -468,6 +910,7 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
                 mCalled = 0;
                 mConfigs = new ArrayList<AudioPlaybackConfiguration>();
             }
+            mOnCalledMonitor.reset();
         }
 
         int getCbInvocationNumber() {
@@ -504,6 +947,24 @@ public class AudioPlaybackConfigurationTest extends CtsAndroidTestCase {
             int signalsCounted =
                     mOnCalledMonitor.waitForCountedSignals(calledCount, timeoutMs);
             return (signalsCounted == calledCount);
+        }
+    }
+
+    private static class MyPlayer {
+        Runnable mPlay;
+        Consumer<Float> mSetClientVolume;
+        Function<VolumeShaper.Configuration, VolumeShaper> mCreateVolumeShaper;
+
+        MyPlayer(AudioTrack at) {
+            mPlay = at::play;
+            mSetClientVolume = at::setVolume;
+            mCreateVolumeShaper = at::createVolumeShaper;
+        }
+
+        MyPlayer(MediaPlayer mp) {
+            mPlay = mp::start;
+            mSetClientVolume = mp::setVolume;
+            mCreateVolumeShaper = mp::createVolumeShaper;
         }
     }
 

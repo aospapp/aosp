@@ -29,7 +29,7 @@
 #include "mirror/dex_cache.h"
 #include "scoped_thread_state_change-inl.h"
 
-namespace art {
+namespace art HIDDEN {
 
 static inline ObjPtr<mirror::DexCache> FindDexCacheWithHint(
     Thread* self, const DexFile& dex_file, Handle<mirror::DexCache> hint_dex_cache)
@@ -41,18 +41,14 @@ static inline ObjPtr<mirror::DexCache> FindDexCacheWithHint(
   }
 }
 
-class ReferenceTypePropagation::RTPVisitor : public HGraphDelegateVisitor {
+class ReferenceTypePropagation::RTPVisitor final : public HGraphDelegateVisitor {
  public:
-  RTPVisitor(HGraph* graph,
-             Handle<mirror::ClassLoader> class_loader,
-             Handle<mirror::DexCache> hint_dex_cache,
-             bool is_first_run)
-    : HGraphDelegateVisitor(graph),
-      class_loader_(class_loader),
-      hint_dex_cache_(hint_dex_cache),
-      allocator_(graph->GetArenaStack()),
-      worklist_(allocator_.Adapter(kArenaAllocReferenceTypePropagation)),
-      is_first_run_(is_first_run) {
+  RTPVisitor(HGraph* graph, Handle<mirror::DexCache> hint_dex_cache, bool is_first_run)
+      : HGraphDelegateVisitor(graph),
+        hint_dex_cache_(hint_dex_cache),
+        allocator_(graph->GetArenaStack()),
+        worklist_(allocator_.Adapter(kArenaAllocReferenceTypePropagation)),
+        is_first_run_(is_first_run) {
     worklist_.reserve(kDefaultWorklistSize);
   }
 
@@ -110,7 +106,6 @@ class ReferenceTypePropagation::RTPVisitor : public HGraphDelegateVisitor {
 
   static constexpr size_t kDefaultWorklistSize = 8;
 
-  Handle<mirror::ClassLoader> class_loader_;
   Handle<mirror::DexCache> hint_dex_cache_;
 
   // Use local allocator for allocating memory.
@@ -122,63 +117,18 @@ class ReferenceTypePropagation::RTPVisitor : public HGraphDelegateVisitor {
 };
 
 ReferenceTypePropagation::ReferenceTypePropagation(HGraph* graph,
-                                                   Handle<mirror::ClassLoader> class_loader,
                                                    Handle<mirror::DexCache> hint_dex_cache,
                                                    bool is_first_run,
                                                    const char* name)
-    : HOptimization(graph, name),
-      class_loader_(class_loader),
-      hint_dex_cache_(hint_dex_cache),
-      is_first_run_(is_first_run) {
-}
-
-void ReferenceTypePropagation::ValidateTypes() {
-  // TODO: move this to the graph checker. Note: There may be no Thread for gtests.
-  if (kIsDebugBuild && Thread::Current() != nullptr) {
-    ScopedObjectAccess soa(Thread::Current());
-    for (HBasicBlock* block : graph_->GetReversePostOrder()) {
-      for (HInstructionIterator iti(block->GetInstructions()); !iti.Done(); iti.Advance()) {
-        HInstruction* instr = iti.Current();
-        if (instr->GetType() == DataType::Type::kReference) {
-          DCHECK(instr->GetReferenceTypeInfo().IsValid())
-              << "Invalid RTI for instruction: " << instr->DebugName();
-          if (instr->IsBoundType()) {
-            DCHECK(instr->AsBoundType()->GetUpperBound().IsValid());
-          } else if (instr->IsLoadClass()) {
-            HLoadClass* cls = instr->AsLoadClass();
-            DCHECK(cls->GetReferenceTypeInfo().IsExact());
-            DCHECK_IMPLIES(cls->GetLoadedClassRTI().IsValid(), cls->GetLoadedClassRTI().IsExact());
-          } else if (instr->IsNullCheck()) {
-            DCHECK(instr->GetReferenceTypeInfo().IsEqual(instr->InputAt(0)->GetReferenceTypeInfo()))
-                << "NullCheck " << instr->GetReferenceTypeInfo()
-                << "Input(0) " << instr->InputAt(0)->GetReferenceTypeInfo();
-          }
-        } else if (instr->IsInstanceOf()) {
-          HInstanceOf* iof = instr->AsInstanceOf();
-          DCHECK_IMPLIES(iof->GetTargetClassRTI().IsValid(), iof->GetTargetClassRTI().IsExact());
-        } else if (instr->IsCheckCast()) {
-          HCheckCast* check = instr->AsCheckCast();
-          DCHECK_IMPLIES(check->GetTargetClassRTI().IsValid(),
-                         check->GetTargetClassRTI().IsExact());
-        }
-      }
-    }
-  }
-}
+    : HOptimization(graph, name), hint_dex_cache_(hint_dex_cache), is_first_run_(is_first_run) {}
 
 void ReferenceTypePropagation::Visit(HInstruction* instruction) {
-  RTPVisitor visitor(graph_,
-                     class_loader_,
-                     hint_dex_cache_,
-                     is_first_run_);
+  RTPVisitor visitor(graph_, hint_dex_cache_, is_first_run_);
   instruction->Accept(&visitor);
 }
 
 void ReferenceTypePropagation::Visit(ArrayRef<HInstruction* const> instructions) {
-  RTPVisitor visitor(graph_,
-                     class_loader_,
-                     hint_dex_cache_,
-                     is_first_run_);
+  RTPVisitor visitor(graph_, hint_dex_cache_, is_first_run_);
   for (HInstruction* instruction : instructions) {
     if (instruction->IsPhi()) {
       // Need to force phis to recalculate null-ness.
@@ -349,7 +299,10 @@ static void BoundTypeForClassCheck(HInstruction* check) {
 }
 
 bool ReferenceTypePropagation::Run() {
-  RTPVisitor visitor(graph_, class_loader_, hint_dex_cache_, is_first_run_);
+  DCHECK(Thread::Current() != nullptr)
+      << "ReferenceTypePropagation requires the use of Thread::Current(). Make sure you have a "
+      << "Runtime initialized before calling this optimization pass";
+  RTPVisitor visitor(graph_, hint_dex_cache_, is_first_run_);
 
   // To properly propagate type info we need to visit in the dominator-based order.
   // Reverse post order guarantees a node's dominators are visited first.
@@ -359,7 +312,6 @@ bool ReferenceTypePropagation::Run() {
   }
 
   visitor.ProcessWorklist();
-  ValidateTypes();
   return true;
 }
 
@@ -446,10 +398,13 @@ static bool MatchIfInstanceOf(HIf* ifInstruction,
         if (rhs->AsIntConstant()->IsTrue()) {
           // Case (1a)
           *trueBranch = ifInstruction->IfTrueSuccessor();
-        } else {
+        } else if (rhs->AsIntConstant()->IsFalse()) {
           // Case (2a)
-          DCHECK(rhs->AsIntConstant()->IsFalse()) << rhs->AsIntConstant()->GetValue();
           *trueBranch = ifInstruction->IfFalseSuccessor();
+        } else {
+          // Sometimes we see a comparison of instance-of with a constant which is neither 0 nor 1.
+          // In those cases, we cannot do the match if+instance-of.
+          return false;
         }
         *instanceOf = lhs->AsInstanceOf();
         return true;
@@ -463,10 +418,13 @@ static bool MatchIfInstanceOf(HIf* ifInstruction,
         if (rhs->AsIntConstant()->IsFalse()) {
           // Case (1b)
           *trueBranch = ifInstruction->IfTrueSuccessor();
-        } else {
+        } else if (rhs->AsIntConstant()->IsTrue()) {
           // Case (2b)
-          DCHECK(rhs->AsIntConstant()->IsTrue()) << rhs->AsIntConstant()->GetValue();
           *trueBranch = ifInstruction->IfFalseSuccessor();
+        } else {
+          // Sometimes we see a comparison of instance-of with a constant which is neither 0 nor 1.
+          // In those cases, we cannot do the match if+instance-of.
+          return false;
         }
         *instanceOf = lhs->AsInstanceOf();
         return true;
@@ -583,7 +541,7 @@ void ReferenceTypePropagation::RTPVisitor::UpdateReferenceTypeInfo(HInstruction*
   ScopedObjectAccess soa(Thread::Current());
   ObjPtr<mirror::DexCache> dex_cache = FindDexCacheWithHint(soa.Self(), dex_file, hint_dex_cache_);
   ObjPtr<mirror::Class> klass = Runtime::Current()->GetClassLinker()->LookupResolvedType(
-      type_idx, dex_cache, class_loader_.Get());
+      type_idx, dex_cache, dex_cache->GetClassLoader());
   SetClassAsTypeInfo(instr, klass, is_exact);
 }
 

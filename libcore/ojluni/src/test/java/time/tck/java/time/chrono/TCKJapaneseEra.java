@@ -79,8 +79,6 @@ public class TCKJapaneseEra {
     @DataProvider(name = "JapaneseEras")
     Object[][] data_of_eras() {
         return new Object[][] {
-                    // Android-changed: Integrate OpenJDK support for Japanese Era Reiwa.
-                    // {JapaneseEra.of(3), "Reiwa", 3},
                     {JapaneseEra.REIWA, "Reiwa", 3},
                     {JapaneseEra.HEISEI, "Heisei", 2},
                     {JapaneseEra.SHOWA, "Showa", 1},

@@ -24,11 +24,10 @@
  * ****************************************************************/
 #define RESTRICTION_NONE 0
 
-#define USE_MODULE_ATTR
+namespace gs101 {
 
 /* Basic supported features */
-static feature_support_t feature_table[] =
-{
+static feature_support_t feature_table[] = {
     {MPP_DPP_GF,
         MPP_ATTR_AFBC | MPP_ATTR_BLOCK_MODE | MPP_ATTR_WINDOW_UPDATE |
         MPP_ATTR_FLIP_H | MPP_ATTR_FLIP_V |
@@ -90,8 +89,7 @@ enum {
 };
 *************************************************************************************/
 
-const restriction_key_t restriction_format_table[] =
-{
+static const restriction_key_t restriction_format_table[] = {
     {MPP_DPP_GF, NODE_NONE, HAL_PIXEL_FORMAT_RGB_565, 0},
     {MPP_DPP_GF, NODE_NONE, HAL_PIXEL_FORMAT_RGBA_8888, 0},
     {MPP_DPP_GF, NODE_NONE, HAL_PIXEL_FORMAT_RGBX_8888, 0},
@@ -158,6 +156,7 @@ const restriction_key_t restriction_format_table[] =
     {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_S10B, 0},
     {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_S10B, 0},
     {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_M, 0},
+    {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_SPN, 0},
     {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_YCBCR_P010, 0},
     {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_GOOGLE_NV12_SP, 0},
     {MPP_DPP_VGRFS, NODE_NONE, HAL_PIXEL_FORMAT_GOOGLE_NV12_SP_10B, 0},
@@ -176,11 +175,14 @@ const restriction_key_t restriction_format_table[] =
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SP_M_S10B, 0},
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_S10B, 0},
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_M, 0},
+    {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_P010_SPN, 0},
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_YCrCb_420_SP, 0},
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_EXYNOS_YCbCr_420_SPN_TILED, 0},
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_GOOGLE_NV12_SP, 0},
     {MPP_G2D, NODE_NONE, HAL_PIXEL_FORMAT_GOOGLE_NV12_SP_10B, 0},
 };
+
+} // namespace gs101
 
 const restriction_size_element restriction_size_table_rgb[] =
         {{{MPP_DPP_GF, NODE_SRC, HAL_PIXEL_FORMAT_NONE, 0},

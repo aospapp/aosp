@@ -38,14 +38,22 @@
     dto_print(__VA_ARGS__);              \
   } while (0)
 #else
-#define dto_debug(...)
+#define dto_debug(...) \
+  do {                 \
+  } while (0)
 #endif
 
+#ifndef DTO_DISABLE_ERROR_MSG
 #define dto_error(...)                   \
   do {                                   \
     dto_print("ERROR: %s():", __func__); \
     dto_print(__VA_ARGS__);              \
   } while (0)
+#else
+#define dto_error(...) \
+  do {                 \
+  } while (0)
+#endif
 
 int dto_print(const char *fmt, ...);
 

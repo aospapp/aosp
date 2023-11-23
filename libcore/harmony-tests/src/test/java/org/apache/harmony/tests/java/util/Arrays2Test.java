@@ -137,7 +137,7 @@ public class Arrays2Test extends TestCase {
         Arrays.sort(specials1);
         Object[] print1 = new Object[specials1.length];
         for (int i = 0; i < specials1.length; i++) {
-            print1[i] = new Double(specials1[i]);
+            print1[i] = Double.valueOf(specials1[i]);
         }
         assertTrue("Assert 1: specials sort incorrectly" + Arrays.asList(print1),
                 Arrays.equals(specials1, answer));
@@ -145,7 +145,7 @@ public class Arrays2Test extends TestCase {
         Arrays.sort(specials2);
         Object[] print2 = new Object[specials2.length];
         for (int i = 0; i < specials2.length; i++) {
-            print2[i] = new Double(specials2[i]);
+            print2[i] = Double.valueOf(specials2[i]);
         }
         assertTrue("Assert 2: specials sort incorrectly " + Arrays.asList(print2),
                 Arrays.equals(specials2, answer));
@@ -173,7 +173,7 @@ public class Arrays2Test extends TestCase {
         Arrays.sort(specials1);
         Object[] print1 = new Object[specials1.length];
         for (int i = 0; i < specials1.length; i++) {
-            print1[i] = new Float(specials1[i]);
+            print1[i] = Float.valueOf(specials1[i]);
         }
         assertTrue("Assert 1: specials sort incorrectly" + Arrays.asList(print1),
                 Arrays.equals(specials1, answer));
@@ -181,7 +181,7 @@ public class Arrays2Test extends TestCase {
         Arrays.sort(specials2);
         Object[] print2 = new Object[specials2.length];
         for (int i = 0; i < specials2.length; i++) {
-            print2[i] = new Float(specials2[i]);
+            print2[i] = Float.valueOf(specials2[i]);
         }
         assertTrue("Assert 2: specials sort incorrectly" + Arrays.asList(print2),
                 Arrays.equals(specials2, answer));

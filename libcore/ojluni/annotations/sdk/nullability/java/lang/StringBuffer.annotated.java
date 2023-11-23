@@ -137,5 +137,7 @@ public synchronized int lastIndexOf(@libcore.util.NonNull java.lang.String str, 
 @libcore.util.NonNull public synchronized java.lang.StringBuffer reverse() { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public synchronized java.lang.String toString() { throw new RuntimeException("Stub!"); }
+
+public synchronized int compareTo(@libcore.util.NonNull StringBuffer another) { throw new RuntimeException("Stub!"); }
 }
 

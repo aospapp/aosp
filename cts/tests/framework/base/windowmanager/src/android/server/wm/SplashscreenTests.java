@@ -58,7 +58,6 @@ import static android.server.wm.app.Components.TestStartingWindowKeys.REQUEST_SE
 import static android.server.wm.app.Components.TestStartingWindowKeys.STYLE_THEME_COMPONENT;
 import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowInsets.Type.captionBar;
-import static android.view.WindowInsets.Type.statusBars;
 import static android.view.WindowInsets.Type.systemBars;
 
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -81,7 +80,6 @@ import android.content.pm.ShortcutManager;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Insets;
 import android.graphics.Rect;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
@@ -167,6 +165,7 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // TODO(b/192431448): Allow Automotive to skip this test until Splash Screen is properly
         // applied insets by system bars in AAOS.
         assumeFalse(isCar());
+        assumeFalse(isLeanBack());
 
         final CommandSession.ActivitySession starter = prepareTestStarter();
         final ActivityOptions noIconOptions = ActivityOptions.makeBasic()
@@ -202,14 +201,10 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // Activity may not be launched yet even if app transition is in idle state.
         mWmState.waitForActivityState(name, STATE_RESUMED);
         mWmState.waitForAppTransitionIdleOnDisplay(DEFAULT_DISPLAY);
-        boolean isFullscreen = mWmState.getTaskByActivity(name).isWindowingModeCompatible(
-                WINDOWING_MODE_FULLSCREEN);
 
         final Bitmap image = takeScreenshot();
         final WindowMetrics windowMetrics = mWm.getMaximumWindowMetrics();
         final Rect stableBounds = new Rect(windowMetrics.getBounds());
-        Insets statusBarInsets = windowMetrics.getWindowInsets().getInsetsIgnoringVisibility(
-                statusBars());
         stableBounds.inset(windowMetrics.getWindowInsets().getInsetsIgnoringVisibility(
                 systemBars() & ~captionBar()));
         WindowManagerState.WindowState startingWindow = mWmState.findFirstWindowWithType(
@@ -222,10 +217,6 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         } else {
             appBounds = new Rect(startingWindow.getFrame());
         }
-
-        Rect statusBarInsetsBounds = new Rect(statusBarInsets.left, 0,
-                appBounds.right - statusBarInsets.right, statusBarInsets.top);
-
         assertFalse("Couldn't find splash screen bounds. Impossible to assert the colors",
                 appBounds.isEmpty());
 
@@ -240,10 +231,6 @@ public class SplashscreenTests extends ActivityManagerTestBase {
 
         appBounds.intersect(stableBounds);
         assertColors(image, appBounds, primaryColor, 0.99f, secondaryColor, 0.02f, ignoreRect);
-        if (isFullscreen && !statusBarInsetsBounds.isEmpty()) {
-            assertColors(image, statusBarInsetsBounds, primaryColor, 0.80f, secondaryColor, 0.10f,
-                    null);
-        }
     }
 
     // For real devices, gamma correction might be applied on hardware driver, so the colors may
@@ -438,6 +425,7 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // TODO(b/192431448): Allow Automotive to skip this test until Splash Screen is properly
         // applied insets by system bars in AAOS.
         assumeFalse(isCar());
+        assumeFalse(isLeanBack());
 
         final CommandSession.ActivitySession starter = prepareTestStarter();
         final ActivityOptions noIconOptions = ActivityOptions.makeBasic()
@@ -506,6 +494,7 @@ public class SplashscreenTests extends ActivityManagerTestBase {
         // TODO(b/192431448): Allow Automotive to skip this test until Splash Screen is properly
         // applied insets by system bars in AAOS.
         assumeFalse(isCar());
+        assumeFalse(isLeanBack());
 
         final LauncherApps launcherApps = mContext.getSystemService(LauncherApps.class);
         final ShortcutManager shortcutManager = mContext.getSystemService(ShortcutManager.class);

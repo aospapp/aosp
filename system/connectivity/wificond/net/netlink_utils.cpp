@@ -73,6 +73,7 @@ constexpr uint8_t kHe80p80MhzBitMask = 0x10;
 
 constexpr uint8_t kEhtCapPhyNumByte = 8;
 constexpr uint8_t kEht320MhzBitMask = 0x2;
+constexpr int kNl80211CmdRetryCount = 1;
 
 bool IsExtFeatureFlagSet(
     const std::vector<uint8_t>& ext_feature_flags_bytes,
@@ -135,7 +136,7 @@ bool NetlinkUtils::GetWiphyIndex(uint32_t* out_wiphy_index,
       netlink_manager_->GetSequenceNumber(),
       getpid());
   get_wiphy.AddFlag(NLM_F_DUMP);
-  int ifindex;
+  int ifindex = 0;
   if (!iface_name.empty()) {
     ifindex = if_nametoindex(iface_name.c_str());
     if (ifindex == 0) {
@@ -145,11 +146,20 @@ bool NetlinkUtils::GetWiphyIndex(uint32_t* out_wiphy_index,
     get_wiphy.AddAttribute(NL80211Attr<uint32_t>(NL80211_ATTR_IFINDEX, ifindex));
   }
   vector<unique_ptr<const NL80211Packet>> response;
-  if (!netlink_manager_->SendMessageAndGetResponses(get_wiphy, &response))  {
-    LOG(ERROR) << "NL80211_CMD_GET_WIPHY dump failed, ifindex: "
-               << ifindex << " and name: " << iface_name.c_str();
-    return false;
+  for (int i = kNl80211CmdRetryCount; i >= 0; i--) {
+      if (netlink_manager_->SendMessageAndGetResponses(get_wiphy, &response))  {
+          break;
+      } else {
+        if (i == 0) {
+            LOG(ERROR) << "NL80211_CMD_GET_WIPHY dump failed, ifindex: "
+                       << ifindex << " and name: " << iface_name.c_str();
+            return false;
+        } else {
+            LOG(INFO) << "Failed to get wiphy index, retry again";
+        }
+      }
   }
+
   if (response.empty()) {
     LOG(INFO) << "No wiphy is found";
     return false;
@@ -320,9 +330,17 @@ bool NetlinkUtils::GetWiphyInfo(
     get_wiphy.AddFlag(NLM_F_DUMP);
   }
   vector<unique_ptr<const NL80211Packet>> response;
-  if (!netlink_manager_->SendMessageAndGetResponses(get_wiphy, &response))  {
-    LOG(ERROR) << "NL80211_CMD_GET_WIPHY dump failed";
-    return false;
+  for (int i = kNl80211CmdRetryCount; i >= 0; i--) {
+      if (netlink_manager_->SendMessageAndGetResponses(get_wiphy, &response))  {
+          break;
+      } else {
+        if (i == 0) {
+            LOG(ERROR) << "NL80211_CMD_GET_WIPHY dump failed";
+            return false;
+        } else {
+            LOG(INFO) << "Failed to get wiphy info, retry again";
+        }
+      }
   }
 
   vector<NL80211Packet> packet_per_wiphy;
@@ -332,7 +350,7 @@ bool NetlinkUtils::GetWiphyInfo(
     }
   } else {
     for (auto& packet : response) {
-      packet_per_wiphy.push_back(move(*(packet.release())));
+      packet_per_wiphy.push_back(std::move(*(packet.release())));
     }
   }
 
@@ -808,7 +826,7 @@ bool NetlinkUtils::MergePacketsForSplitWiphyDump(
               attr_by_wiphy_and_id[wiphy_index].find(attr_id);
           if (attr_id_and_attr == attr_by_wiphy_and_id[wiphy_index].end()) {
             attr_by_wiphy_and_id[wiphy_index].
-                insert(make_pair(attr_id, move(attr)));
+                insert(make_pair(attr_id, std::move(attr)));
           } else {
             attr_id_and_attr->second.Merge(attr);
           }
@@ -824,7 +842,7 @@ bool NetlinkUtils::MergePacketsForSplitWiphyDump(
     for (const auto& attr : wiphy_and_attributes.second) {
       new_wiphy.AddAttribute(attr.second);
     }
-    packet_per_wiphy->emplace_back(move(new_wiphy));
+    packet_per_wiphy->emplace_back(std::move(new_wiphy));
   }
   return true;
 }

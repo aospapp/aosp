@@ -19,10 +19,12 @@ package com.android.wearable.touch.janktests;
 import android.app.Instrumentation;
 import android.content.Intent;
 import android.os.SystemClock;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.Until;
+
 import junit.framework.Assert;
 
 /**

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <openssl/ec.h>
 
 #include <keymaster/km_openssl/asymmetric_key.h>
@@ -28,10 +30,11 @@ class EcdsaOperationFactory;
 class EcKey : public AsymmetricKey {
   public:
     EcKey(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced, const KeyFactory* factory)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), factory) {}
     EcKey(AuthorizationSet hw_enforced, AuthorizationSet sw_enforced, const KeyFactory* factory,
           EC_KEY_Ptr ec_key)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), factory), ec_key_(move(ec_key)) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), factory),
+          ec_key_(std::move(ec_key)) {}
 
     int evp_key_type() const override { return EVP_PKEY_EC; }
 
@@ -43,7 +46,8 @@ class EcKey : public AsymmetricKey {
   protected:
     EcKey(EC_KEY* ec_key, AuthorizationSet hw_enforced, AuthorizationSet sw_enforced,
           const KeyFactory* key_factory)
-        : AsymmetricKey(move(hw_enforced), move(sw_enforced), key_factory), ec_key_(ec_key) {}
+        : AsymmetricKey(std::move(hw_enforced), std::move(sw_enforced), key_factory),
+          ec_key_(ec_key) {}
 
   private:
     EC_KEY_Ptr ec_key_;

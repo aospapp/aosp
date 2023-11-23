@@ -18,8 +18,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.testapp.SmsApp">
-    <application
-        android:testOnly="true">
+    <application android:testOnly="true" android:label="SmsApp">
 
         <!-- BroadcastReceiver that listens for incoming SMS messages -->
         <receiver android:name=".SmsReceiver"
@@ -70,5 +69,5 @@
             </intent-filter>
         </service>
     </application>
-    <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28"/>
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29"/>
 </manifest>

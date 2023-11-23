@@ -17,17 +17,25 @@
 package com.android.queryable.queries;
 
 import static com.android.bedstead.nene.utils.ParcelTest.assertParcelsCorrectly;
+import static com.android.queryable.queries.LongQuery.Long;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
 import com.android.queryable.Queryable;
 
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
-public class LongQueryHelperTest {
+@RunWith(BedsteadJUnit4.class)
+public final class LongQueryHelperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private final Queryable mQuery = null;
     private static final long LONG_VALUE = 100L;
@@ -172,5 +180,70 @@ public class LongQueryHelperTest {
         longQueryHelper.isLessThanOrEqualTo(1);
 
         assertParcelsCorrectly(LongQueryHelper.class, longQueryHelper);
+    }
+
+    @Test
+    public void longQueryHelper_queries() {
+        assertThat(Long()
+                .where().isEqualTo(1L)
+                .matches(1L)).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_isEmpty_returnsTrue() {
+        LongQueryHelper<Queryable> longQueryHelper =
+                new LongQueryHelper<>(mQuery);
+
+        assertThat(longQueryHelper.isEmptyQuery()).isTrue();
+    }
+
+    @Test
+    public void isEmptyQuery_hasEqualToQuery_returnsFalse() {
+        LongQueryHelper<Queryable> longQueryHelper =
+                new LongQueryHelper<>(mQuery);
+
+        longQueryHelper.isEqualTo(0);
+
+        assertThat(longQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasGreaterThanQuery_returnsFalse() {
+        LongQueryHelper<Queryable> longQueryHelper =
+                new LongQueryHelper<>(mQuery);
+
+        longQueryHelper.isGreaterThan(0);
+
+        assertThat(longQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasGreaterThanOrEqualToQuery_returnsFalse() {
+        LongQueryHelper<Queryable> longQueryHelper =
+                new LongQueryHelper<>(mQuery);
+
+        longQueryHelper.isGreaterThanOrEqualTo(0);
+
+        assertThat(longQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasLessThanQuery_returnsFalse() {
+        LongQueryHelper<Queryable> longQueryHelper =
+                new LongQueryHelper<>(mQuery);
+
+        longQueryHelper.isLessThan(0);
+
+        assertThat(longQueryHelper.isEmptyQuery()).isFalse();
+    }
+
+    @Test
+    public void isEmptyQuery_hasLessThanOrEqualToQuery_returnsFalse() {
+        LongQueryHelper<Queryable> longQueryHelper =
+                new LongQueryHelper<>(mQuery);
+
+        longQueryHelper.isLessThanOrEqualTo(0);
+
+        assertThat(longQueryHelper.isEmptyQuery()).isFalse();
     }
 }

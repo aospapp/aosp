@@ -2,6 +2,8 @@ out/soong/.intermediates/system/tools/aidl/aidl-test-interface-ndk-source/gen/an
   system/tools/aidl/tests/android/aidl/tests/ITestService.aidl \
   system/tools/aidl/tests/android/aidl/tests/BackendType.aidl \
   system/tools/aidl/tests/android/aidl/tests/ByteEnum.aidl \
+  system/tools/aidl/tests/android/aidl/tests/CircularParcelable.aidl \
+  system/tools/aidl/tests/android/aidl/tests/ICircular.aidl \
   system/tools/aidl/tests/android/aidl/tests/INamedCallback.aidl \
   system/tools/aidl/tests/android/aidl/tests/INewName.aidl \
   system/tools/aidl/tests/android/aidl/tests/IOldName.aidl \

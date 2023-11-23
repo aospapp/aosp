@@ -19,18 +19,28 @@
     <option name="test-suite-tag" value="cts" />
     <option name="config-descriptor:metadata" key="component" value="framework" />
     <option name="config-descriptor:metadata" key="parameter" value="not_instant_app" />
-    <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="all_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <option name="install-arg" value="-t" />
         <option name="test-file-name" value="CtsBackgroundActivityAppA.apk" />
+        <option name="test-file-name" value="CtsBackgroundActivityAppA33.apk" />
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
         <!-- TODO(b/129909356): Rename to CtsWindowManagerDeviceTestCases.apk -->
-        <option name="test-file-name" value="CtsActivityManagerBackgroundActivityTestCases.apk" />
+        <option name="test-file-name" value="CtsWindowManagerBackgroundActivityTestCases.apk" />
         <option name="test-file-name" value="CtsBackgroundActivityAppB.apk" />
+        <option name="test-file-name" value="CtsBackgroundActivityAppB33.apk" />
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="install-arg" value="-t" />
+        <option name="test-file-name" value="CtsBackgroundActivityAppC.apk" />
+        <option name="test-file-name" value="CtsBackgroundActivityAppC33.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="package" value="android.server.wm.backgroundactivity.cts" />

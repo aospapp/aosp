@@ -73,6 +73,9 @@
 //! Marks a symbol as weak, so that it may be overridden at link time
 #define WEAK_SYMBOL __attribute__((weak))
 
+//! Marks a function as malloc-like, for optimizations with the return pointer
+#define MALLOC_ATTR __attribute__((malloc))
+
 #else
 
 #warning "Missing compiler-specific macros"

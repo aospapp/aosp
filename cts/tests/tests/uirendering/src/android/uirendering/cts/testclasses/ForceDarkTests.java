@@ -16,11 +16,14 @@
 
 package android.uirendering.cts.testclasses;
 
+import android.Manifest;
 import android.app.UiModeManager;
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Rect;
+import android.graphics.Shader;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
 import android.uirendering.cts.testinfrastructure.ActivityTestBase;
@@ -51,14 +54,19 @@ public class ForceDarkTests extends ActivityTestBase {
                 InstrumentationRegistry.getContext().getSystemService(Context.UI_MODE_SERVICE);
         sPreviousUiMode = uiManager.getNightMode();
         if (sPreviousUiMode != UiModeManager.MODE_NIGHT_YES) {
-            SystemUtil.runShellCommand("service call uimode 4 i32 2");
+            SystemUtil.runWithShellPermissionIdentity(
+                    () -> uiManager.setNightMode(UiModeManager.MODE_NIGHT_YES),
+                    Manifest.permission.MODIFY_DAY_NIGHT_MODE);
         }
     }
 
     @AfterClass
     public static void restoreForceDarkSetting() {
+        UiModeManager uiManager = (UiModeManager)
+                InstrumentationRegistry.getContext().getSystemService(Context.UI_MODE_SERVICE);
         if (sPreviousUiMode != UiModeManager.MODE_NIGHT_YES) {
-            SystemUtil.runShellCommand("service call uimode 4 i32 " + sPreviousUiMode);
+            SystemUtil.runWithShellPermissionIdentity(() -> uiManager.setNightMode(sPreviousUiMode),
+                    Manifest.permission.MODIFY_DAY_NIGHT_MODE);
         }
     }
 
@@ -121,5 +129,25 @@ public class ForceDarkTests extends ActivityTestBase {
                     });
                 }, true)
                 .runWithVerifier(new RectVerifier(Color.BLACK, Color.WHITE, fgRect, 100));
+    }
+
+    @Test
+    public void testLinearGradient() {
+        final Rect rect = new Rect(10, 10, 80, 80);
+        createTest()
+                .addLayout(R.layout.simple_force_dark, (ViewInitializer) view -> {
+                    Assert.assertTrue(view.isForceDarkAllowed());
+                    ((CanvasClientView) view).setCanvasClient((canvas, width, height) -> {
+                        Paint p = new Paint();
+                        p.setAntiAlias(false);
+                        int[] color = {Color.BLACK, Color.rgb(254, 254, 254)};
+                        p.setShader(new LinearGradient(
+                                10, 0, 80, 0,
+                                color, null, Shader.TileMode.CLAMP)
+                        );
+                        canvas.drawRect(rect, p);
+                    });
+                }, true)
+                .runWithVerifier(new RectVerifier(Color.BLACK, Color.WHITE, rect, 100));
     }
 }

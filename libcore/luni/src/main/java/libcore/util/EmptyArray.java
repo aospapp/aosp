@@ -22,6 +22,8 @@ import android.annotation.SystemApi;
 import android.compat.annotation.UnsupportedAppUsage;
 import dalvik.annotation.compat.VersionCodes;
 
+import java.lang.annotation.Annotation;
+
 /**
  * Empty array is immutable. Use a shared empty array to avoid allocation.
  *
@@ -88,4 +90,6 @@ public final class EmptyArray {
     /** @hide */
     public static final java.lang.reflect.TypeVariable[] TYPE_VARIABLE =
         new java.lang.reflect.TypeVariable[0];
+    /** @hide */
+    public static final Annotation[] ANNOTATION = new Annotation[0];
 }

@@ -105,6 +105,10 @@ def directDeps($m):
   map($m[.] // []) + [.] | flatten | unique
 ;
 
+def reverseDeps($m):
+ .[] | select(.Deps[].Name == $m)
+;
+
 def transitiveDeps($m):
   {Prev: [], Next: .} |
   until (.Prev == .Next; {Prev: .Next, Next: .Next | directDeps($m)}) |

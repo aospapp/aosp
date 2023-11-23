@@ -50,6 +50,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.widget.TextView;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -78,6 +79,9 @@ public class FragmentLifecycleTest {
         fm.beginTransaction().add(strictFragment, "EmptyHeadless").commit();
         executePendingTransactions(fm);
 
+        FragmentTestActivity activity = mActivityRule.getActivity();
+        activity.waitForResume(mActivityRule);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertTrue("fragment is not added", strictFragment.isAdded());
         assertFalse("fragment is detached", strictFragment.isDetached());
         assertTrue("fragment is not resumed", strictFragment.isResumed());

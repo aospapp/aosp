@@ -16,19 +16,11 @@
 
 package android.media.audio.cts;
 
-import android.annotation.IntDef;
-import android.annotation.NonNull;
 import android.content.Context;
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.AudioRouting;
 import android.test.AndroidTestCase;
-import android.util.Log;
-
-import com.android.compatibility.common.util.CtsAndroidTestCase;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 
 public class AudioPlayRoutingNative extends AndroidTestCase {
     private static final String TAG = "AudioPlayRoutingNative";

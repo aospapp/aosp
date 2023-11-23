@@ -229,8 +229,8 @@ public class CameraErrorCollector extends ErrorCollector {
      */
     public <T extends Comparable<? super T>> boolean expectGreater(String msg, T expected,
             T actual) {
-        return expectTrue(String.format("%s: (expected = %s was not greater than actual = %s) ",
-                msg, expected, actual), actual.compareTo(expected) > 0);
+        return expectTrue(String.format("%s: (actual = %s was not greater than expected = %s) ",
+                msg, actual, expected), actual.compareTo(expected) > 0);
     }
 
     /**
@@ -243,8 +243,8 @@ public class CameraErrorCollector extends ErrorCollector {
      */
     public <T extends Comparable<? super T>> boolean expectGreaterOrEqual(String msg, T expected,
                                                                        T actual) {
-        return expectTrue(String.format("%s: (expected = %s was not greater than actual = %s) ",
-                msg, expected, actual), actual.compareTo(expected) >= 0);
+        return expectTrue(String.format("%s: (actual = %s was not greater than or equal to "
+                + "expected = %s) ", msg, actual, expected), actual.compareTo(expected) >= 0);
     }
 
     /**
@@ -257,8 +257,8 @@ public class CameraErrorCollector extends ErrorCollector {
      */
     public <T extends Comparable<? super T>> boolean expectLess(String msg, T expected,
             T actual) {
-        return expectTrue(String.format("%s: (expected = %s was not greater than actual = %s) ",
-                msg, expected, actual), actual.compareTo(expected) < 0);
+        return expectTrue(String.format("%s: (actual = %s was not less than expected = %s) ",
+                msg, actual, expected), actual.compareTo(expected) < 0);
     }
 
     /**
@@ -271,8 +271,8 @@ public class CameraErrorCollector extends ErrorCollector {
      */
     public <T extends Comparable<? super T>> boolean expectLessOrEqual(String msg, T expected,
             T actual) {
-        return expectTrue(String.format("%s: (expected = %s was not greater than actual = %s) ",
-                msg, expected, actual), actual.compareTo(expected) <= 0);
+        return expectTrue(String.format("%s: (actual = %s was not less than or equal to "
+                + "expected = %s) ", msg, actual, expected), actual.compareTo(expected) <= 0);
     }
 
     /**
@@ -454,6 +454,9 @@ public class CameraErrorCollector extends ErrorCollector {
         boolean succ = true;
         for (int i = 0; i < expected.length; ++i) {
             if (i < actual.length) {
+                if (actual[i].equals(expected[i])) {
+                    continue;
+                }
                 // Avoid printing multiple errors for the same rectangle
                 if (!expectRectsAreSimilar(
                         msg, expected[i].getRect(), actual[i].getRect(), errorPercent)) {

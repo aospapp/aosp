@@ -18,14 +18,16 @@ package android.telecom.cts;
 
 import static android.telecom.Connection.PROPERTY_HIGH_DEF_AUDIO;
 import static android.telecom.Connection.PROPERTY_WIFI;
-import static android.telecom.cts.TestUtils.*;
-
-import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
+import static android.telecom.cts.TestUtils.InvokeCounter;
+import static android.telecom.cts.TestUtils.TEST_PHONE_ACCOUNT_HANDLE;
+import static android.telecom.cts.TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2;
+import static android.telecom.cts.TestUtils.WAIT_FOR_STATE_CHANGE_TIMEOUT_MS;
 
 import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThat;
 
+import android.content.ContentProviderOperation;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.drawable.Icon;
@@ -35,6 +37,8 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.ParcelUuid;
 import android.provider.CallLog;
+import android.provider.ContactsContract;
+import android.provider.ContactsContract.PhoneLookup;
 import android.telecom.Call;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
@@ -45,8 +49,12 @@ import android.telecom.PhoneAccountHandle;
 import android.telecom.StatusHints;
 import android.telecom.TelecomManager;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.FileUtils;
+
+import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -56,7 +64,7 @@ import java.util.concurrent.TimeUnit;
  * Suites of tests that verifies the various Call details.
  */
 public class CallDetailsTest extends BaseTelecomTestWithMockServices {
-
+    public static final int WAIT_FOR_PHOTO_URI_TIMEOUT = 10000;
     public static final int CONNECTION_PROPERTIES =  PROPERTY_HIGH_DEF_AUDIO | PROPERTY_WIFI;
     public static final int CONNECTION_CAPABILITIES =
             Connection.CAPABILITY_HOLD | Connection.CAPABILITY_MUTE;
@@ -81,6 +89,7 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     private static final int ASYNC_TIMEOUT = 10000;
     private StatusHints mStatusHints;
     private Bundle mExtras = new Bundle();
+    private Uri mContactUri;
 
     private MockInCallService mInCallService;
     private Call mCall;
@@ -88,52 +97,86 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
 
     @Override
     protected void setUp() throws Exception {
+        boolean isSetUpComplete = false;
         super.setUp();
         if (mShouldTestTelecom) {
-            PhoneAccount account = setupConnectionService(
-                    new MockConnectionService() {
-                        @Override
-                        public Connection onCreateOutgoingConnection(
-                                PhoneAccountHandle connectionManagerPhoneAccount,
-                                ConnectionRequest request) {
-                            Connection connection = super.onCreateOutgoingConnection(
-                                    connectionManagerPhoneAccount,
-                                    request);
-                            mConnection = (MockConnection) connection;
-                            // Modify the connection object created with local values.
-                            connection.setConnectionCapabilities(CONNECTION_CAPABILITIES);
-                            connection.setConnectionProperties(CONNECTION_PROPERTIES);
-                            connection.setCallerDisplayName(
-                                    CALLER_DISPLAY_NAME,
-                                    CALLER_DISPLAY_NAME_PRESENTATION);
-                            connection.setExtras(mExtras);
-                            mStatusHints = new StatusHints(
-                                    "CTS test",
-                                    Icon.createWithResource(
-                                            getInstrumentation().getContext(),
-                                            R.drawable.ic_phone_24dp),
-                                            null);
-                            connection.setStatusHints(mStatusHints);
-                            lock.release();
-                            return connection;
-                        }
-                    }, FLAG_REGISTER | FLAG_ENABLE);
+            try {
+                PhoneAccount account = setupConnectionService(
+                        new MockConnectionService() {
+                            @Override
+                            public Connection onCreateOutgoingConnection(
+                                    PhoneAccountHandle connectionManagerPhoneAccount,
+                                    ConnectionRequest request) {
+                                Connection connection = super.onCreateOutgoingConnection(
+                                        connectionManagerPhoneAccount,
+                                        request);
+                                mConnection = (MockConnection) connection;
+                                // Modify the connection object created with local values.
+                                connection.setConnectionCapabilities(CONNECTION_CAPABILITIES);
+                                connection.setConnectionProperties(CONNECTION_PROPERTIES);
+                                connection.setCallerDisplayName(
+                                        CALLER_DISPLAY_NAME,
+                                        CALLER_DISPLAY_NAME_PRESENTATION);
+                                connection.setExtras(mExtras);
+                                mStatusHints = new StatusHints(
+                                        "CTS test",
+                                        Icon.createWithResource(
+                                                getInstrumentation().getContext(),
+                                                R.drawable.ic_phone_24dp),
+                                        null);
+                                connection.setStatusHints(mStatusHints);
+                                lock.release();
+                                return connection;
+                            }
+                        }, FLAG_REGISTER | FLAG_ENABLE);
 
-            // Make sure there is another phone account.
-            mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_2);
-            TestUtils.enablePhoneAccount(
-                    getInstrumentation(), TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2);
+                // Make sure there is another phone account.
+                mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_2);
+                TestUtils.enablePhoneAccount(
+                        getInstrumentation(), TestUtils.TEST_PHONE_ACCOUNT_HANDLE_2);
 
-            /** Place a call as a part of the setup before we test the various
-             *  Call details.
-             */
-            placeAndVerifyCall();
-            verifyConnectionForOutgoingCall();
+                // Add photo URI to calling number
+                ContentResolver resolver =
+                        getInstrumentation().getTargetContext().getContentResolver();
+                try {
+                    mContactUri = insertContactWithPhoto(
+                            resolver, getTestNumber().toString());
+                } catch (Exception e) {
+                    assertTrue("Failed to insert test contact into ContactsProvider", false);
+                }
 
-            mInCallService = mInCallCallbacks.getService();
-            mCall = mInCallService.getLastCall();
+                /** Place a call as a part of the setup before we test the various
+                 *  Call details.
+                 */
+                Bundle bundle = new Bundle();
+                bundle.putParcelable(TestUtils.EXTRA_PHONE_NUMBER, getTestNumber());
+                placeAndVerifyCall(bundle);
+                verifyConnectionForOutgoingCall();
 
-            assertCallState(mCall, Call.STATE_DIALING);
+                mInCallService = mInCallCallbacks.getService();
+                mCall = mInCallService.getLastCall();
+
+                assertCallState(mCall, Call.STATE_DIALING);
+                isSetUpComplete = true;
+            } finally {
+                // Force tearDown if setUp errors out to ensure unused listeners are cleaned up.
+                if (!isSetUpComplete) {
+                    tearDown();
+                }
+            }
+        }
+    }
+
+    @Override
+    protected void tearDown() throws Exception {
+        try {
+            if (mShouldTestTelecom && mContactUri != null) {
+                ContentResolver resolver =
+                        getInstrumentation().getTargetContext().getContentResolver();
+                TestUtils.deleteContact(resolver, mContactUri);
+            }
+        } finally {
+            super.tearDown();
         }
     }
 
@@ -314,6 +357,103 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
+     * We need to use actual photo data as any non photo information used would fails to be inserted
+     * into the contacts provider database per validity checks performed prior to inserting.
+     */
+    public static byte[] getTestPhotoData(Context context) {
+        InputStream input = context.getResources().openRawResource(R.drawable.ic_phone_24dp);
+        return FileUtils.readInputStreamFully(input);
+    }
+
+    /**
+     * This function is similar to {@link TestUtils#insertContact with the exception that it
+     * inserts a photo with the contact.
+     */
+    public Uri insertContactWithPhoto(ContentResolver contentResolver, String phoneNumber)
+            throws Exception {
+        ArrayList<ContentProviderOperation> ops = new ArrayList<>();
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.RawContacts.CONTENT_URI)
+                        .withValue(ContactsContract.RawContacts.ACCOUNT_TYPE, "test_type")
+                        .withValue(ContactsContract.RawContacts.ACCOUNT_NAME, "test_name")
+                        .build());
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                        .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                        .withValue(ContactsContract.Data.MIMETYPE,
+                                ContactsContract.CommonDataKinds.StructuredName.CONTENT_ITEM_TYPE)
+                        .withValue(ContactsContract.CommonDataKinds.StructuredName.DISPLAY_NAME,
+                                CALLER_DISPLAY_NAME)
+                        .build());
+        // Create another row for the Photo URI content as it uses a different MIME type, reference
+        // same raw contact id
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                        .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                        .withValue(ContactsContract.Data.MIMETYPE,
+                                ContactsContract.CommonDataKinds.Photo.CONTENT_ITEM_TYPE)
+                        .withValue(
+                                ContactsContract.Contacts.Photo.PHOTO, getTestPhotoData(mContext))
+                        .withYieldAllowed(true)
+                        .build());
+        // Create another row for the Phone number as it uses a different MIME type, reference same
+        // raw contact id
+        ops.add(ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
+                        .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
+                        .withValue(ContactsContract.Data.MIMETYPE,
+                                ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
+                        .withValue(ContactsContract.CommonDataKinds.Phone.NUMBER, phoneNumber)
+                        .withValue(ContactsContract.CommonDataKinds.Phone.TYPE,
+                                ContactsContract.CommonDataKinds.Phone.TYPE_MOBILE)
+                        .withYieldAllowed(true)
+                        .build());
+        return contentResolver.applyBatch(ContactsContract.AUTHORITY, ops)[0].uri;
+    }
+
+    /**
+     * Tests whether the getCallerPhotoUri() getter returns the correct object.
+     */
+    public void testContactPhotoUri() {
+        if (!mShouldTestTelecom) {
+            return;
+        }
+        String phoneNumber = getTestNumber().toString();
+
+        Uri contactRef = PhoneLookup.ENTERPRISE_CONTENT_FILTER_URI.buildUpon()
+                                 .appendPath(phoneNumber)
+                                 .build();
+
+        Cursor cursor = getInstrumentation().getContext().getContentResolver().query(
+                contactRef, null, null, null, null, null);
+
+        cursor.moveToFirst();
+        int columnIndex = cursor.getColumnIndex(PhoneLookup.PHOTO_URI);
+        assertTrue("photoURI should exist",
+                (columnIndex != -1) && (cursor.getString(columnIndex) != null));
+        Uri photoUri = Uri.parse(cursor.getString(columnIndex));
+
+        // The photo URI is set until the CallerInfo query is done, at that time the photo URI
+        // should exist, so wait until the value before testing that the value matches the
+        // photo URI from contacts provider.
+        waitUntilConditionIsTrueOrTimeout(
+                new Condition() {
+                    @Override
+                    public Object expected() {
+                        return true;
+                    }
+
+                    @Override
+                    public Object actual() {
+                        return mCall.getDetails() != null
+                                && mCall.getDetails().getContactPhotoUri() != null
+                                && mCall.getDetails().getContactPhotoUri().toString().equals(
+                                        photoUri.toString());
+                    }
+                },
+                WAIT_FOR_PHOTO_URI_TIMEOUT,
+                // If test flakes on this line, consider increasing the timeout as it may
+                // not have had enough time to perform the query for the photo uri.
+                "Photo URI should match between Contacts Provider and call details");
+    }
+
+    /**
      * Tests whether the getCallerDisplayNamePresentation() getter returns the correct object.
      */
     public void testCallerDisplayNamePresentation() {
@@ -326,15 +466,14 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
     }
 
     /**
-     * Test the contacts display name. We don't have anything set up in contacts, so expect it to
-     * be null
+     * Test the contacts display name.
      */
     public void testContactDisplayName() {
         if (!mShouldTestTelecom) {
             return;
         }
 
-        assertTrue(TextUtils.isEmpty(mCall.getDetails().getContactDisplayName()));
+        assertEquals(CALLER_DISPLAY_NAME, mCall.getDetails().getContactDisplayName());
     }
 
     /**
@@ -662,6 +801,8 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
      * Tests that {@link Call} extras changes made via {@link Call#putExtras(Bundle)} are propagated
      * to {@link Connection#onExtrasChanged(Bundle)}.
      */
+    @ApiTest(apis = {"android.telecom.Call#putExtras", "android.telecom.Connection#getExtras",
+            "android.telecom.Connection#onExtrasChanged"})
     public void testCallPutExtras() {
         if (!mShouldTestTelecom) {
             return;
@@ -815,6 +956,16 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         assertEquals(Connection.EVENT_CALL_REMOTELY_UNHELD, event);
         assertNull(extras);
         mOnConnectionEventCounter.reset();
+
+        TestParcelable testParcelable = createTestParcelable();
+        testBundle = createTestBundle(testParcelable);
+        mConnection.sendConnectionEvent(OTT_TEST_EVENT_NAME, testBundle);
+        mOnConnectionEventCounter.waitForCount(1, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        event = (String) (mOnConnectionEventCounter.getArgs(0)[1]);
+        extras = (Bundle) (mOnConnectionEventCounter.getArgs(0)[2]);
+        assertEquals(OTT_TEST_EVENT_NAME, event);
+        verifyTestBundle(extras, testParcelable);
+        mOnConnectionEventCounter.reset();
     }
 
     /**
@@ -858,6 +1009,16 @@ public class CallDetailsTest extends BaseTelecomTestWithMockServices {
         assertNotNull(extras);
         assertTrue(extras.containsKey(TEST_EXTRA_KEY));
         assertEquals(TEST_SUBJECT, extras.getString(TEST_EXTRA_KEY));
+
+        // Also send a more complicated Bundle as a Call Event
+        TestParcelable testParcelable = createTestParcelable();
+        testBundle = createTestBundle(testParcelable);
+        mCall.sendCallEvent(OTT_TEST_EVENT_NAME, testBundle);
+        counter.waitForCount(2, WAIT_FOR_STATE_CHANGE_TIMEOUT_MS);
+        event = (String) (counter.getArgs(1)[0]);
+        extras = (Bundle) (counter.getArgs(1)[1]);
+        assertEquals(OTT_TEST_EVENT_NAME, event);
+        verifyTestBundle(extras, testParcelable);
     }
 
     /**

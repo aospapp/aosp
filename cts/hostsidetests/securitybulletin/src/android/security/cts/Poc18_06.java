@@ -16,15 +16,18 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-
 import static org.junit.Assert.*;
 
+import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Poc18_06 extends SecurityTestCase {
+public class Poc18_06 extends NonRootSecurityTestCase {
 
     /**
      * CVE-2018-5884
@@ -35,9 +38,11 @@ public class Poc18_06 extends SecurityTestCase {
         String wfd_service = AdbUtils.runCommandLine(
                 "pm list package com.qualcomm.wfd.service", getDevice());
         if (wfd_service.contains("com.qualcomm.wfd.service")) {
-            String result = AdbUtils.runCommandLine(
-                    "am broadcast -a qualcomm.intent.action.WIFI_DISPLAY_BITRATE --ei format 3 --ei value 32",
-            getDevice());
+            String result =
+                    AdbUtils.runCommandLine(
+                            "am broadcast -a qualcomm.intent.action.WIFI_DISPLAY_BITRATE --ei"
+                                    + " format 3 --ei value 32",
+                            getDevice());
             assertNotMatchesMultiLine("Broadcast completed", result);
         }
     }

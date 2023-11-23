@@ -25,6 +25,8 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.util.Log;
 
+import androidx.test.InstrumentationRegistry;
+
 import java.util.ArrayList;
 
 /**
@@ -35,12 +37,10 @@ import java.util.ArrayList;
 public class UserControlDisabledPackagesTest extends BaseDeviceOwnerTest {
     private static final String TAG = "UserControlDisabledPackagesTest";
 
-    private static final String TEST_APP_APK = "CtsEmptyTestApp.apk";
-    private static final String TEST_APP_PKG = "android.packageinstaller.emptytestapp.cts";
-    private static final String SIMPLE_APP_APK = "CtsSimpleApp.apk";
     private static final String SIMPLE_APP_PKG = "com.android.cts.launcherapps.simpleapp";
     private static final String SIMPLE_APP_ACTIVITY =
             "com.android.cts.launcherapps.simpleapp.SimpleActivityImmediateExit";
+    private static final String ARG_PID_BEFORE_STOP = "pidOfSimpleapp";
 
     public void testSetUserControlDisabledPackages() throws Exception {
         ArrayList<String> protectedPackages = new ArrayList<>();
@@ -65,19 +65,21 @@ public class UserControlDisabledPackagesTest extends BaseDeviceOwnerTest {
         // package
 
         assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho()))
-                .containsExactly(SIMPLE_APP_PKG);
+                .contains(SIMPLE_APP_PKG);
         assertPackageStopped(/* stopped= */ false);
     }
 
     public void testClearSetUserControlDisabledPackages() throws Exception {
         final ArrayList<String> pkgs = new ArrayList<>();
         mDevicePolicyManager.setUserControlDisabledPackages(getWho(), pkgs);
-        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho())).isEmpty();
+        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho()))
+                .doesNotContain(SIMPLE_APP_PKG);
     }
 
     public void testForceStopWithUserControlEnabled() throws Exception {
         assertPackageStopped(/* stopped= */ true);
-        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho())).isEmpty();
+        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho()))
+                .doesNotContain(SIMPLE_APP_PKG);
     }
 
     public void testFgsStopWithUserControlDisabled() throws Exception {
@@ -86,15 +88,17 @@ public class UserControlDisabledPackagesTest extends BaseDeviceOwnerTest {
         // Check if package is part of UserControlDisabledPackages before checking if
         // package is stopped since it is a necessary condition to prevent stopping of
         // package
-
         assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho()))
-                .containsExactly(SIMPLE_APP_PKG);
-        assertPackageRunningState(/* running= */ true);
+                .contains(SIMPLE_APP_PKG);
+        assertPackageRunningState(/* running= */ true,
+                InstrumentationRegistry.getArguments().getString(ARG_PID_BEFORE_STOP, "-1"));
     }
 
     public void testFgsStopWithUserControlEnabled() throws Exception {
-        assertPackageRunningState(/* running= */ false);
-        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho())).isEmpty();
+        assertPackageRunningState(/* running= */ false,
+                InstrumentationRegistry.getArguments().getString(ARG_PID_BEFORE_STOP, "-1"));
+        assertThat(mDevicePolicyManager.getUserControlDisabledPackages(getWho()))
+                .doesNotContain(SIMPLE_APP_PKG);
     }
 
     private boolean isPackageStopped(String packageName) throws Exception {
@@ -120,9 +124,15 @@ public class UserControlDisabledPackagesTest extends BaseDeviceOwnerTest {
         return pid.length() > 0;
     }
 
-    private void assertPackageRunningState(boolean shouldBeRunning) throws Exception {
+    private void assertPackageRunningState(boolean shouldBeRunning, String argPid)
+            throws Exception {
+        String pid = executeShellCommand(String.format("pidof %s", SIMPLE_APP_PKG)).trim();
+
+        final boolean samePid = pid.equals(argPid);
+        final boolean stillRunning = samePid && isPackageRunning(SIMPLE_APP_PKG);
+
         assertWithMessage("Package %s running for user %s", SIMPLE_APP_PKG,
                 getCurrentUser().getIdentifier())
-                .that(isPackageRunning(SIMPLE_APP_PKG)).isEqualTo(shouldBeRunning);
+                .that(stillRunning).isEqualTo(shouldBeRunning);
     }
 }

@@ -21,6 +21,7 @@ from acts_contrib.test_utils.abstract_devices.wlan_device import create_wlan_dev
 
 
 class ToggleWlanInterfaceStressTest(BaseTestClass):
+
     def setup_class(self):
         dut = self.user_params.get('dut', None)
         if dut:
@@ -67,11 +68,11 @@ class ToggleWlanInterfaceStressTest(BaseTestClass):
             if not self.dut.destroy_wlan_interface(wlan_interfaces[0]):
                 raise signals.TestFailure("Failed to destroy WLAN interface")
             # Really make sure it is dead
-            self.fuchsia_devices[0].send_command_ssh(
-                "wlan iface del {}".format(wlan_interfaces[0]))
+            self.fuchsia_devices[0].ssh.run(
+                f"wlan iface del {wlan_interfaces[0]}")
             # Grace period
             time.sleep(2)
-            self.fuchsia_devices[0].send_command_ssh(
+            self.fuchsia_devices[0].ssh.run(
                 'wlan iface new --phy 0 --role Client')
             end_time = time.time() + 300
             while time.time() < end_time:

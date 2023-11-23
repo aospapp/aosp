@@ -57,8 +57,8 @@
 #include <zucchini/zucchini.h>
 
 #include "update_engine/common/hash_calculator.h"
-#include "update_engine/common/subprocess.h"
 #include "update_engine/common/utils.h"
+#include "update_engine/lz4diff/lz4diff.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/ab_generator.h"
 #include "update_engine/payload_generator/block_mapping.h"
@@ -67,10 +67,7 @@
 #include "update_engine/payload_generator/delta_diff_generator.h"
 #include "update_engine/payload_generator/extent_ranges.h"
 #include "update_engine/payload_generator/extent_utils.h"
-#include "update_engine/payload_generator/merge_sequence_generator.h"
-#include "update_engine/payload_generator/squashfs_filesystem.h"
 #include "update_engine/payload_generator/xz.h"
-#include "update_engine/lz4diff/lz4diff.h"
 
 using std::list;
 using std::map;
@@ -220,7 +217,7 @@ bool BestDiffGenerator::GenerateBestDiffOperation(
       config_.OperationEnabled(InstallOperation::LZ4DIFF_BSDIFF) &&
       config_.OperationEnabled(InstallOperation::LZ4DIFF_PUFFDIFF)) {
     brillo::Blob patch;
-    InstallOperation::Type op_type;
+    InstallOperation::Type op_type{};
     if (Lz4Diff(old_data_,
                 new_data_,
                 old_block_info_,
@@ -680,6 +677,10 @@ bool DeltaReadPartition(vector<AnnotatedOperation>* aops,
 
   size_t max_threads = GetMaxThreads();
 
+  if (config.max_threads > 0) {
+    max_threads = config.max_threads;
+  }
+
   // Sort the files in descending order based on number of new blocks to make
   // sure we start the largest ones first.
   if (file_delta_processors.size() > max_threads) {
@@ -1071,7 +1072,7 @@ bool ReadExtentsToDiff(const string& old_part,
 
   // Try generating a full operation for the given new data, regardless of the
   // old_data.
-  InstallOperation::Type op_type;
+  InstallOperation::Type op_type{};
   TEST_AND_RETURN_FALSE(
       GenerateBestFullOperation(new_data, version, &data_blob, &op_type));
   operation.set_type(op_type);

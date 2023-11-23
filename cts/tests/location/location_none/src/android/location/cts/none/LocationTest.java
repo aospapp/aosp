@@ -55,6 +55,8 @@ public class LocationTest {
         assertThat(l.hasVerticalAccuracy()).isFalse();
         assertThat(l.hasSpeedAccuracy()).isFalse();
         assertThat(l.hasBearingAccuracy()).isFalse();
+        assertThat(l.hasMslAltitude()).isFalse();
+        assertThat(l.hasMslAltitudeAccuracy()).isFalse();
         assertThat(l.isMock()).isFalse();
         assertThat(l.getExtras()).isNull();
     }
@@ -75,6 +77,8 @@ public class LocationTest {
         l.setSpeedAccuracyMetersPerSecond(9);
         l.setBearing(7);
         l.setBearingAccuracyDegrees(11);
+        l.setMslAltitudeMeters(-12);
+        l.setMslAltitudeAccuracyMeters(13);
         l.setMock(true);
         Bundle b = new Bundle();
         b.putString("key", "value");
@@ -156,6 +160,18 @@ public class LocationTest {
         assertThat(l.getBearingAccuracyDegrees()).isEqualTo(11);
         l.removeBearingAccuracy();
         assertThat(l.hasBearingAccuracy()).isFalse();
+
+        l.setMslAltitudeMeters(100);
+        assertThat(l.hasMslAltitude()).isTrue();
+        assertThat(l.getMslAltitudeMeters()).isEqualTo(100);
+        l.removeMslAltitude();
+        assertThat(l.hasMslAltitude()).isFalse();
+
+        l.setMslAltitudeAccuracyMeters(90);
+        assertThat(l.hasMslAltitudeAccuracy()).isTrue();
+        assertThat(l.getMslAltitudeAccuracyMeters()).isEqualTo(90);
+        l.removeMslAltitudeAccuracy();
+        assertThat(l.hasMslAltitudeAccuracy()).isFalse();
 
         l.setMock(true);
         assertThat(l.isMock()).isTrue();
@@ -371,6 +387,8 @@ public class LocationTest {
         l.setSpeedAccuracyMetersPerSecond(9);
         l.setBearing(7);
         l.setBearingAccuracyDegrees(11);
+        l.setMslAltitudeMeters(-12);
+        l.setMslAltitudeAccuracyMeters(13);
         l.setMock(true);
         Bundle b = new Bundle();
         b.putString("key", "value");

@@ -22,6 +22,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assume.assumeTrue;
 import static org.junit.Assert.fail;
 
 import android.annotation.Nullable;
@@ -186,7 +187,7 @@ public class CellInfoTest {
     private PackageManager mPm;
     private TelephonyManager mTm;
 
-    private int mRadioHalVersion;
+    private int mNetworkHalVersion;
 
     private static final int makeRadioVersion(int major, int minor) {
         if (major < 0 || minor < 0) return 0;
@@ -253,10 +254,13 @@ public class CellInfoTest {
 
     @Before
     public void setUp() throws Exception {
-        mTm = (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
         mPm = getContext().getPackageManager();
-        Pair<Integer, Integer> verPair = mTm.getRadioHalVersion();
-        mRadioHalVersion = makeRadioVersion(verPair.first, verPair.second);
+        assumeTrue(mPm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
+
+        mTm = (TelephonyManager) getContext().getSystemService(Context.TELEPHONY_SERVICE);
+        Pair<Integer, Integer> verPair =
+                mTm.getHalVersion(TelephonyManager.HAL_SERVICE_NETWORK);
+        mNetworkHalVersion = makeRadioVersion(verPair.first, verPair.second);
         TelephonyManagerTest.grantLocationPermissions();
     }
 
@@ -266,8 +270,6 @@ public class CellInfoTest {
      */
     @Test
     public void testPhoneStateListenerCallback() throws Throwable {
-        if (!mPm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY)) return;
-
         CellInfoResultsCallback resultsCallback = new CellInfoResultsCallback();
         // Prime the system by requesting a CellInfoUpdate
         mTm.requestCellInfoUpdate(mSimpleExecutor, resultsCallback);
@@ -315,11 +317,6 @@ public class CellInfoTest {
 
     @Test
     public void testCellInfo() throws Throwable {
-        if(!(mPm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY))) {
-            Log.d(TAG, "Skipping test that requires FEATURE_TELEPHONY");
-            return;
-        }
-
         if (!isCamped()) fail("Device is not camped to a cell");
 
         // Make a blocking call to requestCellInfoUpdate for results (for simplicity of test).
@@ -371,14 +368,14 @@ public class CellInfoTest {
         assertTrue("Invalid timestamp in CellInfo: " + info.getTimestampMillis(),
                 info.getTimestampMillis() > 0 && info.getTimestampMillis() <= curTime);
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_2) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_2) {
             // In HAL 1.2 or greater, the connection status must be reported
             assertTrue(info.getCellConnectionStatus() != CellInfo.CONNECTION_UNKNOWN);
         }
     }
 
     private void verifyBaseCellIdentity(CellIdentity id, boolean isRegistered) {
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_2) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_2) {
             if (isRegistered) {
                 String alphaLong = (String) id.getOperatorAlphaLong();
                 assertNotNull("getOperatorAlphaLong() returns NULL!", alphaLong);
@@ -592,7 +589,7 @@ public class CellInfoTest {
             verifyPlmnId(plmnId);
         }
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_5) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_5) {
             int[] bands = nr.getBands();
 
             for (int band: bands) {
@@ -630,6 +627,7 @@ public class CellInfoTest {
         int ssRsrp = nr.getSsRsrp();
         int ssRsrq = nr.getSsRsrq();
         int ssSinr = nr.getSsSinr();
+        int timingAdvance = nr.getTimingAdvanceMicros();
 
         assertTrue("getCsiRsrp() out of range [-140, -44] | Integer.MAX_INTEGER, csiRsrp = "
                         + csiRsrp, -140 <= csiRsrp && csiRsrp <= -44
@@ -643,9 +641,8 @@ public class CellInfoTest {
                         || (csiCqiTableIndex >= CQI_TABLE_INDEX_MIN_NR
                                 && csiCqiTableIndex <= CQI_TABLE_INDEX_MAX_NR));
         assertTrue("cqi in getCsiCqiReport() out of range | CellInfo.UNAVAILABLE, csiCqiReport="
-                + csiCqiReport, csiCqiReport.stream()
-                        .allMatch(cqi -> cqi.intValue() == CellInfo.UNAVAILABLE
-                                || (cqi.intValue() >= MIN_CQI && cqi.intValue() <= MAX_CQI)));
+                + csiCqiReport, csiCqiReport.stream().allMatch(
+                        cqi -> cqi == CellInfo.UNAVAILABLE || (cqi >= MIN_CQI && cqi <= MAX_CQI)));
         assertTrue("getSsRsrp() out of range [-140, -44] | Integer.MAX_INTEGER, ssRsrp = "
                         + ssRsrp, -140 <= ssRsrp && ssRsrp <= -44
                 || ssRsrp == CellInfo.UNAVAILABLE);
@@ -653,6 +650,9 @@ public class CellInfoTest {
                 + ssRsrq, -20 <= ssRsrq && ssRsrq <= -3 || ssRsrq == CellInfo.UNAVAILABLE);
         assertTrue("getSsSinr() out of range [-23, 40] | Integer.MAX_INTEGER, ssSinr = "
                 + ssSinr, -23 <= ssSinr && ssSinr <= 40 || ssSinr == CellInfo.UNAVAILABLE);
+        assertTrue("getTimingAdvanceMicros() out of range [0, 1282] | Integer.MAX_INTEGER, "
+                + "timingAdvance = " + timingAdvance, 0 <= timingAdvance && timingAdvance <= 1282
+                || timingAdvance == CellInfo.UNAVAILABLE);
     }
 
     private void verifyCellIdentityNrBands(int[] nrBands) {
@@ -720,7 +720,7 @@ public class CellInfoTest {
                 "getEarfcn() out of range [" + minEarfcn + "," + maxEarfcn + "], earfcn=" + earfcn,
                 (earfcn >= minEarfcn && earfcn <= maxEarfcn));
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_5) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_5) {
             int[] bands = lte.getBands();
 
             for (int band: bands) {
@@ -818,7 +818,7 @@ public class CellInfoTest {
                 timingAdvance == CellInfo.UNAVAILABLE
                         || (timingAdvance >= 0 && timingAdvance <= 1282));
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_2) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_2) {
             assertTrue("RSRP Must be valid for LTE",
                     cellSignalStrengthLte.getRsrp() != CellInfo.UNAVAILABLE);
         }
@@ -946,7 +946,7 @@ public class CellInfoTest {
         int level = wcdma.getLevel();
         assertTrue("getLevel() out of range [0,4], level=" + level, level >= 0 && level <= 4);
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_2) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_2) {
             assertTrue("RSCP Must be valid for WCDMA", wcdma.getRscp() != CellInfo.UNAVAILABLE);
         }
 
@@ -1060,7 +1060,7 @@ public class CellInfoTest {
         assertTrue("getBitErrorRate out of range [0,7], 99, or CellInfo.UNAVAILABLE, ber=" + ber,
                 ber == 99 || ber == CellInfo.UNAVAILABLE || (ber >= 0 && ber <= 7));
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_2) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_2) {
             assertTrue("RSSI Must be valid for GSM", gsm.getDbm() != CellInfo.UNAVAILABLE);
         }
     }
@@ -1176,7 +1176,7 @@ public class CellInfoTest {
         int level = tdscdma.getLevel();
         assertTrue("getLevel() out of range [0,4], level=" + level, level >= 0 && level <= 4);
 
-        if (mRadioHalVersion >= RADIO_HAL_VERSION_1_2) {
+        if (mNetworkHalVersion >= RADIO_HAL_VERSION_1_2) {
             assertTrue("RSCP Must be valid for TDSCDMA", tdscdma.getRscp() != CellInfo.UNAVAILABLE);
         }
     }

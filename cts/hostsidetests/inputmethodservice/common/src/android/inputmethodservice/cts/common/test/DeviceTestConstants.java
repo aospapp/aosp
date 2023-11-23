@@ -89,6 +89,18 @@ public final class DeviceTestConstants {
     public static final TestInfo TEST_IME1_NOT_IN_ENABLED_INPUT_METHOD_LIST =
             new TestInfo(PACKAGE, MANAGER_TEST, "testIme1NotInEnabledInputMethodList");
 
+    public static final TestInfo TEST_IME1_IN_CURRENT_INPUT_METHOD_INFO =
+            new TestInfo(PACKAGE, MANAGER_TEST, "testIme1InCurrentInputMethodInfo");
+    public static final TestInfo TEST_IME1_NOT_CURRENT_INPUT_METHOD_INFO =
+            new TestInfo(PACKAGE, MANAGER_TEST, "testIme1NotCurrentInputMethodInfo");
+    public static final TestInfo TEST_IME2_IN_CURRENT_INPUT_METHOD_INFO =
+            new TestInfo(PACKAGE, MANAGER_TEST, "testIme2InCurrentInputMethodInfo");
+    public static final TestInfo TEST_IME2_NOT_CURRENT_INPUT_METHOD_INFO =
+            new TestInfo(PACKAGE, MANAGER_TEST, "testIme2NotCurrentInputMethodInfo");
+
+    public static final TestInfo TEST_IS_STYLUS_HANDWRITING_AVAILABLE_FOR_PROFILE_USER =
+            new TestInfo(PACKAGE, MANAGER_TEST, "testIsStylusHandwritingAvailableForProfile");
+
     public static final TestInfo TEST_IME2_IN_INPUT_METHOD_LIST =
             new TestInfo(PACKAGE, MANAGER_TEST, "testIme2InInputMethodList");
     public static final TestInfo TEST_IME2_NOT_IN_INPUT_METHOD_LIST =

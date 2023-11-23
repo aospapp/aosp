@@ -17,12 +17,15 @@
 package android.server.wm;
 
 import android.app.Activity;
+import android.graphics.Insets;
 import android.os.Bundle;
-import android.util.DisplayMetrics;
+import android.view.Gravity;
+import android.view.View;
+import android.view.WindowInsets;
 import android.view.WindowManager.LayoutParams;
+import android.view.WindowMetrics;
 
 import androidx.annotation.Nullable;
-
 
 /**
  * Activity that makes its Window half width/height so that an area exists outside which can be
@@ -33,14 +36,22 @@ public class CloseOnOutsideTestActivity extends Activity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+    }
 
-        DisplayMetrics displayMetrics = getResources().getDisplayMetrics();
-        int width = displayMetrics.widthPixels;
-        int height = displayMetrics.heightPixels;
+    public void setupWindowSize() {
+        View contentView = getWindow().getDecorView().findViewById(android.R.id.content);
+        int width = contentView.getWidth();
+        int height = contentView.getHeight();
+
+        WindowMetrics windowMetrics = getWindowManager().getCurrentWindowMetrics();
+        Insets insets = windowMetrics.getWindowInsets().getInsets(WindowInsets.Type.systemBars());
 
         LayoutParams params = getWindow().getAttributes();
         params.width = width / 2;
         params.height = height / 2;
+        params.gravity = Gravity.LEFT | Gravity.TOP;
+        params.x = insets.left + (width / 4);
+        params.y = insets.top + (height / 4);
         getWindow().setAttributes(params);
     }
 }

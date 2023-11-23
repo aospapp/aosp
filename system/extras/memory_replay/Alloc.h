@@ -16,33 +16,10 @@
 
 #pragma once
 
-#include <string>
+#include "AllocParser.h"
 
 // Forward Declarations.
 class Pointers;
-
-enum AllocEnum : uint8_t {
-  MALLOC = 0,
-  CALLOC,
-  MEMALIGN,
-  REALLOC,
-  FREE,
-  THREAD_DONE,
-};
-
-struct AllocEntry {
-  pid_t tid;
-  AllocEnum type;
-  uint64_t ptr = 0;
-  size_t size = 0;
-  union {
-    uint64_t old_ptr = 0;
-    uint64_t n_elements;
-    uint64_t align;
-  } u;
-};
-
-void AllocGetData(const std::string& line, AllocEntry* entry);
 
 bool AllocDoesFree(const AllocEntry& entry);
 

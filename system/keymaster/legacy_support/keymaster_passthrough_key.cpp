@@ -17,6 +17,8 @@
 
 #include <keymaster/legacy_support/keymaster_passthrough_key.h>
 
+#include <utility>
+
 namespace keymaster {
 
 keymaster_error_t KeymasterPassthroughKeyFactory::LoadKey(KeymasterKeyBlob&& key_material,
@@ -28,8 +30,9 @@ keymaster_error_t KeymasterPassthroughKeyFactory::LoadKey(KeymasterKeyBlob&& key
     if (!key) return KM_ERROR_OUTPUT_PARAMETER_NULL;
 
     key->reset(new (std::nothrow)
-                   KeymasterPassthroughKey(move(key_material), move(hw_enforced), move(sw_enforced),
-                                           this, &error, additional_params, engine_));
+                   KeymasterPassthroughKey(std::move(key_material), std::move(hw_enforced),
+                                           std::move(sw_enforced), this, &error, additional_params,
+                                           engine_));
     if (!key->get()) error = KM_ERROR_MEMORY_ALLOCATION_FAILED;
 
     return error;

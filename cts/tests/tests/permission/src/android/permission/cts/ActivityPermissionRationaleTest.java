@@ -26,10 +26,12 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.RemoteCallback;
 import android.platform.test.annotations.AppModeFull;
 
+import androidx.test.filters.SdkSuppress;
 import androidx.test.internal.runner.junit4.AndroidJUnit4ClassRunner;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -44,6 +46,7 @@ import java.util.concurrent.TimeUnit;
 
 @AppModeFull(reason = "Tests properties of other app. Instant apps cannot interact with other apps")
 @RunWith(AndroidJUnit4ClassRunner.class)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 public class ActivityPermissionRationaleTest {
     private static final String APK =
             "/data/local/tmp/cts/permissions/CtsAppThatRunsRationaleTests.apk";

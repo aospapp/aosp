@@ -57,6 +57,7 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
     private static final String DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI_ID =
             "DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI";
 
+    private WifiManager mWifiManager;
     private WifiConfigCreator mConfigCreator;
     private ButtonInfo[] mSwitchLockdownOffButtonInfos;
     private ButtonInfo[] mSwitchLockdownOnButtonInfos;
@@ -64,9 +65,9 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        WifiManager wifiManager = TestAppSystemServiceFactory.getWifiManager(this,
+        mWifiManager = TestAppSystemServiceFactory.getWifiManager(this,
                 DeviceAdminTestReceiver.class);
-        mConfigCreator = new WifiConfigCreator(this, wifiManager);
+        mConfigCreator = new WifiConfigCreator(this, mWifiManager);
         setContentView(R.layout.wifi_lockdown);
         setInfoResources(R.string.device_owner_wifi_lockdown_test,
                 R.string.device_owner_wifi_lockdown_info, 0);
@@ -159,23 +160,27 @@ public class WifiLockdownTestActivity extends PassFailButtons.TestListActivity {
                 R.string.device_owner_wifi_config_unlocked_removal_test,
                 R.string.device_owner_wifi_config_unlocked_removal_test_info,
                 mSwitchLockdownOffButtonInfos));
-        adapter.add(Utils.createInteractiveTestItem(this,
-                DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI_ID,
-                R.string.device_owner_disallow_sharing_admin_configure_wifi,
-                R.string.device_owner_disallow_sharing_admin_configure_wifi_info,
-                new ButtonInfo[] {
+
+        boolean isDppSupported = mWifiManager.isEasyConnectSupported();
+        if (isDppSupported) {
+            adapter.add(Utils.createInteractiveTestItem(this,
+                    DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI_ID,
+                    R.string.device_owner_disallow_sharing_admin_configure_wifi,
+                    R.string.device_owner_disallow_sharing_admin_configure_wifi_info,
+                    new ButtonInfo[] {
                         new ButtonInfo(
                                 R.string.device_owner_user_restriction_set,
                                 CommandReceiverActivity.createSetCurrentUserRestrictionIntent(
-                                        UserManager.DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI, true)),
+                                    UserManager.DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI, true)),
                         new ButtonInfo(
                                 R.string.device_owner_settings_go,
                                 new Intent(Settings.ACTION_WIFI_SETTINGS)),
                         new ButtonInfo(
                                 R.string.device_owner_user_restriction_unset,
                                 CommandReceiverActivity.createSetCurrentUserRestrictionIntent(
-                                        UserManager.DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI, false))
-                }));
+                                    UserManager.DISALLOW_SHARING_ADMIN_CONFIGURED_WIFI, false))
+                    }));
+        }
     }
 
     private int convertKeyManagement(int radioButtonId) {

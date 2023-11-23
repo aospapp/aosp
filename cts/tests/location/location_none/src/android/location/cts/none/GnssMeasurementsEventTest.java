@@ -82,6 +82,9 @@ public class GnssMeasurementsEventTest {
         assertEquals(newAgc1, AGC_1);
         GnssAutomaticGainControl newAgc2 = gnssAgcIterator.next();
         assertEquals(newAgc2, AGC_2);
+
+        assertEquals(true, newEvent.hasIsFullTracking());
+        assertEquals(true, newEvent.isFullTracking());
     }
 
     @Test
@@ -89,6 +92,13 @@ public class GnssMeasurementsEventTest {
         GnssMeasurementsEvent event1 = getTestEvent();
         GnssMeasurementsEvent event2 = new GnssMeasurementsEvent.Builder(event1).build();
         assertEquals(event1.toString(), event2.toString());
+    }
+
+    @Test
+    public void testClear() {
+        GnssMeasurementsEvent event = new GnssMeasurementsEvent.Builder(
+                getTestEvent()).clearIsFullTracking().build();
+        assertEquals(false, event.hasIsFullTracking());
     }
 
     private GnssMeasurementsEvent getTestEvent() {
@@ -100,6 +110,8 @@ public class GnssMeasurementsEventTest {
         m2.setReceivedSvTimeNanos(43999);
         return new GnssMeasurementsEvent.Builder().setClock(clock)
                 .setMeasurements(List.of(m1, m2))
-                .setGnssAutomaticGainControls(List.of(AGC_1, AGC_2)).build();
+                .setGnssAutomaticGainControls(List.of(AGC_1, AGC_2))
+                .setIsFullTracking(true)
+                .build();
     }
 }

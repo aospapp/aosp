@@ -66,7 +66,6 @@ struct buffer_descriptor_t
 	    hal_format(0),
 	    layer_count(0),
 	    format_type(MALI_GRALLOC_FORMAT_TYPE_USAGE),
-	    name("Unnamed"),
 	    reserved_size(0),
 	    pixel_stride(0),
 	    alloc_format(0),

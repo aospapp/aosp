@@ -109,7 +109,10 @@ for partition in system product system_ext vendor; do
       fi
       name=$(basename $src)
       dst=$ROOT/apex/$name
-      module_path=/$(realpath --relative-to=$ROOT $src)
+      # b/234792422 Atest is running with PATH prebuilts/build-tools/path/linux-x86
+      # where the realpath does not support --relative-to option. Use shell
+      # parameter expansion to avoid invalid options.
+      module_path="${src/$ROOT/}"
       # simulate block apexes are activated from /dev/block/vdaN
       if [[ "$block_apexes" == *"$name"* ]]; then
         module_path=/dev/block/vda$blockIndex

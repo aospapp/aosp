@@ -46,6 +46,30 @@ public interface INestedService extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_flipStatus:
+        {
+          return "flipStatus";
+        }
+        case TRANSACTION_flipStatusWithCallback:
+        {
+          return "flipStatusWithCallback";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -142,6 +166,11 @@ public interface INestedService extends android.os.IInterface
     }
     static final int TRANSACTION_flipStatus = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
     static final int TRANSACTION_flipStatusWithCallback = (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 1;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$nested$INestedService".replace('$', '.');
   public android.aidl.tests.nested.INestedService.Result flipStatus(android.aidl.tests.nested.ParcelableWithNested p) throws android.os.RemoteException;
@@ -232,6 +261,26 @@ public interface INestedService extends android.os.IInterface
       {
         return this;
       }
+      /** @hide */
+      public static java.lang.String getDefaultTransactionName(int transactionCode)
+      {
+        switch (transactionCode)
+        {
+          case TRANSACTION_done:
+          {
+            return "done";
+          }
+          default:
+          {
+            return null;
+          }
+        }
+      }
+      /** @hide */
+      public java.lang.String getTransactionName(int transactionCode)
+      {
+        return this.getDefaultTransactionName(transactionCode);
+      }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
         java.lang.String descriptor = DESCRIPTOR;
@@ -296,6 +345,11 @@ public interface INestedService extends android.os.IInterface
         }
       }
       static final int TRANSACTION_done = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 0;
+      }
     }
     public static final java.lang.String DESCRIPTOR = "android$aidl$tests$nested$INestedService$ICallback".replace('$', '.');
     public void done(byte status) throws android.os.RemoteException;

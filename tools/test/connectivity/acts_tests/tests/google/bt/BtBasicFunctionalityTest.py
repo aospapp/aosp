@@ -20,7 +20,6 @@ This test was designed to be run in a shield box.
 
 import time
 
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_constants import bt_scan_mode_types

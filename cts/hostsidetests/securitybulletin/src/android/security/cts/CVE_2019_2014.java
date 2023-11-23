@@ -17,13 +17,16 @@
 package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
-import com.android.compatibility.common.util.CrashUtils;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2019_2014 extends SecurityTestCase {
+public class CVE_2019_2014 extends NonRootSecurityTestCase {
 
     /**
      * b/120499324
@@ -34,9 +37,9 @@ public class CVE_2019_2014 extends SecurityTestCase {
     public void testPocCVE_2019_2014() throws Exception {
         pocPusher.only64();
         String binaryName = "CVE-2019-2014";
-        String signals[] = {CrashUtils.SIGABRT};
+        String signals[] = {TombstoneUtils.Signals.SIGABRT};
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, getDevice());
-        testConfig.config = new CrashUtils.Config().setProcessPatterns(binaryName);
+        testConfig.config = new TombstoneUtils.Config().setProcessPatterns(binaryName);
         testConfig.config.setSignals(signals);
         AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
     }

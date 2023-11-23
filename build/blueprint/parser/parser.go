@@ -70,6 +70,7 @@ func parse(p *parser) (file *File, errs []error) {
 		}
 	}()
 
+	p.next()
 	defs := p.parseDefinitions()
 	p.accept(scanner.EOF)
 	errs = p.errors
@@ -100,6 +101,7 @@ func Parse(filename string, r io.Reader, scope *Scope) (file *File, errs []error
 
 func ParseExpression(r io.Reader) (value Expression, errs []error) {
 	p := newParser(r, NewScope(nil))
+	p.next()
 	value = p.parseExpression()
 	p.accept(scanner.EOF)
 	errs = p.errors
@@ -124,7 +126,6 @@ func newParser(r io.Reader, scope *Scope) *parser {
 	}
 	p.scanner.Mode = scanner.ScanIdents | scanner.ScanInts | scanner.ScanStrings |
 		scanner.ScanRawStrings | scanner.ScanComments
-	p.next()
 	return p
 }
 
@@ -299,37 +300,6 @@ func (p *parser) parsePropertyList(isModule, compat bool) (properties []*Propert
 	}
 
 	return
-}
-
-func (p *parser) parseMapItemList() []*MapItem {
-	var items []*MapItem
-	// this is a map, not a struct, we only know we're at the end if we hit a '}'
-	for p.tok != '}' {
-		items = append(items, p.parseMapItem())
-
-		if p.tok != ',' {
-			// There was no comma, so the list is done.
-			break
-		}
-		p.accept(',')
-	}
-	return items
-}
-
-func (p *parser) parseMapItem() *MapItem {
-	keyExpression := p.parseExpression()
-	if keyExpression.Type() != StringType {
-		p.errorf("only strings are supported as map keys: %s (%s)", keyExpression.Type(), keyExpression.String())
-	}
-	key := keyExpression.(*String)
-	p.accept(':')
-	pos := p.scanner.Position
-	value := p.parseExpression()
-	return &MapItem{
-		ColonPos: pos,
-		Key:      key,
-		Value:    value,
-	}
 }
 
 func (p *parser) parseProperty(isModule, compat bool) (property *Property) {
@@ -614,15 +584,7 @@ func (p *parser) parseMapValue() *Map {
 		return nil
 	}
 
-	var properties []*Property
-	var mapItems []*MapItem
-	// if the next item is an identifier, this is a property
-	if p.tok == scanner.Ident {
-		properties = p.parsePropertyList(false, false)
-	} else {
-		// otherwise, we assume that this is a map
-		mapItems = p.parseMapItemList()
-	}
+	properties := p.parsePropertyList(false, false)
 
 	rBracePos := p.scanner.Position
 	p.accept('}')
@@ -631,7 +593,6 @@ func (p *parser) parseMapValue() *Map {
 		LBracePos:  lBracePos,
 		RBracePos:  rBracePos,
 		Properties: properties,
-		MapItems:   mapItems,
 	}
 }
 

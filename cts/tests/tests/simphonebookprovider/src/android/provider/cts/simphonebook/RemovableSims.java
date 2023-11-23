@@ -71,6 +71,9 @@ class RemovableSims {
         List<SubscriptionInfo> allSubscriptions = SystemUtil.runWithShellPermissionIdentity(() ->
                         subscriptionManager.getActiveSubscriptionInfoList(),
                 Manifest.permission.READ_PHONE_STATE);
+        if (allSubscriptions == null) {
+            allSubscriptions = Collections.emptyList();
+        }
         Map<Integer, List<SubscriptionInfo>> subscriptionsByCardId = allSubscriptions.stream()
                 .collect(Collectors.groupingBy(SubscriptionInfo::getCardId));
         for (UiccCardInfo cardInfo : uiccCards) {

@@ -33,7 +33,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(BedsteadJUnit4.class)
-public class TestAppActivityReferenceTest {
+public final class TestAppActivityReferenceTest {
 
     private static final UserReference sUser = TestApis.users().instrumented();
 

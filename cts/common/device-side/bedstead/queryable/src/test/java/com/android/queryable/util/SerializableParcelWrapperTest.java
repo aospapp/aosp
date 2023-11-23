@@ -23,6 +23,11 @@ import static com.google.common.truth.Truth.assertThat;
 import android.os.Bundle;
 import android.os.Parcelable;
 
+import com.android.bedstead.harrier.BedsteadJUnit4;
+import com.android.bedstead.harrier.DeviceState;
+
+import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,8 +37,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 
-@RunWith(JUnit4.class)
+@RunWith(BedsteadJUnit4.class)
 public class SerializableParcelWrapperTest {
+
+    @ClassRule @Rule
+    public static final DeviceState sDeviceState = new DeviceState();
 
     private static final String KEY = "Key";
     private static final String STRING_VALUE = "String";

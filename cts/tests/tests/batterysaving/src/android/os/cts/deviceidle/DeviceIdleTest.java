@@ -27,11 +27,11 @@ import android.annotation.NonNull;
 import android.content.Context;
 import android.content.IntentFilter;
 import android.os.PowerManager;
-import android.support.test.uiautomator.UiDevice;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
+import androidx.test.uiautomator.UiDevice;
 
 import com.android.compatibility.common.util.BatteryUtils;
 import com.android.compatibility.common.util.CallbackAsserter;

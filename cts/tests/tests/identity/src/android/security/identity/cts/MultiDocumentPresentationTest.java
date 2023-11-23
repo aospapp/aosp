@@ -199,6 +199,23 @@ public class MultiDocumentPresentationTest {
 
             // Then compare it with what the TA produced.
             assertArrayEquals(expectedMac, rd.getDeviceMac());
+
+            // Feature version 202301 and later also returns an ECDSA signature. Check this.
+            if (TestUtil.getFeatureVersion() >= 202301) {
+                byte[] signature = rd.getDeviceSignature();
+                assertNotNull(signature);
+                assertEquals(0, Util.coseSign1GetData(signature).length);
+                assertTrue(Util.coseSign1CheckSignature(signature,
+                                                        deviceAuthenticationBytes, // detached content
+                                                        expectedAuthKey));
+            } else {
+                try {
+                    rd.getDeviceSignature();
+                    assertTrue(false);
+                } catch (UnsupportedOperationException e) {
+                    // This is the expected path...
+                }
+            }
         }
     }
 

@@ -20,8 +20,9 @@
 #include "Vintf.h"
 
 #include <android-base/logging.h>
-#include <vintf/parse_string.h>
+#include <hidl-util/FQName.h>
 #include <vintf/VintfObject.h>
+#include <vintf/parse_string.h>
 
 namespace android {
 namespace hardware {

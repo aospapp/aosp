@@ -11,5 +11,7 @@ Several things to notice:
       <https://cs.android.com/android/platform/superproject/+/master:cts/tools/cts-tradefed/tests/src/com/android/compatibility/common/tradefed/presubmit/CtsConfigLoadingTest.java;l=66>.
 
   2.  If the module is added outside the 'cts/' folder, the user should also 1) add the module
-      directory into the ayeaye checker (as shown in cl/423435565), and 2) add an OWNERS file in the
-      module directory accordingly.
+      directory into the ayeaye checker (as shown in
+      [this line in the configuration file](https://source.corp.google.com/piper///depot/google3/wireless/android/busytown/ayeaye/config/analyzers/api_test_coverage/api_test_coverage.gcl;l=32;bpv=0;cl=438517394),
+      whose format should be similar to `"packages/<MODULE_NAME>/<API_NAME>/tests/cts/"`), and
+      2) add an OWNERS file in the module directory accordingly.

@@ -19,6 +19,7 @@ package {
 android_test_helper_app {
     name: "AlarmTestAppWithUserPermissionSdk32",
     defaults: ["cts_support_defaults"],
+    min_sdk_version: "32",
     sdk_version: "current",
     test_suites: [
         "cts",

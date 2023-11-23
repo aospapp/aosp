@@ -23,7 +23,8 @@ namespace gs101 {
 
 class ExynosVirtualDisplayModule : public ExynosVirtualDisplay {
 public:
-    ExynosVirtualDisplayModule(uint32_t displayId, ExynosDevice *device);
+    ExynosVirtualDisplayModule(uint32_t index, ExynosDevice* device,
+                               const std::string& displayName);
     ~ExynosVirtualDisplayModule();
 
     /* getDisplayAttribute(..., config, attribute, outValue)

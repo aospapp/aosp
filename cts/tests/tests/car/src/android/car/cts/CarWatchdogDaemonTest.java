@@ -16,15 +16,17 @@
 
 package android.car.cts;
 
+import static android.car.PlatformVersion.VERSION_CODES;
+
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import static org.junit.Assume.assumeTrue;
-
+import android.car.Car;
+import android.car.test.ApiCheckerRule.Builder;
 import android.content.Context;
-import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Process;
 import android.os.UserHandle;
 import android.system.Os;
@@ -33,11 +35,11 @@ import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 
-import com.android.compatibility.common.util.RequiredFeatureRule;
+import com.android.compatibility.common.util.ApiLevelUtil;
+import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.ClassRule;
 import org.junit.Test;
 
 import java.io.File;
@@ -45,20 +47,27 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InterruptedIOException;
-import java.lang.Math;
 import java.nio.file.Files;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class CarWatchdogDaemonTest {
-    @ClassRule
-    public static final RequiredFeatureRule sRequiredFeatureRule = new RequiredFeatureRule(
-            PackageManager.FEATURE_AUTOMOTIVE);
+public final class CarWatchdogDaemonTest extends AbstractCarTestCase {
 
     private static final String TAG = CarWatchdogDaemonTest.class.getSimpleName();
 
-    private static final String CAR_WATCHDOG_SERVICE_NAME
-            = "android.automotive.watchdog.ICarWatchdog/default";
+    // System event performance data collections are extended for at least 30 seconds after
+    // receiving the corresponding system event completion notification. During these periods
+    // (on <= Android T releases), a custom collection cannot be started. Thus, retry starting
+    // custom collection for at least twice this duration.
+    private static final long START_CUSTOM_COLLECTION_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(60);
+    private static final String START_CUSTOM_PERF_COLLECTION_CMD =
+            "dumpsys android.automotive.watchdog.ICarWatchdog/default --start_perf --max_duration"
+                    + " 120 --interval 5 --filter_packages " + getContext().getPackageName();
+    private static final String STOP_CUSTOM_PERF_COLLECTION_CMD =
+            "dumpsys android.automotive.watchdog.ICarWatchdog/default --stop_perf";
+    private static final String START_CUSTOM_COLLECTION_SUCCESS_MSG =
+            "Successfully started custom perf collection";
 
     private static final int MAX_WRITE_BYTES = 100 * 1000;
     private static final int CAPTURE_WAIT_MS = 10 * 1000;
@@ -69,6 +78,13 @@ public final class CarWatchdogDaemonTest {
             VALUE_PERCENT_REGEX_PAIR);
 
     private File testDir;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() throws IOException {
@@ -84,26 +100,38 @@ public final class CarWatchdogDaemonTest {
 
     @Test
     public void testRecordsIoPerformanceData() throws Exception {
-        String packageName = getContext().getPackageName();
-        runShellCommand(
-                "dumpsys %s --start_perf --interval 5 --max_duration 120 --filter_packages %s",
-                CAR_WATCHDOG_SERVICE_NAME, packageName);
+        startCustomPerformanceDataCollection();
         long writtenBytes = writeToDisk(testDir);
         assertWithMessage("Failed to write data to dir '" + testDir.getAbsolutePath() + "'").that(
                 writtenBytes).isGreaterThan(0L);
         // Sleep twice the collection interval to capture the entire write.
         Thread.sleep(CAPTURE_WAIT_MS);
-        String contents = runShellCommand("dumpsys %s --stop_perf", CAR_WATCHDOG_SERVICE_NAME);
+        String contents = runShellCommand(STOP_CUSTOM_PERF_COLLECTION_CMD);
         Log.i(TAG, "stop results:" + contents);
         assertWithMessage("Failed to custom collect I/O performance data").that(
                 contents).isNotEmpty();
         long recordedBytes = parseDump(contents, UserHandle.getUserId(Process.myUid()),
-                packageName);
+                getContext().getPackageName());
         assertThat(recordedBytes).isAtLeast(writtenBytes);
     }
 
     private static Context getContext() {
         return InstrumentationRegistry.getInstrumentation().getContext();
+    }
+
+    private void startCustomPerformanceDataCollection() throws Exception {
+        if (ApiLevelUtil.isAfter(Build.VERSION_CODES.TIRAMISU)) {
+            String result = runShellCommand(START_CUSTOM_PERF_COLLECTION_CMD);
+            assertWithMessage("Custom collection start message").that(result)
+                    .contains(START_CUSTOM_COLLECTION_SUCCESS_MSG);
+            return;
+        }
+        PollingCheck.check("Failed to start custom collect performance data collection",
+                START_CUSTOM_COLLECTION_TIMEOUT_MS,
+                () -> {
+                    String result = runShellCommand(START_CUSTOM_PERF_COLLECTION_CMD);
+                    return result.contains(START_CUSTOM_COLLECTION_SUCCESS_MSG) || result.isEmpty();
+                });
     }
 
     private static void writeToFos(FileOutputStream fos, long maxSize) throws IOException {
@@ -165,6 +193,8 @@ public final class CarWatchdogDaemonTest {
      * @return Total written bytes recorded for the current userId and package name.
      */
     private static long parseDump(String content, int userId, String packageName) throws Exception {
+        String ioWritesHeader = Car.getPlatformVersion().isAtLeast(VERSION_CODES.TIRAMISU_1)
+                ? "Top N Storage I/O Writes:" : "Top N Writes:";
         long writtenBytes = 0;
         Section curSection = Section.NONE;
         String errorLines = "";
@@ -180,7 +210,7 @@ public final class CarWatchdogDaemonTest {
             if (line.contains("collector failed to access")) {
                 errorLines += "\n" + line;
             }
-            if (line.matches("Top N Writes:")) {
+            if (line.matches(ioWritesHeader)) {
                 curSection = Section.WRITTEN_BYTES_HEADER_SECTION;
                 continue;
             }

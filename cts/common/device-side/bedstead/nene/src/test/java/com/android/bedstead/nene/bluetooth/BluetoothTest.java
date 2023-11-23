@@ -30,14 +30,14 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(BedsteadJUnit4.class)
-public class BluetoothTest {
+public final class BluetoothTest {
 
     @ClassRule @Rule
     public static final DeviceState sDeviceState = new DeviceState();
 
     @Test
     @EnsureBluetoothDisabled
-    public void enable_bluetoothIsEnabled() throws Exception {
+    public void setEnabled_true_bluetoothIsEnabled() throws Exception {
         TestApis.bluetooth().setEnabled(true);
 
         assertThat(TestApis.bluetooth().isEnabled()).isTrue();
@@ -45,7 +45,7 @@ public class BluetoothTest {
 
     @Test
     @EnsureBluetoothEnabled
-    public void enable_bluetoothIsDisabled() {
+    public void setEnabled_false_bluetoothIsDisabled() {
         TestApis.bluetooth().setEnabled(false);
 
         assertThat(TestApis.bluetooth().isEnabled()).isFalse();

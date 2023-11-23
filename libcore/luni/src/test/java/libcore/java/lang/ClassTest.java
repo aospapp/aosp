@@ -15,24 +15,45 @@
  */
 package libcore.java.lang;
 
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import dalvik.system.InMemoryDexClassLoader;
+import dalvik.system.PathClassLoader;
+
+import libcore.io.Streams;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
-
-import junit.framework.TestCase;
-
-import dalvik.system.PathClassLoader;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.RecordComponent;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
-public class ClassTest extends TestCase {
+@RunWith(JUnit4.class)
+public class ClassTest {
 
     interface Foo {
         public void foo();
@@ -50,7 +71,8 @@ public class ClassTest extends TestCase {
 
     }
 
-    public void test_getGenericSuperclass_nullReturnCases() {
+    @Test
+    public void getGenericSuperclass_nullReturnCases() {
         // Should always return null for interfaces.
         assertNull(Foo.class.getGenericSuperclass());
         assertNull(ParameterizedFoo.class.getGenericSuperclass());
@@ -62,11 +84,13 @@ public class ClassTest extends TestCase {
         assertNull(int.class.getGenericSuperclass());
     }
 
-    public void test_getGenericSuperclass_returnsObjectForArrays() {
+    @Test
+    public void getGenericSuperclass_returnsObjectForArrays() {
         assertSame(Object.class, (new Integer[0]).getClass().getGenericSuperclass());
     }
 
-    public void test_b28833829() throws Exception {
+    @Test
+    public void b28833829() throws Exception {
         File f = File.createTempFile("temp_b28833829", ".dex");
         try (InputStream is =
             getClass().getClassLoader().getResourceAsStream("TestBug28833829.dex");
@@ -77,6 +101,7 @@ public class ClassTest extends TestCase {
                 os.write(buffer, 0, bytesRead);
             }
         }
+        assertTrue(f.setReadOnly());
 
         PathClassLoader pcl = new PathClassLoader(f.getAbsolutePath(), null);
         Class<?> cl = pcl.loadClass(
@@ -100,7 +125,8 @@ public class ClassTest extends TestCase {
     }
     class X implements A { }
     class Y extends X implements B { }
-    public void test_getField() {
+    @Test
+    public void getField() {
         try {
             assertEquals(A.class.getField("name"), X.class.getField("name"));
         } catch (NoSuchFieldException e) {
@@ -121,7 +147,8 @@ public class ClassTest extends TestCase {
     }
     abstract class Z implements D { }
 
-    public void test_getMethod() {
+    @Test
+    public void getMethod() {
       try {
           assertEquals(Z.class.getMethod("foo"), D.class.getMethod("foo"));
       } catch (NoSuchMethodException e) {
@@ -129,7 +156,8 @@ public class ClassTest extends TestCase {
       }
     }
 
-    public void test_getPrimitiveType_null() throws Throwable {
+    @Test
+    public void getPrimitiveType_null() throws Throwable {
         try {
             getPrimitiveType(null);
             fail();
@@ -138,7 +166,8 @@ public class ClassTest extends TestCase {
         }
     }
 
-    public void test_getPrimitiveType_invalid() throws Throwable {
+    @Test
+    public void getPrimitiveType_invalid() throws Throwable {
         List<String> invalidNames = Arrays.asList("", "java.lang.Object", "invalid",
                 "Boolean", "java.lang.Boolean", "java/lang/Boolean", "Ljava/lang/Boolean;");
         for (String name : invalidNames) {
@@ -151,7 +180,8 @@ public class ClassTest extends TestCase {
         }
     }
 
-    public void test_getPrimitiveType_valid() throws Throwable {
+    @Test
+    public void getPrimitiveType_valid() throws Throwable {
         checkPrimitiveType("boolean", boolean.class, Boolean.TYPE,
             boolean[].class.getComponentType());
         checkPrimitiveType("byte", byte.class, Byte.TYPE, byte[].class.getComponentType());
@@ -225,7 +255,8 @@ public class ClassTest extends TestCase {
         }
     }
 
-    public void test_getVirtualMethod() throws Exception {
+    @Test
+    public void getVirtualMethod() throws Exception {
         final Class<?>[] noArgs = new Class<?>[] { };
 
         TestGetVirtualMethod instance = new TestGetVirtualMethod();
@@ -264,7 +295,8 @@ public class ClassTest extends TestCase {
         assertNull(TestGetVirtualMethod.class.getInstanceMethod("staticMethod", noArgs));
     }
 
-    public void test_toString() throws Exception {
+    @Test
+    public void toStringTest() throws Exception {
         final String outerClassName = getClass().getName();
         final String packageProtectedClassName = PackageProtectedClass.class.getName();
 
@@ -301,7 +333,8 @@ public class ClassTest extends TestCase {
         assertEquals(expected, clazz.toString());
     }
 
-    public void test_getTypeName() throws Exception {
+    @Test
+    public void getTypeName() throws Exception {
         final String outerClassName = getClass().getName();
         final String packageProtectedClassName = PackageProtectedClass.class.getName();
 
@@ -330,14 +363,15 @@ public class ClassTest extends TestCase {
         assertEquals(expected, clazz.getTypeName());
     }
 
-    public void test_toGenericString() throws Exception {
+    @Test
+    public void toGenericString() throws Exception {
         final String outerClassName = getClass().getName();
         final String packageProtectedClassName = PackageProtectedClass.class.getName();
 
         assertToGenericString("int", int.class);
-        assertToGenericString("public abstract final class [I", int[].class);
+        assertToGenericString("int[]", int[].class);
         assertToGenericString("public class java.lang.Object", Object.class);
-        assertToGenericString("public abstract final class [Ljava.lang.Object;", Object[].class);
+        assertToGenericString("java.lang.Object[]", Object[].class);
         assertToGenericString("public final class java.lang.Integer", Integer.class);
         assertToGenericString(
                 "public abstract interface java.util.function.Function<T,R>",
@@ -375,4 +409,247 @@ public class ClassTest extends TestCase {
             T extends Number,
             U extends Function<? extends Number, ? super Number>>
             extends Comparable<T> {}
+
+    @Test
+    public void nestMate() {
+        try {
+            ClassLoader classLoader = createClassLoaderForResource("core-tests-smali.dex");
+
+            Class hostClass = classLoader.loadClass("libcore.java.lang.nestgroup.NestGroupHost");
+            Class innerAClass = classLoader.loadClass("libcore.java.lang.nestgroup.NestGroupInnerA");
+            Class bClass = classLoader.loadClass("libcore.java.lang.nestgroup.NestGroupB");
+            Class innerFakeClass = classLoader.loadClass("libcore.java.lang.nestgroup.NestGroupInnerFake");
+            Class selfClass = classLoader.loadClass("libcore.java.lang.nestgroup.NestGroupSelf");
+
+            assertEquals(int.class, int.class.getNestHost());
+            assertTrue(int.class.isNestmateOf(int.class));
+            assertArrayEquals(new Class[] { int.class }, int.class.getNestMembers());
+
+            assertEquals(Integer[].class, Integer[].class.getNestHost());
+            assertTrue(Integer[].class.isNestmateOf(Integer[].class));
+            assertArrayEquals(new Class[] { Integer[].class }, Integer[].class.getNestMembers());
+
+            assertEquals(hostClass, hostClass.getNestHost());
+            assertTrue(hostClass.isNestmateOf(hostClass));
+            assertArrayEquals(new Class[] { hostClass, innerAClass }, hostClass.getNestMembers());
+
+            assertEquals(hostClass, innerAClass.getNestHost());
+            assertTrue(hostClass.isNestmateOf(innerAClass));
+            assertArrayEquals(new Class[] { hostClass, innerAClass }, innerAClass.getNestMembers());
+
+            assertEquals(innerFakeClass, innerFakeClass.getNestHost());
+            assertTrue(innerFakeClass.isNestmateOf(innerFakeClass));
+            assertArrayEquals(new Class[] { innerFakeClass }, innerFakeClass.getNestMembers());
+
+            assertEquals(bClass, bClass.getNestHost());
+            assertTrue(bClass.isNestmateOf(bClass));
+            assertArrayEquals(new Class[] { bClass }, bClass.getNestMembers());
+
+            assertEquals(selfClass, selfClass.getNestHost());
+            assertTrue(selfClass.isNestmateOf(selfClass));
+            assertArrayEquals(new Class[] { selfClass }, selfClass.getNestMembers());
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    private static ClassLoader createClassLoaderForResource(String resourcePath)
+            throws Exception {
+        byte[] data;
+        try (InputStream is =
+                ThreadTest.class.getClassLoader().getResourceAsStream(resourcePath)) {
+            data = Streams.readFullyNoClose(is);
+        }
+        return new InMemoryDexClassLoader(ByteBuffer.wrap(data),
+                ThreadTest.class.getClassLoader());
+    }
+
+    @Test
+    public void sealedClass() {
+        try {
+            ClassLoader classLoader = createClassLoaderForResource("core-tests-smali.dex");
+
+            Class sealedBaseClass = classLoader.loadClass("libcore.java.lang.sealedclasses.SealedBaseClass");
+            Class finalDerivedClass = classLoader.loadClass("libcore.java.lang.sealedclasses.FinalDerivedClass");
+            Class sealedDerivedClass = classLoader.loadClass("libcore.java.lang.sealedclasses.SealedDerivedClass");
+            Class openDerivedClass = classLoader.loadClass("libcore.java.lang.sealedclasses.OpenDerivedClass");
+            Class standaloneClass = classLoader.loadClass("libcore.java.lang.sealedclasses.StandaloneClass");
+            Class sealedFinalClass = classLoader.loadClass("libcore.java.lang.sealedclasses.SealedFinalClass");
+
+            assertTrue(sealedBaseClass.isSealed());
+            assertArrayEquals(new Class[] { finalDerivedClass, sealedDerivedClass},
+                    sealedBaseClass.getPermittedSubclasses());
+
+            assertFalse(finalDerivedClass.isSealed());
+            assertArrayEquals((Class[]) null, finalDerivedClass.getPermittedSubclasses());
+
+            assertTrue(sealedDerivedClass.isSealed());
+            assertArrayEquals(new Class[] { openDerivedClass}, sealedDerivedClass.getPermittedSubclasses());
+
+            assertFalse(openDerivedClass.isSealed());
+            assertArrayEquals((Class[]) null, openDerivedClass.getPermittedSubclasses());
+
+            assertFalse(standaloneClass.isSealed());
+            assertArrayEquals((Class[]) null, standaloneClass.getPermittedSubclasses());
+
+            assertFalse(sealedFinalClass.isSealed());
+            assertArrayEquals((Class[]) null, sealedFinalClass.getPermittedSubclasses());
+
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    @Test
+    public void isSealed() {
+        assertTrue(SealedInterface.class.isSealed());
+        assertFalse(SealedFinalClass.class.isSealed());
+        assertTrue(SealedAbstractClass.class.isSealed());
+        assertFalse(NonSealedDerivedClass.class.isSealed());
+        assertFalse(DerivedClass.class.isSealed());
+    }
+
+    @Test
+    public void getPermittedSubclasses() {
+        assertNull(SealedFinalClass.class.getPermittedSubclasses());
+        assertNull(NonSealedDerivedClass.class.getPermittedSubclasses());
+        assertNull(DerivedClass.class.getPermittedSubclasses());
+
+        var sealedInterfaceSubclasses = SealedInterface.class.getPermittedSubclasses();
+        assertNotNull(sealedInterfaceSubclasses);
+        assertEquals(2, sealedInterfaceSubclasses.length);
+        assertTrue(Set.of(sealedInterfaceSubclasses).contains(SealedAbstractClass.class));
+        assertTrue(Set.of(sealedInterfaceSubclasses).contains(SealedFinalClass.class));
+
+        var sealedAbstractClass = SealedAbstractClass.class.getPermittedSubclasses();
+        assertNotNull(sealedAbstractClass);
+        assertEquals(1, sealedAbstractClass.length);
+        assertEquals(NonSealedDerivedClass.class, sealedAbstractClass[0]);
+    }
+
+    public static sealed interface SealedInterface permits SealedAbstractClass, SealedFinalClass {
+        int getNumber();
+    }
+
+    public static final class SealedFinalClass implements SealedInterface {
+        @Override
+        public int getNumber() {
+            return 1;
+        }
+    }
+
+    public static abstract sealed class SealedAbstractClass implements SealedInterface
+                                                                permits NonSealedDerivedClass {
+    }
+
+    public static non-sealed class NonSealedDerivedClass extends SealedAbstractClass {
+        @Override
+        public int getNumber() {
+            return 2;
+        }
+    }
+
+    public static class DerivedClass extends NonSealedDerivedClass {
+        @Override
+        public int getNumber() {
+            return 3;
+        }
+    }
+
+    @Test
+    public void recordClass() {
+        try {
+            ClassLoader classLoader = createClassLoaderForResource("core-tests-smali.dex");
+
+            Class recordClassA = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.RecordClassA");
+            Class recordClassB = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.RecordClassB");
+            Class nonFinalRecordClass = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.NonFinalRecordClass");
+            Class emptyRecordClass = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.EmptyRecordClass");
+            Class validAbstractEmptyClass = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.ValidAbstractEmptyRecord");
+            Class validNonFinalEmptyClass = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.ValidNonFinalEmptyRecord");
+            Class validRecordWithExtraElement = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.ValidRecordWithExtraElement");
+            Class validEmptyRecordWithoutRecordAnnotation = classLoader.loadClass(
+                    "libcore.java.lang.recordclasses.ValidEmptyRecordWithoutRecordAnnotation");
+
+            assertTrue(recordClassA.isRecord());
+            RecordComponent[] components = recordClassA.getRecordComponents();
+            assertNotNull(components);
+            assertEquals(2, components.length);
+            assertEquals("x", components[0].getName());
+            assertEquals(int.class, components[0].getType());
+            assertEquals("y", components[1].getName());
+            assertEquals(Integer.class, components[1].getType());
+
+            assertTrue(recordClassB.isRecord());
+            assertEquals(2, recordClassB.getRecordComponents().length);
+
+            assertFalse(nonFinalRecordClass.isRecord());
+            assertNull(nonFinalRecordClass.getRecordComponents());
+
+            assertTrue(emptyRecordClass.isRecord());
+            assertEquals(new RecordComponent[0], emptyRecordClass.getRecordComponents());
+            assertFalse(validAbstractEmptyClass.isRecord());
+            assertFalse(validNonFinalEmptyClass.isRecord());
+            assertTrue(validRecordWithExtraElement.isRecord());
+            assertFalse(validEmptyRecordWithoutRecordAnnotation.isRecord());
+
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.UnequalComponentArraysRecordClass");
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.InvalidEmptyRecord1");
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.InvalidEmptyRecord2");
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.InvalidEmptyRecord3");
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.InvalidEmptyRecord4");
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.InvalidEmptyRecord5");
+            assertClassFormatError(classLoader,
+                    "libcore.java.lang.recordclasses.InvalidEmptyRecord6");
+        } catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+    }
+
+    private static void assertClassFormatError(ClassLoader cl, String className) {
+        assertThrows(ClassFormatError.class, () -> cl.loadClass(className));
+    }
+
+    @Test
+    public void testComponentType() {
+        assertNull(int.class.componentType());
+        assertNull(String.class.componentType());
+        assertNull(Object.class.componentType());
+
+        assertEquals(int.class, int[].class.componentType());
+        assertEquals(int[].class, int[][].class.componentType());
+        assertEquals(String.class, String[].class.componentType());
+        assertEquals(Foo.class, Foo[].class.componentType());
+    }
+
+    @Test
+    public void testArrayType() {
+        assertEquals(int[].class, int.class.arrayType());
+        assertEquals(int[][].class, int[].class.arrayType());
+        assertEquals(String[].class, String.class.arrayType());
+        assertEquals(Foo[].class, Foo.class.arrayType());
+    }
+
+    @Test
+    public void testDescriptorString() {
+        assertEquals("I", int.class.descriptorString());
+        assertEquals("V", void.class.descriptorString());
+        assertEquals("[I", int[].class.descriptorString());
+        assertEquals("[[I", int[][].class.descriptorString());
+        assertEquals("Ljava/lang/String;", String.class.descriptorString());
+        assertEquals("[Ljava/lang/String;", String[].class.descriptorString());
+    }
 }

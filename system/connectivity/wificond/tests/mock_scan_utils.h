@@ -41,13 +41,14 @@ class MockScanUtils : public ScanUtils {
       uint32_t interface_index,
       std::vector<android::net::wifi::nl80211::NativeScanResult>* out_scan_results));
 
-  MOCK_METHOD7(Scan, bool(
+  MOCK_METHOD8(Scan, bool(
       uint32_t interface_index,
       bool request_random_mac,
       int scan_type,
       bool enable_6ghz_rnr,
       const std::vector<std::vector<uint8_t>>& ssids,
       const std::vector<uint32_t>& freqs,
+      const std::vector<uint8_t>& vendor_ies,
       int* error_code));
 
   MOCK_METHOD10(StartScheduledScan, bool(

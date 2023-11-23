@@ -16,10 +16,22 @@
 
 package android.bluetooth.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import android.bluetooth.le.AdvertiseCallback;
 import android.bluetooth.le.AdvertiseSettings;
-import android.test.AndroidTestCase;
 import android.test.suitebuilder.annotation.SmallTest;
+
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.CddTest;
+
+import org.junit.Assume;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -27,7 +39,8 @@ import java.util.Set;
 /**
  * Test of {@link AdvertiseCallback}.
  */
-public class AdvertiseCallbackTest extends AndroidTestCase {
+@RunWith(AndroidJUnit4.class)
+public class AdvertiseCallbackTest {
 
     private final static int ADVERTISE_TYPE_SUCCESS = 0;
     private final static int ADVERTISE_TYPE_FAIL = 1;
@@ -35,13 +48,23 @@ public class AdvertiseCallbackTest extends AndroidTestCase {
     private final MockAdvertiser mMockAdvertiser = new MockAdvertiser();
     private final BleAdvertiseCallback mAdvertiseCallback = new BleAdvertiseCallback();
 
+    @Before
+    public void setUp() {
+        Assume.assumeTrue(TestUtils.isBleSupported(
+                InstrumentationRegistry.getInstrumentation().getTargetContext()));
+    }
+
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testAdvertiseSuccess() {
         mAdvertiseCallback.mAdvertiseType = ADVERTISE_TYPE_SUCCESS;
         mMockAdvertiser.startAdvertise(mAdvertiseCallback);
     }
 
+    @CddTest(requirements = {"7.4.3/C-2-1"})
     @SmallTest
+    @Test
     public void testAdvertiseFailure() {
         mAdvertiseCallback.mAdvertiseType = ADVERTISE_TYPE_SUCCESS;
         mMockAdvertiser.startAdvertise(mAdvertiseCallback);

@@ -1132,12 +1132,12 @@ public class TranscodeTest {
 
             assertFalse(isAppIoBlocked(sm, uuid));
 
-            Optional<Boolean> success = Optional.of(true);
+            boolean[] success = new boolean[]{true};
             Thread transcodeThread = new Thread(() -> {
                 try {
                     assertFileContent(modernFile, modernFile, pfdOriginal, pfdTranscoded, false);
                 } catch (Exception e) {
-                    success.of(false);
+                    success[0] = false;
                 }
             });
             transcodeThread.start();
@@ -1159,7 +1159,7 @@ public class TranscodeTest {
 
             // Wait for transcoding to finish successfully
             transcodeThread.join();
-            assertTrue(success.get());
+            assertTrue(success[0]);
 
             assertFalse(isAppIoBlocked(sm, uuid));
         } finally {

@@ -75,6 +75,9 @@ class DynamicPartitionControlInterface {
   virtual FeatureFlag GetVirtualAbCompressionFeatureFlag() = 0;
   // Return the feature flag for Virtual AB Compression XOR
   virtual FeatureFlag GetVirtualAbCompressionXorFeatureFlag() = 0;
+  // Returns whether userspace snapshots are enabled on the device, but not
+  // whether they're enabled for the update.
+  virtual FeatureFlag GetVirtualAbUserspaceSnapshotsFeatureFlag() = 0;
 
   // Attempt to optimize |operation|.
   // If successful, |optimized| contains an operation with extents that

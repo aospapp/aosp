@@ -5,6 +5,7 @@ package {
 
 aidl_interface {
     name: "com.google.hardware.pixel.display",
+    owner: "google",
     vendor_available: true,
     srcs: [
         "com/google/hardware/pixel/display/*.aidl",
@@ -14,7 +15,7 @@ aidl_interface {
 
     imports: [
         "android.hardware.common-V2",
-        "android.hardware.graphics.common-V3",
+        "android.hardware.graphics.common-V4",
     ],
 
     backend: {
@@ -30,42 +31,56 @@ aidl_interface {
             version: "1",
             imports: [
                 "android.hardware.common-V2",
-                "android.hardware.graphics.common-V3",
+                "android.hardware.graphics.common-V4",
             ],
         },
         {
             version: "2",
             imports: [
                 "android.hardware.common-V2",
-                "android.hardware.graphics.common-V3",
+                "android.hardware.graphics.common-V4",
             ],
         },
         {
             version: "3",
             imports: [
                 "android.hardware.common-V2",
-                "android.hardware.graphics.common-V3",
+                "android.hardware.graphics.common-V4",
             ],
         },
         {
             version: "4",
             imports: [
                 "android.hardware.common-V2",
-                "android.hardware.graphics.common-V3",
+                "android.hardware.graphics.common-V4",
             ],
         },
         {
             version: "5",
             imports: [
                 "android.hardware.common-V2",
-                "android.hardware.graphics.common-V3",
+                "android.hardware.graphics.common-V4",
             ],
         },
         {
             version: "6",
             imports: [
                 "android.hardware.common-V2",
-                "android.hardware.graphics.common-V3",
+                "android.hardware.graphics.common-V4",
+            ],
+        },
+        {
+            version: "7",
+            imports: [
+                "android.hardware.common-V2",
+                "android.hardware.graphics.common-V4",
+            ],
+        },
+        {
+            version: "8",
+            imports: [
+                "android.hardware.common-V2",
+                "android.hardware.graphics.common-V4",
             ],
         },
 

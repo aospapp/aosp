@@ -41,9 +41,9 @@ checkPath adb
 checkPath java
 
 # check java version
-JAVA_VERSION=$(java -version 2>&1 | grep -m 1 'version [ "]\(1\.8\|9\|11\).*[ "]')
+JAVA_VERSION=$(java -version 2>&1 | grep -m 1 'version [ "]\(1\.8\|9\|11\|17\).*[ "]')
 if [ "${JAVA_VERSION}" == "" ]; then
-    echo "Wrong java version. 1.8, 9, or 11 is required."
+    echo "Wrong java version. 1.8, 9, 11 or 17 is required."
     exit
 fi
 
@@ -99,6 +99,9 @@ JAR_DIR=${CTS_ROOT}/android-cts/tools
 for JAR in ${JAR_DIR}/*.jar; do
     JAR_PATH=${JAR_PATH}:${JAR}
 done
+# Move 'tradefed.jar' to the front of the jar path
+TRADEFED_JAR=":${JAR_DIR}/tradefed.jar"
+JAR_PATH="${TRADEFED_JAR}${JAR_PATH/$TRADEFED_JAR}"
 JAR_PATH=${JAR_PATH:1} # Strip off leading ':'
 
 # load any shared libraries for host-side executables
@@ -116,5 +119,5 @@ for j in $(find ${CTS_ROOT}/android-cts/testcases -name '*.jar'); do
     JAR_PATH=${JAR_PATH}:$j
 done
 
-${JAVA_BINARY} $RDBG_FLAG -Xmx6g -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
+${JAVA_BINARY} $RDBG_FLAG -Xmx16g -XX:+HeapDumpOnOutOfMemoryError -cp ${JAR_PATH} -DCTS_ROOT=${CTS_ROOT} com.android.compatibility.common.tradefed.command.CompatibilityConsole "$@"
 

@@ -12,7 +12,7 @@
 -->
 <!DOCTYPE configuration [
     <!ENTITY ltp_root "/data/local/tmp/ltp">
-    <!ENTITY ltp_dir "/data/local/tmp/ltp/DATA/nativetest{}/ltp">
+    <!ENTITY ltp_dir "/data/local/tmp/ltp/DATA/nativetest{nativetest_bit_path}/ltp">
     <!ENTITY ltp_bin_dir "&ltp_dir;/testcases/bin">
     <!ENTITY env_setup_cmd "export TMP=&ltp_dir;/tmp LTPTMP=&ltp_dir;/tmp/ltptemp PATH=/system/bin:&ltp_dir;/testcases/bin LTP_DEV_FS_TYPE=ext4 TMPBASE=&ltp_dir;/tmp/tmpbase TMPDIR=&ltp_dir;/tmp/tmpdir LTPROOT=&ltp_dir; ">
 ]>
@@ -21,14 +21,14 @@
     <target_preparer class="com.android.tradefed.targetprep.StopServicesSetup"/>
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.KernelTestModuleController" >
-{}
+{module_controller_option}
     </object>
 
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
         <!-- LTP tests must be pushed to `/data/local/tmp/ltp` which has the right security context setting.
           Any other directory might not work. -->
-        <option name="push" value="vts_kernel_tests->&ltp_root;" />
+        <option name="push" value="vts_kernel_ltp_tests->&ltp_root;" />
     </target_preparer>
 
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
@@ -42,12 +42,21 @@
         <option name="teardown-command" value="rm -rf &ltp_dir;/tmp" />
     </target_preparer>
 
+    <!-- Mandatory tests (must pass and cannot skip). -->
+    <test class="com.android.tradefed.testtype.binary.KernelTargetTest">
+        <option name="skip-binary-check" value="true" />
+        <!-- Set binary timeout to be 18 min which is greater than the default 5 min timeout. Otherwise TF will retry to the command and attempt to do device recovery. -->
+        <option name="per-binary-timeout" value="1080000" />
+{mandatory_test_cases}
+    </test>
+
     <test class="com.android.tradefed.testtype.binary.KernelTargetTest">
         <!-- Identify LTP's TCONF code (incompatible configuration) as a skip. -->
         <option name="exit-code-skip" value="32" />
-        <option name="ignore-binary-check" value="true" />
+        <option name="skip-binary-check" value="true" />
         <!-- Set binary timeout to be 18 min which is greater than the default 5 min timeout. Otherwise TF will retry to the command and attempt to do device recovery. -->
         <option name="per-binary-timeout" value="1080000" />
-{}
+{skippable_test_cases}
     </test>
+
 </configuration>

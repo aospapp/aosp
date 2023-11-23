@@ -35,6 +35,7 @@ event {
   source: "LOGCAT"
   name: "vis_software_hotword"
   regex: "GsaVoiceInteractionSrv: onHotwordDetected"
+  regex: "SodaTriggeringFrontend: #onHotwordDetected"
 }
 
 event {
@@ -59,7 +60,11 @@ event {
 event {
   source: "LOGCAT"
   name: "assistant_started"
-  regex: "START.*com\.google\.android\.googlequicksearchbox.*opa\.OpaActivity.*|State changed: IDLE => FULL_LISTENING.*"
+  regex: "START.*com\.google\.android\.googlequicksearchbox.*opa\.OpaActivity.*|NGA starts FULL_LISTENING*"
+  regex: ".*mCurrentFocus=Window{.*VoiceInteractionSession}"
+  regex: ".*mCurrentFocus=Window{.*com\.google\.android\.googlequicksearchbox\/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.transientactivity\.FragmentHostTransientActivity}"
+  regex: ".*mCurrentFocus=Window{.*com\.google\.android\.googlequicksearchbox\/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.fullscreenactivity\.FragmentHostFullScreenActivity}"
+  regex: ".*mCurrentFocus=Window{.*com\.google\.android\.googlequicksearchbox\/com\.google\.android\.apps\.search\.assistant\.surfaces\.voice\.ui\.host\.activity\.defaultactivity\.FragmentHostDefaultActivity}"
 }
 
 event {

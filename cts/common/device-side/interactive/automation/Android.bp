@@ -1,0 +1,24 @@
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+android_app {
+    name: "InteractiveAutomation",
+    srcs: [
+        "src/main/java/**/*.java",
+    ],
+    static_libs: [
+        "InteractiveCommonAndroid",
+        "Nene",
+        "testng",
+    ],
+    manifest: "src/main/AndroidManifest.xml",
+    min_sdk_version: "29",
+    dex_preopt: {
+        enabled: false,
+    },
+    optimize: {
+        enabled: false,
+    },
+    platform_apis: true,
+}

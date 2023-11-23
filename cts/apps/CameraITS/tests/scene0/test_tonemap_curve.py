@@ -26,28 +26,28 @@ import image_processing_utils
 import its_session_utils
 
 
-NAME = os.path.basename(__file__).split('.')[0]
-COLOR_BAR_PATTERN = 2  # Note scene0/test_test_patterns must PASS
-COLOR_BARS = ['WHITE', 'YELLOW', 'CYAN', 'GREEN', 'MAGENTA', 'RED',
-              'BLUE', 'BLACK']
-N_BARS = len(COLOR_BARS)
-COLOR_CHECKER = {'BLACK': [0, 0, 0], 'RED': [1, 0, 0], 'GREEN': [0, 1, 0],
-                 'BLUE': [0, 0, 1], 'MAGENTA': [1, 0, 1], 'CYAN': [0, 1, 1],
-                 'YELLOW': [1, 1, 0], 'WHITE': [1, 1, 1]}
-DELTA = 0.005  # crop on each edge of color bars
-RAW_TOL = 0.001  # 1 DN in [0:1] (1/(1023-64)
-RGB_VAR_TOL = 0.0039  # 1/255
-RGB_MEAN_TOL = 0.1
-TONEMAP_MAX = 0.5
-YUV_H = 480
-YUV_W = 640
+_NAME = os.path.basename(__file__).split('.')[0]
+_COLOR_BAR_PATTERN = 2  # Note scene0/test_test_patterns must PASS
+_COLOR_BARS = ['WHITE', 'YELLOW', 'CYAN', 'GREEN', 'MAGENTA', 'RED',
+               'BLUE', 'BLACK']
+_N_BARS = len(_COLOR_BARS)
+_COLOR_CHECKER = {'BLACK': [0, 0, 0], 'RED': [1, 0, 0], 'GREEN': [0, 1, 0],
+                  'BLUE': [0, 0, 1], 'MAGENTA': [1, 0, 1], 'CYAN': [0, 1, 1],
+                  'YELLOW': [1, 1, 0], 'WHITE': [1, 1, 1]}
+_DELTA = 0.005  # crop on each edge of color bars
+_RAW_TOL = 0.001  # 1 DN in [0:1] (1/(1023-64)
+_RGB_VAR_TOL = 0.0039  # 1/255
+_RGB_MEAN_TOL = 0.1
+_TONEMAP_MAX = 0.5
+_YUV_H = 480
+_YUV_W = 640
 # Normalized co-ordinates for the color bar patch.
-Y_NORM = 0.0
-W_NORM = 1.0 / N_BARS - 2 * DELTA
-H_NORM = 1.0
+_Y_NORM = 0.0
+_W_NORM = 1.0 / _N_BARS - 2 * _DELTA
+_H_NORM = 1.0
 
 # Linear tonemap with maximum of 0.5
-LINEAR_TONEMAP = sum([[i/63.0, i/126.0] for i in range(64)], [])
+_LINEAR_TONEMAP = sum([[i/63.0, i/126.0] for i in range(64)], [])
 
 
 def get_yuv_patch_coordinates(num, w_orig, w_crop):
@@ -62,21 +62,21 @@ def get_yuv_patch_coordinates(num, w_orig, w_crop):
     normalized x, w values for color patch.
   """
   if w_crop == w_orig:  # uncropped image
-    x_norm = num / N_BARS + DELTA
-    w_norm = 1 / N_BARS - 2 * DELTA
+    x_norm = num / _N_BARS + _DELTA
+    w_norm = 1 / _N_BARS - 2 * _DELTA
     logging.debug('x_norm: %.5f, w_norm: %.5f', x_norm, w_norm)
   elif w_crop < w_orig:  # adjust patch width to match vertical RAW crop
     w_delta_edge = (w_orig - w_crop) / 2
-    w_bar_orig = w_orig / N_BARS
+    w_bar_orig = w_orig / _N_BARS
     if num == 0:  # left-most bar
-      x_norm = DELTA
-      w_norm = (w_bar_orig - w_delta_edge) / w_crop - 2 * DELTA
-    elif num == N_BARS:  # right-most bar
-      x_norm = (w_bar_orig * num - w_delta_edge) / w_crop + DELTA
-      w_norm = (w_bar_orig - w_delta_edge) / w_crop - 2 * DELTA
+      x_norm = _DELTA
+      w_norm = (w_bar_orig - w_delta_edge) / w_crop - 2 * _DELTA
+    elif num == _N_BARS:  # right-most bar
+      x_norm = (w_bar_orig * num - w_delta_edge) / w_crop + _DELTA
+      w_norm = (w_bar_orig - w_delta_edge) / w_crop - 2 * _DELTA
     else:  # middle bars
-      x_norm = (w_bar_orig * num - w_delta_edge) / w_crop + DELTA
-      w_norm = w_bar_orig / w_crop - 2 * DELTA
+      x_norm = (w_bar_orig * num - w_delta_edge) / w_crop + _DELTA
+      w_norm = w_bar_orig / w_crop - 2 * _DELTA
     logging.debug('x_norm: %.5f, w_norm: %.5f (crop-corrected)', x_norm, w_norm)
   else:
     raise AssertionError('Cropped image is larger than original!')
@@ -92,7 +92,7 @@ def get_x_norm(num):
   Returns:
     normalized x co-ordinate.
   """
-  return float(num) / N_BARS + DELTA
+  return float(num) / _N_BARS + _DELTA
 
 
 def check_raw_pattern(img_raw):
@@ -103,26 +103,27 @@ def check_raw_pattern(img_raw):
   """
   logging.debug('Checking RAW/PATTERN match')
   color_match = []
-  for n in range(N_BARS):
+  for n in range(_N_BARS):
     x_norm = get_x_norm(n)
-    raw_patch = image_processing_utils.get_image_patch(img_raw, x_norm, Y_NORM,
-                                                       W_NORM, H_NORM)
+    raw_patch = image_processing_utils.get_image_patch(img_raw, x_norm, _Y_NORM,
+                                                       _W_NORM, _H_NORM)
     raw_means = image_processing_utils.compute_image_means(raw_patch)
     logging.debug('patch: %d, x_norm: %.3f, RAW means: %s',
                   n, x_norm, str(raw_means))
-    for color in COLOR_BARS:
-      if np.allclose(COLOR_CHECKER[color], raw_means, atol=RAW_TOL):
+    for color in _COLOR_BARS:
+      if np.allclose(_COLOR_CHECKER[color], raw_means, atol=_RAW_TOL):
         color_match.append(color)
         logging.debug('%s match', color)
         break
       else:
         logging.debug('No match w/ %s: %s, ATOL: %.3f',
-                      color, str(COLOR_CHECKER[color]), RAW_TOL)
-  if set(color_match) != set(COLOR_BARS):
-    raise AssertionError('RAW COLOR_BARS test pattern does not have all colors')
+                      color, str(_COLOR_CHECKER[color]), _RAW_TOL)
+  if set(color_match) != set(_COLOR_BARS):
+    raise AssertionError(
+        'RAW _COLOR_BARS test pattern does not have all colors')
 
 
-def check_yuv_vs_raw(img_raw, img_yuv, name, debug):
+def check_yuv_vs_raw(img_raw, img_yuv, name_with_log_path, debug):
   """Checks for YUV vs RAW match in 8 patches.
 
   Check for correct values and color consistency
@@ -130,14 +131,14 @@ def check_yuv_vs_raw(img_raw, img_yuv, name, debug):
   Args:
     img_raw: RAW image
     img_yuv: YUV image
-    name: string for test name with path
+    name_with_log_path: string for test name with path
     debug: boolean to log additional information
   """
   logging.debug('Checking YUV/RAW match')
   raw_w = img_raw.shape[1]
   raw_h = img_raw.shape[0]
   raw_aspect_ratio = raw_w/raw_h
-  yuv_aspect_ratio = YUV_W/YUV_H
+  yuv_aspect_ratio = _YUV_W/_YUV_H
   logging.debug('raw_img: W, H, AR: %d, %d, %.3f',
                 raw_w, raw_h, raw_aspect_ratio)
 
@@ -152,36 +153,37 @@ def check_yuv_vs_raw(img_raw, img_yuv, name, debug):
     raw_w_cropped = img_raw.shape[1]
     logging.debug('New RAW W, H: %d, %d', raw_w_cropped, img_raw.shape[0])
     image_processing_utils.write_image(
-        img_raw, f'{name}_raw_cropped_COLOR_BARS.jpg', True)
+        img_raw, f'{name_with_log_path}_raw_cropped_COLOR_BARS.jpg', True)
 
   # Compare YUV and RAW color patches
   color_match_errs = []
   color_variance_errs = []
-  for n in range(N_BARS):
+  for n in range(_N_BARS):
     x_norm, w_norm = get_yuv_patch_coordinates(n, raw_w, raw_w_cropped)
-    raw_patch = image_processing_utils.get_image_patch(img_raw, x_norm, Y_NORM,
-                                                       w_norm, H_NORM)
-    yuv_patch = image_processing_utils.get_image_patch(img_yuv, x_norm, Y_NORM,
-                                                       w_norm, H_NORM)
+    raw_patch = image_processing_utils.get_image_patch(img_raw, x_norm, _Y_NORM,
+                                                       w_norm, _H_NORM)
+    yuv_patch = image_processing_utils.get_image_patch(img_yuv, x_norm, _Y_NORM,
+                                                       w_norm, _H_NORM)
     if debug:
       image_processing_utils.write_image(
-          raw_patch, f'{name}_raw_patch_{n}.jpg', True)
+          raw_patch, f'{name_with_log_path}_raw_patch_{n}.jpg', True)
       image_processing_utils.write_image(
-          yuv_patch, f'{name}_yuv_patch_{n}.jpg', True)
+          yuv_patch, f'{name_with_log_path}_yuv_patch_{n}.jpg', True)
     raw_means = np.array(image_processing_utils.compute_image_means(raw_patch))
     raw_vars = np.array(
         image_processing_utils.compute_image_variances(raw_patch))
     yuv_means = np.array(image_processing_utils.compute_image_means(yuv_patch))
-    yuv_means /= TONEMAP_MAX  # Normalize to tonemap max
+    yuv_means /= _TONEMAP_MAX  # Normalize to tonemap max
     yuv_vars = np.array(
         image_processing_utils.compute_image_variances(yuv_patch))
-    if not np.allclose(raw_means, yuv_means, atol=RGB_MEAN_TOL):
+    if not np.allclose(raw_means, yuv_means, atol=_RGB_MEAN_TOL):
       color_match_errs.append(
-          'means RAW: %s, RGB(norm): %s, ATOL: %.2f' %
-          (str(raw_means), str(np.round(yuv_means, 3)), RGB_MEAN_TOL))
-    if not np.allclose(raw_vars, yuv_vars, atol=RGB_VAR_TOL):
-      color_variance_errs.append('variances RAW: %s, RGB: %s, ATOL: %.4f' %
-                                 (str(raw_vars), str(yuv_vars), RGB_VAR_TOL))
+          f'means RAW: {raw_means}, RGB(norm): {np.round(yuv_means, 3)}, '
+          f'ATOL: {_RGB_MEAN_TOL}')
+    if not np.allclose(raw_vars, yuv_vars, atol=_RGB_VAR_TOL):
+      color_variance_errs.append(
+          f'variances RAW: {raw_vars}, RGB: {yuv_vars}, '
+          f'ATOL: {_RGB_VAR_TOL}')
 
   # Print all errors before assertion
   if color_match_errs:
@@ -196,11 +198,11 @@ def check_yuv_vs_raw(img_raw, img_yuv, name, debug):
     raise AssertionError('Color variance errors. See test_log.DEBUG')
 
 
-def test_tonemap_curve_impl(name, cam, props, debug):
+def test_tonemap_curve_impl(name_with_log_path, cam, props, debug):
   """Test tonemap curve with sensor test pattern.
 
   Args:
-   name: Path to save the captured image.
+   name_with_log_path: Path to save the captured image.
    cam: An open device session.
    props: Properties of cam.
    debug: boolean for debug mode
@@ -214,7 +216,7 @@ def test_tonemap_curve_impl(name, cam, props, debug):
   # RAW image
   req_raw = capture_request_utils.manual_capture_request(
       int(sens_min), min_exposure)
-  req_raw['android.sensor.testPatternMode'] = COLOR_BAR_PATTERN
+  req_raw['android.sensor.testPatternMode'] = _COLOR_BAR_PATTERN
   fmt_raw = {'format': 'raw'}
   cap_raw = cam.do_capture(req_raw, fmt_raw)
   img_raw = image_processing_utils.convert_capture_to_rgb_image(
@@ -222,7 +224,7 @@ def test_tonemap_curve_impl(name, cam, props, debug):
 
   # Save RAW pattern
   image_processing_utils.write_image(
-      img_raw, f'{name}_raw_COLOR_BARS.jpg', True)
+      img_raw, f'{name_with_log_path}_raw_COLOR_BARS.jpg', True)
 
   # Check pattern for correctness
   check_raw_pattern(img_raw)
@@ -230,35 +232,35 @@ def test_tonemap_curve_impl(name, cam, props, debug):
   # YUV image
   req_yuv = capture_request_utils.manual_capture_request(
       int(sens_min), min_exposure)
-  req_yuv['android.sensor.testPatternMode'] = COLOR_BAR_PATTERN
+  req_yuv['android.sensor.testPatternMode'] = _COLOR_BAR_PATTERN
   req_yuv['android.distortionCorrection.mode'] = 0
   req_yuv['android.tonemap.mode'] = 0
   req_yuv['android.tonemap.curve'] = {
-      'red': LINEAR_TONEMAP,
-      'green': LINEAR_TONEMAP,
-      'blue': LINEAR_TONEMAP
+      'red': _LINEAR_TONEMAP,
+      'green': _LINEAR_TONEMAP,
+      'blue': _LINEAR_TONEMAP
   }
-  fmt_yuv = {'format': 'yuv', 'width': YUV_W, 'height': YUV_H}
+  fmt_yuv = {'format': 'yuv', 'width': _YUV_W, 'height': _YUV_H}
   cap_yuv = cam.do_capture(req_yuv, fmt_yuv)
   img_yuv = image_processing_utils.convert_capture_to_rgb_image(cap_yuv, True)
 
   # Save YUV pattern
   image_processing_utils.write_image(
-      img_yuv, f'{name}_yuv_COLOR_BARS.jpg', True)
+      img_yuv, f'{name_with_log_path}_yuv_COLOR_BARS.jpg', True)
 
   # Check pattern for correctness
-  check_yuv_vs_raw(img_raw, img_yuv, name, debug)
+  check_yuv_vs_raw(img_raw, img_yuv, name_with_log_path, debug)
 
 
 class TonemapCurveTest(its_base_test.ItsBaseTest):
   """Test conversion of test pattern from RAW to YUV with linear tonemap.
 
-  Test makes use of android.sensor.testPatternMode 2 (COLOR_BARS).
+  Test makes use of android.sensor.testPatternMode 2 (_COLOR_BARS).
   """
 
   def test_tonemap_curve(self):
-    logging.debug('Starting %s', NAME)
-    name = os.path.join(self.log_path, NAME)
+    logging.debug('Starting %s', _NAME)
+    name_with_log_path = os.path.join(self.log_path, _NAME)
     with its_session_utils.ItsSession(
         device_id=self.dut.serial,
         camera_id=self.camera_id,
@@ -271,7 +273,7 @@ class TonemapCurveTest(its_base_test.ItsBaseTest):
           camera_properties_utils.manual_post_proc(props) and
           camera_properties_utils.color_bars_test_pattern(props))
 
-      test_tonemap_curve_impl(name, cam, props, self.debug_mode)
+      test_tonemap_curve_impl(name_with_log_path, cam, props, self.debug_mode)
 
 
 if __name__ == '__main__':

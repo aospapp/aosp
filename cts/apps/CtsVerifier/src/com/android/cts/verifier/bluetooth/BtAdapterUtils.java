@@ -16,6 +16,8 @@
 
 package com.android.cts.verifier.bluetooth;
 
+import static android.content.Context.RECEIVER_EXPORTED;
+
 import static com.android.compatibility.common.util.ShellIdentityUtils.invokeWithShellPermissions;
 
 import android.bluetooth.BluetoothAdapter;
@@ -150,7 +152,7 @@ public class BtAdapterUtils {
     private static void registerIntentReceiver(Context context) {
         sAdapterIntentReceiver = new AdapterIntentReceiver();
         IntentFilter filter = new IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED);
-        context.registerReceiver(sAdapterIntentReceiver, filter);
+        context.registerReceiver(sAdapterIntentReceiver, filter, RECEIVER_EXPORTED);
     }
 
     // Initialize variables required for TestUtils#enableAdapter and TestUtils#disableAdapter

@@ -11,7 +11,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License
+ * limitations under the License.
  */
 
 package libcore.java.lang.invoke;
@@ -539,7 +539,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         boolean[] booleans = {false, true, false};
         for (boolean b : booleans) {
-            Boolean boxed = new Boolean(b);
+            Boolean boxed = Boolean.valueOf(b);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_z", boolean.class),
                 valueHolder, PrimitiveType.Boolean, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_z", boolean.class),
@@ -559,7 +559,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         byte[] bytes = {(byte) 0x73, (byte) 0xfe};
         for (byte b : bytes) {
-            Byte boxed = new Byte(b);
+            Byte boxed = Byte.valueOf(b);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_b", byte.class),
                 valueHolder, PrimitiveType.Byte, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_b", byte.class),
@@ -579,7 +579,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         char[] chars = {'a', 'b', 'c'};
         for (char c : chars) {
-            Character boxed = new Character(c);
+            Character boxed = Character.valueOf(c);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_c", char.class),
                 valueHolder, PrimitiveType.Char, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_c", char.class),
@@ -599,7 +599,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         short[] shorts = {(short) 0x1234, (short) 0x4321};
         for (short s : shorts) {
-            Short boxed = new Short(s);
+            Short boxed = Short.valueOf(s);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_s", short.class),
                 valueHolder, PrimitiveType.Short, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_s", short.class),
@@ -619,7 +619,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         int[] ints = {-100000000, 10000000};
         for (int i : ints) {
-            Integer boxed = new Integer(i);
+            Integer boxed = Integer.valueOf(i);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_i", int.class),
                 valueHolder, PrimitiveType.Int, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_i", int.class),
@@ -639,7 +639,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         float[] floats = {0.99f, -1.23e-17f};
         for (float f : floats) {
-            Float boxed = new Float(f);
+            Float boxed = Float.valueOf(f);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_f", float.class),
                 valueHolder, PrimitiveType.Float, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_f", float.class),
@@ -659,7 +659,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         double[] doubles = {0.44444444444e37, -0.555555555e-37};
         for (double d : doubles) {
-            Double boxed = new Double(d);
+            Double boxed = Double.valueOf(d);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_d", double.class),
                 valueHolder, PrimitiveType.Double, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_d", double.class),
@@ -679,7 +679,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
 
         long[] longs = {0x0123456789abcdefl, 0xfedcba9876543210l};
         for (long j : longs) {
-            Long boxed = new Long(j);
+            Long boxed = Long.valueOf(j);
             tryAccessor(lookup.findSetter(ValueHolder.class, "m_j", long.class),
                 valueHolder, PrimitiveType.Long, boxed, AccessorType.IPUT);
             tryAccessor(lookup.findGetter(ValueHolder.class, "m_j", long.class),
@@ -801,13 +801,13 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
     }
 
     /*package*/ static Number getDoubleAsNumber() {
-        return new Double(1.4e77);
+        return Double.valueOf(1.4e77);
     }
     /*package*/ static Number getFloatAsNumber() {
-        return new Float(7.77);
+        return Float.valueOf(7.77f);
     }
     /*package*/ static Object getFloatAsObject() {
-        return new Float(-7.77);
+        return Float.valueOf(-7.77f);
     }
 
     public void testMemberSetter() throws Throwable {
@@ -815,7 +815,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         MethodHandle h0 = lookup.findSetter(ValueHolder.class, "m_f", float.class);
         h0.invoke(valueHolder, 0.22f);
-        h0.invoke(valueHolder, new Float(1.11f));
+        h0.invoke(valueHolder, Float.valueOf(1.11f));
         Number floatNumber = getFloatAsNumber();
         h0.invoke(valueHolder, floatNumber);
         assertTrue(valueHolder.m_f == floatNumber.floatValue());
@@ -870,8 +870,8 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
         MethodHandle h0 = lookup.findStaticSetter(ValueHolder.class, "s_f", float.class);
         h0.invoke(0.22f);
-        h0.invoke(new Float(1.11f));
-        Number floatNumber = new Float(0.88f);
+        h0.invoke(Float.valueOf(1.11f));
+        Number floatNumber = Float.valueOf(0.88f);
         h0.invoke(floatNumber);
         assertTrue(ValueHolder.s_f == floatNumber.floatValue());
 
@@ -899,7 +899,7 @@ public class MethodHandleAccessorsTest extends junit.framework.TestCase {
             fail();
         } catch (ClassCastException e) {}
         try {
-            Number doubleNumber = new Double(1.01);
+            Number doubleNumber = Double.valueOf(1.01);
             doubleNumber = (doubleNumber.doubleValue() != 0.1) ? null : doubleNumber;
             h0.invoke(doubleNumber);
             fail();

@@ -29,11 +29,13 @@ import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
 import android.voiceinteraction.common.Utils;
+import android.voiceinteraction.cts.activities.TestStartActivity;
 
 import androidx.test.rule.ActivityTestRule;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
@@ -87,6 +89,7 @@ public class VoiceInteractionTest extends AbstractVoiceInteractionTestCase {
     }
 
     @Test
+    @Ignore("b/277839026")
     public void testAll() throws Exception {
         VoiceInteractionTestReceiver.waitSessionStarted(5, TimeUnit.SECONDS);
 

@@ -17,11 +17,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <fstream>
 #include <functional>
-#include <iostream>
 #include <map>
 #include <optional>
+#include <ostream>
 #include <set>
 #include <string>
 #include <unordered_set>
@@ -73,6 +72,16 @@ enum class RemoteProcesses {
   kImageAndZygote
 };
 
+std::ostream& operator<<(std::ostream& os, RemoteProcesses remotes) {
+  switch (remotes) {
+    case RemoteProcesses::kImageOnly: os << "ImageOnly"; break;
+    case RemoteProcesses::kZygoteOnly: os << "ZygoteOnly"; break;
+    case RemoteProcesses::kImageAndZygote: os << "ImageAndZygote"; break;
+    default: UNREACHABLE();
+  }
+  return os;
+}
+
 struct MappingData {
   // The count of pages that are considered dirty by the OS.
   size_t dirty_pages = 0;
@@ -90,6 +99,8 @@ struct MappingData {
   size_t false_dirty_pages = 0;
   // Set of the local virtual page indices that are dirty.
   std::set<size_t> dirty_page_set;
+  // Private dirty page counts for each section of the image
+  std::array<size_t, ImageHeader::kSectionCount> private_dirty_pages_for_section = {};
 };
 
 static std::string GetClassDescriptor(mirror::Class* klass)
@@ -158,7 +169,7 @@ static std::vector<std::pair<V, K>> SortByValueDesc(
   // Store value->key so that we can use the default sort from pair which
   // sorts by value first and then key
   std::vector<std::pair<V, K>> value_key_vector;
-
+  value_key_vector.reserve(map.size());
   for (const auto& kv_pair : map) {
     value_key_vector.push_back(std::make_pair(value_mapper(kv_pair.second), kv_pair.first));
   }
@@ -209,12 +220,22 @@ static ObjPtr<T> RemoteContentsPointerToLocal(ObjPtr<T> remote_ptr,
   return reinterpret_cast<T*>(const_cast<uint8_t*>(local_ptr));
 }
 
-template <typename T> size_t EntrySize(T* entry);
-template<> size_t EntrySize(mirror::Object* object) REQUIRES_SHARED(Locks::mutator_lock_) {
+size_t EntrySize(mirror::Object* object) REQUIRES_SHARED(Locks::mutator_lock_) {
   return object->SizeOf();
 }
-template<> size_t EntrySize(ArtMethod* art_method) REQUIRES_SHARED(Locks::mutator_lock_) {
+size_t EntrySize(ArtMethod* art_method) REQUIRES_SHARED(Locks::mutator_lock_) {
   return sizeof(*art_method);
+}
+
+// Print all pages the entry belongs to
+void PrintEntryPages(uintptr_t entry_address, size_t entry_size, std::ostream& os) {
+    const char* tabs = "    ";
+    const uintptr_t first_page_idx = entry_address / kPageSize;
+    const uintptr_t last_page_idx = RoundUp(entry_address + entry_size,
+                                            kObjectAlignment) / kPageSize;
+    for (uintptr_t page_idx = first_page_idx; page_idx <= last_page_idx; ++page_idx) {
+      os << tabs << "page_idx=" << page_idx << "\n";
+    }
 }
 
 // entry1 and entry2 might be relocated, this means we must use the runtime image's entry
@@ -268,7 +289,6 @@ struct RegionCommon {
   size_t GetDirtyEntryBytes() const { return dirty_entry_bytes_; }
   size_t GetFalseDirtyEntryCount() const { return false_dirty_entries_.size(); }
   size_t GetFalseDirtyEntryBytes() const { return false_dirty_entry_bytes_; }
-  size_t GetZygoteDirtyEntryCount() const { return zygote_dirty_entries_.size(); }
 
  protected:
   bool IsEntryOnDirtyPage(T* entry, const std::set<size_t>& dirty_pages) const
@@ -287,10 +307,6 @@ struct RegionCommon {
       page_off++;
     } while ((current_page_idx * kPageSize) < RoundUp(entry_address + size, kObjectAlignment));
     return false;
-  }
-
-  void AddZygoteDirtyEntry(T* entry) REQUIRES_SHARED(Locks::mutator_lock_) {
-    zygote_dirty_entries_.insert(entry);
   }
 
   void AddImageDirtyEntry(T* entry) REQUIRES_SHARED(Locks::mutator_lock_) {
@@ -326,11 +342,6 @@ struct RegionCommon {
   // If zygote_pid_only_ == true, these are shared dirty entries in the zygote.
   // If zygote_pid_only_ == false, these are private dirty entries in the application.
   std::set<T*> image_dirty_entries_;
-
-  // Zygote dirty entries (probably private dirty).
-  // We only add entries here if they differed in both the image and the zygote, so
-  // they are probably private dirty.
-  std::set<T*> zygote_dirty_entries_;
 
   std::map<off_t /* field offset */, size_t /* count */> field_dirty_count_;
 
@@ -439,18 +450,24 @@ class RegionSpecializedBase<mirror::Object> : public RegionCommon<mirror::Object
   void DiffEntryContents(mirror::Object* entry,
                          uint8_t* remote_bytes,
                          const uint8_t* base_ptr,
-                         bool log_dirty_objects)
-      REQUIRES_SHARED(Locks::mutator_lock_) {
+                         bool log_dirty_objects,
+                         size_t entry_offset) REQUIRES_SHARED(Locks::mutator_lock_) {
     const char* tabs = "    ";
     // Attempt to find fields for all dirty bytes.
     mirror::Class* klass = entry->GetClass();
+    std::string temp;
     if (entry->IsClass()) {
       os_ << tabs
           << "Class " << mirror::Class::PrettyClass(entry->AsClass()) << " " << entry << "\n";
+      os_ << tabs << "dirty_obj: " << entry_offset << " class "
+          << entry->AsClass()->DescriptorHash() << "\n";
     } else {
       os_ << tabs
           << "Instance of " << mirror::Class::PrettyClass(klass) << " " << entry << "\n";
+      os_ << tabs << "dirty_obj: " << entry_offset << " instance " << klass->DescriptorHash()
+          << "\n";
     }
+    PrintEntryPages(reinterpret_cast<uintptr_t>(entry), EntrySize(entry), os_);
 
     std::unordered_set<ArtField*> dirty_instance_fields;
     std::unordered_set<ArtField*> dirty_static_fields;
@@ -764,10 +781,12 @@ class RegionSpecializedBase<ArtMethod> : public RegionCommon<ArtMethod> {
   void DiffEntryContents(ArtMethod* method,
                          uint8_t* remote_bytes,
                          const uint8_t* base_ptr,
-                         bool log_dirty_objects ATTRIBUTE_UNUSED)
+                         bool log_dirty_objects ATTRIBUTE_UNUSED,
+                         size_t entry_offset ATTRIBUTE_UNUSED)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     const char* tabs = "    ";
     os_ << tabs << "ArtMethod " << ArtMethod::PrettyMethod(method) << "\n";
+    PrintEntryPages(reinterpret_cast<uintptr_t>(method), EntrySize(method), os_);
 
     std::unordered_set<size_t> dirty_members;
     // Examine the members comprising the ArtMethod, computing which members are dirty.
@@ -1009,24 +1028,11 @@ class RegionData : public RegionSpecializedBase<T> {
         os_ << "  Application dirty entries (unknown whether private or shared dirty): ";
         break;
     }
-    DiffDirtyEntries(ProcessType::kRemote,
+    DiffDirtyEntries(RegionCommon<T>::image_dirty_entries_,
                      begin_image_ptr,
                      RegionCommon<T>::remote_contents_,
                      base_ptr,
                      /*log_dirty_objects=*/true);
-    // Print shared dirty after since it's less important.
-    if (RegionCommon<T>::GetZygoteDirtyEntryCount() != 0) {
-      // We only reach this point if both pids were specified.  Furthermore,
-      // entries are only displayed here if they differed in both the image
-      // and the zygote, so they are probably private dirty.
-      CHECK(remotes == RemoteProcesses::kImageAndZygote);
-      os_ << "\n" << "  Zygote dirty entries (probably shared dirty): ";
-      DiffDirtyEntries(ProcessType::kZygote,
-                       begin_image_ptr,
-                       RegionCommon<T>::zygote_contents_,
-                       begin_image_ptr,
-                       /*log_dirty_objects=*/false);
-    }
     RegionSpecializedBase<T>::DumpDirtyObjects();
     RegionSpecializedBase<T>::DumpDirtyEntries();
     RegionSpecializedBase<T>::DumpFalseDirtyEntries();
@@ -1036,25 +1042,19 @@ class RegionData : public RegionSpecializedBase<T> {
  private:
   std::ostream& os_;
 
-  void DiffDirtyEntries(ProcessType process_type,
+  void DiffDirtyEntries(const std::set<T*>& entries,
                         const uint8_t* begin_image_ptr,
                         ArrayRef<uint8_t> contents,
                         const uint8_t* base_ptr,
                         bool log_dirty_objects)
       REQUIRES_SHARED(Locks::mutator_lock_) {
     os_ << RegionCommon<T>::dirty_entries_.size() << "\n";
-    const std::set<T*>& entries =
-        (process_type == ProcessType::kZygote) ?
-            RegionCommon<T>::zygote_dirty_entries_:
-            RegionCommon<T>::image_dirty_entries_;
     for (T* entry : entries) {
       uint8_t* entry_bytes = reinterpret_cast<uint8_t*>(entry);
       ptrdiff_t offset = entry_bytes - begin_image_ptr;
       uint8_t* remote_bytes = &contents[offset];
-      RegionSpecializedBase<T>::DiffEntryContents(entry,
-                                                  remote_bytes,
-                                                  &base_ptr[offset],
-                                                  log_dirty_objects);
+      RegionSpecializedBase<T>::DiffEntryContents(
+          entry, remote_bytes, &base_ptr[offset], log_dirty_objects, static_cast<size_t>(offset));
     }
   }
 
@@ -1077,16 +1077,10 @@ class RegionData : public RegionSpecializedBase<T> {
     // Test private dirty first.
     bool is_dirty = false;
     if (have_zygote) {
-      bool private_dirty = EntriesDiffer(entry, entry_zygote, entry_remote);
-      if (private_dirty) {
+      if (EntriesDiffer(entry, entry_zygote, entry_remote)) {
         // Private dirty, app vs zygote.
         is_dirty = true;
         RegionCommon<T>::AddImageDirtyEntry(entry);
-      }
-      if (EntriesDiffer(entry, entry_zygote, entry)) {
-        // Shared dirty, zygote vs image.
-        is_dirty = true;
-        RegionCommon<T>::AddZygoteDirtyEntry(entry);
       }
     } else if (EntriesDiffer(entry, entry_remote, entry)) {
       // Shared or private dirty, app vs image.
@@ -1127,8 +1121,10 @@ class ImgDiagDumper {
   bool Init() {
     std::ostream& os = *os_;
 
-    if (image_diff_pid_ < 0 && zygote_diff_pid_ < 0) {
-      os << "Either --image-diff-pid or --zygote-diff-pid (or both) must be specified.\n";
+    if (image_diff_pid_ < 0 || zygote_diff_pid_ < 0) {
+      // TODO: ComputeDirtyBytes must be modified
+      // to support single app/zygote to bootimage comparison
+      os << "Both --image-diff-pid and --zygote-diff-pid must be specified.\n";
       return false;
     }
 
@@ -1203,69 +1199,14 @@ class ImgDiagDumper {
       }
     }
 
-    std::unique_ptr<File> clean_pagemap_file;
     std::unique_ptr<File> kpageflags_file;
     std::unique_ptr<File> kpagecount_file;
-    if (!open_file("/proc/self/pagemap", &clean_pagemap_file) ||
-        !open_file("/proc/kpageflags", &kpageflags_file) ||
+    if (!open_file("/proc/kpageflags", &kpageflags_file) ||
         !open_file("/proc/kpagecount", &kpagecount_file)) {
       return false;
     }
 
-    // Note: the boot image is not really clean but close enough.
-    // For now, log pages found to be dirty.
     // TODO: Rewrite imgdiag to load boot image without creating a runtime.
-    // FIXME: The following does not reliably detect dirty pages.
-    Runtime* runtime = Runtime::Current();
-    CHECK(!runtime->ShouldRelocate());
-    size_t total_dirty_pages = 0u;
-    for (gc::space::ImageSpace* space : runtime->GetHeap()->GetBootImageSpaces()) {
-      const ImageHeader& image_header = space->GetImageHeader();
-      const uint8_t* image_begin = image_header.GetImageBegin();
-      const uint8_t* image_end = AlignUp(image_begin + image_header.GetImageSize(), kPageSize);
-      size_t virtual_page_idx_begin = reinterpret_cast<uintptr_t>(image_begin) / kPageSize;
-      size_t virtual_page_idx_end = reinterpret_cast<uintptr_t>(image_end) / kPageSize;
-      size_t num_virtual_pages = virtual_page_idx_end - virtual_page_idx_begin;
-
-      std::string error_msg;
-      std::vector<uint64_t> page_frame_numbers(num_virtual_pages);
-      if (!GetPageFrameNumbers(clean_pagemap_file.get(),
-                               virtual_page_idx_begin,
-                               ArrayRef<uint64_t>(page_frame_numbers),
-                               &error_msg)) {
-        os << "Failed to get page frame numbers for image space " << space->GetImageLocation()
-           << ", error: " << error_msg;
-        return false;
-      }
-
-      std::vector<uint64_t> page_flags(num_virtual_pages);
-      if (!GetPageFlagsOrCounts(kpageflags_file.get(),
-                                ArrayRef<const uint64_t>(page_frame_numbers),
-                                ArrayRef<uint64_t>(page_flags),
-                                &error_msg)) {
-        os << "Failed to get page flags for image space " << space->GetImageLocation()
-           << ", error: " << error_msg;
-        return false;
-      }
-
-      size_t num_dirty_pages = 0u;
-      std::optional<size_t> first_dirty_page;
-      for (size_t i = 0u, size = page_flags.size(); i != size; ++i) {
-        if (UNLIKELY((page_flags[i] & kPageFlagsDirtyMask) != 0u)) {
-          ++num_dirty_pages;
-          if (!first_dirty_page.has_value()) {
-            first_dirty_page = i;
-          }
-        }
-      }
-      if (num_dirty_pages != 0u) {
-        DCHECK(first_dirty_page.has_value());
-        os << "Found " << num_dirty_pages << " dirty pages for " << space->GetImageLocation()
-           << ", first dirty page: " << first_dirty_page.value_or(0u);
-        total_dirty_pages += num_dirty_pages;
-      }
-    }
-    os << "Found " << total_dirty_pages << " dirty pages in total ";
 
     // Commit the mappings and files.
     image_proc_maps_ = std::move(image_proc_maps);
@@ -1276,7 +1217,6 @@ class ImgDiagDumper {
       zygote_mem_file_ = std::move(*zygote_mem_file);
       zygote_pagemap_file_ = std::move(*zygote_pagemap_file);
     }
-    clean_pagemap_file_ = std::move(*clean_pagemap_file);
     kpageflags_file_ = std::move(*kpageflags_file);
     kpagecount_file_ = std::move(*kpagecount_file);
 
@@ -1313,128 +1253,110 @@ class ImgDiagDumper {
   }
 
   bool ComputeDirtyBytes(const ImageHeader& image_header,
-                         const uint8_t* image_begin,
                          const android::procinfo::MapInfo& boot_map,
                          ArrayRef<uint8_t> remote_contents,
-                         MappingData* mapping_data /*out*/) {
-    std::ostream& os = *os_;
-
-    size_t virtual_page_idx = 0;   // Virtual page number (for an absolute memory address)
-    size_t page_idx = 0;           // Page index relative to 0
-    size_t previous_page_idx = 0;  // Previous page index relative to 0
-
-
+                         ArrayRef<uint8_t> zygote_contents,
+                         MappingData* mapping_data /*out*/,
+                         std::string* error_msg /*out*/) {
     // Iterate through one page at a time. Boot map begin/end already implicitly aligned.
     for (uintptr_t begin = boot_map.start; begin != boot_map.end; begin += kPageSize) {
-      ptrdiff_t offset = begin - boot_map.start;
+      const ptrdiff_t offset = begin - boot_map.start;
 
       // We treat the image header as part of the memory map for now
       // If we wanted to change this, we could pass base=start+sizeof(ImageHeader)
       // But it might still be interesting to see if any of the ImageHeader data mutated
-      const uint8_t* local_ptr = reinterpret_cast<const uint8_t*>(&image_header) + offset;
+      const uint8_t* zygote_ptr = &zygote_contents[offset];
       const uint8_t* remote_ptr = &remote_contents[offset];
 
-      if (memcmp(local_ptr, remote_ptr, kPageSize) != 0) {
+      if (memcmp(zygote_ptr, remote_ptr, kPageSize) != 0) {
         mapping_data->different_pages++;
 
         // Count the number of 32-bit integers that are different.
         for (size_t i = 0; i < kPageSize / sizeof(uint32_t); ++i) {
           const uint32_t* remote_ptr_int32 = reinterpret_cast<const uint32_t*>(remote_ptr);
-          const uint32_t* local_ptr_int32 = reinterpret_cast<const uint32_t*>(local_ptr);
+          const uint32_t* zygote_ptr_int32 = reinterpret_cast<const uint32_t*>(zygote_ptr);
 
-          if (remote_ptr_int32[i] != local_ptr_int32[i]) {
+          if (remote_ptr_int32[i] != zygote_ptr_int32[i]) {
             mapping_data->different_int32s++;
+          }
+        }
+        // Count the number of bytes that are different.
+        for (size_t i = 0; i < kPageSize; ++i) {
+          if (remote_ptr[i] != zygote_ptr[i]) {
+            mapping_data->different_bytes++;
           }
         }
       }
     }
 
-    std::vector<size_t> private_dirty_pages_for_section(ImageHeader::kSectionCount, 0u);
-
-    // Iterate through one byte at a time.
-    ptrdiff_t page_off_begin = image_header.GetImageBegin() - image_begin;
-    for (uintptr_t begin = boot_map.start; begin != boot_map.end; ++begin) {
-      previous_page_idx = page_idx;
+    for (uintptr_t begin = boot_map.start; begin != boot_map.end; begin += kPageSize) {
       ptrdiff_t offset = begin - boot_map.start;
 
-      // We treat the image header as part of the memory map for now
-      // If we wanted to change this, we could pass base=start+sizeof(ImageHeader)
-      // But it might still be interesting to see if any of the ImageHeader data mutated
-      const uint8_t* local_ptr = reinterpret_cast<const uint8_t*>(&image_header) + offset;
-      const uint8_t* remote_ptr = &remote_contents[offset];
+      // Virtual page number (for an absolute memory address)
+      size_t virtual_page_idx = begin / kPageSize;
 
-      virtual_page_idx = reinterpret_cast<uintptr_t>(local_ptr) / kPageSize;
-
-      // Calculate the page index, relative to the 0th page where the image begins
-      page_idx = (offset + page_off_begin) / kPageSize;
-      if (*local_ptr != *remote_ptr) {
-        // Track number of bytes that are different
-        mapping_data->different_bytes++;
+      uint64_t page_count = 0xC0FFEE;
+      // TODO: virtual_page_idx needs to be from the same process
+      int dirtiness = (IsPageDirty(&image_pagemap_file_,     // Image-diff-pid procmap
+                                   &zygote_pagemap_file_,    // Zygote procmap
+                                   &kpageflags_file_,
+                                   &kpagecount_file_,
+                                   virtual_page_idx,  // compare same page in image
+                                   virtual_page_idx,  // and zygote
+                                   &page_count,
+                                   error_msg));
+      if (dirtiness < 0) {
+        return false;
+      } else if (dirtiness > 0) {
+        mapping_data->dirty_pages++;
+        mapping_data->dirty_page_set.insert(mapping_data->dirty_page_set.end(), virtual_page_idx);
       }
 
-      // Independently count the # of dirty pages on the remote side
-      size_t remote_virtual_page_idx = begin / kPageSize;
-      if (previous_page_idx != page_idx) {
-        uint64_t page_count = 0xC0FFEE;
-        // TODO: virtual_page_idx needs to be from the same process
-        std::string error_msg;
-        int dirtiness = (IsPageDirty(&image_pagemap_file_,     // Image-diff-pid procmap
-                                     &clean_pagemap_file_,     // Self procmap
-                                     &kpageflags_file_,
-                                     &kpagecount_file_,
-                                     remote_virtual_page_idx,  // potentially "dirty" page
-                                     virtual_page_idx,         // true "clean" page
-                                     &page_count,
-                                     &error_msg));
-        if (dirtiness < 0) {
-          os << error_msg;
-          return false;
-        } else if (dirtiness > 0) {
-          mapping_data->dirty_pages++;
-          mapping_data->dirty_page_set.insert(mapping_data->dirty_page_set.end(), virtual_page_idx);
-        }
+      const bool is_dirty = dirtiness > 0;
+      const bool is_private = page_count == 1;
 
-        bool is_dirty = dirtiness > 0;
-        bool is_private = page_count == 1;
+      if (is_private) {
+        mapping_data->private_pages++;
+      }
 
-        if (page_count == 1) {
-          mapping_data->private_pages++;
-        }
-
-        if (is_dirty && is_private) {
-          mapping_data->private_dirty_pages++;
-          for (size_t i = 0; i < ImageHeader::kSectionCount; ++i) {
-            const ImageHeader::ImageSections section = static_cast<ImageHeader::ImageSections>(i);
-            if (image_header.GetImageSection(section).Contains(offset)) {
-              ++private_dirty_pages_for_section[i];
-            }
+      if (is_dirty && is_private) {
+        mapping_data->private_dirty_pages++;
+        for (size_t i = 0; i < ImageHeader::kSectionCount; ++i) {
+          const ImageHeader::ImageSections section = static_cast<ImageHeader::ImageSections>(i);
+          if (image_header.GetImageSection(section).Contains(offset)) {
+            mapping_data->private_dirty_pages_for_section[i] += 1;
           }
         }
       }
     }
     mapping_data->false_dirty_pages = mapping_data->dirty_pages - mapping_data->different_pages;
+
+    return true;
+  }
+
+  void PrintMappingData(const MappingData& mapping_data, const ImageHeader& image_header) {
+    std::ostream& os = *os_;
     // Print low-level (bytes, int32s, pages) statistics.
-    os << mapping_data->different_bytes << " differing bytes,\n  "
-       << mapping_data->different_int32s << " differing int32s,\n  "
-       << mapping_data->different_pages << " differing pages,\n  "
-       << mapping_data->dirty_pages << " pages are dirty;\n  "
-       << mapping_data->false_dirty_pages << " pages are false dirty;\n  "
-       << mapping_data->private_pages << " pages are private;\n  "
-       << mapping_data->private_dirty_pages << " pages are Private_Dirty\n  "
+    os << mapping_data.different_bytes << " differing bytes,\n  "
+       << mapping_data.different_int32s << " differing int32s,\n  "
+       << mapping_data.different_pages << " differing pages,\n  "
+       << mapping_data.dirty_pages << " pages are dirty;\n  "
+       << mapping_data.false_dirty_pages << " pages are false dirty;\n  "
+       << mapping_data.private_pages << " pages are private;\n  "
+       << mapping_data.private_dirty_pages << " pages are Private_Dirty\n  "
        << "\n";
 
-    size_t total_private_dirty_pages = std::accumulate(private_dirty_pages_for_section.begin(),
-                                                       private_dirty_pages_for_section.end(),
-                                                       0u);
+    size_t total_private_dirty_pages = std::accumulate(
+      mapping_data.private_dirty_pages_for_section.begin(),
+      mapping_data.private_dirty_pages_for_section.end(),
+      0u);
     os << "Image sections (total private dirty pages " << total_private_dirty_pages << ")\n";
     for (size_t i = 0; i < ImageHeader::kSectionCount; ++i) {
       const ImageHeader::ImageSections section = static_cast<ImageHeader::ImageSections>(i);
       os << section << " " << image_header.GetImageSection(section)
-         << " private dirty pages=" << private_dirty_pages_for_section[i] << "\n";
+         << " private dirty pages=" << mapping_data.private_dirty_pages_for_section[i] << "\n";
     }
     os << "\n";
-
-    return true;
   }
 
   // Look at /proc/$pid/mem and only diff the things from there
@@ -1575,13 +1497,7 @@ class ImgDiagDumper {
       // For more validation should also check the ImageHeader from the file
     }
 
-    MappingData mapping_data;
 
-    os << "Mapping at [" << reinterpret_cast<void*>(boot_map.start) << ", "
-       << reinterpret_cast<void*>(boot_map.end) << ") had:\n  ";
-    if (!ComputeDirtyBytes(image_header, image_begin, boot_map, remote_contents, &mapping_data)) {
-      return false;
-    }
     RemoteProcesses remotes;
     if (zygote_pid_only_) {
       remotes = RemoteProcesses::kZygoteOnly;
@@ -1590,6 +1506,23 @@ class ImgDiagDumper {
     } else {
       remotes = RemoteProcesses::kImageOnly;
     }
+
+    // Only app vs zygote is supported at the moment
+    CHECK_EQ(remotes, RemoteProcesses::kImageAndZygote);
+
+    MappingData mapping_data;
+    if (!ComputeDirtyBytes(image_header,
+                           boot_map,
+                           remote_contents,
+                           zygote_contents,
+                           &mapping_data,
+                           &error_msg)) {
+      os << error_msg;
+      return false;
+    }
+    os << "Mapping at [" << reinterpret_cast<void*>(boot_map.start) << ", "
+       << reinterpret_cast<void*>(boot_map.end) << ") had:\n  ";
+    PrintMappingData(mapping_data, image_header);
 
     // Check all the mirror::Object entries in the image.
     RegionData<mirror::Object> object_region_data(os_,
@@ -1815,8 +1748,6 @@ class ImgDiagDumper {
   // A File for reading /proc/<zygote_diff_pid_>/pagemap.
   File zygote_pagemap_file_;
 
-  // A File for reading /proc/self/pagemap.
-  File clean_pagemap_file_;
   // A File for reading /proc/kpageflags.
   File kpageflags_file_;
   // A File for reading /proc/kpagecount.

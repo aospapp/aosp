@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2014 NXP Semiconductors
+ * Copyright (C) 2010-2014, 2023 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,9 +20,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if (NXP_EXTNS == FALSE)
 #include <unistd.h>
-#endif
 #ifndef TRUE
 #define TRUE (0x01) /* Logical True Value */
 #endif

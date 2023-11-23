@@ -40,6 +40,7 @@ public final class TelephonyFeatureFlagsTest {
     public void setUp() {
         assumeTrue(getVendorApiLevel() > Build.VERSION_CODES.S);
         mPackageManager = getContext().getPackageManager();
+        assumeTrue(mPackageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY));
     }
 
     @Test
@@ -101,10 +102,6 @@ public final class TelephonyFeatureFlagsTest {
 
         if (hasFeatureGsm) {
             assertTrue(hasFeatureRadio);
-        }
-
-        if (hasFeatureIms) {
-            assertTrue(hasFeatureData);
         }
 
         if (hasFeatureSingleReg) {

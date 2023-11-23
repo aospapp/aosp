@@ -16,8 +16,9 @@
 
 #include <general_test/host_awake_suspend_test.h>
 
-#include <chre.h>
 #include <shared/send_message.h>
+
+#include "chre_api/chre.h"
 
 /*
  * Test to check expected functionality of host awake/suspend APIs.

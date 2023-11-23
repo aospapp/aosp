@@ -38,14 +38,12 @@ package dalvik.annotation.compat {
     field @libcore.api.IntraCoreApi public static final int S = 31; // 0x1f
     field @libcore.api.IntraCoreApi public static final int S_V2 = 32; // 0x20
     field @libcore.api.IntraCoreApi public static final int TIRAMISU = 33; // 0x21
+    field @libcore.api.IntraCoreApi public static final int UPSIDE_DOWN_CAKE = 34; // 0x22
   }
 
 }
 
 package dalvik.annotation.optimization {
-
-  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target(java.lang.annotation.ElementType.METHOD) @libcore.api.IntraCoreApi public @interface FastNative {
-  }
 
   @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD}) @libcore.api.IntraCoreApi public @interface ReachabilitySensitive {
   }
@@ -70,9 +68,9 @@ package dalvik.system {
   }
 
   @libcore.api.IntraCoreApi public final class VMRuntime {
-    method @dalvik.annotation.optimization.FastNative @libcore.api.IntraCoreApi public long addressOf(Object);
+    method @libcore.api.IntraCoreApi public long addressOf(Object);
     method @libcore.api.IntraCoreApi public static dalvik.system.VMRuntime getRuntime();
-    method @dalvik.annotation.optimization.FastNative @libcore.api.IntraCoreApi public Object newNonMovableArray(Class<?>, int);
+    method @libcore.api.IntraCoreApi public Object newNonMovableArray(Class<?>, int);
   }
 
 }

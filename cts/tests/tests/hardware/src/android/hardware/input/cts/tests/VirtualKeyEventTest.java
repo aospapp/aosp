@@ -36,7 +36,9 @@ public class VirtualKeyEventTest {
     public void parcelAndUnparcel_matches() {
         final VirtualKeyEvent originalEvent = new VirtualKeyEvent.Builder()
                 .setAction(VirtualKeyEvent.ACTION_DOWN)
-                .setKeyCode(KeyEvent.KEYCODE_ENTER).build();
+                .setKeyCode(KeyEvent.KEYCODE_ENTER)
+                .setEventTimeNanos(5000L)
+                .build();
         final Parcel parcel = Parcel.obtain();
         originalEvent.writeToParcel(parcel, /* flags= */ 0);
         parcel.setDataPosition(0);
@@ -46,6 +48,9 @@ public class VirtualKeyEventTest {
                 .isEqualTo(recreatedEvent.getAction());
         assertWithMessage("Recreated event has different key code").that(originalEvent.getKeyCode())
                 .isEqualTo(recreatedEvent.getKeyCode());
+        assertWithMessage("Recreated event has different event time")
+                .that(originalEvent.getEventTimeNanos())
+                .isEqualTo(recreatedEvent.getEventTimeNanos());
     }
 
     @Test
@@ -66,13 +71,28 @@ public class VirtualKeyEventTest {
     }
 
     @Test
+    public void keyEvent_invalidEventTime_throwsIae() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new VirtualKeyEvent.Builder()
+                        .setAction(VirtualKeyEvent.ACTION_DOWN)
+                        .setKeyCode(KeyEvent.KEYCODE_A)
+                        .setEventTimeNanos(-3L)
+                        .build());
+    }
+
+    @Test
     public void keyEvent_valid_created() {
+        final long eventTimeNanos = 5000L;
         final VirtualKeyEvent event = new VirtualKeyEvent.Builder()
                 .setAction(VirtualKeyEvent.ACTION_DOWN)
-                .setKeyCode(KeyEvent.KEYCODE_A).build();
+                .setKeyCode(KeyEvent.KEYCODE_A)
+                .setEventTimeNanos(eventTimeNanos)
+                .build();
         assertWithMessage("Incorrect key code").that(event.getKeyCode()).isEqualTo(
                 KeyEvent.KEYCODE_A);
         assertWithMessage("Incorrect action").that(event.getAction()).isEqualTo(
                 VirtualKeyEvent.ACTION_DOWN);
+        assertWithMessage("Incorrect event time").that(event.getEventTimeNanos())
+                .isEqualTo(eventTimeNanos);
     }
 }

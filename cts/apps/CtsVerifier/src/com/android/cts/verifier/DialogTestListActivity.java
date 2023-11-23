@@ -166,7 +166,6 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         AlertDialog.Builder dialogBuilder = new AlertDialog.Builder(this)
                 .setIcon(android.R.drawable.ic_dialog_info)
                 .setTitle(mTitleStringId)
-                .setNeutralButton(R.string.go_button_text, null)
                 .setPositiveButton(R.string.pass_button_text, new AlertDialog.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
@@ -179,6 +178,9 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
                         callback.onFail();
                     }
                 });
+        if (test.intent != null) {
+            dialogBuilder.setNeutralButton(R.string.go_button_text, null);
+        }
         View customView = test.getCustomView();
         if (customView != null) {
             dialogBuilder.setView(customView);
@@ -188,14 +190,16 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
         final AlertDialog dialog = dialogBuilder.show();
         // Note: Setting the OnClickListener on the Dialog rather than the Builder, prevents the
         // dialog being dismissed on onClick.
-        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!startTestIntent(test)) {
-                    dialog.dismiss();
+        if (test.intent != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    if (!startTestIntent(test)) {
+                        dialog.dismiss();
+                    }
                 }
-            }
-        });
+            });
+        }
     }
 
     @Override
@@ -279,6 +283,11 @@ public abstract class DialogTestListActivity extends PassFailButtons.TestListAct
 
         public DialogTestListItem(Context context, int nameResId, String testId) {
             super(context.getString(nameResId), testId, null, null, null, null);
+        }
+
+        public DialogTestListItem(Context context, int nameResId, String testId,
+                int testInstructionResId) {
+            this(context, nameResId, testId, testInstructionResId, null);
         }
 
         public DialogTestListItem(Context context, int nameResId, String testId,

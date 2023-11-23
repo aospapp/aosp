@@ -20,13 +20,17 @@
 #include <pb_encode.h>
 
 #include "chre/util/macros.h"
+#include "chre/util/nanoapp/ble.h"
 #include "chre/util/nanoapp/callbacks.h"
 #include "chre/util/nanoapp/log.h"
 #include "chre/util/time.h"
 #include "chre_settings_test.nanopb.h"
-#include "chre_settings_test_util.h"
+#include "send_message.h"
 
 #define LOG_TAG "[ChreSettingsTest]"
+
+using chre::createBleScanFilterForKnownBeacons;
+using chre::ble_constants::kNumScanFilters;
 
 namespace chre {
 
@@ -45,7 +49,10 @@ constexpr uint32_t kWwanCellInfoCookie = 0x5678;
 // not-suspended event).
 bool gGotSourceEnabledEvent = false;
 
-uint32_t gTimerHandle = CHRE_TIMER_INVALID;
+uint32_t gAudioDataTimerHandle = CHRE_TIMER_INVALID;
+constexpr uint32_t kAudioDataTimerCookie = 0xc001cafe;
+uint32_t gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
+constexpr uint32_t kAudioStatusTimerCookie = 0xb01dcafe;
 
 bool getFeature(const chre_settings_test_TestCommand &command,
                 Manager::Feature *feature) {
@@ -68,6 +75,9 @@ bool getFeature(const chre_settings_test_TestCommand &command,
       break;
     case chre_settings_test_TestCommand_Feature_AUDIO:
       *feature = Manager::Feature::AUDIO;
+      break;
+    case chre_settings_test_TestCommand_Feature_BLE_SCANNING:
+      *feature = Manager::Feature::BLE_SCANNING;
       break;
     default:
       LOGE("Unknown feature %d", command.feature);
@@ -175,6 +185,12 @@ bool Manager::isFeatureSupported(Feature feature) {
       supported = chreAudioGetSource(0 /* handle */, &source);
       break;
     }
+    case Feature::BLE_SCANNING: {
+      uint32_t capabilities = chreBleGetCapabilities();
+      supported = (version >= CHRE_API_VERSION_1_7) &&
+                  ((capabilities & CHRE_BLE_CAPABILITIES_SCAN) != 0);
+      break;
+    }
     default:
       LOGE("Unknown feature %" PRIu8, static_cast<uint8_t>(feature));
   }
@@ -217,7 +233,9 @@ void Manager::handleMessageFromHost(uint32_t senderInstanceId,
   }
 
   if (!success) {
-    sendTestResultToHost(hostData->hostEndpoint, false /* success */);
+    test_shared::sendTestResultToHost(
+        hostData->hostEndpoint, chre_settings_test_MessageType_TEST_RESULT,
+        false /* success */);
   }
 }
 
@@ -265,7 +283,7 @@ void Manager::handleDataFromChre(uint16_t eventType, const void *eventData) {
         break;
 
       case CHRE_EVENT_TIMER:
-        handleTimeout();
+        handleTimeout(eventData);
         break;
 
       case CHRE_EVENT_WIFI_ASYNC_RESULT:
@@ -283,6 +301,10 @@ void Manager::handleDataFromChre(uint16_t eventType, const void *eventData) {
       case CHRE_EVENT_WWAN_CELL_INFO_RESULT:
         handleWwanCellInfoResult(
             static_cast<const chreWwanCellInfoResult *>(eventData));
+        break;
+
+      case CHRE_EVENT_BLE_ASYNC_RESULT:
+        handleBleAsyncResult(static_cast<const chreAsyncResult *>(eventData));
         break;
 
       default:
@@ -331,6 +353,15 @@ bool Manager::startTestForFeature(Feature feature) {
                                            source.minBufferDuration,
                                            source.minBufferDuration);
       }
+      break;
+    }
+
+    case Feature::BLE_SCANNING: {
+      struct chreBleScanFilter filter;
+      chreBleGenericFilter uuidFilters[kNumScanFilters];
+      createBleScanFilterForKnownBeacons(filter, uuidFilters, kNumScanFilters);
+      success = chreBleStartScanAsync(CHRE_BLE_SCAN_MODE_FOREGROUND /* mode */,
+                                      0 /* reportDelayMs */, &filter);
       break;
     }
 
@@ -414,6 +445,7 @@ void Manager::handleWifiScanResult(const chreWifiScanEvent *result) {
       LOGE("Received empty WiFi scan result");
       sendTestResult(mTestSession->hostEndpointId, false /* success */);
     } else {
+      mReceivedScanResults += result->resultCount;
       chreWifiRangingTarget target;
       // Try to find an AP with the FTM responder flag set. The RTT ranging
       // request should still work equivalently even if the flag is not set (but
@@ -429,10 +461,12 @@ void Manager::handleWifiScanResult(const chreWifiScanEvent *result) {
       }
       chreWifiRangingTargetFromScanResult(&result->results[index], &target);
       mCachedRangingTarget = target;
-
-      sendEmptyMessageToHost(
-          mTestSession->hostEndpointId,
-          chre_settings_test_MessageType_TEST_SETUP_COMPLETE);
+      if (result->resultTotal == mReceivedScanResults) {
+        mReceivedScanResults = 0;
+        test_shared::sendEmptyMessageToHost(
+            mTestSession->hostEndpointId,
+            chre_settings_test_MessageType_TEST_SETUP_COMPLETE);
+      }
     }
   }
 }
@@ -521,11 +555,11 @@ void Manager::handleAudioSourceStatusEvent(
         if (chreAudioGetSource(0 /* handle */, &source)) {
           const uint64_t duration =
               source.minBufferDuration + kOneSecondInNanoseconds;
-          gTimerHandle =
-              chreTimerSet(duration, nullptr /* cookie */, true /* oneShot */);
+          gAudioDataTimerHandle = chreTimerSet(duration, &kAudioDataTimerCookie,
+                                               true /* oneShot */);
 
-          if (gTimerHandle == CHRE_TIMER_INVALID) {
-            LOGE("Failed to set timer");
+          if (gAudioDataTimerHandle == CHRE_TIMER_INVALID) {
+            LOGE("Failed to set data check timer");
           } else {
             success = true;
           }
@@ -533,7 +567,23 @@ void Manager::handleAudioSourceStatusEvent(
           LOGE("Failed to query audio source");
         }
       } else {
-        LOGE("Source wasn't suspended when Mic Access was disabled");
+        // There might be a corner case where CHRE might have queued an audio
+        // available event just as the microphone disable setting change is
+        // received that might wrongfully indicate that microphone access
+        // wasn't disabled when it is dispatched. We add a 2 second timer to
+        // allow CHRE to send the source status change event to account for
+        // this, and fail the test if the timer expires without getting said
+        // event.
+        LOGW("Source wasn't suspended when Mic Access disabled, waiting 2 sec");
+        gAudioStatusTimerHandle =
+            chreTimerSet(2 * kOneSecondInNanoseconds, &kAudioStatusTimerCookie,
+                         true /* oneShot */);
+        if (gAudioStatusTimerHandle == CHRE_TIMER_INVALID) {
+          LOGE("Failed to set audio status check timer");
+        } else {
+          // continue the test, fail on timeout.
+          success = true;
+        }
       }
     } else {
       gGotSourceEnabledEvent = true;
@@ -552,9 +602,9 @@ void Manager::handleAudioDataEvent(const struct chreAudioDataEvent *event) {
   bool success = false;
   if (mTestSession.has_value()) {
     if (mTestSession->featureState == FeatureState::ENABLED) {
-      if (gTimerHandle != CHRE_TIMER_INVALID) {
-        chreTimerCancel(gTimerHandle);
-        gTimerHandle = CHRE_TIMER_INVALID;
+      if (gAudioDataTimerHandle != CHRE_TIMER_INVALID) {
+        chreTimerCancel(gAudioDataTimerHandle);
+        gAudioDataTimerHandle = CHRE_TIMER_INVALID;
       }
     } else if (gGotSourceEnabledEvent) {
       success = true;
@@ -566,15 +616,51 @@ void Manager::handleAudioDataEvent(const struct chreAudioDataEvent *event) {
   }
 }
 
-void Manager::handleTimeout() {
-  gTimerHandle = CHRE_TIMER_INVALID;
+void Manager::handleTimeout(const void *eventData) {
+  bool testSuccess = false;
+  auto *cookie = static_cast<const uint32_t *>(eventData);
+
+  if (*cookie == kAudioDataTimerCookie) {
+    gAudioDataTimerHandle = CHRE_TIMER_INVALID;
+    testSuccess = true;
+    if (gAudioStatusTimerHandle != CHRE_TIMER_INVALID) {
+      chreTimerCancel(gAudioStatusTimerHandle);
+      gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
+    }
+  } else if (*cookie == kAudioStatusTimerCookie) {
+    LOGE("Source wasn't suspended when Mic Access was disabled");
+    gAudioStatusTimerHandle = CHRE_TIMER_INVALID;
+    testSuccess = false;
+  } else {
+    LOGE("Invalid timer cookie: %" PRIx32, *cookie);
+  }
   chreAudioConfigureSource(0 /*handle*/, false /*enable*/,
                            0 /*minBufferDuration*/, 0 /*maxBufferDuration*/);
-  sendTestResult(mTestSession->hostEndpointId, true /*success*/);
+  sendTestResult(mTestSession->hostEndpointId, testSuccess);
+}
+
+void Manager::handleBleAsyncResult(const chreAsyncResult *result) {
+  bool success = false;
+  switch (result->requestType) {
+    case CHRE_BLE_REQUEST_TYPE_START_SCAN: {
+      if (mTestSession->feature != Feature::BLE_SCANNING) {
+        LOGE("Unexpected BLE scan async result: test feature %" PRIu8,
+             static_cast<uint8_t>(mTestSession->feature));
+      } else {
+        success = validateAsyncResult(result, nullptr);
+      }
+      break;
+    }
+    default:
+      LOGE("Unexpected BLE request type %" PRIu8, result->requestType);
+  }
+
+  sendTestResult(mTestSession->hostEndpointId, success);
 }
 
 void Manager::sendTestResult(uint16_t hostEndpointId, bool success) {
-  sendTestResultToHost(hostEndpointId, success);
+  test_shared::sendTestResultToHost(
+      hostEndpointId, chre_settings_test_MessageType_TEST_RESULT, success);
   mTestSession.reset();
   mCachedRangingTarget.reset();
 }

@@ -18,8 +18,9 @@ package {
 }
 
 prebuilt_usr_share {
-    name: "tz_version",
+    name: "tz_version_prebuilt",
     src: "tz_version",
+    filename_from_src: true,
     sub_dir: "zoneinfo",
 }
 

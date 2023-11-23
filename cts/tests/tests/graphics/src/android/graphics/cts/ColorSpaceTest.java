@@ -776,9 +776,11 @@ public class ColorSpaceTest {
             ColorSpace cs = ColorSpace.get(named);
             if (cs.getModel() == ColorSpace.Model.RGB) {
                 ColorSpace.Rgb rgb = (ColorSpace.Rgb) cs;
-                // match() cannot match extended sRGB
-                if (rgb != ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB) &&
-                        rgb != ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB)) {
+                // match() cannot match extended sRGB, BT2020_HLG, BT2020_PQ
+                if (rgb != ColorSpace.get(ColorSpace.Named.EXTENDED_SRGB)
+                        && rgb != ColorSpace.get(ColorSpace.Named.LINEAR_EXTENDED_SRGB)
+                        && rgb != ColorSpace.get(ColorSpace.Named.BT2020_HLG)
+                        && rgb != ColorSpace.get(ColorSpace.Named.BT2020_PQ)) {
 
                     // match() uses CIE XYZ D50
                     rgb = (ColorSpace.Rgb) ColorSpace.adapt(rgb, ColorSpace.ILLUMINANT_D50);

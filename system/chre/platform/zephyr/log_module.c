@@ -14,5 +14,5 @@
  * limitations under the License.
  */
 
-#include <logging/log.h>
+#include <zephyr/logging/log.h>
 LOG_MODULE_REGISTER(chre, CONFIG_CHRE_LOG_LEVEL);

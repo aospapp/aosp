@@ -66,6 +66,7 @@ import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.PollingCheck;
 import com.android.compatibility.common.util.ShellIdentityUtils;
 import com.android.compatibility.common.util.UiccUtil;
 
@@ -1189,6 +1190,16 @@ public class CarrierApiTest extends BaseCarrierApiTest {
             mSubscriptionManager.setOpportunistic(oldOpportunistic, subId);
             info = mSubscriptionManager.getActiveSubscriptionInfo(subId);
             assertThat(info.isOpportunistic()).isEqualTo(oldOpportunistic);
+
+            // As opportunistic subscription can not be the default data/voice/sms subscription,
+            // when the test case set the active subscription as opportunistic, the default
+            // subscription may set to INVALID_SUBSCRIPTION_ID. Although at the end, the test case
+            // tries to recover it, it may take time to fully take effort and fail the following
+            // test case. Add a polling check of carrier privilege on default subscription here to
+            // make sure default subscription has recovered before ending the case.
+            PollingCheck.waitFor(5000, () -> getContext().getSystemService(TelephonyManager.class)
+                    .hasCarrierPrivileges(),
+                    "Timeout when waiting to gain carrier privileges again.");
         }
     }
 
@@ -1270,6 +1281,7 @@ public class CarrierApiTest extends BaseCarrierApiTest {
                                                         SignalThresholdInfo
                                                                 .SIGNAL_MEASUREMENT_TYPE_RSSI)
                                                 .setThresholds(new int[] {-113, -103, -97, -51})
+                                                .setHysteresisDb(1)
                                                 .build()))
                         .setReportingRequestedWhileIdle(true)
                         .build();

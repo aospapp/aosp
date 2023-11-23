@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+// #define LOG_NDEBUG 0
 #define LOG_TAG "GCH_PendingRequestsTracker"
 #define ATRACE_TAG ATRACE_TAG_CAMERA
 #include <log/log.h>
@@ -316,6 +316,34 @@ void PendingRequestsTracker::TrackBufferAcquisitionFailure(int32_t stream_id,
 
   std::unique_lock<std::mutex> lock(pending_acquisition_mutex_);
   stream_acquired_buffers_[overridden_stream_id] -= num_buffers;
+}
+
+void PendingRequestsTracker::DumpStatus() {
+  std::string pending_requests_string = "{";
+  {
+    std::lock_guard<std::mutex> lock(pending_requests_mutex_);
+    for (auto& [stream_id, num_pending_buffers] : stream_pending_buffers_) {
+      pending_requests_string += "{" + std::to_string(stream_id) + ": " +
+                                 std::to_string(num_pending_buffers) + "},";
+    }
+  }
+  pending_requests_string += "}";
+
+  std::string pending_acquisition_string = "{";
+  {
+    std::lock_guard<std::mutex> lock(pending_acquisition_mutex_);
+    for (auto& [stream_id, num_acquired_buffers] : stream_acquired_buffers_) {
+      pending_acquisition_string += "{" + std::to_string(stream_id) + ": " +
+                                    std::to_string(num_acquired_buffers) + "},";
+    }
+  }
+  pending_acquisition_string += "}";
+
+  ALOGI(
+      "%s: Buffers (including dummy) pending return from HWL: %s. Buffers "
+      "proactively acquired from the framework: %s.",
+      __FUNCTION__, pending_requests_string.c_str(),
+      pending_acquisition_string.c_str());
 }
 
 }  // namespace google_camera_hal

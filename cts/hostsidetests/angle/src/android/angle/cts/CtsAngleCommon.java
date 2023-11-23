@@ -119,9 +119,27 @@ class CtsAngleCommon {
     }
 
     static boolean isNativeDriverAngle(ITestDevice device) throws Exception {
-        String driverProp = device.getProperty("ro.hardware.egl");
+        String angleProp = device.getProperty("ro.hardware.egl");
 
-        return (driverProp != null) && (driverProp.equals("angle"));
+        return (angleProp != null) && (angleProp.equals("angle"));
+    }
+
+    static boolean isAngleOnlySystem(ITestDevice device) throws Exception {
+        String angleProp = device.getProperty("ro.hardware.egl");
+
+        return angleProp != null && angleProp.equals("angle");
+    }
+
+    static String getTestMethod(ITestDevice device) throws Exception {
+        return isNativeDriverAngle(device) ? ANGLE_DRIVER_TEST_ANGLE_METHOD
+                                           : ANGLE_DRIVER_TEST_DEFAULT_METHOD;
+    }
+
+    static boolean skipOverDefault(OpenGlDriverChoice driver) throws Exception {
+        // The tests that loop over all of the OpenGlDriverChoice's are trying to explicitly test
+        // "native" and "angle".  Since the meaning of "default" changes based on whether the system
+        // driver is "native" and "angle", skip over "default".
+        return (driver == OpenGlDriverChoice.DEFAULT) ? true : false;
     }
 
     static void startActivity(ITestDevice device, String pkgName, String className)

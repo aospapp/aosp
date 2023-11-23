@@ -1,21 +1,23 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package libcore.java.util;
+
+import android.icu.util.VersionInfo;
 
 import java.util.Date;
 import java.util.Locale;
@@ -103,10 +105,14 @@ public class OldTimeZoneTest extends TestCase {
     }
 
     public void test_getDisplayNameZILjava_util_Locale() {
+        // Require min ICU version 72 to provide the expected locale data.
+        if (VersionInfo.ICU_VERSION.getMajor() < 72) {
+            return;
+        }
         TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles");
         assertEquals("Pacific Daylight Time", tz.getDisplayName(true,  TimeZone.LONG, Locale.US));
         assertEquals("Pacific Standard Time", tz.getDisplayName(false, TimeZone.LONG, Locale.UK));
-        assertEquals("heure d’été du Pacifique",
+        assertEquals("heure d’été du Pacifique nord-américain",
                 tz.getDisplayName(true,  TimeZone.LONG, Locale.FRANCE));
         assertEquals("heure normale du Pacifique nord-américain",
                 tz.getDisplayName(false, TimeZone.LONG, Locale.FRANCE));

@@ -43,4 +43,5 @@ android_test {
         "cts",
         "general-tests",
     ],
+    host_required: ["cts-dalvik-host-test-runner"],
 }

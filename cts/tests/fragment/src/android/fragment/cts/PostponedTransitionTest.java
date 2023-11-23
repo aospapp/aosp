@@ -33,6 +33,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
 import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
@@ -758,7 +759,7 @@ public class PostponedTransitionTest {
 
     private void assertPostponedTransition(TransitionFragment fromFragment,
             TransitionFragment toFragment, TransitionFragment removedFragment)
-            throws InterruptedException {
+            throws InterruptedException, Throwable {
         if (removedFragment != null) {
             assertNull(removedFragment.getView());
             assureNoTransition(removedFragment);
@@ -775,6 +776,10 @@ public class PostponedTransitionTest {
         assertFalse(FragmentTestUtil.isVisible(toFragment));
         assureNoTransition(fromFragment);
         assureNoTransition(toFragment);
+
+        FragmentTestActivity activity = mActivityRule.getActivity();
+        activity.waitForResume(mActivityRule);
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertTrue(fromFragment.isResumed());
         assertFalse(toFragment.isResumed());
     }

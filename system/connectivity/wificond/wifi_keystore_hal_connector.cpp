@@ -43,7 +43,9 @@ void WifiKeystoreHalConnector::start() {
   configureRpcThreadpool(1, false /* callerWillJoin */);
   android::sp<IKeystore> wifiKeystoreHalService = new Keystore();
   android::status_t err = wifiKeystoreHalService->registerAsService();
-  CHECK(err == android::OK) << "Cannot register wifi keystore HAL service: " << err;
+  if (err != android::OK) {
+      LOG(INFO) << "Did not register wifi keystore HIDL HAL service: " << err;
+  }
 }
 }  // namespace wificond
 }  // namespace android

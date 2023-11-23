@@ -99,8 +99,7 @@ parcelable KeyCreationResult {
      * X.509 certificates ordered such that each certificate is signed by the subsequent one, up to
      * the root which must be self-signed (or contain a fake signature in the case of case 4 above).
      * The first certificate in the chain signs the public key info of the newly-generated or
-     * newly-imported key pair.  In the attestation cases (1 and 2 above), the first certificate
-     * must also satisfy some other requirements:
+     * newly-imported key pair.  The first certificate must also satisfy some other requirements:
      *
      * o It must have the serial number provided in Tag::CERTIFICATE_SERIAL, or default to 1 if the
      *   tag is not provided.
@@ -119,15 +118,16 @@ parcelable KeyCreationResult {
      *    - the keyAgreement bit set iff the attested key has KeyPurpose::AGREE_KEY, and
      *    - the keyCertSignBit set iff the attested key has KeyPurpose::ATTEST_KEY.
      *
-     * o it must contain a KeyDescription attestation extension with OID 1.3.6.1.4.1.11129.2.1.17.
+     * In the attestation cases (1 and 2 above), the first certificate must contain a
+     * KeyDescription attestation extension with OID 1.3.6.1.4.1.11129.2.1.17.
      *
      * The KeyDescription content is defined by the following ASN.1 schema, which is mostly a
      * straightforward translation of the KeyMint tag/value parameter lists to ASN.1.
      *
      * KeyDescription ::= SEQUENCE {
-     *     attestationVersion         INTEGER, # Value 200
+     *     attestationVersion         INTEGER, # Value 300
      *     attestationSecurityLevel   SecurityLevel, # See below
-     *     keyMintVersion             INTEGER, # Value 200
+     *     keyMintVersion             INTEGER, # Value 300
      *     keymintSecurityLevel       SecurityLevel, # See below
      *     attestationChallenge       OCTET_STRING, # Tag::ATTESTATION_CHALLENGE from attestParams
      *     uniqueId                   OCTET_STRING, # Empty unless key has Tag::INCLUDE_UNIQUE_ID
@@ -158,12 +158,23 @@ parcelable KeyCreationResult {
      *     Failed                     (3),
      * }
      *
+     * -- Note that the AuthorizationList SEQUENCE is also used in IKeyMintDevice::importWrappedKey
+     * -- as a way of describing the authorizations associated with a key that is being securely
+     * -- imported.  As such, it includes the ability to describe tags that are only relevant for
+     * -- symmetric keys, and which will never appear in the attestation extension of an X.509
+     * -- certificate that holds the public key part of an asymmetric keypair. Importing a wrapped
+     * -- key also allows the use of Tag::USER_SECURE_ID, which is never included in an attestation
+     * -- extension because it has no meaning off-device.
+     *
      * AuthorizationList ::= SEQUENCE {
      *     purpose                    [1] EXPLICIT SET OF INTEGER OPTIONAL,
      *     algorithm                  [2] EXPLICIT INTEGER OPTIONAL,
      *     keySize                    [3] EXPLICIT INTEGER OPTIONAL,
+     *     blockMode                  [4] EXPLICIT SET OF INTEGER OPTIONAL, -- symmetric only
      *     digest                     [5] EXPLICIT SET OF INTEGER OPTIONAL,
      *     padding                    [6] EXPLICIT SET OF INTEGER OPTIONAL,
+     *     callerNonce                [7] EXPLICIT NULL OPTIONAL, -- symmetric only
+     *     minMacLength               [8] EXPLICIT INTEGER OPTIONAL, -- symmetric only
      *     ecCurve                    [10] EXPLICIT INTEGER OPTIONAL,
      *     rsaPublicExponent          [200] EXPLICIT INTEGER OPTIONAL,
      *     mgfDigest                  [203] EXPLICIT SET OF INTEGER OPTIONAL,
@@ -173,6 +184,7 @@ parcelable KeyCreationResult {
      *     originationExpireDateTime  [401] EXPLICIT INTEGER OPTIONAL,
      *     usageExpireDateTime        [402] EXPLICIT INTEGER OPTIONAL,
      *     usageCountLimit            [405] EXPLICIT INTEGER OPTIONAL,
+     *     userSecureId               [502] EXPLICIT INTEGER OPTIONAL, -- only used on import
      *     noAuthRequired             [503] EXPLICIT NULL OPTIONAL,
      *     userAuthType               [504] EXPLICIT INTEGER OPTIONAL,
      *     authTimeout                [505] EXPLICIT INTEGER OPTIONAL,
@@ -197,6 +209,7 @@ parcelable KeyCreationResult {
      *     vendorPatchLevel           [718] EXPLICIT INTEGER OPTIONAL,
      *     bootPatchLevel             [719] EXPLICIT INTEGER OPTIONAL,
      *     deviceUniqueAttestation    [720] EXPLICIT NULL OPTIONAL,
+     *     attestationIdSecondImei    [723] EXPLICIT OCTET_STRING OPTIONAL,
      * }
      */
     Certificate[] certificateChain;

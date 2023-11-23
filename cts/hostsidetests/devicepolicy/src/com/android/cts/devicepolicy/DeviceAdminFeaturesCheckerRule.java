@@ -86,7 +86,12 @@ public final class DeviceAdminFeaturesCheckerRule implements TestRule {
                 }
 
                 List<String> requiredFeatures = new ArrayList<>();
-                requiredFeatures.add(FEATURE_DEVICE_ADMIN);
+
+                if (mTest.skipDeviceAdminFeatureCheck()) {
+                    CLog.i("Skipping device admin check for %s", testName);
+                } else {
+                    requiredFeatures.add(FEATURE_DEVICE_ADMIN);
+                }
 
                 // Method annotations
                 addRequiredAdditionalFeatures(requiredFeatures, description

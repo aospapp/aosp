@@ -53,20 +53,6 @@ public:
     //
     // State
     //
-    /**
-     * Initializes the audio stream as specified, but does not start the stream. Specifically,
-     * concrete subclasses should do whatever initialization and resource allocation required
-     * such that the stream can be started (in startStream()) as quickly as possible.
-     *
-     * The expectation is that this method will be synchronous in concrete subclasses.
-     *
-     * @param channelCount  the number of channels in the audio data
-     * @param sampleRate the desired playback sample rate
-     * @param the device id of the device to route the audio to.
-     * @param a pointer to an AudioSource (subclass) object which will provide the audio data.
-     * @return ERROR_NONE if successful, otherwise an error code
-     */
-    virtual Result setupStream(int32_t channelCount, int32_t sampleRate, int32_t routeDeviceId) = 0;
 
     /**
      * Deinitializes the stream.

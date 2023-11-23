@@ -27,7 +27,8 @@ android_test {
         "cts-wm-util",
         "junit",
         "permission-test-util-lib",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
+        "sts-device-util",
     ],
     libs: [
         "android.test.base",
@@ -43,6 +44,7 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
+        "sts",
     ],
     data: [
         ":CtsUsageStatsTestApp1",
@@ -59,14 +61,12 @@ android_test {
 java_defaults {
     name: "test_app_defaults",
     defaults: ["cts_defaults"],
-    platform_apis: true,
     static_libs: [
         "androidx.test.rules",
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
         "cts-wm-util",
         "junit",
-        "ub-uiautomator",
     ],
     libs: [
         "android.test.base",
@@ -79,7 +79,6 @@ java_defaults {
     manifest: "TestApp1/AndroidManifest.xml",
     // Tag this module as a cts test artifact
     test_suites: [
-        "cts",
         "general-tests",
     ],
     sdk_version: "test_current",

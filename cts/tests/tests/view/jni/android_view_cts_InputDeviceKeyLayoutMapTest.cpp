@@ -16,18 +16,17 @@
  */
 
 #include <android/input.h>
-
 #include <jni.h>
-
+#include <nativehelper/ScopedLocalFrame.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedUtfChars.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sstream>
 
-#include <nativehelper/ScopedLocalRef.h>
-#include <nativehelper/ScopedUtfChars.h>
 #include <map>
+#include <sstream>
 #include <unordered_map>
 #include <vector>
 
@@ -92,9 +91,12 @@ static jobject android_view_cts_nativeLoadKeyLayout(JNIEnv* env, jclass, jstring
 
     jobject keyLayoutMap = env->NewObject(hashMapClazz.get(), hashMapConstructID);
 
-    for (const auto& [key, label] : map) {
-        env->CallObjectMethod(keyLayoutMap, hashMapPutID, env->NewStringUTF(label.c_str()),
-                              env->NewObject(integerClazz.get(), integerConstructID, key));
+    {
+        ScopedLocalFrame localFrame(env);
+        for (const auto& [key, label] : map) {
+            env->CallObjectMethod(keyLayoutMap, hashMapPutID, env->NewStringUTF(label.c_str()),
+                                  env->NewObject(integerClazz.get(), integerConstructID, key));
+        }
     }
     return keyLayoutMap;
 }

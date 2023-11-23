@@ -25,6 +25,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeNoException;
 import static org.junit.Assume.assumeNotNull;
+import static org.junit.Assume.assumeTrue;
 
 import android.content.res.Resources;
 import android.graphics.Bitmap;
@@ -36,6 +37,7 @@ import android.graphics.Color;
 import android.graphics.ColorSpace;
 import android.graphics.ColorSpace.Named;
 import android.graphics.ImageDecoder;
+import android.graphics.ImageFormat;
 import android.graphics.LinearGradient;
 import android.graphics.Matrix;
 import android.graphics.Paint;
@@ -718,6 +720,32 @@ public class BitmapTest {
                 assertNotNull(hwBuffer2);
                 assertMatches(hwBuffer, hwBuffer2);
             }
+            bitmap.recycle();
+        }
+    }
+
+    private static Object[] parametersFor_testGetAllocationSizeWrappedBuffer() {
+        return new Object[] {
+                HardwareBuffer.YCBCR_420_888,
+                HardwareBuffer.YCBCR_P010,
+                ImageFormat.YV12,
+        };
+    }
+
+    @Test
+    @Parameters(method = "parametersFor_testGetAllocationSizeWrappedBuffer")
+    public void testGetAllocationSizeWrappedBuffer(int format) {
+        final long usage = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE;
+        assumeTrue(HardwareBuffer.isSupported(1, 1, format, 1, usage));
+        HardwareBuffer buffer = HardwareBuffer.create(100, 100, format, 1, usage);
+        assertNotNull("isSupported = true but allocation failed", buffer);
+        Bitmap bitmap = Bitmap.wrapHardwareBuffer(buffer, null);
+        buffer.close();
+        try {
+            // We can probably assert closer to at least 100 * 100 but maybe someone has super
+            // duper good compression rates, so assume a lower bound of 2kb
+            assertTrue(bitmap.getAllocationByteCount() > 2000);
+        } finally {
             bitmap.recycle();
         }
     }

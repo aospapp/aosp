@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -30,6 +31,8 @@ import java.util.UUID;
 import libcore.io.Libcore;
 
 import static android.system.Os.stat;
+
+import org.junit.Assert;
 
 public class FileTest extends junit.framework.TestCase {
 
@@ -413,5 +416,26 @@ public class FileTest extends junit.framework.TestCase {
 
         // Did we cache canonical path results? hope not!
         assertEquals(symlinkFile.getCanonicalPath(), f2.getCanonicalPath());
+    }
+
+    public void testGetCanonicalPath_duplicatePathSeparator() throws Exception {
+        assertCanonicalPath("/a//./b", "/a/b");
+        assertCanonicalPath("//a//b", "/a/b");
+        assertCanonicalPath("//a///b", "/a/b");
+        assertCanonicalPath("//a////b", "/a/b");
+    }
+
+    private void assertCanonicalPath(String internalPathValue, String expected) throws Exception {
+        File file = new File("/");
+        Field pathField = File.class.getDeclaredField("path");
+        pathField.setAccessible(true);
+
+        pathField.set(file, internalPathValue);
+        assertEquals(expected, file.getCanonicalFile().getPath());
+    }
+
+    public void testGetCanonicalPath_longPath() {
+        String p = "/a".repeat(2048);
+        Assert.assertThrows(IOException.class, () -> new File(p).getCanonicalFile());
     }
 }

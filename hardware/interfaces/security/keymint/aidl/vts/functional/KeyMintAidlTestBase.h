@@ -54,6 +54,9 @@ using ::std::vector;
 
 constexpr uint64_t kOpHandleSentinel = 0xFFFFFFFFFFFFFFFF;
 
+const string FEATURE_KEYSTORE_APP_ATTEST_KEY = "android.hardware.keystore.app_attest_key";
+const string FEATURE_STRONGBOX_KEYSTORE = "android.hardware.strongbox_keystore";
+
 class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
   public:
     struct KeyData {
@@ -63,6 +66,10 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
 
     static bool arm_deleteAllKeys;
     static bool dump_Attestations;
+
+    // Directory to store/retrieve keyblobs, using subdirectories named for the
+    // KeyMint instance in question (e.g. "./default/", "./strongbox/").
+    static std::string keyblob_dir;
 
     void SetUp() override;
     void TearDown() override {
@@ -81,6 +88,7 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
     uint32_t boot_patch_level(const vector<KeyCharacteristics>& key_characteristics);
     uint32_t boot_patch_level();
     bool isDeviceIdAttestationRequired();
+    bool isSecondImeiIdAttestationRequired();
 
     bool Curve25519Supported();
 
@@ -156,7 +164,8 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
                     const AuthorizationSet& in_params, AuthorizationSet* out_params,
                     std::shared_ptr<IKeyMintOperation>& op);
     ErrorCode Begin(KeyPurpose purpose, const vector<uint8_t>& key_blob,
-                    const AuthorizationSet& in_params, AuthorizationSet* out_params);
+                    const AuthorizationSet& in_params, AuthorizationSet* out_params,
+                    std::optional<HardwareAuthToken> hat = std::nullopt);
     ErrorCode Begin(KeyPurpose purpose, const AuthorizationSet& in_params,
                     AuthorizationSet* out_params);
     ErrorCode Begin(KeyPurpose purpose, const AuthorizationSet& in_params);
@@ -164,7 +173,9 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
     ErrorCode UpdateAad(const string& input);
     ErrorCode Update(const string& input, string* output);
 
-    ErrorCode Finish(const string& message, const string& signature, string* output);
+    ErrorCode Finish(const string& message, const string& signature, string* output,
+                     std::optional<HardwareAuthToken> hat = std::nullopt,
+                     std::optional<secureclock::TimeStampToken> time_token = std::nullopt);
     ErrorCode Finish(const string& message, string* output) {
         return Finish(message, {} /* signature */, output);
     }
@@ -188,6 +199,10 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
 
     void CheckAesIncrementalEncryptOperation(BlockMode block_mode, int message_size);
 
+    void AesCheckEncryptOneByteAtATime(const string& key, BlockMode block_mode,
+                                       PaddingMode padding_mode, const string& iv,
+                                       const string& plaintext, const string& exp_cipher_text);
+
     void CheckHmacTestVector(const string& key, const string& message, Digest digest,
                              const string& expected_mac);
 
@@ -202,6 +217,8 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
                        const string& signature, const AuthorizationSet& params);
     void VerifyMessage(const string& message, const string& signature,
                        const AuthorizationSet& params);
+    void LocalVerifyMessage(const vector<uint8_t>& der_cert, const string& message,
+                            const string& signature, const AuthorizationSet& params);
     void LocalVerifyMessage(const string& message, const string& signature,
                             const AuthorizationSet& params);
 
@@ -295,6 +312,7 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
     }
     bool IsSecure() const { return securityLevel_ != SecurityLevel::SOFTWARE; }
     SecurityLevel SecLevel() const { return securityLevel_; }
+    bool IsRkpSupportRequired() const;
 
     vector<uint32_t> ValidKeySizes(Algorithm algorithm);
     vector<uint32_t> InvalidKeySizes(Algorithm algorithm);
@@ -332,6 +350,17 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
     ErrorCode UseRsaKey(const vector<uint8_t>& rsaKeyBlob);
     ErrorCode UseEcdsaKey(const vector<uint8_t>& ecdsaKeyBlob);
 
+    ErrorCode GenerateAttestKey(const AuthorizationSet& key_desc,
+                                const optional<AttestationKey>& attest_key,
+                                vector<uint8_t>* key_blob,
+                                vector<KeyCharacteristics>* key_characteristics,
+                                vector<Certificate>* cert_chain);
+
+    bool is_attest_key_feature_disabled(void) const;
+    bool is_strongbox_enabled(void) const;
+    bool is_chipset_allowed_km4_strongbox(void) const;
+    void skipAttestKeyTest(void) const;
+
   protected:
     std::shared_ptr<IKeyMintDevice> keymint_;
     uint32_t os_version_;
@@ -342,7 +371,12 @@ class KeyMintAidlTestBase : public ::testing::TestWithParam<string> {
     SecurityLevel securityLevel_;
     string name_;
     string author_;
-    long challenge_;
+    int64_t challenge_;
+
+  private:
+    void CheckEncryptOneByteAtATime(BlockMode block_mode, const int block_size,
+                                    PaddingMode padding_mode, const string& iv,
+                                    const string& plaintext, const string& exp_cipher_text);
 };
 
 // If the given property is available, add it to the tag set under the given tag ID.
@@ -382,10 +416,13 @@ bool verify_attestation_record(int aidl_version,                       //
 
 string bin2hex(const vector<uint8_t>& data);
 X509_Ptr parse_cert_blob(const vector<uint8_t>& blob);
+ASN1_OCTET_STRING* get_attestation_record(X509* certificate);
 vector<uint8_t> make_name_from_str(const string& name);
 void check_maced_pubkey(const MacedPublicKey& macedPubKey, bool testMode,
                         vector<uint8_t>* payload_value);
 void p256_pub_key(const vector<uint8_t>& coseKeyData, EVP_PKEY_Ptr* signingKey);
+void device_id_attestation_vsr_check(const ErrorCode& result);
+bool check_feature(const std::string& name);
 
 AuthorizationSet HwEnforcedAuthorizations(const vector<KeyCharacteristics>& key_characteristics);
 AuthorizationSet SwEnforcedAuthorizations(const vector<KeyCharacteristics>& key_characteristics);

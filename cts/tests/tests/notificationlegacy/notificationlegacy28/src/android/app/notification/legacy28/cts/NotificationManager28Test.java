@@ -27,13 +27,14 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.stubs.shared.NotificationHelper;
+import android.app.stubs.shared.TestNotificationListener;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Process;
 import android.permission.PermissionManager;
 import android.permission.cts.PermissionUtils;
 import android.service.notification.StatusBarNotification;
-import android.util.Log;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -51,10 +52,11 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class NotificationManager28Test {
     final String TAG = "LegacyNoManTest28";
-
+    private static final String PKG = "android.app.notification.legacy28.cts";
     final String NOTIFICATION_CHANNEL_ID = "LegacyNoManTest28";
     private NotificationManager mNotificationManager;
     private Context mContext;
+    private NotificationHelper mHelper;
 
     @Before
     public void setUp() throws Exception {
@@ -64,10 +66,13 @@ public class NotificationManager28Test {
                 Context.NOTIFICATION_SERVICE);
         mNotificationManager.createNotificationChannel(new NotificationChannel(
                 NOTIFICATION_CHANNEL_ID, "name", NotificationManager.IMPORTANCE_DEFAULT));
+        mHelper = new NotificationHelper(mContext);
+        assertNotNull(mHelper.enableListener(PKG));
     }
 
     @After
     public void tearDown() throws Exception {
+        mHelper.disableListener(PKG);
         // Use test API to prevent PermissionManager from killing the test process when revoking
         // permission.
         SystemUtil.runWithShellPermissionIdentity(
@@ -85,7 +90,7 @@ public class NotificationManager28Test {
         int id = 6000;
         final Notification notification =
                 new Notification.Builder(mContext, NOTIFICATION_CHANNEL_ID)
-                        .setSmallIcon(android.R.id.icon)
+                        .setSmallIcon(android.R.drawable.sym_def_app_icon)
                         .setWhen(System.currentTimeMillis())
                         .setFullScreenIntent(getPendingIntent(), true)
                         .setContentText("This is #FSI notification")
@@ -93,37 +98,14 @@ public class NotificationManager28Test {
                         .build();
         mNotificationManager.notify(id, notification);
 
-        StatusBarNotification n = findPostedNotification(id);
+        StatusBarNotification n = mHelper.findPostedNotification(
+                null, id, NotificationHelper.SEARCH_TYPE.POSTED);
         assertNotNull(n);
         assertEquals(notification.fullScreenIntent, n.getNotification().fullScreenIntent);
     }
 
-    private StatusBarNotification findPostedNotification(int id) {
-        // notification is a bit asynchronous so it may take a few ms to appear in
-        // getActiveNotifications()
-        // we will check for it for up to 300ms before giving up
-        StatusBarNotification n = null;
-        for (int tries = 3; tries--> 0;) {
-            final StatusBarNotification[] sbns = mNotificationManager.getActiveNotifications();
-            for (StatusBarNotification sbn : sbns) {
-                Log.d(TAG, "Found " + sbn.getKey());
-                if (sbn.getId() == id) {
-                    n = sbn;
-                    break;
-                }
-            }
-            if (n != null) break;
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ex) {
-                // pass
-            }
-        }
-        return n;
-    }
-
     private PendingIntent getPendingIntent() {
         return PendingIntent.getActivity(
-                mContext, 0, new Intent(mContext, this.getClass()), PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                mContext, 0, new Intent(mContext, this.getClass()), PendingIntent.FLAG_IMMUTABLE);
     }
 }

@@ -26,6 +26,8 @@ import android.content.pm.ResolveInfo;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.android.internal.app.IntentForwarderActivity;
+
 import java.util.List;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.TimeUnit;
@@ -77,16 +79,18 @@ public class IntentSenderActivity extends Activity {
         if (result != null) {
             Log.d(TAG, "Result intent: " + result.data);
         } else {
-            Log.d(TAG, "null result after " + timeoutSec + "s");
+            Log.d(TAG, "no result after " + timeoutSec
+                    + "s (see log for \"onActivityResult()\" to see actual result");
         }
         return (result != null) ? result.data : null;
     }
 
     /**
-     * This method will send an intent accross profiles to IntentReceiverActivity, and return the
+     * This method will send an intent across profiles to IntentReceiverActivity, and return the
      * result intent set by IntentReceiverActivity.
      */
     public Intent getCrossProfileResult(Intent intent) throws Exception {
+        intent.putExtra(IntentForwarderActivity.EXTRA_SKIP_USER_CONFIRMATION, true);
         PackageManager pm = getPackageManager();
         List<ResolveInfo> ris = pm.queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
         //  There should be two matches:

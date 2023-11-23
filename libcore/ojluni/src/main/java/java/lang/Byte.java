@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,7 +25,23 @@
 
 package java.lang;
 
-import jdk.internal.HotSpotIntrinsicCandidate;
+// Android-removed: CDS is not used on Android.
+// import jdk.internal.misc.CDS;
+import jdk.internal.vm.annotation.IntrinsicCandidate;
+
+// BEGIN Android-removed: dynamic constants not supported on Android.
+/*
+import java.lang.constant.Constable;
+import java.lang.constant.DynamicConstantDesc;
+import java.util.Optional;
+
+import static java.lang.constant.ConstantDescs.BSM_EXPLICIT_CAST;
+import static java.lang.constant.ConstantDescs.CD_byte;
+import static java.lang.constant.ConstantDescs.CD_int;
+import static java.lang.constant.ConstantDescs.DEFAULT_NAME;
+*/
+// END Android-removed: dynamic constants not supported on Android.
+
 import libcore.util.HexEncoding;
 
 /**
@@ -39,12 +55,24 @@ import libcore.util.HexEncoding;
  * byte}, as well as other constants and methods useful when dealing
  * with a {@code byte}.
  *
+ * <!-- Android-removed: paragraph on ValueBased
+ * <p>This is a <a href="{@docRoot}/java.base/java/lang/doc-files/ValueBased.html">value-based</a>
+ * class; programmers should treat instances that are
+ * {@linkplain #equals(Object) equal} as interchangeable and should not
+ * use instances for synchronization, or unpredictable behavior may
+ * occur. For example, in a future release, synchronization may fail.
+ *  -->
+ *
  * @author  Nakul Saraiya
  * @author  Joseph D. Darcy
  * @see     java.lang.Number
  * @since   1.1
  */
-public final class Byte extends Number implements Comparable<Byte> {
+@jdk.internal.ValueBased
+public final class Byte extends Number implements Comparable<Byte>
+// Android-removed: no Constable support.
+// , Constable
+{
 
     /**
      * A constant holding the minimum value a {@code byte} can
@@ -77,14 +105,42 @@ public final class Byte extends Number implements Comparable<Byte> {
         return Integer.toString((int)b, 10);
     }
 
-    private static class ByteCache {
-        private ByteCache(){}
+    // BEGIN Android-removed: dynamic constants not supported on Android.
+    /**
+     * Returns an {@link Optional} containing the nominal descriptor for this
+     * instance.
+     *
+     * @return an {@link Optional} describing the {@linkplain Byte} instance
+     * @since 15
+     *
+    @Override
+    public Optional<DynamicConstantDesc<Byte>> describeConstable() {
+        return Optional.of(DynamicConstantDesc.ofNamed(BSM_EXPLICIT_CAST, DEFAULT_NAME, CD_byte, intValue()));
+    }
+    */
+    // END Android-removed: dynamic constants not supported on Android.
 
-        static final Byte cache[] = new Byte[-(-128) + 127 + 1];
+    private static class ByteCache {
+        private ByteCache() {}
+
+        static final Byte[] cache;
+        static Byte[] archivedCache;
 
         static {
-            for(int i = 0; i < cache.length; i++)
-                cache[i] = new Byte((byte)(i - 128));
+            final int size = -(-128) + 127 + 1;
+
+            // Load and use the archived cache if it exists
+            // Android-removed: CDS not supported.
+            // CDS.initializeFromArchive(ByteCache.class);
+            if (archivedCache == null || archivedCache.length != size) {
+                Byte[] c = new Byte[size];
+                byte value = (byte)-128;
+                for(int i = 0; i < size; i++) {
+                    c[i] = new Byte(value++);
+                }
+                archivedCache = c;
+            }
+            cache = archivedCache;
         }
     }
 
@@ -101,7 +157,7 @@ public final class Byte extends Number implements Comparable<Byte> {
      * @return a {@code Byte} instance representing {@code b}.
      * @since  1.5
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public static Byte valueOf(byte b) {
         final int offset = 128;
         return ByteCache.cache[(int)b + offset];
@@ -256,8 +312,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * </blockquote>
      *
      * <i>DecimalNumeral</i>, <i>HexDigits</i>, and <i>OctalDigits</i>
-     * are as defined in section 3.10.1 of
-     * <cite>The Java&trade; Language Specification</cite>,
+     * are as defined in section {@jls 3.10.1} of
+     * <cite>The Java Language Specification</cite>,
      * except that underscores are not accepted between digits.
      *
      * <p>The sequence of characters following an optional
@@ -304,7 +360,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * {@link #valueOf(byte)} is generally a better choice, as it is
      * likely to yield significantly better space and time performance.
      */
-    @Deprecated(since="9")
+    // Android-changed: not yet forRemoval on Android.
+    @Deprecated(since="9"/*, forRemoval = true*/)
     public Byte(byte value) {
         this.value = value;
     }
@@ -327,7 +384,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * {@code byte} primitive, or use {@link #valueOf(String)}
      * to convert a string to a {@code Byte} object.
      */
-    @Deprecated(since="9")
+    // Android-changed: not yet forRemoval on Android.
+    @Deprecated(since="9"/*, forRemoval = true*/)
     public Byte(String s) throws NumberFormatException {
         this.value = parseByte(s, 10);
     }
@@ -336,7 +394,7 @@ public final class Byte extends Number implements Comparable<Byte> {
      * Returns the value of this {@code Byte} as a
      * {@code byte}.
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public byte byteValue() {
         return value;
     }
@@ -344,7 +402,7 @@ public final class Byte extends Number implements Comparable<Byte> {
     /**
      * Returns the value of this {@code Byte} as a {@code short} after
      * a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public short shortValue() {
         return (short)value;
@@ -353,7 +411,7 @@ public final class Byte extends Number implements Comparable<Byte> {
     /**
      * Returns the value of this {@code Byte} as an {@code int} after
      * a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public int intValue() {
         return (int)value;
@@ -362,7 +420,7 @@ public final class Byte extends Number implements Comparable<Byte> {
     /**
      * Returns the value of this {@code Byte} as a {@code long} after
      * a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public long longValue() {
         return (long)value;
@@ -371,7 +429,7 @@ public final class Byte extends Number implements Comparable<Byte> {
     /**
      * Returns the value of this {@code Byte} as a {@code float} after
      * a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public float floatValue() {
         return (float)value;
@@ -380,7 +438,7 @@ public final class Byte extends Number implements Comparable<Byte> {
     /**
      * Returns the value of this {@code Byte} as a {@code double}
      * after a widening primitive conversion.
-     * @jls 5.1.2 Widening Primitive Conversions
+     * @jls 5.1.2 Widening Primitive Conversion
      */
     public double doubleValue() {
         return (double)value;
@@ -549,6 +607,7 @@ public final class Byte extends Number implements Comparable<Byte> {
     public static final int BYTES = SIZE / Byte.SIZE;
 
     /** use serialVersionUID from JDK 1.1. for interoperability */
+    @java.io.Serial
     private static final long serialVersionUID = -7183698231559129828L;
 
     // BEGIN Android-added: toHexString() for internal use.

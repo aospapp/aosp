@@ -30,7 +30,7 @@ class EventLoopCallback : public android::MessageHandler {
 
   ~EventLoopCallback() override = default;
 
-  virtual void handleMessage(const android::Message& message) {
+  void handleMessage(const android::Message& message) override {
     callback_();
   }
 
@@ -77,16 +77,13 @@ LooperBackedEventLoop::~LooperBackedEventLoop() {
 }
 
 void LooperBackedEventLoop::PostTask(const std::function<void()>& callback) {
-  sp<android::MessageHandler> event_loop_callback =
-      new EventLoopCallback(callback);
-  looper_->sendMessage(event_loop_callback, Message());
+  looper_->sendMessage(sp<EventLoopCallback>::make(callback), Message());
 }
 
 void LooperBackedEventLoop::PostDelayedTask(
     const std::function<void()>& callback,
     int64_t delay_ms) {
-  sp<android::MessageHandler> looper_callback = new EventLoopCallback(callback);
-  looper_->sendMessageDelayed(ms2ns(delay_ms), looper_callback, Message());
+  looper_->sendMessageDelayed(ms2ns(delay_ms), sp<EventLoopCallback>::make(callback), Message());
 }
 
 bool LooperBackedEventLoop::WatchFileDescriptor(

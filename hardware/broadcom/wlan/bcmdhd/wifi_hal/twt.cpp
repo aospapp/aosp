@@ -39,7 +39,7 @@
 
 #include <utils/Log.h>
 
-#include "wifi_hal.h"
+#include <hardware_legacy/wifi_hal.h>
 #include "common.h"
 #include "cpp_bindings.h"
 
@@ -367,7 +367,7 @@ protected:
         nlattr *data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
 
-        ALOGD("Id = %0x, subcmd = %d, len = %d, expected len = %d", id, subcmd, len);
+        ALOGD("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
         if (data == NULL || len == 0) {
             ALOGE("no vendor data in GetTwtCapabilitiesCommand response; ignoring it\n");
             return NL_SKIP;
@@ -463,7 +463,7 @@ protected:
         nlattr *data = reply.get_attribute(NL80211_ATTR_VENDOR_DATA);
         int len = reply.get_vendor_data_len();
 
-        ALOGD("Id = %0x, subcmd = %d, len = %d, expected len = %d", id, subcmd, len);
+        ALOGD("Id = %0x, subcmd = %d, len = %d", id, subcmd, len);
         if (data == NULL || len == 0) {
             ALOGE("no vendor data in GetTwtStatsCommand response; ignoring it\n");
             return NL_SKIP;

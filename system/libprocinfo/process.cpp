@@ -31,19 +31,34 @@ using android::base::unique_fd;
 namespace android {
 namespace procinfo {
 
-bool GetProcessInfo(pid_t tid, ProcessInfo* process_info, std::string* error) {
-  char path[PATH_MAX];
-  snprintf(path, sizeof(path), "/proc/%d", tid);
+bool SetError(std::string* error, int errno_value, const char* fmt, ...) {
+  if (error == nullptr) return false;
 
-  unique_fd dirfd(open(path, O_DIRECTORY | O_RDONLY));
-  if (dirfd == -1) {
-    if (error != nullptr) {
-      *error = std::string("failed to open ") + path;
-    }
-    return false;
+  std::string result;
+  va_list ap;
+  va_start(ap, fmt);
+  android::base::StringAppendV(&result, fmt, ap);
+  va_end(ap);
+
+  if (errno_value != 0) {
+    result += ": ";
+    result += strerror(errno_value);
   }
 
-  return GetProcessInfoFromProcPidFd(dirfd.get(), process_info, error);
+  *error = result;
+  return false;
+}
+
+bool GetProcessInfo(pid_t tid, ProcessInfo* process_info, std::string* error) {
+  char path[32];
+  snprintf(path, sizeof(path), "/proc/%d", tid);
+
+  unique_fd dirfd(open(path, O_DIRECTORY | O_RDONLY | O_CLOEXEC));
+  if (dirfd == -1) {
+    return SetError(error, errno, "failed to open %s", path);
+  }
+
+  return GetProcessInfoFromProcPidFd(dirfd.get(), tid, process_info, error);
 }
 
 static ProcessState parse_state(char state) {
@@ -63,26 +78,18 @@ static ProcessState parse_state(char state) {
   }
 }
 
-bool GetProcessInfoFromProcPidFd(int fd, ProcessInfo* process_info,
+bool GetProcessInfoFromProcPidFd(int fd, int pid, ProcessInfo* process_info,
                                  std::string* error /* can be nullptr */) {
   int status_fd = openat(fd, "status", O_RDONLY | O_CLOEXEC);
-
-  auto set_error = [&error](const char* err) {
-    if (error != nullptr) {
-      *error = err;
-    }
-  };
-
   if (status_fd == -1) {
-    set_error("failed to open status fd in GetProcessInfoFromProcPidFd");
-    return false;
+    return SetError(error, errno,
+                    "failed to open /proc/%d/status in GetProcessInfoFromProcPidFd", pid);
   }
 
-  std::unique_ptr<FILE, decltype(&fclose)> fp(fdopen(status_fd, "r"), fclose);
+  std::unique_ptr<FILE, decltype(&fclose)> fp(fdopen(status_fd, "re"), fclose);
   if (!fp) {
-    set_error("failed to open status file in GetProcessInfoFromProcPidFd");
     close(status_fd);
-    return false;
+    return SetError(error, errno, "failed to open FILE for /proc/%d/status in GetProcessInfoFromProcPidFd", pid);
   }
 
   int field_bitmap = 0;
@@ -126,19 +133,17 @@ bool GetProcessInfoFromProcPidFd(int fd, ProcessInfo* process_info,
 
   free(line);
   if (field_bitmap != finished_bitmap) {
-    set_error("failed to parse /proc/<pid>/status");
-    return false;
+    return SetError(error, 0, "failed to parse /proc/%d/status", pid);
   }
 
   unique_fd stat_fd(openat(fd, "stat", O_RDONLY | O_CLOEXEC));
   if (stat_fd == -1) {
-    set_error("failed to open /proc/<pid>/stat");
+    return SetError(error, errno, "failed to open /proc/%d/stat", pid);
   }
 
   std::string stat;
   if (!android::base::ReadFdToString(stat_fd, &stat)) {
-    set_error("failed to read /proc/<pid>/stat");
-    return false;
+    return SetError(error, errno, "failed to read /proc/%d/stat", pid);
   }
 
   // See man 5 proc. There's no reason comm can't contain ' ' or ')',
@@ -173,8 +178,7 @@ bool GetProcessInfoFromProcPidFd(int fd, ProcessInfo* process_info,
   unsigned long long start_time = 0;
   int rc = sscanf(end_of_comm + 2, pattern, &state, &ppid, &start_time);
   if (rc != 3) {
-    set_error("failed to parse /proc/<pid>/stat");
-    return false;
+    return SetError(error, 0, "failed to parse /proc/%d/stat", pid);
   }
 
   process_info->state = parse_state(state);

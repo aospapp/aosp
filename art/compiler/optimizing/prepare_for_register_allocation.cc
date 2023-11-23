@@ -22,7 +22,7 @@
 #include "optimizing_compiler_stats.h"
 #include "well_known_classes.h"
 
-namespace art {
+namespace art HIDDEN {
 
 void PrepareForRegisterAllocation::Run() {
   // Order does not matter.
@@ -83,7 +83,7 @@ void PrepareForRegisterAllocation::VisitBoundsCheck(HBoundsCheck* check) {
   if (check->IsStringCharAt()) {
     // Add a fake environment for String.charAt() inline info as we want the exception
     // to appear as being thrown from there. Skip if we're compiling String.charAt() itself.
-    ArtMethod* char_at_method = jni::DecodeArtMethod(WellKnownClasses::java_lang_String_charAt);
+    ArtMethod* char_at_method = WellKnownClasses::java_lang_String_charAt;
     if (GetGraph()->GetArtMethod() != char_at_method) {
       ArenaAllocator* allocator = GetGraph()->GetAllocator();
       HEnvironment* environment = new (allocator) HEnvironment(allocator,
@@ -109,7 +109,7 @@ void PrepareForRegisterAllocation::VisitArraySet(HArraySet* instruction) {
   if (value->IsNullConstant()) {
     DCHECK_EQ(value->GetType(), DataType::Type::kReference);
     if (instruction->NeedsTypeCheck()) {
-      instruction->ClearNeedsTypeCheck();
+      instruction->ClearTypeCheck();
     }
   }
 }
@@ -295,15 +295,16 @@ bool PrepareForRegisterAllocation::CanMoveClinitCheck(HInstruction* input,
     return false;
   }
 
-  // In debug mode, check that we have not inserted a throwing instruction
-  // or an instruction with side effects between input and user.
-  if (kIsDebugBuild) {
-    for (HInstruction* between = input->GetNext(); between != user; between = between->GetNext()) {
-      CHECK(between != nullptr);  // User must be after input in the same block.
-      CHECK(!between->CanThrow()) << *between << " User: " << *user;
-      CHECK(!between->HasSideEffects()) << *between << " User: " << *user;
+  // If there's a instruction between them that can throw or it has side effects, we cannot move the
+  // responsibility.
+  for (HInstruction* between = input->GetNext(); between != user; between = between->GetNext()) {
+    DCHECK(between != nullptr) << " User must be after input in the same block. input: " << *input
+                               << ", user: " << *user;
+    if (between->CanThrow() || between->HasSideEffects()) {
+      return false;
     }
   }
+
   return true;
 }
 

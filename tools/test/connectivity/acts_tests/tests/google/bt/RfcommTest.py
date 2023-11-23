@@ -18,10 +18,8 @@ Test script to execute Bluetooth basic functionality test cases.
 This test was designed to be run in a shield box.
 """
 
-import threading
 import time
 
-from queue import Empty
 from acts.test_decorators import test_tracker_info
 from acts_contrib.test_utils.bt.BluetoothBaseTest import BluetoothBaseTest
 from acts_contrib.test_utils.bt.bt_constants import bt_rfcomm_uuids
@@ -60,8 +58,9 @@ class RfcommTest(BluetoothBaseTest):
         return True
 
     def teardown_test(self):
-        if verify_server_and_client_connected(
-                self.client_ad, self.server_ad, log=False):
+        if verify_server_and_client_connected(self.client_ad,
+                                              self.server_ad,
+                                              log=False):
             self.client_ad.droid.bluetoothRfcommStop()
             self.server_ad.droid.bluetoothRfcommStop()
 

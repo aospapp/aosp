@@ -14,6 +14,7 @@
 """Tool functions to deal with files."""
 
 import datetime
+from functools import cache
 import os
 from pathlib import Path
 import textwrap
@@ -24,10 +25,34 @@ from google.protobuf import text_format  # type: ignore
 # pylint: disable=import-error
 import metadata_pb2  # type: ignore
 
-ANDROID_TOP = Path(os.environ.get('ANDROID_BUILD_TOP', os.getcwd()))
-EXTERNAL_PATH = ANDROID_TOP / 'external'
 
 METADATA_FILENAME = 'METADATA'
+
+
+@cache
+def external_path() -> Path:
+    """Returns the path to //external.
+
+    We cannot use the relative path from this file to find the top of the tree because
+    this will often be run in a "compiled" form from an arbitrary location in the out
+    directory. We can't fully rely on ANDROID_BUILD_TOP because not all contexts will
+    have run envsetup/lunch either. We use ANDROID_BUILD_TOP whenever it is set, but if
+    it is not set we instead rely on the convention that the CWD is the root of the tree
+    (updater.sh will cd there before executing).
+
+    There is one other context where this function cannot succeed: CI. Tests run in CI
+    do not have a source tree to find, so calling this function in that context will
+    fail.
+    """
+    android_top = Path(os.environ.get("ANDROID_BUILD_TOP", os.getcwd()))
+    top = android_top / 'external'
+
+    if not top.exists():
+        raise RuntimeError(
+            f"{top} does not exist. This program must be run from the "
+            f"root of an Android tree (CWD is {os.getcwd()})."
+        )
+    return top
 
 
 def get_absolute_project_path(proj_path: Path) -> Path:
@@ -35,7 +60,7 @@ def get_absolute_project_path(proj_path: Path) -> Path:
 
     Path resolution starts from external/.
     """
-    return EXTERNAL_PATH / proj_path
+    return external_path() / proj_path
 
 
 def get_metadata_path(proj_path: Path) -> Path:
@@ -45,7 +70,32 @@ def get_metadata_path(proj_path: Path) -> Path:
 
 def get_relative_project_path(proj_path: Path) -> Path:
     """Gets the relative path of a project starting from external/."""
-    return get_absolute_project_path(proj_path).relative_to(EXTERNAL_PATH)
+    return get_absolute_project_path(proj_path).relative_to(external_path())
+
+
+def canonicalize_project_path(proj_path: Path) -> Path:
+  """Returns the canonical representation of the project path.
+
+  For paths that are in the same tree as external_updater (the common case), the
+  canonical path is the path of the project relative to //external.
+
+  For paths that are in a different tree (an uncommon case used for updating projects
+  in other builds such as the NDK), the canonical path is the absolute path.
+  """
+  try:
+      return get_relative_project_path(proj_path)
+  except ValueError:
+      # A less common use case, but the path might be to a non-local tree, in which case
+      # the path will not be relative to our tree. This happens when using
+      # external_updater in another project like the NDK or rr.
+      if proj_path.is_absolute():
+        return proj_path
+
+      # Not relative to //external, and not an absolute path. This case hasn't existed
+      # before, so it has no canonical form.
+      raise ValueError(
+        f"{proj_path} must be either an absolute path or relative to {external_path()}"
+      )
 
 
 def read_metadata(proj_path: Path) -> metadata_pb2.MetaData:
@@ -85,12 +135,26 @@ def write_metadata(proj_path: Path, metadata: metadata_pb2.MetaData, keep_date: 
         date.year = now.year
         date.month = now.month
         date.day = now.day
-    text_metadata = text_format.MessageToString(metadata)
+    try:
+        rel_proj_path = str(get_relative_project_path(proj_path))
+    except ValueError:
+        # Absolute paths to other trees will not be relative to our tree. There are
+        # not portable instructions for upgrading that project, since the path will
+        # differ between machines (or checkouts).
+        rel_proj_path = "<absolute path to project>"
+    usage_hint = textwrap.dedent(f"""\
+    # This project was upgraded with external_updater.
+    # Usage: tools/external_updater/updater.sh update {rel_proj_path}
+    # For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
+    """)
+    text_metadata = usage_hint + text_format.MessageToString(metadata)
     with get_metadata_path(proj_path).open('w') as metadata_file:
         if metadata.third_party.license_type == metadata_pb2.LicenseType.BY_EXCEPTION_ONLY:
            metadata_file.write(textwrap.dedent("""\
-            # *** THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS.  PLEASE
-            #     CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
-            #     DEPENDING ON IT IN YOUR PROJECT. ***
+            # THIS PACKAGE HAS SPECIAL LICENSING CONDITIONS. PLEASE
+            # CONSULT THE OWNERS AND opensource-licensing@google.com BEFORE
+            # DEPENDING ON IT IN YOUR PROJECT.
+
             """))
         metadata_file.write(text_metadata)

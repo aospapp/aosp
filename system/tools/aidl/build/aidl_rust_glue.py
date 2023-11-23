@@ -87,7 +87,7 @@ def main(output, root, inputs, imports):
       lib_rs_file.write("  pub(crate) use %s::mangled::*;\n" % imp)
     lib_rs_file.write("}\n")
 
-if __name__ == "__main__":
+def execute():
   parser = argparse.ArgumentParser(description='Generate the top-level lib.rs.')
   parser.add_argument('output', help='Path to output .rs file')
   parser.add_argument('root', help='Common ancestor of all input files')
@@ -100,3 +100,6 @@ if __name__ == "__main__":
     sys.exit(1)
 
   sys.exit(main(args.output, args.root, args.inputs, args.imports))
+
+if __name__ == "__main__":
+  execute()

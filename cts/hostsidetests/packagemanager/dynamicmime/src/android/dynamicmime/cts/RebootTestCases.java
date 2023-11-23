@@ -16,6 +16,7 @@
 
 package android.dynamicmime.cts;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
@@ -227,10 +228,7 @@ public class RebootTestCases extends BaseHostJUnit4Test {
     }
 
     private void waitForSettingsWrite() {
-        try {
-            Thread.sleep(SETTINGS_WRITE_TIMEOUT_MS);
-        } catch (InterruptedException ignored) {
-        }
+        RunUtil.getDefault().sleep(SETTINGS_WRITE_TIMEOUT_MS);
     }
 
     private void runPreReboot(String testClassName, String testMethodName)

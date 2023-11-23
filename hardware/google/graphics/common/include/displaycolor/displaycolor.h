@@ -34,7 +34,9 @@ using android::hardware::graphics::common::V1_2::PixelFormat;
 /**
  * hwc/displaycolor interface history
  *
- * 6.1.0.2022-05-18 Get calibrated serial number.
+ * 7.0.0.2022-03-22 Interface refactor
+ * 6.2.0.2022-05-18 Get calibrated serial number.
+ * 6.1.0.2022-04-29 dim solid color layer
  * 6.0.0.2022-02-22 Get whether dimming in linear.
  * 5.0.0.2022-02-17 Add layer dim ratio.
  * 4.0.0.2021-12-20 Get pixel format and dataspace of blending stage.
@@ -60,8 +62,8 @@ constexpr struct DisplayColorIntfVer {
     }
 
 } kInterfaceVersion {
-    6,
-    1,
+    7,
+    0,
     0,
 };
 
@@ -115,12 +117,28 @@ struct DisplayInfo {
     DisplayBrightnessTable brightness_table;
 };
 
+struct Color {
+    uint8_t r;
+    uint8_t g;
+    uint8_t b;
+    uint8_t a;
+
+    bool operator==(const Color &rhs) const {
+        return r == rhs.r &&
+               g == rhs.g &&
+               b == rhs.b &&
+               a == rhs.a;
+    }
+};
+
 struct LayerColorData {
     bool operator==(const LayerColorData &rhs) const {
         return dataspace == rhs.dataspace && matrix == rhs.matrix &&
                static_metadata == rhs.static_metadata &&
                dynamic_metadata == rhs.dynamic_metadata &&
-               dim_ratio == rhs.dim_ratio;
+               dim_ratio == rhs.dim_ratio &&
+               is_solid_color_layer == rhs.is_solid_color_layer &&
+               (!is_solid_color_layer || solid_color == rhs.solid_color);
     }
 
     /**
@@ -230,6 +248,16 @@ struct LayerColorData {
      * @brief the layer's luminance dim ratio
      */
     float dim_ratio = 1.0f;
+
+    /**
+     * @brief is layer solid color
+     */
+    bool is_solid_color_layer;
+
+    /**
+     * @brief color for solid color layer
+     */
+    Color solid_color;
 };
 
 /**
@@ -318,6 +346,13 @@ class IDisplayColorGeneric {
         const ConfigType *config = nullptr;
     };
 
+    /// A collection of stages. For example, It could be pre-blending stages
+    //(per-channel) or post-blending stages.
+    template <typename ... IStageData>
+    struct IStageDataCollection : public IStageData ... {
+        virtual ~IStageDataCollection() {}
+    };
+
     /// Interface for accessing data for panel
     class IPanel {
       public:
@@ -337,7 +372,7 @@ class IDisplayColorGeneric {
      * @param scene Display scene data to use during the update.
      * @return OK if successful, error otherwise.
      */
-    virtual int Update(DisplayType display, const DisplayScene &scene) = 0;
+    virtual int Update(const DisplayType display, const DisplayScene &scene) = 0;
 
     /**
      * @brief Update display color data. This function is expected to be called
@@ -348,29 +383,27 @@ class IDisplayColorGeneric {
      * @param scene Display scene data to use during the update.
      * @return OK if successful, error otherwise.
      */
-    virtual int UpdatePresent(DisplayType display, const DisplayScene &scene) = 0;
+    virtual int UpdatePresent(const DisplayType display, const DisplayScene &scene) = 0;
 
     /**
      * @brief Check if refresh rate regamma compensation is enabled.
      *
      * @return true for yes.
      */
-    virtual bool IsRrCompensationEnabled(DisplayType display) = 0;
+    virtual bool IsRrCompensationEnabled(const DisplayType display) = 0;
 
     /**
      * @brief Get calibration information for each profiles.
      * @param display The display to get the calibration information.
      */
-    virtual const CalibrationInfo &GetCalibrationInfo(
-        DisplayType display) const = 0;
+    virtual const CalibrationInfo &GetCalibrationInfo(const DisplayType display) const = 0;
 
     /**
      * @brief Get a map of supported ColorModes, and supported RenderIntents for
      * each ColorMode.
      * @param display The display to get the color modes and render intents.
      */
-    virtual const ColorModesMap &ColorModesAndRenderIntents(
-        DisplayType display) const = 0;
+    virtual const ColorModesMap &ColorModesAndRenderIntents(const DisplayType display) const = 0;
 
     /**
      * @brief Get pixel format and dataspace of blending stage.
@@ -379,7 +412,7 @@ class IDisplayColorGeneric {
      * @param dataspace Dataspace of blending stage
      * @return OK if successful, error otherwise.
      */
-    virtual int GetBlendingProperty(DisplayType display,
+    virtual int GetBlendingProperty(const DisplayType display,
                                     hwc::PixelFormat &pixel_format,
                                     hwc::Dataspace &dataspace,
                                     bool &dimming_linear) const = 0;
